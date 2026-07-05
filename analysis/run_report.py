@@ -20,6 +20,57 @@ def _gate(summary):
     return passed, row, a, b
 
 
+def _recommendation(passed, parse_ok, labels):
+    banked = passed and parse_ok
+    out = ["\n\n## Recommendation (go/no-go)\n\n"]
+    if not banked:
+        out.append("- Harm claim NOT banked on current data — do not spend on follow-ups; revisit.\n")
+        return "".join(out)
+    out.append("- **Statistical finding BANKED:** for the strong (70B) judge a small oracle budget "
+               "significantly worsens oversight (Δfew ≈ 7.2 pp, cluster-bootstrap 95% CI [4.6, 10.2], "
+               "positive in both correct-side strata). Δrecover5 ≈ 3.8 pp (partial recovery by budget 5); "
+               "budget-20 'recovery' is NOT claimable (n=39). The 8B judge is contaminated by a "
+               "Position-B side bias and is secondary only.\n")
+    if labels is not None:
+        s = mechanism.summarize_labels(labels).set_index("label")
+
+        def cnt(k):
+            return int(s.loc[k, "count"]) if k in s.index else 0
+
+        fm1, fm2, oth = cnt("FM1"), cnt("FM2"), cnt("other")
+        n = fm1 + fm2 + oth or 1
+        out.append(f"- **Mechanism (PRELIMINARY — single LLM labeler):** of {fm1 + fm2 + oth} gross "
+                   f"correct→wrong flips, FM1 (fixable oracle-answer errors) = {fm1} ({100 * fm1 / n:.0f}%), "
+                   f"FM2 (irrelevant true confirmation) = {fm2} ({100 * fm2 / n:.0f}%), "
+                   f"other = {oth} ({100 * oth / n:.0f}%). ")
+        if fm2 >= fm1:
+            out.append("Per the spec's decision rule this is the **'substantial FM2 present'** case, NOT "
+                       "the conservative 'mostly FM1 / fixable oracle' case: only ~a third of gross harmful "
+                       "flips are direct oracle-answer errors.\n")
+        else:
+            out.append("Per the spec's decision rule this leans **'mostly FM1' (fixable oracle)**.\n")
+        out.append("- **Do NOT over-claim** 'a better oracle won't fix the majority.' The split is "
+                   "under-validated: single LLM labeler; counts are GROSS flips (net harm also involves the "
+                   "8 unclassified wrong→correct reverse flips); and one oracle-error template (CN-003 "
+                   "fixed-threshold) recurs across 4 transcripts, so per-flip FM1 overstates independent "
+                   "prevalence. The point estimate carries a wide (~19–43%) interval.\n")
+    out.append("- **Recommended next steps, in order:**\n"
+               "  1. **D — mechanism-label validation ($0):** second independent blind labeler on all 54 "
+               "flips + classify the 8 reverse flips (net-aware), with required world-doc evidence quotes; "
+               "cluster FM1/FM2 per question. Firms up the load-bearing 'only ~1/3 is fixable oracle' "
+               "number before any spend.\n"
+               "  2. **C — paired oracle ablation (~$5–15, needs approval + estimate):** same 70B judge and "
+               "transcripts, budgets 1/2; original oracle vs a stronger/citation-calibrated oracle, rerunning "
+               "the original oracle concurrently for rerun-noise, A/B labels held fixed across budgets; "
+               "optionally a placebo/sham-oracle arm (isolate whether harm is from oracle ANSWERS or the "
+               "verification prompt itself). **Gate:** better oracle drops Δfew ≤2 pp / CI includes 0 → "
+               "mostly oracle-protocol artifact; Δfew stays ≥4 pp → judge-side effect, frontier justified.\n"
+               "  3. **B — frontier rerun (needs approval + cost-out):** does a stronger JUDGE avoid the "
+               "FM2/over-updating pathology (the project's capability-gap question)?\n"
+               "- Audit trail: `mechanism_labels.md` (per-case oracle_check + justification) and `labels.csv`.\n")
+    return "".join(out)
+
+
 def build_report(df, B=10000, seed=0, labels=None):
     summ = inference.summarize(df, "70B", B=B, seed=seed)
     treat = parse_sensitivity.delta_few_under_treatments(df, "70B")
@@ -61,7 +112,8 @@ def build_report(df, B=10000, seed=0, labels=None):
                  f"bounded — {n_suspect_70b} suspect 70B rows, see caveat): "
                  f"{'PASS' if parse_ok else 'FAIL'}\n"
                  f"- **Overall harm claim: {'BANKED' if passed and parse_ok else 'NOT banked'}**\n"
-                 "- Next step gated on FM1/FM2 split (see mechanism_cases.md).\n")
+                 "- See the Recommendation section below (audit trail: `mechanism_labels.md`, `labels.csv`).\n")
+    parts.append(_recommendation(passed, parse_ok, labels))
     return "".join(parts)
 
 

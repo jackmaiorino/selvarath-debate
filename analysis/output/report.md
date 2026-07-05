@@ -96,4 +96,16 @@ Pre-registered contrasts (pp), question-cluster bootstrap 95% CI:
 - Positive in both strata (A=8.20, B=6.18): PASS
 - Survives parse-sensitivity (min treatment 7.23 pp, bounded — 0 suspect 70B rows, see caveat): PASS
 - **Overall harm claim: BANKED**
-- Next step gated on FM1/FM2 split (see mechanism_cases.md).
+- See the Recommendation section below (audit trail: `mechanism_labels.md`, `labels.csv`).
+
+
+## Recommendation (go/no-go)
+
+- **Statistical finding BANKED:** for the strong (70B) judge a small oracle budget significantly worsens oversight (Δfew ≈ 7.2 pp, cluster-bootstrap 95% CI [4.6, 10.2], positive in both correct-side strata). Δrecover5 ≈ 3.8 pp (partial recovery by budget 5); budget-20 'recovery' is NOT claimable (n=39). The 8B judge is contaminated by a Position-B side bias and is secondary only.
+- **Mechanism (PRELIMINARY — single LLM labeler):** of 54 gross correct→wrong flips, FM1 (fixable oracle-answer errors) = 16 (30%), FM2 (irrelevant true confirmation) = 19 (35%), other = 19 (35%). Per the spec's decision rule this is the **'substantial FM2 present'** case, NOT the conservative 'mostly FM1 / fixable oracle' case: only ~a third of gross harmful flips are direct oracle-answer errors.
+- **Do NOT over-claim** 'a better oracle won't fix the majority.' The split is under-validated: single LLM labeler; counts are GROSS flips (net harm also involves the 8 unclassified wrong→correct reverse flips); and one oracle-error template (CN-003 fixed-threshold) recurs across 4 transcripts, so per-flip FM1 overstates independent prevalence. The point estimate carries a wide (~19–43%) interval.
+- **Recommended next steps, in order:**
+  1. **D — mechanism-label validation ($0):** second independent blind labeler on all 54 flips + classify the 8 reverse flips (net-aware), with required world-doc evidence quotes; cluster FM1/FM2 per question. Firms up the load-bearing 'only ~1/3 is fixable oracle' number before any spend.
+  2. **C — paired oracle ablation (~$5–15, needs approval + estimate):** same 70B judge and transcripts, budgets 1/2; original oracle vs a stronger/citation-calibrated oracle, rerunning the original oracle concurrently for rerun-noise, A/B labels held fixed across budgets; optionally a placebo/sham-oracle arm (isolate whether harm is from oracle ANSWERS or the verification prompt itself). **Gate:** better oracle drops Δfew ≤2 pp / CI includes 0 → mostly oracle-protocol artifact; Δfew stays ≥4 pp → judge-side effect, frontier justified.
+  3. **B — frontier rerun (needs approval + cost-out):** does a stronger JUDGE avoid the FM2/over-updating pathology (the project's capability-gap question)?
+- Audit trail: `mechanism_labels.md` (per-case oracle_check + justification) and `labels.csv`.
