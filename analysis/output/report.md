@@ -53,6 +53,8 @@ Pre-registered contrasts (pp), question-cluster bootstrap 95% CI:
 - suspect_correct: 7.23
 - suspect_5050: 7.23
 
+> **Bounded check.** The fallback proxy flags 0 suspect 70B rows, so for the 70B judge these treatments are near-vacuous: the PASS means there are essentially no format-noncompliant 70B verdicts to perturb, NOT that a large perturbation was absorbed. Raw verdict text was never logged, so a definitive parse audit requires the instrumented re-judge (deliverable C).
+
 ## Robustness
 
 ### Leave-one-world-out (Δfew pp)
@@ -84,6 +86,6 @@ Pre-registered contrasts (pp), question-cluster bootstrap 95% CI:
 
 - Δfew CI excludes 0 with lower bound ≳ +2pp: **4.56 pp** → PASS
 - Positive in both strata (A=8.20, B=6.18): PASS
-- Survives parse-sensitivity (min treatment 7.23 pp): PASS
+- Survives parse-sensitivity (min treatment 7.23 pp, bounded — 0 suspect 70B rows, see caveat): PASS
 - **Overall harm claim: BANKED**
 - Next step gated on FM1/FM2 split (see mechanism_cases.md).

@@ -25,6 +25,7 @@ def build_report(df, B=10000, seed=0, labels=None):
     treat = parse_sensitivity.delta_few_under_treatments(df, "70B")
     passed, row, a, b = _gate(summ)
     parse_ok = min(treat.values()) > 2.0
+    n_suspect_70b = int(parse_sensitivity.flag(df[df.judge_short == "70B"]).suspect.sum())
 
     parts = ["# Limited-Verification Re-analysis\n"]
     parts.append("\n## Win rates (70B)\n\n" + _md_table(describe.win_rate_table(df, "70B")))
@@ -36,7 +37,12 @@ def build_report(df, B=10000, seed=0, labels=None):
     parts.append(f"\n\n- Δfew overall = {row.point_pp:.2f} pp "
                  f"[{row.ci_lo_pp:.2f}, {row.ci_hi_pp:.2f}]\n")
     parts.append("\n## Parse-sensitivity (Δfew under treatments, pp)\n\n"
-                 + "\n".join(f"- {k}: {v:.2f}" for k, v in treat.items()))
+                 + "\n".join(f"- {k}: {v:.2f}" for k, v in treat.items())
+                 + f"\n\n> **Bounded check.** The fallback proxy flags {n_suspect_70b} suspect "
+                   "70B rows, so for the 70B judge these treatments are near-vacuous: the PASS means "
+                   "there are essentially no format-noncompliant 70B verdicts to perturb, NOT that a "
+                   "large perturbation was absorbed. Raw verdict text was never logged, so a "
+                   "definitive parse audit requires the instrumented re-judge (deliverable C).")
     parts.append("\n\n## Robustness\n\n### Leave-one-world-out (Δfew pp)\n\n"
                  + _md_table(robustness.leave_one_world_out(df, "70B")))
     parts.append("\n\n### Discordance (0 -> {1,2})\n\n"
@@ -51,7 +57,8 @@ def build_report(df, B=10000, seed=0, labels=None):
                  f"{'PASS' if row.ci_lo_pp >= 2.0 else 'FAIL'}\n"
                  f"- Positive in both strata (A={a.point_pp:.2f}, B={b.point_pp:.2f}): "
                  f"{'PASS' if a.point_pp > 0 and b.point_pp > 0 else 'FAIL'}\n"
-                 f"- Survives parse-sensitivity (min treatment {min(treat.values()):.2f} pp): "
+                 f"- Survives parse-sensitivity (min treatment {min(treat.values()):.2f} pp, "
+                 f"bounded — {n_suspect_70b} suspect 70B rows, see caveat): "
                  f"{'PASS' if parse_ok else 'FAIL'}\n"
                  f"- **Overall harm claim: {'BANKED' if passed and parse_ok else 'NOT banked'}**\n"
                  "- Next step gated on FM1/FM2 split (see mechanism_cases.md).\n")
