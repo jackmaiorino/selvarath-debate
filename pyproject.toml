@@ -7,6 +7,8 @@ dependencies = [
     "pydantic>=2.7",
     "rich>=13",
     "typer>=0.12",
+    "pandas>=3.0.3",
+    "numpy>=2.5.1",
 ]
 
 [dependency-groups]
