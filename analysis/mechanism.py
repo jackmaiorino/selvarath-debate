@@ -59,8 +59,10 @@ def render_cases_markdown(cases, world_dir=None):
 
 
 def summarize_labels(labels):
-    df = pd.DataFrame(list(labels))
+    df = labels if isinstance(labels, pd.DataFrame) else pd.DataFrame(list(labels))
+    if "label" not in df.columns or len(df) == 0:
+        return pd.DataFrame(columns=["label", "count", "frac"])
     total = len(df)
-    out = (df.groupby("label").size().rename("count").reset_index())
-    out["frac"] = out["count"] / total if total else 0.0
+    out = df.groupby("label").size().rename("count").reset_index()
+    out["frac"] = out["count"] / total
     return out

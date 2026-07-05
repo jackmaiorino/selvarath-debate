@@ -28,3 +28,25 @@ def test_summarize_labels_counts_fractions():
     d = out.set_index("label")
     assert d.loc["FM1", "count"] == 2
     assert abs(d.loc["FM1", "frac"] - 2 / 3) < 1e-9
+
+
+def test_render_cases_markdown_smoke():
+    cases = [{
+        "question_id": "SEL-001", "transcript_index": 0, "world": "selvarath",
+        "flip_budget": 2, "question": "q?", "correct_answer": "C", "wrong_answer": "W",
+        "oracle_exchanges": [{"query": "claim", "response": "NO"}],
+        "reasoning": "r", "debate_transcript": [{"speaker": "honest", "text": "hi"}],
+    }]
+    md = mechanism.render_cases_markdown(cases)
+    assert "SEL-001" in md
+    assert "claim" in md and "NO" in md
+    assert "LABEL (FM1 / FM2 / other)" in md
+
+
+def test_summarize_labels_accepts_dataframe_and_empty():
+    df_in = pd.DataFrame([{"label": "FM1"}, {"label": "FM2"}, {"label": "FM1"}])
+    out = mechanism.summarize_labels(df_in).set_index("label")
+    assert out.loc["FM1", "count"] == 2
+    empty = mechanism.summarize_labels([])
+    assert list(empty.columns) == ["label", "count", "frac"]
+    assert len(empty) == 0
