@@ -82,6 +82,14 @@ Pre-registered contrasts (pp), question-cluster bootstrap 95% CI:
 | 8B      |        2 |              38.4106 |   151 |             14.9701  |   167 |
 | 8B      |        5 |              37.5758 |   165 |              7.18954 |   153 |
 
+## Mechanism (FM1/FM2)
+
+| label   |   count |     frac |
+|:--------|--------:|---------:|
+| FM1     |      16 | 0.296296 |
+| FM2     |      19 | 0.351852 |
+| other   |      19 | 0.351852 |
+
 ## Gate evaluation
 
 - Δfew CI excludes 0 with lower bound ≳ +2pp: **4.56 pp** → PASS
