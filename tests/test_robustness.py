@@ -29,3 +29,18 @@ def test_lowo_has_none_plus_three_worlds():
     tbl = robustness.leave_one_world_out(df, "70B")
     assert list(tbl.dropped)[0] == "none"
     assert len(tbl) == 4          # none + 3 worlds
+
+
+def test_discordance_handles_misaligned_indices():
+    df = pd.DataFrame([
+        _row("Q1", 0, 0, True),  _row("Q1", 0, 1, False),  # correct -> wrong
+        _row("Q2", 0, 0, False), _row("Q2", 0, 1, True),   # wrong -> correct
+        _row("Q3", 0, 0, True),  _row("Q3", 0, 1, True),   # correct -> correct
+        _row("Q4", 0, 0, False), _row("Q4", 0, 1, False),  # wrong -> wrong
+        _row("Q5", 0, 0, True),                            # base-only: forces index misalignment
+    ])
+    d = robustness.discordance(df, "70B", flip_budgets=(1,)).iloc[0]
+    assert d.correct_to_wrong == 1
+    assert d.wrong_to_correct == 1
+    assert d.net_new_errors == 0
+    assert d.n_transcripts == 4      # Q5 dropped (no budget-1 judgment)

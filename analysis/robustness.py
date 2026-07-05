@@ -22,7 +22,7 @@ def discordance(df, judge, base_budget=0, flip_budgets=(1, 2)):
     for fb in flip_budgets:
         cur = (sub[sub.query_budget == fb]
                .set_index(["question_id", "transcript_index"])["verdict_correct"])
-        j = pd.DataFrame({"base": base, "flip": cur}).dropna()
+        j = pd.DataFrame({"base": base, "flip": cur}).dropna().astype(bool)
         c2w = int((j.base & ~j.flip).sum())
         w2c = int((~j.base & j.flip).sum())
         out.append({"flip_budget": fb, "correct_to_wrong": c2w, "wrong_to_correct": w2c,
