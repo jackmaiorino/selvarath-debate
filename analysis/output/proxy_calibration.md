@@ -30,3 +30,15 @@ Method: a Sonnet classifier filled the 4 signals (oracle_validity, query_quality
 3. **Human-in-the-loop on a stratified sample** of grid cells (don't automate all) — the safe default until a proxy clears ~κ ≥ 0.6 against consensus.
 
 Recommendation for the capability grid: proceed with **option 3** (sample + human/multi-pass audit) for mechanism attribution, and treat the automatable proxy as a *screen* (good for O1/other, unreliable for FM2) rather than a labeler, unless option 1/2 raises agreement first.
+
+## Recalibration v2 — sharpened rubric (option 1, done)
+
+Sharpened `PROXY_INSTRUCTIONS` to counter the two v1 biases (over-use of "ambiguous"/"partial"): score "incorrect" when a claim is true-in-substance by entailment, and "irrelevant" (not "partial") when a true confirmation is over-read to favor the wrong side. Re-ran the Sonnet classifier on the same 54 cases.
+
+- proxy_v2 3-way: **FM1 = 20, FM2 = 23, other = 11**.
+- Agreement: vs pass1 **72% (κ 0.58)**; vs pass2 61% (κ 0.43); **vs consensus 32/44 = 73% (κ 0.59)** — up from κ 0.39.
+- Confusion (rows = consensus, cols = proxy_v2): FM1 10/0/1, FM2 0/**14**/2, other **3/6**/8. The v1 FM2 blind spot is fixed (14/16 recall); the new residual bias is the **opposite** — it over-attributes FM1/FM2 to ~9 true-"other" cases, so it **inflates** the failure-mode rates.
+
+**Caveat (important):** the rubric was tuned on these same 54 cases, so **κ 0.59 is in-sample/optimistic**; real out-of-sample agreement is likely lower and must be re-validated on held-out grid cells.
+
+**Updated verdict:** the calibrated proxy is a **usable screen** (good FM1/FM2 recall) but **not a stand-alone labeler** — it over-attributes to FM1/FM2. For the capability grid: run the proxy as a first-pass screen, then **human-audit the cases it flags FM1/FM2** (to remove the over-attribution) and re-validate κ out-of-sample. The deterministic mapping remains fixed and unit-tested.
