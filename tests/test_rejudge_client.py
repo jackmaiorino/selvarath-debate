@@ -44,6 +44,31 @@ class StubSDK:
         self.chat = _Chat()
 
 
+class _MalformedChoicesResp:
+    usage = _Usage()
+    choices = []                # triggers IndexError on resp.choices[0]
+
+
+class MalformedChoicesStubSDK:
+    """usage is always present (the call is genuinely billed) but choices is empty, so
+    content extraction raises -- reproduces a real paid call with a malformed response."""
+
+    def __init__(self):
+        self.calls = 0
+
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls += 1
+                return _MalformedChoicesResp()
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
 class SlowStubSDK:
     """Like StubSDK but create() sleeps briefly, so two concurrent complete() calls are
     both genuinely in-flight (post-reservation) at the same time."""
@@ -156,3 +181,38 @@ def test_reservation_rolled_back_on_terminal_failure():
     with pytest.raises(RuntimeError):
         c.complete(MSGS, "m", 0.1, 1, 64)
     assert c.total_tokens == 0        # reservation rolled back, not left dangling
+
+
+def test_malformed_choices_after_charge_is_terminal_not_retried():
+    # usage is present (1100 tokens, genuinely billed) but choices=[] makes content
+    # extraction raise. This must NOT retry -- retrying a malformed-response condition
+    # would fire another paid call -- and the real spend must be reconciled, not rolled
+    # back, since the money was actually spent.
+    sdk = MalformedChoicesStubSDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3,
+                         _sleep=lambda s: None)
+    with pytest.raises(RuntimeError) as exc_info:
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert not isinstance(exc_info.value, ac.CapExceededError)
+    assert "malformed API response after successful charge" in str(exc_info.value)
+    assert sdk.calls == 1             # exactly one SDK call -- no retry
+    assert c.total_tokens == 1100     # actual charged usage, reconciled not rolled back
+
+
+def test_retry_rechecks_cap_and_raises_cap_exceeded_not_runtime_error():
+    # Simulate a concurrent call (sharing the same client, as the runner's thread pool
+    # does) reconciling real spend that pushes total_tokens past the cap while THIS call
+    # is sleeping between retries. The retry loop must re-check accounted spend before
+    # the next attempt and raise CapExceededError -- not blindly keep retrying into a
+    # generic RuntimeError once max_retries is exhausted (the original cap blow-through).
+    sdk = StubSDK(fail_times=99)       # every create() call raises transiently
+    c = ac.RejudgeClient(approved_cap_usd=0.002, _sdk_client=sdk, max_retries=3)
+
+    def fake_sleep(seconds):
+        c.total_tokens = 5_000        # pretend another call just charged past the cap
+
+    c._sleep = fake_sleep
+    with pytest.raises(ac.CapExceededError):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 1             # only the first attempt hit the network; the cap
+                                       # check aborts before a second network call

@@ -81,23 +81,66 @@ class RejudgeClient:
                     f"projected spend ${projected:.4f} > approved cap ${self.approved_cap_usd:.4f}")
             self.total_tokens += est   # reserve the estimate up front
         last = None
-        # CapExceededError / ContextGuardError are both raised above, before any reservation
-        # exists, so neither can occur inside this retry loop.
+        # Reconciliation is NOT guaranteed exactly-once per call: it happens as soon as we
+        # know the actual usage (see the malformed-response branch below, which reconciles
+        # then raises immediately rather than retrying). And CapExceededError CAN now be
+        # raised from inside this loop -- see the re-check below -- unlike ContextGuardError,
+        # which is only ever raised above, before any reservation exists.
         for attempt in range(self.max_retries + 1):
+            if attempt > 0:
+                # Re-check the cap before every RETRY (not just the one up-front reservation
+                # check above). Scheme: keep the single up-front reservation as-is (it is not
+                # touched here, so it can't be double-counted); instead check *actual*
+                # accounted spend (self.total_tokens, which by now may include real usage
+                # reconciled by this call or -- since total_tokens is shared -- by a
+                # concurrent call on the same client) against the cap. If accounted spend has
+                # already crossed the cap, refuse to pay for another attempt: raise
+                # CapExceededError instead of retrying into a generic RuntimeError once
+                # attempts are exhausted (the original bug: retries kept firing paid calls
+                # with no cap re-check, blowing through the cap by 66%).
+                with self._lock:
+                    spent = self.total_tokens / 1_000_000 * self.price_per_mtok
+                if spent > self.approved_cap_usd:
+                    raise CapExceededError(
+                        f"accounted spend ${spent:.4f} > approved cap ${self.approved_cap_usd:.4f} "
+                        f"after {attempt} attempt(s); refusing to retry")
             try:
                 resp = self._client().chat.completions.create(
                     model=model, messages=messages, temperature=temperature,
                     max_tokens=max_tokens, seed=seed)
-                actual = resp.usage.prompt_tokens + resp.usage.completion_tokens
-                with self._lock:
-                    self.total_tokens += actual - est   # reconcile reservation -> actual usage
-                content = resp.choices[0].message.content
-                return content if content is not None else ""
-            except Exception as exc:                     # transient API error
+            except Exception as exc:                     # transient API error, no charge known
                 last = exc
                 self._log_error(attempt, model, exc)
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
+                continue
+            # The call above returned -- it may have been billed. Read usage and content into
+            # locals BEFORE reconciling: reconciling early (the original bug) meant a later
+            # exception mid-attempt (e.g. malformed choices) fell into the generic retry
+            # branch and re-reconciled on every subsequent retry against the same stale `est`,
+            # blowing through the cap with no re-check.
+            try:
+                actual = resp.usage.prompt_tokens + resp.usage.completion_tokens
+            except Exception as exc:          # usage itself unreadable -- unknown charge
+                last = exc                    # nothing safe to reconcile; treat as transient
+                self._log_error(attempt, model, exc)
+                if attempt < self.max_retries:
+                    self._sleep(min(2 ** attempt, 30))
+                continue
+            try:
+                content = resp.choices[0].message.content
+            except Exception as exc:
+                # Usage was readable, so a real, paid call happened -- reconcile the actual
+                # spend now (it must not be lost or left rolled back) and stop: this is
+                # TERMINAL, not retried. Retrying a malformed-response condition would pay
+                # for another call with no reason to expect a different shape back.
+                with self._lock:
+                    self.total_tokens += actual - est
+                raise RuntimeError(
+                    f"malformed API response after successful charge: {exc}") from exc
+            with self._lock:
+                self.total_tokens += actual - est   # reconcile reservation -> actual usage
+            return content if content is not None else ""
         with self._lock:
             self.total_tokens -= est   # terminal failure: release the reservation, never spent
         raise RuntimeError(f"API call failed after {self.max_retries + 1} attempts: {last}")
