@@ -68,27 +68,36 @@ class RejudgeClient:
         if est > self.max_context_tokens:
             raise ContextGuardError(f"estimated {est} tokens > {self.max_context_tokens}")
         if self.dry_run:
+            if kind not in _DRY:
+                raise ValueError(f"unknown kind: {kind!r}")
             return _DRY[kind]
+        # Check-and-reserve is one atomic critical section: a concurrent caller that acquires
+        # the lock right after us will see our reservation already counted in total_tokens, so
+        # two callers can never both pass the projection check for spend the cap can't cover.
         with self._lock:
             projected = (self.total_tokens + est) / 1_000_000 * self.price_per_mtok
             if projected > self.approved_cap_usd:
                 raise CapExceededError(
                     f"projected spend ${projected:.4f} > approved cap ${self.approved_cap_usd:.4f}")
+            self.total_tokens += est   # reserve the estimate up front
         last = None
+        # CapExceededError / ContextGuardError are both raised above, before any reservation
+        # exists, so neither can occur inside this retry loop.
         for attempt in range(self.max_retries + 1):
             try:
                 resp = self._client().chat.completions.create(
                     model=model, messages=messages, temperature=temperature,
                     max_tokens=max_tokens, seed=seed)
+                actual = resp.usage.prompt_tokens + resp.usage.completion_tokens
                 with self._lock:
-                    self.total_tokens += (resp.usage.prompt_tokens + resp.usage.completion_tokens)
+                    self.total_tokens += actual - est   # reconcile reservation -> actual usage
                 content = resp.choices[0].message.content
                 return content if content is not None else ""
-            except (CapExceededError, ContextGuardError):
-                raise
             except Exception as exc:                     # transient API error
                 last = exc
                 self._log_error(attempt, model, exc)
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
+        with self._lock:
+            self.total_tokens -= est   # terminal failure: release the reservation, never spent
         raise RuntimeError(f"API call failed after {self.max_retries + 1} attempts: {last}")
