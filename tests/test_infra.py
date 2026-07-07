@@ -59,6 +59,38 @@ def test_oracle_verbose_and_invalid():
     assert parsing.normalize_oracle("") == "INVALID"
 
 
+def test_verdict_negation_and_ambiguity_are_invalid():
+    # review finding: hedged/negated lines mis-parsed with parse_ok=True
+    assert parsing.parse_verdict_strict("VERDICT: Not Position A")["verdict"] is None
+    assert parsing.parse_verdict_strict("VERDICT: Position A or Position B")["verdict"] is None
+    assert parsing.parse_verdict_strict("VERDICT: Neither position")["verdict"] is None
+
+
+def test_verdict_markdown_and_blockquote_leads():
+    assert parsing.parse_verdict_strict("**VERDICT:** Position A")["verdict"] == "A"
+    assert parsing.parse_verdict_strict("> VERDICT: B.")["verdict"] == "B"
+    assert parsing.parse_verdict_strict("**VERDICT: Position B**")["verdict"] == "B"
+
+
+def test_verdict_on_next_line():
+    assert parsing.parse_verdict_strict("VERDICT:\nPosition A\nCONFIDENCE: 4")["verdict"] == "A"
+
+
+def test_reasoning_multiline():
+    r = parsing.parse_verdict_strict(
+        "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: first line\nsecond line\n\nthird line")
+    assert "second line" in r["reasoning"] and "third line" in r["reasoning"]
+
+
+def test_confidence_markdown_bold():
+    assert parsing.parse_verdict_strict("VERDICT: A\nCONFIDENCE: **4**")["confidence"] == 4
+
+
+def test_oracle_no_evidence_is_invalid():
+    # 'NO EVIDENCE' is closer to NOT ADDRESSED than to a contradicting NO
+    assert parsing.normalize_oracle("NO EVIDENCE in the text supports this") == "INVALID"
+
+
 # ---- design ----
 
 def test_position_fixed_and_deterministic():

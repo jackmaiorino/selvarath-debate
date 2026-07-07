@@ -16,39 +16,54 @@ import re
 _LEAD = " *_>#-\t\"'`"
 
 
+def _commit_side(v):
+    """Return 'A'/'B' only when the text commits to exactly one side; else None."""
+    v = v.strip().lstrip(_LEAD).strip()
+    if re.match(r"(NOT|NEITHER|NO)\b", v):
+        return None
+    a = bool(re.search(r"\b(?:POSITION|DEBATER)\s+A\b", v)) or bool(re.match(r"A\b", v))
+    b = bool(re.search(r"\b(?:POSITION|DEBATER)\s+B\b", v)) or bool(re.match(r"B\b", v))
+    if a and b:
+        return None
+    return "A" if a else ("B" if b else None)
+
+
 def parse_verdict_strict(text):
     """Parse a judge verdict block. NO silent default.
 
     Returns dict:
-      verdict: 'A' | 'B' | None   (None => unparseable)
+      verdict: 'A' | 'B' | None   (None => unparseable/ambiguous/negated)
       confidence: int 1-5 | None
-      reasoning: str
+      reasoning: str (multi-line: runs until the next KEY: line)
       parse_ok: bool              (True iff a verdict side was found)
       raw: str
     """
     text = text or ""
     verdict = None
     confidence = None
-    reasoning = ""
-    for line in text.splitlines():
-        s = line.strip()
+    reasoning_lines = []
+    capturing = False
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        s = line.strip().lstrip(_LEAD).strip()
         up = s.upper()
         if up.startswith("VERDICT:"):
-            v = up[len("VERDICT:"):].strip()
-            # Accept "Position A", "Debater A" (transcripts label turns that way), or a
-            # bare leading "A"/"B" with any trailing punctuation.
-            if "POSITION A" in v or "DEBATER A" in v or re.match(r"A\b", v):
-                verdict = "A"
-            elif "POSITION B" in v or "DEBATER B" in v or re.match(r"B\b", v):
-                verdict = "B"
+            capturing = False
+            v = up[len("VERDICT:"):]
+            if not v.strip().lstrip(_LEAD).strip() and i + 1 < len(lines):
+                v = lines[i + 1].strip().lstrip(_LEAD).strip().upper()
+            verdict = _commit_side(v)
         elif up.startswith("CONFIDENCE:"):
-            # Anchor to the LEADING digit so "about 4" in "...10% unsure, about 4"
-            # is not mis-read as 1 (the '1' of '10%').
-            m = re.match(r"\s*([1-5])\b", s[len("CONFIDENCE:"):])
+            capturing = False
+            m = re.match(r"[\s*_`]*([1-5])\b", s[len("CONFIDENCE:"):])
             if m:
                 confidence = int(m.group(1))
         elif up.startswith("REASONING:"):
-            reasoning = s[len("REASONING:"):].strip()
+            capturing = True
+            reasoning_lines.append(s[len("REASONING:"):].strip())
+        elif capturing:
+            reasoning_lines.append(line.strip())
+    reasoning = "\n".join(reasoning_lines).strip()
     return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning,
             "parse_ok": verdict is not None, "raw": text}
 
@@ -65,6 +80,8 @@ def normalize_oracle(text):
         return "YES"
     if re.match(r"NOT[ _]?ADDRESSED\b", t):
         return "NOT ADDRESSED"
+    if re.match(r"NO\s+EVIDENCE\b", t):
+        return "INVALID"
     if re.match(r"NO\b", t):
         return "NO"
     # fallback: a clearly-committed token anywhere as a standalone word
