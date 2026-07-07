@@ -16,7 +16,9 @@ def render() -> str:
         for a in ARMS.values())
     return f"""# Re-Judge Protocol (frozen pre-run)
 
-**Commit:** `{get_git_sha()}` · **parser_version:** `{PARSER_VERSION}` · **Replicates:** K={DEFAULT_REPLICATES} (legacy K=1)
+**Frozen at commit:** `{get_git_sha()}` *(state of the harness config when this document was
+generated; the document itself lands in the following commit)* · **parser_version:**
+`{PARSER_VERSION}` · **Replicates:** K={DEFAULT_REPLICATES} (legacy K=1)
 **Judge = Oracle model:** `{JUDGE_MODEL}` · **Transcripts:** the 318 pilot transcripts (`data/transcripts.jsonl`), unchanged.
 
 ## Arms

@@ -65,7 +65,7 @@ banner. Fixes, all in existing files:
 - **Gates are frozen pre-run** in `docs/rejudge-protocol.md` (Workstream B deliverable): clean Δfew ≥ 4pp with
   cluster-bootstrap 95% CI excluding 0 → harm survives; ≤ 2pp with CI including 0 → mostly harness artifact;
   2–4pp indeterminate. Attribution: BOTH−CLEAN ≥ ~3.5pp or > 50% of the original 7.2pp → headline mostly
-  harness-induced. Placebo: PLACEBO ≈ CLEAN (within 2pp) → deliberation/turn-count effect, not verification content.
+  harness-induced. Placebo: PLACEBO ≈ CLEAN (within 2pp), and PLACEBO−p(0) ≥ 4pp, → deliberation/turn-count effect, not verification content.
   Protocol doc embeds commit hash, model IDs, arm definitions, parser version, seed scheme, placebo text.
 
 ### Arms
