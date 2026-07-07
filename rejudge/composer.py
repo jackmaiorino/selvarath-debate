@@ -14,7 +14,7 @@ PILOT_STRIP_PREFIXES = ("Is it supported by the text that ",
                         "is it supported by the text that ")
 
 _SCAFFOLD = re.compile(r"(?i)^\s*is it (?:stated|supported)\s+(?:in|by)\s+the text that\s+")
-_CLAIM = re.compile(r"(?is)^\s*claim\s*:\s*(.+)$")
+_CLAIM = re.compile(r"(?i)^\s*claim\s*:\s*(.+)")
 
 
 def pilot_extract_claim(query_response: str) -> str:
@@ -36,7 +36,10 @@ def clean_extract_claim(query_response: str) -> tuple[str, bool]:
     s = query_response.strip()
     m = _CLAIM.match(s)
     if m:
-        return m.group(1).strip().rstrip("?").strip(), True
+        claim = m.group(1).strip()
+        stripped = _SCAFFOLD.sub("", claim).strip()
+        well_formed = stripped == claim  # scaffold present -> judge disobeyed the CLEAN instruction
+        return stripped.rstrip("?").strip(), well_formed
     s = _SCAFFOLD.sub("", s).strip().rstrip("?").strip()
     return s, False
 

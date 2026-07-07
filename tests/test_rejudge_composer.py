@@ -37,6 +37,18 @@ def test_clean_never_doubles():
     assert prompt.count("Is it supported by the text that") == 1
 
 
+def test_clean_claim_with_embedded_scaffold_is_stripped_and_flagged():
+    claim, ok = composer.clean_extract_claim("CLAIM: Is it stated in the text that the king died?")
+    assert claim == "the king died" and ok is False
+    prompt = composer.compose_oracle_prompt(TEMPLATE, "DOC", claim)
+    assert prompt.count("Is it supported by the text that") == 1
+
+
+def test_clean_claim_takes_first_line_only():
+    claim, ok = composer.clean_extract_claim("CLAIM: the treaty was signed.\nNOTES: extra commentary")
+    assert claim == "the treaty was signed." and ok is True
+
+
 def test_pilot_port_matches_real_data_shape():
     # stored queries in data/judgments.jsonl are PRE-doubling claims; wrapping one that starts
     # with an interrogative must reproduce the garble the audit found
