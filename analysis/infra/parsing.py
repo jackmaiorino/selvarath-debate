@@ -35,14 +35,18 @@ def parse_verdict_strict(text):
         up = s.upper()
         if up.startswith("VERDICT:"):
             v = up[len("VERDICT:"):].strip()
-            if "POSITION A" in v or v == "A":
+            # Accept "Position A", "Debater A" (transcripts label turns that way), or a
+            # bare leading "A"/"B" with any trailing punctuation.
+            if "POSITION A" in v or "DEBATER A" in v or re.match(r"A\b", v):
                 verdict = "A"
-            elif "POSITION B" in v or v == "B":
+            elif "POSITION B" in v or "DEBATER B" in v or re.match(r"B\b", v):
                 verdict = "B"
         elif up.startswith("CONFIDENCE:"):
-            m = re.search(r"[1-5]", s[len("CONFIDENCE:"):])
+            # Anchor to the LEADING digit so "about 4" in "...10% unsure, about 4"
+            # is not mis-read as 1 (the '1' of '10%').
+            m = re.match(r"\s*([1-5])\b", s[len("CONFIDENCE:"):])
             if m:
-                confidence = int(m.group())
+                confidence = int(m.group(1))
         elif up.startswith("REASONING:"):
             reasoning = s[len("REASONING:"):].strip()
     return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning,

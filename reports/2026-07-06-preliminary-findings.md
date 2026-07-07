@@ -8,6 +8,19 @@ Underlying analysis: [`analysis/`](../analysis) · generated tables in [`analysi
 
 ---
 
+## ⚠️ Correction (2026-07-06): harness bugs invalidate the mechanism conclusions
+
+A subsequent code audit found the pilot's **oracle pipeline was broken for ~100% of calls**: every oracle "NOT ADDRESSED" reply was silently miscoded to "NO" (across 5,733 exchanges the distribution is {YES 4546, NO 1187, **NOT ADDRESSED 0**}), and **99.8%** of oracle queries were sent as garbled doubled questions ("*Is it supported by the text that Is it stated in the text that …*"). Raw oracle prompts/replies and raw verdict text were never logged.
+
+- **Survives** (as descriptive facts about the *buggy* pilot): the win-rate table (§4.1), the discordance counts (§4.5), and the side-symmetry result **only** as "not the default-to-Position-B parse fallback" — those two bugs are naturally side-symmetric, so §4.2 does *not* clear them.
+- **Resets to unknown** pending a fixed re-run: the general claim *"limited verification hurts debate oversight"* (the intervention was verification *through a corrupted interface*, not verification itself); the **mechanism split** (§4.3 — a postmortem of the corrupted harness, since labelers scored normalized/garbled exchanges, not what the oracle actually saw); the **deep-myopia share**; and the **confidence-rises interpretation** (§4.4).
+- **Only clean claim right now:** *in the original pilot implementation, adding a few oracle calls worsened the 70B judge's accuracy.*
+- **Fix path:** a fixed-harness re-judge of the existing 318 transcripts (correct NOT-ADDRESSED handling, fixed query composition, strict verdict parsing, A/B fixed across budgets, full raw logging) plus a bug-factorial replay arm, to measure how much of Δfew and the mechanism survive the fixes — *before* any capability-grid spend.
+
+The sections below are the **pre-audit** analysis, retained for the record.
+
+---
+
 ## Summary
 
 We re-analyzed the pilot data for *debate as scalable oversight* — an honest and a dishonest debater argue a factual question before a weaker judge that cannot see the source document and may spend a limited budget of yes/no **oracle** verification calls. We reproduced the pilot's headline table exactly and asked whether its counterintuitive result — **a few oracle calls make oversight worse than none** — is real, and if so, why.

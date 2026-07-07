@@ -42,6 +42,10 @@
     font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
     line-height:1.5;-webkit-font-smoothing:antialiased;margin:0}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:40px 24px 72px}
+  .notice{background:color-mix(in srgb,#fab219 14%,var(--surface));
+    border:1px solid color-mix(in srgb,#fab219 48%,transparent);border-radius:12px;
+    padding:14px 16px;margin-bottom:22px;font-size:13.5px;color:var(--ink-2);line-height:1.55}
+  .notice strong{color:var(--ink)}
   .eyebrow{font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   h1{font-size:clamp(26px,4vw,40px);line-height:1.08;font-weight:720;letter-spacing:-.02em;
     text-wrap:balance;margin:.35em 0 .25em}
@@ -96,6 +100,13 @@
 </style>
 
 <div class="wrap">
+  <div class="notice" role="note">
+    <strong>⚠️ Correction (2026-07-06):</strong> a harness audit found the pilot's oracle pipeline was broken for ~100% of calls —
+    every "NOT ADDRESSED" reply was miscoded to "NO" (0 of 5,733 survived) and 99.8% of oracle queries were sent as garbled doubled questions.
+    The <em>win-rate observation</em> (a few calls worsened the 70B judge) survives as a fact about the buggy pilot, but the
+    <strong>mechanism split, the "deep-myopia" share, and the confidence result below are contaminated and reset to unknown</strong>
+    pending a fixed-harness re-run. Charts retained for the record.
+  </div>
   <header>
     <div class="eyebrow">AI-Safety Research · Debate as Scalable Oversight</div>
     <h1>Does a little verification <span class="q">hurt</span> oversight?</h1>

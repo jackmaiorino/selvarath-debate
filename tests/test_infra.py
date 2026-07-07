@@ -14,6 +14,19 @@ def test_verdict_b():
     assert r["verdict"] == "B" and r["confidence"] == 2
 
 
+def test_verdict_trailing_punct_and_debater_vocab():
+    # weaker models say "Debater A" / add punctuation; must still parse (audit finding)
+    assert parsing.parse_verdict_strict("VERDICT: A.")["verdict"] == "A"
+    assert parsing.parse_verdict_strict("VERDICT: Debater B\nCONFIDENCE: 3")["verdict"] == "B"
+
+
+def test_confidence_ignores_stray_digits():
+    # must not grab the '1' from '10%' (audit finding)
+    r = parsing.parse_verdict_strict("VERDICT: Position A\nCONFIDENCE: I am 10% unsure, about 4\nREASONING: x")
+    assert r["confidence"] != 1
+    assert parsing.parse_verdict_strict("VERDICT: Position A\nCONFIDENCE: 4")["confidence"] == 4
+
+
 def test_verdict_unparseable_does_not_default():
     # the whole point: no silent default-to-B
     r = parsing.parse_verdict_strict("I think the honest debater is right, but I'm unsure.")
