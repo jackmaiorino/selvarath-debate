@@ -71,8 +71,7 @@ def test_kappa_perfect_and_chance():
     assert abs(_kappa(["a", "b"] * 10, ["a"] * 10 + ["b"] * 10)) < 0.15
 
 
-def test_mechanism_section_carries_correction_and_pass2(monkeypatch):
-    import pandas as pd
+def test_mechanism_section_carries_correction_and_pass2():
     from analysis import run_report
     df = _tiny_df()  # reuse the existing fixture helper in this test file; if named differently, use that one
     labels = [{"case_id": "c1", "label": "FM1"}, {"case_id": "c2", "label": "FM2"}]
@@ -82,3 +81,25 @@ def test_mechanism_section_carries_correction_and_pass2(monkeypatch):
     assert "kappa" in text.lower() or "κ" in text
     assert "Deliverable D" not in text          # stale recommendation gone
     assert "mechanism-label validation ($0)" not in text
+
+
+def test_mechanism_pass2_alignment_is_by_case_id_not_position():
+    """Same case_id -> label mapping, but labels2 rows in reversed order, must give the
+    identical agreement/kappa text as the in-order case -- alignment is by case_id, not
+    by CSV row position."""
+    from analysis import run_report
+    df = _tiny_df()
+    labels = [{"case_id": "c1", "label": "FM1"}, {"case_id": "c2", "label": "FM2"}]
+    labels2 = [{"case_id": "c1", "label": "FM1"}, {"case_id": "c2", "label": "other"}]
+    labels2_reversed = list(reversed(labels2))
+
+    text_in_order = run_report.build_report(df, B=10, seed=0, labels=labels, labels2=labels2)
+    text_reversed = run_report.build_report(df, B=10, seed=0, labels=labels, labels2=labels2_reversed)
+
+    def kappa_line(text):
+        for line in text.splitlines():
+            if "Two-pass agreement" in line:
+                return line
+
+    assert kappa_line(text_in_order) is not None
+    assert kappa_line(text_in_order) == kappa_line(text_reversed)

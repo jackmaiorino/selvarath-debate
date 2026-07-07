@@ -90,13 +90,16 @@ def build_report(df, B=10000, seed=0, labels=None, labels2=None):
                      "(`docs/rejudge-protocol.md`).\n\n"
                      + _md_table(mechanism.summarize_labels(labels)))
         if labels2 is not None:
-            pass1_labs = [r["label"] for r in labels]
-            pass2_labs = [r["label"] for r in labels2]
-            agree = sum(x == y for x, y in zip(pass1_labs, pass2_labs))
-            parts.append(f"\n\nTwo-pass agreement: {agree}/{len(pass1_labs)} "
-                         f"(Cohen's kappa = {_kappa(pass1_labs, pass2_labs):.2f}). "
-                         "Full consensus + refined O1/Q1/R1/R2 taxonomy: `mechanism_validation.md` "
-                         "(same correction applies).")
+            by_id2 = {r["case_id"]: r["label"] for r in labels2}
+            paired = [(r["label"], by_id2[r["case_id"]]) for r in labels if r["case_id"] in by_id2]
+            if paired:
+                pass1_labs = [p[0] for p in paired]
+                pass2_labs = [p[1] for p in paired]
+                agree = sum(x == y for x, y in zip(pass1_labs, pass2_labs))
+                parts.append(f"\n\nTwo-pass agreement: {agree}/{len(pass1_labs)} "
+                             f"(Cohen's kappa = {_kappa(pass1_labs, pass2_labs):.2f}). "
+                             "Full consensus + refined O1/Q1/R1/R2 taxonomy: `mechanism_validation.md` "
+                             "(same correction applies).")
     parts.append("\n\n## Gate evaluation\n\n"
                  f"- Δfew CI excludes 0 with lower bound ≳ +2pp: **{row.ci_lo_pp:.2f} pp** → "
                  f"{'PASS' if row.ci_lo_pp >= 2.0 else 'FAIL'}\n"
