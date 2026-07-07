@@ -1,0 +1,407 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Limited-Verification Findings — Debate Oversight</title>
+<style>
+  :root{
+    --page:#f4f4f1; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e6e5df; --axis:#c9c8c1; --ring:rgba(11,11,11,.10);
+    --s70:#2a78d6; --s8:#e34948; --sideA:#2a78d6; --sideB:#eb6834;
+    --o1:#2a78d6; --q1:#1baf7a; --r1:#e34948; --r2:#eb6834; --m1:#a9a8a1;
+    --good:#0ca30c; --good-ink:#006300; --accent:#2a78d6;
+    --tt-bg:#ffffff; --tt-ink:#0b0b0b;
+    --maxw:1120px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.12);
+      --s70:#3987e5; --s8:#e66767; --sideA:#3987e5; --sideB:#d95926;
+      --o1:#3987e5; --q1:#199e70; --r1:#e66767; --r2:#d95926; --m1:#6f6e68;
+      --good:#0ca30c; --good-ink:#0ca30c; --accent:#3987e5;
+      --tt-bg:#232321; --tt-ink:#ffffff;
+    }
+  }
+  :root[data-theme="light"]{
+    --page:#f4f4f1; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e6e5df; --axis:#c9c8c1; --ring:rgba(11,11,11,.10);
+    --s70:#2a78d6; --s8:#e34948; --sideA:#2a78d6; --sideB:#eb6834;
+    --o1:#2a78d6; --q1:#1baf7a; --r1:#e34948; --r2:#eb6834; --m1:#a9a8a1;
+    --good:#0ca30c; --good-ink:#006300; --accent:#2a78d6;
+    --tt-bg:#ffffff; --tt-ink:#0b0b0b;
+  }
+  :root[data-theme="dark"]{
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.12);
+    --s70:#3987e5; --s8:#e66767; --sideA:#3987e5; --sideB:#d95926;
+    --o1:#3987e5; --q1:#199e70; --r1:#e66767; --r2:#d95926; --m1:#6f6e68;
+    --good:#0ca30c; --good-ink:#0ca30c; --accent:#3987e5;
+    --tt-bg:#232321; --tt-ink:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--page);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased;margin:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:40px 24px 72px}
+  .eyebrow{font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  h1{font-size:clamp(26px,4vw,40px);line-height:1.08;font-weight:720;letter-spacing:-.02em;
+    text-wrap:balance;margin:.35em 0 .25em}
+  h1 .q{color:var(--accent)}
+  .lede{font-size:clamp(15px,1.6vw,18px);color:var(--ink-2);max-width:64ch;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;font-size:12.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .meta b{color:var(--ink-2);font-weight:600}
+  h2{font-size:12px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 2px}
+  .sub{font-size:13.5px;color:var(--ink-2);margin:0 0 14px}
+  .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:20px 20px 16px}
+  .grid{display:grid;gap:18px}
+  .tiles{grid-template-columns:repeat(4,1fr);margin:28px 0}
+  .two{grid-template-columns:1fr 1fr;margin-top:18px}
+  @media(max-width:820px){.tiles{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+  .tile .k{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-transform:uppercase}
+  .tile .v{font-size:30px;font-weight:720;letter-spacing:-.02em;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+  .tile .d{font-size:13px;color:var(--ink-2)}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;
+    padding:2px 9px;border-radius:999px;letter-spacing:.03em}
+  .pill.good{color:var(--good-ink);background:color-mix(in srgb,var(--good) 15%,transparent)}
+  .pill.dot::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .figrow{margin-top:22px}
+  figure{margin:0}
+  figcaption{font-size:13px;color:var(--ink-2);margin-top:10px;max-width:70ch}
+  figcaption b{color:var(--ink);font-weight:650}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:2px 0 12px;font-size:12.5px;color:var(--ink-2)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .chart{position:relative;width:100%}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .tick{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .axlabel{fill:var(--muted);font-size:11px;letter-spacing:.04em}
+  .gl{stroke:var(--grid);stroke-width:1}
+  .base{stroke:var(--axis);stroke-width:1}
+  .dlabel{font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums}
+  .tt{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-118%);
+    background:var(--tt-bg);color:var(--tt-ink);border:1px solid var(--ring);border-radius:9px;
+    padding:8px 10px;font-size:12px;box-shadow:0 6px 22px rgba(0,0,0,.16);white-space:nowrap;
+    font-variant-numeric:tabular-nums;transition:opacity .09s;z-index:5}
+  .tt .r{display:flex;align-items:center;gap:7px;margin-top:3px}
+  .tt .r i{width:9px;height:9px;border-radius:2px}
+  .tt b{font-weight:700}
+  .foot{margin-top:34px;padding-top:22px;border-top:1px solid var(--ring);display:grid;
+    grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:820px){.foot{grid-template-columns:1fr}}
+  .foot h3{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .foot ul{margin:0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+  .foot li{margin:5px 0}
+  .foot code{font-size:12px;background:color-mix(in srgb,var(--ink) 7%,transparent);padding:1px 5px;border-radius:5px}
+  @media(prefers-reduced-motion:reduce){.tt{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">AI-Safety Research · Debate as Scalable Oversight</div>
+    <h1>Does a little verification <span class="q">hurt</span> oversight?</h1>
+    <p class="lede">Re-analysis of the pilot: an honest and a dishonest debater argue before a weaker judge
+      who can spend a limited budget of yes/no oracle calls. We reproduced the raw data and tested whether
+      the counterintuitive "a few calls is worse than none" result is real — and why.</p>
+    <div class="meta">
+      <span><b>2,583</b> judgments · <b>318</b> transcripts · 3 worlds</span>
+      <span><b>$0</b> spent (re-analysis only)</span>
+      <span>branch <b>rerun-new-models</b></span>
+      <span>verdict via pre-registered gate + opus review</span>
+    </div>
+  </header>
+
+  <section class="grid tiles">
+    <div class="card tile">
+      <div class="k">Limited-verification harm (70B)</div>
+      <div class="v" style="color:var(--s70)">+7.2 pp</div>
+      <div class="d">Δfew, 95% CI [4.6, 10.2] &nbsp;<span class="pill good dot">BANKED</span></div>
+    </div>
+    <div class="card tile">
+      <div class="k">Recovery by budget 5</div>
+      <div class="v">+3.8 pp</div>
+      <div class="d">partial only; budget-20 "recovery" not claimable (n=39)</div>
+    </div>
+    <div class="card tile">
+      <div class="k">Artifact check</div>
+      <div class="v">70B clean</div>
+      <div class="d">side-symmetric; 8B contaminated by a Position-B bias</div>
+    </div>
+    <div class="card tile">
+      <div class="k">Why it fails (54 flips)</div>
+      <div class="v">~½ / ~½</div>
+      <div class="d">protocol-fixable vs deep judge over-updating</div>
+    </div>
+  </section>
+
+  <section class="card figrow">
+    <h2>The result</h2>
+    <p class="sub">Dishonest-debater win rate vs the judge's oracle-call budget (lower = better oversight). Whiskers are 95% CIs.</p>
+    <div class="legend" id="lg-ushape"></div>
+    <figure>
+      <div class="chart" id="c-ushape"></div>
+      <figcaption>For the strong <b>70B judge</b>, going from <b>0 → 2</b> oracle calls makes the dishonest side
+        <b>~5× more likely to win</b> (1.9% → 9.4%), before partly recovering. The dip is real, not sampling noise —
+        the 0-call and 2-call intervals don't overlap, and it survives a paired cluster-bootstrap.</figcaption>
+    </figure>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Is it a measurement artifact?</h2>
+      <p class="sub">Wrong-rate at budget 2, split by which side was correct. A parse-bug would only hurt when "A" is correct.</p>
+      <div class="legend" id="lg-side"></div>
+      <figure><div class="chart" id="c-side"></div>
+      <figcaption>The <b>70B</b> inflation is <b>symmetric</b> across correct-side (9.9 vs 9.0) → not the parse bug.
+        The <b>8B</b> judge is wildly skewed (38 vs 15) → a real Position-B bias, so 8B is secondary only.</figcaption></figure>
+    </div>
+    <div class="card">
+      <h2>Why the judge flips (mechanism)</h2>
+      <p class="sub">54 correct→wrong flips, 2 blind labelers (κ=0.72), refined taxonomy.</p>
+      <div class="legend" id="lg-mech"></div>
+      <figure><div class="chart" id="c-mech"></div>
+      <figcaption><b>~50%</b> is protocol-fixable — a better oracle (O1) or constrained judge queries (Q1).
+        <b>~46%</b> is <b>deep myopia</b>: the judge over-trusts a true-but-irrelevant confirmation (R1) or
+        over-penalizes a real honest-side gap (R2) — a better oracle won't fix it.</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Confidence goes the wrong way (70B)</h2>
+      <p class="sub">Mean self-reported confidence (1–5) vs budget.</p>
+      <figure><div class="chart" id="c-conf"></div>
+      <figcaption>As the judge gets <b>more wrong</b> at low budgets, it gets <b>more confident</b>
+        (4.09 → 4.58) — partial verification produces overconfidence, not calibration.</figcaption></figure>
+    </div>
+    <div class="card">
+      <h2>The damage is broad, not a few outliers</h2>
+      <p class="sub">Transcripts that changed verdict when oracle calls were added (70B).</p>
+      <div class="legend" id="lg-disc"></div>
+      <figure><div class="chart" id="c-disc"></div>
+      <figcaption>At budget 2, <b>27</b> transcripts flipped correct→wrong and only <b>3</b> the other way
+        (net <b>+24</b> errors). The harm is spread across many questions, not driven by a handful.</figcaption></figure>
+    </div>
+  </section>
+
+  <div class="foot">
+    <div>
+      <h3>What we can bank</h3>
+      <ul>
+        <li>The limited-verification harm is <b>real</b> for a strong judge and <b>not</b> the default-to-B parse artifact.</li>
+        <li>It is <b>not</b> mostly a simple oracle bug — the majority is the judge mis-using <em>correct</em> verification.</li>
+        <li>The 8B judge is unusable for the headline (Position-B bias); budget-20 "recovery" is underpowered.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Next experiment (designed, not yet run)</h3>
+      <ul>
+        <li>Open-source <b>judge × debater capability grid</b> (Llama / Qwen / Gemma) — does the deep myopia vanish as the judge scales?</li>
+        <li>Staged: a cheap <b>2×2 pilot</b> behind a hard gate → a 3×3 fractional grid. Every call spend-gated.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  ushape:{
+    "70B":[{budget:0,win:1.9,ci:[0.9,4.1],conf:4.09},{budget:1,win:8.8,ci:[6.2,12.4],conf:4.49},
+      {budget:2,win:9.4,ci:[6.7,13.1],conf:4.58},{budget:5,win:5.3,ci:[3.4,8.4],conf:4.70},
+      {budget:20,win:0.0,ci:[0.0,9.0],conf:4.74,exp:true}],
+    "8B":[{budget:0,win:18.6,ci:[14.7,23.2]},{budget:1,win:21.4,ci:[17.2,26.2]},
+      {budget:2,win:26.1,ci:[21.6,31.2]},{budget:5,win:23.0,ci:[18.7,27.9]}]
+  },
+  side:[{judge:"70B",A:9.9,B:9.0},{judge:"8B",A:38.4,B:15.0}],
+  mech:[{k:"O1",n:13,label:"O1 · oracle error",grp:"fixable"},{k:"Q1",n:14,label:"Q1 · bad judge query",grp:"fixable"},
+    {k:"R1",n:17,label:"R1 · irrelevant confirmation",grp:"deep"},{k:"R2",n:8,label:"R2 · over-penalized gap",grp:"deep"},
+    {k:"M1",n:2,label:"M1 · ambiguous",grp:"amb"}],
+  disc:[{b:1,cw:27,wc:5},{b:2,cw:27,wc:3}]
+};
+const CSS = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const SVGNS="http://www.w3.org/2000/svg";
+function el(t,a){const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function txt(x,y,s,cls,extra){const e=el("text",Object.assign({x,y,class:cls},extra||{}));e.textContent=s;return e;}
+function chip(color,text){const s=document.createElement("span");const i=document.createElement("i");
+  i.style.background=color;const t=document.createElement("span");t.textContent=text;s.append(i,t);return s;}
+function mkTip(host){const d=document.createElement("div");d.className="tt";host.appendChild(d);return d;}
+
+/* ---------- U-shape line chart ---------- */
+(function(){
+  const host=document.getElementById("c-ushape");
+  const W=760,H=340,mL=44,mR=54,mT=18,mB=42;
+  const xs=[0,1,2,5,20]; const xi=xs.map((v,i)=>i);
+  const px=i=>mL+(i)*(W-mL-mR)/(xs.length-1);
+  const yMax=32, py=v=>H-mB-(v/yMax)*(H-mT-mB);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Dishonest win rate vs oracle budget"});
+  for(let g=0;g<=32;g+=8){svg.append(el("line",{class:"gl",x1:mL,x2:W-mR,y1:py(g),y2:py(g)}));
+    svg.append(txt(mL-8,py(g)+3.5,g+"%","tick",{"text-anchor":"end"}));}
+  xs.forEach((v,i)=>svg.append(txt(px(i),H-mB+18,v,"tick",{"text-anchor":"middle"})));
+  svg.append(txt((mL+W-mR)/2,H-6,"ORACLE-CALL BUDGET","axlabel",{"text-anchor":"middle"}));
+  svg.append(el("line",{class:"base",x1:mL,x2:W-mR,y1:py(0),y2:py(0)}));
+  const series=[{key:"70B",color:CSS("--s70")},{key:"8B",color:CSS("--s8")}];
+  const pts={};
+  series.forEach(s=>{
+    const rows=DATA.ushape[s.key];
+    pts[s.key]=rows.map(r=>({x:px(xs.indexOf(r.budget)),y:py(r.win),r}));
+    // CI whiskers
+    rows.forEach(r=>{const x=px(xs.indexOf(r.budget));
+      svg.append(el("line",{x1:x,x2:x,y1:py(r.ci[0]),y2:py(r.ci[1]),stroke:s.color,"stroke-width":1.6,"stroke-opacity":.45,"stroke-linecap":"round"}));});
+    // line
+    let d="";pts[s.key].forEach((p,i)=>d+=(i?"L":"M")+p.x+" "+p.y);
+    svg.append(el("path",{d,fill:"none",stroke:s.color,"stroke-width":2.4,"stroke-linejoin":"round",
+      "stroke-dasharray":s.key==="70B"?"":"", "stroke-linecap":"round"}));
+    // markers
+    pts[s.key].forEach(p=>{svg.append(el("circle",{cx:p.x,cy:p.y,r:p.r.exp?3.4:4.4,fill:CSS("--surface"),
+      stroke:s.color,"stroke-width":2.4, "stroke-opacity":p.r.exp?.55:1}));});
+    // end label
+    const last=pts[s.key][pts[s.key].length-1];
+    svg.append(txt(last.x+9,last.y+4,s.key,"dlabel",{fill:s.color}));
+  });
+  // exploratory note on budget 20
+  const p20=pts["70B"][4];
+  svg.append(txt(p20.x,py(0)-6,"n=39","tick",{"text-anchor":"middle","fill":CSS("--muted")}));
+  host.appendChild(svg);
+  // legend
+  const lg=document.getElementById("lg-ushape");
+  lg.append(chip(CSS("--s70"),"70B judge (strong)"),chip(CSS("--s8"),"8B judge (weak · side-biased)"));
+  // hover crosshair
+  const tip=mkTip(host);
+  const guide=el("line",{class:"base",y1:mT,y2:H-mB,"stroke-dasharray":"3 3",opacity:0});svg.append(guide);
+  const hit=el("rect",{x:mL,y:mT,width:W-mL-mR,height:H-mT-mB,fill:"transparent"});svg.append(hit);
+  hit.addEventListener("pointermove",ev=>{
+    const b=svg.getBoundingClientRect();const rx=(ev.clientX-b.left)/b.width*W;
+    let i=Math.round((rx-mL)/((W-mL-mR)/(xs.length-1)));i=Math.max(0,Math.min(xs.length-1,i));
+    const gx=px(i);guide.setAttribute("x1",gx);guide.setAttribute("x2",gx);guide.setAttribute("opacity",1);
+    const r70=DATA.ushape["70B"][i], r8=DATA.ushape["8B"][i];
+    let html=`<b>Budget ${xs[i]}</b>`;
+    html+=`<div class="r"><i style="background:${CSS("--s70")}"></i>70B &nbsp;<b>${r70.win}%</b> <span style="color:var(--muted)">[${r70.ci[0]}–${r70.ci[1]}]</span></div>`;
+    if(r8)html+=`<div class="r"><i style="background:${CSS("--s8")}"></i>8B &nbsp;<b>${r8.win}%</b> <span style="color:var(--muted)">[${r8.ci[0]}–${r8.ci[1]}]</span></div>`;
+    tip.innerHTML=html;
+    tip.style.left=(gx/W*b.width)+"px";tip.style.top=(py(Math.max(r70.win,r8?r8.win:0))/H*b.height)+"px";
+    tip.style.opacity=1;
+  });
+  hit.addEventListener("pointerleave",()=>{tip.style.opacity=0;guide.setAttribute("opacity",0);});
+})();
+
+/* ---------- side-stratified grouped bars ---------- */
+(function(){
+  const host=document.getElementById("c-side");
+  const W=520,H=300,mL=40,mR=16,mT=16,mB=48;
+  const yMax=42, py=v=>H-mB-(v/yMax)*(H-mT-mB);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Wrong rate by correct side"});
+  for(let g=0;g<=40;g+=10){svg.append(el("line",{class:"gl",x1:mL,x2:W-mR,y1:py(g),y2:py(g)}));
+    svg.append(txt(mL-8,py(g)+3.5,g+"%","tick",{"text-anchor":"end"}));}
+  svg.append(el("line",{class:"base",x1:mL,x2:W-mR,y1:py(0),y2:py(0)}));
+  const groups=DATA.side, gw=(W-mL-mR)/groups.length, bw=42, gap=10;
+  const colA=CSS("--sideA"), colB=CSS("--sideB");
+  const tip=mkTip(host);
+  function bar(x,v,color,name,jn){
+    const y=py(v),h=py(0)-y;
+    const r=el("rect",{x,y,width:bw,height:h,rx:4,fill:color});
+    r.addEventListener("pointerenter",ev=>{tip.innerHTML=`<b>${jn} judge</b><div class="r"><i style="background:${color}"></i>${name} correct &nbsp;<b>${v}%</b> wrong</div>`;
+      const b=svg.getBoundingClientRect();tip.style.left=((x+bw/2)/W*b.width)+"px";tip.style.top=(y/H*b.height)+"px";tip.style.opacity=1;});
+    r.addEventListener("pointerleave",()=>tip.style.opacity=0);
+    svg.append(r);
+    svg.append(txt(x+bw/2,y-6,v,"dlabel",{"text-anchor":"middle",fill:color}));
+  }
+  groups.forEach((g,i)=>{
+    const cx=mL+gw*i+gw/2;
+    bar(cx-bw-gap/2,g.A,colA,"A",g.judge);
+    bar(cx+gap/2,g.B,colB,"B",g.judge);
+    svg.append(txt(cx,H-mB+20,g.judge+" judge","tick",{"text-anchor":"middle"}));
+    if(i===0)svg.append(txt(cx,H-mB+34,"≈ symmetric → clean","axlabel",{"text-anchor":"middle",fill:CSS("--good-ink")}));
+    else svg.append(txt(cx,H-mB+34,"A ≫ B → side-biased","axlabel",{"text-anchor":"middle",fill:CSS("--s8")}));
+  });
+  host.appendChild(svg);
+  document.getElementById("lg-side").append(chip(colA,"A-correct"),chip(colB,"B-correct"));
+})();
+
+/* ---------- mechanism stacked bar ---------- */
+(function(){
+  const host=document.getElementById("c-mech"),W=520,H=150,mL=8,mR=8,mT=44,barH=40;
+  const total=DATA.mech.reduce((s,m)=>s+m.n,0);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Mechanism decomposition"});
+  const colOf={O1:CSS("--o1"),Q1:CSS("--q1"),R1:CSS("--r1"),R2:CSS("--r2"),M1:CSS("--m1")};
+  const iw=W-mL-mR; let x=mL; const gap=2; const tip=mkTip(host);
+  // group brackets
+  const fixN=DATA.mech.filter(m=>m.grp==="fixable").reduce((s,m)=>s+m.n,0);
+  const deepN=DATA.mech.filter(m=>m.grp==="deep").reduce((s,m)=>s+m.n,0);
+  DATA.mech.forEach((m,i)=>{
+    const w=iw*m.n/total-(i<DATA.mech.length-1?gap:0);
+    const r=el("rect",{x,y:mT,width:Math.max(w,1),height:barH,fill:colOf[m.k],
+      rx:i===0?5:0});
+    r.addEventListener("pointerenter",()=>{tip.innerHTML=`<div class="r"><i style="background:${colOf[m.k]}"></i>${m.label} &nbsp;<b>${m.n}</b> (${Math.round(100*m.n/total)}%)</div>`;
+      const b=svg.getBoundingClientRect();tip.style.left=((x+w/2)/W*b.width)+"px";tip.style.top=(mT/H*b.height)+"px";tip.style.opacity=1;});
+    r.addEventListener("pointerleave",()=>tip.style.opacity=0);
+    svg.append(r);
+    if(w>26)svg.append(txt(x+w/2,mT+barH/2+4,m.k,"dlabel",{"text-anchor":"middle",fill:"#fff"}));
+    x+=iw*m.n/total;
+  });
+  // brackets
+  const bx0=mL,bx1=mL+iw*fixN/total-gap,bx2=mL+iw*(fixN)/total,bx3=mL+iw*(fixN+deepN)/total-gap;
+  function bracket(x0,x1,label,color){
+    const y=mT-10;svg.append(el("line",{x1:x0,x2:x1,y1:y,y2:y,stroke:color,"stroke-width":1.6}));
+    svg.append(el("line",{x1:x0,x2:x0,y1:y,y2:y+5,stroke:color,"stroke-width":1.6}));
+    svg.append(el("line",{x1:x1,x2:x1,y1:y,y2:y+5,stroke:color,"stroke-width":1.6}));
+    svg.append(txt((x0+x1)/2,y-6,label,"dlabel",{"text-anchor":"middle",fill:color}));
+  }
+  bracket(bx0,bx1,"protocol-fixable · "+Math.round(100*fixN/total)+"%",CSS("--o1"));
+  bracket(bx2,bx3,"deep judge myopia · "+Math.round(100*deepN/total)+"%",CSS("--r1"));
+  host.appendChild(svg);
+  const lg=document.getElementById("lg-mech");
+  DATA.mech.forEach(m=>lg.append(chip(colOf[m.k],m.label.split(" · ")[0]+" "+m.label.split(" · ")[1]||m.k)));
+})();
+
+/* ---------- confidence line ---------- */
+(function(){
+  const host=document.getElementById("c-conf"),W=520,H=250,mL=40,mR=44,mT=16,mB=40;
+  const xs=[0,1,2,5,20];const px=i=>mL+i*(W-mL-mR)/(xs.length-1);
+  const yMin=4.0,yMax=4.85,py=v=>H-mB-((v-yMin)/(yMax-yMin))*(H-mT-mB);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Judge confidence vs budget"});
+  [4.0,4.2,4.4,4.6,4.8].forEach(g=>{svg.append(el("line",{class:"gl",x1:mL,x2:W-mR,y1:py(g),y2:py(g)}));
+    svg.append(txt(mL-8,py(g)+3.5,g.toFixed(1),"tick",{"text-anchor":"end"}));});
+  xs.forEach((v,i)=>svg.append(txt(px(i),H-mB+18,v,"tick",{"text-anchor":"middle"})));
+  svg.append(txt((mL+W-mR)/2,H-4,"ORACLE-CALL BUDGET","axlabel",{"text-anchor":"middle"}));
+  const col=CSS("--s70");const rows=DATA.ushape["70B"];
+  let d="";const pts=rows.map((r,i)=>({x:px(i),y:py(r.conf),r}));
+  pts.forEach((p,i)=>d+=(i?"L":"M")+p.x+" "+p.y);
+  svg.append(el("path",{d,fill:"none",stroke:col,"stroke-width":2.4,"stroke-linejoin":"round","stroke-linecap":"round"}));
+  const tip=mkTip(host);
+  pts.forEach((p,i)=>{const c=el("circle",{cx:p.x,cy:p.y,r:4.2,fill:CSS("--surface"),stroke:col,"stroke-width":2.4});
+    c.addEventListener("pointerenter",()=>{tip.innerHTML=`<b>Budget ${xs[i]}</b><div class="r"><i style="background:${col}"></i>confidence <b>${p.r.conf}</b> · wrong <b>${p.r.win}%</b></div>`;
+      const b=svg.getBoundingClientRect();tip.style.left=(p.x/W*b.width)+"px";tip.style.top=(p.y/H*b.height)+"px";tip.style.opacity=1;});
+    c.addEventListener("pointerleave",()=>tip.style.opacity=0);svg.append(c);});
+  svg.append(txt(pts[0].x+2,pts[0].y+16,"4.09","dlabel",{fill:col}));
+  svg.append(txt(pts[4].x-4,pts[4].y-9,"4.74","dlabel",{fill:col,"text-anchor":"end"}));
+  host.appendChild(svg);
+})();
+
+/* ---------- discordance diverging bars ---------- */
+(function(){
+  const host=document.getElementById("c-disc"),W=520,H=250,mL=64,mR=48,mT=14,mB=40;
+  const rows=DATA.disc; const rowH=(H-mT-mB)/rows.length; const mid=(mL+W-mR)/2;
+  const maxV=30, half=(W-mL-mR)/2, sx=v=>half*v/maxV;
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Verdict flips added by oracle access"});
+  const cW=CSS("--s8"),cC=CSS("--good");
+  svg.append(el("line",{class:"base",x1:mid,x2:mid,y1:mT,y2:H-mB}));
+  const tip=mkTip(host);
+  rows.forEach((r,i)=>{
+    const cy=mT+rowH*i+rowH/2;
+    // correct->wrong to the right (harm)
+    const wR=el("rect",{x:mid,y:cy-13,width:sx(r.cw),height:26,rx:4,fill:cW});
+    // wrong->correct to the left (help)
+    const wL=el("rect",{x:mid-sx(r.wc),y:cy-13,width:sx(r.wc),height:26,rx:4,fill:cC});
+    [[wR,`+${r.cw} correct→wrong`,cW],[wL,`−${r.wc} wrong→correct`,cC]].forEach(([rect,lab,c])=>{
+      rect.addEventListener("pointerenter",()=>{tip.innerHTML=`<b>Budget ${r.b}</b><div class="r"><i style="background:${c}"></i>${lab}</div>`;
+        const b=svg.getBoundingClientRect();tip.style.left=(mid/W*b.width)+"px";tip.style.top=((cy-14)/H*b.height)+"px";tip.style.opacity=1;});
+      rect.addEventListener("pointerleave",()=>tip.style.opacity=0);svg.append(rect);});
+    svg.append(txt(mL-10,cy+4,"budget "+r.b,"tick",{"text-anchor":"end"}));
+    svg.append(txt(mid+sx(r.cw)+6,cy+4,r.cw,"dlabel",{fill:cW}));
+    svg.append(txt(mid-sx(r.wc)-6,cy+4,r.wc,"dlabel",{fill:cC,"text-anchor":"end"}));
+  });
+  svg.append(txt(mid+half/2,H-mB+20,"correct → WRONG","axlabel",{"text-anchor":"middle",fill:cW}));
+  svg.append(txt(mid-half/2,H-mB+20,"wrong → correct","axlabel",{"text-anchor":"middle",fill:cC}));
+  host.appendChild(svg);
+  document.getElementById("lg-disc").append(chip(cW,"new errors (harm)"),chip(cC,"recoveries (help)"));
+})();
+</script>
