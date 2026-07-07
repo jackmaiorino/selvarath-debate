@@ -1,6 +1,6 @@
 # Re-Judge Protocol (frozen pre-run)
 
-**Frozen at commit:** `d727d40` *(state of the harness config when this document was
+**Frozen at commit:** `1839bc0` *(state of the harness config when this document was
 generated; the document itself lands in the following commit)* · **parser_version:**
 `2.0.0` · **Replicates:** K=2 (legacy K=1)
 **Judge = Oracle model:** `meta-llama/Llama-3.3-70B-Instruct-Turbo` · **Transcripts:** the 318 pilot transcripts (`data/transcripts.jsonl`), unchanged.
@@ -32,7 +32,8 @@ Placebo feedback text (verbatim):
   deliberation/turn-count, not verification content.
 - **Secondary (reported, not gated):** Δrecover5, dual-parse disagreement rate, INVALID rate,
   well_formed_claim rate, single-bug decomposition (NA_ONLY, DOUBLED_ONLY), legacy-vs-pilot
-  agreement (QA only).
+  agreement (QA only), CLEAN-vs-PLACEBO queries_used distribution parity (turn-count check
+  backing the deliberation gate).
 
 ## Spend control
 

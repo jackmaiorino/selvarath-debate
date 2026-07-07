@@ -67,6 +67,24 @@ def test_placebo_arm_no_oracle_call_fixed_feedback():
     assert feedback, "placebo text must be fed back to the judge"
 
 
+def test_placebo_turn_count_parity_full_budget_no_oracle_calls():
+    # Backs the deliberation gate (|PLACEBO - CLEAN| turn-count check): when the judge
+    # never signals DONE, placebo must consume the full budget turn-for-turn, exactly
+    # like the clean arm would, while making zero oracle calls -- the placebo controls
+    # for deliberation/turn-count without controlling for verification content.
+    client = ScriptedClient({
+        "query": ["CLAIM: fact one", "CLAIM: fact two", "CLAIM: fact three",
+                  "CLAIM: fact four", "CLAIM: fact five"],
+        "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: x",
+    })
+    rec = judge_loop.run_judgment(_tr(), "WORLD DOC", config.ARMS["placebo"], 5, 0,
+                                  client, _protocol())
+    assert rec["queries_used"] == 5
+    assert len(rec["exchanges"]) == 5
+    assert all(e["placebo"] is True for e in rec["exchanges"])
+    assert all(c["kind"] != "oracle" for c in client.calls)
+
+
 def test_done_handling_differs_by_arm():
     protocol = _protocol()
     # robust arm stops on "I'm done."

@@ -43,7 +43,8 @@ Placebo feedback text (verbatim):
   deliberation/turn-count, not verification content.
 - **Secondary (reported, not gated):** Δrecover5, dual-parse disagreement rate, INVALID rate,
   well_formed_claim rate, single-bug decomposition (NA_ONLY, DOUBLED_ONLY), legacy-vs-pilot
-  agreement (QA only).
+  agreement (QA only), CLEAN-vs-PLACEBO queries_used distribution parity (turn-count check
+  backing the deliberation gate).
 
 ## Spend control
 
