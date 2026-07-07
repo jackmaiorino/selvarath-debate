@@ -64,7 +64,7 @@ Dishonest-debater win rate (%), Wilson 95% CI, by judge and oracle budget:
 
 Pre-specified result (70B): **Δfew = +7.23 pp, cluster-bootstrap 95% CI [4.56, 10.22]**, positive in both strata (A ≈ +8.2, B ≈ +6.2). **Gate: BANKED.** `Δrecover5 = +3.8 pp` → only *partial* recovery by budget 5; the 20-call "recovery to 0%" is **not** claimable (n=39, CI reaches ~9%).
 
-### 4.2 Not a measurement artifact
+### 4.2 Not the verdict-parse artifact (does not clear the oracle-channel bugs)
 
 The pilot silently defaulted an unparseable verdict to "Position B," which can only create errors when *A* is the correct side. Wrong-rate at budget 2, split by correct side:
 
