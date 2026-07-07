@@ -140,7 +140,7 @@
     <div class="card tile">
       <div class="k">Why it fails (54 flips)</div>
       <div class="v">~½ / ~½</div>
-      <div class="d">protocol-fixable vs deep judge over-updating</div>
+      <div class="d">protocol-fixable vs deep judge over-updating — pre-audit; labels scored the corrupted oracle channel; reset to unknown (see correction)</div>
     </div>
   </section>
 
@@ -172,7 +172,8 @@
       <figure><div class="chart" id="c-mech"></div>
       <figcaption><b>~50%</b> is protocol-fixable — a better oracle (O1) or constrained judge queries (Q1).
         <b>~46%</b> is <b>deep myopia</b>: the judge over-trusts a true-but-irrelevant confirmation (R1) or
-        over-penalizes a real honest-side gap (R2) — a better oracle won't fix it.</figcaption></figure>
+        over-penalizes a real honest-side gap (R2) — a better oracle won't fix it.
+        <em>Pre-audit; labels scored the corrupted oracle channel — this split is reset to unknown (see correction).</em></figcaption></figure>
     </div>
   </section>
 
@@ -205,7 +206,7 @@
     <div>
       <h3>Next experiment (designed, not yet run)</h3>
       <ul>
-        <li>Open-source <b>judge × debater capability grid</b> (Llama / Qwen / Gemma) — does the deep myopia vanish as the judge scales?</li>
+        <li>Open-source <b>judge × debater capability grid</b> (Llama / Qwen / Gemma) — gated on the re-judge protocol's results (whether the harm survives a fixed oracle channel, and what mechanism split holds up), not on the pre-audit deep-myopia share above.</li>
         <li>Staged: a cheap <b>2×2 pilot</b> behind a hard gate → a 3×3 fractional grid. Every call spend-gated.</li>
       </ul>
     </div>
