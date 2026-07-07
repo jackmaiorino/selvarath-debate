@@ -21,10 +21,42 @@ def _load_jsonl(path):
         return [json.loads(l) for l in f]
 
 
+def stratified_subset(transcripts, n):
+    """Deterministically select the first `n` transcripts, stratified by `world`.
+
+    Groups transcripts by `world`, preserving each world's original file order, then
+    round-robins one transcript per world (worlds visited in first-seen order) until `n`
+    is reached. Plain `transcripts[:n]` silently degenerates into a single-world prefix
+    whenever the source file happens to be sorted/grouped by world (as
+    `data/transcripts.jsonl` is: its first 100 rows are 100% `carath_norn`) -- this makes
+    the legacy subset representative of every world instead.
+    """
+    groups: dict = {}
+    for tr in transcripts:
+        groups.setdefault(tr["world"], []).append(tr)
+    world_order = list(groups)          # first-seen order -> deterministic given input order
+    result = []
+    idx = 0
+    while len(result) < n:
+        took_any = False
+        for w in world_order:
+            bucket = groups[w]
+            if idx < len(bucket):
+                result.append(bucket[idx])
+                took_any = True
+                if len(result) == n:
+                    break
+        if not took_any:
+            break                        # every world's transcripts exhausted before n
+        idx += 1
+    return result
+
+
 def iter_cells(arm_names, budgets, transcripts, replicates, legacy_subset=100):
     cells = []
     for name in arm_names:
-        arm_transcripts = transcripts[:legacy_subset] if name == "legacy" else transcripts
+        arm_transcripts = (stratified_subset(transcripts, legacy_subset) if name == "legacy"
+                           else transcripts)
         arm_reps = 1 if name == "legacy" else replicates
         for tr in arm_transcripts:
             for b in budgets[name]:
@@ -74,6 +106,11 @@ def main(argv=None) -> int:
     ap.add_argument("--legacy-subset", type=int, default=100)
     args = ap.parse_args(argv)
 
+    if args.limit == 0:
+        print("REFUSED: --limit 0 is ambiguous ('run nothing' vs 'no limit'); omit --limit "
+              "for no limit, or pass a positive value.", file=sys.stderr)
+        return 2
+
     if not args.dry_run and args.approved_cap is None:
         print("REFUSED: live runs require --approved-cap USD (spend policy).", file=sys.stderr)
         return 2
@@ -85,7 +122,7 @@ def main(argv=None) -> int:
         return 2
 
     transcripts = _load_jsonl("data/transcripts.jsonl")
-    if args.limit:
+    if args.limit is not None:
         transcripts = transcripts[:args.limit]
     protocol = load_protocol()
     worlds = _world_documents()

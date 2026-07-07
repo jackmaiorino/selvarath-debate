@@ -4,7 +4,7 @@ from rejudge import runner
 
 
 def test_iter_cells_counts_and_legacy_k1():
-    trs = [{"question_id": f"Q{i}", "transcript_index": i} for i in range(4)]
+    trs = [{"question_id": f"Q{i}", "transcript_index": i, "world": "w0"} for i in range(4)]
     cells = runner.iter_cells(["clean", "legacy"], {"clean": [0, 1], "legacy": [1]},
                               trs, replicates=2)
     clean = [c for c in cells if c["arm"] == "clean"]
@@ -76,6 +76,39 @@ def test_cap_exceeded_halts_run(tmp_path, monkeypatch):
     rc = runner.main(["--arms", "clean", "--replicates", "1", "--limit", "2",
                       "--dry-run", "--workers", "2", "--out", str(tmp_path / "r.jsonl")])
     assert rc == 3
+
+
+def test_stratified_subset_is_world_balanced_and_deterministic():
+    # Synthetic 3-world list, 4 transcripts per world (file-order grouped, like the real
+    # data/transcripts.jsonl), so a naive transcripts[:6] prefix would be 100% world "a".
+    trs = ([{"question_id": f"a{i}", "transcript_index": i, "world": "a"} for i in range(4)]
+          + [{"question_id": f"b{i}", "transcript_index": i, "world": "b"} for i in range(4)]
+          + [{"question_id": f"c{i}", "transcript_index": i, "world": "c"} for i in range(4)])
+
+    result = runner.stratified_subset(trs, 6)
+    assert len(result) == 6
+    counts = {}
+    for tr in result:
+        counts[tr["world"]] = counts.get(tr["world"], 0) + 1
+    assert counts == {"a": 2, "b": 2, "c": 2}
+
+    # determinism: same input -> same output (byte-identical, not just same counts)
+    assert runner.stratified_subset(trs, 6) == result
+
+
+def test_stratified_subset_covers_all_worlds_on_real_data():
+    transcripts = runner._load_jsonl("data/transcripts.jsonl")
+    subset = runner.stratified_subset(transcripts, 100)
+    assert len(subset) == 100
+    assert {tr["world"] for tr in subset} == {"carath_norn", "selvarath", "vethun_sarak"}
+
+
+def test_limit_zero_is_refused_not_treated_as_no_limit(tmp_path):
+    # `if args.limit:` used to treat 0 as falsy -> "no limit", silently running the full
+    # 318-transcript set instead of the caller's evident intent ("run zero transcripts").
+    rc = runner.main(["--arms", "clean", "--limit", "0", "--dry-run",
+                      "--out", str(tmp_path / "r.jsonl")])
+    assert rc == 2
 
 
 def test_load_done_keys_tolerates_malformed_tail(tmp_path):
