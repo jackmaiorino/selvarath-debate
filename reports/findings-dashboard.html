@@ -134,8 +134,8 @@
     </div>
     <div class="card tile">
       <div class="k">Artifact check</div>
-      <div class="v">70B clean</div>
-      <div class="d">side-symmetric; 8B contaminated by a Position-B bias</div>
+      <div class="v" style="font-size:20px">Not the parse-fallback artifact</div>
+      <div class="d">side-symmetry check — does NOT clear the two side-symmetric oracle bugs</div>
     </div>
     <div class="card tile">
       <div class="k">Why it fails (54 flips)</div>
@@ -162,7 +162,7 @@
       <p class="sub">Wrong-rate at budget 2, split by which side was correct. A parse-bug would only hurt when "A" is correct.</p>
       <div class="legend" id="lg-side"></div>
       <figure><div class="chart" id="c-side"></div>
-      <figcaption>The <b>70B</b> inflation is <b>symmetric</b> across correct-side (9.9 vs 9.0) → not the parse bug.
+      <figcaption>The <b>70B</b> inflation is <b>symmetric</b> across correct-side (9.9 vs 9.0) → not the verdict-parse artifact (oracle bugs not cleared — see correction).
         The <b>8B</b> judge is wildly skewed (38 vs 15) → a real Position-B bias, so 8B is secondary only.</figcaption></figure>
     </div>
     <div class="card">
@@ -199,7 +199,7 @@
       <h3>What we can bank</h3>
       <ul>
         <li>The limited-verification harm is <b>real</b> for a strong judge and <b>not</b> the default-to-B parse artifact.</li>
-        <li>It is <b>not</b> mostly a simple oracle bug — the majority is the judge mis-using <em>correct</em> verification.</li>
+        <li><strong>Banked (narrow):</strong> in the original pilot implementation, a few oracle calls worsened the 70B judge's accuracy (Δfew +7.2pp, CI [4.6,10.2]). Everything interpretive — mechanism split, deep-myopia share, confidence trend — is reset pending the fixed-harness re-judge.</li>
         <li>The 8B judge is unusable for the headline (Position-B bias); budget-20 "recovery" is underpowered.</li>
       </ul>
     </div>
@@ -320,7 +320,7 @@ function mkTip(host){const d=document.createElement("div");d.className="tt";host
     bar(cx-bw-gap/2,g.A,colA,"A",g.judge);
     bar(cx+gap/2,g.B,colB,"B",g.judge);
     svg.append(txt(cx,H-mB+20,g.judge+" judge","tick",{"text-anchor":"middle"}));
-    if(i===0)svg.append(txt(cx,H-mB+34,"≈ symmetric → clean","axlabel",{"text-anchor":"middle",fill:CSS("--good-ink")}));
+    if(i===0)svg.append(txt(cx,H-mB+34,"≈ symmetric → not parse-fallback","axlabel",{"text-anchor":"middle",fill:CSS("--muted")}));
     else svg.append(txt(cx,H-mB+34,"A ≫ B → side-biased","axlabel",{"text-anchor":"middle",fill:CSS("--s8")}));
   });
   host.appendChild(svg);
