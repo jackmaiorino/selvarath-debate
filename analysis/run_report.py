@@ -11,6 +11,14 @@ def _md_table(df):
     return df.to_markdown(index=False)
 
 
+def _kappa(a, b):
+    labs = sorted(set(a) | set(b))
+    n = len(a)
+    po = sum(x == y for x, y in zip(a, b)) / n
+    pe = sum((a.count(l) / n) * (b.count(l) / n) for l in labs)
+    return 1.0 if pe >= 1 else (po - pe) / (1 - pe)
+
+
 def _gate(summary):
     row = summary[(summary.stat == "few") & (summary.stratum == "overall")].iloc[0]
     a = summary[(summary.stat == "few") & (summary.stratum == "A")].iloc[0]
@@ -32,46 +40,19 @@ def _recommendation(passed, parse_ok, labels):
                "budget-20 'recovery' is NOT claimable (n=39). The 8B judge is contaminated by a "
                "Position-B side bias and is secondary only.\n")
     if labels is not None:
-        s = mechanism.summarize_labels(labels).set_index("label")
-
-        def cnt(k):
-            return int(s.loc[k, "count"]) if k in s.index else 0
-
-        fm1, fm2, oth = cnt("FM1"), cnt("FM2"), cnt("other")
-        n = fm1 + fm2 + oth or 1
-        out.append(f"- **Mechanism (PRELIMINARY — single LLM labeler):** of {fm1 + fm2 + oth} gross "
-                   f"correct→wrong flips, FM1 (fixable oracle-answer errors) = {fm1} ({100 * fm1 / n:.0f}%), "
-                   f"FM2 (irrelevant true confirmation) = {fm2} ({100 * fm2 / n:.0f}%), "
-                   f"other = {oth} ({100 * oth / n:.0f}%). ")
-        if fm2 >= fm1:
-            out.append("Per the spec's decision rule this is the **'substantial FM2 present'** case, NOT "
-                       "the conservative 'mostly FM1 / fixable oracle' case: only ~a third of gross harmful "
-                       "flips are direct oracle-answer errors.\n")
-        else:
-            out.append("Per the spec's decision rule this leans **'mostly FM1' (fixable oracle)**.\n")
-        out.append("- **Do NOT over-claim** 'a better oracle won't fix the majority.' The split is "
-                   "under-validated: single LLM labeler; counts are GROSS flips (net harm also involves the "
-                   "8 unclassified wrong→correct reverse flips); and one oracle-error template (CN-003 "
-                   "fixed-threshold) recurs across 4 transcripts, so per-flip FM1 overstates independent "
-                   "prevalence. The point estimate carries a wide (~19–43%) interval.\n")
-    out.append("- **Recommended next steps, in order:**\n"
-               "  1. **D — mechanism-label validation ($0):** second independent blind labeler on all 54 "
-               "flips + classify the 8 reverse flips (net-aware), with required world-doc evidence quotes; "
-               "cluster FM1/FM2 per question. Firms up the load-bearing 'only ~1/3 is fixable oracle' "
-               "number before any spend.\n"
-               "  2. **C — paired oracle ablation (~$5–15, needs approval + estimate):** same 70B judge and "
-               "transcripts, budgets 1/2; original oracle vs a stronger/citation-calibrated oracle, rerunning "
-               "the original oracle concurrently for rerun-noise, A/B labels held fixed across budgets; "
-               "optionally a placebo/sham-oracle arm (isolate whether harm is from oracle ANSWERS or the "
-               "verification prompt itself). **Gate:** better oracle drops Δfew ≤2 pp / CI includes 0 → "
-               "mostly oracle-protocol artifact; Δfew stays ≥4 pp → judge-side effect, frontier justified.\n"
-               "  3. **B — frontier rerun (needs approval + cost-out):** does a stronger JUDGE avoid the "
-               "FM2/over-updating pathology (the project's capability-gap question)?\n"
-               "- Audit trail: `mechanism_labels.md` (per-case oracle_check + justification) and `labels.csv`.\n")
+        out.append("- **Mechanism labels (pre-audit):** postmortem of the corrupted oracle channel — "
+                   "no longer treated as a decomposition of clean verification; carry no interpretive "
+                   "weight until re-measured under the fixed harness.\n")
+    out.append("- **Next step (designed, spend-gated):** the fixed-harness re-judge — CLEAN {0,1,2,5}, "
+               "bug-replay BOTH {1,2,5}, PLACEBO {1,2,5}, single-bug arms {1,2}, K=2 replicates, legacy "
+               "QA subset. Ex-ante gates frozen in `docs/rejudge-protocol.md`. The capability grid stays "
+               "gated on that outcome.\n"
+               "- Audit trail: `mechanism_labels.md`, `mechanism_validation.md`, `labels.csv`, "
+               "`labels_pass2.csv`.\n")
     return "".join(out)
 
 
-def build_report(df, B=10000, seed=0, labels=None):
+def build_report(df, B=10000, seed=0, labels=None, labels2=None):
     summ = inference.summarize(df, "70B", B=B, seed=seed)
     treat = parse_sensitivity.delta_few_under_treatments(df, "70B")
     passed, row, a, b = _gate(summ)
@@ -83,7 +64,7 @@ def build_report(df, B=10000, seed=0, labels=None):
     parts.append("\n\n## Side split (70B)\n\n" + _md_table(describe.side_stratified_table(df, "70B")))
     parts.append("\n\n## Confidence x correctness (70B)\n\n"
                  + _md_table(describe.confidence_by_correctness(df, "70B")))
-    parts.append("\n\n## Primary inference (70B)\n\nPre-registered contrasts (pp), "
+    parts.append("\n\n## Primary inference (70B)\n\nPre-specified contrasts (pp; see report framing note), "
                  "question-cluster bootstrap 95% CI:\n\n" + _md_table(summ))
     parts.append(f"\n\n- Δfew overall = {row.point_pp:.2f} pp "
                  f"[{row.ci_lo_pp:.2f}, {row.ci_hi_pp:.2f}]\n")
@@ -101,8 +82,21 @@ def build_report(df, B=10000, seed=0, labels=None):
     parts.append("\n\n## Secondary: 8B (side-bias caveat)\n\n"
                  + _md_table(describe.side_stratified_table(df, "8B")))
     if labels is not None:
-        parts.append("\n\n## Mechanism (FM1/FM2)\n\n"
+        parts.append("\n\n## Mechanism (pre-audit — corrupted oracle channel)\n\n"
+                     "> **Correction (2026-07-06):** the pilot's oracle pipeline was broken for ~100% of "
+                     "calls (NOT-ADDRESSED→NO miscoding; doubled queries). These labels scored the corrupted "
+                     "channel and are a postmortem of the buggy harness, NOT a decomposition of clean "
+                     "verification. Reset to unknown pending the fixed-harness re-judge "
+                     "(`docs/rejudge-protocol.md`).\n\n"
                      + _md_table(mechanism.summarize_labels(labels)))
+        if labels2 is not None:
+            pass1_labs = [r["label"] for r in labels]
+            pass2_labs = [r["label"] for r in labels2]
+            agree = sum(x == y for x, y in zip(pass1_labs, pass2_labs))
+            parts.append(f"\n\nTwo-pass agreement: {agree}/{len(pass1_labs)} "
+                         f"(Cohen's kappa = {_kappa(pass1_labs, pass2_labs):.2f}). "
+                         "Full consensus + refined O1/Q1/R1/R2 taxonomy: `mechanism_validation.md` "
+                         "(same correction applies).")
     parts.append("\n\n## Gate evaluation\n\n"
                  f"- Δfew CI excludes 0 with lower bound ≳ +2pp: **{row.ci_lo_pp:.2f} pp** → "
                  f"{'PASS' if row.ci_lo_pp >= 2.0 else 'FAIL'}\n"
@@ -126,7 +120,13 @@ def main(out_dir="analysis/output"):
         import csv
         with open(labels_csv, encoding="utf-8") as f:
             labels = list(csv.DictReader(f))
-    (out / "report.md").write_text(build_report(df, labels=labels), encoding="utf-8")
+    labels2 = None
+    labels2_csv = out / "labels_pass2.csv"
+    if labels2_csv.exists():
+        import csv
+        with open(labels2_csv, encoding="utf-8") as f:
+            labels2 = list(csv.DictReader(f))
+    (out / "report.md").write_text(build_report(df, labels=labels, labels2=labels2), encoding="utf-8")
     cases = mechanism.extract_flip_cases(df)
     (out / "mechanism_cases.md").write_text(mechanism.render_cases_markdown(cases), encoding="utf-8")
     print(f"Wrote {out/'report.md'} and {out/'mechanism_cases.md'} ({len(cases)} flip cases)")

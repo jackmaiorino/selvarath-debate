@@ -1,3 +1,8 @@
+> **⚠️ Correction (2026-07-06):** this validation was performed on the CORRUPTED pilot oracle channel
+> (NOT-ADDRESSED→NO miscoding, doubled queries — see the report Correction). It validates label
+> *reliability* (two-pass κ=0.72), not the mechanism *conclusion*. The O1/Q1/R1/R2 shares are a
+> postmortem of the buggy harness and reset to unknown pending the fixed-harness re-judge.
+
 # Mechanism validation (Deliverable D) — supersedes the report's preliminary FM1/FM2 section
 
 Two **independent, blind** labeling passes over the 54 forward flip cases (70B judge, correct@0 → wrong@{1,2}), plus classification of the 8 reverse (beneficial) flips. Both passes used Claude Sonnet with per-world ground-truth docs; pass 2 additionally required verbatim world-doc + judge-reasoning quotes and a refined taxonomy. (An opus/human cross-pass remains a cheap follow-up — the opus attempt hit a session limit.)
