@@ -26,12 +26,10 @@ def is_done_pilot(text: str) -> bool:
 
 
 _DONE_ROBUST = re.compile(
-    r"(?i)\bdone\b|\bno\s+(?:more|further)\s+quer",
+    r"(?i)^\s*(?:i\s*'?\s*a?m\s+)?done\b|^\s*no\s+(?:more|further)\s+quer",
 )
 
 
 def is_done_robust(text: str) -> bool:
     first_line = text.strip().splitlines()[0] if text.strip() else ""
-    if first_line.rstrip().endswith("?"):
-        return False
-    return bool(_DONE_ROBUST.search(first_line))
+    return bool(_DONE_ROBUST.search(first_line)) and not first_line.endswith("?")

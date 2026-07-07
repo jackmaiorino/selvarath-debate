@@ -22,3 +22,9 @@ def test_done_detectors():
     assert oc.is_done_robust("I'm done — no further queries.") is True
     assert oc.is_done_robust("No more queries needed") is True
     assert oc.is_done_robust("Is it stated that the work is done?") is False
+
+
+def test_done_robust_rejects_mid_sentence_done():
+    assert oc.is_done_robust("The treaty was done in Year 38") is False
+    assert oc.is_done_robust("CLAIM: the war is done") is False
+    assert oc.is_done_robust("") is False
