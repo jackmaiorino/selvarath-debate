@@ -91,6 +91,21 @@ def test_oracle_no_evidence_is_invalid():
     assert parsing.normalize_oracle("NO EVIDENCE in the text supports this") == "INVALID"
 
 
+def test_verdict_or_ambiguity_bare_letters():
+    assert parsing.parse_verdict_strict("VERDICT: A or B")["verdict"] is None
+    assert parsing.parse_verdict_strict("VERDICT: Position A or B")["verdict"] is None
+
+
+def test_verdict_disagreement_is_invalid():
+    assert parsing.parse_verdict_strict("VERDICT: I disagree with Position A")["verdict"] is None
+
+
+def test_first_verdict_wins_over_quoted_later_one():
+    r = parsing.parse_verdict_strict(
+        "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: earlier the debater said\nVERDICT: gibberish")
+    assert r["verdict"] == "A"
+
+
 # ---- design ----
 
 def test_position_fixed_and_deterministic():

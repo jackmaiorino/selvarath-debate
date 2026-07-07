@@ -21,9 +21,18 @@ def _commit_side(v):
     v = v.strip().lstrip(_LEAD).strip()
     if re.match(r"(NOT|NEITHER|NO)\b", v):
         return None
+    if re.search(r"\b(DISAGREE|REJECT)\b", v):
+        return None
     a = bool(re.search(r"\b(?:POSITION|DEBATER)\s+A\b", v)) or bool(re.match(r"A\b", v))
     b = bool(re.search(r"\b(?:POSITION|DEBATER)\s+B\b", v)) or bool(re.match(r"B\b", v))
     if a and b:
+        return None
+    # "A or B" / "Position A or B": an explicit OR naming the other side is
+    # ambiguous even when only one side matched the bare-letter/qualified checks
+    # above (a bare `\bB\b`/`\bA\b` search would false-positive on the article "A").
+    if a and re.search(r"\bOR\s+(?:POSITION\s+|DEBATER\s+)?B\b", v):
+        return None
+    if b and re.search(r"\bOR\s+(?:POSITION\s+|DEBATER\s+)?A\b", v):
         return None
     return "A" if a else ("B" if b else None)
 
@@ -52,7 +61,11 @@ def parse_verdict_strict(text):
             v = up[len("VERDICT:"):]
             if not v.strip().lstrip(_LEAD).strip() and i + 1 < len(lines):
                 v = lines[i + 1].strip().lstrip(_LEAD).strip().upper()
-            verdict = _commit_side(v)
+            # First-wins: once a side is committed, a later "VERDICT:"-looking
+            # line (e.g. REASONING text quoting the debater) must not overwrite
+            # it. A later line may still set it if the first attempt was None.
+            if verdict is None:
+                verdict = _commit_side(v)
         elif up.startswith("CONFIDENCE:"):
             capturing = False
             m = re.match(r"[\s*_`]*([1-5])\b", s[len("CONFIDENCE:"):])
