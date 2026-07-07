@@ -9,8 +9,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rejudge import judge_loop
-from rejudge.api_client import RejudgeClient
+from rejudge.api_client import CapExceededError, RejudgeClient
 from rejudge.config import ARMS, DEFAULT_BUDGETS, DEFAULT_REPLICATES, load_protocol
+from rejudge.records import utc_now_iso
 
 DEFAULT_ARMS = "clean,both,placebo,na_only,doubled_only"
 
@@ -38,7 +39,20 @@ def load_done_keys(out_path) -> set:
     p = Path(out_path)
     if not p.exists():
         return set()
-    return {json.loads(l)["cell_key"] for l in p.read_text(encoding="utf-8").splitlines() if l}
+    keys = set()
+    skipped = 0
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        try:
+            keys.add(json.loads(line)["cell_key"])
+        except (json.JSONDecodeError, KeyError):
+            # A process killed mid-write can leave a truncated tail line; skip it rather
+            # than blocking every future resume.
+            skipped += 1
+    if skipped:
+        print(f"skipped {skipped} malformed line(s) in {out_path}")
+    return keys
 
 
 def _world_documents():
@@ -77,6 +91,7 @@ def main(argv=None) -> int:
     worlds = _world_documents()
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    failed_path = out_path.parent / "failed_cells.jsonl"
 
     cells = iter_cells(arm_names, DEFAULT_BUDGETS, transcripts, args.replicates,
                        args.legacy_subset)
@@ -88,17 +103,40 @@ def main(argv=None) -> int:
     client = RejudgeClient(approved_cap_usd=args.approved_cap or 0.0, dry_run=args.dry_run,
                            error_log_path=str(out_path.parent / "errors.jsonl"))
     lock = threading.Lock()
+    cap_hit = threading.Event()
 
     def run_cell(cell):
+        # Fail-fast on a spend-cap breach: stop taking new work and let in-flight cells
+        # drain; any other exception (transient API failure after retries, context-guard
+        # trip, unexpected bug) is isolated to this cell so the batch keeps going -- the
+        # cell stays absent from out_path, so a later resume retries it.
+        if cap_hit.is_set():
+            return
         tr = cell["transcript"]
-        rec = judge_loop.run_judgment(tr, worlds[tr["world"]], ARMS[cell["arm"]],
-                                      cell["budget"], cell["replicate"], client, protocol)
+        try:
+            rec = judge_loop.run_judgment(tr, worlds[tr["world"]], ARMS[cell["arm"]],
+                                          cell["budget"], cell["replicate"], client, protocol)
+        except CapExceededError:
+            cap_hit.set()
+            return
+        except Exception as exc:
+            with lock:
+                with open(failed_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"cell_key": cell["cell_key"], "error": str(exc),
+                                        "ts": utc_now_iso()}) + "\n")
+            print(f"WARN: cell {cell['cell_key']} failed: {exc}", file=sys.stderr)
+            return
         with lock:
             with open(out_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec) + "\n")
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         list(ex.map(run_cell, todo))
+
+    if cap_hit.is_set():
+        print("CAP REACHED — run halted; resume after raising cap.", file=sys.stderr)
+        return 3
+
     print(f"done. total tokens={client.total_tokens} spent=${client.spent_usd:.2f}")
     return 0
 

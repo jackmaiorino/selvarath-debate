@@ -40,3 +40,45 @@ def test_live_requires_cap(tmp_path):
     rc = runner.main(["--arms", "clean", "--limit", "1",
                       "--out", str(tmp_path / "r.jsonl")])
     assert rc == 2                              # refused: no --approved-cap and not --dry-run
+
+
+def test_transient_cell_error_skips_and_continues(tmp_path, monkeypatch):
+    # --arms clean --limit 1 --replicates 1 -> 1 transcript x [0, 1, 2, 5] budgets x K=1
+    # = 4 cells. iter_cells nests budgets inside the (single) transcript, replicate
+    # innermost, so with --workers 1 (a single worker thread draining `todo` in list
+    # order) the 4 judge_loop.run_judgment calls happen in that same deterministic
+    # order: the first call is budget=0, which `flaky` makes fail; the remaining 3
+    # (budgets 1, 2, 5) succeed and get written.
+    calls = {"n": 0}
+
+    def flaky(tr, wd, arm, budget, replicate, client, protocol, judge_model=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("boom")
+        return {"cell_key": f"k{calls['n']}", "dry_run": True}
+    monkeypatch.setattr(runner.judge_loop, "run_judgment", flaky)
+    out = tmp_path / "r.jsonl"
+    rc = runner.main(["--arms", "clean", "--replicates", "1", "--limit", "1",
+                      "--dry-run", "--workers", "1", "--out", str(out)])
+    assert rc == 0
+    rows = out.read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 3            # clean has 4 budgets; 1 failed, 3 written
+    failed = (tmp_path / "failed_cells.jsonl").read_text(encoding="utf-8")
+    assert "boom" in failed
+
+
+def test_cap_exceeded_halts_run(tmp_path, monkeypatch):
+    from rejudge.api_client import CapExceededError
+
+    def capped(*a, **k):
+        raise CapExceededError("cap")
+    monkeypatch.setattr(runner.judge_loop, "run_judgment", capped)
+    rc = runner.main(["--arms", "clean", "--replicates", "1", "--limit", "2",
+                      "--dry-run", "--workers", "2", "--out", str(tmp_path / "r.jsonl")])
+    assert rc == 3
+
+
+def test_load_done_keys_tolerates_malformed_tail(tmp_path):
+    p = tmp_path / "r.jsonl"
+    p.write_text('{"cell_key": "a|b|1|0|0"}\n{"cell_key": "trunc', encoding="utf-8")
+    assert runner.load_done_keys(p) == {"a|b|1|0|0"}
