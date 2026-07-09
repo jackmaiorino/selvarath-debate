@@ -1,6 +1,6 @@
 # Re-Judge Protocol (frozen pre-run)
 
-**Frozen at commit:** `cf6f68b` *(state of the harness config when this document was
+**Frozen at commit:** `f451f98` *(state of the harness config when this document was
 generated; the document itself lands in the following commit)* · **parser_version:**
 `2.0.0` · **Replicates:** K=2 (legacy K=1)
 **Judge = Oracle model:** `meta-llama/Llama-3.3-70B-Instruct-Turbo` · **Transcripts:** the 318 pilot transcripts (`data/transcripts.jsonl`), unchanged.
@@ -63,6 +63,17 @@ the arms vary only the treatment side — what the judge actually experiences.
   well_formed_claim rate, single-bug decomposition (NA_ONLY, DOUBLED_ONLY), legacy-vs-pilot
   agreement (QA only), CLEAN-vs-PLACEBO queries_used distribution parity (turn-count check
   backing the deliberation gate).
+
+## Amendment 1 (2026-07-08, frozen BEFORE the K=3 escalation data)
+
+Stage-1 K=2 outcome: primary gate INDETERMINATE (clean Δfew = +3.54 pp, CI [+1.42, +6.06]).
+Per protocol, CLEAN escalates to K=3; PLACEBO is escalated alongside it because the
+clean-vs-placebo contrast (content vs deliberation) is the unresolved question.
+The original ≥4 pp gate keeps its meaning and is NOT rewritten. Amended follow-up decision
+rule for smaller real effects, committed before seeing any K=3 data: if pooled K=3 CLEAN
+Δfew ≥ 3 pp with CI lower bound > 0, AND clean−placebo at budgets (1, 2) remains positive,
+proceed to a REDUCED-SCOPE phase-2 capability pilot (not the full grid). A result below
+that is reported as-is with no phase-2 commitment.
 
 ## Spend control
 
