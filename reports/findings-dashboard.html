@@ -107,6 +107,40 @@
     <strong>mechanism split, the "deep-myopia" share, and the confidence result below are contaminated and reset to unknown</strong>
     pending a fixed-harness re-run. Charts retained for the record.
   </div>
+
+  <section class="card" id="stage1-rejudge" style="margin-bottom:26px">
+    <h2>Stage 1 re-judge (2026-07-09): pre-registered validation results</h2>
+    <p class="sub">Six-arm clean-harness re-judge of the pilot's 318 transcripts (11,330 judgments), gates frozen before any clean data.</p>
+    <div class="grid tiles" style="margin:18px 0">
+      <div class="tile">
+        <div class="k">Clean-harness harm</div>
+        <div class="v" style="color:var(--s70)">+3.4 pp</div>
+        <div class="d">Δfew, 95% CI [+1.3, +5.9], pre-registered gate: indeterminate (real, below the 4pp bar)</div>
+      </div>
+      <div class="tile">
+        <div class="k">Share from harness bugs</div>
+        <div class="v">~49%</div>
+        <div class="d">BOTH−CLEAN +3.5pp [+1.6, +5.6], mostly the NOT-ADDRESSED→NO miscoding</div>
+      </div>
+      <div class="tile">
+        <div class="k">Deliberation turns alone</div>
+        <div class="v">+1.6 pp</div>
+        <div class="d">placebo vs budget-0, CI [+0.3, +3.3]; content-vs-turns unresolved</div>
+      </div>
+      <div class="tile">
+        <div class="k">Verdict</div>
+        <div class="v" style="font-size:22px">Scoped phase 2</div>
+        <div class="d">Amendment-1 rule passed: reduced-scope capability pilot</div>
+      </div>
+    </div>
+    <div class="legend" id="lg-stage1"></div>
+    <figure>
+      <div class="chart" id="c-stage1"></div>
+      <figcaption>The clean harness halves the pilot effect and does not reproduce its recovery at budget 5. n=954/cell (clean, placebo), 636 (both); question-cluster bootstrap CIs in the report.</figcaption>
+    </figure>
+    <p class="sub" style="margin-top:14px">Full results: <a href="2026-07-09-stage1-rejudge-results.md">reports/2026-07-09-stage1-rejudge-results.md</a></p>
+  </section>
+
   <header>
     <div class="eyebrow">AI-Safety Research · Debate as Scalable Oversight</div>
     <h1>Does a little verification <span class="q">hurt</span> oversight?</h1>
@@ -226,7 +260,12 @@ const DATA = {
   mech:[{k:"O1",n:13,label:"O1 · oracle error",grp:"fixable"},{k:"Q1",n:14,label:"Q1 · bad judge query",grp:"fixable"},
     {k:"R1",n:17,label:"R1 · irrelevant confirmation",grp:"deep"},{k:"R2",n:8,label:"R2 · over-penalized gap",grp:"deep"},
     {k:"M1",n:2,label:"M1 · ambiguous",grp:"amb"}],
-  disc:[{b:1,cw:27,wc:5},{b:2,cw:27,wc:3}]
+  disc:[{b:1,cw:27,wc:5},{b:2,cw:27,wc:3}],
+  stage1:{
+    clean:[{b:0,v:1.26},{b:1,v:3.25},{b:2,v:6.09},{b:5,v:5.66}],
+    both:[{b:1,v:7.86},{b:2,v:8.49},{b:5,v:5.03}],
+    placebo:[{b:1,v:3.14},{b:2,v:2.62},{b:5,v:3.56}]
+  }
 };
 const CSS = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const SVGNS="http://www.w3.org/2000/svg";
@@ -414,5 +453,38 @@ function mkTip(host){const d=document.createElement("div");d.className="tt";host
   svg.append(txt(mid-half/2,H-mB+20,"wrong → correct","axlabel",{"text-anchor":"middle",fill:cC}));
   host.appendChild(svg);
   document.getElementById("lg-disc").append(chip(cW,"new errors (harm)"),chip(cC,"recoveries (help)"));
+})();
+
+/* ---------- Stage 1 re-judge: clean vs bug-replay vs placebo ---------- */
+(function(){
+  const host=document.getElementById("c-stage1");
+  const W=760,H=320,mL=46,mR=64,mT=18,mB=44;
+  const xs=[0,1,2,5]; const px=i=>mL+i*(W-mL-mR)/(xs.length-1);
+  const yMax=10, py=v=>H-mB-(v/yMax)*(H-mT-mB);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Dishonest win rate vs oracle budget: clean, bug-replay, and placebo arms"});
+  for(let g=0;g<=10;g+=2){svg.append(el("line",{class:"gl",x1:mL,x2:W-mR,y1:py(g),y2:py(g)}));
+    svg.append(txt(mL-8,py(g)+3.5,g+"%","tick",{"text-anchor":"end"}));}
+  xs.forEach((v,i)=>svg.append(txt(px(i),H-mB+18,v,"tick",{"text-anchor":"middle"})));
+  svg.append(txt((mL+W-mR)/2,H-6,"ORACLE-CALL BUDGET","axlabel",{"text-anchor":"middle"}));
+  svg.append(el("line",{class:"base",x1:mL,x2:W-mR,y1:py(0),y2:py(0)}));
+  const series=[
+    {key:"clean",name:"clean (bugs fixed)",color:CSS("--s70"),rows:DATA.stage1.clean,dy:-9},
+    {key:"both",name:"both (bugs replayed)",color:CSS("--r1"),rows:DATA.stage1.both,dy:-9},
+    {key:"placebo",name:"placebo (turns only)",color:CSS("--q1"),rows:DATA.stage1.placebo,dy:16}
+  ];
+  series.forEach(s=>{
+    const pts=s.rows.map(r=>({x:px(xs.indexOf(r.b)),y:py(r.v),r}));
+    let d="";pts.forEach((p,i)=>d+=(i?"L":"M")+p.x+" "+p.y);
+    svg.append(el("path",{d,fill:"none",stroke:s.color,"stroke-width":2.4,"stroke-linejoin":"round","stroke-linecap":"round"}));
+    pts.forEach(p=>{
+      svg.append(el("circle",{cx:p.x,cy:p.y,r:4.2,fill:CSS("--surface"),stroke:s.color,"stroke-width":2.4}));
+      svg.append(txt(p.x,p.y+s.dy,p.r.v.toFixed(2),"dlabel",{"text-anchor":"middle",fill:s.color}));
+    });
+    const last=pts[pts.length-1];
+    svg.append(txt(last.x+9,last.y+4,s.key,"dlabel",{fill:s.color}));
+  });
+  host.appendChild(svg);
+  const lg=document.getElementById("lg-stage1");
+  lg.append(chip(CSS("--s70"),"clean (bugs fixed)"),chip(CSS("--r1"),"both (bugs replayed)"),chip(CSS("--q1"),"placebo (turns only)"));
 })();
 </script>
