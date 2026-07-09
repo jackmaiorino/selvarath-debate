@@ -9,15 +9,18 @@ experiments.
 Funded by a [Manifund grant](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s).
 Pilot write-up: [Limited verification can hurt debate oversight](https://www.lesswrong.com/posts/2a3vce7WooJ4XkDqw/limited-verification-can-hurt-debate-oversight) (LessWrong).
 
-## Status (2026-07-08)
+## Status (2026-07-09)
 
 - Pilot re-analysis complete: headline effect quantified at Delta_few = +7.2pp, 95% CI [4.6, 10.2].
 - A code audit found two data-corrupting bugs in the pilot's oracle channel (NOT-ADDRESSED replies
   miscoded to NO; ~100% of oracle queries garbled). Mechanism-level conclusions were retracted; see
   the correction in `reports/2026-07-06-preliminary-findings.md`.
-- **Stage 1 validation run in progress**: the 318 pilot transcripts re-judged under six arms
-  (clean harness, bug replay, placebo oracle, two single-bug arms, legacy QA), K=2 replicates,
-  with pre-registered gates frozen before any clean data existed: `docs/rejudge-protocol.md`.
+- **Stage 1 validation complete** (pre-registered, 11,330 judgments, $182): the clean harness
+  preserves a smaller but statistically positive harm signal (Delta_few = +3.4pp, CI [+1.3, +5.9]);
+  the bugs contributed about half the pilot's headline; extra deliberation turns alone cause a
+  small degradation; the pilot's U-shaped recovery is not reproduced. Full results:
+  `reports/2026-07-09-stage1-rejudge-results.md`. Next: reduced-scope phase-2 capability pilot
+  per the protocol's Amendment 1.
 
 ## Repo layout
 

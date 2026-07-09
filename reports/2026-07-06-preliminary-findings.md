@@ -17,6 +17,7 @@ A subsequent code audit found the pilot's **oracle pipeline was broken for ~100%
 - **Only clean claim right now:** *in the original pilot implementation, adding a few oracle calls worsened the 70B judge's accuracy.*
 - **Fix path:** a fixed-harness re-judge of the existing 318 transcripts (correct NOT-ADDRESSED handling, fixed query composition, strict verdict parsing, A/B fixed across budgets, full raw logging) plus a bug-factorial replay arm, to measure how much of Δfew and the mechanism survive the fixes — *before* any capability-grid spend.
 - **Status update (2026-07-07):** the re-judge experiment is now designed and specced — see [`docs/superpowers/specs/2026-07-07-rejudge-harness-design.md`](../docs/superpowers/specs/2026-07-07-rejudge-harness-design.md) and the frozen pre-run protocol `docs/rejudge-protocol.md`.
+- **RESULTS (2026-07-09):** the re-judge is complete. The harm signal survives the clean harness at half the size (+3.4pp, CI [+1.3, +5.9]); the bugs explain about half of this report's +7.2pp. See [`2026-07-09-stage1-rejudge-results.md`](2026-07-09-stage1-rejudge-results.md).
 
 The sections below are the **pre-audit** analysis, retained for the record.
 
