@@ -1,6 +1,6 @@
 # Re-Judge Protocol (frozen pre-run)
 
-**Frozen at commit:** `214c3c1` *(state of the harness config when this document was
+**Frozen at commit:** `cf6f68b` *(state of the harness config when this document was
 generated; the document itself lands in the following commit)* · **parser_version:**
 `2.0.0` · **Replicates:** K=2 (legacy K=1)
 **Judge = Oracle model:** `meta-llama/Llama-3.3-70B-Instruct-Turbo` · **Transcripts:** the 318 pilot transcripts (`data/transcripts.jsonl`), unchanged.
@@ -67,5 +67,10 @@ the arms vary only the treatment side — what the judge actually experiences.
 ## Spend control
 
 Live runs require `--approved-cap` (hard abort on projected overrun). Estimated Stage 1
-(all five core arms, K=2, plus legacy subset): ~$185–230 at $1.04/M; approved cap to be
-recorded here at launch alongside the account price.
+(all five core arms, K=2, plus legacy subset): ~$185–230 at $1.04/M.
+
+**Launch record (2026-07-08):** account price verified live at $1.04/M (input = output) for
+`meta-llama/Llama-3.3-70B-Instruct-Turbo`; Together account funded $500 from the Manifund
+grant tranche; total authorized cap **$300** ($10 canary + $290 main run — caps are
+per-invocation, so the split keeps the cumulative bound at $300). Project approval by the
+lead 2026-07-08; run executed by J. Maiorino.

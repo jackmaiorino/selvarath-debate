@@ -78,8 +78,13 @@ the arms vary only the treatment side — what the judge actually experiences.
 ## Spend control
 
 Live runs require `--approved-cap` (hard abort on projected overrun). Estimated Stage 1
-(all five core arms, K=2, plus legacy subset): ~$185–230 at $1.04/M; approved cap to be
-recorded here at launch alongside the account price.
+(all five core arms, K=2, plus legacy subset): ~$185–230 at $1.04/M.
+
+**Launch record (2026-07-08):** account price verified live at $1.04/M (input = output) for
+`meta-llama/Llama-3.3-70B-Instruct-Turbo`; Together account funded $500 from the Manifund
+grant tranche; total authorized cap **$300** ($10 canary + $290 main run — caps are
+per-invocation, so the split keeps the cumulative bound at $300). Project approval by the
+lead 2026-07-08; run executed by J. Maiorino.
 """
 
 
