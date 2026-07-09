@@ -108,10 +108,22 @@ def main():
     print(f"  DELIB     PLACEBO−CLEAN = {pt3:+.2f} pp  CI [{lo3:+.2f}, {hi3:+.2f}]")
     print(f"            PLACEBO−p(0)  = {pt4:+.2f} pp  CI [{lo4:+.2f}, {hi4:+.2f}]  -> {g3}")
 
+    print("\n== Exploratory (clustered CIs, per consult #08) ==")
+    dose = lambda s: p(s, "clean", 2) - p(s, "clean", 1)
+    ptd, lod, hid = cluster_stat(by, qids, dose)
+    print(f"  clean b2−b1 dose step = {ptd:+.2f} pp  CI [{lod:+.2f}, {hid:+.2f}]")
+    recint = lambda s: ((p(s, "both", 2) - p(s, "both", 5))
+                        - (p(s, "clean", 2) - p(s, "clean", 5)))
+    ptr, lor, hir = cluster_stat(by, qids, recint)
+    print(f"  recovery interaction (BOTH b2−b5) − (CLEAN b2−b5) = {ptr:+.2f} pp  CI [{lor:+.2f}, {hir:+.2f}]")
+
     print("\n== Secondary (reported, not gated) ==")
     rec5 = lambda s: (p(s, "clean", 1) + p(s, "clean", 2)) / 2 - p(s, "clean", 5)
     pt5, lo5, hi5 = cluster_stat(by, qids, rec5)
     print(f"  clean Δrecover5 = {pt5:+.2f} pp  CI [{lo5:+.2f}, {hi5:+.2f}]")
+    print("  raw wrong counts (strict): " + " | ".join(
+        f"{a} b{b}: {sum(1 for r in rr if r['verdict_correct_strict'] is False)}/{len(rr)}"
+        for (a, b), rr in sorted(by.items()) if a in ("clean", "placebo")))
     for arm in ("na_only", "doubled_only"):
         f = (lambda a: lambda s: ((p(s, a, 1) + p(s, a, 2)) / 2
                                   - (p(s, "clean", 1) + p(s, "clean", 2)) / 2))(arm)
