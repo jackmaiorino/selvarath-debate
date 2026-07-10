@@ -1,6 +1,6 @@
 # Phase 2: Reduced-Scope Capability Pilot (Design)
 
-**Date:** 2026-07-09 · **Status:** DRAFT, pending user + lead sign-off · **Vetted:** Codex consults #04, #09
+**Date:** 2026-07-09 · **Status:** SUPERSEDED by `2026-07-10-phase2-capability-pilot-design-v2.md` (lead feedback: task hardening, debate regeneration, batch-same-Q&A condition, H as primary) · **Vetted:** Codex consults #04, #09
 **Licensed by:** `docs/rejudge-protocol.md` Amendment 1 (Stage-1 outcome: real smaller effect, +3.4pp CI [+1.3, +5.9])
 
 ## Question
