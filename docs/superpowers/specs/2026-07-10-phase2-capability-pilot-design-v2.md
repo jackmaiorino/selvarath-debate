@@ -79,6 +79,17 @@ noted as the principled long-term enforcement, phase 3.
 
 **4. Out of scope by agreement:** Bayesian-network world modeling.
 
+**5. Batch condition promoted to core (2026-07-12, after the fresh-context replay).** The replay
+showed the interactive format itself contributes a large share of the harm (memo:
+`reports/2026-07-12-mechanism-and-packaging-memo.md`): identical Q&A as a neutral list cut errors
+from 6.09% to 3.14% at budget 2. Therefore batch-same-Q&A runs in EVERY judge x debater cell (one
+extra verdict call per judgment), with an empty-evidence-table control at the 70B anchor cell.
+Pre-specified capability questions now cover both the sequential harm and the packaging gap P;
+residual content harm (batch vs no-oracle) is the third named quantity. Sequential placebo stays
+in every cell. Mechanism note for the grid: clean-arm flips split roughly half oracle-model errors
+(false NO on claims needing small inference steps), half judge over-reading of true answers
+(two blind passes, kappa 0.68); malformed queries are gone.
+
 **Amended stage list:** (0) freeze oracle query contract + finish shortcut audit with human pass,
 $0-150; (1) balanced Stage-1 mechanism audit + batch replay, $50-300; (2) two-protocol two-debater
 calibration, $300-900; (3) freeze hardened protocol + stratification rules; (4) regenerate all
