@@ -46,6 +46,47 @@ P = p(clean sequential b2) - p(batch same-Q&A b2)   representation/commitment ha
 Full-document anchors are labeled a gold-context ceiling, not "infinite oracle" (changes retrieval
 and evidence presentation, not just budget).
 
+## Additions from the leads' sync (2026-07-12, Codex #11)
+
+**1. Hardening is word-limit-first, following Khan et al. (arXiv:2402.06782).** Their protocol:
+exactly 3 rounds x 150 words per debater turn (900-word transcripts), judge never sees the passage.
+Their LLM judges fail 24% in debate, 46% in consultancy, so our 1.3% baseline confirms our task is
+far too easy. Calibration probe (replaces the earlier 3-protocol version): 24 questions stratified
+by world AND oracle-resolvability class, BOTH debater models (a word cap could erase the very
+debater-strength differences we study), two protocols: blind uncapped 3-round vs blind 150-word
+3-round. All 3 judges at no-oracle baseline, K=2; capped 2-round as fallback, single-round last
+resort. Selection on pre-declared difficulty/formatting/capability-separation criteria, never on
+the size of the oracle effect. Per-judge targets: 70B judge 8-15% wrong (up to 18% ok), weak judge
+20-35%, strong judge 3-10%. Word-limit compliance is checked mechanically; violations regenerate.
+
+**2. New reference condition: no-debate (judge + oracle only).** The judge sees the question and
+the two candidate answers, no transcript, same oracle interface, budgets 0 and 2 plus the fake
+oracle at 2, K=3, per judge (there is no debater dimension). This measures how much debate actually
+adds (the Khan-style protocol comparison the leads asked for) as a named secondary quantity:
+D = p(wrong with debate) minus p(wrong without debate). Not the same as consultancy (one advocate's
+selected evidence), which is noted for phase 3.
+
+**3. The "just ask the oracle" problem, measured and handled.** Audit of all 106 questions
+(2026-07-12, $0.36): asking the oracle directly about both candidate answers fully resolves only
+6% of questions, partially resolves 39%, and cannot resolve 56%. Important wrinkle: for 15
+questions the oracle AFFIRMS the wrong answer (they are defensible by design), so the shortcut
+strategy is actively unsafe, which is itself worth reporting. Stage-1 judges spontaneously asked
+candidate-answer-level queries in only 3 of 7,627 logged queries. Handling: (a) freeze an oracle
+query contract rejecting answer-label, meta-level, and compound queries; (b) STRATIFY results by
+resolvability class rather than filtering (directly-resolvable questions are exactly where debate
+should add least, so removing them would bias the comparison); (c) verified-quote interfaces (Khan)
+noted as the principled long-term enforcement, phase 3.
+
+**4. Out of scope by agreement:** Bayesian-network world modeling.
+
+**Amended stage list:** (0) freeze oracle query contract + finish shortcut audit with human pass,
+$0-150; (1) balanced Stage-1 mechanism audit + batch replay, $50-300; (2) two-protocol two-debater
+calibration, $300-900; (3) freeze hardened protocol + stratification rules; (4) regenerate all
+blind debates, $500-1,500; (5) no-debate reference runs, $100-400; (6) main 3x2 grid, $2,000-4,000;
+(7) batch condition on 70B-debater row + full-document ceiling anchors, $200-800; (8) human-in-loop
+mechanism labeling on a stratified sample, $300-700; (9) conditional: dishonest strategies and
+higher-budget anchors, $600-1,500. Core envelope $3,500-6,500.
+
 ## Carried from v1 (unchanged)
 
 Judges: low long-context model (candidate Qwen2.5-7B-Turbo, fallback 14B; Llama-3-8B excluded for
