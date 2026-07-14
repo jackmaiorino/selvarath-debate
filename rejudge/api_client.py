@@ -59,8 +59,7 @@ class RejudgeClient:
         """
         stream = self._client().chat.completions.create(
             model=model, messages=messages, temperature=temperature,
-            max_tokens=max_tokens, seed=seed, stream=True,
-            stream_options={"include_usage": True})
+            max_tokens=max_tokens, seed=seed, stream=True)
         parts = []
         usage = None
         for chunk in stream:
