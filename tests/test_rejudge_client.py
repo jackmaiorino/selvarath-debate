@@ -216,3 +216,56 @@ def test_retry_rechecks_cap_and_raises_cap_exceeded_not_runtime_error():
         c.complete(MSGS, "m", 0.1, 1, 64)
     assert sdk.calls == 1             # only the first attempt hit the network; the cap
                                        # check aborts before a second network call
+
+
+class StreamingOnlySDK:
+    """Rejects non-streaming calls like Qwen3.7-Plus; streams three chunks otherwise."""
+
+    def __init__(self):
+        self.calls = []
+
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls.append(kwargs)
+                if not kwargs.get("stream"):
+                    raise RuntimeError(
+                        'Error code: 400 - {"error": {"code": "streaming_required", '
+                        '"message": "This model only supports streaming."}}')
+
+                class _Delta:
+                    def __init__(self, c):
+                        self.content = c
+
+                class _Chunk:
+                    def __init__(self, c, usage=None):
+                        class _C:
+                            delta = _Delta(c)
+                        self.choices = [_C()] if c is not None else []
+                        self.usage = usage
+
+                class _Usage:
+                    prompt_tokens = 500
+                    completion_tokens = 50
+
+                return iter([_Chunk("YE"), _Chunk("S"), _Chunk(None, usage=_Usage())])
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def test_streaming_only_endpoint_auto_fallback():
+    sdk = StreamingOnlySDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None)
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert c.total_tokens == 550                       # usage from final chunk
+    assert sdk.calls[0].get("stream") is None or sdk.calls[0].get("stream") is False or "stream" not in sdk.calls[0]
+    assert sdk.calls[1]["stream"] is True
+    # second call skips the failed non-streaming probe entirely
+    out2 = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out2 == "YES"
+    assert len(sdk.calls) == 3                         # 1 failed + 1 stream + 1 stream

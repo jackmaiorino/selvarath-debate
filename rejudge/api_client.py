@@ -43,10 +43,52 @@ class RejudgeClient:
         self._sleep = _sleep
         self._lock = threading.Lock()
         self.total_tokens = 0
+        self._streaming_models = set()   # endpoints that reject non-streaming calls
 
     @property
     def spent_usd(self) -> float:
         return self.total_tokens / 1_000_000 * self.price_per_mtok
+
+    def _streamed_create(self, model, messages, temperature, max_tokens, seed):
+        """Call a streaming-only endpoint and reassemble a response-shaped object.
+
+        Accumulates delta content across chunks; usage is taken from the final chunk
+        (Together sends it there when stream_options requests it). Returns an object
+        with .usage and .choices[0].message.content so the non-streaming accounting
+        path applies unchanged.
+        """
+        stream = self._client().chat.completions.create(
+            model=model, messages=messages, temperature=temperature,
+            max_tokens=max_tokens, seed=seed, stream=True,
+            stream_options={"include_usage": True})
+        parts = []
+        usage = None
+        for chunk in stream:
+            u = getattr(chunk, "usage", None)
+            if u is not None:
+                usage = u
+            choices = getattr(chunk, "choices", None) or []
+            if choices:
+                delta = getattr(choices[0], "delta", None)
+                text = getattr(delta, "content", None) if delta is not None else None
+                if text:
+                    parts.append(text)
+        if usage is None:
+            raise RuntimeError("streaming response ended without usage chunk")
+
+        class _Msg:
+            content = "".join(parts)
+
+        class _Choice:
+            message = _Msg()
+
+        class _Resp:
+            pass
+
+        resp = _Resp()
+        resp.usage = usage
+        resp.choices = [_Choice()]
+        return resp
 
     def _log_error(self, attempt, model, exc):
         if not self.error_log_path:
@@ -105,10 +147,18 @@ class RejudgeClient:
                         f"accounted spend ${spent:.4f} > approved cap ${self.approved_cap_usd:.4f} "
                         f"after {attempt} attempt(s); refusing to retry")
             try:
-                resp = self._client().chat.completions.create(
-                    model=model, messages=messages, temperature=temperature,
-                    max_tokens=max_tokens, seed=seed)
+                if model in self._streaming_models:
+                    resp = self._streamed_create(model, messages, temperature, max_tokens, seed)
+                else:
+                    resp = self._client().chat.completions.create(
+                        model=model, messages=messages, temperature=temperature,
+                        max_tokens=max_tokens, seed=seed)
             except Exception as exc:                     # transient API error, no charge known
+                if "streaming_required" in str(exc) or "supports streaming" in str(exc):
+                    # streaming-only endpoint: remember and retry immediately via streaming
+                    self._streaming_models.add(model)
+                    last = exc
+                    continue
                 last = exc
                 self._log_error(attempt, model, exc)
                 if attempt < self.max_retries:
