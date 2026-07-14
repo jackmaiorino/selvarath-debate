@@ -20,50 +20,25 @@ Reads the per-judge output of `rejudge/calibrate.py`
 No gate auto-decides anything -- this prints the table and a PASS/FAIL line per
 pre-declared criterion and leaves the selection to a human.
 
-Note on the prohibited-style-query check: the brief that specified this analysis says to
-"port the check from the shortcut audit" (docs/oracle-query-contract.md's ">70% word
-overlap" rule). That audit script is not present in this repository (not committed, no
-trace in git history) -- `word_overlap` below is a reconstruction from the documented
-behavior ("high word overlap with a candidate answer"), not a byte-for-byte port. It is
-defined as the overlap coefficient: the fraction of the CLAIM's own tokens that also
-appear in the candidate answer's token set (case-insensitive, alphanumeric tokens only).
+The prohibited-style-query check (">70% word overlap with either candidate answer,
+port the check from the shortcut audit", docs/oracle-query-contract.md) is
+`rejudge.query_overlap.is_shortcut_query` -- see that module's docstring for the exact
+rule and provenance. Kept in its own module (not reimplemented here) so it has exactly
+one definition.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 from rejudge import calibrate
-
-OVERLAP_THRESHOLD = 0.70
+from rejudge.query_overlap import is_shortcut_query
 
 LOW_BAND = (0.20, 0.35)
 TOP_BAND = (0.03, 0.10)
 INVALID_CEILING = 0.02
 SIDE_EFFECT_CEILING = 0.10
-
-_TOKEN_RE = re.compile(r"[a-z0-9']+")
-
-
-def _tokenize(text: str) -> set[str]:
-    return set(_TOKEN_RE.findall((text or "").lower()))
-
-
-def word_overlap(claim: str, candidate: str) -> float:
-    """Overlap coefficient: |claim tokens ∩ candidate tokens| / |claim tokens|."""
-    claim_words = _tokenize(claim)
-    if not claim_words:
-        return 0.0
-    candidate_words = _tokenize(candidate)
-    return len(claim_words & candidate_words) / len(claim_words)
-
-
-def is_prohibited_style(claim: str, correct_answer: str, wrong_answer: str,
-                        threshold: float = OVERLAP_THRESHOLD) -> bool:
-    return (word_overlap(claim, correct_answer) > threshold
-           or word_overlap(claim, wrong_answer) > threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +160,7 @@ def b2_rows(judgments_by_judge: dict, transcripts_by_key: dict) -> list[dict]:
                 continue
             for ex in r.get("exchanges", []):
                 claim = ex.get("extracted_claim")
-                if claim and is_prohibited_style(claim, tr["correct_answer"], tr["wrong_answer"]):
+                if claim and is_shortcut_query(claim, tr["correct_answer"], tr["wrong_answer"]):
                     prohibited += 1
             if any(t.get("word_cap_violated") for t in tr.get("debate_transcript", [])):
                 violated_transcripts.add(key)

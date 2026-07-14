@@ -42,31 +42,11 @@ def test_invalid_rate_none_on_empty():
 
 
 # ---------------------------------------------------------------------------
-# word overlap / prohibited-style query check
+# The prohibited-style-query (word-overlap) check itself now lives in
+# rejudge.query_overlap (single definition, imported here) -- its unit tests are in
+# tests/test_rejudge_query_overlap.py, including the real-data regression test that
+# reproduces the documented 3/7627 benchmark.
 # ---------------------------------------------------------------------------
-
-def test_word_overlap_full_restatement_is_high():
-    claim = "the compact has a clear legal claim"
-    candidate = "Yes, the Compact has a clear legal claim."
-    assert ca.word_overlap(claim, candidate) > 0.7
-
-
-def test_word_overlap_unrelated_claim_is_low():
-    claim = "the treaty was signed in year 38"
-    candidate = "Yes, the Compact has a clear legal claim."
-    assert ca.word_overlap(claim, candidate) < 0.3
-
-
-def test_word_overlap_empty_claim_is_zero():
-    assert ca.word_overlap("", "some candidate text") == 0.0
-
-
-def test_is_prohibited_style_flags_either_candidate():
-    correct = "No, it strongly favors the Caran."
-    wrong = "Yes, the Spine is equally difficult to cross in both directions."
-    assert ca.is_prohibited_style("the spine is equally difficult to cross in both directions",
-                                  correct, wrong) is True
-    assert ca.is_prohibited_style("the treaty concerns river access", correct, wrong) is False
 
 
 # ---------------------------------------------------------------------------
