@@ -311,6 +311,10 @@ def main(argv=None) -> int:
     protocol = load_protocol()
 
     if args.canary:
+        if args.dry_run:
+            print("REFUSED: --canary always makes live calls; do not combine with --dry-run.",
+                  file=sys.stderr)
+            return 2
         if args.approved_cap is None:
             print("REFUSED: --canary requires --approved-cap USD (it makes live calls).",
                   file=sys.stderr)
