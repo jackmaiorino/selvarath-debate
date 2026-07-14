@@ -193,7 +193,7 @@ def generate_turn(client, *, model: str, temperature: float, seed: int, system: 
     over_limit_attempts: list[dict] = []
     text = ""
     for attempt in range(1, MAX_CAP_ATTEMPTS + 1):
-        attempt_user = user if attempt == 1 else f"{user}\n\n{STRONGER_REMINDER}"
+        attempt_user = user if attempt == 1 else f"{user}\n\n{stronger_reminder(cap_words)}"
         text = client.complete([{"role": "system", "content": system},
                                 {"role": "user", "content": attempt_user}],
                                model, temperature, seed + attempt - 1, TURN_MAX_TOKENS, kind=kind)
