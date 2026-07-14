@@ -162,7 +162,7 @@ def build_turn_prompt(*, round_idx: int, is_honest: bool, question: dict, world_
 
     user = user_template.format(**fmt)
     if cap_words is not None:
-        user = f"{user}\n\n{CAP_INSTRUCTION}"
+        user = f"{user}\n\n{CAP_INSTRUCTIONS[cap_words]}"
     return system, user
 
 
