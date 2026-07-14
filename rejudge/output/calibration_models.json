@@ -1,0 +1,20 @@
+{
+  "frozen": "2026-07-13",
+  "note": "All endpoints canary-verified live. Llama-3.1-8B, Llama-3.1-405B, Qwen3.5-397B, DeepSeek-V3.1 all failed canaries (not serverless on Together). Qwen3.7-Plus is streaming-only and a thinking model; reasoning left at endpoint default and recorded.",
+  "judges": {
+    "low_primary": "Qwen/Qwen3.5-9B",
+    "low_fallback": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "anchor": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "top": "Qwen/Qwen3.7-Plus"
+  },
+  "debaters": ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "Qwen/Qwen3.7-Plus"],
+  "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "prices_per_mtok": {
+    "Qwen/Qwen3.5-9B": {"in": 0.17, "out": 0.25},
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {"in": 0.30, "out": 0.30},
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"in": 1.04, "out": 1.04},
+    "Qwen/Qwen3.7-Plus": {"in": 0.32, "out": 1.28}
+  },
+  "selection_hierarchy_low_judge": ["Qwen/Qwen3.5-9B", "Qwen/Qwen2.5-7B-Instruct-Turbo"],
+  "protocol_selection_cell": "70B judge x 70B debater at b0"
+}
