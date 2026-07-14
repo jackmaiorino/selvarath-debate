@@ -71,6 +71,30 @@ does not track size; the grid treats judges categorically and measures capabilit
   spanning 1% to 21%, no hosted-model exception needed. Roughly +$150-250 over A.
 - Qwen3.7-Plus optionally rides along as a hosted exploratory judge in either option.
 
+## Addendum 2: the strong-debater slot (final)
+
+Sol (consult #15) proposed GPT-OSS-120B as strong debater to make the whole roster open-weight,
+gated on a debater-role canary. Canary results (48 blind debates + anchor judging, ~$6):
+
+| Strong debater option | Anchor judge error | Debate length | Protocol compliance |
+|---|---|---|---|
+| Hosted Qwen3.7-Plus, uncapped | 12.5% (in band) | shorter than 70B's | clean |
+| GPT-OSS-120B, uncapped | 22.9% (over band) | 2x everyone else | clean |
+| GPT-OSS-120B, 300-word cap | 4.2% (under band) | capped | **85 cap violations in 288 turns** |
+| Llama-70B, 300-word cap (reference) | 3.1% | capped | 0 violations |
+
+OSS fails the pre-declared gates: its uncapped danger is mostly verbosity (collapses 22.9 to 4.2
+under caps), it cannot reliably obey word limits, and its document knowledge tests slightly below
+the 70B it would debate (94% vs 100% solo QA). Per the pre-committed fallback, the strong debater
+remains **hosted Qwen3.7-Plus**, documented as the design's one non-open-weight exception (its
+debates are in-band, shorter than the 70B's, and fully protocol-compliant). The verbosity-driven
+danger result itself joins the exploratory findings alongside the caps-protect-judges interaction.
+
+**Final experiment roster:** judges Qwen2.5-7B, Gemma-4-31B, Llama-3.3-70B, GPT-OSS-120B (all
+open-weight); debaters Llama-3.3-70B and Qwen3.7-Plus (hosted exception); oracle Llama-3.3-70B.
+Pre-registered analysis per consult #15 (three Holm-adjusted primary tests). Cost $550-1,200,
+ceiling $1,500.
+
 ## Reproducibility
 
 `rejudge/debate_gen.py` (blind generator), `rejudge/calibrate.py` and `calibrate_analyze.py`
