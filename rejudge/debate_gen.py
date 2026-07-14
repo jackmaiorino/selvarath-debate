@@ -73,17 +73,19 @@ from rejudge.config import load_protocol, make_seed
 from rejudge.runner import _world_documents, load_done_keys
 
 DEFAULT_WORD_CAP = 150
+CAP300 = 300
 MAX_CAP_ATTEMPTS = 3
 TURN_MAX_TOKENS = 512
 CANARY_MAX_TOKENS = 64
 TURN_SEED_STRIDE = 10   # headroom per turn so cap-retry seeds never collide with the next turn
 
-PROTOCOL_WORD_CAPS = {"uncapped3": None, "capped3": DEFAULT_WORD_CAP}
+PROTOCOL_WORD_CAPS = {"uncapped3": None, "capped3": DEFAULT_WORD_CAP, "capped300": CAP300}
 
-CAP_INSTRUCTION = f"Your response must be {DEFAULT_WORD_CAP} words or fewer."
-STRONGER_REMINDER = (
-    "REMINDER: your previous response exceeded the word limit. You MUST keep this response "
-    f"to {DEFAULT_WORD_CAP} words or fewer this time. Cut it down.")
+CAP_INSTRUCTIONS = {cap: f"Your response must be {cap} words or fewer."
+                    for cap in (DEFAULT_WORD_CAP, CAP300)}
+def stronger_reminder(cap_words: int) -> str:
+    return ("REMINDER: your previous response exceeded the word limit. You MUST keep this "
+            f"response to {cap_words} words or fewer this time. Cut it down.")
 
 _OPPONENT_ANCHORS = {
     True: "OPPONENT'S POSITION: {wrong_answer}\n\n",
