@@ -43,7 +43,8 @@ DEFAULT_MODELS = "rejudge/output/calibration_models.json"
 DEFAULT_OUT_DIR = "rejudge/output"
 
 # judge roster key -> short code used in the per-judge output filename.
-JUDGE_SHORT = {"low_primary": "low9", "low_fallback": "low7", "anchor": "a70", "top": "top"}
+JUDGE_SHORT = {"low_primary": "low9", "low_fallback": "low7", "anchor": "a70", "top": "top",
+               "mid_gemma": "g31", "top_oss": "oss120"}
 NON_ANCHOR_JUDGES = ("low_primary", "low_fallback", "top")
 ALL_CELL_GROUPS = ("b0", "b2smoke", "b2sat")
 B2_SMOKE_N = 12
@@ -189,7 +190,7 @@ def main(argv=None) -> int:
     models_cfg = load_calibration_models(args.models)
     judges_cfg = models_cfg["judges"]
 
-    judge_keys = (list(JUDGE_SHORT) if args.judges == "all"
+    judge_keys = ([k for k in JUDGE_SHORT if k in judges_cfg] if args.judges == "all"
                  else [j.strip() for j in args.judges.split(",") if j.strip()])
     unknown_judges = [j for j in judge_keys if j not in JUDGE_SHORT]
     if unknown_judges:

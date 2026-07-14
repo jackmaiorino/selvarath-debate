@@ -49,6 +49,28 @@ debater contrasts for sequential harm and packaging; measured-capability trends 
 **Cost: expect $400-1,000, ceiling $1,500** (thinking-token variance is the wildcard).
 Spend to date across the whole project: $208.
 
+## Addendum (same day): open-weight candidates rescue the roster
+
+A lead question about Gemma exposed that three "failed" models were reasoning models starved by
+small output-token limits; after a client fix (token floor for reasoning endpoints), retests on
+the same debates show:
+
+| Candidate | Unparseable verdicts | Side bias | Wrong at b0 | Verdict |
+|---|---|---|---|---|
+| Gemma-4-31B | 0% | max 2.4 pts | 3.3% (70B debates) to 9.4% (strong) | passes |
+| GPT-OSS-120B | 1% | max 6.2 pts | 8.4% to 15.6% | passes |
+| Qwen3.5-9B | 50-71% even after the fix | n/a | n/a | disqualified (pre-declared INVALID < 2% rule) |
+
+GPT-OSS-120B (120B, open-weight) judges far worse than Llama-70B on identical debates (14.7% vs
+1.0% uncapped), the second reasoning model to underperform a smaller plain judge. Judging skill
+does not track size; the grid treats judges categorically and measures capability directly.
+
+**Roster options for sign-off:**
+- A (minimal, per consult #14): Qwen2.5-7B, Llama-70B, GPT-OSS-120B. All open-weight. ~$400-1,000.
+- B (recommended): add Gemma-4-31B as a fourth judge: four families, all open-weight, baselines
+  spanning 1% to 21%, no hosted-model exception needed. Roughly +$150-250 over A.
+- Qwen3.7-Plus optionally rides along as a hosted exploratory judge in either option.
+
 ## Reproducibility
 
 `rejudge/debate_gen.py` (blind generator), `rejudge/calibrate.py` and `calibrate_analyze.py`

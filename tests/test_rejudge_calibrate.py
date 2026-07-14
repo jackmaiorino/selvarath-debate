@@ -82,9 +82,10 @@ def test_cal_arm_naming_and_semantics():
     assert arm2.name == "cal-uncapped3-qplus"
 
 
-def test_judge_short_map_has_four_roster_keys():
+def test_judge_short_map_has_roster_keys():
     assert calibrate.JUDGE_SHORT == {"low_primary": "low9", "low_fallback": "low7",
-                                     "anchor": "a70", "top": "top"}
+                                     "anchor": "a70", "top": "top",
+                                     "mid_gemma": "g31", "top_oss": "oss120"}
 
 
 # ---------------------------------------------------------------------------
