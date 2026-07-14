@@ -104,7 +104,18 @@ class RejudgeClient:
             self._sdk = Together()
         return self._sdk
 
+    # Models whose replies arrive after a hidden reasoning phase that consumes output tokens.
+    # A small max_tokens starves the visible answer entirely (observed: Qwen3.5-9B returned
+    # empty content in 396/396 calls at max_tokens<=512 while billing ~90 tokens of reasoning).
+    # For these endpoints the requested max_tokens is raised to a floor so the answer can
+    # actually be emitted; the verdict/query parsers are unaffected (content stays clean).
+    REASONING_MODEL_PREFIXES = ("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.7",
+                                "google/gemma-4", "openai/gpt-oss")
+    REASONING_MAX_TOKENS_FLOOR = 4096
+
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict") -> str:
+        if model.startswith(self.REASONING_MODEL_PREFIXES):
+            max_tokens = max(max_tokens, self.REASONING_MAX_TOKENS_FLOOR)
         est = _estimate_tokens(messages, max_tokens)
         if est > self.max_context_tokens:
             raise ContextGuardError(f"estimated {est} tokens > {self.max_context_tokens}")

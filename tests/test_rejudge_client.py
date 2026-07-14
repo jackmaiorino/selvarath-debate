@@ -269,3 +269,23 @@ def test_streaming_only_endpoint_auto_fallback():
     out2 = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out2 == "YES"
     assert len(sdk.calls) == 3                         # 1 failed + 1 stream + 1 stream
+
+
+def test_reasoning_models_get_max_tokens_floor():
+    captured = {}
+
+    class CaptureSDK:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured.update(kwargs)
+                    return _Resp()
+
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=CaptureSDK())
+    c.complete(MSGS, "Qwen/Qwen3.5-9B", 0.1, 1, 256)
+    assert captured["max_tokens"] == 4096          # floored for reasoning models
+    c.complete(MSGS, "meta-llama/Llama-3.3-70B-Instruct-Turbo", 0.1, 1, 256)
+    assert captured["max_tokens"] == 256           # unchanged for standard models
+    c.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 8192)
+    assert captured["max_tokens"] == 8192          # floor never lowers an explicit larger value
