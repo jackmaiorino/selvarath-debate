@@ -32,9 +32,11 @@ def _format_previous(exchange_feedback: list[tuple[str, str]]) -> str:
 
 def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: int,
                  replicate: int, client, protocol: dict,
-                 judge_model: str = JUDGE_MODEL) -> dict:
+                 judge_model: str = JUDGE_MODEL, *,
+                 position_override: bool | None = None) -> dict:
     qid, tidx = transcript["question_id"], transcript["transcript_index"]
-    pos_a_correct = position_for(arm, qid, tidx, judge_model, budget)
+    pos_a_correct = (position_for(arm, qid, tidx, judge_model, budget)
+                     if position_override is None else position_override)
     seed = judgment_seed(qid, tidx, judge_model, budget, arm.name, replicate)
 
     judge_cfg = protocol["judge"]

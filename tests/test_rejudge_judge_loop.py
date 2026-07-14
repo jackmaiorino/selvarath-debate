@@ -99,6 +99,38 @@ def test_done_handling_differs_by_arm():
     assert rec2["queries_used"] == 1
 
 
+def test_position_override_true_forces_position_a():
+    client = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES",
+                             "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: x"})
+    rec = judge_loop.run_judgment(_tr(), "DOC", config.ARMS["clean"], 1, 0, client, _protocol(),
+                                  position_override=True)
+    assert rec["position_a_is_correct"] is True
+
+
+def test_position_override_false_forces_position_b():
+    client = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES",
+                             "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: x"})
+    rec = judge_loop.run_judgment(_tr(), "DOC", config.ARMS["clean"], 1, 0, client, _protocol(),
+                                  position_override=False)
+    assert rec["position_a_is_correct"] is False
+
+
+def test_position_override_none_leaves_default_position_for_unchanged():
+    tr = _tr()
+    client = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES",
+                             "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: x"})
+    rec = judge_loop.run_judgment(tr, "DOC", config.ARMS["clean"], 1, 0, client, _protocol())
+    expected = config.position_for(config.ARMS["clean"], tr["question_id"],
+                                   tr["transcript_index"], config.JUDGE_MODEL, 1)
+    assert rec["position_a_is_correct"] == expected
+    # omitting the kwarg entirely must behave identically to passing None explicitly
+    client2 = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES",
+                              "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: x"})
+    rec2 = judge_loop.run_judgment(tr, "DOC", config.ARMS["clean"], 1, 0, client2, _protocol(),
+                                   position_override=None)
+    assert rec2["position_a_is_correct"] == expected
+
+
 def test_ab_fixed_across_budgets_and_replay_stability():
     protocol = _protocol()
 
