@@ -5,6 +5,7 @@ import hashlib
 import json
 import random
 from dataclasses import dataclass
+from pathlib import Path
 
 from analysis.infra.design import position_a_is_correct
 
@@ -12,6 +13,7 @@ JUDGE_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 DEFAULT_REPLICATES = 2
 PLACEBO_TEXT = ("ORACLE PLACEBO: no factual verification was performed for this query. "
                 "This message contains no evidence about the world document.")
+DEFAULT_PROTOCOL_PATH = Path(__file__).resolve().parents[1] / "experiment_protocol.json"
 
 _PILOT_PHRASING_LINE = '- Be phrased in the form: "Is it stated in the text that [specific factual claim]?"'
 _CLEAN_PHRASING_LINE = ('- Be given as ONLY the bare factual claim on a single line, prefixed exactly '
@@ -49,7 +51,7 @@ DEFAULT_BUDGETS = {
 }
 
 
-def load_protocol(path: str = "experiment_protocol.json") -> dict:
+def load_protocol(path: str | Path = DEFAULT_PROTOCOL_PATH) -> dict:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 

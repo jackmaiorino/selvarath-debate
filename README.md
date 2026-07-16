@@ -9,7 +9,7 @@ experiments.
 Funded by a [Manifund grant](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s).
 Pilot write-up: [Limited verification can hurt debate oversight](https://www.lesswrong.com/posts/2a3vce7WooJ4XkDqw/limited-verification-can-hurt-debate-oversight) (LessWrong).
 
-## Status (2026-07-09)
+## Status (2026-07-15)
 
 - Pilot re-analysis complete: headline effect quantified at Delta_few = +7.2pp, 95% CI [4.6, 10.2].
 - A code audit found two data-corrupting bugs in the pilot's oracle channel (NOT-ADDRESSED replies
@@ -19,39 +19,71 @@ Pilot write-up: [Limited verification can hurt debate oversight](https://www.les
   preserves a smaller but statistically positive harm signal (Delta_few = +3.4pp, CI [+1.3, +5.9]);
   the bugs contributed about half the pilot's headline; extra deliberation turns alone cause a
   small degradation; the pilot's U-shaped recovery is not reproduced. Full results:
-  `reports/2026-07-09-stage1-rejudge-results.md`. Next: reduced-scope phase-2 capability pilot
-  per the protocol's Amendment 1.
+  `reports/2026-07-09-stage1-rejudge-results.md`.
+- **Mechanism and packaging follow-up complete:** oracle mistakes and judge over-reading both cause
+  harmful flips; replaying identical Q&A as a neutral evidence table removes a large share of the
+  harm. See `reports/2026-07-12-mechanism-and-packaging-memo.md`.
+- **Phase-2 calibration complete, with 11 Gemma provider-failure cells (10 timeouts and one HTTP
+  500) still to recover:** the selected task
+  is blind, uncapped, three-round debate. The proposed final roster is four open-weight judges,
+  Llama-70B plus hosted Qwen3.7-Plus debaters, and a Llama-70B oracle. See
+  `reports/2026-07-14-calibration-results.md`.
+- **The paid Phase-2 main run is not authorized.** A machine-readable, offline-only draft enumerates
+  492 transcripts and 18,696 judgments. Exact primary tests, capability measurement, the cap
+  secondary, query-screen policy, design-scope reconciliation, execution/smoke gates, verified
+  starting spend, and the cumulative ceiling still require lead sign-off. The authoritative
+  checklist is `docs/phase2-readiness-and-signoff.md`.
 
 ## Repo layout
 
 | Path | What it is |
 |---|---|
-| `judge.py`, `api.py`, `debate.py`, `orchestrate.py`, `models.py`, `experiment_protocol.json` | The original pilot harness, kept unmodified as the historical record (contains the audited bugs) |
+| `judge.py`, `api.py`, `debate.py`, `orchestrate.py`, `models.py`, `experiment_protocol.json` | The original pilot harness, retained for dry reproduction (contains the audited bugs); `api.py` now refuses live calls |
 | `world_specs/`, `questions/` | The three fictional worlds and question sets |
 | `data/` (untracked) | Pilot output: `judgments.jsonl`, `transcripts.jsonl`. See `data/DATA.md` for known-bug provenance before using |
 | `analysis/` | Re-analysis package: loaders, pre-specified contrasts, cluster bootstrap, mechanism labeling, report generation |
-| `rejudge/` | The fixed re-judge harness: arm configs, dual verdict parsing, cost-capped API client, resumable runner |
+| `rejudge/` | The fixed re-judge harness: arm configs, strict parsing, manifest-bound outputs, strict per-model pricing, cumulative usage ledgers, and exact completion gates |
+| `rejudge/phase2_protocol.json`, `rejudge/phase2_plan.py` | Non-executable Phase-2 draft and deterministic offline cell inventory |
+| `docs/phase2-readiness-and-signoff.md` | Authoritative unresolved decisions and staged launch gate |
 | `docs/rejudge-protocol.md` | Frozen pre-registration: arms, rationale, gates, spend record |
 | `reports/` | Findings report and interactive dashboard (post-audit corrected) |
 | `docs/manifund-updates/` | Grant progress updates as posted |
+| `artifacts/` | Checksums, sizes, and row counts for large local-only research artifacts |
 
 ## Running
 
 ```bash
 uv run pytest                      # full offline test suite (no API calls)
+uv run ty check                    # static checks
 uv run python -m analysis.run_report   # regenerate the re-analysis report from data/
-uv run python -m rejudge.runner --dry-run --limit 2 --arms clean,both,placebo  # offline smoke
+uv run python -m rejudge.runner --dry-run --limit 2 --arms clean,both,placebo \
+  --out rejudge/output/dry-run/records.jsonl  # offline smoke, isolated from live output
+uv run python -m rejudge.phase2_plan   # enumerate the draft Phase-2 design; cannot make API calls
+uv run python -m rejudge.artifact_manifest verify --root . artifacts/local-research-artifacts.json
 ```
 
-Live runs cost money and are spend-gated: the runner refuses to start without `--approved-cap USD`
-and hard-aborts if projected spend crosses it. Requires `TOGETHER_API_KEY` in the environment.
+Corpus-backed regression tests are skipped in clean clones until the separately distributed JSONL
+artifacts are installed. Their expected hashes and row counts are tracked under `artifacts/`.
 
-```bash
-uv run python -m rejudge.runner --arms clean,both,placebo,na_only,doubled_only,legacy \
-  --replicates 2 --approved-cap 290 --workers 8 --out rejudge/output/records.jsonl
-```
+Live rejudge runs cost money and are fail-closed: they require an explicit `--approved-cap USD`, a
+clean committed worktree, a current frozen per-model price schedule, a writable cumulative usage
+ledger, and a new or exactly matching output manifest. Every request is durably reserved before it
+reaches the provider; unmatched crash/timeout reservations continue to count against the cap.
+Requires `TOGETHER_API_KEY` in the environment. The original pilot API and historical canary path
+refuse live calls.
 
-Runs are resumable: rerun the same command and completed cells are skipped.
+Historical Stage-1 runs are resumable only when the output's immutable run manifest matches the
+output path, current protocol, models, exact prices, inputs, code state, cumulative cap/ledger path,
+and dry/live mode. Existing pre-manifest outputs must be migrated explicitly or resumed into a new
+supplemental output; they are never adopted silently. The exact 11-cell Gemma recovery selection is
+tracked, but no recovery call is authorized yet.
+
+After any abnormal live termination, do not resume automatically: reconcile charged ledger events
+and their cell metadata against durable output rows and provider billing first. A crash between the
+ledger fsync and result fsync can otherwise cause a paid missing cell to be requested twice.
+
+There is currently no executable Phase-2 main runner. Do not infer spend authorization from the
+presence of the offline plan.
 
 ## Contributors
 

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -31,8 +30,9 @@ class ScriptedClient:
         self.dry_run = dry_run
         self.total_tokens = 0
 
-    def complete(self, messages, model, temperature, seed, max_tokens, kind="query"):
-        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages], "seed": seed})
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="query", **kwargs):
+        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages],
+                           "seed": seed, **kwargs})
         v = self.script.get(kind, "SHORT DRY RESPONSE")
         return v.pop(0) if isinstance(v, list) else v
 
@@ -100,8 +100,9 @@ def test_strip_opponent_position_raises_on_drift():
 # ---------------------------------------------------------------------------
 
 def test_counterbalance_exact_half_and_deterministic():
-    qids = json.loads(Path("rejudge/output/calibration_questions.json").read_text(encoding="utf-8"))
-    assert len(qids) == 24
+    # The balancing property is independent of the private calibration selection.
+    # Keep this unit test runnable in a clean clone where generated outputs are absent.
+    qids = [f"Q{i:02d}" for i in range(24)]
     pairs = [(qid, t) for qid in qids for t in range(2)]
     assignment1 = debate_gen.counterbalance_assignment(pairs)
     assignment2 = debate_gen.counterbalance_assignment(pairs)
@@ -245,7 +246,8 @@ def test_live_requires_cap(tmp_path):
     assert rc == 2
 
 
-def test_transient_failure_logged_and_continues(tmp_path, monkeypatch):
+def test_transient_failure_logged_continues_and_returns_incomplete(
+        tmp_path, monkeypatch, capsys):
     qfile = _write_questions(tmp_path, ["SEL-002"])
     calls = {"n": 0}
 
@@ -254,14 +256,16 @@ def test_transient_failure_logged_and_continues(tmp_path, monkeypatch):
         calls["n"] += 1
         if calls["n"] == 1:
             raise RuntimeError("boom")
-        return {"cell_key": f"k{calls['n']}", "dry_run": True}
+        return {"cell_key": f"{protocol_name}|{debater_model}|{question['id']}|"
+                            f"{transcript_index}", "dry_run": True}
 
     monkeypatch.setattr(debate_gen, "generate_transcript", flaky)
     out = tmp_path / "out.jsonl"
     rc = debate_gen.main(["--questions", str(qfile), "--transcripts-per-question", "1",
                           "--protocols", "uncapped3,capped3", "--dry-run", "--workers", "1",
                           "--out", str(out)])
-    assert rc == 0
+    assert rc == 1
+    assert "completion check: 1 missing" in capsys.readouterr().out
     rows = out.read_text(encoding="utf-8").splitlines()
     assert len(rows) == 1
     failed = (tmp_path / "debate_gen_failed.jsonl").read_text(encoding="utf-8")

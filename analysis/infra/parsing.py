@@ -84,24 +84,31 @@ def parse_verdict_strict(text):
 def normalize_oracle(text):
     """Map an oracle reply to 'YES' | 'NO' | 'NOT ADDRESSED' | 'INVALID'.
 
-    Order matters: NOT ADDRESSED is checked before NO (since 'NOT...' startswith 'NO').
-    A reply that does not clearly commit to one of the three tokens returns INVALID.
+    A clear leading token or a single verbose commitment is accepted.  Replies that
+    mention conflicting verdict tokens (including alternatives or negations) are
+    invalid rather than being resolved by search order.
     """
     t = (text or "").strip().lstrip(_LEAD).strip().upper()
-    # Leading committed token (word-boundary so "NOTHING" does NOT match "NO").
-    if re.match(r"YES\b", t):
-        return "YES"
-    if re.match(r"NOT[ _]?ADDRESSED\b", t):
-        return "NOT ADDRESSED"
-    if re.match(r"NO\s+EVIDENCE\b", t):
+    if not t:
         return "INVALID"
-    if re.match(r"NO\b", t):
-        return "NO"
-    # fallback: a clearly-committed token anywhere as a standalone word
+
+    # A negated verdict token is not itself a commitment to that verdict.
+    if re.search(r"\b(?:NOT|NEITHER)\s+(?:YES|NO)\b", t):
+        return "INVALID"
+
+    verdicts = set()
     if re.search(r"\bNOT[ _]?ADDRESSED\b", t):
-        return "NOT ADDRESSED"
-    if re.search(r"\bYES\b", t):
-        return "YES"
-    if re.search(r"\bNO\b", t):
-        return "NO"
-    return "INVALID"
+        verdicts.add("NOT ADDRESSED")
+
+    # Remove the multi-word verdict before looking for YES/NO.  In particular,
+    # the NO regex must never be allowed to inspect the "NOT" in NOT ADDRESSED.
+    remaining = re.sub(r"\bNOT[ _]?ADDRESSED\b", " ", t)
+    # "NO EVIDENCE" is a lack-of-support phrase, not a NO verdict.  Mask it so
+    # the phrase alone remains invalid while a separate clear verdict can stand.
+    remaining = re.sub(r"\bNO\s+EVIDENCE\b", " ", remaining)
+    if re.search(r"\bYES\b", remaining):
+        verdicts.add("YES")
+    if re.search(r"\bNO\b", remaining):
+        verdicts.add("NO")
+
+    return next(iter(verdicts)) if len(verdicts) == 1 else "INVALID"

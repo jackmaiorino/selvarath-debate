@@ -1,6 +1,15 @@
 import json
+from pathlib import Path
+
+import pytest
 
 from rejudge import config, judge_loop
+
+
+TRANSCRIPTS_PATH = Path("data/transcripts.jsonl")
+MISSING_TRANSCRIPTS_REASON = (
+    "requires local research corpus data/transcripts.jsonl (not included in clean clones)"
+)
 
 
 class ScriptedClient:
@@ -11,14 +20,16 @@ class ScriptedClient:
         self.calls = []
         self.dry_run = False
 
-    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict"):
-        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages]})
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", **kwargs):
+        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages], **kwargs})
         v = self.script[kind]
         return v.pop(0) if isinstance(v, list) else v
 
 
 def _tr():
-    rows = [json.loads(l) for l in open("data/transcripts.jsonl", encoding="utf-8")]
+    if not TRANSCRIPTS_PATH.is_file():
+        pytest.skip(MISSING_TRANSCRIPTS_REASON)
+    rows = [json.loads(l) for l in TRANSCRIPTS_PATH.open(encoding="utf-8")]
     return rows[0]
 
 
@@ -52,6 +63,10 @@ def test_clean_arm_single_wrap_and_na_preserved():
     assert ex["oracle_prompt"].count("Is it supported by the text that") == 1
     assert ex["normalized"] == "NOT ADDRESSED"
     assert ex["well_formed_claim"] is True
+    for call in client.calls:
+        metadata = call["request_metadata"]
+        assert metadata["budget"] == 1
+        assert metadata["judge_model"] == config.JUDGE_MODEL
 
 
 def test_placebo_arm_no_oracle_call_fixed_feedback():

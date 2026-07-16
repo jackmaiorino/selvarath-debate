@@ -55,6 +55,8 @@ def test_oracle_no_false_match_on_nothing():
 
 def test_oracle_verbose_and_invalid():
     assert parsing.normalize_oracle("Based on my reading, NO.") == "NO"        # fallback standalone token
+    assert parsing.normalize_oracle("On balance, the answer is YES.") == "YES"
+    assert parsing.normalize_oracle("The passage does not address it: NOT ADDRESSED.") == "NOT ADDRESSED"
     assert parsing.normalize_oracle("The passage is about trade routes.") == "INVALID"
     assert parsing.normalize_oracle("") == "INVALID"
 
@@ -89,6 +91,20 @@ def test_confidence_markdown_bold():
 def test_oracle_no_evidence_is_invalid():
     # 'NO EVIDENCE' is closer to NOT ADDRESSED than to a contradicting NO
     assert parsing.normalize_oracle("NO EVIDENCE in the text supports this") == "INVALID"
+    assert parsing.normalize_oracle("There is no evidence in the text") == "INVALID"
+    assert parsing.normalize_oracle("YES; no evidence contradicts the claim") == "YES"
+
+
+def test_oracle_conflicting_or_negated_tokens_are_invalid():
+    assert parsing.normalize_oracle("The answer is NO, not YES") == "INVALID"
+    assert parsing.normalize_oracle("It could be YES or NO") == "INVALID"
+    assert parsing.normalize_oracle("YES, or perhaps NOT ADDRESSED") == "INVALID"
+    assert parsing.normalize_oracle("Neither YES nor NO") == "INVALID"
+    assert parsing.normalize_oracle("The answer is not YES") == "INVALID"
+
+
+def test_oracle_repeated_same_token_is_unambiguous():
+    assert parsing.normalize_oracle("YES. To be explicit: YES.") == "YES"
 
 
 def test_verdict_or_ambiguity_bare_letters():

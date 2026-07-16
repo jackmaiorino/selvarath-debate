@@ -1,0 +1,252 @@
+{
+  "schema_version": "phase2_plan_v1",
+  "protocol_id": "phase2_draft_2026_07_14",
+  "cell_key_namespace": "phase2-draft-v1",
+  "status": "draft_requires_signoff",
+  "offline_planning_only": true,
+  "execution_authorized": false,
+  "sources": {
+    "calibration_report": "reports/2026-07-14-calibration-results.md",
+    "phase2_v2_spec": "docs/superpowers/specs/2026-07-10-phase2-capability-pilot-design-v2.md",
+    "oracle_query_contract": "docs/oracle-query-contract.md",
+    "phase2_readiness_record": "docs/phase2-readiness-and-signoff.md",
+    "calibration_models": "rejudge/output/calibration_models.json",
+    "calibration_question_ids": "rejudge/output/calibration_questions.json"
+  },
+  "question_set": {
+    "question_sources": [
+      "questions/carath_norn_questions.json",
+      "questions/selvarath_questions.json",
+      "questions/vethun_sarak_questions.json"
+    ],
+    "expected_total_question_count": 106,
+    "calibration_excluded_question_ids": [
+      "CN-004",
+      "CN-009",
+      "CN-011",
+      "CN-021",
+      "CN-023",
+      "CN-027",
+      "CN-030",
+      "CN-032",
+      "SEL-002",
+      "SEL-010",
+      "SEL-017",
+      "SEL-027",
+      "SEL-028",
+      "SEL-030",
+      "SEL-033",
+      "SEL-034",
+      "VS-001",
+      "VS-004",
+      "VS-006",
+      "VS-014",
+      "VS-019",
+      "VS-023",
+      "VS-030",
+      "VS-033"
+    ],
+    "expected_calibration_exclusion_count": 24,
+    "expected_main_question_count": 82,
+    "transcripts_per_question_per_debater": 3
+  },
+  "debate_protocol": {
+    "name": "blind_uncapped_3_round",
+    "rounds": 3,
+    "opening_order": "counterbalanced",
+    "honest_and_dishonest_use_same_model": true
+  },
+  "model_registry": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "display_name": "Qwen2.5-7B",
+      "price_usd_per_million_tokens": {
+        "input": 0.3,
+        "output": 0.3
+      }
+    },
+    "google/gemma-4-31B-it": {
+      "display_name": "Gemma-4-31B",
+      "price_usd_per_million_tokens": {
+        "input": 0.39,
+        "output": 0.97
+      }
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "display_name": "Llama-3.3-70B",
+      "price_usd_per_million_tokens": {
+        "input": 1.04,
+        "output": 1.04
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "display_name": "GPT-OSS-120B",
+      "price_usd_per_million_tokens": {
+        "input": 0.15,
+        "output": 0.6
+      }
+    },
+    "Qwen/Qwen3.7-Plus": {
+      "display_name": "Qwen3.7-Plus",
+      "price_usd_per_million_tokens": {
+        "input": 0.32,
+        "output": 1.28
+      }
+    }
+  },
+  "roster": {
+    "judges": [
+      "Qwen/Qwen2.5-7B-Instruct-Turbo",
+      "google/gemma-4-31B-it",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "openai/gpt-oss-120b"
+    ],
+    "debaters": [
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "Qwen/Qwen3.7-Plus"
+    ],
+    "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  },
+  "debate_grid": {
+    "k": 2,
+    "conditions": [
+      {
+        "id": "b0",
+        "query_budget": 0,
+        "oracle_mode": "none",
+        "presentation": "sequential"
+      },
+      {
+        "id": "sequential_b2",
+        "query_budget": 2,
+        "oracle_mode": "clean",
+        "presentation": "sequential"
+      },
+      {
+        "id": "batch_same_qa_b2",
+        "query_budget": 2,
+        "oracle_mode": "replay_clean_qa",
+        "presentation": "batch_same_qa",
+        "depends_on_condition": "sequential_b2"
+      },
+      {
+        "id": "placebo_b2",
+        "query_budget": 2,
+        "oracle_mode": "placebo",
+        "presentation": "sequential"
+      }
+    ]
+  },
+  "no_debate_references": {
+    "k": 3,
+    "has_debater_dimension": false,
+    "has_transcript_dimension": false,
+    "conditions": [
+      {
+        "id": "b0",
+        "query_budget": 0,
+        "oracle_mode": "none"
+      },
+      {
+        "id": "clean_b2",
+        "query_budget": 2,
+        "oracle_mode": "clean"
+      },
+      {
+        "id": "placebo_b2",
+        "query_budget": 2,
+        "oracle_mode": "placebo"
+      }
+    ]
+  },
+  "unresolved": {
+    "primary_tests": {
+      "status": "unresolved_requires_signoff",
+      "known_count": 3,
+      "known_multiplicity_adjustment": "Holm",
+      "exact_test_definitions": null
+    },
+    "capability_measurement": {
+      "status": "unresolved_requires_signoff",
+      "known_method_family": "solo QA with the full world document",
+      "known_analysis_role": "measured capability trends are exploratory",
+      "question_set": null,
+      "scoring_rule": null,
+      "replicate_count": null,
+      "freeze_and_exclusion_policy": null
+    },
+    "cap_protection_secondary": {
+      "status": "unresolved_requires_signoff",
+      "known_target_judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "exact_contrast": null,
+      "cell_inventory": null,
+      "sample_size": null,
+      "multiplicity_handling": null
+    },
+    "query_screening": {
+      "status": "unresolved_requires_signoff",
+      "known_mechanical_screener": "rejudge.query_screen",
+      "known_contract_source": "docs/oracle-query-contract.md",
+      "model_checker_definition": null,
+      "retry_and_slot_policy": null,
+      "checker_failure_policy": null,
+      "audit_sampling_policy": null
+    },
+    "design_scope_reconciliation": {
+      "status": "unresolved_requires_signoff",
+      "known_prior_design_source": "docs/superpowers/specs/2026-07-10-phase2-capability-pilot-design-v2.md",
+      "empty_evidence_table_control_disposition": null,
+      "full_document_ceiling_anchors_disposition": null,
+      "matched_legacy_bridge_disposition": null
+    },
+    "secondary_analyses": {
+      "status": "unresolved_requires_signoff",
+      "known_no_debate_estimand_symbol": "D",
+      "no_debate_D_definition": null,
+      "no_debate_weighting_rule": null,
+      "no_debate_inference_method": null,
+      "no_debate_multiplicity_handling": null,
+      "resolvability_labels_source": null,
+      "resolvability_analysis_rule": null,
+      "shortcut_audit_human_pass_disposition": null
+    },
+    "execution_semantics": {
+      "status": "unresolved_requires_signoff",
+      "exact_prompt_bundle_and_hashes": null,
+      "temperature_by_call_role": null,
+      "max_output_tokens_by_call_role": null,
+      "reasoning_settings_by_model_and_call_role": null,
+      "seed_and_side_assignment_policy": null,
+      "retry_and_regeneration_policy": null,
+      "exact_placebo_payload": null,
+      "batch_same_qa_construction_rule": null,
+      "no_debate_prompt": null,
+      "provider_endpoint_and_version_pins": null
+    },
+    "launch_gates": {
+      "status": "unresolved_requires_signoff",
+      "invalid_rate_threshold": null,
+      "side_bias_threshold_percentage_points": null,
+      "canary_cell_inventory": null,
+      "canary_sample_size": null,
+      "gate_evaluation_method": null,
+      "gate_failure_action": null
+    },
+    "cumulative_spend": {
+      "status": "unresolved_requires_signoff",
+      "reported_project_spend_usd": 208,
+      "reported_phase2_estimate_usd": {
+        "minimum": 550,
+        "maximum": 1200
+      },
+      "reported_phase2_ceiling_usd": 1500,
+      "verified_starting_spend_usd": null,
+      "durable_ledger_source": null,
+      "cross_invocation_enforcement_policy": null,
+      "project_wide_locking_policy": null,
+      "concurrent_run_policy": null,
+      "provider_reconciliation_policy": null,
+      "cap_amendment_or_supplement_policy": null,
+      "approved_cumulative_ceiling_usd": null
+    }
+  }
+}

@@ -1,6 +1,16 @@
 import json
+from pathlib import Path
+
+import pytest
 
 from rejudge import runner
+
+
+TRANSCRIPTS_PATH = Path("data/transcripts.jsonl")
+requires_transcripts = pytest.mark.skipif(
+    not TRANSCRIPTS_PATH.is_file(),
+    reason="requires local research corpus data/transcripts.jsonl (not included in clean clones)",
+)
 
 
 def test_iter_cells_counts_and_legacy_k1():
@@ -14,6 +24,7 @@ def test_iter_cells_counts_and_legacy_k1():
     assert len({c["cell_key"] for c in cells}) == len(cells)
 
 
+@requires_transcripts
 def test_dry_run_e2e_and_resume(tmp_path):
     out = tmp_path / "records.jsonl"
     rc = runner.main(["--arms", "clean,both,placebo", "--replicates", "1",
@@ -42,7 +53,9 @@ def test_live_requires_cap(tmp_path):
     assert rc == 2                              # refused: no --approved-cap and not --dry-run
 
 
-def test_transient_cell_error_skips_and_continues(tmp_path, monkeypatch):
+@requires_transcripts
+def test_transient_cell_error_skips_continues_and_returns_incomplete(
+        tmp_path, monkeypatch, capsys):
     # --arms clean --limit 1 --replicates 1 -> 1 transcript x [0, 1, 2, 5] budgets x K=1
     # = 4 cells. iter_cells nests budgets inside the (single) transcript, replicate
     # innermost, so with --workers 1 (a single worker thread draining `todo` in list
@@ -55,18 +68,21 @@ def test_transient_cell_error_skips_and_continues(tmp_path, monkeypatch):
         calls["n"] += 1
         if calls["n"] == 1:
             raise RuntimeError("boom")
-        return {"cell_key": f"k{calls['n']}", "dry_run": True}
+        return {"cell_key": f"{arm.name}|{tr['question_id']}|{tr['transcript_index']}|"
+                            f"{budget}|{replicate}", "dry_run": True}
     monkeypatch.setattr(runner.judge_loop, "run_judgment", flaky)
     out = tmp_path / "r.jsonl"
     rc = runner.main(["--arms", "clean", "--replicates", "1", "--limit", "1",
                       "--dry-run", "--workers", "1", "--out", str(out)])
-    assert rc == 0
+    assert rc == 1
+    assert "completion check: 1 missing" in capsys.readouterr().out
     rows = out.read_text(encoding="utf-8").splitlines()
     assert len(rows) == 3            # clean has 4 budgets; 1 failed, 3 written
     failed = (tmp_path / "failed_cells.jsonl").read_text(encoding="utf-8")
     assert "boom" in failed
 
 
+@requires_transcripts
 def test_cap_exceeded_halts_run(tmp_path, monkeypatch):
     from rejudge.api_client import CapExceededError
 
@@ -96,8 +112,9 @@ def test_stratified_subset_is_world_balanced_and_deterministic():
     assert runner.stratified_subset(trs, 6) == result
 
 
+@requires_transcripts
 def test_stratified_subset_covers_all_worlds_on_real_data():
-    transcripts = runner._load_jsonl("data/transcripts.jsonl")
+    transcripts = runner._load_jsonl(TRANSCRIPTS_PATH)
     subset = runner.stratified_subset(transcripts, 100)
     assert len(subset) == 100
     assert {tr["world"] for tr in subset} == {"carath_norn", "selvarath", "vethun_sarak"}
@@ -115,3 +132,16 @@ def test_load_done_keys_tolerates_malformed_tail(tmp_path):
     p = tmp_path / "r.jsonl"
     p.write_text('{"cell_key": "a|b|1|0|0"}\n{"cell_key": "trunc', encoding="utf-8")
     assert runner.load_done_keys(p) == {"a|b|1|0|0"}
+
+
+def test_append_boundary_preserves_truncated_tail_and_separates_next_row(tmp_path):
+    p = tmp_path / "r.jsonl"
+    prefix = b'{"cell_key":"old"}\n{"cell_key":"trunc'
+    p.write_bytes(prefix)
+
+    runner.ensure_jsonl_append_boundary(p)
+    with p.open("ab") as stream:
+        stream.write(b'{"cell_key":"new"}\n')
+
+    assert p.read_bytes() == prefix + b'\n{"cell_key":"new"}\n'
+    assert runner.load_done_keys(p) == {"old", "new"}

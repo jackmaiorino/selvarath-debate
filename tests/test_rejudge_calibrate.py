@@ -1,6 +1,8 @@
 import json
+from pathlib import Path
 
 from rejudge import calibrate, config
+from rejudge import run_accounting, run_manifest
 from analysis.infra.design import position_a_is_correct
 
 L70 = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
@@ -18,8 +20,8 @@ class ScriptedClient:
         self.calls = []
         self.dry_run = False
 
-    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict"):
-        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages]})
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", **kwargs):
+        self.calls.append({"kind": kind, "messages": [dict(m) for m in messages], **kwargs})
         v = self.script.get(kind, "SHORT DRY RESPONSE")
         return v.pop(0) if isinstance(v, list) else v
 
@@ -51,8 +53,17 @@ def _write_transcripts(tmp_path, transcripts, name="transcripts.jsonl"):
 
 def _write_models(tmp_path, name="models.json"):
     p = tmp_path / name
-    p.write_text(json.dumps({"judges": JUDGES, "debaters": [L70, QPLUS], "oracle": L70}),
-                 encoding="utf-8")
+    all_models = set(JUDGES.values()) | {L70, QPLUS}
+    p.write_text(json.dumps({
+        "provider": "test provider",
+        "price_verified_at": "2026-07-15",
+        "price_source_url": "https://example.test/prices",
+        "judges": JUDGES,
+        "debaters": [L70, QPLUS],
+        "oracle": L70,
+        "prices_per_mtok": {model: {"in": 1.0, "out": 1.0}
+                             for model in all_models},
+    }), encoding="utf-8")
     return p
 
 
@@ -252,7 +263,86 @@ def test_records_land_in_right_per_judge_file_with_required_fields(tmp_path):
     assert not (out_dir / "calibration_judgments_low9.jsonl").exists()
 
 
-def test_transient_cell_failure_logged_and_continues(tmp_path, monkeypatch):
+def test_shared_paid_ledger_can_bind_a_later_disjoint_judge_subset(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        run_manifest, "_git_code_state",
+        lambda repo_root, excluded_paths: (
+            Path(repo_root).resolve(), {"sha": "a" * 40, "dirty": False}))
+    tpath = _write_transcripts(tmp_path, [])
+    mpath = _write_models(tmp_path)
+    out_dir = tmp_path / "out"
+
+    def live_args(judge):
+        return [
+            "--approved-cap", "1", "--workers", "1", "--cells", "b0",
+            "--judges", judge, "--transcripts", str(tpath), "--models", str(mpath),
+            "--out-dir", str(out_dir),
+        ]
+
+    assert calibrate.main(live_args("anchor")) == 0
+    anchor_manifest = json.loads(
+        (out_dir / "calibration_judgments_a70.jsonl.manifest.json").read_text())
+    ledger_identity = anchor_manifest["identity"]["cli_params"]["usage_ledger_identity"]
+    ledger = out_dir / "calibration_usage.jsonl"
+    client, _ = run_accounting.create_accounted_client(
+        approved_cap_usd=1.0,
+        dry_run=False,
+        model_prices={L70: {"in": 1.0, "out": 1.0}},
+        usage_log_path=ledger,
+        error_log_path=out_dir / "test_errors.jsonl",
+        ledger_identity=ledger_identity,
+    )
+    # Simulate a crash after the durable pre-call reservation. This is paid/uncertain
+    # accounting state, but makes no network request.
+    client._reserve_attempt(
+        model=L70, prompt_tokens=1, completion_tokens=1, kind="verdict",
+        seed=1, attempt=0, request_metadata={"cell_key": "crashed"})
+
+    assert calibrate.main(live_args("low_primary")) == 0
+    assert (out_dir / "calibration_judgments_low9.jsonl.manifest.json").exists()
+
+
+def test_cell_key_file_runs_only_an_exact_manifested_supplement(tmp_path):
+    tr = _transcript("SEL-002", 0, "capped3", L70)
+    tpath = _write_transcripts(tmp_path, [tr])
+    mpath = _write_models(tmp_path)
+    selected = calibrate.build_cell(
+        "anchor", L70, tr, budget=0, replicate=1, mirrored=True)["cell_key"]
+    key_path = tmp_path / "selected.json"
+    key_path.write_text(json.dumps([selected]), encoding="utf-8")
+    out_dir = tmp_path / "supplement"
+
+    rc = calibrate.main([
+        "--dry-run", "--workers", "1", "--cells", "b0", "--judges", "anchor",
+        "--transcripts", str(tpath), "--models", str(mpath),
+        "--cell-key-file", str(key_path), "--out-dir", str(out_dir),
+    ])
+
+    assert rc == 0
+    rows = [json.loads(line) for line in
+            (out_dir / "calibration_judgments_a70.jsonl").read_text().splitlines()]
+    assert [row["cell_key"] for row in rows] == [selected]
+
+
+def test_cell_key_file_refuses_keys_outside_requested_grid(tmp_path, capsys):
+    tpath = _write_transcripts(tmp_path, [_transcript("SEL-002", 0, "capped3", L70)])
+    mpath = _write_models(tmp_path)
+    key_path = tmp_path / "selected.json"
+    key_path.write_text(json.dumps(["not-a-cell"]), encoding="utf-8")
+
+    rc = calibrate.main([
+        "--dry-run", "--cells", "b0", "--judges", "anchor",
+        "--transcripts", str(tpath), "--models", str(mpath),
+        "--cell-key-file", str(key_path), "--out-dir", str(tmp_path / "out"),
+    ])
+
+    assert rc == 2
+    assert "not in the requested judge/cell grid" in capsys.readouterr().err
+
+
+def test_transient_cell_failure_logged_continues_and_returns_incomplete(
+        tmp_path, monkeypatch, capsys):
     tr = _transcript("SEL-002", 0, "capped3", L70)
     tpath = _write_transcripts(tmp_path, [tr])
     mpath = _write_models(tmp_path)
@@ -271,7 +361,8 @@ def test_transient_cell_failure_logged_and_continues(tmp_path, monkeypatch):
     rc = calibrate.main(["--dry-run", "--workers", "1", "--cells", "b0", "--judges", "anchor",
                          "--transcripts", str(tpath), "--models", str(mpath),
                          "--out-dir", str(out_dir)])
-    assert rc == 0
+    assert rc == 1
+    assert "completion check: 1 missing" in capsys.readouterr().out
     failed = (out_dir / "calibrate_failed_cells.jsonl").read_text(encoding="utf-8")
     assert "boom" in failed
     rows = (out_dir / "calibration_judgments_a70.jsonl").read_text(encoding="utf-8").splitlines()

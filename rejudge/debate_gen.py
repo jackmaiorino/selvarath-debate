@@ -60,6 +60,7 @@ synchronous throughout -- no asyncio.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import json
 import sys
 import threading
@@ -68,9 +69,25 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rejudge import records
-from rejudge.api_client import CapExceededError, RejudgeClient
+from rejudge.api_client import (AccountingInvariantError, CapExceededError,
+                                UsageLedgerError)
 from rejudge.config import load_protocol, make_seed
-from rejudge.runner import _world_documents, load_done_keys
+from rejudge.run_accounting import (DEFAULT_PRICE_SCHEDULE, PriceScheduleError,
+                                    create_accounted_client, load_price_schedule,
+                                    prepare_usage_ledger, pricing_identity,
+                                    select_model_prices,
+                                    usage_ledger_generated_paths,
+                                    usage_log_path_for)
+from rejudge.run_manifest import (RunManifestError, ensure_run_manifest,
+                                  manifest_path_for)
+from rejudge.runner import (OUTPUT_PERSISTENCE_EXIT, REPO_ROOT,
+                            OutputPersistenceError, acquire_output_locks,
+                            _world_documents, _world_source_files,
+                            append_jsonl_record, audit_jsonl_completion,
+                            capture_source_hashes, prepare_jsonl_output,
+                            require_manifest_source_snapshot,
+                            require_unique_planned_cell_keys,
+                            require_unchanged_source_snapshot)
 
 DEFAULT_WORD_CAP = 150
 CAP300 = 300
@@ -80,6 +97,10 @@ CANARY_MAX_TOKENS = 64
 TURN_SEED_STRIDE = 10   # headroom per turn so cap-retry seeds never collide with the next turn
 
 PROTOCOL_WORD_CAPS = {"uncapped3": None, "capped3": DEFAULT_WORD_CAP, "capped300": CAP300}
+DEFAULT_QUESTIONS = str(
+    REPO_ROOT / "rejudge" / "output" / "calibration_questions.json")
+DEFAULT_TRANSCRIPT_OUTPUT = str(
+    REPO_ROOT / "rejudge" / "output" / "calibration_transcripts.jsonl")
 
 CAP_INSTRUCTIONS = {cap: f"Your response must be {cap} words or fewer."
                     for cap in (DEFAULT_WORD_CAP, CAP300)}
@@ -178,7 +199,8 @@ def counterbalance_assignment(pairs: list[tuple]) -> dict:
 
 
 def generate_turn(client, *, model: str, temperature: float, seed: int, system: str, user: str,
-                  cap_words: int | None, kind: str = "query") -> tuple[str, dict | None]:
+                  cap_words: int | None, kind: str = "query",
+                  request_metadata: dict | None = None) -> tuple[str, dict | None]:
     """Generate one debater turn. If `cap_words` is None, a single call is made and no
     metadata is returned. If `cap_words` is set, apply the mechanical word-cap validation
     protocol: up to MAX_CAP_ATTEMPTS attempts, a stronger reminder appended on retries, every
@@ -187,7 +209,8 @@ def generate_turn(client, *, model: str, temperature: float, seed: int, system: 
     if cap_words is None:
         text = client.complete([{"role": "system", "content": system},
                                 {"role": "user", "content": user}],
-                               model, temperature, seed, TURN_MAX_TOKENS, kind=kind)
+                               model, temperature, seed, TURN_MAX_TOKENS, kind=kind,
+                               request_metadata=request_metadata)
         return text, None
 
     over_limit_attempts: list[dict] = []
@@ -196,7 +219,9 @@ def generate_turn(client, *, model: str, temperature: float, seed: int, system: 
         attempt_user = user if attempt == 1 else f"{user}\n\n{stronger_reminder(cap_words)}"
         text = client.complete([{"role": "system", "content": system},
                                 {"role": "user", "content": attempt_user}],
-                               model, temperature, seed + attempt - 1, TURN_MAX_TOKENS, kind=kind)
+                               model, temperature, seed + attempt - 1, TURN_MAX_TOKENS, kind=kind,
+                               request_metadata={**(request_metadata or {}),
+                                                 "cap_regen_attempt": attempt})
         if word_count(text) <= cap_words:
             return text, {"word_cap_violated": False, "regen_attempts": len(over_limit_attempts),
                           "over_limit_attempts": over_limit_attempts}
@@ -215,6 +240,7 @@ def generate_transcript(question: dict, world_document: str, transcript_index: i
     n_rounds = protocol["protocol"]["debate_phase"]["n_rounds"]
     temperature = protocol["protocol"]["temperature"]["debater"]
     base_seed = make_seed(question["id"], transcript_index)
+    transcript_cell_key = f"{protocol_name}|{debater_model}|{question['id']}|{transcript_index}"
 
     turns: list[dict] = []
     for round_idx in range(n_rounds):
@@ -227,7 +253,16 @@ def generate_transcript(question: dict, world_document: str, transcript_index: i
             turn_seed = base_seed + (round_idx * 2 + slot) * TURN_SEED_STRIDE
             text, cap_meta = generate_turn(
                 client, model=debater_model, temperature=temperature, seed=turn_seed,
-                system=system, user=user, cap_words=cap_words, kind="query")
+                system=system, user=user, cap_words=cap_words, kind="query",
+                request_metadata={
+                    "stage": "debate_generation",
+                    "cell_key": transcript_cell_key,
+                    "call_role": "debater_turn",
+                    "round_index": round_idx,
+                    "slot_index": slot,
+                    "speaker": "honest" if is_honest else "dishonest",
+                    "protocol": protocol_name,
+                })
             turn = {"speaker": "honest" if is_honest else "dishonest", "text": text,
                    "round": round_idx + 1}
             if cap_meta is not None:
@@ -250,7 +285,7 @@ def generate_transcript(question: dict, world_document: str, transcript_index: i
         "harness_version": records.get_git_sha(),
         "created_at": records.utc_now_iso(),
         "dry_run": getattr(client, "dry_run", False),
-        "cell_key": f"{protocol_name}|{debater_model}|{question['id']}|{transcript_index}",
+        "cell_key": transcript_cell_key,
     }
 
 
@@ -266,7 +301,11 @@ def run_canary_checks(client, model_id: str, protocol: dict) -> list[dict]:
         before = getattr(client, "total_tokens", 0)
         try:
             text = client.complete([{"role": "user", "content": prompt}], model_id, temperature,
-                                   1000 + i, CANARY_MAX_TOKENS, kind="query")
+                                   1000 + i, CANARY_MAX_TOKENS, kind="query",
+                                   request_metadata={
+                                       "stage": "canary", "call_role": "canary_prompt",
+                                       "canary_index": i,
+                                   })
         except Exception as exc:
             entry.update(ok=False, latency_s=time.monotonic() - start, error=str(exc))
         else:
@@ -277,12 +316,21 @@ def run_canary_checks(client, model_id: str, protocol: dict) -> list[dict]:
     return results
 
 
-def _load_question_bank() -> dict:
+def _load_question_bank(source_files: dict[str, Path] | None = None) -> dict:
+    """Load an already-enumerated question-file set for source-manifest parity."""
     bank = {}
-    for f in Path("questions").glob("*.json"):
+    paths = ((REPO_ROOT / "questions").glob("*.json")
+             if source_files is None else source_files.values())
+    for f in sorted(Path(path) for path in paths):
         for q in json.loads(f.read_text(encoding="utf-8")):
             bank[q["id"]] = q
     return bank
+
+
+def _question_source_files() -> dict[str, Path]:
+    """Return every question-bank file consumed by :func:`_load_question_bank`."""
+    return {f"question_bank:{path.stem}": path
+            for path in sorted((REPO_ROOT / "questions").glob("*.json"))}
 
 
 def _parse_debater_models(values, protocol: dict) -> list[str]:
@@ -299,18 +347,16 @@ def _parse_debater_models(values, protocol: dict) -> list[str]:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--questions", default="rejudge/output/calibration_questions.json")
+    ap.add_argument("--questions", default=DEFAULT_QUESTIONS)
     ap.add_argument("--transcripts-per-question", type=int, default=2)
     ap.add_argument("--protocols", default="capped3,uncapped3")
     ap.add_argument("--debater-model", action="append", default=None)
     ap.add_argument("--approved-cap", type=float, default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--out", default="rejudge/output/calibration_transcripts.jsonl")
+    ap.add_argument("--out", default=DEFAULT_TRANSCRIPT_OUTPUT)
     ap.add_argument("--canary", default=None)
     args = ap.parse_args(argv)
-
-    protocol = load_protocol()
 
     if args.canary:
         if args.dry_run:
@@ -321,21 +367,9 @@ def main(argv=None) -> int:
             print("REFUSED: --canary requires --approved-cap USD (it makes live calls).",
                   file=sys.stderr)
             return 2
-        out_dir = Path(args.out).parent
-        out_dir.mkdir(parents=True, exist_ok=True)
-        client = RejudgeClient(approved_cap_usd=args.approved_cap, dry_run=False,
-                               error_log_path=str(out_dir / "debate_gen_canary_errors.jsonl"))
-        results = run_canary_checks(client, args.canary, protocol)
-        ok = True
-        for r in results:
-            if r["ok"]:
-                print(f"canary[{r['index']}] OK {r['latency_s']:.2f}s "
-                      f"tokens={r['tokens_used']} :: {r['preview']!r}")
-            else:
-                ok = False
-                print(f"canary[{r['index']}] FAIL {r['latency_s']:.2f}s :: {r['error']}",
-                      file=sys.stderr)
-        return 0 if ok else 1
+        print("REFUSED: the historical canary path is disabled until a dedicated canary "
+              "writes manifest-bound results and a cumulative usage ledger.", file=sys.stderr)
+        return 2
 
     if args.transcripts_per_question <= 0:
         print("REFUSED: --transcripts-per-question must be a positive integer ('run nothing' "
@@ -353,17 +387,35 @@ def main(argv=None) -> int:
         print(f"unknown protocols: {unknown}", file=sys.stderr)
         return 2
 
-    debater_models = _parse_debater_models(args.debater_model, protocol)
+    question_source_files = _question_source_files()
+    world_source_files = _world_source_files()
+    source_files = {
+        "experiment_protocol": REPO_ROOT / "experiment_protocol.json",
+        "question_selection": Path(args.questions).resolve(),
+        "price_schedule": DEFAULT_PRICE_SCHEDULE,
+        **question_source_files,
+        **world_source_files,
+    }
+    try:
+        before_load = capture_source_hashes(source_files)
+        protocol = load_protocol(source_files["experiment_protocol"])
+        debater_models = _parse_debater_models(args.debater_model, protocol)
+        question_ids = json.loads(Path(args.questions).read_text(encoding="utf-8"))
+        bank = _load_question_bank(question_source_files)
+        worlds = _world_documents(world_source_files)
+        price_schedule = load_price_schedule()
+        model_prices = select_model_prices(price_schedule, debater_models)
+        loaded_source_hashes = require_unchanged_source_snapshot(before_load, source_files)
+    except (PriceScheduleError, RunManifestError) as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
 
-    question_ids = json.loads(Path(args.questions).read_text(encoding="utf-8"))
-    bank = _load_question_bank()
     missing = [qid for qid in question_ids if qid not in bank]
     if missing:
         print(f"unknown question ids (not found under questions/*.json): {missing}",
               file=sys.stderr)
         return 2
     questions = [bank[qid] for qid in question_ids]
-    worlds = _world_documents()
 
     pairs = [(q["id"], t) for q in questions for t in range(args.transcripts_per_question)]
     honest_first_map = counterbalance_assignment(pairs)
@@ -378,50 +430,159 @@ def main(argv=None) -> int:
                                 "question": q, "transcript_index": t,
                                 "honest_first": honest_first_map[(q["id"], t)], "cell_key": key})
 
+    try:
+        expected = require_unique_planned_cell_keys(
+            (job["cell_key"] for job in jobs), label="debate generation grid")
+    except RunManifestError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     failed_path = out_path.parent / "debate_gen_failed.jsonl"
-    done = load_done_keys(out_path)
-    todo = [j for j in jobs if j["cell_key"] not in done]
-    print(f"{len(jobs)} transcripts, {len(done)} done, {len(todo)} to run "
-          f"({'DRY RUN' if args.dry_run else f'cap ${args.approved_cap}'})")
+    usage_path = usage_log_path_for(out_path)
+    stack = ExitStack()
+    try:
+        acquire_output_locks(
+            stack, [out_path] if args.dry_run else [out_path, usage_path])
+        manifest_preexists = manifest_path_for(out_path).exists()
+        ledger_identity = (None if args.dry_run else prepare_usage_ledger(
+            usage_path, allow_create=not manifest_preexists))
+        manifest = ensure_run_manifest(
+            out_path,
+            repo_root=REPO_ROOT,
+            run_kind="debate-generation",
+            dry_run=args.dry_run,
+            models={"debaters": debater_models},
+            prices=pricing_identity(price_schedule, model_prices),
+            protocol_content={
+                "experiment_protocol": protocol,
+                "protocol_word_caps": {name: PROTOCOL_WORD_CAPS[name]
+                                       for name in protocol_names},
+                "max_cap_attempts": MAX_CAP_ATTEMPTS,
+                "turn_max_tokens": TURN_MAX_TOKENS,
+                "turn_seed_stride": TURN_SEED_STRIDE,
+                "counterbalance": "global_seed_rank_exact_half",
+            },
+            source_files=source_files,
+            generated_paths=[
+                *usage_ledger_generated_paths(usage_path),
+                failed_path,
+                out_path.parent / "debate_gen_errors.jsonl",
+            ],
+            cli_params={
+                "questions": str(Path(args.questions).resolve()),
+                "transcripts_per_question": args.transcripts_per_question,
+                "protocols": protocol_names,
+                "debater_models": debater_models,
+                "approved_cap_usd": args.approved_cap,
+                "dry_run": args.dry_run,
+                "workers": args.workers,
+                "out": str(out_path.resolve()),
+                "usage_log": str(usage_path.resolve()),
+                "usage_ledger_identity": ledger_identity,
+                "canary": None,
+            },
+        )
+        require_manifest_source_snapshot(manifest, loaded_source_hashes)
+    except (RunManifestError, UsageLedgerError) as exc:
+        stack.close()
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
 
-    client = RejudgeClient(approved_cap_usd=args.approved_cap or 0.0, dry_run=args.dry_run,
-                           error_log_path=str(out_path.parent / "debate_gen_errors.jsonl"))
-    lock = threading.Lock()
-    cap_hit = threading.Event()
-
-    def run_job(job):
-        if cap_hit.is_set():
-            return
+    try:
         try:
-            rec = generate_transcript(
-                job["question"], worlds[job["question"]["world"]], job["transcript_index"],
-                job["honest_first"], protocol, client, debater_model=job["debater_model"],
-                protocol_name=job["protocol_name"])
-        except CapExceededError:
-            cap_hit.set()
-            return
-        except Exception as exc:
-            with lock:
-                with open(failed_path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps({"cell_key": job["cell_key"], "error": str(exc),
-                                        "ts": records.utc_now_iso()}) + "\n")
-            print(f"WARN: {job['cell_key']} failed: {exc}", file=sys.stderr)
-            return
-        with lock:
-            with open(out_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(rec) + "\n")
+            prepare_jsonl_output(out_path)
+            done = audit_jsonl_completion(out_path, expected)
+        except OutputPersistenceError as exc:
+            print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+            return OUTPUT_PERSISTENCE_EXIT
+        todo = [j for j in jobs if j["cell_key"] not in done]
+        print(f"{len(jobs)} transcripts, {len(done)} done, {len(todo)} to run "
+              f"({'DRY RUN' if args.dry_run else f'cap ${args.approved_cap}'})")
 
-    with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        list(ex.map(run_job, todo))
+        try:
+            client, prior_usage = create_accounted_client(
+                approved_cap_usd=args.approved_cap or 0.0,
+                dry_run=args.dry_run,
+                model_prices=model_prices,
+                usage_log_path=usage_path,
+                error_log_path=out_path.parent / "debate_gen_errors.jsonl",
+                ledger_identity=ledger_identity,
+            )
+        except (OSError, ValueError, UsageLedgerError) as exc:
+            print(f"REFUSED: could not establish cumulative usage ledger: {exc}",
+                  file=sys.stderr)
+            return 2
+        if prior_usage["events"]:
+            print(f"prior accounted spend: ${prior_usage['accounted_spend_usd']:.4f} "
+                  f"across {prior_usage['events']} ledger events")
+        lock = threading.Lock()
+        cap_hit = threading.Event()
+        accounting_failed = threading.Event()
+        output_failed = threading.Event()
 
-    if cap_hit.is_set():
-        print("CAP REACHED -- run halted; resume after raising cap.", file=sys.stderr)
-        return 3
+        def run_job(job):
+            if cap_hit.is_set() or accounting_failed.is_set() or output_failed.is_set():
+                return
+            try:
+                rec = generate_transcript(
+                    job["question"], worlds[job["question"]["world"]], job["transcript_index"],
+                    job["honest_first"], protocol, client, debater_model=job["debater_model"],
+                    protocol_name=job["protocol_name"])
+            except CapExceededError:
+                cap_hit.set()
+                return
+            except (UsageLedgerError, AccountingInvariantError) as exc:
+                accounting_failed.set()
+                print(f"ACCOUNTING UNSAFE: {exc}", file=sys.stderr)
+                return
+            except Exception as exc:
+                with lock:
+                    with open(failed_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({"cell_key": job["cell_key"], "error": str(exc),
+                                            "ts": records.utc_now_iso()}) + "\n")
+                print(f"WARN: {job['cell_key']} failed: {exc}", file=sys.stderr)
+                return
+            try:
+                with lock:
+                    append_jsonl_record(out_path, rec)
+            except OutputPersistenceError as exc:
+                output_failed.set()
+                print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+                return
 
-    print(f"done. total tokens={client.total_tokens} spent=${client.spent_usd:.2f}")
-    return 0
+        with ThreadPoolExecutor(max_workers=args.workers) as ex:
+            list(ex.map(run_job, todo))
+
+        try:
+            completed = audit_jsonl_completion(out_path, expected)
+        except OutputPersistenceError as exc:
+            output_failed.set()
+            print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+            completed = set()
+        missing = expected - completed
+        print(f"completion check: {len(missing)} missing")
+
+        if accounting_failed.is_set():
+            print("ACCOUNTING UNSAFE -- reconcile the usage ledger and provider billing "
+                  "before resume.", file=sys.stderr)
+            return 4
+        if output_failed.is_set():
+            print("OUTPUT UNSAFE -- repair the manifested output before resume.",
+                  file=sys.stderr)
+            return OUTPUT_PERSISTENCE_EXIT
+        if cap_hit.is_set():
+            print("CAP REACHED -- run halted. The manifested ceiling is immutable; reconcile "
+                  "spend before authorizing a supplemental run.", file=sys.stderr)
+            return 3
+        if missing:
+            return 1
+
+        print(f"done. total tokens={client.total_tokens} spent=${client.spent_usd:.2f}")
+        return 0
+    finally:
+        stack.close()
 
 
 if __name__ == "__main__":

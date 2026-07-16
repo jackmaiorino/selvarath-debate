@@ -1,16 +1,10 @@
 import os
 
-from together import AsyncTogether
-
-_client: AsyncTogether | None = None
 _DRY_RUN_RESPONSE = "VERDICT: Position A\nCONFIDENCE: 1\nREASONING: Dry run — no API call made."
 
 
-def _get_client() -> AsyncTogether:
-    global _client
-    if _client is None:
-        _client = AsyncTogether()
-    return _client
+class LegacyLiveRunDisabledError(RuntimeError):
+    """The original pilot harness is retained for reproduction, not new paid runs."""
 
 
 async def complete(
@@ -23,15 +17,7 @@ async def complete(
     if os.environ.get("DRY_RUN"):
         return _DRY_RUN_RESPONSE
 
-    kwargs: dict = dict(
-        model=model,
-        messages=messages,  # type: ignore[arg-type]
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    if seed is not None:
-        kwargs["seed"] = seed
-
-    response = await _get_client().chat.completions.create(**kwargs)
-    content = response.choices[0].message.content
-    return content if content is not None else ""
+    raise LegacyLiveRunDisabledError(
+        "live calls through the original pilot harness are disabled because it has no "
+        "manifest-bound cumulative spend ledger and contains known data-corrupting bugs; "
+        "use a hardened rejudge runner instead")

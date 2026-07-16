@@ -1,5 +1,8 @@
 {
   "frozen": "2026-07-13",
+  "provider": "Together AI serverless",
+  "price_verified_at": "2026-07-15",
+  "price_source_url": "https://docs.together.ai/docs/serverless/models",
   "note": "All endpoints canary-verified live. Llama-3.1-8B, Llama-3.1-405B, Qwen3.5-397B, DeepSeek-V3.1 all failed canaries (not serverless on Together). Qwen3.7-Plus is streaming-only and a thinking model; reasoning left at endpoint default and recorded. 2026-07-14 addendum: reasoning-model max_tokens floor fixed empty-content failures; Qwen3.5-9B redeemed for retest; gemma-4-31B and gpt-oss-120b added as open-weight candidates (canary-verified with floor).",
   "judges": {
     "low_primary": "Qwen/Qwen3.5-9B",

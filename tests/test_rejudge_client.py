@@ -10,8 +10,8 @@ MSGS = [{"role": "user", "content": "hello"}]
 
 
 class _Usage:
-    prompt_tokens = 1000
-    completion_tokens = 100
+    prompt_tokens = 100
+    completion_tokens = 50
 
 
 class _Choice:
@@ -107,13 +107,24 @@ def test_dry_run_invalid_kind_raises():
         c.complete(MSGS, "m", 0.1, 1, 64, kind="bogus")
 
 
+def test_real_provider_client_is_factory_only_even_with_a_ledger(tmp_path):
+    with pytest.raises(ValueError, match="create_accounted_client"):
+        ac.RejudgeClient(approved_cap_usd=1.0)
+    with pytest.raises(ValueError, match="create_accounted_client"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, strict_model_pricing=True,
+            model_prices={"m": {"in": 1.0, "out": 1.0}},
+            usage_log_path=tmp_path / "usage.jsonl")
+
+
 def test_accounting_and_cap_abort():
-    # cap chosen so the SECOND call's projected spend (actual 1100 spent + ~65 estimated)
-    # crosses it: (1100+65)/1e6*1.04 ≈ $0.00121 > $0.0012
-    c = ac.RejudgeClient(approved_cap_usd=0.0012, _sdk_client=StubSDK())
-    c.complete(MSGS, "m", 0.1, 1, 64)          # 1100 tokens -> $0.001144
-    assert c.total_tokens == 1100
-    assert 0.001 < c.spent_usd < 0.0013
+    reservation = ac._estimate_tokens(MSGS, 64) / 1_000_000 * 1.04
+    actual = 150 / 1_000_000 * 1.04
+    cap = actual + reservation / 2
+    c = ac.RejudgeClient(approved_cap_usd=cap, _sdk_client=StubSDK())
+    c.complete(MSGS, "m", 0.1, 1, 64)
+    assert c.total_tokens == 150
+    assert c.spent_usd == pytest.approx(actual)
     with pytest.raises(ac.CapExceededError):
         c.complete(MSGS, "m", 0.1, 1, 64)      # projected spend crosses the cap BEFORE calling
 
@@ -145,17 +156,10 @@ def test_context_guard():
 
 
 def test_cap_reservation_is_atomic_across_threads():
-    # est(MSGS, max_tokens=64) = len("hello")//4 + 64 = 1 + 64 = 65 tokens, for EVERY call
-    # (same messages/max_tokens both threads use). At price_per_mtok=1.04 (default):
-    #   one reservation:  65 tok  -> $0.0000676
-    #   two reservations: 130 tok -> $0.0001352
-    # cap=0.0001 sits strictly between those two, so exactly one reservation fits under the
-    # cap and a second concurrent one cannot. Because the projection check and the reservation
-    # increment happen inside the SAME locked critical section, whichever thread acquires the
-    # lock first reserves 65 tokens and proceeds; the other then sees total_tokens=65 already
-    # reserved, computes projected=130 tok > cap, and aborts -- deterministically exactly one
-    # "ok" and one "cap" regardless of scheduling order.
-    c = ac.RejudgeClient(approved_cap_usd=0.0001, _sdk_client=SlowStubSDK(delay=0.05),
+    reservation = ac._estimate_tokens(MSGS, 64) / 1_000_000 * 1.04
+    # The cap is strictly between one and two simultaneous conservative reservations.
+    c = ac.RejudgeClient(approved_cap_usd=reservation * 1.5,
+                         _sdk_client=SlowStubSDK(delay=0.05),
                          _sleep=lambda s: None)
     results = []
 
@@ -174,17 +178,24 @@ def test_cap_reservation_is_atomic_across_threads():
     assert sorted(results) == ["cap", "ok"]
 
 
-def test_reservation_rolled_back_on_terminal_failure():
+def test_failed_attempts_remain_reserved_as_unknown_charges():
     sdk = StubSDK(fail_times=99)
     c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, max_retries=1,
                          _sleep=lambda s: None)
     with pytest.raises(RuntimeError):
         c.complete(MSGS, "m", 0.1, 1, 64)
-    assert c.total_tokens == 0        # reservation rolled back, not left dangling
+    # A timeout/transport exception does not prove the provider did no inference. Keep one
+    # conservative reservation per attempt until provider billing can reconcile it.
+    estimated = ac._estimate_tokens(MSGS, 64)
+    assert c.total_tokens == estimated * 2
+    assert c.uncertain_tokens == estimated * 2
+    assert c.uncertain_spend_usd == pytest.approx(estimated * 2 / 1_000_000 * 1.04)
+    assert [e["status"] for e in c.usage_events] == [
+        "reserved", "unknown_charge", "reserved", "unknown_charge"]
 
 
 def test_malformed_choices_after_charge_is_terminal_not_retried():
-    # usage is present (1100 tokens, genuinely billed) but choices=[] makes content
+    # usage is present (150 tokens, genuinely billed) but choices=[] makes content
     # extraction raise. This must NOT retry -- retrying a malformed-response condition
     # would fire another paid call -- and the real spend must be reconciled, not rolled
     # back, since the money was actually spent.
@@ -196,7 +207,7 @@ def test_malformed_choices_after_charge_is_terminal_not_retried():
     assert not isinstance(exc_info.value, ac.CapExceededError)
     assert "malformed API response after successful charge" in str(exc_info.value)
     assert sdk.calls == 1             # exactly one SDK call -- no retry
-    assert c.total_tokens == 1100     # actual charged usage, reconciled not rolled back
+    assert c.total_tokens == 150      # actual charged usage, reconciled not rolled back
 
 
 def test_retry_rechecks_cap_and_raises_cap_exceeded_not_runtime_error():
@@ -209,13 +220,143 @@ def test_retry_rechecks_cap_and_raises_cap_exceeded_not_runtime_error():
     c = ac.RejudgeClient(approved_cap_usd=0.002, _sdk_client=sdk, max_retries=3)
 
     def fake_sleep(seconds):
-        c.total_tokens = 5_000        # pretend another call just charged past the cap
+        # Pretend another in-flight call just reconciled actual spend past the cap.
+        with c._lock:
+            c._actual_spend_usd = 0.005
 
     c._sleep = fake_sleep
     with pytest.raises(ac.CapExceededError):
         c.complete(MSGS, "m", 0.1, 1, 64)
     assert sdk.calls == 1             # only the first attempt hit the network; the cap
                                        # check aborts before a second network call
+
+
+def test_model_specific_input_output_pricing_and_usage_log(tmp_path):
+    usage_log = tmp_path / "usage.jsonl"
+    prices = {"mixed": {"in": 0.2, "out": 1.0}}
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=StubSDK(), model_prices=prices,
+        strict_model_pricing=True, usage_log_path=str(usage_log))
+
+    assert c.complete(MSGS, "mixed", 0.1, 7, 64, kind="oracle",
+                      request_metadata={"cell_key": "c1"}) == "YES"
+
+    expected = (100 * 0.2 + 50 * 1.0) / 1_000_000
+    assert c.actual_spent_usd == pytest.approx(expected)
+    assert c.spent_usd == pytest.approx(expected)
+    assert c.actual_prompt_tokens == 100
+    assert c.actual_completion_tokens == 50
+    events = [json.loads(line) for line in usage_log.read_text().splitlines()]
+    assert [event["status"] for event in events] == ["reserved", "success"]
+    event = events[-1]
+    assert event["status"] == "success"
+    assert event["model"] == "mixed"
+    assert event["cost_usd"] == pytest.approx(expected)
+    assert event["metadata"] == {"cell_key": "c1"}
+
+
+def test_strict_model_pricing_refuses_unfrozen_model_before_call():
+    sdk = StubSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, model_prices={},
+        strict_model_pricing=True)
+    with pytest.raises(ac.UnknownModelPriceError):
+        c.complete(MSGS, "unpriced", 0.1, 1, 64)
+    assert sdk.calls == 0
+
+
+@pytest.mark.parametrize("bad_price", [-1, float("nan"), float("inf")])
+def test_invalid_model_prices_are_refused_before_call(bad_price):
+    sdk = StubSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk,
+        model_prices={"bad": {"in": bad_price, "out": 1.0}},
+        strict_model_pricing=True)
+    with pytest.raises(ac.UnknownModelPriceError, match="finite and non-negative"):
+        c.complete(MSGS, "bad", 0.1, 1, 64)
+    assert sdk.calls == 0
+
+
+def test_initial_spend_makes_cap_cumulative_across_invocations():
+    sdk = StubSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=0.01, initial_spend_usd=0.00999, _sdk_client=sdk)
+    with pytest.raises(ac.CapExceededError):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 0
+
+
+def test_usage_log_summary_is_conservative_and_rejects_corruption(tmp_path):
+    log = tmp_path / "usage.jsonl"
+    log.write_text("\n".join((
+        json.dumps({"status": "success", "cost_usd": 0.2}),
+        json.dumps({"status": "charged_malformed", "cost_usd": 0.1}),
+        json.dumps({"status": "unknown_charge", "cost_usd": 0.4}),
+    )) + "\n")
+    summary = ac.summarize_usage_log(log)
+    assert summary == {
+        "events": 3,
+        "actual_spend_usd": pytest.approx(0.3),
+        "uncertain_spend_usd": pytest.approx(0.4),
+        "accounted_spend_usd": pytest.approx(0.7),
+        "unmatched_reservations": 0,
+    }
+
+    log.write_text(log.read_text() + "{broken\n")
+    with pytest.raises(ValueError, match="invalid usage ledger event"):
+        ac.summarize_usage_log(log)
+
+
+def test_unmatched_pre_call_reservation_survives_a_crash_as_uncertain(tmp_path):
+    log = tmp_path / "usage.jsonl"
+    log.write_text(json.dumps({
+        "status": "reserved", "attempt_id": "crashed", "cost_usd": 0.25,
+    }) + "\n", encoding="utf-8")
+    summary = ac.summarize_usage_log(log)
+    assert summary["actual_spend_usd"] == 0
+    assert summary["uncertain_spend_usd"] == pytest.approx(0.25)
+    assert summary["accounted_spend_usd"] == pytest.approx(0.25)
+    assert summary["unmatched_reservations"] == 1
+
+
+@pytest.mark.parametrize("status,cost,match", [
+    ("success", 0.2, "exceeds reservation"),
+    ("unknown_charge", 0.05, "does not equal reservation"),
+])
+def test_ledger_replay_rejects_terminal_cost_invariant_breaks(
+        tmp_path, status, cost, match):
+    log = tmp_path / "usage.jsonl"
+    log.write_text("\n".join((
+        json.dumps({"status": "reserved", "attempt_id": "a", "cost_usd": 0.1}),
+        json.dumps({"status": status, "attempt_id": "a", "cost_usd": cost}),
+    )) + "\n", encoding="utf-8")
+    with pytest.raises(ac.UsageLedgerError, match=match):
+        ac.summarize_usage_log(log)
+
+
+def test_fractional_provider_usage_is_unknown_not_truncated():
+    class FractionalUsage:
+        prompt_tokens = 100.5
+        completion_tokens = 2
+
+    class FractionalResponse:
+        usage = FractionalUsage()
+        choices = _Resp.choices
+
+    class FractionalSDK:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return FractionalResponse()
+
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=FractionalSDK(), max_retries=0)
+    with pytest.raises(RuntimeError, match="API call failed"):
+        client.complete(MSGS, "m", 0.0, 1, 8)
+    assert client.actual_spent_usd == 0
+    assert client.uncertain_spend_usd > 0
+    assert client.usage_events[-1]["status"] == "unknown_charge"
 
 
 class StreamingOnlySDK:
@@ -246,7 +387,7 @@ class StreamingOnlySDK:
                         self.usage = usage
 
                 class _Usage:
-                    prompt_tokens = 500
+                    prompt_tokens = 100
                     completion_tokens = 50
 
                 return iter([_Chunk("YE"), _Chunk("S"), _Chunk(None, usage=_Usage())])
@@ -262,9 +403,10 @@ def test_streaming_only_endpoint_auto_fallback():
     c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None)
     out = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out == "YES"
-    assert c.total_tokens == 550                       # usage from final chunk
+    assert c.total_tokens == 150                       # usage from final chunk
     assert sdk.calls[0].get("stream") is None or sdk.calls[0].get("stream") is False or "stream" not in sdk.calls[0]
     assert sdk.calls[1]["stream"] is True
+    assert sdk.calls[1]["stream_options"] == {"include_usage": True}
     # second call skips the failed non-streaming probe entirely
     out2 = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out2 == "YES"

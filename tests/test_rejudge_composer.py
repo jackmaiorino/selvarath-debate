@@ -1,6 +1,15 @@
 import json
+from pathlib import Path
+
+import pytest
 
 from rejudge import composer
+
+JUDGMENTS_PATH = Path("data/judgments.jsonl")
+requires_pilot_corpus = pytest.mark.skipif(
+    not JUDGMENTS_PATH.is_file(),
+    reason="requires local pilot corpus data/judgments.jsonl (not included in clean clones)",
+)
 
 TEMPLATE = ("WORLD DOCUMENT:\n{world_document}\n\n"
             "QUERY: Is it supported by the text that {query_claim}\n\n"
@@ -49,10 +58,11 @@ def test_clean_claim_takes_first_line_only():
     assert claim == "the treaty was signed." and ok is True
 
 
+@requires_pilot_corpus
 def test_pilot_port_matches_real_data_shape():
     # stored queries in data/judgments.jsonl are PRE-doubling claims; wrapping one that starts
     # with an interrogative must reproduce the garble the audit found
-    rows = [json.loads(l) for l in open("data/judgments.jsonl", encoding="utf-8")]
+    rows = [json.loads(l) for l in JUDGMENTS_PATH.open(encoding="utf-8")]
     qs = [e["query"] for r in rows for e in r["queries_submitted"]]
     interrogative = [q for q in qs if q.lower().startswith("is it ")]
     assert interrogative, "expected interrogative stored queries in pilot data"

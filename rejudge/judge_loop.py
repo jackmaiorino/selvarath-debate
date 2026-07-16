@@ -35,6 +35,17 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
                  judge_model: str = JUDGE_MODEL, *,
                  position_override: bool | None = None) -> dict:
     qid, tidx = transcript["question_id"], transcript["transcript_index"]
+    cell_key = f"{arm.name}|{qid}|{tidx}|{budget}|{replicate}"
+    usage_base = {
+        "stage": "judgment",
+        "cell_key": cell_key,
+        "arm": arm.name,
+        "question_id": qid,
+        "transcript_index": tidx,
+        "budget": budget,
+        "replicate": replicate,
+        "judge_model": judge_model,
+    }
     pos_a_correct = (position_for(arm, qid, tidx, judge_model, budget)
                      if position_override is None else position_override)
     seed = judgment_seed(qid, tidx, judge_model, budget, arm.name, replicate)
@@ -69,7 +80,11 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
                 remaining_budget=remaining, total_budget=budget,
                 previous_queries=_format_previous(feedback_pairs))})
             raw_q = client.complete(messages, judge_model, t_judge,
-                                    seed + query_num, 256, kind="query")
+                                    seed + query_num, 256, kind="query",
+                                    request_metadata={
+                                        **usage_base, "call_role": "judge_query",
+                                        "query_index": query_num,
+                                    })
             messages.append({"role": "assistant", "content": raw_q})
             if is_done(raw_q):
                 break
@@ -87,7 +102,11 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
                 raw_reply = client.complete(
                     [{"role": "system", "content": oracle_cfg["system_prompt"]},
                      {"role": "user", "content": oracle_prompt}],
-                    oracle_model, t_oracle, seed + 10000 + query_num, 32, kind="oracle")
+                    oracle_model, t_oracle, seed + 10000 + query_num, 32, kind="oracle",
+                    request_metadata={
+                        **usage_base, "call_role": "oracle_verification",
+                        "query_index": query_num,
+                    })
                 normalized = normalize(raw_reply)
                 shown = f"Oracle result: {normalized}"
                 messages.append({"role": "user", "content": shown})
@@ -106,7 +125,9 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
     messages.append({"role": "user",
                      "content": judge_cfg["verdict_prompt"].format(query_results=query_results)})
     raw_verdict = client.complete(messages, judge_model, t_judge, seed + 99999, 512,
-                                  kind="verdict")
+                                  kind="verdict", request_metadata={
+                                      **usage_base, "call_role": "judge_verdict",
+                                  })
 
     return records.build_record(
         transcript=transcript, arm=arm, budget=budget, replicate=replicate,

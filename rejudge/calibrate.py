@@ -21,11 +21,13 @@ carries `protocol`, `debater_model` (both copied off the source transcript) and 
 (True iff replicate 1), added after `build_record` returns. Judges are further disambiguated
 by writing to a per-judge output file, `calibration_judgments_{judgeshort}.jsonl`, where
 judgeshort maps low_primary/low_fallback/anchor/top -> low9/low7/a70/top (JUDGE_SHORT below).
-Resume is per file (reuses `rejudge.runner.load_done_keys`, tolerant of malformed tails).
+Resume is per file and uses the runner's strict completion audit: malformed tails,
+duplicate keys, and keys outside the manifested grid block further calls until repaired.
 """
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import json
 import sys
 import threading
@@ -34,13 +36,29 @@ from pathlib import Path
 
 from analysis.infra.design import position_a_is_correct
 from rejudge import judge_loop, records
-from rejudge.api_client import CapExceededError, RejudgeClient
+from rejudge.api_client import (AccountingInvariantError, CapExceededError,
+                                UsageLedgerError)
 from rejudge.config import ArmSpec, load_protocol
-from rejudge.runner import _world_documents, load_done_keys
+from rejudge.run_accounting import (PriceScheduleError, create_accounted_client,
+                                    load_price_schedule, prepare_usage_ledger,
+                                    pricing_identity,
+                                    select_model_prices,
+                                    usage_ledger_generated_paths)
+from rejudge.run_manifest import (RunManifestError, ensure_run_manifest,
+                                  manifest_path_for)
+from rejudge.runner import (OUTPUT_PERSISTENCE_EXIT, REPO_ROOT,
+                            OutputPersistenceError, _world_documents,
+                            _world_source_files, acquire_output_locks,
+                            append_jsonl_record, audit_jsonl_completion,
+                            capture_source_hashes, load_done_keys,
+                            prepare_jsonl_output,
+                            require_manifest_source_snapshot,
+                            require_unique_planned_cell_keys,
+                            require_unchanged_source_snapshot)
 
-DEFAULT_TRANSCRIPTS = "rejudge/output/calibration_transcripts.jsonl"
-DEFAULT_MODELS = "rejudge/output/calibration_models.json"
-DEFAULT_OUT_DIR = "rejudge/output"
+DEFAULT_TRANSCRIPTS = str(REPO_ROOT / "rejudge" / "output" / "calibration_transcripts.jsonl")
+DEFAULT_MODELS = str(REPO_ROOT / "rejudge" / "output" / "calibration_models.json")
+DEFAULT_OUT_DIR = str(REPO_ROOT / "rejudge" / "output")
 
 # judge roster key -> short code used in the per-judge output filename.
 JUDGE_SHORT = {"low_primary": "low9", "low_fallback": "low7", "anchor": "a70", "top": "top",
@@ -175,6 +193,9 @@ def main(argv=None) -> int:
     ap.add_argument("--transcripts", default=DEFAULT_TRANSCRIPTS)
     ap.add_argument("--models", default=DEFAULT_MODELS)
     ap.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
+    ap.add_argument(
+        "--cell-key-file", default=None,
+        help="Optional JSON array selecting an exact manifested supplement cell set.")
     args = ap.parse_args(argv)
 
     if not args.dry_run and args.approved_cap is None:
@@ -185,6 +206,21 @@ def main(argv=None) -> int:
     unknown_cells = [c for c in cell_groups if c not in ALL_CELL_GROUPS]
     if unknown_cells:
         print(f"unknown cell groups: {unknown_cells}", file=sys.stderr)
+        return 2
+
+    world_source_files = _world_source_files()
+    source_files = {
+        "experiment_protocol": REPO_ROOT / "experiment_protocol.json",
+        "calibration_transcripts": Path(args.transcripts).resolve(),
+        "calibration_models": Path(args.models).resolve(),
+        **({"cell_key_selection": Path(args.cell_key_file).resolve()}
+           if args.cell_key_file else {}),
+        **world_source_files,
+    }
+    try:
+        before_load = capture_source_hashes(source_files)
+    except RunManifestError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
 
     models_cfg = load_calibration_models(args.models)
@@ -205,55 +241,246 @@ def main(argv=None) -> int:
     transcripts = load_transcripts(args.transcripts)
     l70_model = find_debater_model(models_cfg, "l70") if "b2smoke" in cell_groups else None
     exp_protocol = load_protocol()
-    worlds = _world_documents()
+    worlds = _world_documents(world_source_files)
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     failed_path = out_dir / "calibrate_failed_cells.jsonl"
+    usage_path = out_dir / "calibration_usage.jsonl"
+    try:
+        price_schedule = load_price_schedule(args.models)
+        model_prices = select_model_prices(
+            price_schedule,
+            [*selected_judges.values(), exp_protocol["protocol"]["models"]["oracle"]],
+        )
+    except PriceScheduleError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
 
     cells = enumerate_cells(cell_groups, transcripts, selected_judges, l70_model)
+    selected_cell_keys = None
+    if args.cell_key_file:
+        try:
+            selected_cell_keys = json.loads(
+                Path(args.cell_key_file).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            print(f"REFUSED: could not read --cell-key-file: {exc}", file=sys.stderr)
+            return 2
+        if (not isinstance(selected_cell_keys, list)
+                or not all(isinstance(key, str) and key for key in selected_cell_keys)
+                or len(selected_cell_keys) != len(set(selected_cell_keys))):
+            print("REFUSED: --cell-key-file must contain a duplicate-free JSON array of "
+                  "non-empty cell keys.", file=sys.stderr)
+            return 2
+        available = {cell["cell_key"] for cell in cells}
+        unknown_selected = sorted(set(selected_cell_keys) - available)
+        if unknown_selected:
+            print(f"REFUSED: selected cell keys are not in the requested judge/cell grid: "
+                  f"{unknown_selected}", file=sys.stderr)
+            return 2
+        wanted = set(selected_cell_keys)
+        cells = [cell for cell in cells if cell["cell_key"] in wanted]
+
+    try:
+        loaded_source_hashes = require_unchanged_source_snapshot(before_load, source_files)
+    except RunManifestError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
 
     out_paths = {jk: out_dir / f"calibration_judgments_{JUDGE_SHORT[jk]}.jsonl" for jk in judge_keys}
-    done = {jk: load_done_keys(out_paths[jk]) for jk in judge_keys}
-    todo = [c for c in cells if c["cell_key"] not in done[c["judge_key"]]]
-    print(f"{len(cells)} cells, {len(cells) - len(todo)} done, {len(todo)} to run "
-          f"({'DRY RUN' if args.dry_run else f'cap ${args.approved_cap}'})")
+    # The calibration ledger is intentionally shared by every judge output in one
+    # directory. A later invocation may select a disjoint judge subset, so ledger
+    # binding and generated-file exclusions must consider the complete known output
+    # family rather than only this invocation's selected files.
+    all_calibration_outputs = [
+        out_dir / f"calibration_judgments_{short}.jsonl"
+        for short in JUDGE_SHORT.values()
+    ]
+    expected_by_judge: dict[str, set[str]] = {}
+    try:
+        for judge_key in judge_keys:
+            expected_by_judge[judge_key] = require_unique_planned_cell_keys(
+                (cell["cell_key"] for cell in cells if cell["judge_key"] == judge_key),
+                label=f"calibration grid for judge {judge_key}",
+            )
+    except RunManifestError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+    stack = ExitStack()
+    try:
+        # Multiple calibration writers must acquire locks in a globally stable order so
+        # overlapping invocations cannot deadlock while each owns a different judge file.
+        acquire_output_locks(
+            stack,
+            list(out_paths.values()) if args.dry_run
+            else [*out_paths.values(), usage_path],
+        )
+        manifest_preexists = any(
+            manifest_path_for(out_path).exists()
+            for out_path in all_calibration_outputs)
+        ledger_identity = (None if args.dry_run else prepare_usage_ledger(
+            usage_path, allow_create=not manifest_preexists))
+        calibration_generated_paths = [
+            *usage_ledger_generated_paths(usage_path),
+            failed_path,
+            out_dir / "calibrate_errors.jsonl",
+        ]
+        for other_output in all_calibration_outputs:
+            calibration_generated_paths.extend([
+                other_output,
+                manifest_path_for(other_output),
+                other_output.with_name(f"{other_output.name}.lock"),
+            ])
 
-    client = RejudgeClient(approved_cap_usd=args.approved_cap or 0.0, dry_run=args.dry_run,
-                           error_log_path=str(out_dir / "calibrate_errors.jsonl"))
-    lock = threading.Lock()
-    cap_hit = threading.Event()
+        common_identity = {
+            "run_kind": "calibration-judging",
+            "dry_run": args.dry_run,
+            "models": {
+                "judges": selected_judges,
+                "oracle": exp_protocol["protocol"]["models"]["oracle"],
+                "debater_selection_roster": models_cfg["debaters"],
+            },
+            "prices": pricing_identity(price_schedule, model_prices),
+            "protocol_content": {
+                "experiment_protocol": exp_protocol,
+                "cell_groups": cell_groups,
+                "b0": {"budget": 0, "replicates": 2, "replicate_1_mirrored": True},
+                "b2smoke": {"budget": B2_BUDGET, "per_judge_transcripts": B2_SMOKE_N},
+                "b2sat": {"budget": B2_BUDGET, "protocol": "capped3"},
+                "arm_semantics": {"oracle_normalizer": "strict", "composer": "clean",
+                                  "done_detector": "robust", "placebo": False},
+            },
+            "source_files": source_files,
+            "generated_paths": calibration_generated_paths,
+            "cli_params": {
+                "approved_cap_usd": args.approved_cap,
+                "dry_run": args.dry_run,
+                "workers": args.workers,
+                "judges": judge_keys,
+                "cells": cell_groups,
+                "transcripts": str(Path(args.transcripts).resolve()),
+                "models": str(Path(args.models).resolve()),
+                "out_dir": str(out_dir.resolve()),
+                "usage_log": str(usage_path.resolve()),
+                "usage_ledger_identity": ledger_identity,
+                "cell_key_file": (str(Path(args.cell_key_file).resolve())
+                                  if args.cell_key_file else None),
+            },
+        }
+        # All locks are already held. Creating every adjacent manifest only after that
+        # guarantees the multi-output invocation has one exclusive resume snapshot.
+        for out_path in sorted(out_paths.values(), key=lambda p: str(p.resolve()).casefold()):
+            manifest = ensure_run_manifest(out_path, repo_root=REPO_ROOT, **common_identity)
+            require_manifest_source_snapshot(manifest, loaded_source_hashes)
+    except (RunManifestError, UsageLedgerError) as exc:
+        stack.close()
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
 
-    def run_cell(cell):
-        if cap_hit.is_set():
-            return
-        tr = cell["transcript"]
+    try:
         try:
-            rec = judge_cell(cell, client, exp_protocol, worlds[tr["world"]])
-        except CapExceededError:
-            cap_hit.set()
-            return
-        except Exception as exc:
-            with lock:
-                with open(failed_path, "a", encoding="utf-8") as f:
-                    f.write(json.dumps({"cell_key": cell["cell_key"], "judge": cell["judge_key"],
-                                        "error": str(exc), "ts": records.utc_now_iso()}) + "\n")
-            print(f"WARN: cell {cell['cell_key']} ({cell['judge_key']}) failed: {exc}",
+            for out_path in out_paths.values():
+                prepare_jsonl_output(out_path)
+            done = {
+                judge_key: audit_jsonl_completion(
+                    out_paths[judge_key], expected_by_judge[judge_key])
+                for judge_key in judge_keys
+            }
+        except OutputPersistenceError as exc:
+            print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+            return OUTPUT_PERSISTENCE_EXIT
+        todo = [c for c in cells if c["cell_key"] not in done[c["judge_key"]]]
+        print(f"{len(cells)} cells, {len(cells) - len(todo)} done, {len(todo)} to run "
+              f"({'DRY RUN' if args.dry_run else f'cap ${args.approved_cap}'})")
+
+        try:
+            client, prior_usage = create_accounted_client(
+                approved_cap_usd=args.approved_cap or 0.0,
+                dry_run=args.dry_run,
+                model_prices=model_prices,
+                usage_log_path=usage_path,
+                error_log_path=out_dir / "calibrate_errors.jsonl",
+                ledger_identity=ledger_identity,
+            )
+        except (OSError, ValueError, UsageLedgerError) as exc:
+            print(f"REFUSED: could not establish cumulative usage ledger: {exc}",
                   file=sys.stderr)
-            return
-        with lock:
-            with open(out_paths[cell["judge_key"]], "a", encoding="utf-8") as f:
-                f.write(json.dumps(rec) + "\n")
+            return 2
+        if prior_usage["events"]:
+            print(f"prior accounted spend: ${prior_usage['accounted_spend_usd']:.4f} "
+                  f"across {prior_usage['events']} ledger events")
+        lock = threading.Lock()
+        cap_hit = threading.Event()
+        accounting_failed = threading.Event()
+        output_failed = threading.Event()
 
-    with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        list(ex.map(run_cell, todo))
+        def run_cell(cell):
+            if cap_hit.is_set() or accounting_failed.is_set() or output_failed.is_set():
+                return
+            tr = cell["transcript"]
+            try:
+                rec = judge_cell(cell, client, exp_protocol, worlds[tr["world"]])
+            except CapExceededError:
+                cap_hit.set()
+                return
+            except (UsageLedgerError, AccountingInvariantError) as exc:
+                accounting_failed.set()
+                print(f"ACCOUNTING UNSAFE: {exc}", file=sys.stderr)
+                return
+            except Exception as exc:
+                with lock:
+                    with open(failed_path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({"cell_key": cell["cell_key"],
+                                            "judge": cell["judge_key"], "error": str(exc),
+                                            "ts": records.utc_now_iso()}) + "\n")
+                print(f"WARN: cell {cell['cell_key']} ({cell['judge_key']}) failed: {exc}",
+                      file=sys.stderr)
+                return
+            try:
+                with lock:
+                    append_jsonl_record(out_paths[cell["judge_key"]], rec)
+            except OutputPersistenceError as exc:
+                output_failed.set()
+                print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+                return
 
-    if cap_hit.is_set():
-        print("CAP REACHED -- run halted; resume after raising cap.", file=sys.stderr)
-        return 3
+        with ThreadPoolExecutor(max_workers=args.workers) as ex:
+            list(ex.map(run_cell, todo))
 
-    print(f"done. total tokens={client.total_tokens} spent=${client.spent_usd:.2f}")
-    return 0
+        completed: set[tuple[str, str]] = set()
+        for judge_key, out_path in out_paths.items():
+            try:
+                completed.update(
+                    (judge_key, cell_key) for cell_key in audit_jsonl_completion(
+                        out_path, expected_by_judge[judge_key]))
+            except OutputPersistenceError as exc:
+                output_failed.set()
+                print(f"OUTPUT UNSAFE: {exc}", file=sys.stderr)
+        expected = {(judge_key, cell_key)
+                    for judge_key, keys in expected_by_judge.items()
+                    for cell_key in keys}
+        missing = expected - completed
+        print(f"completion check: {len(missing)} missing")
+
+        if accounting_failed.is_set():
+            print("ACCOUNTING UNSAFE -- reconcile the usage ledger and provider billing "
+                  "before resume.", file=sys.stderr)
+            return 4
+        if output_failed.is_set():
+            print("OUTPUT UNSAFE -- repair the manifested output before resume.",
+                  file=sys.stderr)
+            return OUTPUT_PERSISTENCE_EXIT
+        if cap_hit.is_set():
+            print("CAP REACHED -- run halted. The manifested ceiling is immutable; reconcile "
+                  "spend before authorizing a supplemental run.", file=sys.stderr)
+            return 3
+        if missing:
+            return 1
+
+        print(f"done. total tokens={client.total_tokens} spent=${client.spent_usd:.2f}")
+        return 0
+    finally:
+        stack.close()
 
 
 if __name__ == "__main__":

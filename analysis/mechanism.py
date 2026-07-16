@@ -5,6 +5,8 @@ by the analyst.
 """
 from __future__ import annotations
 
+from typing import cast
+
 import pandas as pd
 
 from analysis.load import load_world
@@ -59,10 +61,12 @@ def render_cases_markdown(cases, world_dir=None):
 
 
 def summarize_labels(labels):
-    df = labels if isinstance(labels, pd.DataFrame) else pd.DataFrame(list(labels))
+    df: pd.DataFrame = (labels if isinstance(labels, pd.DataFrame)
+                        else pd.DataFrame(list(labels)))
     if "label" not in df.columns or len(df) == 0:
         return pd.DataFrame(columns=["label", "count", "frac"])
     total = len(df)
-    out = df.groupby("label").size().rename("count").reset_index()
+    counts = cast(pd.Series, df.groupby("label")["label"].count())
+    out = counts.rename("count").reset_index()
     out["frac"] = out["count"] / total
     return out
