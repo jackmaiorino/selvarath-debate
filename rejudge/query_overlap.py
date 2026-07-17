@@ -5,7 +5,8 @@ candidate answer, the audit script's >70% rule").
 
 Ported verbatim from the original (uncommitted, not in this repository or its git
 history) shortcut-audit script that produced
-`rejudge/output/oracle_shortcut_audit.json`. Two details matter and are easy to get
+`rejudge/oracle_shortcut_audit_2026-07-12.json` (the tracked snapshot of the original
+ignored output artifact). Two details matter and are easy to get
 backwards:
 
 1. Tokens are 4+-letter lowercase words only (`re.findall(r"[a-z]{4,}", s.lower())`) --

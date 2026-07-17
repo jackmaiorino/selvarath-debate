@@ -9,7 +9,7 @@ experiments.
 Funded by a [Manifund grant](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s).
 Pilot write-up: [Limited verification can hurt debate oversight](https://www.lesswrong.com/posts/2a3vce7WooJ4XkDqw/limited-verification-can-hurt-debate-oversight) (LessWrong).
 
-## Status (2026-07-15)
+## Status (2026-07-16)
 
 - Pilot re-analysis complete: headline effect quantified at Delta_few = +7.2pp, 95% CI [4.6, 10.2].
 - A code audit found two data-corrupting bugs in the pilot's oracle channel (NOT-ADDRESSED replies
@@ -28,11 +28,15 @@ Pilot write-up: [Limited verification can hurt debate oversight](https://www.les
   is blind, uncapped, three-round debate. The proposed final roster is four open-weight judges,
   Llama-70B plus hosted Qwen3.7-Plus debaters, and a Llama-70B oracle. See
   `reports/2026-07-14-calibration-results.md`.
-- **The paid Phase-2 main run is not authorized.** A machine-readable, offline-only draft enumerates
-  492 transcripts and 18,696 judgments. Exact primary tests, capability measurement, the cap
-  secondary, query-screen policy, design-scope reconciliation, execution/smoke gates, verified
-  starting spend, and the cumulative ceiling still require lead sign-off. The authoritative
-  checklist is `docs/phase2-readiness-and-signoff.md`.
+- **The Phase-2 scientific design is approved; paid execution is not authorized.** The deterministic
+  offline plan now enumerates 23,200 approved Phase-2 cells: a 1,060-cell capability preflight and
+  22,140 post-canary main cells, including 984 uncapped/capped transcript cells. H/P/R, the C/D
+  secondary family, optional scope, query-screen policy, canary gates, a $1,200 working budget, and a $1,500
+  incremental hard ceiling are recorded. Checker validation, human resolvability labels, prompt and
+  provider hashes, top-anchor materialization, provider reconciliation, storage, credentials, and
+  separate capability-preflight/canary/main spend approvals still block launch. The authoritative
+  checklist is
+  `docs/phase2-readiness-and-signoff.md`.
 
 ## Repo layout
 
@@ -43,8 +47,9 @@ Pilot write-up: [Limited verification can hurt debate oversight](https://www.les
 | `data/` (untracked) | Pilot output: `judgments.jsonl`, `transcripts.jsonl`. See `data/DATA.md` for known-bug provenance before using |
 | `analysis/` | Re-analysis package: loaders, pre-specified contrasts, cluster bootstrap, mechanism labeling, report generation |
 | `rejudge/` | The fixed re-judge harness: arm configs, strict parsing, manifest-bound outputs, strict per-model pricing, cumulative usage ledgers, and exact completion gates |
-| `rejudge/phase2_protocol.json`, `rejudge/phase2_plan.py` | Non-executable Phase-2 draft and deterministic offline cell inventory |
-| `docs/phase2-readiness-and-signoff.md` | Authoritative unresolved decisions and staged launch gate |
+| `rejudge/phase2_protocol.json`, `rejudge/phase2_plan.py` | Approved-but-non-executable Phase-2 design and deterministic 23,200-cell inventory; paid stages require external manifests |
+| `rejudge/phase2_cost_model.py`, `rejudge/phase2_cost_model.json` | Deterministic call inventory, provisional empirical cost bands, credit estimate, working budget, and hard ceiling |
+| `docs/phase2-readiness-and-signoff.md` | Authoritative materialization blockers and staged launch gate |
 | `docs/rejudge-protocol.md` | Frozen pre-registration: arms, rationale, gates, spend record |
 | `reports/` | Findings report and interactive dashboard (post-audit corrected) |
 | `docs/manifund-updates/` | Grant progress updates as posted |
@@ -58,7 +63,12 @@ uv run ty check                    # static checks
 uv run python -m analysis.run_report   # regenerate the re-analysis report from data/
 uv run python -m rejudge.runner --dry-run --limit 2 --arms clean,both,placebo \
   --out rejudge/output/dry-run/records.jsonl  # offline smoke, isolated from live output
-uv run python -m rejudge.phase2_plan   # enumerate the draft Phase-2 design; cannot make API calls
+uv run python -m rejudge.phase2_plan   # enumerate approved Phase-2 scope; cannot make API calls
+uv run python -m rejudge.phase2_cost_model --check  # verify tracked cost artifact is current
+uv run python -m rejudge.phase2_resolvability_review --check  # verify blank review template
+# Start human work at a new path; --write refuses to overwrite an existing review.
+uv run python -m rejudge.phase2_resolvability_review \
+  --artifact rejudge/phase2_resolvability_review_completed.json --write
 uv run python -m rejudge.artifact_manifest verify --root . artifacts/local-research-artifacts.json
 ```
 

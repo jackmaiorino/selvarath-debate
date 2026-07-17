@@ -36,7 +36,7 @@ decisions included in output records for audit.
 ## Reporting
 
 Main results are stratified by the question's direct-resolvability class (full 6% / partial 39% /
-none 56%, per `rejudge/output/oracle_shortcut_audit.json`). No question is filtered out for being
+none 56%, per `rejudge/oracle_shortcut_audit_2026-07-12.json`). No question is filtered out for being
 directly resolvable; those questions measure exactly where verification should beat debate.
 
 Longer term (phase 3), a verified-quote interface in the style of Khan et al. (arXiv:2402.06782)

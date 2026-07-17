@@ -1,17 +1,47 @@
 {
-  "schema_version": "phase2_plan_v1",
-  "protocol_id": "phase2_draft_2026_07_14",
-  "cell_key_namespace": "phase2-draft-v1",
-  "status": "draft_requires_signoff",
+  "schema_version": "phase2_plan_v2",
+  "protocol_id": "phase2_pooled_hpr_2026_07_16_v1",
+  "cell_key_namespace": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab",
+  "planning_cell_identity": {
+    "status": "planning_only_not_executable",
+    "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8",
+    "namespace_hash_prefix_length": 12,
+    "execution_key_requirement": "external execution manifests must bind the frozen design protocol, question banks, prompt bundle, role limits, provider request fields, and side/seed policy"
+  },
+  "status": "approved_design_pending_materialization",
   "offline_planning_only": true,
   "execution_authorized": false,
+  "authorization": {
+    "design_approved": true,
+    "approver": "Jack Maiorino",
+    "approved_at_utc": "2026-07-16T04:45:48Z",
+    "approval_basis": "Lead accepted the recommended defaults in docs/phase2-decision-proposal.md in the project review task.",
+    "capability_preflight_spend_authorized": false,
+    "canary_spend_authorized": false,
+    "main_run_spend_authorized": false
+  },
   "sources": {
     "calibration_report": "reports/2026-07-14-calibration-results.md",
     "phase2_v2_spec": "docs/superpowers/specs/2026-07-10-phase2-capability-pilot-design-v2.md",
+    "decision_proposal": "docs/phase2-decision-proposal.md",
     "oracle_query_contract": "docs/oracle-query-contract.md",
     "phase2_readiness_record": "docs/phase2-readiness-and-signoff.md",
     "calibration_models": "rejudge/output/calibration_models.json",
-    "calibration_question_ids": "rejudge/output/calibration_questions.json"
+    "calibration_question_ids": "rejudge/calibration_questions_2026-07-14.json",
+    "shortcut_audit": "rejudge/oracle_shortcut_audit_2026-07-12.json",
+    "gemma_recovery_selector": "rejudge/calibration_recovery_gemma_2026-07-15.json"
+  },
+  "source_bindings": {
+    "canonical_json_sha256": {
+      "questions/carath_norn_questions.json": "ce199b14fc124e9097e21fab86df3067111a9fa445416830e88e938a0210e781",
+      "questions/selvarath_questions.json": "419a15f1560ca471e0747979717bc354decf10591c45cae54424d4beb294fd28",
+      "questions/vethun_sarak_questions.json": "33adf727d906503d66b43b282ce29fdf77e2ddc61fe45dd4d055557ac6000f24",
+      "rejudge/oracle_shortcut_audit_2026-07-12.json": "7f4db863a5e8cf44fd009a91bc9a7cee58de55e9088637d99878c13340f116ed",
+      "rejudge/output/calibration_models.json": "704421ae73973d2b062da16ce5bd8a7fb6c1b0255e1bc0459ddf70ccb07435ed",
+      "rejudge/calibration_questions_2026-07-14.json": "b088d0d6ca039a22787c979d69a3bea93c01e98d94540c15ef6ee78904861ad8",
+      "rejudge/calibration_recovery_gemma_2026-07-15.json": "c23ab4c29867d2c6a5e4a3d352caffee5e76d305bdfb52cf11ffa8f897c63116"
+    },
+    "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8"
   },
   "question_set": {
     "question_sources": [
@@ -158,95 +188,325 @@
       }
     ]
   },
-  "unresolved": {
+  "decisions": {
     "primary_tests": {
-      "status": "unresolved_requires_signoff",
-      "known_count": 3,
-      "known_multiplicity_adjustment": "Holm",
-      "exact_test_definitions": null
+      "status": "approved",
+      "family": [
+        {
+          "id": "H",
+          "name": "total_limited_verification_harm",
+          "estimand": "error(sequential_b2) - error(b0)",
+          "role": "named_total_primary"
+        },
+        {
+          "id": "P",
+          "name": "packaging_commitment_harm",
+          "estimand": "error(sequential_b2) - error(batch_same_qa_b2)",
+          "role": "coprimary_component"
+        },
+        {
+          "id": "R",
+          "name": "residual_content_harm",
+          "estimand": "error(batch_same_qa_b2) - error(b0)",
+          "role": "coprimary_component"
+        }
+      ],
+      "identity": "H = P + R",
+      "sidedness": "two_sided",
+      "multiplicity_adjustment": "Holm",
+      "population": "all 82 main questions x 4 judges x 2 debaters",
+      "weighting": "average K and transcripts within question; equal question, judge, and debater weights",
+      "inference": "common world-stratified question-bootstrap draws",
+      "invalid_policy": "strict INVALID counts wrong; valid-only sensitivity",
+      "completion_policy": "100% exact provider-cell completion",
+      "heterogeneity_role": "categorical judge x debater cells reported descriptively"
     },
     "capability_measurement": {
-      "status": "unresolved_requires_signoff",
-      "known_method_family": "solo QA with the full world document",
-      "known_analysis_role": "measured capability trends are exploratory",
-      "question_set": null,
-      "scoring_rule": null,
-      "replicate_count": null,
-      "freeze_and_exclusion_policy": null
+      "status": "approved",
+      "condition_id": "full_document_solo_qa",
+      "models": [
+        "Qwen/Qwen2.5-7B-Instruct-Turbo",
+        "google/gemma-4-31B-it",
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "openai/gpt-oss-120b",
+        "Qwen/Qwen3.7-Plus"
+      ],
+      "question_set": "all_106",
+      "replicate_count": 2,
+      "side_assignment": "mirrored A/B labels",
+      "temperature": 0,
+      "scoring_rule": "strict exact choice; INVALID wrong; equal question weights",
+      "sensitivity": "report the 82-main-question score",
+      "analysis_role": "exploratory; model identity remains categorical in confirmatory analyses",
+      "freeze_policy": "freeze prompts, raw records, scores, hashes, and exclusions before Phase 2 outcomes; no outcome-driven exclusions",
+      "anchor_selection": {
+        "candidate_models": [
+          "Qwen/Qwen2.5-7B-Instruct-Turbo",
+          "google/gemma-4-31B-it",
+          "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          "openai/gpt-oss-120b"
+        ],
+        "primary_score": "exact strict-correct count over all 212 mirrored cells (106 questions x 2); INVALID is wrong; do not round",
+        "completion_policy": "100% exact capability-cell completion for all five measured models; any missing or unresolved provider cell halts selection",
+        "tie_break_order": [
+          "higher exact strict-correct count on the 164 mirrored main-question cells (82 x 2)",
+          "lower sum of frozen input and output USD-per-million-token prices",
+          "lexicographically ascending exact model ID"
+        ],
+        "selection_timing": "select and hash the winning roster judge before any canary outcome"
+      }
     },
     "cap_protection_secondary": {
-      "status": "unresolved_requires_signoff",
-      "known_target_judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-      "exact_contrast": null,
-      "cell_inventory": null,
-      "sample_size": null,
-      "multiplicity_handling": null
+      "status": "approved",
+      "condition_id": "capped150_b0",
+      "capped_debate_protocol": {
+        "name": "blind_capped150_3_round",
+        "rounds": 3,
+        "maximum_words_per_debater_turn": 150,
+        "opening_order": "counterbalanced"
+      },
+      "judge_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "debaters": [
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "Qwen/Qwen3.7-Plus"
+      ],
+      "question_set": "main_82",
+      "transcripts_per_question_per_debater": 3,
+      "k": 2,
+      "query_budget": 0,
+      "contrast": "C = (error(QwenPlus uncapped) - error(QwenPlus capped150)) - (error(Llama70 uncapped) - error(Llama70 capped150))",
+      "aggregation": "within each question and debater, average K2 x 3 transcripts for uncapped and capped150 before taking the interaction; weight questions and the two debaters equally",
+      "multiplicity": "two-test Holm secondary family with D_clean"
     },
     "query_screening": {
-      "status": "unresolved_requires_signoff",
-      "known_mechanical_screener": "rejudge.query_screen",
-      "known_contract_source": "docs/oracle-query-contract.md",
-      "model_checker_definition": null,
-      "retry_and_slot_policy": null,
-      "checker_failure_policy": null,
-      "audit_sampling_policy": null
+      "status": "approved_policy_pending_checker_validation",
+      "contract_source": "docs/oracle-query-contract.md",
+      "mechanical_screener": "rejudge.query_screen",
+      "checker_scope": "all query-producing clean and placebo conditions",
+      "checker_selection_rule": "one model and one frozen prompt must meet the frozen human-labeled validation target before materialization",
+      "retry_and_slot_policy": "one free retry per attempted budget slot; a second rejection consumes the slot",
+      "checker_failure_policy": "outage, malformed output, or unresolved ambiguity halts the cell",
+      "audit_sampling_policy": "human-review every rejection/retry and a deterministic world/resolvability-stratified 1% sample of accepted queries, blind to outcomes"
     },
     "design_scope_reconciliation": {
-      "status": "unresolved_requires_signoff",
-      "known_prior_design_source": "docs/superpowers/specs/2026-07-10-phase2-capability-pilot-design-v2.md",
-      "empty_evidence_table_control_disposition": null,
-      "full_document_ceiling_anchors_disposition": null,
-      "matched_legacy_bridge_disposition": null
+      "status": "approved",
+      "empty_evidence_table_control": {
+        "included": true,
+        "condition_id": "empty_evidence_table",
+        "judge_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "question_set": "main_82",
+        "transcripts_per_question": 3,
+        "k": 2,
+        "analysis_role": "diagnostic outside multiplicity"
+      },
+      "full_document_ceiling_anchors": {
+        "included": true,
+        "condition_id": "full_document_ceiling",
+        "question_set": "main_82",
+        "transcripts_per_question": 3,
+        "k": 2,
+        "analysis_role": "descriptive gold-context ceilings; not oracle-budget conditions",
+        "anchors": [
+          {
+            "id": "llama70_judge_x_llama70_debater",
+            "judge_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+          },
+          {
+            "id": "top_solo_qa_judge_x_qwenplus_debater",
+            "judge_model_selector": "highest_pre_frozen_solo_qa_roster_judge",
+            "debater_model": "Qwen/Qwen3.7-Plus"
+          }
+        ]
+      },
+      "matched_legacy_bridge": {
+        "included": false,
+        "disposition": "dropped absent an intended quantitative cross-phase comparison",
+        "comparison_policy": "prohibit quantitative old-versus-new cohort comparison"
+      }
     },
     "secondary_analyses": {
-      "status": "unresolved_requires_signoff",
-      "known_no_debate_estimand_symbol": "D",
-      "no_debate_D_definition": null,
-      "no_debate_weighting_rule": null,
-      "no_debate_inference_method": null,
-      "no_debate_multiplicity_handling": null,
-      "resolvability_labels_source": null,
-      "resolvability_analysis_rule": null,
-      "shortcut_audit_human_pass_disposition": null
+      "status": "approved",
+      "family": [
+        "C",
+        "D_clean"
+      ],
+      "D_clean": "error(debate sequential_b2) - error(no_debate clean_b2)",
+      "weighting": "equal judge, debater, and question weights; average debate K2 x 3 transcripts and no-debate K3 within question without duplicating the shared comparator",
+      "sidedness": "two_sided",
+      "inference": "common world-stratified question-bootstrap draws shared by C and D_clean",
+      "invalid_policy": "strict INVALID counts wrong; valid-only sensitivity",
+      "completion_policy": "100% exact provider-cell completion",
+      "multiplicity": "Holm across C and D_clean",
+      "descriptive_sensitivities": [
+        "matched b0 D",
+        "matched placebo D"
+      ],
+      "resolvability_analysis": "report H/P/R/D descriptively by full/partial/none; do not filter questions",
+      "shortcut_audit_human_pass": "required for all 106 questions before protocol freeze"
     },
     "execution_semantics": {
-      "status": "unresolved_requires_signoff",
-      "exact_prompt_bundle_and_hashes": null,
-      "temperature_by_call_role": null,
-      "max_output_tokens_by_call_role": null,
-      "reasoning_settings_by_model_and_call_role": null,
-      "seed_and_side_assignment_policy": null,
-      "retry_and_regeneration_policy": null,
-      "exact_placebo_payload": null,
-      "batch_same_qa_construction_rule": null,
-      "no_debate_prompt": null,
-      "provider_endpoint_and_version_pins": null
+      "status": "approved_policy_pending_materialization",
+      "temperature_by_call_role": {
+        "debater": 0.7,
+        "judge_query": 0.3,
+        "judge_verdict": 0.3,
+        "oracle": 0,
+        "query_checker": 0,
+        "capability_qa": 0
+      },
+      "seed_policy": "include protocol namespace, question, debater, transcript, judge, condition, replicate, call role, and attempt",
+      "side_assignment_policy": "K2 mirrored; labels fixed across matched conditions",
+      "transport_retry_policy": "repeat identical request and seed; conservatively charge until provider reconciliation",
+      "semantic_retry_policy": "query-screen retry only; never regenerate an invalid verdict",
+      "placebo_payload": "ORACLE PLACEBO: no factual verification was performed for this query. This message contains no evidence about the world document.",
+      "batch_same_qa_rule": "use the matched sequential cell's raw extracted claims and normalized replies in original order and fresh context; shuffle only as a sensitivity",
+      "no_debate_prompt_policy": "dedicated prompt; never an empty-transcript substitute"
     },
     "launch_gates": {
-      "status": "unresolved_requires_signoff",
-      "invalid_rate_threshold": null,
-      "side_bias_threshold_percentage_points": null,
-      "canary_cell_inventory": null,
-      "canary_sample_size": null,
-      "gate_evaluation_method": null,
-      "gate_failure_action": null
+      "status": "approved_policy_pending_manifest",
+      "canary_question_set": "all 24 main-excluded calibration questions",
+      "six_question_subset": [
+        "CN-011",
+        "CN-021",
+        "SEL-010",
+        "SEL-030",
+        "VS-019",
+        "VS-023"
+      ],
+      "six_question_subset_rationale": "two questions per world and two questions per preliminary full/partial/none direct-resolvability class",
+      "fresh_uncapped_transcripts": "one per question and debater",
+      "core_inventory": "b0 on all 24 x both debaters x one transcript x K2 x every judge; the six-question subset through sequential_b2, batch_same_qa_b2, placebo_b2, and all no-debate conditions",
+      "optional_coverage": "one exact paid path through cap, empty-table, and both full-document anchors; query-screen records on every query-producing paid cell",
+      "offline_checker_fixture_outcomes": [
+        "accept",
+        "reject_then_accept",
+        "reject_twice_consumes_slot",
+        "malformed_halts",
+        "outage_halts"
+      ],
+      "offline_checker_fixture_policy": "deterministic offline runner fixtures make zero provider calls and are prerequisites outside the 945-cell canary, completion denominator, and INVALID denominator",
+      "invalid_gate": "strict INVALID count divided by 96 core b0 judgments is < 0.02 separately for each judge",
+      "side_bias_gate": "absolute difference in strict error rate between the 48 A-correct and 48 B-correct mirrored core b0 judgments is <= 10 percentage points separately for each judge",
+      "completion_gate": "100% exact completion of all 945 manifested provider cells; offline checker fixtures are a separate prerequisite",
+      "zero_tolerance_gates": [
+        "prompt truncation",
+        "query-screen bypass",
+        "malformed oracle normalization",
+        "dependency mismatch",
+        "unexplained ledger/provider discrepancy"
+      ],
+      "failure_action": "halt before main spend; a semantic repair requires a new protocol ID/hash and a complete canary rerun"
     },
     "cumulative_spend": {
-      "status": "unresolved_requires_signoff",
+      "status": "approved_boundary_pending_provider_reconciliation",
       "reported_project_spend_usd": 208,
-      "reported_phase2_estimate_usd": {
-        "minimum": 550,
-        "maximum": 1200
+      "provisional_empirical_phase2_planning_band_usd": {
+        "minimum": 650,
+        "maximum": 1150
       },
-      "reported_phase2_ceiling_usd": 1500,
-      "verified_starting_spend_usd": null,
-      "durable_ledger_source": null,
-      "cross_invocation_enforcement_policy": null,
-      "project_wide_locking_policy": null,
-      "concurrent_run_policy": null,
-      "provider_reconciliation_policy": null,
-      "cap_amendment_or_supplement_policy": null,
-      "approved_cumulative_ceiling_usd": null
+      "planning_band_basis": "manual provisional allocation from empirical aggregate anchors in rejudge/phase2_cost_model.json; replace with frozen prompt and role-token profiles before paid authorization",
+      "working_budget_usd": 1200,
+      "incremental_phase2_hard_ceiling_usd": 1500,
+      "provisional_cumulative_project_ceiling_usd": 1708,
+      "provisional_cumulative_ceiling_basis": "reported starting spend 208 + approved incremental Phase 2 ceiling 1500; replace with provider-verified starting spend before the next call",
+      "grant_budget_available_for_project_usd": 8000,
+      "provider_topups_usd": [
+        500,
+        1300
+      ],
+      "estimated_prepaid_credit_usd": 1592,
+      "credit_estimate_basis": "500 + 1300 top-ups - approximately 208 reported spend; provider dashboard verification required",
+      "ledger_policy": "one project-wide chained ledger bound to manifests",
+      "locking_policy": "one exclusive live-run owner; concurrency only within that owner",
+      "cross_invocation_policy": "fail closed against cumulative accounted spend",
+      "unknown_charge_policy": "timeouts and unknown reservations count until provider evidence resolves them",
+      "reconciliation_policy": "any provider/local discrepancy halts work",
+      "abnormal_resume_policy": "a charged ledger event without its required cell output halts rather than replays",
+      "amendment_policy": "new authority creates a separately manifested linked supplement; existing caps are immutable"
     }
+  },
+  "materialization_requirements": {
+    "status": "pending_before_protocol_freeze",
+    "transition_model": {
+      "strategy": "append_only_external_execution_manifests",
+      "design_protocol_immutable_after_freeze": true,
+      "manifest_schema_version": "phase2_execution_manifest_v1",
+      "stage_sequence": [
+        "gemma_recovery_or_waiver",
+        "capability_preflight",
+        "canary",
+        "main"
+      ]
+    },
+    "gemma_recovery": {
+      "disposition": "recover the exact 11 cells in a separately manifested supplement",
+      "proposed_cap_usd": 2,
+      "spend_authorized": false
+    },
+    "capability_preflight": {
+      "disposition": "run the 106-question x five-model x K=2 capability QA before canary anchor selection",
+      "planned_cells": 1060,
+      "proposed_cap_usd": 15,
+      "manifest_path": null,
+      "result_sha256": null
+    },
+    "query_checker": {
+      "model_id": null,
+      "prompt_sha256": null,
+      "validation_set_sha256": null,
+      "validation_threshold": null
+    },
+    "resolvability_labels": {
+      "review_template_path": "rejudge/phase2_resolvability_review.json",
+      "review_template_sha256": "5f99fb81cd35e5e59c5bbb5430248dc70cb7a0aae81f54d8fc4dfa56c75d076b",
+      "completed_review_path": null,
+      "completed_review_sha256": null,
+      "human_pass_complete": false
+    },
+    "prompt_bundle": {
+      "tracked_path": null,
+      "sha256": null
+    },
+    "per_model_role_limits": {
+      "tracked_path": null,
+      "sha256": null
+    },
+    "provider_pins": {
+      "endpoint_mode": null,
+      "sdk_lock_sha256": null,
+      "request_fields_sha256": null,
+      "price_catalog_verified_at_utc": null
+    },
+    "top_full_document_anchor": {
+      "selection_rule": "highest_pre_frozen_solo_qa_roster_judge",
+      "selected_model_id": null,
+      "capability_score_artifact_sha256": null
+    },
+    "canary_manifest": {
+      "tracked_path": null,
+      "sha256": null
+    },
+    "provider_reconciliation": {
+      "verified_starting_spend_usd": null,
+      "verified_prepaid_credit_usd": null,
+      "evidence_reference": null
+    },
+    "artifact_storage": {
+      "versioned_destination": null,
+      "retrieval_policy": null
+    },
+    "credential_rotation": {
+      "complete": false,
+      "non_secret_evidence": null
+    }
+  },
+  "external_assignments": {
+    "query_checker_validator": null,
+    "human_resolvability_reviewer": null,
+    "accepted_query_auditor": null,
+    "artifact_backup_owner": null,
+    "public_update_poster": "Jack Maiorino"
   }
 }
