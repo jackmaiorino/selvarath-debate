@@ -1,0 +1,693 @@
+{
+  "schema_version": "phase2_resolvability_ai_review_world_v1",
+  "status": "complete",
+  "review_metadata": {
+    "review_kind": "ai_assisted_independent_review",
+    "reviewer": "Codex",
+    "reviewed_at_utc": "2026-07-17T03:54:52Z",
+    "world": "vethun_sarak",
+    "classification_policy_id": "direct_candidate_oracle_reply_pair_v1",
+    "source_review_template": "rejudge/phase2_resolvability_review.json",
+    "source_review_template_canonical_sha256": "5f99fb81cd35e5e59c5bbb5430248dc70cb7a0aae81f54d8fc4dfa56c75d076b",
+    "source_question_bank": "questions/vethun_sarak_questions.json",
+    "scope_note": "Independent AI-assisted review of all 35 Vethun Sarak questions using the frozen direct reply-pair mapping; semantic-quality concerns are recorded separately from class adjudication.",
+    "human_validation_status": "not_human_validated",
+    "human_validation_note": "This artifact does not populate human_review, does not satisfy the frozen protocol's human-validation requirement, and must not be described as human validation."
+  },
+  "records": [
+    {
+      "question_id": "VS-001",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "candidate_overlap",
+        "interpretive_ambiguity"
+      ],
+      "semantic_rationale": "Neither reply addresses its candidate, so the oracle provides no direct discrimination. The question conflates whether the omission was deliberate with whether it was a design flaw; both can be true, making the candidate contrast semantically non-exclusive."
+    },
+    {
+      "question_id": "VS-002",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "explicit_source_ambiguity"
+      ],
+      "semantic_rationale": "Both candidates are unaddressed, so there is no direct resolution. The designated correct answer expressly says legitimacy is genuinely ambiguous and depends on an unstated definition of band status."
+    },
+    {
+      "question_id": "VS-003",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the broken-protocol answer but does not reject the functional-intent alternative, yielding support for the correct candidate without full discrimination."
+    },
+    {
+      "question_id": "VS-004",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "time_horizon_ambiguity",
+        "candidate_overlap"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. The designated correct answer concedes a short-term strengthening while claiming a later deterioration, whereas the question and wrong answer do not freeze a time horizon."
+    },
+    {
+      "question_id": "VS-005",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the explicit-terms answer but does not reject the spirit-based alternative, so it resolves only one side of the candidate pair."
+    },
+    {
+      "question_id": "VS-006",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "explicit_source_ambiguity",
+        "unverifiable_claim"
+      ],
+      "semantic_rationale": "Both replies are unaddressed. The correct candidate itself characterizes the claim as plausible but unverifiable, and council silence supports multiple incompatible interpretations."
+    },
+    {
+      "question_id": "VS-007",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "oracle_affirms_wrong_only",
+        "unsupported_inference"
+      ],
+      "semantic_rationale": "Because the correct candidate is not addressed, the policy class is none. The oracle instead affirms the designated wrong answer, whose claim about accountability to private interests is itself inferential, so the pair requires adjudication."
+    },
+    {
+      "question_id": "VS-008",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "normative_ambiguity",
+        "disputed_measurement_basis"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. Reasonableness depends on disputed measurement methodology and stakeholder perspective, as the designated correct answer explicitly acknowledges."
+    },
+    {
+      "question_id": "VS-009",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms that the lasting succession defect outweighed the temporary consolidation benefit but does not reject the continuity-based wrong answer."
+    },
+    {
+      "question_id": "VS-010",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "missing_source_fact",
+        "conditional_answer"
+      ],
+      "semantic_rationale": "Both candidates are unaddressed. The correct candidate is conditional on unknown Mesht age-grade practices, while the wrong candidate asserts a band-level rule that the source does not specify."
+    },
+    {
+      "question_id": "VS-011",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Neither reply addresses whether the 75 percent threshold is meaningful. The candidates present a clear institutional-check contrast, but the oracle supplies no direct evidence for either conclusion."
+    },
+    {
+      "question_id": "VS-012",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the dangerous-precedent answer but does not reject the extraordinary-crisis defense, providing one-sided rather than full resolution."
+    },
+    {
+      "question_id": "VS-013",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "candidate_overlap",
+        "same_polarity_answers"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. Both answers actually say the Dominion is more resilient and differ mainly over degree and which vulnerability matters, so the nominal candidate contrast is not a clean more-versus-less choice."
+    },
+    {
+      "question_id": "VS-014",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "comparison_criterion_ambiguity"
+      ],
+      "semantic_rationale": "Both replies are unaddressed. The systems optimize different outcomes, and 'better' lacks a frozen criterion; the designated correct answer therefore changes the comparison to current institutional condition."
+    },
+    {
+      "question_id": "VS-015",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "candidate_overlap",
+        "normative_ambiguity"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. Strategic rationality and governance failure are not mutually exclusive: silence can preserve bargaining flexibility while also undermining institutional credibility."
+    },
+    {
+      "question_id": "VS-016",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle addresses neither the strategic-asymmetry answer nor the no-historical-use alternative, so it cannot directly discriminate despite the candidates being clearly opposed."
+    },
+    {
+      "question_id": "VS-017",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "counterfactual_ambiguity",
+        "unsupported_composite_inference"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. Net benefit over 112 years requires an unstated counterfactual and weighting of irrigation, waterpower, minimum-flow protection, and downstream dependence; several causal claims are interpretive rather than explicit."
+    },
+    {
+      "question_id": "VS-018",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "comparison_criterion_ambiguity"
+      ],
+      "semantic_rationale": "Both replies are unaddressed. The correct answer says the steppe is both asset and vulnerability and then assigns primacy, while the wrong answer assigns the opposite primacy; the weighting criterion is not fixed."
+    },
+    {
+      "question_id": "VS-019",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "oracle_affirms_wrong_only",
+        "same_polarity_answers",
+        "candidate_overlap"
+      ],
+      "semantic_rationale": "The correct candidate is not addressed, so the policy class is none. Both candidates answer yes and agree on technical compliance; they differ only over whether that establishes substantive good faith, while the oracle affirms only the designated wrong answer."
+    },
+    {
+      "question_id": "VS-020",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the contested-succession candidate but does not reject the institutional-continuity alternative, so the pair is only partially discriminated."
+    },
+    {
+      "question_id": "VS-021",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "oracle_affirms_wrong_only",
+        "unsupported_composite_inference"
+      ],
+      "semantic_rationale": "The correct candidate is not addressed, so there is no support for the designated answer. The oracle affirms the wrong-only independence claim, while the correct composite includes unsupported links such as Mesht participation affecting Assembly population counts."
+    },
+    {
+      "question_id": "VS-022",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "comparison_criterion_ambiguity",
+        "unsupported_inference"
+      ],
+      "semantic_rationale": "Neither answer is addressed. Whether food leverage is comparable to military advantage lacks a common scale, and the correct candidate's proposed Dominion counter-leverage is speculative."
+    },
+    {
+      "question_id": "VS-023",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the structural-weakness answer but does not reject the durability-based defense, yielding one-sided direct support."
+    },
+    {
+      "question_id": "VS-024",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "time_horizon_ambiguity",
+        "candidate_overlap"
+      ],
+      "semantic_rationale": "Neither reply addresses the candidate. The correct answer says the Assembly may benefit in the short term but probably not in the long term, while the question and wrong answer omit a time horizon."
+    },
+    {
+      "question_id": "VS-025",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "missing_methodological_information"
+      ],
+      "semantic_rationale": "Both candidates are unaddressed. Monitoring adequacy cannot be determined from cadence alone without seasonal timing, measurement variance, or a defined detectable trend, so both technical conclusions exceed the supplied facts."
+    },
+    {
+      "question_id": "VS-026",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "argument_from_silence",
+        "unsupported_inference"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. The claim that private licensing departs from usual governance relies on silence about the ownership of existing mills and overextends communal-land facts into a general anti-private-activity rule."
+    },
+    {
+      "question_id": "VS-027",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "oracle_affirms_both",
+        "candidate_overlap",
+        "comparison_criterion_ambiguity"
+      ],
+      "semantic_rationale": "Both candidates are affirmed, so the oracle cannot discriminate fully. The correct answer itself acknowledges the food-dependence liability emphasized by the wrong answer; the disagreement is only which side is primary."
+    },
+    {
+      "question_id": "VS-028",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Neither reply addresses whether water-source spacing causally shapes political organization, so the oracle does not directly resolve the clear geographic-versus-social candidate contrast."
+    },
+    {
+      "question_id": "VS-029",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "oracle_affirms_wrong_only",
+        "normative_ambiguity",
+        "missing_comparison_baseline"
+      ],
+      "semantic_rationale": "The correct candidate is not addressed, so the direct-resolvability class is none. The oracle affirms only the designated wrong answer even though favorable versus exploitative depends on an unstated benchmark for the 8 percent per three-year rate and borrower leverage."
+    },
+    {
+      "question_id": "VS-030",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms that an effective coalition is very unlikely but does not reject the population-and-Massing alternative, leaving the wrong candidate unresolved."
+    },
+    {
+      "question_id": "VS-031",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "baseline_ambiguity",
+        "candidate_overlap"
+      ],
+      "semantic_rationale": "Neither reply addresses the candidate. Deterioration in current institutional friction and improvement relative to pre-Compact armed conflict can both be true, so the trend depends on the chosen baseline and metric."
+    },
+    {
+      "question_id": "VS-032",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "counterfactual_ambiguity",
+        "normative_ambiguity"
+      ],
+      "semantic_rationale": "Both replies are unaddressed. Net benefit requires valuing existing salt-based institutions against a counterfactual freshwater agricultural economy that the source cannot observe."
+    },
+    {
+      "question_id": "VS-033",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Neither candidate is addressed, so the oracle cannot resolve the polity-ranking question even though the candidates give a clear freshwater-versus-industrial-resilience contrast."
+    },
+    {
+      "question_id": "VS-034",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms differential geographic effects but does not reject the background-feature alternative, so the correct side is supported without a direct rejection of the wrong side."
+    },
+    {
+      "question_id": "VS-035",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": [
+        "unsupported_composite_inference",
+        "counterfactual_ambiguity"
+      ],
+      "semantic_rationale": "Neither candidate is addressed. The multi-step forecast depends on unstated rules about Kemari political incorporation, future seat counts, and reallocation after the band count changes, making the asserted cascade speculative."
+    }
+  ],
+  "summary": {
+    "question_count": 35,
+    "ai_recommended_class_counts": {
+      "full": 0,
+      "partial": 9,
+      "none": 26
+    },
+    "agreement_with_preliminary": {
+      "agree": 35,
+      "disagree": 0
+    },
+    "class_confidence_counts": {
+      "high": 35,
+      "medium": 0,
+      "low": 0
+    },
+    "class_adjudication_required_count": 0,
+    "class_adjudication_question_ids": [],
+    "semantic_quality_concern_count": 23,
+    "semantic_quality_concern_question_ids": [
+      "VS-001",
+      "VS-002",
+      "VS-004",
+      "VS-006",
+      "VS-007",
+      "VS-008",
+      "VS-010",
+      "VS-013",
+      "VS-014",
+      "VS-015",
+      "VS-017",
+      "VS-018",
+      "VS-019",
+      "VS-021",
+      "VS-022",
+      "VS-024",
+      "VS-025",
+      "VS-026",
+      "VS-027",
+      "VS-029",
+      "VS-031",
+      "VS-032",
+      "VS-035"
+    ],
+    "methodological_note": "The frozen class is determined by the preserved direct reply pair. This AI review verifies source binding and reply-pair mapping; semantic-quality concerns do not by themselves provide a policy-valid basis to override the class, and this artifact is not human validation."
+  }
+}

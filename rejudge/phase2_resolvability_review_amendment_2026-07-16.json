@@ -1,0 +1,100 @@
+{
+  "proposed_amended_policy": {
+    "classification_policy_id": "direct_candidate_oracle_reply_pair_v1",
+    "class_mapping": [
+      {
+        "class": "full",
+        "correct_candidate_reply": "YES",
+        "wrong_candidate_reply": "NO"
+      },
+      {
+        "class": "partial",
+        "correct_candidate_reply": "YES",
+        "wrong_candidate_reply": "NOT ADDRESSED"
+      },
+      {
+        "class": "partial",
+        "correct_candidate_reply": "YES",
+        "wrong_candidate_reply": "YES"
+      },
+      {
+        "class": "none",
+        "correct_candidate_reply": "NOT ADDRESSED",
+        "wrong_candidate_reply": "NOT ADDRESSED"
+      },
+      {
+        "class": "none",
+        "correct_candidate_reply": "NOT ADDRESSED",
+        "wrong_candidate_reply": "YES"
+      }
+    ],
+    "class_provenance": "algorithmically derived source-bound direct-query oracle-reply-pattern class. The AI audit verifies source, binding, and mapping consistency and separately annotates semantic-quality concerns; it is not a human-validated semantic judgment.",
+    "failure_policy": "Any source mismatch, swapped candidate/reply binding, unmapped reply pair, or mapping disagreement halts materialization and requires a linked amendment. It is never silently repaired after outcomes are available.",
+    "human_confirmation_pass": "waiver_proposed_pending_owner_approval",
+    "semantic_quality_policy": "Freeze semantic-quality annotations separately. They may be reported as limitations or exploratory diagnostics but cannot relabel, filter, exclude, or reweight questions."
+  },
+  "amendment_id": "phase2_pooled_hpr_2026_07_16_v1_a1",
+  "approval": {
+    "approved_at_utc": null,
+    "approved_by": null,
+    "owner_approval_required": true
+  },
+  "proposed_effective_protocol_id": "phase2_pooled_hpr_2026_07_16_v1+a1",
+  "requirements_upon_approval": {
+    "bind_ai_review_canonical_sha256": "682d19af5c1cb454fff9264ec6e96a4d2406930ec2c6003fd5cc416df98e28c1",
+    "bind_amendment_canonical_sha256": "compute from the owner-approved amendment artifact",
+    "bind_base_protocol_canonical_sha256": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
+    "owner_approval_must_be_present": true,
+    "effective_only_after": "Owner approval is recorded in this artifact and the owner-approved amendment is committed publicly before any paid call from the approved 23,200-cell plan."
+  },
+  "outcome_timing": {
+    "as_of_utc": "2026-07-17T04:10:19Z",
+    "evidence_basis": "Repository and local ledger inspection plus owner statements in this task; this is not a provider-wide usage reconciliation.",
+    "paid_calls_recorded_from_approved_23200_cell_plan": 0,
+    "phase2_debate_outcomes_generated": false,
+    "phase2_debate_outcomes_inspected": false,
+    "prepared_at_utc": "2026-07-17T04:10:19Z"
+  },
+  "parent_protocol": {
+    "canonical_json_sha256": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
+    "path": "rejudge/phase2_protocol.json",
+    "protocol_id": "phase2_pooled_hpr_2026_07_16_v1",
+    "public_commit": "0a21191539daae2e0807d92fcb5b1e8c179af027"
+  },
+  "reason": "The base protocol required a human semantic confirmation or override pass. Before any Phase 2 outcomes or paid calls from the approved 23,200-cell plan, this amendment proposes to operationalize the reported full/partial/none stratum as the frozen deterministic reply-pair lookup, waive semantic overrides, retain all questions and weights, and report AI semantic annotations only as limitations or exploratory diagnostics.",
+  "review_evidence": {
+    "ai_review_canonical_sha256": "682d19af5c1cb454fff9264ec6e96a4d2406930ec2c6003fd5cc416df98e28c1",
+    "ai_review_path": "rejudge/phase2_resolvability_ai_review.json",
+    "class_adjudications_required": 0,
+    "class_counts": {
+      "full": 6,
+      "none": 59,
+      "partial": 41
+    },
+    "human_validation": false,
+    "mapping_or_binding_discrepancies": 0,
+    "question_count": 106,
+    "semantic_quality_concerns": 63,
+    "source_review_template_canonical_sha256": "5f99fb81cd35e5e59c5bbb5430248dc70cb7a0aae81f54d8fc4dfa56c75d076b"
+  },
+  "schema_version": "phase2_protocol_amendment_v1",
+  "scope_that_would_remain_unchanged": [
+    "all 106 questions and their frozen reply pairs",
+    "the five-pair full/partial/none mapping and 6/41/59 class counts",
+    "the no-filter and equal-weight rules",
+    "the H/P/R/C/D estimands and inference procedures",
+    "the six-question canary subset and every canary gate",
+    "models, conditions, prompts to be materialized, and provider-cell inventory",
+    "working budget, hard ceilings, stopping rules, and staged spend authorizations"
+  ],
+  "separate_human_gate_unchanged": "This amendment does not modify decisions.query_screening, materialization_requirements.query_checker, external_assignments.query_checker_validator, or external_assignments.accepted_query_auditor. Before materialization, one frozen checker and prompt must meet the frozen human-labeled validation target. During execution, humans review every rejection and retry plus the deterministic world/resolvability-stratified 1% sample of accepted queries, blind to outcomes.",
+  "status": "proposed_pending_owner_approval",
+  "would_supersede_upon_owner_approval": [
+    "decisions.secondary_analyses.shortcut_audit_human_pass",
+    "materialization_requirements.resolvability_labels.human_pass_complete",
+    "external_assignments.human_resolvability_reviewer",
+    "only the direct-resolvability provenance bullet, Resolvability readiness row, and first remaining-materialization item in docs/phase2-readiness-and-signoff.md",
+    "only the human-pass paragraph in docs/phase2-decision-proposal.md section 6 and approval item 2",
+    "only docs/oracle-query-contract.md Reporting paragraph; no Enforcement or query-screening rule"
+  ]
+}

@@ -1,0 +1,632 @@
+{
+  "schema_version": "phase2_resolvability_ai_review_world_v1",
+  "status": "complete",
+  "review_metadata": {
+    "review_kind": "independent_ai_assisted_semantic_review",
+    "reviewer": "Codex multi-agent review: Selvarath lane",
+    "reviewed_at_utc": "2026-07-17T03:53:48Z",
+    "world": "selvarath",
+    "classification_policy_id": "direct_candidate_oracle_reply_pair_v1",
+    "source_review_template": "rejudge/phase2_resolvability_review.json",
+    "source_review_template_canonical_sha256": "5f99fb81cd35e5e59c5bbb5430248dc70cb7a0aae81f54d8fc4dfa56c75d076b",
+    "source_question_bank": "questions/selvarath_questions.json",
+    "scope_note": "Every Selvarath question, both candidate answers, and both preserved oracle replies were inspected. Recommended classes apply the tracked reply-pair policy; semantic concerns are separately flagged.",
+    "human_validation_status": "not_human_validated",
+    "human_validation_note": "This artifact is an AI-assisted independent pass. It does not populate human_review and must not be represented as the protocol's promised human validation."
+  },
+  "records": [
+    {
+      "question_id": "SEL-001",
+      "preliminary_class": "full",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NO"
+      },
+      "ai_recommended_class": "full",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The correct candidate identifies the Compact's durable iron gain and the Confederacy's toll loss, while the wrong candidate claims net weakening. YES/NO cleanly discriminates them."
+    },
+    {
+      "question_id": "SEL-002",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the nuanced absence-of-treaty answer but cannot adjudicate the competing geographic-to-legal inference, giving only one-sided support."
+    },
+    {
+      "question_id": "SEL-003",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["oracle_contradiction"],
+      "semantic_rationale": "YES/YES is partial under policy, but the oracle affirms mutually opposed conclusions about practical symmetry; the contradiction should be adjudicated rather than treated as ordinary one-sided partial resolution."
+    },
+    {
+      "question_id": "SEL-004",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["candidate_answer_overlap", "question_scope_ambiguity"],
+      "semantic_rationale": "Neither candidate is addressed, so the mapped class is none. However, the question asks only whether validity could be considered, and both answers supply an affirmative basis while differing mainly on certainty, weakening the answer-pair contrast."
+    },
+    {
+      "question_id": "SEL-005",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["question_scope_ambiguity"],
+      "semantic_rationale": "YES/NOT ADDRESSED is partial, but the candidates use different senses of 'position': institutional coherence versus strict legal independence. That framing ambiguity merits focused adjudication."
+    },
+    {
+      "question_id": "SEL-006",
+      "preliminary_class": "full",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NO"
+      },
+      "ai_recommended_class": "full",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The Compact's documented Shel diplomacy, fees, and iron trade directly outweigh the Confederacy's pass-control claim; YES/NO fully separates the candidates."
+    },
+    {
+      "question_id": "SEL-007",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both candidates make evaluative institutional inferences from rotation, continuity, and buy-in. Neither is directly addressed, so the oracle provides no resolution."
+    },
+    {
+      "question_id": "SEL-008",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["question_scope_ambiguity", "underdetermined_answer"],
+      "semantic_rationale": "Neither answer is addressed, but the designated correct answer shifts from whether the Confederacy could invoke the Compact to whether doing so fits its intended spirit and whether a reserve shortfall is a breach. The legal-operational question remains ambiguous."
+    },
+    {
+      "question_id": "SEL-009",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms continuing supplier leverage but does not reject the port-control counterargument, so it resolves only the correct side."
+    },
+    {
+      "question_id": "SEL-010",
+      "preliminary_class": "full",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NO"
+      },
+      "ai_recommended_class": "full",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The Compact's direct contract exposure is documented, whereas the alleged Flood Compact obligation to the Shel is explicitly false; YES/NO fully resolves the pair."
+    },
+    {
+      "question_id": "SEL-011",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both explanations infer strategic purpose or cost recovery from events rather than state an atomic documented fact; neither reply addresses a candidate."
+    },
+    {
+      "question_id": "SEL-012",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The candidates make competing forecasts about escalation rather than directly checkable claims; NOT ADDRESSED on both yields none."
+    },
+    {
+      "question_id": "SEL-013",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["oracle_contradiction", "temporal_scope_ambiguity"],
+      "semantic_rationale": "The oracle affirms both deterioration and improvement. The candidates emphasize different portions of the post-Resolution timeline, so YES/YES is partial but exposes temporal-scope ambiguity."
+    },
+    {
+      "question_id": "SEL-014",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["unsupported_counterfactual_assumption"],
+      "semantic_rationale": "Neither candidate is addressed. The correct candidate's relevance argument depends on hypothetical intermarriage and gender composition not described in the source, making the designated answer materially speculative."
+    },
+    {
+      "question_id": "SEL-015",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both candidates are broad counterfactual assessments of year-round access, and neither receives an addressed oracle reply."
+    },
+    {
+      "question_id": "SEL-016",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["question_scope_ambiguity", "plausible_competing_answer"],
+      "semantic_rationale": "YES/NOT ADDRESSED maps to partial, but 'disruption of trade through Vethara' is underspecified. The answer changes depending on whether the disruption disables Shel port commerce generally or only the Compact's access, and the Shel alternative remains plausible."
+    },
+    {
+      "question_id": "SEL-017",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["underdetermined_answer"],
+      "semantic_rationale": "Neither candidate is addressed, and the designated answer itself says adequacy depends on unknown loss severity, accumulation, and timing of the law. The question is underdetermined by the supplied numbers."
+    },
+    {
+      "question_id": "SEL-018",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["oracle_contradiction", "question_scope_ambiguity"],
+      "semantic_rationale": "YES/YES is partial, but the oracle affirms both partial-with-consequences and full resolution. Whether later tariff conflict counts against solving the original succession problem is an unresolved scope choice."
+    },
+    {
+      "question_id": "SEL-019",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["candidate_answer_overlap"],
+      "semantic_rationale": "NOT ADDRESSED/NOT ADDRESSED maps to none, but both candidates answer the literal 'could use' question yes. They differ only on present-day usability and constraints, so the supposedly wrong candidate does not oppose the headline conclusion."
+    },
+    {
+      "question_id": "SEL-020",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The Compact's multi-factor resilience case is affirmed while the rotating-leadership alternative is not addressed; that is one-sided partial resolution."
+    },
+    {
+      "question_id": "SEL-021",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["unsupported_geographic_inference"],
+      "semantic_rationale": "YES/NOT ADDRESSED maps to partial, but the correct candidate's claim that foothills title gives Compact territory on both sides of the passes and enables alternative infrastructure is not clearly supported by the stated geography."
+    },
+    {
+      "question_id": "SEL-022",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["oracle_affirms_designated_wrong_answer"],
+      "semantic_rationale": "The policy assigns none because the correct candidate is not addressed. The oracle nevertheless affirms categorical independence even though the candidate record identifies shared actors, grain dependence, pass leverage, and Shel ties, making this an actively misleading reply pattern."
+    },
+    {
+      "question_id": "SEL-023",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both causal accounts synthesize several institutional and strategic factors, and neither receives an addressed oracle reply."
+    },
+    {
+      "question_id": "SEL-024",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Choosing the most effective lever requires a comparative strategic inference beyond direct facts; neither grain pressure nor military force is addressed by the oracle."
+    },
+    {
+      "question_id": "SEL-025",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The suitability comparison is an institutional-design judgment rather than a directly stated fact; both candidates remain unaddressed."
+    },
+    {
+      "question_id": "SEL-026",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "YES"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["oracle_affirms_designated_wrong_answer"],
+      "semantic_rationale": "The correct candidate is unaddressed, so the policy yields none. The oracle affirmatively supports the mutually exclusive designated-wrong conclusion, creating another actively misleading pattern that warrants adjudication."
+    },
+    {
+      "question_id": "SEL-027",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Reactive versus strategic is a synthesis of motives across events; neither broad candidate claim is directly addressed."
+    },
+    {
+      "question_id": "SEL-028",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": true,
+      "semantic_quality_concern_types": ["candidate_answer_overlap"],
+      "semantic_rationale": "The reply pair maps to none, but both candidates conclude that hereditary Warden succession is more vulnerable to succession disputes than automatic Vek rotation. The designated wrong answer mainly omits the correct answer's continuity-risk caveat and is not actually opposed on the question asked."
+    },
+    {
+      "question_id": "SEL-030",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The oracle affirms the less-stable conclusion based on recurring wealth reassessment and hereditary Warden continuity but does not reject the meritocratic alternative."
+    },
+    {
+      "question_id": "SEL-031",
+      "preliminary_class": "partial",
+      "oracle_replies": {
+        "for_correct_candidate": "YES",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "partial",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The Compact's repeated conversion of crises into iron, treaty, and fee advantages is affirmed, while the Confederacy-resilience alternative is not addressed."
+    },
+    {
+      "question_id": "SEL-032",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Whether a commercial panel could be accepted as a neutral territorial arbiter is an institutional inference; neither candidate is directly addressed."
+    },
+    {
+      "question_id": "SEL-033",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both readings of the voting threshold are evaluative and context-dependent; the oracle addresses neither candidate."
+    },
+    {
+      "question_id": "SEL-034",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Faction-capture vulnerability is a comparative governance inference; neither the Shel nor Taran conclusion receives an addressed reply."
+    },
+    {
+      "question_id": "SEL-035",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Both candidates infer a longitudinal effect of interdependence from a small historical pattern; neither is directly addressed by the oracle."
+    },
+    {
+      "question_id": "SEL-036",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "The coordination effect of seasonality is counterfactual and strategic; both the hindrance and deadline-pressure candidates are unaddressed."
+    },
+    {
+      "question_id": "SEL-039",
+      "preliminary_class": "none",
+      "oracle_replies": {
+        "for_correct_candidate": "NOT ADDRESSED",
+        "for_wrong_candidate": "NOT ADDRESSED"
+      },
+      "ai_recommended_class": "none",
+      "agrees_with_preliminary": true,
+      "class_confidence": "high",
+      "class_mapping_verified": true,
+      "class_adjudication_required": false,
+      "semantic_quality_concern": false,
+      "semantic_quality_concern_types": [],
+      "semantic_rationale": "Who gains most from continued yield decline is a strategic projection; neither the Compact-leverage nor Shel-trade answer is directly addressed."
+    }
+  ],
+  "summary": {
+    "question_count": 36,
+    "ai_recommended_class_counts": {
+      "full": 3,
+      "partial": 11,
+      "none": 22
+    },
+    "agreement_with_preliminary": {
+      "agree": 36,
+      "disagree": 0
+    },
+    "class_confidence_counts": {
+      "high": 36,
+      "medium": 0,
+      "low": 0
+    },
+    "class_adjudication_required_count": 0,
+    "class_adjudication_question_ids": [],
+    "semantic_quality_concern_count": 14,
+    "semantic_quality_concern_question_ids": [
+      "SEL-003",
+      "SEL-004",
+      "SEL-005",
+      "SEL-008",
+      "SEL-013",
+      "SEL-014",
+      "SEL-016",
+      "SEL-017",
+      "SEL-018",
+      "SEL-019",
+      "SEL-021",
+      "SEL-022",
+      "SEL-026",
+      "SEL-028"
+    ],
+    "methodological_note": "Because the policy defines class directly from the recorded ternary reply pair, class agreement is mechanically constrained unless the reviewer rejects source alignment or reply semantics. Semantic review is most informative as a separate audit of answer-pair validity, ambiguity, and contradictory or actively misleading oracle behavior; it cannot convert this AI artifact into human validation."
+  }
+}
