@@ -124,10 +124,12 @@ modeled calls.
 
 ## Cost and credit boundary
 
-- Historical reported project spend: **approximately $208**; not provider-verified evidence.
+- Historical reported project spend: **approximately $208**; a rounded report, not yet reconciled
+  to provider usage.
 - Provider funding: **$500 + $1,300** moved into prepaid Together credit.
-- Estimated current credit: **approximately $1,592** (`$1,800 - ~$208`); verify in the provider
-  dashboard before the next call.
+- Dashboard-reported available credit on 2026-07-16: **$1,590.78**.
+- Balance-implied net credit draw: **$209.22** (`$1,800 - $1,590.78`); reconcile the **$1.22**
+  difference from the rounded spend report against provider usage before the next call.
 - User-specified spendable grant budget: **$8,000**.
 - Provisional empirical planning band: **$650–$1,150**.
 - Operational working budget: **$1,200**.
@@ -152,7 +154,7 @@ halts rather than replays.
 |---|---|---|
 | Scientific scope | H/P/R, capability QA, C/D, optional arms, and legacy disposition approved | Materialize and hash final artifacts |
 | Main inventory | 23,200 offline planning cells enumerated and tested; 1,060 are pre-canary capability QA | Materialize executable stage manifests and empirical top-anchor model |
-| Cost model | Deterministic call inventory plus a clearly labeled empirical dollar band, credit estimate, working budget, and ceiling | Freeze role-token profiles and prices; reconcile provider dashboard |
+| Cost model | Deterministic call inventory plus a clearly labeled empirical dollar band, dashboard balance, working budget, and ceiling | Freeze role-token profiles and prices; reconcile the provider usage ledger |
 | Gemma completeness | Recovery of exact 11 cells selected; proposed cap $2 | Separate spend authorization and manifested run |
 | Query enforcement | Contract, symmetric clean/placebo scope, retry, failure, and audit policies approved | Frozen checker/prompt, validation set/threshold, named validator/auditor |
 | Resolvability | Immutable 106-row blank template generated; preliminary full/partial/none counts are 6/41/59 | Create a separate review copy, complete the human pass, and name reviewer/auditor; final hash goes in the execution manifest |

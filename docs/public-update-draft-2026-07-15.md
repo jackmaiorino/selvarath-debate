@@ -37,9 +37,10 @@ main cells. It includes a full cap-protection interaction, an empty-evidence dia
 full-document gold-context anchors. No calls from this approved 23,200-cell plan have begun.
 
 Total project spend remains approximately $208. Across two transfers, I have moved $1,800 of the
-grant into prepaid Together API credit ($500 earlier and $1,300 now). Subtracting reported spend
-gives a simple estimated current credit of approximately $1,592, but I will reconcile that against
-the provider dashboard before another call. Transfers are funding, not experiment spend.
+grant into prepaid Together API credit ($500 earlier and $1,300 now). The Together dashboard showed
+$1,590.78 in available credit on July 16, implying $209.22 in net credit draw. I will reconcile the
+$1.22 difference from the rounded spend report against provider usage before another call.
+Transfers are funding, not experiment spend.
 
 - Stage 1 protocol: [frozen protocol](https://github.com/jackmaiorino/selvarath-debate/blob/5493864296b0c63dba595d08563f4bd2ad7f1f31/docs/rejudge-protocol.md)
 - Stage 1 results: [validation report](https://github.com/jackmaiorino/selvarath-debate/blob/360605a51bb4b7ea0e0269a68ee8d9260708a452/reports/2026-07-09-stage1-rejudge-results.md)
