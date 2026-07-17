@@ -218,5 +218,5 @@ the entire canary.
 - Main-run spend approved: **NO**
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
 - Approved Phase 2 plan canonical SHA-256: `686dc961434093c82e682fba2182ce7bdb551bdfc17562c43ae3f12661b0ce66`
-- Package commit: pending local checkpoint
+- Package commit: `0a21191539daae2e0807d92fcb5b1e8c179af027` (local; public push pending)
 - Lead approver: Jack Maiorino / 2026-07-16T04:45:48Z

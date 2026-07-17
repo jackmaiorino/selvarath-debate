@@ -66,7 +66,8 @@ replace the provisional band with frozen prompt/token profiles and current provi
 authorizing paid work. The ceiling is a fail-closed boundary, not expected spending. We will post
 results, failures, artifacts, and actual spend either way.
 
-- Frozen Phase 2 protocol and cost model: `[IMMUTABLE_PHASE2_PACKAGE_URL]`
+- Phase 2 design: [immutable protocol](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_protocol.json)
+- Phase 2 cost and launch package: [cost model](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_cost_model.json) and [readiness record](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/docs/phase2-readiness-and-signoff.md)
 
 ## Is there anything others could help you with?
 
