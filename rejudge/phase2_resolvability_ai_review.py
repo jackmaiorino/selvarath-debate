@@ -32,6 +32,52 @@ BASE_PROTOCOL_ID = "phase2_pooled_hpr_2026_07_16_v1"
 BASE_PROTOCOL_CANONICAL_SHA256 = (
     "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75"
 )
+AMENDMENT_CLASS_PROVENANCE = (
+    "algorithmically derived source-bound direct-query oracle-reply-pattern class. The AI audit "
+    "verifies source, binding, and mapping consistency and separately annotates semantic-quality "
+    "concerns; it is not a human-validated semantic judgment."
+)
+AMENDMENT_FAILURE_POLICY = (
+    "Any source mismatch, swapped candidate/reply binding, unmapped reply pair, or mapping "
+    "disagreement halts materialization and requires a linked amendment. It is never silently "
+    "repaired after outcomes are available."
+)
+AMENDMENT_SEMANTIC_POLICY = (
+    "Freeze semantic-quality annotations separately. They may be reported as limitations or "
+    "exploratory diagnostics but cannot relabel, filter, exclude, or reweight questions."
+)
+AMENDMENT_EFFECTIVE_ONLY_AFTER = (
+    "Owner approval is recorded in this artifact and the owner-approved amendment is committed "
+    "publicly before any paid call from the approved 23,200-cell plan."
+)
+AMENDMENT_CHECKER_RULE = (
+    "This amendment does not modify decisions.query_screening, "
+    "materialization_requirements.query_checker, external_assignments.query_checker_validator, "
+    "or external_assignments.accepted_query_auditor. Before materialization, one frozen checker "
+    "and prompt must meet the frozen human-labeled validation target. During execution, humans "
+    "review every rejection and retry plus the deterministic world/resolvability-stratified 1% "
+    "sample of accepted queries, blind to outcomes."
+)
+AMENDMENT_UNCHANGED_SCOPE = (
+    "all 106 questions and their frozen reply pairs",
+    "the five-pair full/partial/none mapping and 6/41/59 class counts",
+    "the no-filter and equal-weight rules",
+    "the H/P/R/C/D estimands and inference procedures",
+    "the six-question canary subset and every canary gate",
+    "models, conditions, prompts to be materialized, and provider-cell inventory",
+    "working budget, hard ceilings, stopping rules, and staged spend authorizations",
+)
+AMENDMENT_SUPERSEDES = (
+    "decisions.secondary_analyses.shortcut_audit_human_pass",
+    "materialization_requirements.resolvability_labels.human_pass_complete",
+    "external_assignments.human_resolvability_reviewer",
+    "only the direct-resolvability provenance bullet, Resolvability readiness row, and first "
+    "remaining-materialization item in docs/phase2-readiness-and-signoff.md",
+    "only the human-pass paragraph in docs/phase2-decision-proposal.md section 6 and approval "
+    "item 2",
+    "only docs/oracle-query-contract.md Reporting paragraph; no Enforcement or query-screening "
+    "rule",
+)
 
 WORLD_SPECS: tuple[tuple[str, Path, Path], ...] = (
     (
@@ -437,35 +483,36 @@ def validate_amendment(
         }
         for (correct, wrong), class_name in source_review.CLASS_BY_ORACLE_REPLIES.items()
     ]
-    if policy.get("classification_policy_id") != CLASSIFICATION_POLICY_ID:
-        raise AIReviewError("amendment classification policy ID is invalid")
-    if policy.get("class_mapping") != expected_mapping:
-        raise AIReviewError("amendment class mapping drifted")
     expected_pass = (
         "waiver_proposed_pending_owner_approval"
         if pending
         else "waived_by_owner_approved_amendment"
     )
-    if policy.get("human_confirmation_pass") != expected_pass:
-        raise AIReviewError("amendment human-pass state is invalid")
-    for field in ("class_provenance", "failure_policy", "semantic_quality_policy"):
-        if not isinstance(policy.get(field), str) or not policy[field].strip():
-            raise AIReviewError(f"amendment policy field {field} is blank")
+    expected_policy = {
+        "classification_policy_id": CLASSIFICATION_POLICY_ID,
+        "class_mapping": expected_mapping,
+        "class_provenance": AMENDMENT_CLASS_PROVENANCE,
+        "failure_policy": AMENDMENT_FAILURE_POLICY,
+        "human_confirmation_pass": expected_pass,
+        "semantic_quality_policy": AMENDMENT_SEMANTIC_POLICY,
+    }
+    if policy != expected_policy:
+        raise AIReviewError("amendment policy drifted")
 
     effective_id_key = "proposed_effective_protocol_id" if pending else "effective_protocol_id"
     if amendment[effective_id_key] != f"{BASE_PROTOCOL_ID}+a1":
         raise AIReviewError("amendment effective protocol ID is invalid")
     requirements_key = "requirements_upon_approval" if pending else "manifest_requirements"
     requirements = amendment[requirements_key]
-    if requirements.get("bind_base_protocol_canonical_sha256") != _canonical_sha256(protocol):
-        raise AIReviewError("amendment manifest base-protocol binding is invalid")
-    if requirements.get("bind_ai_review_canonical_sha256") != combined_hash:
-        raise AIReviewError("amendment manifest AI-review binding is invalid")
-    if requirements.get("owner_approval_must_be_present") is not True:
-        raise AIReviewError("amendment manifest does not require owner approval")
-    for field in ("bind_amendment_canonical_sha256", "effective_only_after"):
-        if not isinstance(requirements.get(field), str) or not requirements[field].strip():
-            raise AIReviewError(f"amendment manifest requirement {field} is blank")
+    expected_requirements = {
+        "bind_ai_review_canonical_sha256": combined_hash,
+        "bind_amendment_canonical_sha256": "compute from the owner-approved amendment artifact",
+        "bind_base_protocol_canonical_sha256": _canonical_sha256(protocol),
+        "owner_approval_must_be_present": True,
+        "effective_only_after": AMENDMENT_EFFECTIVE_ONLY_AFTER,
+    }
+    if requirements != expected_requirements:
+        raise AIReviewError("amendment manifest requirements drifted")
 
     summary = combined_review["summary"]
     evidence = amendment["review_evidence"]
@@ -517,29 +564,15 @@ def validate_amendment(
     if not isinstance(timing.get("evidence_basis"), str) or not timing["evidence_basis"].strip():
         raise AIReviewError("amendment timing evidence basis is blank")
 
-    checker_rule = amendment["separate_human_gate_unchanged"]
-    required_checker_phrases = (
-        "decisions.query_screening",
-        "materialization_requirements.query_checker",
-        "external_assignments.query_checker_validator",
-        "external_assignments.accepted_query_auditor",
-        "human-labeled validation target",
-        "every rejection and retry",
-        "1% sample of accepted queries",
-    )
-    if not isinstance(checker_rule, str) or any(
-        phrase not in checker_rule for phrase in required_checker_phrases
-    ):
+    if amendment["separate_human_gate_unchanged"] != AMENDMENT_CHECKER_RULE:
         raise AIReviewError("amendment does not preserve the complete human query-checker gate")
 
     scope_key = "scope_that_would_remain_unchanged" if pending else "scope_unchanged"
     supersedes_key = "would_supersede_upon_owner_approval" if pending else "supersedes"
-    for field in (scope_key, supersedes_key):
-        value = amendment[field]
-        if not isinstance(value, list) or not value or any(
-            not isinstance(item, str) or not item.strip() for item in value
-        ):
-            raise AIReviewError(f"amendment field {field} is invalid")
+    if amendment[scope_key] != list(AMENDMENT_UNCHANGED_SCOPE):
+        raise AIReviewError("amendment unchanged scope drifted")
+    if amendment[supersedes_key] != list(AMENDMENT_SUPERSEDES):
+        raise AIReviewError("amendment supersession scope drifted")
 
 
 def load_and_validate_amendment(

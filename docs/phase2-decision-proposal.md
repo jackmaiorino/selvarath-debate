@@ -133,6 +133,14 @@ full class is too small for a separately powered confirmatory test. Waiving the 
 require amending the oracle contract and dropping any claim that the current classes are
 human-validated.
 
+**Amendment A1 (owner-approved 2026-07-17, before any call or outcome from the approved Phase 2
+plan):** the human confirmation/override pass above is waived. The reported stratum is the frozen
+deterministic direct-query oracle-reply-pattern lookup, verified for all 106 source bindings and
+mappings by a multi-agent AI-assisted audit. All 106 mappings agreed (6 full / 41 partial / 59 none;
+zero class adjudications). Semantic-quality annotations are exploratory limitations only and cannot
+relabel, filter, exclude, or reweight questions. These labels are not human-validated. The separate
+human-labeled query-checker validation and human audit of live screen decisions remain required.
+
 ### 7. Execution semantics
 
 Create and hash a dedicated Phase 2 prompt bundle rather than dynamically rewriting pilot prompts.
@@ -192,7 +200,8 @@ separately manifested, linked supplement rather than raising an old ceiling.
 ## Approval sequence
 
 1. **Complete (2026-07-16):** lead accepted the defaults and the recorded scope above.
-2. Complete/waive the 11-cell Gemma recovery and the 106-question human resolvability pass.
+2. **Resolvability complete (2026-07-17):** owner-approved A1 and its all-106 AI audit replace the
+   human pass without changing strata or analyses. The separate 11-cell Gemma recovery/waiver is pending.
 3. Rebuild the machine inventory and conservative cost model, then approve the project-wide cap.
 4. Freeze/hash the design protocol and commit it; materialize paid stages in append-only manifests.
 5. Implement and validate the Phase 2 runner entirely offline.

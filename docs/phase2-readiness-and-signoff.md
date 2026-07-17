@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-07-15
 
-**Updated:** 2026-07-16
+**Updated:** 2026-07-17
 
 **Current gate:** **BLOCKED — approved design pending materialization**
 
@@ -33,10 +33,11 @@ authorization.
 - **Canary spend authorized:** **NO**
 - **Main-run spend authorized:** **NO**
 
-The machine protocol remains `approved_design_pending_materialization`, not yet committed/frozen
-and never itself executable. The exact approved decisions and required artifact slots live in
-`rejudge/phase2_protocol.json`; completed paid-stage values belong in append-only execution
-manifests rather than mutations to the frozen design record.
+The machine protocol remains `approved_design_pending_materialization`, publicly committed/frozen,
+and never itself executable. Amendment A1 is an append-only pre-outcome provenance change. The exact
+approved decisions and required artifact slots live in `rejudge/phase2_protocol.json`; completed
+paid-stage values belong in append-only execution manifests rather than mutations to the frozen
+design record.
 
 ## Banked evidence
 
@@ -81,8 +82,9 @@ primary analysis, with a valid-only sensitivity. Exact provider-cell completion 
   D averages its debate and shared no-debate replicates within question without duplicating the
   comparator.
 - Empty-evidence and two full-document ceiling anchors are descriptive/diagnostic.
-- H/P/R/D are reported descriptively by human-validated full/partial/none direct-resolvability
-  class without filtering questions.
+- H/P/R/D are reported descriptively by the frozen algorithmic full/partial/none direct-query
+  oracle-reply-pattern class without filtering questions. The source/binding/mapping audit is
+  AI-assisted; these are not human-validated semantic judgments.
 
 ### Capability measurement
 
@@ -157,7 +159,7 @@ halts rather than replays.
 | Cost model | Deterministic call inventory plus a clearly labeled empirical dollar band, dashboard balance, working budget, and ceiling | Freeze role-token profiles and prices; reconcile the provider usage ledger |
 | Gemma completeness | Recovery of exact 11 cells selected; proposed cap $2 | Separate spend authorization and manifested run |
 | Query enforcement | Contract, symmetric clean/placebo scope, retry, failure, and audit policies approved | Frozen checker/prompt, validation set/threshold, named validator/auditor |
-| Resolvability | Immutable 106-row blank template generated; preliminary full/partial/none counts are 6/41/59 | Create a separate review copy, complete the human pass, and name reviewer/auditor; final hash goes in the execution manifest |
+| Resolvability | Source-bound 106-row AI audit complete under owner-approved pre-outcome Amendment A1; all mappings confirmed at 6/41/59, with semantic concerns frozen separately | Bind the base protocol, A1, and combined audit hashes in every execution manifest; semantic annotations cannot relabel, filter, exclude, or reweight questions |
 | Execution semantics | Temperatures, seeds/sides, retry semantics, placebo, batch, and no-debate policies approved | Prompt bundle, per-model role limits, provider pins and hashes |
 | Capability preflight | Five models x 106 questions x K=2 approved; proposed cap $15 | Freeze QA prompt/settings, separate manifest and spend approval, then select anchor |
 | Canary | Questions, six-question stratum, gates, and halt rule approved | Select anchor, create exact executable manifest, exercise checker outcomes, separate spend approval |
@@ -191,8 +193,9 @@ the entire canary.
 
 ## Remaining materialization requirements
 
-1. Create a separate working copy from the immutable 106-question resolvability template, complete
-   the human pass, and assign reviewer/auditor ownership. Never edit/reset the blank template.
+1. Bind the owner-approved A1 amendment and combined 106-question AI-audit hashes in every execution
+   manifest. Preserve the historical blank template; never call the reply-pattern classes
+   human-validated or use semantic annotations to relabel/filter questions.
 2. Validate and select one query checker and frozen prompt against a human-labeled set.
 3. Create/hash the prompt bundle, per-model/per-role output/reasoning limits, provider pins, and
    observed role-token profiles.
@@ -201,7 +204,7 @@ the entire canary.
 5. Set durable artifact storage/retrieval and rotate the API credential.
 6. Verify provider spend, credit, and current prices; replace the provisional empirical dollar
    band with the frozen prompt/token-profile forecast.
-7. Commit and publish the immutable design/cost package.
+7. **Complete:** commit and publish the immutable design/cost package.
 8. Post the before-launch Manifund update before any call from the approved 23,200-cell plan.
 9. Recover or separately waive the 11 Gemma cells; rerun calibration analysis.
 10. Create the capability-preflight execution manifest; obtain its separate <=$15 authorization,
@@ -213,12 +216,16 @@ the entire canary.
 
 - Design defaults approved: **YES**
 - Design protocol validated for checkpoint: **YES**
-- Public design package pushed/frozen: **NO**
+- Public design package pushed/frozen: **YES**
+- Resolvability Amendment A1 approved pre-outcome: **YES**
 - Gemma-recovery spend approved: **NO**
 - Capability-preflight spend approved: **NO**
 - Canary spend approved: **NO**
 - Main-run spend approved: **NO**
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
 - Approved Phase 2 plan canonical SHA-256: `686dc961434093c82e682fba2182ce7bdb551bdfc17562c43ae3f12661b0ce66`
-- Package commit: `0a21191539daae2e0807d92fcb5b1e8c179af027` (local; public push pending)
+- Base package commit: `0a21191539daae2e0807d92fcb5b1e8c179af027` (public)
+- Combined AI-audit canonical JSON SHA-256: `682d19af5c1cb454fff9264ec6e96a4d2406930ec2c6003fd5cc416df98e28c1`
+- Approved Amendment A1 canonical JSON SHA-256: `9ba1082a15e796a54d5e6849317e781fae09fdab8b59a99304b8d1b34fe7027a`
 - Lead approver: Jack Maiorino / 2026-07-16T04:45:48Z
+- Amendment A1 approver: Jack Maiorino / 2026-07-17T20:06:38Z

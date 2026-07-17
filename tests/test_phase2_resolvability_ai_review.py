@@ -119,6 +119,29 @@ def test_amendment_rejects_execution_binding_drift():
         ai_review.validate_amendment(amendment, combined_review=artifact, root=ROOT)
 
 
+def test_amendment_rejects_query_checker_supersession_or_effective_gate_drift():
+    artifact = _load(ARTIFACT)
+    amendment = deepcopy(_load(AMENDMENT))
+    supersedes_key = (
+        "would_supersede_upon_owner_approval"
+        if amendment["status"] == "proposed_pending_owner_approval"
+        else "supersedes"
+    )
+    amendment[supersedes_key].append("materialization_requirements.query_checker")
+    with pytest.raises(ai_review.AIReviewError, match="supersession scope"):
+        ai_review.validate_amendment(amendment, combined_review=artifact, root=ROOT)
+
+    amendment = deepcopy(_load(AMENDMENT))
+    requirements_key = (
+        "requirements_upon_approval"
+        if amendment["status"] == "proposed_pending_owner_approval"
+        else "manifest_requirements"
+    )
+    amendment[requirements_key]["effective_only_after"] = "Owner approval only."
+    with pytest.raises(ai_review.AIReviewError, match="manifest requirements"):
+        ai_review.validate_amendment(amendment, combined_review=artifact, root=ROOT)
+
+
 def test_amendment_rejects_mutated_combined_review_even_if_hashes_are_updated():
     amendment = deepcopy(_load(AMENDMENT))
     artifact = deepcopy(_load(ARTIFACT))
@@ -142,14 +165,15 @@ def test_approved_amendment_requires_fresh_no_outcome_attestation():
     amendment["status"] = "approved_pre_outcome"
     amendment["approval"]["approved_by"] = "Jack Maiorino"
     amendment["approval"]["approved_at_utc"] = "2099-01-01T00:00:00Z"
-    amendment["amended_policy"] = amendment.pop("proposed_amended_policy")
-    amendment["amended_policy"]["human_confirmation_pass"] = (
-        "waived_by_owner_approved_amendment"
-    )
-    amendment["effective_protocol_id"] = amendment.pop("proposed_effective_protocol_id")
-    amendment["manifest_requirements"] = amendment.pop("requirements_upon_approval")
-    amendment["scope_unchanged"] = amendment.pop("scope_that_would_remain_unchanged")
-    amendment["supersedes"] = amendment.pop("would_supersede_upon_owner_approval")
+    if "proposed_amended_policy" in amendment:
+        amendment["amended_policy"] = amendment.pop("proposed_amended_policy")
+        amendment["amended_policy"]["human_confirmation_pass"] = (
+            "waived_by_owner_approved_amendment"
+        )
+        amendment["effective_protocol_id"] = amendment.pop("proposed_effective_protocol_id")
+        amendment["manifest_requirements"] = amendment.pop("requirements_upon_approval")
+        amendment["scope_unchanged"] = amendment.pop("scope_that_would_remain_unchanged")
+        amendment["supersedes"] = amendment.pop("would_supersede_upon_owner_approval")
 
     with pytest.raises(ai_review.AIReviewError, match="predating approval"):
         ai_review.validate_amendment(amendment, combined_review=artifact, root=ROOT)

@@ -35,9 +35,16 @@ decisions included in output records for audit.
 
 ## Reporting
 
-Main results are stratified by the question's direct-resolvability class (full 6% / partial 39% /
-none 56%, per `rejudge/oracle_shortcut_audit_2026-07-12.json`). No question is filtered out for being
-directly resolvable; those questions measure exactly where verification should beat debate.
+Main results are stratified by the algorithmically derived direct-query oracle-reply-pattern class:
+6 full / 41 partial / 59 none, per `rejudge/oracle_shortcut_audit_2026-07-12.json`. No question is
+filtered out; these questions measure exactly where verification should beat debate.
+
+Owner-approved pre-outcome Amendment A1 replaces the planned 106-row human confirmation/override
+pass with a source-bound AI-assisted verification of every question, candidate/reply binding, and
+reply-pair mapping. All mappings agreed. Semantic-quality concerns are frozen separately as
+exploratory limitations and cannot relabel, filter, exclude, or reweight questions. The classes are
+operational reply-pattern summaries, not human-validated semantic judgments. This amendment does
+not alter query-screen validation or the human audit requirements for live screen decisions.
 
 Longer term (phase 3), a verified-quote interface in the style of Khan et al. (arXiv:2402.06782)
 is the principled replacement: the oracle confirms text spans rather than judging claims.

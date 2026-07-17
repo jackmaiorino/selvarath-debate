@@ -32,10 +32,11 @@ Pilot write-up: [Limited verification can hurt debate oversight](https://www.les
   offline plan now enumerates 23,200 approved Phase-2 cells: a 1,060-cell capability preflight and
   22,140 post-canary main cells, including 984 uncapped/capped transcript cells. H/P/R, the C/D
   secondary family, optional scope, query-screen policy, canary gates, a $1,200 working budget, and a $1,500
-  incremental hard ceiling are recorded. Checker validation, human resolvability labels, prompt and
-  provider hashes, top-anchor materialization, provider reconciliation, storage, credentials, and
-  separate capability-preflight/canary/main spend approvals still block launch. The authoritative
-  checklist is
+  incremental hard ceiling are recorded. The source-bound 106-row AI audit and owner-approved
+  pre-outcome Amendment A1 are complete; the resulting strata are algorithmic oracle-reply-pattern
+  classes, not human-validated semantic judgments. Checker validation, prompt and provider hashes,
+  top-anchor materialization, provider reconciliation, storage, credentials, and separate
+  capability-preflight/canary/main spend approvals still block launch. The authoritative checklist is
   `docs/phase2-readiness-and-signoff.md`.
 
 ## Repo layout
@@ -65,10 +66,8 @@ uv run python -m rejudge.runner --dry-run --limit 2 --arms clean,both,placebo \
   --out rejudge/output/dry-run/records.jsonl  # offline smoke, isolated from live output
 uv run python -m rejudge.phase2_plan   # enumerate approved Phase-2 scope; cannot make API calls
 uv run python -m rejudge.phase2_cost_model --check  # verify tracked cost artifact is current
-uv run python -m rejudge.phase2_resolvability_review --check  # verify blank review template
-# Start human work at a new path; --write refuses to overwrite an existing review.
-uv run python -m rejudge.phase2_resolvability_review \
-  --artifact rejudge/phase2_resolvability_review_completed.json --write
+uv run python -m rejudge.phase2_resolvability_review --check  # verify historical blank template
+uv run python -m rejudge.phase2_resolvability_ai_review --check  # verify A1 audit and amendment
 uv run python -m rejudge.artifact_manifest verify --root . artifacts/local-research-artifacts.json
 ```
 
