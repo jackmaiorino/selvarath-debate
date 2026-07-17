@@ -1,8 +1,7 @@
 # DRAFT — Stage 1 Results and Phase 2 Pre-Launch Update (Not Posted)
 
-**Status:** local draft only. Post after the design/cost package is committed publicly and before
-the first paid call from the approved 23,200-cell plan. Replace every placeholder with an immutable
-commit URL.
+**Status:** ready to post. The design/cost package and owner-approved pre-outcome Amendment A1 are
+public, and every link below is immutable. Post before any further provider call.
 
 ## What progress have you made since your last update?
 
@@ -36,11 +35,11 @@ cells: a 1,060-cell capability preflight followed, if the later gates pass, by 2
 main cells. It includes a full cap-protection interaction, an empty-evidence diagnostic, and two
 full-document gold-context anchors. No calls from this approved 23,200-cell plan have begun.
 
-Total project spend remains approximately $208. Across two transfers, I have moved $1,800 of the
-grant into prepaid Together API credit ($500 earlier and $1,300 now). The Together dashboard showed
-$1,590.78 in available credit on July 16, implying $209.22 in net credit draw. I will reconcile the
-$1.22 difference from the rounded spend report against provider usage before another call.
-Transfers are funding, not experiment spend.
+Previously reported project spend is approximately $208. Across two transfers, I have moved $1,800
+of the grant into prepaid Together API credit ($500 earlier and $1,300 now). The Together dashboard
+showed $1,590.78 in available credit on July 16, implying $209.22 in net credit draw. I will
+reconcile the $1.22 difference from the rounded spend report against provider usage before another
+call. Transfers are funding, not experiment spend.
 
 - Stage 1 protocol: [frozen protocol](https://github.com/jackmaiorino/selvarath-debate/blob/5493864296b0c63dba595d08563f4bd2ad7f1f31/docs/rejudge-protocol.md)
 - Stage 1 results: [validation report](https://github.com/jackmaiorino/selvarath-debate/blob/360605a51bb4b7ea0e0269a68ee8d9260708a452/reports/2026-07-09-stage1-rejudge-results.md)
@@ -49,9 +48,16 @@ Transfers are funding, not experiment spend.
 
 ## What are your next steps?
 
-Before examining any Phase 2 debate outcomes, we will finish the human resolvability audit, validate the
-query checker, and freeze/hash the prompts, model settings, primary tests, exact inventory, retry
-rules, provider reconciliation, and spending controls.
+Before any call or outcome from the approved Phase 2 plan, owner-approved Amendment A1 waived the
+planned 106-question human confirmation pass. The reported full/partial/none strata are now
+explicitly algorithmic reply-pattern classes. A source-bound AI-assisted audit verified all 106
+mappings (6/41/59; zero disagreements); its 63 semantic-quality flags are exploratory limitations
+only. These classes are not human-validated, and the annotations cannot relabel, filter, exclude, or
+reweight questions.
+
+Before examining any Phase 2 debate outcomes, we will validate the separate query checker against a
+human-labeled set and freeze/hash the prompts, model settings, exact inventory, retry rules,
+provider reconciliation, and spending controls.
 
 After this update, we will separately recover or waive 11 failed Gemma calibration cells (proposed
 recovery cap $2). A separately authorized capability preflight (five models x 106 questions x two
@@ -67,8 +73,9 @@ replace the provisional band with frozen prompt/token profiles and current provi
 authorizing paid work. The ceiling is a fail-closed boundary, not expected spending. We will post
 results, failures, artifacts, and actual spend either way.
 
-- Phase 2 design: [immutable protocol](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_protocol.json)
-- Phase 2 cost and launch package: [cost model](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_cost_model.json) and [readiness record](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/docs/phase2-readiness-and-signoff.md)
+- Phase 2 design and budget: [immutable protocol](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_protocol.json) and [cost model](https://github.com/jackmaiorino/selvarath-debate/blob/0a21191539daae2e0807d92fcb5b1e8c179af027/rejudge/phase2_cost_model.json)
+- Resolvability amendment: [106-question AI-assisted audit](https://github.com/jackmaiorino/selvarath-debate/blob/e200f958482d4371f64895bf834221ff36452975/rejudge/phase2_resolvability_ai_review.json) and [owner-approved Amendment A1](https://github.com/jackmaiorino/selvarath-debate/blob/e200f958482d4371f64895bf834221ff36452975/rejudge/phase2_resolvability_review_amendment_2026-07-16.json)
+- Launch readiness: [updated readiness and sign-off](https://github.com/jackmaiorino/selvarath-debate/blob/e200f958482d4371f64895bf834221ff36452975/docs/phase2-readiness-and-signoff.md)
 
 ## Is there anything others could help you with?
 
