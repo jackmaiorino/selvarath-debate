@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,12 +32,52 @@ from rejudge import phase2_provider_price_snapshot as price_snapshot
 
 
 DEFAULT_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_2026-07-18.json")
+DEFAULT_V2_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v2_2026-07-18.json")
 DEFAULT_PROTOCOL_PATH = phase2_plan.DEFAULT_PROTOCOL_PATH
 DEFAULT_SNAPSHOT_PATH = price_snapshot.DEFAULT_SNAPSHOT_PATH
 
 SCHEMA_VERSION = "phase2_role_limits_v1"
 ARTIFACT_ID = "phase2_role_limits_request_settings_2026-07-18_v1"
 STATUS = "frozen_pending_manifest_binding"
+
+# --- v2: role_taxonomy + supersedes binding on top of the frozen v1 content -------------------
+#
+# v2 is additive, never a rewrite: every v1-checked section (base_role_max_tokens,
+# reasoning_models, model_role_limits, context_ceilings, request_settings) is validated with
+# the EXACT SAME private helpers used for v1 below (``_validate_base_role_max_tokens`` etc.),
+# so v1 and v2 can never silently diverge on what they consider "the frozen limits". v2 adds
+# exactly two things: a ``supersedes`` block binding the real v1 artifact's own canonical hash
+# (recomputed from disk, never trusted from the v2 artifact alone), and a ``role_taxonomy``
+# section mapping each of the seven limits roles onto the frozen protocol's
+# ``temperature_by_call_role`` keys, so a caller can resolve token limit and temperature from
+# one place and can never wire them independently.
+SCHEMA_VERSION_V2 = "phase2_role_limits_v2"
+ARTIFACT_ID_V2 = "phase2_role_limits_request_settings_2026-07-18_v2"
+
+SUPERSEDES_V1_TRACKED_PATH = "rejudge/phase2_role_limits_2026-07-18.json"
+SUPERSEDES_KEYS: frozenset[str] = frozenset({"tracked_path", "canonical_sha256"})
+
+# The frozen mapping from each of the seven limits roles (FROZEN_BASE_ROLES, defined below)
+# onto the frozen protocol's decisions.execution_semantics.temperature_by_call_role keys.
+# judge_verdict and batch_verdict are the ONLY two limits roles that deliberately share a
+# single protocol call-role target (batch verdicts are judged with the same verdict
+# temperature as sequential verdicts); every other limits role maps to its own distinct target.
+ROLE_TAXONOMY: dict[str, str] = {
+    "debater_turn": "debater",
+    "judge_query": "judge_query",
+    "oracle": "oracle",
+    "judge_verdict": "judge_verdict",
+    "batch_verdict": "judge_verdict",
+    "query_checker": "query_checker",
+    "capability_qa": "capability_qa",
+}
+_ALLOWED_MANY_TO_ONE_ROLES: frozenset[str] = frozenset({"judge_verdict", "batch_verdict"})
+
+TOP_LEVEL_KEYS_V2: frozenset[str] = frozenset({
+    "schema_version", "artifact_id", "protocol_id", "status", "execution_authorized",
+    "supersedes", "base_role_max_tokens", "reasoning_models", "model_role_limits",
+    "context_ceilings", "request_settings", "role_taxonomy",
+})
 
 # --- frozen base role limits (pre-reasoning-floor) --------------------------------------------
 BASE_ROLE_MAX_TOKENS: dict[str, int] = {
@@ -406,16 +447,213 @@ def load_and_validate(
     return artifact, protocol, snapshot
 
 
+# --- v2 validation ------------------------------------------------------------------------------
+
+
+def _sha256_hex(value: Any, label: str) -> str:
+    if not isinstance(value, str) or len(value) != 64:
+        raise RoleLimitsError(f"{label} must be a SHA-256 hex digest")
+    return value
+
+
+def _validate_supersedes(section_raw: Any, v1_artifact: Mapping[str, Any]) -> None:
+    section = _mapping(section_raw, "supersedes")
+    _exact_keys(section, SUPERSEDES_KEYS, "supersedes")
+    tracked_path = section.get("tracked_path")
+    if tracked_path != SUPERSEDES_V1_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"supersedes.tracked_path must be exactly {SUPERSEDES_V1_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_sha = _sha256_hex(section.get("canonical_sha256"), "supersedes.canonical_sha256")
+    observed_sha = phase2_plan.canonical_sha256(dict(v1_artifact))
+    if declared_sha != observed_sha:
+        raise RoleLimitsError(
+            "supersedes.canonical_sha256 disagrees with the real v1 artifact on disk: "
+            f"v2 bound {declared_sha}, observed {observed_sha}")
+
+
+def _validate_role_taxonomy(section_raw: Any, protocol: Mapping[str, Any]) -> None:
+    section = _mapping(section_raw, "role_taxonomy")
+    _exact_keys(section, FROZEN_BASE_ROLES, "role_taxonomy")
+
+    execution_semantics = _mapping(
+        protocol["decisions"]["execution_semantics"], "protocol execution_semantics")
+    temperature_by_call_role = _mapping(
+        execution_semantics.get("temperature_by_call_role"),
+        "protocol execution_semantics.temperature_by_call_role")
+    valid_targets = set(temperature_by_call_role)
+
+    reverse: dict[str, list[str]] = {}
+    for role in FROZEN_BASE_ROLES:
+        target = section.get(role)
+        if not isinstance(target, str) or not target:
+            raise RoleLimitsError(f"role_taxonomy.{role} must be a non-empty string")
+        if target not in valid_targets:
+            raise RoleLimitsError(
+                f"role_taxonomy.{role} target {target!r} is not a known protocol call role "
+                "in temperature_by_call_role")
+        reverse.setdefault(target, []).append(role)
+
+    for target, roles in reverse.items():
+        if len(roles) > 1 and set(roles) != _ALLOWED_MANY_TO_ONE_ROLES:
+            raise RoleLimitsError(
+                f"role_taxonomy illegal many-to-one mapping onto {target!r}: {sorted(roles)}; "
+                "only judge_verdict and batch_verdict may share a protocol call-role target")
+
+    if dict(section) != ROLE_TAXONOMY:
+        raise RoleLimitsError("role_taxonomy disagrees with the frozen taxonomy mapping")
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedRequestParameters:
+    """The single resolved output of :func:`resolve_request_parameters`.
+
+    Binds the effective output-token limit and the request temperature for one (model,
+    limits_role) pair into a single immutable value, so a call site can never wire the two
+    independently: both always come from exactly one resolution call.
+    """
+
+    effective_max_tokens: int
+    temperature: float
+    protocol_role: str
+
+
+def resolve_request_parameters(
+    v2_artifact: Mapping[str, Any], protocol: Mapping[str, Any], model_id: str, limits_role: str,
+) -> ResolvedRequestParameters:
+    """Resolve the effective max_tokens and temperature for one (model, limits_role) pair.
+
+    Fails closed (:class:`RoleLimitsError`) on an unknown model, an unknown limits role, or a
+    (model, limits_role) pair that is not among the frozen APPLICABLE pairs -- never silently
+    defaults or infers.
+    """
+    model_role_limits = _mapping(
+        v2_artifact.get("model_role_limits"), "v2 artifact model_role_limits")
+    role_taxonomy = _mapping(v2_artifact.get("role_taxonomy"), "v2 artifact role_taxonomy")
+
+    if limits_role not in role_taxonomy:
+        raise RoleLimitsError(f"unknown limits_role: {limits_role!r}")
+    if model_id not in model_role_limits:
+        raise RoleLimitsError(f"unknown model_id: {model_id!r}")
+    model_entry = _mapping(model_role_limits[model_id], f"model_role_limits.{model_id}")
+    if limits_role not in model_entry:
+        raise RoleLimitsError(
+            f"(model_id={model_id!r}, limits_role={limits_role!r}) is not an applicable "
+            "(model, role) pair in the frozen role-limits artifact")
+
+    role_entry = _mapping(
+        model_entry[limits_role], f"model_role_limits.{model_id}.{limits_role}")
+    effective_max_tokens = _int(
+        role_entry.get("effective_request_max_tokens"),
+        f"model_role_limits.{model_id}.{limits_role}.effective_request_max_tokens")
+
+    protocol_role = role_taxonomy[limits_role]
+    execution_semantics = _mapping(
+        protocol["decisions"]["execution_semantics"], "protocol execution_semantics")
+    temperature_by_call_role = _mapping(
+        execution_semantics.get("temperature_by_call_role"),
+        "protocol execution_semantics.temperature_by_call_role")
+    if protocol_role not in temperature_by_call_role:
+        raise RoleLimitsError(
+            f"role_taxonomy target {protocol_role!r} is not a known protocol call role")
+    temperature = temperature_by_call_role[protocol_role]
+    if isinstance(temperature, bool) or not isinstance(temperature, (int, float)):
+        raise RoleLimitsError(
+            f"protocol temperature_by_call_role.{protocol_role} must be a number")
+
+    return ResolvedRequestParameters(
+        effective_max_tokens=effective_max_tokens,
+        temperature=float(temperature),
+        protocol_role=protocol_role,
+    )
+
+
+def validate_role_limits_v2(
+    artifact: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    v1_artifact: Mapping[str, Any],
+) -> None:
+    """Validate the v2 role-limits/request-settings artifact, fail-closed throughout.
+
+    Checks everything :func:`validate_role_limits` checks on v1 (reusing its exact same
+    per-section helpers so v1 and v2 can never silently diverge on the frozen limits), plus:
+    the ``supersedes`` block (exact v1 tracked path, and v1's canonical hash recomputed fresh
+    from ``v1_artifact`` rather than trusted from the v2 artifact), the ``role_taxonomy``
+    section, and that every applicable (model, role) pair in ``model_role_limits`` resolves
+    cleanly through :func:`resolve_request_parameters`.
+    """
+    artifact = _mapping(artifact, "v2 artifact")
+    protocol = _mapping(protocol, "protocol")
+    snapshot = _mapping(snapshot, "snapshot")
+    v1_artifact = _mapping(v1_artifact, "v1 artifact")
+    _exact_keys(artifact, TOP_LEVEL_KEYS_V2, "v2 artifact")
+
+    if artifact.get("schema_version") != SCHEMA_VERSION_V2:
+        raise RoleLimitsError("unsupported v2 role-limits schema_version")
+    if artifact.get("artifact_id") != ARTIFACT_ID_V2:
+        raise RoleLimitsError("v2 role-limits artifact_id drifted")
+    protocol_id = _non_empty_str(protocol.get("protocol_id"), "protocol protocol_id")
+    if artifact.get("protocol_id") != protocol_id:
+        raise RoleLimitsError("v2 role-limits protocol_id disagrees with the frozen protocol")
+    if artifact.get("status") != STATUS:
+        raise RoleLimitsError("v2 role-limits status drifted")
+    if artifact.get("execution_authorized") is not False:
+        raise RoleLimitsError("execution_authorized must be exactly false")
+
+    _validate_supersedes(artifact.get("supersedes"), v1_artifact)
+
+    _validate_base_role_max_tokens(artifact.get("base_role_max_tokens"))
+    _validate_reasoning_models(artifact.get("reasoning_models"))
+    _validate_request_settings(artifact.get("request_settings"), protocol)
+    _validate_model_role_limits(artifact.get("model_role_limits"), protocol)
+    _validate_context_ceilings(artifact.get("context_ceilings"), snapshot)
+    _validate_role_taxonomy(artifact.get("role_taxonomy"), protocol)
+
+    model_role_limits = _mapping(artifact["model_role_limits"], "model_role_limits")
+    for model_id, roles in model_role_limits.items():
+        for role in _mapping(roles, f"model_role_limits.{model_id}"):
+            resolve_request_parameters(artifact, protocol, model_id, role)
+
+
+def load_and_validate_v2(
+    artifact_path: str | Path = DEFAULT_V2_ARTIFACT_PATH,
+    protocol_path: str | Path = DEFAULT_PROTOCOL_PATH,
+    snapshot_path: str | Path = DEFAULT_SNAPSHOT_PATH,
+    v1_artifact_path: str | Path = DEFAULT_ARTIFACT_PATH,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    protocol = phase2_plan.load_protocol(protocol_path)
+    snapshot, _snapshot_protocol = price_snapshot.load_and_validate(snapshot_path, protocol_path)
+    artifact = _load_json(artifact_path)
+    v1_artifact = _load_json(v1_artifact_path)
+    validate_role_limits_v2(artifact, protocol, snapshot, v1_artifact)
+    return artifact, protocol, snapshot
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--artifact", default=str(DEFAULT_ARTIFACT_PATH))
+    parser.add_argument("--v2", action="store_true")
+    parser.add_argument("--artifact", default=None)
+    parser.add_argument("--v1-artifact", default=str(DEFAULT_ARTIFACT_PATH))
     parser.add_argument("--protocol", default=str(DEFAULT_PROTOCOL_PATH))
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT_PATH))
     args = parser.parse_args(argv)
     if not args.check:
         parser.error("only --check is supported")
-    artifact, _protocol, _snapshot = load_and_validate(args.artifact, args.protocol, args.snapshot)
+    if args.v2:
+        artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V2_ARTIFACT_PATH)
+        artifact, _protocol, _snapshot = load_and_validate_v2(
+            artifact_path, args.protocol, args.snapshot, args.v1_artifact)
+        print(
+            "verified frozen Phase 2 role-limits v2 artifact; "
+            f"models={len(artifact['model_role_limits'])}; "
+            f"canonical_sha256={phase2_plan.canonical_sha256(artifact)}; "
+            "execution_authorized=NO"
+        )
+        return 0
+    artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_ARTIFACT_PATH)
+    artifact, _protocol, _snapshot = load_and_validate(artifact_path, args.protocol, args.snapshot)
     print(
         "verified frozen Phase 2 role-limits/request-settings artifact; "
         f"models={len(artifact['model_role_limits'])}; "

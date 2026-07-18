@@ -87,14 +87,21 @@ def _write_synthetic_root_relative_artifacts(root: Path) -> dict[str, Path]:
 # --- shared fixtures: build the real, valid pieces once per module -----------------------------
 
 
+ROLE_LIMITS_V1_PATH = ROOT / "rejudge" / "phase2_role_limits_2026-07-18.json"
+ROLE_LIMITS_V2_PATH = ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+
+
 @pytest.fixture(scope="module")
 def synthetic_artifacts(tmp_path_factory):
     """Paths for the artifacts that materialization has not produced yet.
 
-    ``role_limits``, ``request_fields``, and ``gemma_waiver`` are absolute tmp paths so they
+    ``role_limits_and_request_settings`` and ``gemma_waiver`` are absolute tmp paths so they
     can be bound from any ``project_root`` (including the real repo root) without writing
     anything under the tracked repository -- the deliberately-anywhere pattern
-    ``_resolve_bound_path`` documents for those bindings.
+    ``_resolve_bound_path`` documents for those bindings. ``role_limits_and_request_settings``
+    is a real, byte-identical copy of the tracked v2 role-limits artifact (not a placeholder):
+    the merged manifest slot must VALIDATE as a v2 role-limits artifact, not just hash-match, so
+    an inert placeholder can no longer stand in for it.
 
     ``cost_forecast``, ``storage_policy``, and ``provider_reconciliation_evidence`` are frozen
     as always relative to project_root (see ``_bind_json_artifact_checked``), so they are
@@ -102,16 +109,15 @@ def synthetic_artifacts(tmp_path_factory):
     cleaned up when this module's tests finish.
     """
     directory = tmp_path_factory.mktemp("phase2_execution_artifacts")
-    role_limits = _write_json(directory, "per_model_role_limits.json", {"limits": "placeholder"})
-    request_fields = _write_json(
-        directory, "provider_request_fields.json", {"fields": "placeholder"})
+    role_limits_and_request_settings = _write_json(
+        directory, "role_limits_and_request_settings.json",
+        json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8")))
     gemma_waiver = _write_json(
         directory, "gemma_recovery_waiver.json", {"waiver": "placeholder"})
     root_relative = _write_synthetic_root_relative_artifacts(ROOT)
     try:
         yield {
-            "role_limits": role_limits,
-            "request_fields": request_fields,
+            "role_limits_and_request_settings": role_limits_and_request_settings,
             "gemma_waiver": gemma_waiver,
             **root_relative,
         }
@@ -192,8 +198,8 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
             PROMPT_BUNDLE_APPROVAL_PATH.relative_to(ROOT).as_posix()),
         "prompt_bundle_approval_canonical_sha256": phase2_plan.canonical_sha256(
             baseline["approval"]),
-        "per_model_role_limits_artifact": _artifact_binding(artifacts, "role_limits"),
-        "provider_request_fields_artifact": _artifact_binding(artifacts, "request_fields"),
+        "role_limits_and_request_settings_artifact": _artifact_binding(
+            artifacts, "role_limits_and_request_settings"),
         "provider_price_snapshot_canonical_sha256": phase2_plan.canonical_sha256(
             baseline["snapshot"]),
         "uv_lock_sha256": baseline["uv_lock_sha256"],
@@ -237,8 +243,8 @@ def build_manifest(
             "tracked_path": shared["prompt_bundle_approval_tracked_path"],
             "sha256": shared["prompt_bundle_approval_canonical_sha256"],
         },
-        per_model_role_limits_artifact=shared["per_model_role_limits_artifact"],
-        provider_request_fields_artifact=shared["provider_request_fields_artifact"],
+        role_limits_and_request_settings_artifact=shared[
+            "role_limits_and_request_settings_artifact"],
         provider_price_snapshot_canonical_sha256=shared[
             "provider_price_snapshot_canonical_sha256"],
         uv_lock_sha256=shared["uv_lock_sha256"],
@@ -306,6 +312,8 @@ DATA_FILES_FOR_ROOT_COPY = (
     "rejudge/phase2_prompt_bundle.json",
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json",
     "rejudge/phase2_provider_price_snapshot_2026-07-18.json",
+    "rejudge/phase2_role_limits_2026-07-18.json",
+    "rejudge/phase2_role_limits_v2_2026-07-18.json",
     "questions/carath_norn_questions.json",
     "questions/selvarath_questions.json",
     "questions/vethun_sarak_questions.json",
@@ -411,6 +419,22 @@ def missing_approval_root(tmp_path_factory):
     destination = tmp_path_factory.mktemp("missing_approval_root")
     _copy_tracked_data_files(destination)
     path = destination / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json"
+    path.unlink()
+    return destination
+
+
+@pytest.fixture(scope="module")
+def missing_v1_role_limits_root(tmp_path_factory):
+    """A tmp copy of the tracked data files with the frozen v1 role-limits file removed.
+
+    The manifest's role_limits_and_request_settings_artifact binding itself (an absolute tmp
+    path via ``synthetic_artifacts``) is untouched; only the separate, always-project-root-
+    relative v1 "supersedes" source that role_limits.validate_role_limits_v2 independently
+    re-reads from disk is missing here.
+    """
+    destination = tmp_path_factory.mktemp("missing_v1_role_limits_root")
+    _copy_tracked_data_files(destination)
+    path = destination / "rejudge" / "phase2_role_limits_2026-07-18.json"
     path.unlink()
     return destination
 
@@ -523,7 +547,7 @@ def test_top_level_hash_drift_is_rejected(manifest, field):
 
 
 @pytest.mark.parametrize("field", [
-    "per_model_role_limits_artifact", "provider_request_fields_artifact",
+    "role_limits_and_request_settings_artifact",
     "cost_forecast", "storage_policy", "provider_reconciliation_evidence",
 ])
 def test_artifact_binding_hash_drift_is_rejected(manifest, field):
@@ -533,17 +557,128 @@ def test_artifact_binding_hash_drift_is_rejected(manifest, field):
         pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
 
 
-@pytest.mark.parametrize("field", [
-    "per_model_role_limits_artifact", "provider_request_fields_artifact",
-])
-def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path, field):
-    # These two bindings predate the repo-relative containment check and are deliberately
-    # bindable from an absolute path anywhere (e.g. a materialization-pending tmp copy).
+def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
+    # This binding predates the repo-relative containment check and is deliberately bindable
+    # from an absolute path anywhere (e.g. a materialization-pending tmp copy).
     manifest_dict, _identity = manifest
     missing = tmp_path / "does_not_exist.json"
-    manifest_dict[field] = {"path": str(missing), "sha256": "a" * 64}
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(missing), "sha256": "a" * 64}
     with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
         pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+# --- role_limits_and_request_settings_artifact: merged-slot-specific behavior ------------------
+
+
+def test_role_limits_and_request_settings_artifact_v1_in_slot_is_rejected(manifest, tmp_path):
+    # A v1 artifact byte-identical to the real, tracked v1 file is a real, hash-matchable JSON
+    # object -- it must still fail because it lacks the v2-only supersedes/role_taxonomy
+    # sections and its schema_version is phase2_role_limits_v1, not phase2_role_limits_v2.
+    manifest_dict, _identity = manifest
+    v1_payload = json.loads(ROLE_LIMITS_V1_PATH.read_text(encoding="utf-8"))
+    v1_copy = tmp_path / "v1_in_v2_slot.json"
+    v1_copy.write_text(json.dumps(v1_payload), encoding="utf-8")
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(v1_copy), "sha256": phase2_plan.canonical_sha256(v1_payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v2 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_supersedes_drift_is_rejected(
+    manifest, tmp_path,
+):
+    manifest_dict, _identity = manifest
+    payload = json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8"))
+    payload["supersedes"]["canonical_sha256"] = _flip_hex_digest(
+        payload["supersedes"]["canonical_sha256"])
+    tampered = tmp_path / "tampered_v2.json"
+    tampered.write_text(json.dumps(payload), encoding="utf-8")
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(tampered), "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v2 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("stray_key", [
+    "per_model_role_limits_artifact", "provider_request_fields_artifact",
+])
+def test_old_two_slot_keys_are_rejected_even_alongside_the_new_key(manifest, stray_key):
+    # Exact key-set checks make the manifest fail closed whether an old key is a leftover
+    # extra field alongside the new merged key, or (in the next test) a full reversion.
+    manifest_dict, _identity = manifest
+    manifest_dict[stray_key] = dict(manifest_dict["role_limits_and_request_settings_artifact"])
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_reverting_to_the_old_two_slot_manifest_shape_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    binding = manifest_dict.pop("role_limits_and_request_settings_artifact")
+    manifest_dict["per_model_role_limits_artifact"] = binding
+    manifest_dict["provider_request_fields_artifact"] = dict(binding)
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_key_set_drift_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["role_limits_and_request_settings_artifact"]["extra"] = "x"
+    with pytest.raises(
+        pe.ManifestValidationError, match="role_limits_and_request_settings_artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_missing_key_is_rejected(manifest):
+    # Distinct from the extra-key test above: this exercises the missing-key side of the
+    # same _exact_keys guard at this call site (deleting "sha256" rather than adding a key).
+    manifest_dict, _identity = manifest
+    del manifest_dict["role_limits_and_request_settings_artifact"]["sha256"]
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_non_string_path_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["role_limits_and_request_settings_artifact"]["path"] = 12345
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match=r"role_limits_and_request_settings_artifact\.path",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_malformed_sha_format_is_rejected(manifest):
+    # Distinct from test_artifact_binding_hash_drift_is_rejected, which keeps the sha
+    # well-formed (still 64 hex chars) and only exercises the later hash-mismatch branch:
+    # this exercises the earlier format guard (_sha256_hex) at this specific call site.
+    manifest_dict, _identity = manifest
+    manifest_dict["role_limits_and_request_settings_artifact"]["sha256"] = "not-64-hex"
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match=r"role_limits_and_request_settings_artifact\.sha256",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_role_limits_v1_supersedes_source_missing_fails_closed(
+    manifest, missing_v1_role_limits_root,
+):
+    manifest_dict, _identity = manifest
+    with pytest.raises(
+        pe.ManifestValidationError, match="supersedes source is missing",
+    ):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=missing_v1_role_limits_root)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
@@ -588,7 +723,8 @@ def test_new_binding_absolute_path_outside_root_fails_closed(manifest, tmp_path,
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
-                                    "provider_reconciliation_evidence"])
+                                    "provider_reconciliation_evidence",
+                                    "role_limits_and_request_settings_artifact"])
 def test_new_binding_non_mapping_value_is_rejected(manifest, field):
     manifest_dict, _identity = manifest
     manifest_dict[field] = "not a mapping"
@@ -1674,8 +1810,8 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
             "tracked_path": shared["prompt_bundle_approval_tracked_path"],
             "sha256": shared["prompt_bundle_approval_canonical_sha256"],
         },
-        per_model_role_limits_artifact=shared["per_model_role_limits_artifact"],
-        provider_request_fields_artifact=shared["provider_request_fields_artifact"],
+        role_limits_and_request_settings_artifact=shared[
+            "role_limits_and_request_settings_artifact"],
         provider_price_snapshot_canonical_sha256=shared[
             "provider_price_snapshot_canonical_sha256"],
         uv_lock_sha256=shared["uv_lock_sha256"],
@@ -1701,6 +1837,7 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
     variants = {
         "prompt_bundle_declared_status": "owner_approved",
         "prompt_bundle_approval_artifact": {"tracked_path": "x", "sha256": "f" * 64},
+        "role_limits_and_request_settings_artifact": {"path": "x", "sha256": "f" * 64},
         "cost_forecast": {"path": "x", "sha256": "f" * 64},
         "storage_policy": {"path": "x", "sha256": "f" * 64},
         "provider_reconciliation_evidence": {"path": "x", "sha256": "f" * 64},

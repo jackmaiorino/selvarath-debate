@@ -1,0 +1,209 @@
+{
+  "artifact_id": "phase2_role_limits_request_settings_2026-07-18_v2",
+  "base_role_max_tokens": {
+    "batch_verdict": 512,
+    "capability_qa": 32,
+    "debater_turn": 512,
+    "judge_query": 256,
+    "judge_verdict": 512,
+    "oracle": 32,
+    "query_checker": 16
+  },
+  "context_ceilings": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "context_length_tokens": 32768,
+      "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+      "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+    },
+    "Qwen/Qwen3.7-Plus": {
+      "context_length_tokens": 1000000,
+      "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+      "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+    },
+    "google/gemma-4-31B-it": {
+      "context_length_tokens": 262144,
+      "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+      "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "context_length_tokens": 131072,
+      "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+      "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+    },
+    "openai/gpt-oss-120b": {
+      "context_length_tokens": 128000,
+      "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+      "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+    }
+  },
+  "execution_authorized": false,
+  "model_role_limits": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "batch_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 512
+      },
+      "capability_qa": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 32
+      },
+      "judge_query": {
+        "base_role_max_tokens": 256,
+        "effective_request_max_tokens": 256
+      },
+      "judge_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 512
+      },
+      "query_checker": {
+        "base_role_max_tokens": 16,
+        "effective_request_max_tokens": 16
+      }
+    },
+    "Qwen/Qwen3.7-Plus": {
+      "capability_qa": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 4096
+      },
+      "debater_turn": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 4096
+      }
+    },
+    "google/gemma-4-31B-it": {
+      "batch_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 4096
+      },
+      "capability_qa": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 4096
+      },
+      "judge_query": {
+        "base_role_max_tokens": 256,
+        "effective_request_max_tokens": 4096
+      },
+      "judge_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 4096
+      },
+      "query_checker": {
+        "base_role_max_tokens": 16,
+        "effective_request_max_tokens": 4096
+      }
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "batch_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 512
+      },
+      "capability_qa": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 32
+      },
+      "debater_turn": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 512
+      },
+      "judge_query": {
+        "base_role_max_tokens": 256,
+        "effective_request_max_tokens": 256
+      },
+      "judge_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 512
+      },
+      "oracle": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 32
+      },
+      "query_checker": {
+        "base_role_max_tokens": 16,
+        "effective_request_max_tokens": 16
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "batch_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 4096
+      },
+      "capability_qa": {
+        "base_role_max_tokens": 32,
+        "effective_request_max_tokens": 4096
+      },
+      "judge_query": {
+        "base_role_max_tokens": 256,
+        "effective_request_max_tokens": 4096
+      },
+      "judge_verdict": {
+        "base_role_max_tokens": 512,
+        "effective_request_max_tokens": 4096
+      },
+      "query_checker": {
+        "base_role_max_tokens": 16,
+        "effective_request_max_tokens": 4096
+      }
+    }
+  },
+  "protocol_id": "phase2_pooled_hpr_2026_07_16_v1",
+  "reasoning_models": {
+    "floor_max_tokens": 4096,
+    "model_ids": [
+      "google/gemma-4-31B-it",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen3.7-Plus"
+    ]
+  },
+  "request_settings": {
+    "base_fields": [
+      "model",
+      "messages",
+      "temperature",
+      "max_tokens",
+      "seed"
+    ],
+    "per_model_extra_fields": {
+      "openai/gpt-oss-120b": {
+        "reasoning_effort": "medium"
+      }
+    },
+    "reasoning_control_note": "Reasoning-effort/thinking-control request fields are DELIBERATELY OMITTED for google/gemma-4-31B-it and Qwen/Qwen3.7-Plus: exact provider support for a reasoning-control field on these two endpoints is unverified at freeze time. This is a deliberate choice under uncertainty, not a claim that no such field exists.",
+    "response_metadata_to_persist": [
+      "request_fields_sha256",
+      "returned_model_id",
+      "response_id",
+      "finish_reason",
+      "system_fingerprint_if_present",
+      "prompt_tokens",
+      "completion_tokens",
+      "reasoning_tokens_if_returned"
+    ],
+    "streaming_pinned_models": {
+      "Qwen/Qwen3.7-Plus": {
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    },
+    "transport": {
+      "max_attempts": 4,
+      "max_retries": 3
+    }
+  },
+  "role_taxonomy": {
+    "batch_verdict": "judge_verdict",
+    "capability_qa": "capability_qa",
+    "debater_turn": "debater",
+    "judge_query": "judge_query",
+    "judge_verdict": "judge_verdict",
+    "oracle": "oracle",
+    "query_checker": "query_checker"
+  },
+  "schema_version": "phase2_role_limits_v2",
+  "status": "frozen_pending_manifest_binding",
+  "supersedes": {
+    "canonical_sha256": "ac846eb39454ba967524b7e657a371d84c6e14b7ed745c7cbbebd3ab9c068268",
+    "tracked_path": "rejudge/phase2_role_limits_2026-07-18.json"
+  }
+}

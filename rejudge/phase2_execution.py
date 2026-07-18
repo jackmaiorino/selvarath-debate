@@ -39,6 +39,7 @@ from rejudge import phase2_plan
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_resolvability_ai_review as ai_review
+from rejudge import phase2_role_limits as role_limits
 
 
 STAGE_CAPABILITY_PREFLIGHT = "capability_preflight"
@@ -55,6 +56,10 @@ DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
 DEFAULT_UV_LOCK_RELATIVE_PATH = Path("uv.lock")
 DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
+# The v2 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
+# always supersedes this exact real, git-tracked v1 file; its canonical hash is recomputed fresh
+# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v2.
+DEFAULT_ROLE_LIMITS_V1_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V1_TRACKED_PATH)
 
 # --- prompt-bundle owner-methods-approval artifact: frozen literal bindings ---------------------
 #
@@ -112,8 +117,7 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "prompt_bundle_declared_status",
     "prompt_bundle_approval_tracked_path",
     "prompt_bundle_approval_canonical_sha256",
-    "per_model_role_limits_artifact",
-    "provider_request_fields_artifact",
+    "role_limits_and_request_settings_artifact",
     "provider_price_snapshot_canonical_sha256",
     "uv_lock_sha256",
     "seed_policy",
@@ -414,8 +418,7 @@ def build_execution_identity(
     prompt_bundle_canonical_sha256: str,
     prompt_bundle_declared_status: str,
     prompt_bundle_approval_artifact: Mapping[str, str],
-    per_model_role_limits_artifact: Mapping[str, str],
-    provider_request_fields_artifact: Mapping[str, str],
+    role_limits_and_request_settings_artifact: Mapping[str, str],
     provider_price_snapshot_canonical_sha256: str,
     uv_lock_sha256: str,
     seed_policy: str,
@@ -455,8 +458,8 @@ def build_execution_identity(
         "prompt_bundle_canonical_sha256": prompt_bundle_canonical_sha256,
         "prompt_bundle_declared_status": prompt_bundle_declared_status,
         "prompt_bundle_approval_artifact": dict(prompt_bundle_approval_artifact),
-        "per_model_role_limits_artifact": dict(per_model_role_limits_artifact),
-        "provider_request_fields_artifact": dict(provider_request_fields_artifact),
+        "role_limits_and_request_settings_artifact": dict(
+            role_limits_and_request_settings_artifact),
         "provider_price_snapshot_canonical_sha256": provider_price_snapshot_canonical_sha256,
         "uv_lock_sha256": uv_lock_sha256,
         "seed_policy": seed_policy,
@@ -779,15 +782,6 @@ def validate_execution_manifest(
     approval_tracked_path, observed_approval_sha = _validate_prompt_bundle_approval(
         manifest, root=root, protocol=protocol, observed_bundle_sha=observed_bundle_sha)
 
-    # --- per-model/per-role output limits + provider request-field artifacts ---
-    per_model_role_limits_artifact = _mapping(
-        manifest.get("per_model_role_limits_artifact"), "per_model_role_limits_artifact")
-    _bind_json_artifact(root, per_model_role_limits_artifact, "per_model_role_limits_artifact")
-    provider_request_fields_artifact = _mapping(
-        manifest.get("provider_request_fields_artifact"), "provider_request_fields_artifact")
-    _bind_json_artifact(
-        root, provider_request_fields_artifact, "provider_request_fields_artifact")
-
     # --- preflight cost forecast, durable storage policy, provider reconciliation evidence ---
     cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
     _bind_json_artifact_checked(root, cost_forecast_binding, "cost_forecast")
@@ -807,6 +801,46 @@ def validate_execution_manifest(
     observed_snapshot_sha = canonical_sha256(snapshot)
     _check_bound_hash(
         manifest, "provider_price_snapshot_canonical_sha256", observed_snapshot_sha)
+
+    # --- single merged role-limits + request-settings artifact (v2 only; a v1 artifact bound ---
+    # --- into this slot fails closed, since it lacks the v2-only supersedes/role_taxonomy ---
+    # --- sections that load_and_validate_v2's own top-level key-set check requires) ---
+    role_limits_and_request_settings_artifact = _mapping(
+        manifest.get("role_limits_and_request_settings_artifact"),
+        "role_limits_and_request_settings_artifact")
+    _exact_keys(
+        role_limits_and_request_settings_artifact, ARTIFACT_BINDING_KEYS,
+        "role_limits_and_request_settings_artifact")
+    role_limits_path_value = _string(
+        role_limits_and_request_settings_artifact.get("path"),
+        "role_limits_and_request_settings_artifact.path")
+    role_limits_sha_value = _sha256_hex(
+        role_limits_and_request_settings_artifact.get("sha256"),
+        "role_limits_and_request_settings_artifact.sha256")
+    role_limits_artifact_path = root / role_limits_path_value
+    if not role_limits_artifact_path.is_file():
+        raise ManifestValidationError(
+            "role_limits_and_request_settings_artifact artifact is missing: "
+            f"{role_limits_artifact_path}")
+    role_limits_payload = _load_json_object(role_limits_artifact_path)
+    observed_role_limits_sha = canonical_sha256(role_limits_payload)
+    if observed_role_limits_sha != role_limits_sha_value:
+        raise ManifestValidationError(
+            "role_limits_and_request_settings_artifact hash drift: manifest bound "
+            f"{role_limits_sha_value}, observed {observed_role_limits_sha}")
+    v1_role_limits_path = root / DEFAULT_ROLE_LIMITS_V1_RELATIVE_PATH
+    if not v1_role_limits_path.is_file():
+        raise ManifestValidationError(
+            "role_limits_and_request_settings_artifact supersedes source is missing: "
+            f"{v1_role_limits_path}")
+    v1_role_limits_payload = _load_json_object(v1_role_limits_path)
+    try:
+        role_limits.validate_role_limits_v2(
+            role_limits_payload, protocol, snapshot, v1_role_limits_payload)
+    except role_limits.RoleLimitsError as exc:
+        raise ManifestValidationError(
+            "role_limits_and_request_settings_artifact does not validate as a v2 role-limits "
+            f"artifact: {exc}") from exc
 
     # --- uv.lock: RAW file hash, never canonical-JSON ---
     observed_uv_lock_sha = _raw_file_sha256(root / DEFAULT_UV_LOCK_RELATIVE_PATH)
@@ -958,13 +992,9 @@ def validate_execution_manifest(
             "tracked_path": str(approval_tracked_path),
             "sha256": str(observed_approval_sha),
         },
-        per_model_role_limits_artifact={
-            "path": str(per_model_role_limits_artifact["path"]),
-            "sha256": str(per_model_role_limits_artifact["sha256"]),
-        },
-        provider_request_fields_artifact={
-            "path": str(provider_request_fields_artifact["path"]),
-            "sha256": str(provider_request_fields_artifact["sha256"]),
+        role_limits_and_request_settings_artifact={
+            "path": str(role_limits_and_request_settings_artifact["path"]),
+            "sha256": str(role_limits_and_request_settings_artifact["sha256"]),
         },
         provider_price_snapshot_canonical_sha256=observed_snapshot_sha,
         uv_lock_sha256=observed_uv_lock_sha,
