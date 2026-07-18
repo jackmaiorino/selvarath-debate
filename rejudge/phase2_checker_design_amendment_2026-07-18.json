@@ -1,0 +1,34 @@
+{
+  "schema_version": "phase2_checker_design_amendment_v1",
+  "amendment_id": "checker_regression_subcounts_2026-07-18",
+  "status": "proposed_pending_owner_refreeze",
+  "original_design_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+  "original_design_file_sha256": "02039a5d70aa5b233757e9cbfa3156da61bdb24ebaf5f9af1e46af89b14ed62c",
+  "sampler_implementation_path": "rejudge/phase2_checker_sampling.py",
+  "sampler_implementation_file_sha256": "b08851cad339da9790046371b3ca8beb2cd8cd1983cc6385ba9a501cbc9e0472",
+  "source_universe_file_sha256": {
+    "rejudge/output/records.jsonl": "4ac181803dabebbd57ab88636de5ef284161eaa3892d812cba8dfb79ed3df0a6"
+  },
+  "regression_set_path": "rejudge/phase2_checker_regression_set_2026-07-18.json",
+  "regression_set_file_sha256": "497c5b5c0b4ab513dedff728b83f9cbb41c1d2c3bbd4fbd1b463b23d63dd3125",
+  "git_sha": "c1bbc65bce637e29c067490cdaca2e3d57522d26",
+  "old_frozen_targets": {"candidate_restatement": 8, "meta_or_evaluative": 18},
+  "corrected_exhaustive_counts": {"candidate_restatement": 7, "meta_or_evaluative": 13},
+  "resulting_regression_composition": {
+    "candidate_restatement": 7,
+    "meta_or_evaluative": 13,
+    "answer_or_debate_reference": 36,
+    "compound_claim": 4,
+    "total": 60
+  },
+  "amended_requirement_text": "Include every deduplicated item assigned to candidate_restatement and meta_or_evaluative by the frozen build_universe() and bucket_reason() rules. For the currently bound source hashes, the required exhaustive counts are respectively 7 and 13; any different count with those same source hashes fails closed.",
+  "correction_basis": "The original 8/18 targets came from a pre-deduplication any-occurrence retroactive screen count. The frozen universe definition (dedupe exact-duplicate claims per question across stage-1 and calibration sources, then screen) yields exhaustive counts of 7 and 13. The correction rests only on source-universe and deduplication semantics; no checker outputs and no Phase 2 outcomes influenced it, and all available cases of both classes remain included.",
+  "oracle_review": "Codex consult #19, 2026-07-18: approved with the exact-class wording above; rarity-relational phrasing rejected",
+  "owner_refreeze": {
+    "approver": null,
+    "approved_at_utc": null,
+    "approval_channel": null
+  },
+  "execution_authorized": false,
+  "note": "Append-only amendment record; the original frozen design file is never rewritten. Inert until owner_refreeze is completed by Jack Maiorino."
+}
