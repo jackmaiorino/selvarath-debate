@@ -166,7 +166,7 @@ halts rather than replays.
 | Runner | Existing clients/manifests/accounting are hardened | No executable Phase 2 orchestrator yet; implement and test offline |
 | Storage | Local artifact inventory exists | Versioned retrieval destination/policy and backup owner |
 | Credentials | Plaintext key file remains outside the repo | Rotate and move to environment/secret storage before live work |
-| Public record | Before-launch update drafted; Jack is the poster | Post after immutable design/cost commit, before the first paid call from the approved 23,200-cell plan |
+| Public record | Before-launch update posted by Jack and verified public on 2026-07-18, before any paid call from the approved 23,200-cell plan | Preserve the immutable posted source; publish results, failures, artifacts, and actual spend after execution |
 
 ## Canary policy
 
@@ -205,7 +205,8 @@ the entire canary.
 6. Verify provider spend, credit, and current prices; replace the provisional empirical dollar
    band with the frozen prompt/token-profile forecast.
 7. **Complete:** commit and publish the immutable design/cost package.
-8. Post the before-launch Manifund update before any call from the approved 23,200-cell plan.
+8. **Complete (2026-07-18):** post the before-launch Manifund update before any call from the
+   approved 23,200-cell plan.
 9. Recover or separately waive the 11 Gemma cells; rerun calibration analysis.
 10. Create the capability-preflight execution manifest; obtain its separate <=$15 authorization,
     run the 1,060 QA cells, and freeze the selected top full-document anchor.
@@ -218,6 +219,7 @@ the entire canary.
 - Design protocol validated for checkpoint: **YES**
 - Public design package pushed/frozen: **YES**
 - Resolvability Amendment A1 approved pre-outcome: **YES**
+- Before-launch Manifund update posted and verified: **YES** / 2026-07-18T12:15:01Z
 - Gemma-recovery spend approved: **NO**
 - Capability-preflight spend approved: **NO**
 - Canary spend approved: **NO**

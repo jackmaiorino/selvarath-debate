@@ -1,8 +1,10 @@
-# POSTED — Stage 1 Results and Phase 2 Pre-Launch Update
+# Manifund update: Stage 1 results and Phase 2 pre-launch
 
-**Status:** posted to Manifund on 2026-07-18 and verified live at
-[the project page](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s?tab=comments).
-The immutable pre-post source is commit `e4597ce01b448fc10144fed7408cf868a097f53b`.
+Posted: 2026-07-18 · Verified live: 2026-07-18T12:15:01Z
+
+Project: https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s?tab=comments
+
+Immutable pre-post source: https://github.com/jackmaiorino/selvarath-debate/blob/e4597ce01b448fc10144fed7408cf868a097f53b/docs/public-update-draft-2026-07-15.md
 
 ## What progress have you made since your last update?
 
