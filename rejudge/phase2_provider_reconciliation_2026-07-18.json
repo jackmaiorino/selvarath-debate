@@ -1,0 +1,17 @@
+{
+  "schema_version": "phase2_provider_reconciliation_v1",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-18T14:53:43Z",
+  "evidence_channel": "Together dashboard figures reported directly by Jack Maiorino in chat on 2026-07-18",
+  "dashboard_monthly_spend_usd": 209.22,
+  "dashboard_credit_balance_usd": 1590.78,
+  "prepaid_topups_usd": [500, 1300],
+  "cross_check": "1800.00 total top-ups minus 1590.78 remaining equals 209.22 exactly, so the balance-implied draw and the dashboard spend figure agree",
+  "verified_starting_spend_usd": 209.22,
+  "verified_prepaid_credit_usd": 1590.78,
+  "resolves_discrepancy": "the previously reported ~$208 was a rounded figure; provider-verified spend is 209.22, closing the known $1.22 gap",
+  "cumulative_project_ceiling_usd": 1709.22,
+  "ceiling_basis": "provider-verified starting spend 209.22 plus the approved incremental Phase 2 ceiling 1500, replacing the provisional 1708",
+  "execution_authorized": false,
+  "note": "Evidence record only; grants no execution authority. Refresh with current dashboard figures immediately before each subsequent paid stage."
+}

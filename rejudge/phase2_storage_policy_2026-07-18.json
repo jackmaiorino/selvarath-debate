@@ -1,0 +1,13 @@
+{
+  "schema_version": "phase2_storage_policy_v1",
+  "established_at_utc": "2026-07-18T14:53:43Z",
+  "versioned_destination": "E:/selvarath-archive/",
+  "structure": "one subdirectory per run or stage (for example gemma-recovery-2026-07-18, capability-preflight), each containing the raw output JSONL files, the run manifest, the usage ledger, and a SHA256SUMS manifest listing every archived file",
+  "retrieval_policy": "append-only: copies are written immediately after a run completes and are never edited in place; before any analysis reuse, recompute the SHA256SUMS entries and halt on any mismatch",
+  "backup_owner": "Jack Maiorino",
+  "physical_medium": "dedicated local E: drive (verified 2026-07-18: 3.5 TB free), separate from the C: working drive",
+  "code_provenance": "git history pushed to github.com/jackmaiorino/selvarath-debate branch rerun-new-models",
+  "scope": "raw records, manifests, and ledgers for the Gemma recovery supplement, capability preflight, canary, and main run",
+  "execution_authorized": false,
+  "note": "Policy record only; grants no execution authority."
+}
