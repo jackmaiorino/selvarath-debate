@@ -715,6 +715,11 @@ class RejudgeClient:
 
     def _client(self):
         if self._sdk is None:
+            api_key = os.environ.get("TOGETHER_API_KEY")
+            if api_key is None or not api_key.strip():
+                raise ValueError(
+                    "TOGETHER_API_KEY environment variable is missing or blank; a live "
+                    "Together SDK client cannot be constructed")
             from together import Together
             self._sdk = Together()
         return self._sdk

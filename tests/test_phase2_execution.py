@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from copy import deepcopy
@@ -20,8 +21,11 @@ PROTOCOL_PATH = ROOT / "rejudge" / "phase2_protocol.json"
 COMBINED_AI_AUDIT_PATH = ROOT / "rejudge" / "phase2_resolvability_ai_review.json"
 A1_AMENDMENT_PATH = ROOT / "rejudge" / "phase2_resolvability_review_amendment_2026-07-16.json"
 PROMPT_BUNDLE_PATH = ROOT / "rejudge" / "phase2_prompt_bundle.json"
+PROMPT_BUNDLE_APPROVAL_PATH = (
+    ROOT / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json")
 PRICE_SNAPSHOT_PATH = ROOT / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json"
 UV_LOCK_PATH = ROOT / "uv.lock"
+APPROVAL_BASIS_PATH = ROOT / "docs" / "phase2-decision-proposal.md"
 
 STAGE_CAP_USD = 15.0
 CUMULATIVE_CAP_USD = 1500.0
@@ -29,6 +33,8 @@ LEDGER_BINDING = {
     "path": "rejudge/output/phase2_capability_preflight_ledger.jsonl",
     "ledger_identity": "phase2-project-wide-ledger-v1",
 }
+APPROVAL_BASIS_TRACKED_PATH = str(APPROVAL_BASIS_PATH.relative_to(ROOT).as_posix())
+APPROVAL_BASIS_SHA256 = hashlib.sha256(APPROVAL_BASIS_PATH.read_bytes()).hexdigest()
 
 
 def _canon_sha(path: Path) -> str:
@@ -48,15 +54,52 @@ def _write_json(path: Path, name: str, payload) -> Path:
     return target
 
 
+# ``cost_forecast``, ``storage_policy``, and ``provider_reconciliation_evidence`` are bound
+# via ``_bind_json_artifact_checked``, which -- unlike the older, deliberately-anywhere
+# per_model_role_limits/provider_request_fields/gemma-waiver bindings -- freezes the path as
+# always relative to project_root (an absolute path, even one that happens to point at a
+# byte-identical file, is rejected). So every ``root`` a test validates against (the real
+# repo root, or a tmp copy of its tracked files) needs its own copy of these three
+# placeholders at this same frozen relative path and content, or the bound hash won't match.
+SYNTHETIC_ROOT_RELATIVE_DIR = "rejudge/output/_test_phase2_execution_artifacts"
+SYNTHETIC_ROOT_RELATIVE_ARTIFACTS: dict[str, tuple[str, dict]] = {
+    "cost_forecast": (
+        f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_cost_forecast.json", {"forecast": "placeholder"}),
+    "storage_policy": (
+        f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_storage_policy.json", {"policy": "placeholder"}),
+    "provider_reconciliation_evidence": (
+        f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_provider_reconciliation_evidence.json",
+        {"evidence": "placeholder"}),
+}
+
+
+def _write_synthetic_root_relative_artifacts(root: Path) -> dict[str, Path]:
+    """Write the root-contained placeholder artifacts at their frozen relative paths."""
+    paths: dict[str, Path] = {}
+    for name, (relative, payload) in SYNTHETIC_ROOT_RELATIVE_ARTIFACTS.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload), encoding="utf-8")
+        paths[name] = target
+    return paths
+
+
 # --- shared fixtures: build the real, valid pieces once per module -----------------------------
 
 
 @pytest.fixture(scope="module")
 def synthetic_artifacts(tmp_path_factory):
-    """Paths for the three artifacts that materialization has not produced yet.
+    """Paths for the artifacts that materialization has not produced yet.
 
-    These are absolute tmp paths so they can be bound from any ``project_root`` (including
-    the real repo root) without writing anything under the tracked repository.
+    ``role_limits``, ``request_fields``, and ``gemma_waiver`` are absolute tmp paths so they
+    can be bound from any ``project_root`` (including the real repo root) without writing
+    anything under the tracked repository -- the deliberately-anywhere pattern
+    ``_resolve_bound_path`` documents for those bindings.
+
+    ``cost_forecast``, ``storage_policy``, and ``provider_reconciliation_evidence`` are frozen
+    as always relative to project_root (see ``_bind_json_artifact_checked``), so they are
+    written under a throwaway, gitignored subdirectory of the real repo root instead, and
+    cleaned up when this module's tests finish.
     """
     directory = tmp_path_factory.mktemp("phase2_execution_artifacts")
     role_limits = _write_json(directory, "per_model_role_limits.json", {"limits": "placeholder"})
@@ -64,11 +107,16 @@ def synthetic_artifacts(tmp_path_factory):
         directory, "provider_request_fields.json", {"fields": "placeholder"})
     gemma_waiver = _write_json(
         directory, "gemma_recovery_waiver.json", {"waiver": "placeholder"})
-    return {
-        "role_limits": role_limits,
-        "request_fields": request_fields,
-        "gemma_waiver": gemma_waiver,
-    }
+    root_relative = _write_synthetic_root_relative_artifacts(ROOT)
+    try:
+        yield {
+            "role_limits": role_limits,
+            "request_fields": request_fields,
+            "gemma_waiver": gemma_waiver,
+            **root_relative,
+        }
+    finally:
+        shutil.rmtree(ROOT / SYNTHETIC_ROOT_RELATIVE_DIR, ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -83,9 +131,11 @@ def baseline(synthetic_artifacts):
     combined = json.loads(COMBINED_AI_AUDIT_PATH.read_text(encoding="utf-8"))
     amendment = json.loads(A1_AMENDMENT_PATH.read_text(encoding="utf-8"))
     bundle, _bundle_protocol = prompt_bundle.load_and_validate(PROMPT_BUNDLE_PATH, PROTOCOL_PATH)
+    approval = json.loads(PROMPT_BUNDLE_APPROVAL_PATH.read_text(encoding="utf-8"))
     snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
         PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
     uv_lock_sha256 = hashlib.sha256(UV_LOCK_PATH.read_bytes()).hexdigest()
+    approval_basis_sha256 = hashlib.sha256(APPROVAL_BASIS_PATH.read_bytes()).hexdigest()
 
     entries_without_key = []
     for index, key in enumerate(planning_keys):
@@ -108,14 +158,20 @@ def baseline(synthetic_artifacts):
         "combined": combined,
         "amendment": amendment,
         "bundle": bundle,
+        "approval": approval,
         "snapshot": snapshot,
         "uv_lock_sha256": uv_lock_sha256,
+        "approval_basis_sha256": approval_basis_sha256,
     }
 
 
 def _artifact_binding(artifacts, name: str) -> dict:
     path = artifacts[name]
-    return {"path": str(path), "sha256": _canon_sha(path)}
+    try:
+        path_value = str(path.relative_to(ROOT).as_posix())
+    except ValueError:
+        path_value = str(path)
+    return {"path": path_value, "sha256": _canon_sha(path)}
 
 
 def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative_cap):
@@ -131,7 +187,11 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "combined_ai_audit_canonical_sha256": phase2_plan.canonical_sha256(baseline["combined"]),
         "question_bank_bundle_sha256": protocol["source_bindings"]["question_bank_bundle_sha256"],
         "prompt_bundle_canonical_sha256": phase2_plan.canonical_sha256(baseline["bundle"]),
-        "prompt_bundle_approval_status": baseline["bundle"]["status"],
+        "prompt_bundle_declared_status": baseline["bundle"]["status"],
+        "prompt_bundle_approval_tracked_path": str(
+            PROMPT_BUNDLE_APPROVAL_PATH.relative_to(ROOT).as_posix()),
+        "prompt_bundle_approval_canonical_sha256": phase2_plan.canonical_sha256(
+            baseline["approval"]),
         "per_model_role_limits_artifact": _artifact_binding(artifacts, "role_limits"),
         "provider_request_fields_artifact": _artifact_binding(artifacts, "request_fields"),
         "provider_price_snapshot_canonical_sha256": phase2_plan.canonical_sha256(
@@ -145,6 +205,10 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "ledger": dict(LEDGER_BINDING),
         "stage_cap_usd": stage_cap,
         "cumulative_cap_usd": cumulative_cap,
+        "cost_forecast": _artifact_binding(artifacts, "cost_forecast"),
+        "storage_policy": _artifact_binding(artifacts, "storage_policy"),
+        "provider_reconciliation_evidence": _artifact_binding(
+            artifacts, "provider_reconciliation_evidence"),
     }
 
 
@@ -168,7 +232,11 @@ def build_manifest(
         combined_ai_audit_canonical_sha256=shared["combined_ai_audit_canonical_sha256"],
         question_bank_bundle_sha256=shared["question_bank_bundle_sha256"],
         prompt_bundle_canonical_sha256=shared["prompt_bundle_canonical_sha256"],
-        prompt_bundle_approval_status=shared["prompt_bundle_approval_status"],
+        prompt_bundle_declared_status=shared["prompt_bundle_declared_status"],
+        prompt_bundle_approval_artifact={
+            "tracked_path": shared["prompt_bundle_approval_tracked_path"],
+            "sha256": shared["prompt_bundle_approval_canonical_sha256"],
+        },
         per_model_role_limits_artifact=shared["per_model_role_limits_artifact"],
         provider_request_fields_artifact=shared["provider_request_fields_artifact"],
         provider_price_snapshot_canonical_sha256=shared[
@@ -182,6 +250,9 @@ def build_manifest(
         provider_call_inventory_entries=baseline["entries_without_key"],
         stage_cap_usd=shared["stage_cap_usd"],
         cumulative_cap_usd=shared["cumulative_cap_usd"],
+        cost_forecast=shared["cost_forecast"],
+        storage_policy=shared["storage_policy"],
+        provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
     entries = [
@@ -202,8 +273,12 @@ def build_manifest(
     return manifest, identity_sha256
 
 
-def matching_authorization(identity_sha256, *, stage="capability_preflight",
-                           stage_cap=STAGE_CAP_USD, cumulative_cap=CUMULATIVE_CAP_USD):
+def matching_authorization(
+    identity_sha256, *, stage="capability_preflight",
+    stage_cap=STAGE_CAP_USD, cumulative_cap=CUMULATIVE_CAP_USD,
+    approval_basis_tracked_path=APPROVAL_BASIS_TRACKED_PATH,
+    approval_basis_sha256=APPROVAL_BASIS_SHA256,
+):
     return {
         "execution_identity_sha256": identity_sha256,
         "stage": stage,
@@ -211,6 +286,8 @@ def matching_authorization(identity_sha256, *, stage="capability_preflight",
         "cumulative_cap_usd": cumulative_cap,
         "approver": "Jack Maiorino",
         "approved_at_utc": "2026-07-18T00:00:00Z",
+        "approval_basis_tracked_path": approval_basis_tracked_path,
+        "approval_basis_sha256": approval_basis_sha256,
     }
 
 
@@ -227,11 +304,13 @@ DATA_FILES_FOR_ROOT_COPY = (
     "rejudge/phase2_resolvability_ai_review_vethun_sarak.json",
     "rejudge/phase2_resolvability_review_amendment_2026-07-16.json",
     "rejudge/phase2_prompt_bundle.json",
+    "rejudge/phase2_prompt_bundle_approval_2026-07-18.json",
     "rejudge/phase2_provider_price_snapshot_2026-07-18.json",
     "questions/carath_norn_questions.json",
     "questions/selvarath_questions.json",
     "questions/vethun_sarak_questions.json",
     "uv.lock",
+    "docs/phase2-decision-proposal.md",
 )
 
 
@@ -247,6 +326,10 @@ def _copy_tracked_data_files(destination: Path) -> Path:
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(source.read_bytes())
+    # cost_forecast/storage_policy/provider_reconciliation_evidence are frozen as always
+    # relative to project_root, so any root a manifest built from `synthetic_artifacts` is
+    # validated against needs its own copy at the same relative path and content.
+    _write_synthetic_root_relative_artifacts(destination)
     return destination
 
 
@@ -319,6 +402,16 @@ def corrupted_price_snapshot_root(tmp_path_factory):
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["provider"] = "Tampered Provider"
     path.write_text(json.dumps(payload), encoding="utf-8")
+    return destination
+
+
+@pytest.fixture(scope="module")
+def missing_approval_root(tmp_path_factory):
+    """A tmp copy of the tracked data files with the approval artifact itself removed."""
+    destination = tmp_path_factory.mktemp("missing_approval_root")
+    _copy_tracked_data_files(destination)
+    path = destination / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json"
+    path.unlink()
     return destination
 
 
@@ -431,6 +524,7 @@ def test_top_level_hash_drift_is_rejected(manifest, field):
 
 @pytest.mark.parametrize("field", [
     "per_model_role_limits_artifact", "provider_request_fields_artifact",
+    "cost_forecast", "storage_policy", "provider_reconciliation_evidence",
 ])
 def test_artifact_binding_hash_drift_is_rejected(manifest, field):
     manifest_dict, _identity = manifest
@@ -443,10 +537,62 @@ def test_artifact_binding_hash_drift_is_rejected(manifest, field):
     "per_model_role_limits_artifact", "provider_request_fields_artifact",
 ])
 def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path, field):
+    # These two bindings predate the repo-relative containment check and are deliberately
+    # bindable from an absolute path anywhere (e.g. a materialization-pending tmp copy).
     manifest_dict, _identity = manifest
     missing = tmp_path / "does_not_exist.json"
     manifest_dict[field] = {"path": str(missing), "sha256": "a" * 64}
     with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
+                                    "provider_reconciliation_evidence"])
+def test_new_binding_missing_file_fails_closed(manifest, field):
+    # Unlike the pair above, these three are frozen as always relative to project_root, so
+    # the missing-file probe must itself be a non-escaping relative path.
+    manifest_dict, _identity = manifest
+    manifest_dict[field] = {
+        "path": f"{SYNTHETIC_ROOT_RELATIVE_DIR}/does_not_exist.json", "sha256": "a" * 64,
+    }
+    with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
+                                    "provider_reconciliation_evidence"])
+def test_new_binding_relative_path_escape_fails_closed(manifest, field):
+    manifest_dict, _identity = manifest
+    manifest_dict[field] = {
+        "path": "../outside_the_repo_root.json", "sha256": "a" * 64,
+    }
+    with pytest.raises(pe.ManifestValidationError, match="escapes the repository root"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
+                                    "provider_reconciliation_evidence"])
+def test_new_binding_absolute_path_outside_root_fails_closed(manifest, tmp_path, field):
+    # Regression for the finding: an absolute path to a real, byte-identical, but untracked
+    # file outside project_root must not be silently accepted just because its content and
+    # declared hash agree.
+    manifest_dict, _identity = manifest
+    payload = {"x": "an untracked, self-authored copy"}
+    outside = tmp_path / "outside_artifact.json"
+    outside.write_text(json.dumps(payload), encoding="utf-8")
+    manifest_dict[field] = {
+        "path": str(outside), "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="must be a path relative to"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
+                                    "provider_reconciliation_evidence"])
+def test_new_binding_non_mapping_value_is_rejected(manifest, field):
+    manifest_dict, _identity = manifest
+    manifest_dict[field] = "not a mapping"
+    with pytest.raises(pe.ManifestValidationError, match="must be an object"):
         pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
 
 
@@ -555,32 +701,380 @@ def test_question_bank_bundle_hash_disagreement_is_rejected(manifest):
         pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
 
 
-# --- prompt bundle: hash + candidate refusal --------------------------------------------------------
+# --- prompt bundle: hash + declared status -----------------------------------------------------
 
 
-def test_prompt_bundle_approval_status_drift_is_rejected(manifest):
+def test_prompt_bundle_declared_status_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
-    manifest_dict["prompt_bundle_approval_status"] = "owner_approved"
-    with pytest.raises(pe.ManifestValidationError, match="prompt_bundle_approval_status"):
+    manifest_dict["prompt_bundle_declared_status"] = "owner_approved"
+    with pytest.raises(pe.ManifestValidationError, match="prompt_bundle_declared_status"):
         pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
 
 
-def test_candidate_prompt_bundle_is_refused_when_authorization_required(manifest):
+def test_candidate_prompt_bundle_with_valid_approval_is_authorized(manifest):
+    # Per the frozen governance the bundle file itself never leaves
+    # candidate_pending_owner_methods_review; a bound, valid, append-only approval artifact
+    # (never itself an execution_authorized=true claim) plus a matching stage authorization
+    # (with its own resolvable approval_basis) is what lets this candidate-status manifest
+    # actually be authorized now.
     manifest_dict, identity_sha256 = manifest
     authorization = matching_authorization(identity_sha256)
-    with pytest.raises(pe.ExecutionAuthorityError, match="candidate"):
-        pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
-            require_authorized=True,
-        )
+    validated = pe.validate_execution_manifest(
+        manifest_dict, project_root=ROOT, authorization=authorization, require_authorized=True)
+    assert validated.authorized is True
+    assert validated.authorization is not None
 
 
 def test_candidate_prompt_bundle_does_not_block_unauthorized_validation(manifest):
-    # require_authorized=False must still succeed even though the tracked bundle is a
-    # candidate: draft manifests must be reviewable before owner approval exists.
+    # require_authorized=False must still succeed: draft manifests must be reviewable even
+    # though the tracked bundle stays a permanent candidate, as long as the approval-artifact
+    # binding is itself valid.
     manifest_dict, _identity = manifest
     validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
     assert validated.authorized is False
+
+
+# --- prompt-bundle owner-methods-approval artifact ----------------------------------------------
+
+
+def _root_with_mutated_approval(tmp_path: Path, mutate) -> tuple[Path, dict]:
+    """Copy the tracked data files into ``tmp_path`` and mutate only the approval JSON."""
+    _copy_tracked_data_files(tmp_path)
+    path = tmp_path / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mutate(payload)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return tmp_path, payload
+
+
+def _manifest_with_mutated_approval(manifest_dict, tmp_path, mutate):
+    """Rebind the manifest's declared approval hash to the mutated artifact's real hash.
+
+    Isolates the *content* check under test: without this rebind, every mutation would
+    just trip the final approval-artifact self-consistency hash check instead of the
+    specific field check the mutation targets.
+    """
+    manifest_dict = deepcopy(manifest_dict)
+    root, payload = _root_with_mutated_approval(tmp_path, mutate)
+    manifest_dict["prompt_bundle_approval_canonical_sha256"] = phase2_plan.canonical_sha256(
+        payload)
+    return manifest_dict, root
+
+
+def test_approval_artifact_hash_missing_from_identity_is_impossible_without_a_binding(manifest):
+    # The approval artifact's own canonical sha is bound into the execution identity via
+    # prompt_bundle_approval_artifact; removing the manifest's declared-hash field entirely
+    # is caught by ordinary top-level key-set drift, well before approval content is read.
+    manifest_dict, _identity = manifest
+    del manifest_dict["prompt_bundle_approval_canonical_sha256"]
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_artifact_binds_into_the_execution_identity(manifest):
+    manifest_dict, identity_sha256 = manifest
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    assert validated.execution_identity_sha256 == identity_sha256
+    approval_binding = validated.execution_identity["prompt_bundle_approval_artifact"]
+    assert approval_binding["sha256"] == manifest_dict["prompt_bundle_approval_canonical_sha256"]
+    assert approval_binding["tracked_path"] == manifest_dict["prompt_bundle_approval_tracked_path"]
+
+
+def test_approval_declared_hash_drift_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prompt_bundle_approval_canonical_sha256"] = _flip_hex_digest(
+        manifest_dict["prompt_bundle_approval_canonical_sha256"])
+    with pytest.raises(pe.ManifestValidationError, match="hash drift"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_tracked_path_blank_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prompt_bundle_approval_tracked_path"] = ""
+    with pytest.raises(
+        pe.ManifestValidationError, match="prompt_bundle_approval_tracked_path",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_tracked_path_non_string_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prompt_bundle_approval_tracked_path"] = 12345
+    with pytest.raises(
+        pe.ManifestValidationError, match="prompt_bundle_approval_tracked_path",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_canonical_sha256_malformed_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prompt_bundle_approval_canonical_sha256"] = "not-a-64-hex-digest"
+    with pytest.raises(
+        pe.ManifestValidationError, match="prompt_bundle_approval_canonical_sha256",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_artifact_missing_file_fails_closed(manifest, missing_approval_root):
+    # The tracked_path stays the real, frozen, pinned location (see
+    # test_approval_tracked_path_must_be_the_frozen_location below); it is project_root itself
+    # that lacks the file here, isolating the is_file() check from the pinning check.
+    manifest_dict, _identity = manifest
+    with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
+        pe.validate_execution_manifest(manifest_dict, project_root=missing_approval_root)
+
+
+def test_approval_tracked_path_escape_fails_closed(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict = deepcopy(manifest_dict)
+    manifest_dict["prompt_bundle_approval_tracked_path"] = "../outside_the_repo_root.json"
+    with pytest.raises(pe.ManifestValidationError, match="escapes the repository root"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_tracked_path_must_be_the_frozen_location(manifest):
+    # A syntactically fine, non-escaping relative path that simply names the wrong file must
+    # still be rejected: the approval artifact's location is pinned, not manifest-controlled.
+    manifest_dict, _identity = manifest
+    manifest_dict = deepcopy(manifest_dict)
+    manifest_dict["prompt_bundle_approval_tracked_path"] = (
+        "rejudge/phase2_resolvability_ai_review.json")
+    with pytest.raises(pe.ManifestValidationError, match="frozen, git-tracked approval"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+def test_approval_tracked_path_absolute_untracked_copy_is_rejected(manifest, tmp_path):
+    # Regression for the finding: a byte-identical, self-authored copy of the real approval
+    # artifact at an attacker-chosen absolute path, never committed to git, must not be
+    # accepted merely because its content satisfies every literal/hash check below.
+    manifest_dict, _identity = manifest
+    manifest_dict = deepcopy(manifest_dict)
+    untracked_copy = tmp_path / "approval_copy.json"
+    untracked_copy.write_bytes(PROMPT_BUNDLE_APPROVAL_PATH.read_bytes())
+    manifest_dict["prompt_bundle_approval_tracked_path"] = str(untracked_copy)
+    with pytest.raises(pe.ManifestValidationError, match="frozen, git-tracked approval"):
+        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+
+
+@pytest.mark.parametrize("mutation", ["missing_key", "extra_key"])
+def test_approval_key_set_drift_is_rejected(manifest, tmp_path, mutation):
+    def mutate(a):
+        if mutation == "missing_key":
+            del a["note"]
+        else:
+            a["unexpected_field"] = "x"
+
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(manifest_dict, tmp_path, mutate)
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_schema_version_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("schema_version", "wrong_version"))
+    with pytest.raises(pe.ManifestValidationError, match="schema_version"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_id_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("approval_id", "wrong_id"))
+    with pytest.raises(pe.ManifestValidationError, match="approval_id"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_protocol_id_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("protocol_id", "wrong_protocol_id"))
+    with pytest.raises(pe.ManifestValidationError, match="protocol_id"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_approved_bundle_tracked_path_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path,
+        lambda a: a.__setitem__("approved_bundle_tracked_path", "rejudge/some_other_bundle.json"),
+    )
+    with pytest.raises(
+        pe.ManifestValidationError, match="approved_bundle_tracked_path",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_approved_bundle_sha_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path,
+        lambda a: a.__setitem__(
+            "approved_bundle_canonical_sha256", _flip_hex_digest(
+                a["approved_bundle_canonical_sha256"])),
+    )
+    with pytest.raises(
+        pe.ManifestValidationError, match="approved_bundle_canonical_sha256",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+@pytest.mark.parametrize("bad_commit", [
+    "abc123",            # 6 chars: too short
+    "a" * 41,            # 41 chars: too long
+    "ABCDEF1",           # uppercase hex
+    "13bd6g3",           # non-hex character
+    None,                # JSON null: not a string at all (exercises the isinstance guard)
+    123456789,           # int: not a string at all
+    ["a", "b", "c", "d", "e", "f", "g"],  # list: not a string at all
+])
+def test_approval_bundle_commit_must_be_lowercase_hex_in_range(manifest, tmp_path, bad_commit):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path,
+        lambda a: a.__setitem__("approved_bundle_commit", bad_commit),
+    )
+    with pytest.raises(pe.ManifestValidationError, match="approved_bundle_commit"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+@pytest.mark.parametrize("mutation", [
+    "reorder", "duplicate", "extra", "missing",
+    "not_a_list",       # exercises the isinstance(scope, list) guard
+    "null",             # exercises the isinstance(scope, list) guard (JSON null)
+    "non_string_item",  # exercises the all(isinstance(item, str) ...) guard
+])
+def test_approval_scope_drift_is_rejected(manifest, tmp_path, mutation):
+    def mutate(a):
+        if mutation == "not_a_list":
+            a["scope"] = "not a list at all"
+            return
+        if mutation == "null":
+            a["scope"] = None
+            return
+        scope = list(a["scope"])
+        if mutation == "reorder":
+            scope[0], scope[1] = scope[1], scope[0]
+        elif mutation == "duplicate":
+            scope.append(scope[0])
+        elif mutation == "extra":
+            scope.append("an extra scope item never in the real approval")
+        elif mutation == "missing":
+            scope.pop()
+        elif mutation == "non_string_item":
+            scope[0] = 12345
+        a["scope"] = scope
+
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(manifest_dict, tmp_path, mutate)
+    with pytest.raises(pe.ManifestValidationError, match="scope"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_approver_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("approver", "Someone Else"))
+    with pytest.raises(pe.ManifestValidationError, match="approver"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_bad_timestamp_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("approved_at_utc", "2026-07-18"))
+    with pytest.raises(pe.ManifestValidationError, match="approved_at_utc"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_empty_channel_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("approval_channel", ""))
+    with pytest.raises(pe.ManifestValidationError, match="approval_channel"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_channel_wording_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("approval_channel", "a different channel"))
+    with pytest.raises(pe.ManifestValidationError, match="approval_channel"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_execution_authorized_true_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("execution_authorized", True))
+    with pytest.raises(pe.ManifestValidationError, match="execution_authorized"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_note_drift_is_rejected(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    manifest_dict, root = _manifest_with_mutated_approval(
+        manifest_dict, tmp_path, lambda a: a.__setitem__("note", "a different note entirely"))
+    with pytest.raises(pe.ManifestValidationError, match="note"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+# --- _load_strict_json_object, reachable through the approval artifact's real call site --------
+#
+# _root_with_mutated_approval always round-trips through json.loads/json.dumps of a real dict,
+# so it can never produce duplicate keys, malformed JSON text, a non-object root, or a
+# NaN/Infinity constant. These tests write the approval file's raw bytes directly instead, to
+# prove _load_strict_json_object's raise branches are actually reachable through
+# _validate_prompt_bundle_approval, not just through load_execution_manifest.
+
+
+def _root_with_raw_approval_text(tmp_path: Path, raw_text: str) -> Path:
+    root = _copy_tracked_data_files(tmp_path)
+    path = root / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json"
+    path.write_text(raw_text, encoding="utf-8")
+    return root
+
+
+def test_approval_artifact_malformed_json_fails_closed(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    root = _root_with_raw_approval_text(tmp_path, "{not valid json")
+    with pytest.raises(pe.ManifestValidationError, match="not valid JSON"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_artifact_non_object_root_fails_closed(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    root = _root_with_raw_approval_text(tmp_path, "[1, 2, 3]")
+    with pytest.raises(pe.ManifestValidationError, match="must contain a JSON object"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_artifact_duplicate_keys_fails_closed(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    root = _root_with_raw_approval_text(
+        tmp_path, '{"schema_version": "a", "schema_version": "b"}')
+    with pytest.raises(pe.ManifestValidationError, match="duplicate key"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_approval_artifact_non_finite_constant_fails_closed(manifest, tmp_path):
+    manifest_dict, _identity = manifest
+    root = _root_with_raw_approval_text(tmp_path, '{"schema_version": NaN}')
+    with pytest.raises(pe.ManifestValidationError, match="non-finite constant"):
+        pe.validate_execution_manifest(manifest_dict, project_root=root)
+
+
+def test_load_strict_json_object_rejects_unreadable_path(tmp_path):
+    with pytest.raises(pe.ManifestValidationError, match="could not read"):
+        pe._load_strict_json_object(tmp_path / "does-not-exist.json")
+
+
+def test_load_strict_json_object_rejects_non_object_payload(tmp_path):
+    path = tmp_path / "array.json"
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+    with pytest.raises(pe.ManifestValidationError, match="must contain a JSON object"):
+        pe._load_strict_json_object(path)
 
 
 # --- seed / side policy strings ----------------------------------------------------------------------
@@ -951,6 +1445,77 @@ def test_authorization_not_a_mapping_is_rejected(manifest):
         )
 
 
+# --- authorization: approval_basis ---------------------------------------------------------------
+
+
+def test_authorization_missing_approval_basis_key_is_rejected(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(identity_sha256)
+    del authorization["approval_basis_tracked_path"]
+    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_approval_basis_missing_file_fails_closed(manifest, tmp_path):
+    manifest_dict, identity_sha256 = manifest
+    missing = tmp_path / "no_such_basis.md"
+    authorization = matching_authorization(
+        identity_sha256, approval_basis_tracked_path=str(missing),
+        approval_basis_sha256="a" * 64,
+    )
+    with pytest.raises(pe.ExecutionAuthorityError, match="artifact is missing"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_approval_basis_relative_path_escape_fails_closed(manifest):
+    # Every other "escapes the repository root" regression exercises the default
+    # ManifestValidationError branch of _resolve_bound_path; this is the one caller that
+    # passes ExecutionAuthorityError instead, and it had no direct coverage.
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(
+        identity_sha256, approval_basis_tracked_path="../outside_the_repo_root.md",
+        approval_basis_sha256="a" * 64,
+    )
+    with pytest.raises(pe.ExecutionAuthorityError, match="escapes the repository root"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_approval_basis_hash_mismatch_is_rejected(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(
+        identity_sha256, approval_basis_sha256=_flip_hex_digest(APPROVAL_BASIS_SHA256))
+    with pytest.raises(pe.ExecutionAuthorityError, match="approval_basis_sha256 hash drift"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_approval_basis_uses_raw_not_canonical_hashing(manifest):
+    # The approval basis may be markdown (not JSON), so it must be hashed as raw bytes, not
+    # canonical JSON; binding the canonical-JSON sha of an unrelated JSON artifact here must
+    # not accidentally validate.
+    manifest_dict, identity_sha256 = manifest
+    wrong_kind_of_hash = phase2_plan.canonical_sha256(
+        json.loads(PROMPT_BUNDLE_APPROVAL_PATH.read_text(encoding="utf-8")))
+    authorization = matching_authorization(
+        identity_sha256, approval_basis_sha256=wrong_kind_of_hash)
+    with pytest.raises(pe.ExecutionAuthorityError, match="approval_basis_sha256 hash drift"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
 def test_manifest_field_cannot_claim_authorization():
     # There is no field in MANIFEST_TOP_LEVEL_KEYS that could claim authorization; this is
     # a structural guarantee, not something a manifest author can add.
@@ -1088,6 +1653,69 @@ def test_derive_execution_identity_sha256_is_order_stable_over_key_order():
     identity_b = {"b": {"y": 2, "x": 1}, "a": 1}
     assert pe.derive_execution_identity_sha256(identity_a) == (
         pe.derive_execution_identity_sha256(identity_b))
+
+
+def test_new_and_renamed_identity_fields_change_the_execution_identity(
+    baseline, synthetic_artifacts,
+):
+    shared = _shared_manifest_fields(
+        baseline, synthetic_artifacts, stage="capability_preflight",
+        stage_cap=STAGE_CAP_USD, cumulative_cap=CUMULATIVE_CAP_USD)
+    base_kwargs: dict[str, Any] = dict(
+        schema_version=shared["schema_version"],
+        stage=shared["stage"],
+        protocol_canonical_sha256=shared["protocol_canonical_sha256"],
+        a1_amendment_canonical_sha256=shared["a1_amendment_canonical_sha256"],
+        combined_ai_audit_canonical_sha256=shared["combined_ai_audit_canonical_sha256"],
+        question_bank_bundle_sha256=shared["question_bank_bundle_sha256"],
+        prompt_bundle_canonical_sha256=shared["prompt_bundle_canonical_sha256"],
+        prompt_bundle_declared_status=shared["prompt_bundle_declared_status"],
+        prompt_bundle_approval_artifact={
+            "tracked_path": shared["prompt_bundle_approval_tracked_path"],
+            "sha256": shared["prompt_bundle_approval_canonical_sha256"],
+        },
+        per_model_role_limits_artifact=shared["per_model_role_limits_artifact"],
+        provider_request_fields_artifact=shared["provider_request_fields_artifact"],
+        provider_price_snapshot_canonical_sha256=shared[
+            "provider_price_snapshot_canonical_sha256"],
+        uv_lock_sha256=shared["uv_lock_sha256"],
+        seed_policy=shared["seed_policy"],
+        side_assignment_policy=shared["side_assignment_policy"],
+        satisfied_prerequisites=shared["satisfied_prerequisites"],
+        ledger=shared["ledger"],
+        planning_cell_keys=baseline["planning_keys"],
+        provider_call_inventory_entries=baseline["entries_without_key"],
+        stage_cap_usd=shared["stage_cap_usd"],
+        cumulative_cap_usd=shared["cumulative_cap_usd"],
+        cost_forecast=shared["cost_forecast"],
+        storage_policy=shared["storage_policy"],
+        provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
+    )
+    base_identity_sha256 = pe.derive_execution_identity_sha256(
+        pe.build_execution_identity(**base_kwargs))
+    base_call_key = pe.derive_execution_call_key(
+        base_identity_sha256, planning_cell_key=baseline["planning_keys"][0],
+        call_role="capability_qa", call_index=0,
+    )
+
+    variants = {
+        "prompt_bundle_declared_status": "owner_approved",
+        "prompt_bundle_approval_artifact": {"tracked_path": "x", "sha256": "f" * 64},
+        "cost_forecast": {"path": "x", "sha256": "f" * 64},
+        "storage_policy": {"path": "x", "sha256": "f" * 64},
+        "provider_reconciliation_evidence": {"path": "x", "sha256": "f" * 64},
+    }
+    for field, new_value in variants.items():
+        changed_kwargs: dict[str, Any] = {**base_kwargs, field: new_value}
+        changed_identity_sha256 = pe.derive_execution_identity_sha256(
+            pe.build_execution_identity(**changed_kwargs))
+        assert changed_identity_sha256 != base_identity_sha256, (
+            f"{field} did not change the execution identity")
+        changed_call_key = pe.derive_execution_call_key(
+            changed_identity_sha256, planning_cell_key=baseline["planning_keys"][0],
+            call_role="capability_qa", call_index=0,
+        )
+        assert changed_call_key != base_call_key, f"{field} did not change its execution_call_key"
 
 
 # --- resume audit ------------------------------------------------------------------------------------------

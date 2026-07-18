@@ -117,6 +117,34 @@ def test_real_provider_client_is_factory_only_even_with_a_ledger(tmp_path):
             usage_log_path=tmp_path / "usage.jsonl")
 
 
+def test_live_client_construction_fails_fast_without_together_api_key(monkeypatch):
+    # A live (non-dry-run) client must refuse to construct the real SDK client before any
+    # network attempt when TOGETHER_API_KEY is missing. dry_run=True is used only to get a
+    # cheaply-constructible instance (its constructor invariants are the least demanding);
+    # _client() itself does not gate on dry_run, so this exercises the same fail-fast guard
+    # a live client would hit.
+    monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    with pytest.raises(ValueError, match="TOGETHER_API_KEY"):
+        c._client()
+
+
+def test_live_client_construction_fails_fast_with_blank_together_api_key(monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_KEY", "   ")
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    with pytest.raises(ValueError, match="TOGETHER_API_KEY"):
+        c._client()
+
+
+def test_dry_run_paths_never_hit_the_together_api_key_guard(monkeypatch):
+    # dry_run paths must remain unaffected: complete() returns canned output without ever
+    # calling _client(), so a missing/blank key never surfaces.
+    monkeypatch.delenv("TOGETHER_API_KEY", raising=False)
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    out = c.complete(MSGS, "m", 0.1, 1, 64, kind="oracle")
+    assert "DRY RUN" in out or out in ("YES", "NO", "NOT ADDRESSED")
+
+
 def test_accounting_and_cap_abort():
     reservation = ac._estimate_tokens(MSGS, 64) / 1_000_000 * 1.04
     actual = 150 / 1_000_000 * 1.04

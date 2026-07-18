@@ -53,6 +53,53 @@ DEFAULT_PROMPT_BUNDLE_RELATIVE_PATH = Path("rejudge/phase2_prompt_bundle.json")
 DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
     "rejudge/phase2_provider_price_snapshot_2026-07-18.json")
 DEFAULT_UV_LOCK_RELATIVE_PATH = Path("uv.lock")
+DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
+    "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
+
+# --- prompt-bundle owner-methods-approval artifact: frozen literal bindings ---------------------
+#
+# Per the frozen governance, the candidate prompt bundle itself never changes status (it stays
+# ``candidate_pending_owner_methods_review`` forever). The owner's 2026-07-18 methods-review
+# approval instead lives ONLY in a separate, append-only external artifact that binds the
+# bundle's observed canonical hash. That artifact never itself claims execution authority
+# (``execution_authorized`` is always literally ``false`` inside it); it only ever establishes
+# that the literal wording was reviewed and accepted. Every literal below is frozen from the
+# real, already-committed artifact at ``rejudge/phase2_prompt_bundle_approval_2026-07-18.json``.
+PROMPT_BUNDLE_APPROVAL_SCHEMA_VERSION = "phase2_prompt_bundle_owner_approval_v1"
+PROMPT_BUNDLE_APPROVAL_ID = "phase2_prompt_bundle_methods_approval_2026-07-18"
+PROMPT_BUNDLE_APPROVAL_APPROVER = "Jack Maiorino"
+PROMPT_BUNDLE_APPROVAL_CHANNEL = (
+    "direct chat approval to the assistant session, recorded same day")
+PROMPT_BUNDLE_APPROVAL_NOTE = (
+    "Owner methods approval of the candidate bundle wording only. This record is append-only "
+    "and grants no execution authority: paid stages still require their own execution "
+    "manifests binding this bundle's canonical hash plus separate stage spend authorizations "
+    "under the frozen transition model."
+)
+PROMPT_BUNDLE_APPROVAL_SCOPE: tuple[str, ...] = (
+    "candidate literal wording of all 17 template families",
+    "checker reply-token alignment to the query-gate parser vocabulary (allow/reject/unresolved)",
+    "legacy template replaced with byte-exact pilot judge prompts from experiment_protocol.json",
+    "condition_composition map binding each frozen protocol condition to exact template families",
+    "honest-only 400-word continuity asymmetry preserved unnormalized",
+)
+PROMPT_BUNDLE_APPROVAL_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version",
+    "approval_id",
+    "protocol_id",
+    "approved_bundle_tracked_path",
+    "approved_bundle_canonical_sha256",
+    "approved_bundle_commit",
+    "scope",
+    "approver",
+    "approved_at_utc",
+    "approval_channel",
+    "execution_authorized",
+    "note",
+})
+_APPROVED_BUNDLE_COMMIT_MIN_LEN = 7
+_APPROVED_BUNDLE_COMMIT_MAX_LEN = 40
+_HEX_DIGITS = frozenset("0123456789abcdef")
 
 MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "schema_version",
@@ -62,7 +109,9 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "combined_ai_audit_canonical_sha256",
     "question_bank_bundle_sha256",
     "prompt_bundle_canonical_sha256",
-    "prompt_bundle_approval_status",
+    "prompt_bundle_declared_status",
+    "prompt_bundle_approval_tracked_path",
+    "prompt_bundle_approval_canonical_sha256",
     "per_model_role_limits_artifact",
     "provider_request_fields_artifact",
     "provider_price_snapshot_canonical_sha256",
@@ -75,6 +124,9 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "provider_call_inventory",
     "stage_cap_usd",
     "cumulative_cap_usd",
+    "cost_forecast",
+    "storage_policy",
+    "provider_reconciliation_evidence",
 })
 
 EXPECTED_CALL_ENTRY_KEYS: frozenset[str] = frozenset({
@@ -97,6 +149,8 @@ AUTHORIZATION_KEYS: frozenset[str] = frozenset({
     "cumulative_cap_usd",
     "approver",
     "approved_at_utc",
+    "approval_basis_tracked_path",
+    "approval_basis_sha256",
 })
 
 _TERMINAL_LEDGER_STATUSES: frozenset[str] = frozenset({
@@ -242,13 +296,83 @@ def _load_json_object(
     return payload
 
 
-def _raw_file_sha256(path: Path) -> str:
+def _raw_file_sha256(
+    path: Path, error_cls: type[Phase2ExecutionError] = ManifestValidationError,
+) -> str:
     """Hash raw file bytes. Never interchange with :func:`canonical_sha256`."""
     try:
         data = path.read_bytes()
     except OSError as exc:
-        raise ManifestValidationError(f"could not read {path}: {exc}") from exc
+        raise error_cls(f"could not read {path}: {exc}") from exc
     return hashlib.sha256(data).hexdigest()
+
+
+def _resolve_bound_path(
+    root: Path, path_value: str, label: str,
+    error_cls: type[Phase2ExecutionError] = ManifestValidationError,
+    *, allow_absolute: bool = True,
+) -> Path:
+    """Resolve a manifest- or artifact-declared path, blocking relative-path traversal.
+
+    A *relative* ``path_value`` must resolve inside ``root``; a ``..``-laden relative path
+    that would otherwise escape the intended base directory fails closed instead. An
+    *absolute* ``path_value`` is, by default, honored verbatim: several artifact bindings in
+    this module (per-model role limits, provider request fields, satisfied-prerequisite
+    waivers, the authorization approval basis) are deliberately bound from outside the
+    tracked repository -- e.g. materialization-pending tmp copies -- and that established,
+    intentional pattern is preserved here rather than silently narrowed. Callers that freeze
+    a binding as always repository-relative (see :func:`_bind_json_artifact_checked`) must
+    pass ``allow_absolute=False`` so an absolute ``path_value`` -- which would otherwise
+    bypass the containment check entirely -- fails closed instead.
+    """
+    candidate = Path(path_value)
+    if candidate.is_absolute():
+        if not allow_absolute:
+            raise error_cls(
+                f"{label} must be a path relative to project_root, not absolute: "
+                f"{path_value!r}")
+        return candidate
+    root_resolved = root.resolve()
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError:
+        raise error_cls(f"{label} escapes the repository root: {path_value!r}") from None
+    return resolved
+
+
+def _bind_json_artifact_checked(root: Path, entry: Any, label: str) -> str:
+    """Like :func:`_bind_json_artifact`, additionally blocking relative-path traversal.
+
+    Used for artifact bindings that this module freezes as always relative to a
+    repository-style ``root`` (unlike the older, deliberately-anywhere artifact bindings
+    that predate this check): missing file, hash mismatch, an absolute path, or a relative
+    path that escapes ``root`` all fail closed.
+    """
+    mapping = _mapping(entry, label)
+    path_value = _string(mapping.get("path"), f"{label}.path")
+    _resolve_bound_path(root, path_value, f"{label}.path", allow_absolute=False)
+    return _bind_json_artifact(root, entry, label)
+
+
+def _load_strict_json_object(
+    path: Path, error_cls: type[Phase2ExecutionError] = ManifestValidationError,
+) -> dict[str, Any]:
+    """Strictly parse a JSON object artifact: no duplicate keys, no NaN/Infinity."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise error_cls(f"could not read {path}: {exc}") from exc
+    try:
+        payload = json.loads(
+            text, object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_non_finite_constant,
+        )
+    except json.JSONDecodeError as exc:
+        raise error_cls(f"{path} is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise error_cls(f"{path} must contain a JSON object")
+    return payload
 
 
 def _bind_json_artifact(root: Path, entry: Any, label: str) -> str:
@@ -288,7 +412,8 @@ def build_execution_identity(
     combined_ai_audit_canonical_sha256: str,
     question_bank_bundle_sha256: str,
     prompt_bundle_canonical_sha256: str,
-    prompt_bundle_approval_status: str,
+    prompt_bundle_declared_status: str,
+    prompt_bundle_approval_artifact: Mapping[str, str],
     per_model_role_limits_artifact: Mapping[str, str],
     provider_request_fields_artifact: Mapping[str, str],
     provider_price_snapshot_canonical_sha256: str,
@@ -301,6 +426,9 @@ def build_execution_identity(
     provider_call_inventory_entries: Sequence[Mapping[str, Any]],
     stage_cap_usd: float,
     cumulative_cap_usd: float,
+    cost_forecast: Mapping[str, str],
+    storage_policy: Mapping[str, str],
+    provider_reconciliation_evidence: Mapping[str, str],
 ) -> dict[str, Any]:
     """Assemble the execution-identity dict from already-verified pieces.
 
@@ -325,7 +453,8 @@ def build_execution_identity(
         "combined_ai_audit_canonical_sha256": combined_ai_audit_canonical_sha256,
         "question_bank_bundle_sha256": question_bank_bundle_sha256,
         "prompt_bundle_canonical_sha256": prompt_bundle_canonical_sha256,
-        "prompt_bundle_approval_status": prompt_bundle_approval_status,
+        "prompt_bundle_declared_status": prompt_bundle_declared_status,
+        "prompt_bundle_approval_artifact": dict(prompt_bundle_approval_artifact),
         "per_model_role_limits_artifact": dict(per_model_role_limits_artifact),
         "provider_request_fields_artifact": dict(provider_request_fields_artifact),
         "provider_price_snapshot_canonical_sha256": provider_price_snapshot_canonical_sha256,
@@ -346,6 +475,9 @@ def build_execution_identity(
         },
         "stage_cap_usd": stage_cap_usd,
         "cumulative_cap_usd": cumulative_cap_usd,
+        "cost_forecast": dict(cost_forecast),
+        "storage_policy": dict(storage_policy),
+        "provider_reconciliation_evidence": dict(provider_reconciliation_evidence),
     }
 
 
@@ -376,17 +508,19 @@ def derive_execution_call_key(
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Shared strict-JSON ``object_pairs_hook``: used for both the execution manifest and
+    every artifact this module parses with :func:`_load_strict_json_object`."""
     seen: dict[str, Any] = {}
     for key, value in pairs:
         if key in seen:
-            raise ManifestValidationError(f"duplicate key in execution manifest JSON: {key!r}")
+            raise ManifestValidationError(f"duplicate key in JSON: {key!r}")
         seen[key] = value
     return seen
 
 
 def _reject_non_finite_constant(constant: str) -> float:
-    raise ManifestValidationError(
-        f"execution manifest JSON contains a non-finite constant: {constant}")
+    """Shared strict-JSON ``parse_constant`` hook; see :func:`_reject_duplicate_keys`."""
+    raise ManifestValidationError(f"JSON contains a non-finite constant: {constant}")
 
 
 def load_execution_manifest(path: str | Path) -> dict[str, Any]:
@@ -409,6 +543,131 @@ def load_execution_manifest(path: str | Path) -> dict[str, Any]:
     return manifest
 
 
+# --- prompt-bundle owner-methods-approval artifact ----------------------------------------------
+
+
+def _validate_prompt_bundle_approval(
+    manifest: Mapping[str, Any], *, root: Path, protocol: Mapping[str, Any],
+    observed_bundle_sha: str,
+) -> tuple[str, str]:
+    """Load, strictly parse, and fully validate the bound owner-methods-approval artifact.
+
+    This never grants execution authority by itself (the artifact's own
+    ``execution_authorized`` field is required to be literally ``false``): it only
+    establishes that a specific, append-only, human-approved record binds the exact
+    candidate bundle content currently loaded. Every check is independent and fails closed
+    with :class:`ManifestValidationError`. Returns ``(tracked_path, observed_sha256)`` for
+    the caller to bind into the non-circular execution identity.
+    """
+    tracked_path = _string(
+        manifest.get("prompt_bundle_approval_tracked_path"),
+        "prompt_bundle_approval_tracked_path")
+    declared_sha = _sha256_hex(
+        manifest.get("prompt_bundle_approval_canonical_sha256"),
+        "prompt_bundle_approval_canonical_sha256")
+
+    approval_path = _resolve_bound_path(
+        root, tracked_path, "prompt_bundle_approval_tracked_path")
+
+    # The owner-methods-approval artifact is not a materialization-pending, bind-from-anywhere
+    # artifact like per_model_role_limits/provider_request_fields: per this module's own header
+    # guarantee, it lives ONLY at the real, already-committed, git-tracked path. Pin the bound
+    # location to that frozen path (as an absolute-path comparison, so a relative path that
+    # resolves to the same file under a different spelling still matches) rather than trusting
+    # whatever path the manifest names -- otherwise a manifest could bind a self-authored,
+    # never-committed copy that happens to satisfy every content check below.
+    expected_approval_path = (root / DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH).resolve()
+    if approval_path.resolve() != expected_approval_path:
+        raise ManifestValidationError(
+            "prompt_bundle_approval_tracked_path must resolve to the frozen, git-tracked "
+            f"approval artifact at {DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH.as_posix()!r} "
+            f"under project_root; got {tracked_path!r}")
+
+    if not approval_path.is_file():
+        raise ManifestValidationError(
+            f"prompt_bundle_approval_tracked_path artifact is missing: {approval_path}")
+    approval = _load_strict_json_object(approval_path)
+    _exact_keys(
+        approval, PROMPT_BUNDLE_APPROVAL_TOP_LEVEL_KEYS, "prompt bundle approval artifact")
+
+    if approval.get("schema_version") != PROMPT_BUNDLE_APPROVAL_SCHEMA_VERSION:
+        raise ManifestValidationError("prompt bundle approval schema_version drifted")
+    if approval.get("approval_id") != PROMPT_BUNDLE_APPROVAL_ID:
+        raise ManifestValidationError("prompt bundle approval approval_id drifted")
+
+    frozen_protocol_id = _string(protocol.get("protocol_id"), "frozen protocol protocol_id")
+    if approval.get("protocol_id") != frozen_protocol_id:
+        raise ManifestValidationError(
+            "prompt bundle approval protocol_id disagrees with the frozen protocol bound "
+            "into this manifest")
+
+    expected_bundle_tracked_path = DEFAULT_PROMPT_BUNDLE_RELATIVE_PATH.as_posix()
+    approved_bundle_tracked_path = _string(
+        approval.get("approved_bundle_tracked_path"),
+        "prompt bundle approval approved_bundle_tracked_path")
+    if approved_bundle_tracked_path != expected_bundle_tracked_path:
+        raise ManifestValidationError(
+            "prompt bundle approval approved_bundle_tracked_path drifted from "
+            f"{expected_bundle_tracked_path!r}")
+    _resolve_bound_path(
+        root, approved_bundle_tracked_path,
+        "prompt bundle approval approved_bundle_tracked_path")
+
+    approved_bundle_sha = _sha256_hex(
+        approval.get("approved_bundle_canonical_sha256"),
+        "prompt bundle approval approved_bundle_canonical_sha256")
+    if approved_bundle_sha != observed_bundle_sha:
+        raise ManifestValidationError(
+            "prompt bundle approval approved_bundle_canonical_sha256 does not match the "
+            "bound prompt bundle's recomputed canonical hash: approval bound "
+            f"{approved_bundle_sha}, observed {observed_bundle_sha}")
+
+    approved_bundle_commit = approval.get("approved_bundle_commit")
+    if (
+        not isinstance(approved_bundle_commit, str)
+        or not (_APPROVED_BUNDLE_COMMIT_MIN_LEN
+                <= len(approved_bundle_commit) <= _APPROVED_BUNDLE_COMMIT_MAX_LEN)
+        or any(ch not in _HEX_DIGITS for ch in approved_bundle_commit)
+    ):
+        raise ManifestValidationError(
+            "prompt bundle approval approved_bundle_commit must be lowercase hexadecimal, "
+            f"{_APPROVED_BUNDLE_COMMIT_MIN_LEN}-{_APPROVED_BUNDLE_COMMIT_MAX_LEN} characters "
+            "(provenance only; the canonical content hash above is authoritative)")
+
+    scope = approval.get("scope")
+    if (
+        not isinstance(scope, list)
+        or not all(isinstance(item, str) for item in scope)
+        or tuple(scope) != PROMPT_BUNDLE_APPROVAL_SCOPE
+    ):
+        raise ManifestValidationError("prompt bundle approval scope drifted")
+
+    if approval.get("approver") != PROMPT_BUNDLE_APPROVAL_APPROVER:
+        raise ManifestValidationError("prompt bundle approval approver drifted")
+
+    _parse_utc_timestamp(
+        approval.get("approved_at_utc"), "prompt bundle approval approved_at_utc")
+
+    if approval.get("approval_channel") != PROMPT_BUNDLE_APPROVAL_CHANNEL:
+        raise ManifestValidationError("prompt bundle approval approval_channel drifted")
+
+    if approval.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "prompt bundle approval execution_authorized must be exactly false: this "
+            "record grants methods approval only, never execution authority")
+
+    if approval.get("note") != PROMPT_BUNDLE_APPROVAL_NOTE:
+        raise ManifestValidationError("prompt bundle approval note drifted")
+
+    observed_approval_sha = canonical_sha256(approval)
+    if observed_approval_sha != declared_sha:
+        raise ManifestValidationError(
+            "prompt_bundle_approval_canonical_sha256 hash drift: manifest bound "
+            f"{declared_sha}, observed {observed_approval_sha}")
+
+    return tracked_path, observed_approval_sha
+
+
 # --- manifest validation -----------------------------------------------------------------------
 
 
@@ -426,11 +685,20 @@ def validate_execution_manifest(
     "capability_preflight"`` is supported; ``gemma_recovery_or_waiver``, ``canary``, and
     ``main`` raise :class:`UnsupportedStageError` unconditionally.
 
+    The bound prompt bundle's owner-methods-approval artifact (a separate, append-only
+    external record; see :func:`_validate_prompt_bundle_approval`) is always fully validated,
+    regardless of ``require_authorized``: a manifest whose bundle is still
+    ``candidate_pending_owner_methods_review`` -- the bundle file itself never changes status
+    under the frozen governance -- can only pass structural validation at all once a valid
+    approval artifact binds the bundle's exact observed canonical hash. That approval artifact
+    never itself claims execution authority (its own ``execution_authorized`` field is always
+    literally ``false``); it only ever establishes that the literal wording was reviewed.
+
     When ``require_authorized`` is true, a matching :class:`authorization record
-    <ExecutionAuthorityError>` (identity hash, stage, and both caps must match exactly) is
-    required, and a bound prompt bundle that is still ``candidate_pending_owner_methods_review``
-    is refused: candidate wording can never be executed. Without ``require_authorized``, the
-    manifest can be inspected/reviewed even while its bound bundle remains a candidate.
+    <ExecutionAuthorityError>` (identity hash, stage, both caps, and a resolvable,
+    hash-matching ``approval_basis`` must match/resolve exactly) is additionally required.
+    Without ``require_authorized``, the manifest can still be inspected/reviewed as long as
+    its approval-artifact binding is itself valid.
     """
     root = Path(project_root)
     manifest = _mapping(manifest, "execution manifest")
@@ -502,10 +770,14 @@ def validate_execution_manifest(
     observed_bundle_sha = canonical_sha256(bundle)
     _check_bound_hash(manifest, "prompt_bundle_canonical_sha256", observed_bundle_sha)
     bundle_status = _string(bundle.get("status"), "bound prompt bundle status")
-    if manifest.get("prompt_bundle_approval_status") != bundle_status:
+    if manifest.get("prompt_bundle_declared_status") != bundle_status:
         raise ManifestValidationError(
-            "prompt_bundle_approval_status disagrees with the bound bundle's own status")
-    bundle_is_candidate = bundle_status == prompt_bundle.STATUS
+            "prompt_bundle_declared_status disagrees with the bound bundle's own status")
+
+    # --- owner methods-review approval of the (still-candidate) bundle wording, always ---
+    # --- fully validated: an append-only external record, never itself an authorization ---
+    approval_tracked_path, observed_approval_sha = _validate_prompt_bundle_approval(
+        manifest, root=root, protocol=protocol, observed_bundle_sha=observed_bundle_sha)
 
     # --- per-model/per-role output limits + provider request-field artifacts ---
     per_model_role_limits_artifact = _mapping(
@@ -515,6 +787,16 @@ def validate_execution_manifest(
         manifest.get("provider_request_fields_artifact"), "provider_request_fields_artifact")
     _bind_json_artifact(
         root, provider_request_fields_artifact, "provider_request_fields_artifact")
+
+    # --- preflight cost forecast, durable storage policy, provider reconciliation evidence ---
+    cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
+    _bind_json_artifact_checked(root, cost_forecast_binding, "cost_forecast")
+    storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
+    _bind_json_artifact_checked(root, storage_policy_binding, "storage_policy")
+    provider_reconciliation_evidence_binding = _mapping(
+        manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
+    _bind_json_artifact_checked(
+        root, provider_reconciliation_evidence_binding, "provider_reconciliation_evidence")
 
     # --- current provider price snapshot ---
     try:
@@ -671,7 +953,11 @@ def validate_execution_manifest(
         combined_ai_audit_canonical_sha256=observed_combined_sha,
         question_bank_bundle_sha256=bound_bundle_sha,
         prompt_bundle_canonical_sha256=observed_bundle_sha,
-        prompt_bundle_approval_status=bundle_status,
+        prompt_bundle_declared_status=bundle_status,
+        prompt_bundle_approval_artifact={
+            "tracked_path": str(approval_tracked_path),
+            "sha256": str(observed_approval_sha),
+        },
         per_model_role_limits_artifact={
             "path": str(per_model_role_limits_artifact["path"]),
             "sha256": str(per_model_role_limits_artifact["sha256"]),
@@ -690,6 +976,18 @@ def validate_execution_manifest(
         provider_call_inventory_entries=normalized_entries,
         stage_cap_usd=stage_cap_usd,
         cumulative_cap_usd=cumulative_cap_usd,
+        cost_forecast={
+            "path": str(cost_forecast_binding["path"]),
+            "sha256": str(cost_forecast_binding["sha256"]),
+        },
+        storage_policy={
+            "path": str(storage_policy_binding["path"]),
+            "sha256": str(storage_policy_binding["sha256"]),
+        },
+        provider_reconciliation_evidence={
+            "path": str(provider_reconciliation_evidence_binding["path"]),
+            "sha256": str(provider_reconciliation_evidence_binding["sha256"]),
+        },
     )
     execution_identity_sha256 = derive_execution_identity_sha256(identity)
 
@@ -741,6 +1039,14 @@ def validate_execution_manifest(
             authorization_mapping.get("approved_at_utc"), "authorization.approved_at_utc",
             ExecutionAuthorityError,
         )
+        approval_basis_tracked_path = _string(
+            authorization_mapping.get("approval_basis_tracked_path"),
+            "authorization.approval_basis_tracked_path", ExecutionAuthorityError,
+        )
+        approval_basis_sha256 = _sha256_hex(
+            authorization_mapping.get("approval_basis_sha256"),
+            "authorization.approval_basis_sha256", ExecutionAuthorityError,
+        )
 
         if auth_identity != execution_identity_sha256:
             raise ExecutionAuthorityError(
@@ -752,10 +1058,24 @@ def validate_execution_manifest(
             raise ExecutionAuthorityError(
                 "authorization caps do not match this manifest's caps")
 
-        if bundle_is_candidate:
+        # --- approval basis: a resolvable, hash-matching (RAW-file) record distinguishing ---
+        # --- the owner's conditional policy approval from review of a final execution ---
+        # --- identity. Deliberately RAW file hashing (the basis may be markdown), never ---
+        # --- canonical-JSON: keep this contract distinct from every canonical-JSON binding. ---
+        approval_basis_path = _resolve_bound_path(
+            root, approval_basis_tracked_path, "authorization.approval_basis_tracked_path",
+            ExecutionAuthorityError,
+        )
+        if not approval_basis_path.is_file():
             raise ExecutionAuthorityError(
-                f"the bound prompt bundle status is {prompt_bundle.STATUS!r}; candidate "
-                "bundles cannot be executed")
+                "authorization.approval_basis_tracked_path artifact is missing: "
+                f"{approval_basis_path}")
+        observed_approval_basis_sha256 = _raw_file_sha256(
+            approval_basis_path, ExecutionAuthorityError)
+        if observed_approval_basis_sha256 != approval_basis_sha256:
+            raise ExecutionAuthorityError(
+                "authorization.approval_basis_sha256 hash drift: authorization bound "
+                f"{approval_basis_sha256}, observed {observed_approval_basis_sha256}")
 
         authorized = True
         validated_authorization = dict(authorization_mapping)
