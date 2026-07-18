@@ -213,6 +213,36 @@ the entire canary.
 11. Materialize and separately authorize the small canary after capability preflight closes.
 12. After canary review, materialize and separately authorize the main-run manifest.
 
+## Materialization progress log
+
+**2026-07-18 (offline, $0, no provider calls):** five artifacts landed on `rerun-new-models`
+advancing requirements 2, 3, 4, and 6. No numbered gate is fully closed by this entry.
+
+- `rejudge/phase2_query_gate.py`: offline query gate implementing the frozen one-free-retry
+  policy with strict checker parsing (`allow`/`reject`/`unresolved`), fail-closed
+  malformed/outage/unresolved halts, and immutable audit events.
+- `rejudge/phase2_provider_price_snapshot.py` plus
+  `phase2_provider_price_snapshot_2026-07-18.json`: public Together catalog snapshot binding the
+  frozen roster and prices (canonical sha `4f8eecf63dd1eff5...`); public-catalog evidence only,
+  account reconciliation still open.
+- `rejudge/phase2_prompt_bundle.json` (candidate, canonical sha `cc02d29cfc8e7410...`), amended
+  before owner methods review: checker reply tokens aligned to the gate parser vocabulary, the
+  legacy template replaced with byte-exact pilot judge prompts from `experiment_protocol.json`,
+  and an explicit condition-to-template composition map added.
+- `rejudge/phase2_prompt_bundle.py`: fail-closed bundle validator (literal payload and provenance
+  bindings, truth-neutrality information boundaries, sentinel rendering, composition-map
+  validation driven by the frozen protocol's own condition attributes).
+- `rejudge/phase2_execution.py`: inert execution control plane; validates
+  `phase2_execution_manifest_v1` identities by rehashing every bound artifact, requires a
+  separate append-only authorization record, derives non-circular call keys, and audits resumes
+  (a charge without its durable output blocks reconciliation and is never replayed). Capability
+  preflight is the only supported stage; canary, main, and Gemma recovery are refused.
+
+Verification at this checkpoint: 688 tests passing, type check clean, both artifact CLI checks
+verify, and no new module imports a provider SDK. The blocking review ask is now the owner
+methods review of the candidate bundle wording, including the two amendments and the
+composition map.
+
 ## Signatures
 
 - Design defaults approved: **YES**
