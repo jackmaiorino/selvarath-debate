@@ -1,0 +1,52 @@
+{
+  "schema_version": "phase2_provider_price_snapshot_v1",
+  "status": "public_catalog_verified_pending_account_reconciliation",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-18T12:31:29Z",
+  "source": {
+    "catalog_section": "Serverless models / Chat models",
+    "url": "https://docs.together.ai/docs/serverless/models"
+  },
+  "scope": {
+    "claim": "Each frozen Phase 2 roster model ID was listed in Together's public serverless chat-model catalog at verification time, and its standard input/output prices matched rejudge/phase2_protocol.json.",
+    "does_not_establish": [
+      "account-specific access or capacity",
+      "successful completion behavior",
+      "provider backend stability",
+      "account usage or credit reconciliation",
+      "authorization to make a provider call"
+    ]
+  },
+  "models": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "context_length_tokens": 32768,
+      "input_usd_per_million_tokens": 0.3,
+      "output_usd_per_million_tokens": 0.3
+    },
+    "Qwen/Qwen3.7-Plus": {
+      "context_length_tokens": 1000000,
+      "input_usd_per_million_tokens": 0.32,
+      "output_usd_per_million_tokens": 1.28
+    },
+    "google/gemma-4-31B-it": {
+      "context_length_tokens": 262144,
+      "input_usd_per_million_tokens": 0.39,
+      "output_usd_per_million_tokens": 0.97
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "context_length_tokens": 131072,
+      "input_usd_per_million_tokens": 1.04,
+      "output_usd_per_million_tokens": 1.04
+    },
+    "openai/gpt-oss-120b": {
+      "context_length_tokens": 128000,
+      "input_usd_per_million_tokens": 0.15,
+      "output_usd_per_million_tokens": 0.6
+    }
+  },
+  "comparison_to_frozen_design": {
+    "base_protocol_path": "rejudge/phase2_protocol.json",
+    "all_five_model_ids_listed": true,
+    "all_standard_input_output_prices_match": true
+  }
+}
