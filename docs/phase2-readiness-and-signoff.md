@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-07-15
 
-**Updated:** 2026-07-17
+**Updated:** 2026-07-18
 
 **Current gate:** **BLOCKED — approved design pending materialization**
 
@@ -29,9 +29,12 @@ authorization.
   full-document gold-context anchors.
 - **Legacy bridge:** dropped; quantitative old-versus-new cohort comparison is prohibited.
 - **Financial interpretation:** $1,500 is the incremental Phase 2 hard ceiling.
-- **Capability-preflight spend authorized:** **NO**
+- **Capability-preflight spend authorized:** **NO** (superseded 2026-07-18: see Approvals recorded 2026-07-18)
 - **Canary spend authorized:** **NO**
 - **Main-run spend authorized:** **NO**
+
+The three NO entries above record the 2026-07-16 approval event as it happened; the
+2026-07-18 section below records the later policy approvals without rewriting this history.
 
 The machine protocol remains `approved_design_pending_materialization`, publicly committed/frozen,
 and never itself executable. Amendment A1 is an append-only pre-outcome provenance change. The exact
@@ -157,11 +160,11 @@ halts rather than replays.
 | Scientific scope | H/P/R, capability QA, C/D, optional arms, and legacy disposition approved | Materialize and hash final artifacts |
 | Main inventory | 23,200 offline planning cells enumerated and tested; 1,060 are pre-canary capability QA | Materialize executable stage manifests and empirical top-anchor model |
 | Cost model | Deterministic call inventory plus a clearly labeled empirical dollar band, dashboard balance, working budget, and ceiling | Freeze role-token profiles and prices; reconcile the provider usage ledger |
-| Gemma completeness | Recovery of exact 11 cells selected; proposed cap $2 | Separate spend authorization and manifested run |
+| Gemma completeness | Recovery of exact 11 cells selected; spend approved 2026-07-18, cap $2 | Durable storage and provider reconciliation, then a freshly manifested supplement run (never reusing the historical output directory) |
 | Query enforcement | Contract, symmetric clean/placebo scope, retry, failure, and audit policies approved | Frozen checker/prompt, validation set/threshold, named validator/auditor |
 | Resolvability | Source-bound 106-row AI audit complete under owner-approved pre-outcome Amendment A1; all mappings confirmed at 6/41/59, with semantic concerns frozen separately | Bind the base protocol, A1, and combined audit hashes in every execution manifest; semantic annotations cannot relabel, filter, exclude, or reweight questions |
 | Execution semantics | Temperatures, seeds/sides, retry semantics, placebo, batch, and no-debate policies approved | Prompt bundle, per-model role limits, provider pins and hashes |
-| Capability preflight | Five models x 106 questions x K=2 approved; proposed cap $15 | Freeze QA prompt/settings, separate manifest and spend approval, then select anchor |
+| Capability preflight | Five models x 106 questions x K=2 approved; policy spend approval granted 2026-07-18, cap $15 | Freeze QA settings/limits, preflight cost forecast, storage, reconciliation, exact manifest, then Jack's binding approval of the final execution-identity hash before any call |
 | Canary | Questions, six-question stratum, gates, and halt rule approved | Select anchor, create exact executable manifest, exercise checker outcomes, separate spend approval |
 | Runner | Existing clients/manifests/accounting are hardened | No executable Phase 2 orchestrator yet; implement and test offline |
 | Storage | Local artifact inventory exists | Versioned retrieval destination/policy and backup owner |
@@ -207,9 +210,11 @@ the entire canary.
 7. **Complete:** commit and publish the immutable design/cost package.
 8. **Complete (2026-07-18):** post the before-launch Manifund update before any call from the
    approved 23,200-cell plan.
-9. Recover or separately waive the 11 Gemma cells; rerun calibration analysis.
-10. Create the capability-preflight execution manifest; obtain its separate <=$15 authorization,
-    run the 1,060 QA cells, and freeze the selected top full-document anchor.
+9. Recover or separately waive the 11 Gemma cells; rerun calibration analysis. (Spend approved
+   2026-07-18, cap $2; blocked on durable storage and provider reconciliation.)
+10. Create the capability-preflight execution manifest; policy authorization <=$15 granted
+    2026-07-18, with Jack's binding approval of the final execution-identity hash still required;
+    run the 1,060 QA cells and freeze the selected top full-document anchor.
 11. Materialize and separately authorize the small canary after capability preflight closes.
 12. After canary review, materialize and separately authorize the main-run manifest.
 
@@ -258,14 +263,19 @@ Jack Maiorino approved, by direct chat approval recorded at 2026-07-18T14:32:24Z
   remaining offline prerequisites (per-model role limits, token-profile cost forecast replacing
   the provisional band, durable storage, credential rotation, provider reconciliation) and its
   execution manifest before any call.
-- **Canary and main run: approved in principle.** Binding authorization remains deferred to each
-  stage's execution manifest under the frozen transition model, because neither stage can be
-  materialized before the capability preflight closes and its anchor is selected; the
-  ceiling-and-caps structure ($1,500 incremental hard ceiling) is unchanged.
+- **Canary and main run:** design, sequencing, and the project-wide $1,500 incremental ceiling
+  were endorsed in principle. Stage execution authorization remains NO pending the exact stage
+  manifest and completion of preceding gates; neither stage can be materialized before the
+  capability preflight closes and its anchor is selected.
 - **Push of the 2026-07-18 offline checkpoint commits to the public fork: APPROVED.**
 
 Chat approvals authorize recording these decisions; every paid call still requires its stage
 manifest, bound caps, and the fail-closed control-plane path before execution.
+
+**Provider-contact log:** as of 2026-07-18, no paid experimental calls have been made in Phase 2.
+One zero-cost authenticated `GET /v1/models` catalog request occurred on 2026-07-18 to verify the
+rotated credential; the "no provider calls" wording in the materialization progress entry applies
+to that artifact checkpoint, not to this verification request.
 
 ## Signatures
 
