@@ -1,0 +1,227 @@
+{
+  "candidate_models": {
+    "checker_prompt": {
+      "bound_via": "rejudge.phase2_prompt_bundle.load_and_validate + rejudge.phase2_plan.canonical_sha256",
+      "prompt_bundle_canonical_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+      "prompt_bundle_id": "phase2_pooled_hpr_2026_07_16_prompt_candidate_v1",
+      "prompt_bundle_status": "candidate_pending_owner_methods_review",
+      "query_checker_template_canonical_sha256": "4baad7d33b2640e3d3f07a3e02d11032cfb8ae423edb2d0e29e2dffe77b53dca",
+      "source": "rejudge/phase2_prompt_bundle.json#/templates/query_checker",
+      "system_prompt": "You enforce an oracle-query contract. Classify only whether the proposed query is a single atomic factual claim about a fictional-world source. Reject candidate-selection queries, candidate restatements, compound claims, and meta or evaluative claims. Do not answer the query and do not select between the candidates. If the classification cannot be made unambiguously, return unresolved.",
+      "user_prompt_template": "CANDIDATE A:\n{candidate_a}\n\nCANDIDATE B:\n{candidate_b}\n\nPROPOSED QUERY:\n{query}\n\nRespond with exactly one token: allow, reject, or unresolved."
+    },
+    "pool": [
+      "Qwen/Qwen2.5-7B-Instruct-Turbo",
+      "google/gemma-4-31B-it",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "openai/gpt-oss-120b"
+    ],
+    "temperature": 0
+  },
+  "checker_gates": {
+    "description": "Every candidate must pass ALL gates below to be eligible for selection.",
+    "gates": [
+      {
+        "id": "parseable",
+        "rule": "100% parseable exact output tokens (allow/reject/unresolved, lower-case, nothing else)"
+      },
+      {
+        "id": "allow_recall",
+        "rule": ">=95% exact allow on human-allow items"
+      },
+      {
+        "id": "reject_recall",
+        "rule": ">=95% exact reject on human-reject items"
+      },
+      {
+        "id": "unresolved_recall",
+        "rule": ">=90% exact unresolved on human-unresolved items"
+      },
+      {
+        "id": "zero_false_allow",
+        "rule": "ZERO allow outputs on any human reject or unresolved item"
+      }
+    ],
+    "halt_rule": "If every candidate fails, halt (no model is selected; no checker call is authorized).",
+    "reporting": "real and synthetic subsets of the primary set are reported separately for every gate"
+  },
+  "execution_authorized": false,
+  "frozen_at": "2026-07-18",
+  "label_minimums": {
+    "primary_set": {
+      "allow": 100,
+      "reject": 60,
+      "unresolved": 20
+    },
+    "top_up_rule": "If the initial primary sample misses a minimum after labeling, draw replacements from the frozen ordered reserve pool (rejudge/phase2_checker_reserve_pool_2026-07-18.json) by its pre-frozen order (world_stratified_round_robin, ascending item_id within each world's round). Verbatim rule: replacements are always drawn in the reserve pool's frozen order, never re-ordered or cherry-picked to hit a minimum faster."
+  },
+  "label_taxonomy": {
+    "semantics": {
+      "allow": "human judges the query an atomic, checkable, non-prohibited factual claim",
+      "reject": "human judges the query prohibited under docs/oracle-query-contract.md",
+      "unresolved": "human cannot make the allow/reject call unambiguously; distinct from reject -- at runtime CheckerDecision.UNRESOLVED halts the cell rather than being treated as a rejection"
+    },
+    "values": [
+      "allow",
+      "reject",
+      "unresolved"
+    ]
+  },
+  "labeler": {
+    "bound_via": "rejudge/phase2_external_assignments_2026-07-18.json#/query_checker_validator",
+    "primary_validator": "Jack Maiorino",
+    "second_auditor": null,
+    "second_auditor_policy": "A second named human should audit every reject/unresolved label and a deterministic 20% of allows. If unavailable, the artifact records this as a single-owner normative label set rather than independent human consensus. The auditor slot is left null for now."
+  },
+  "note": "Implements the oracle-frozen query-checker validation design exactly as specified, with one reported (not silently patched) infeasibility: see regression_set.frozen_design_vs_actual below.",
+  "protocol_id": "phase2_pooled_hpr_2026_07_16_v1",
+  "sampling": {
+    "determinism": "pure offline, no provider imports, no clock reads; stable sort keys and a seeded random.Random(0) for the world-stratified draw only; same-seed reruns of --build produce byte-identical output JSON",
+    "module": "rejudge/phase2_checker_sampling.py",
+    "primary_set": {
+      "canonical_sha256": "4e562106c02e65dbf9232950e688e4956879aabb81f0ac5004ab126e154ab38b",
+      "composition": {
+        "boundary_real": {
+          "heuristics": [
+            {
+              "description": "Candidate-overlap ratio (rejudge.query_overlap's exact 4+-letter-token rule, max over candidate_a/candidate_b) just below the 0.70 mechanical candidate_restatement threshold.",
+              "name": "overlap_near_threshold",
+              "ranking_rule": "descending by max-answer-overlap-ratio, tie-break ascending item_id; eligible pool is restricted to items already known to mechanically pass (ratio <= 0.70 is therefore guaranteed, not filtered separately)",
+              "selected": 8
+            },
+            {
+              "description": "Claim contains one or more of and/because/therefore (whole-word, case-insensitive) yet does not trip COMPOUND_CLAIM, because the mechanical compound check only fires on the inferential-connective pattern, the verb-and/but-verb second-clause pattern, a semicolon, or multiple sentence terminators -- a lone conjunction word in a single simple clause slips through.",
+              "name": "conjunction_words_no_trip",
+              "ranking_rule": "descending by count of and/because/therefore matches, tie-break ascending item_id; items scoring 0 are ineligible",
+              "selected": 8
+            },
+            {
+              "description": "Claim contains hedging/framing vocabulary adjacent to but outside the mechanical META_OR_EVALUATIVE word list (significant(ly), notable/notably, primarily, largely, substantially, arguably, clearly, obviously, seemingly, apparently, reportedly, allegedly, effectively, essentially).",
+              "name": "evaluative_adjacent_wording",
+              "ranking_rule": "descending by count of adjacent-vocabulary matches, tie-break ascending item_id; items scoring 0 are ineligible",
+              "selected": 8
+            },
+            {
+              "description": "Claim-covered-by-answer ratio: the fraction of the CLAIM's own distinct 4+-letter tokens that also appear in a candidate answer (max over candidate_a/candidate_b), the inverse denominator of the mechanical rule -- surfaces short claims built almost entirely from one answer's vocabulary even when they cover well under 70% of that (much longer) answer.",
+              "name": "near_paraphrase_of_candidate",
+              "ranking_rule": "descending by claim-covered-by-answer ratio, tie-break ascending item_id; items with an empty claim token set are ineligible",
+              "selected": 8
+            },
+            {
+              "description": "Claim contains pronoun/demonstrative referents (it, this, that, they, these, those, its, their) without naming their antecedent in the claim itself.",
+              "name": "ambiguous_referents",
+              "ranking_rule": "descending by count of pronoun matches, tie-break ascending item_id; items scoring 0 are ineligible",
+              "selected": 8
+            }
+          ],
+          "n": 40,
+          "per_heuristic": 8,
+          "selection_order_note": "heuristics are applied in the fixed listed order against a shrinking pool (items already used by the world-stratified draw or an earlier heuristic in this list are excluded), so no item is selected twice"
+        },
+        "synthetic": {
+          "categories": [
+            "compound_disguised_by_commas",
+            "meta_evaluative_perception_wording",
+            "candidate_restatement_paraphrase",
+            "answer_reference_oblique"
+          ],
+          "construction": "20 hand-authored pairs, one clearly-allowed claim and one subtle-violation twin per pair; every claim in every pair is verified at build time to PASS rejudge.query_screen (the build fails closed if any authored claim does not); world assignment is round-robin over sorted(WORLDS) giving carath_norn=7, selvarath=7, vethun_sarak=6 pairs; category assignment is 5 consecutive pairs per category in the fixed category order",
+          "n": 40,
+          "pairs": 20,
+          "world_grounding": "world_specs/carath_norn.txt, world_specs/selvarath.txt, world_specs/vethun_sarak.txt"
+        },
+        "world_stratified_real": {
+          "n": 120,
+          "per_world": 40,
+          "selection": "for each world in sorted(WORLDS), sort that world's mechanically-passing real items ascending by item_id, then draw 40 via random.Random(seed=0).sample(range(pool_size), 40) in the fixed world order (carath_norn, selvarath, vethun_sarak); selected items are stored sorted ascending by item_id"
+        }
+      },
+      "n": 200,
+      "path": "rejudge/phase2_checker_primary_set_2026-07-18.json"
+    },
+    "regression_set": {
+      "actual_counts": {
+        "answer_or_debate_reference": 36,
+        "candidate_restatement": 7,
+        "compound_claim": 4,
+        "meta_or_evaluative": 13,
+        "total": 60
+      },
+      "bucketing_rule": "Priority order candidate_restatement > meta_or_evaluative > answer_or_debate_reference > compound_claim overrides screen_query's own contract emission order so every item exhibiting the rarer two patterns is captured there even when it also exhibits answer_or_debate_reference. See bucket_reason() docstring.",
+      "canonical_sha256": "d9364d62469bbedb8fd65097f3d391ea9a73ce8a2ef0955317f63cce05d2c8ee",
+      "design_targets": {
+        "candidate_restatement": 8,
+        "meta_or_evaluative": 18
+      },
+      "frozen_design_vs_actual": {
+        "candidate_restatement_actual_available": 7,
+        "candidate_restatement_design_target": 8,
+        "meta_or_evaluative_actual_available": 13,
+        "meta_or_evaluative_design_target": 18,
+        "note": "The frozen design's prose targets candidate_restatement=8 and meta_or_evaluative=18. Retroactively screening the actual universe (build_universe()) finds only 7 candidate_restatement and 13 meta_or_evaluative cases in total across every join/dedup convention this module's author could justify; there are not 8 and 18 such real cases to draw. This set takes ALL actually-occurring cases in both classes and fills the remainder proportionally from answer_or_debate_reference/compound_claim so the total N=60 and 'ALL mechanically rejected' requirements are still met exactly; only the two frozen sub-counts are infeasible as literally stated. Reported for owner review, not silently patched over."
+      },
+      "infeasibility_report": "INFEASIBLE AS LITERALLY STATED: the frozen design's prose calls for 'every candidate_restatement case (8) and every meta_or_evaluative case (18)'. Retroactively screening the universe defined above (rejudge.phase2_checker_sampling.build_universe) finds only 7 candidate_restatement cases and 13 meta_or_evaluative cases in total -- under every join/dedup/reason-counting convention this implementation's author could justify (see rejudge/phase2_checker_sampling.py module docstring and bucket_reason() docstring for the full search). There are not 8 and 18 such real cases in this data to draw without fabricating or double-counting items. This implementation takes ALL 7 + 13 = 20 actually-occurring cases and fills the remaining 40 slots proportionally from answer_or_debate_reference/compound_claim so N=60 and 'ALL mechanically rejected' are still satisfied exactly. Flagged here for owner review/re-freeze rather than silently worked around.",
+      "n": 60,
+      "path": "rejudge/phase2_checker_regression_set_2026-07-18.json",
+      "requirement": "100% of items must be mechanically rejected by screen_query; verified at build time",
+      "usage_note": "never used for checker-model selection"
+    },
+    "reserve_pool": {
+      "canonical_sha256": "b17ccd66fca181c23cb72a6e96f1c4f6fe56b57125ae104d9f9c9f63da3f15c2",
+      "minimum_required": 100,
+      "n": 150,
+      "order": "world_stratified_round_robin",
+      "order_note": "Round-robin over sorted(WORLDS) = (carath_norn, selvarath, vethun_sarak); within each world, items are pre-sorted ascending by item_id before interleaving. Frozen now so the minimum-top-up rule always draws replacements in this exact pre-declared order.",
+      "path": "rejudge/phase2_checker_reserve_pool_2026-07-18.json"
+    },
+    "seed": 0,
+    "universe": {
+      "calibration_files": [
+        "calibration_judgments_a70.jsonl",
+        "calibration_judgments_g31.jsonl",
+        "calibration_judgments_low7.jsonl",
+        "calibration_judgments_low9.jsonl",
+        "calibration_judgments_oss120.jsonl",
+        "calibration_judgments_top.jsonl"
+      ],
+      "dedup_rule": "exact-duplicate claim texts deduped per question_id, keeping the first occurrence encountered while iterating records.jsonl in file order, then CALIBRATION_FILES in the fixed listed order, in line order within each file, exchange order within each record",
+      "definition": "all exchanges with non-empty extracted_claim from rejudge/output/records.jsonl (source stage1), joined to data/transcripts.jsonl by question_id for candidate_a/candidate_b text (candidate_a = correct_answer, candidate_b = wrong_answer), plus the same join applied to every exchange in the frozen CALIBRATION_FILES list (source calibration)",
+      "size_after_dedup": 5998
+    }
+  },
+  "schema_version": "phase2_checker_validation_design_v1",
+  "scoring_scope": {
+    "rule": "Primary validation is scored ONLY on queries that PASS the mechanical screen (rejudge.query_screen); the checker never operationally sees mechanical rejects. The mechanical-screen regression set is separate and is never used for checker-model selection."
+  },
+  "selection_rule": {
+    "order": [
+      "1. highest macro three-class exact agreement",
+      "2. higher allow recall",
+      "3. lower frozen checker cost per call from the price snapshot (rejudge/phase2_provider_price_snapshot_2026-07-18.json)",
+      "4. lexicographically ascending model ID"
+    ],
+    "scope": "eligible candidates only (those passing every gate)"
+  },
+  "sources": {
+    "oracle_query_contract": "docs/oracle-query-contract.md",
+    "protocol_decision": "rejudge/phase2_protocol.json#/decisions/query_screening",
+    "protocol_decision_snapshot": {
+      "audit_sampling_policy": "human-review every rejection/retry and a deterministic world/resolvability-stratified 1% sample of accepted queries, blind to outcomes",
+      "checker_failure_policy": "outage, malformed output, or unresolved ambiguity halts the cell",
+      "checker_scope": "all query-producing clean and placebo conditions",
+      "checker_selection_rule": "one model and one frozen prompt must meet the frozen human-labeled validation target before materialization",
+      "contract_source": "docs/oracle-query-contract.md",
+      "mechanical_screener": "rejudge.query_screen",
+      "retry_and_slot_policy": "one free retry per attempted budget slot; a second rejection consumes the slot",
+      "status": "approved_policy_pending_checker_validation"
+    },
+    "records_path": "rejudge/output/records.jsonl",
+    "transcripts_path": "data/transcripts.jsonl",
+    "world_specs": [
+      "world_specs/carath_norn.txt",
+      "world_specs/selvarath.txt",
+      "world_specs/vethun_sarak.txt"
+    ]
+  },
+  "status": "frozen_before_any_checker_call"
+}

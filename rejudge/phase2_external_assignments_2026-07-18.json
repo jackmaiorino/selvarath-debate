@@ -1,0 +1,18 @@
+{
+  "schema_version": "phase2_external_assignments_v1",
+  "frozen_at": "2026-07-18",
+  "execution_authorized": false,
+  "query_checker_validator": "Jack Maiorino",
+  "artifact_backup_owner": "Jack Maiorino",
+  "artifact_backup_owner_source": "rejudge/phase2_storage_policy_2026-07-18.json#/backup_owner",
+  "human_resolvability_reviewer": null,
+  "human_resolvability_reviewer_note": "superseded by approved Amendment A1 (docs/oracle-query-contract.md, Reporting section) for the mapping audit; genuinely semantic review remains open",
+  "accepted_query_auditor": null,
+  "accepted_query_auditor_note": "to be named before canary",
+  "note": "This artifact assigns roles for the query-checker validation workstream without mutating the frozen protocol's own null slots (rejudge/phase2_protocol.json). It grants no execution authority.",
+  "related_artifacts": {
+    "checker_validation_design": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+    "storage_policy": "rejudge/phase2_storage_policy_2026-07-18.json",
+    "protocol": "rejudge/phase2_protocol.json"
+  }
+}
