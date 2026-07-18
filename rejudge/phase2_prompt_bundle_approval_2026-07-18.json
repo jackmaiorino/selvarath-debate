@@ -1,0 +1,20 @@
+{
+  "schema_version": "phase2_prompt_bundle_owner_approval_v1",
+  "approval_id": "phase2_prompt_bundle_methods_approval_2026-07-18",
+  "protocol_id": "phase2_pooled_hpr_2026_07_16_v1",
+  "approved_bundle_tracked_path": "rejudge/phase2_prompt_bundle.json",
+  "approved_bundle_canonical_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "approved_bundle_commit": "13bd6f3",
+  "scope": [
+    "candidate literal wording of all 17 template families",
+    "checker reply-token alignment to the query-gate parser vocabulary (allow/reject/unresolved)",
+    "legacy template replaced with byte-exact pilot judge prompts from experiment_protocol.json",
+    "condition_composition map binding each frozen protocol condition to exact template families",
+    "honest-only 400-word continuity asymmetry preserved unnormalized"
+  ],
+  "approver": "Jack Maiorino",
+  "approved_at_utc": "2026-07-18T14:32:24Z",
+  "approval_channel": "direct chat approval to the assistant session, recorded same day",
+  "execution_authorized": false,
+  "note": "Owner methods approval of the candidate bundle wording only. This record is append-only and grants no execution authority: paid stages still require their own execution manifests binding this bundle's canonical hash plus separate stage spend authorizations under the frozen transition model."
+}

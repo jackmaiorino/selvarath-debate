@@ -243,6 +243,30 @@ verify, and no new module imports a provider SDK. The blocking review ask is now
 methods review of the candidate bundle wording, including the two amendments and the
 composition map.
 
+## Approvals recorded 2026-07-18
+
+Jack Maiorino approved, by direct chat approval recorded at 2026-07-18T14:32:24Z:
+
+- **Prompt-bundle owner methods review: APPROVED.** Scope: the full candidate wording including
+  the checker-token alignment, the literal legacy provenance replacement, and the
+  condition-composition map. Append-only record:
+  `rejudge/phase2_prompt_bundle_approval_2026-07-18.json`, binding canonical SHA-256
+  `cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f`.
+- **Gemma-recovery spend: APPROVED**, cap $2, for the exact 11 selected cells; still requires its
+  separately manifested run before any call.
+- **Capability-preflight spend: APPROVED**, cap $15, for the 1,060 QA cells; still requires the
+  remaining offline prerequisites (per-model role limits, token-profile cost forecast replacing
+  the provisional band, durable storage, credential rotation, provider reconciliation) and its
+  execution manifest before any call.
+- **Canary and main run: approved in principle.** Binding authorization remains deferred to each
+  stage's execution manifest under the frozen transition model, because neither stage can be
+  materialized before the capability preflight closes and its anchor is selected; the
+  ceiling-and-caps structure ($1,500 incremental hard ceiling) is unchanged.
+- **Push of the 2026-07-18 offline checkpoint commits to the public fork: APPROVED.**
+
+Chat approvals authorize recording these decisions; every paid call still requires its stage
+manifest, bound caps, and the fail-closed control-plane path before execution.
+
 ## Signatures
 
 - Design defaults approved: **YES**
@@ -250,10 +274,11 @@ composition map.
 - Public design package pushed/frozen: **YES**
 - Resolvability Amendment A1 approved pre-outcome: **YES**
 - Before-launch Manifund update posted and verified: **YES** / 2026-07-18T12:15:01Z
-- Gemma-recovery spend approved: **NO**
-- Capability-preflight spend approved: **NO**
-- Canary spend approved: **NO**
-- Main-run spend approved: **NO**
+- Prompt-bundle owner methods review approved: **YES** / 2026-07-18T14:32:24Z
+- Gemma-recovery spend approved: **YES** / 2026-07-18T14:32:24Z (cap $2; manifested run still required)
+- Capability-preflight spend approved: **YES** / 2026-07-18T14:32:24Z (cap $15; offline prerequisites and manifest still required)
+- Canary spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
+- Main-run spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
 - Approved Phase 2 plan canonical SHA-256: `686dc961434093c82e682fba2182ce7bdb551bdfc17562c43ae3f12661b0ce66`
 - Base package commit: `0a21191539daae2e0807d92fcb5b1e8c179af027` (public)
