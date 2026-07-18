@@ -165,7 +165,7 @@ halts rather than replays.
 | Canary | Questions, six-question stratum, gates, and halt rule approved | Select anchor, create exact executable manifest, exercise checker outcomes, separate spend approval |
 | Runner | Existing clients/manifests/accounting are hardened | No executable Phase 2 orchestrator yet; implement and test offline |
 | Storage | Local artifact inventory exists | Versioned retrieval destination/policy and backup owner |
-| Credentials | Plaintext key file remains outside the repo | Rotate and move to environment/secret storage before live work |
+| Credentials | **ROTATED 2026-07-18T14:37Z.** Jack rotated the key on the Together dashboard; the new key lives only in the `TOGETHER_API_KEY` user-scope environment variable (verified live via a zero-cost `GET /v1/models`, HTTP 200); the plaintext file outside the repo was scrubbed to a non-secret rotation notice; no key was ever tracked in the repo | None; live runs must read the environment variable, never a file |
 | Public record | Before-launch update posted by Jack and verified public on 2026-07-18, before any paid call from the approved 23,200-cell plan | Preserve the immutable posted source; publish results, failures, artifacts, and actual spend after execution |
 
 ## Canary policy
