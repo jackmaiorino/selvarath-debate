@@ -1,0 +1,48 @@
+{
+  "schema_version": "gemma_recovery_run_record_v1",
+  "run_kind": "calibration_supplement_gemma_recovery",
+  "status": "complete_pending_dashboard_delta_confirmation",
+  "approval_basis": "Jack Maiorino chat approval 2026-07-18T14:32:24Z, cap $2, recorded in docs/phase2-readiness-and-signoff.md section 'Approvals recorded 2026-07-18'",
+  "git_sha_at_launch": "eb1f882a34fbd67c40a8399039d544e8db0b50d7",
+  "command": "uv run python -m rejudge.calibrate --judges mid_gemma --cells b0 --cell-key-file rejudge/calibration_recovery_gemma_2026-07-15.json --out-dir rejudge/output/gemma-recovery-2026-07-18 --approved-cap 2 --workers 1",
+  "selector_file": "rejudge/calibration_recovery_gemma_2026-07-15.json",
+  "selector_sha256": "b391947bd11ea409c24e28ca4915373f6b75bbc9d732b7c8be330bbe69904dd0",
+  "judge_model": "google/gemma-4-31B-it",
+  "judge_price_usd_per_million_tokens": {"input": 0.39, "output": 0.97},
+  "approved_cap_usd": 2,
+  "run_window_utc": ["2026-07-18T15:59:20Z", "2026-07-18T16:04:36Z"],
+  "cells_planned": 11,
+  "cells_completed": 11,
+  "completion_check_missing": 0,
+  "errors": 0,
+  "total_tokens": 41301,
+  "local_accounted_cost_usd": 0.03,
+  "manifest_git_sha": "eb1f882a34fbd67c40a8399039d544e8db0b50d7",
+  "usage_ledger": {
+    "ledger_id": "0100126013f240de9686dc8f15cb73e3",
+    "last_sequence": 22,
+    "terminal_event_hash": "4185cc875fdb595e72ddfa93ecd160f1e1d0439032cdda177234a96f129894f2"
+  },
+  "outputs": {
+    "supplement_path": "rejudge/output/gemma-recovery-2026-07-18/calibration_judgments_g31.jsonl",
+    "supplement_sha256": "1bb3679b23c69e9048ef83bb544e3e34dce216374e9c1f37c53000e14b2410be",
+    "historical_path": "rejudge/output/calibration_judgments_g31.jsonl",
+    "historical_sha256": "3536f3661a9ea0aa9db2dd82dc6687d4cafc842f40da21c59a622f6b08b6d017",
+    "historical_untouched": true
+  },
+  "archive": {
+    "destination": "E:/selvarath-archive/gemma-recovery-2026-07-18/",
+    "sha256sums_file": "E:/selvarath-archive/gemma-recovery-2026-07-18/SHA256SUMS",
+    "archived_at_utc": "2026-07-18T16:05:00Z"
+  },
+  "analysis_merge": {
+    "method": "non-destructive in-memory merge into a scratch analysis directory; historical 385 rows + 11 recovered rows = 396, zero cell-key overlap asserted",
+    "result": "mid_gemma b0 cells complete at n=96 each: capped3-qwenplus 9.4%, capped3-llama70 4.2%, uncapped3-qwenplus 8.3%, uncapped3-llama70 5.2% wrong; consistent with the 2026-07-14 calibration memo's partial figures; no roster decision changes"
+  },
+  "reconciliation": {
+    "pre_run_dashboard": {"spend_usd": 209.22, "credit_usd": 1590.78, "as_of_utc": "2026-07-18T14:53:43Z"},
+    "expected_post_run": {"spend_usd": 209.25, "credit_usd": 1590.75},
+    "post_run_dashboard": null,
+    "note": "post-run dashboard figures to be supplied by Jack and recorded before the next paid stage"
+  }
+}
