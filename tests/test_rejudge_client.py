@@ -459,3 +459,322 @@ def test_reasoning_models_get_max_tokens_floor():
     assert captured["max_tokens"] == 256           # unchanged for standard models
     c.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 8192)
     assert captured["max_tokens"] == 8192          # floor never lowers an explicit larger value
+
+
+class CaptureSDK:
+    """Records every kwargs dict passed to create() and returns a canned response."""
+
+    def __init__(self):
+        self.calls: list[dict] = []
+
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls.append(kwargs)
+                return _Resp()
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+# --- 1. SILENT FLOOR -> FAIL-CLOSED ASSERTION ---------------------------------------------------
+
+def test_strict_reasoning_mode_raises_instead_of_flooring():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, require_explicit_reasoning_max_tokens=True)
+    with pytest.raises(ac.ReasoningMaxTokensError, match="google/gemma-4-31B-it"):
+        c.complete(MSGS, "google/gemma-4-31B-it", 0.1, 1, 256)
+    assert sdk.calls == []           # refused before any provider call
+
+
+def test_strict_reasoning_mode_allows_explicit_max_tokens_at_or_above_floor():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, require_explicit_reasoning_max_tokens=True)
+    out = c.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 4096)
+    assert out == "YES"
+    assert sdk.calls[0]["max_tokens"] == 4096       # sent exactly as requested, never floored
+
+
+def test_strict_reasoning_mode_never_floors_non_frozen_models():
+    # A model that matches the legacy prefix set but is NOT one of the exact three frozen
+    # Phase-2 reasoning models must neither be floored nor rejected in strict mode.
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, require_explicit_reasoning_max_tokens=True)
+    out = c.complete(MSGS, "Qwen/Qwen3.5-9B", 0.1, 1, 128)
+    assert out == "YES"
+    assert sdk.calls[0]["max_tokens"] == 128
+
+
+def test_legacy_reasoning_floor_is_unchanged_by_default():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk)
+    assert c.require_explicit_reasoning_max_tokens is False
+    out = c.complete(MSGS, "google/gemma-4-31B-it", 0.1, 1, 256)
+    assert out == "YES"
+    assert sdk.calls[0]["max_tokens"] == 4096       # still silently floored
+
+
+# --- 2. STRICT PER-MODEL CONTEXT GUARD -----------------------------------------------------------
+
+def test_strict_context_mode_refuses_unknown_model():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        model_context_limits={"known-model": 131072})
+    with pytest.raises(ac.ContextGuardError, match="no context ceiling configured"):
+        c.complete(MSGS, "unknown-model", 0.1, 1, 64)
+    assert sdk.calls == []
+
+
+def test_strict_context_mode_refuses_model_missing_from_mapping():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        model_context_limits={})
+    with pytest.raises(ac.ContextGuardError, match="no context ceiling configured"):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+
+
+@pytest.mark.parametrize("bad_ceiling", [0, -1, 3.5, True])
+def test_strict_context_mode_refuses_nonpositive_or_noninteger_ceiling(bad_ceiling):
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        model_context_limits={"m": bad_ceiling})
+    with pytest.raises(ac.ContextGuardError, match="invalid context ceiling"):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == []
+
+
+def test_strict_context_mode_has_no_fallback_to_flat_ceiling():
+    # max_context_tokens=1 would normally be the flat ceiling; strict mode must never fall
+    # back to it even though it is explicitly set.
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        max_context_tokens=1, model_context_limits={"m": 131072})
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"                              # guarded by 131072, not the flat 1
+
+
+def test_strict_context_guard_applies_after_reasoning_floor_resolution():
+    # The reasoning floor raises max_tokens to 4096 for a frozen reasoning model. The context
+    # check must see that *resolved* value, not the small caller-supplied one.
+    # _estimate_usage's fixed per-message/prompt overhead means the true estimate for MSGS at
+    # max_tokens=4096 is a bit above 4096 (roughly 4096 + ~105 of framing overhead) -- assert
+    # against the client's own estimator rather than hardcoding that overhead here.
+    estimated_at_floor = ac._estimate_tokens(MSGS, 4096)
+
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, require_explicit_reasoning_max_tokens=False,
+        strict_context_mode=True,
+        model_context_limits={"google/gemma-4-31B-it": estimated_at_floor})
+    out = c.complete(MSGS, "google/gemma-4-31B-it", 0.1, 1, 64)
+    assert out == "YES"
+
+    c2 = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=CaptureSDK(), require_explicit_reasoning_max_tokens=False,
+        strict_context_mode=True,
+        model_context_limits={"google/gemma-4-31B-it": estimated_at_floor - 1})
+    with pytest.raises(ac.ContextGuardError):
+        c2.complete(MSGS, "google/gemma-4-31B-it", 0.1, 1, 64)  # floored to 4096, 1 over ceiling
+
+
+def test_legacy_context_mode_is_unchanged_flat_131072_default():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk)
+    assert c.strict_context_mode is False
+    assert c.max_context_tokens == 131072
+
+
+# --- 3. TRANSPORT RETRY PIN -----------------------------------------------------------------------
+
+def test_retry_count_can_be_pinned_to_three_at_most_four_attempts():
+    sdk = StubSDK(fail_times=99)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None)
+    with pytest.raises(RuntimeError):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 4            # 1 initial attempt + 3 retries, never more
+
+
+def test_default_retry_count_is_unchanged():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    assert c.max_retries == 4
+
+
+# --- 4. STREAMING PIN ------------------------------------------------------------------------------
+
+def test_streaming_pinned_model_uses_streaming_from_first_attempt():
+    sdk = StreamingOnlySDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None,
+        streaming_pinned_models=frozenset({"m"}))
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert len(sdk.calls) == 1                       # no wasted non-streaming probe
+    assert sdk.calls[0]["stream"] is True
+    assert sdk.calls[0]["stream_options"] == {"include_usage": True}
+
+
+def test_unpinned_model_still_uses_reactive_streaming_discovery():
+    sdk = StreamingOnlySDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None)
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert len(sdk.calls) == 2                        # failed probe + successful stream
+    assert "stream" not in sdk.calls[0]
+
+
+# --- 5. PER-MODEL EXTRA REQUEST FIELDS -------------------------------------------------------------
+
+def test_extra_request_fields_are_merged_into_the_request():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk,
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    out = c.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 64)
+    assert out == "YES"
+    assert sdk.calls[0]["reasoning_effort"] == "medium"
+
+
+def test_extra_request_fields_do_not_leak_to_other_models():
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk,
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    c.complete(MSGS, "some-other-model", 0.1, 1, 64)
+    assert "reasoning_effort" not in sdk.calls[0]
+
+
+def test_extra_request_fields_are_included_in_the_request_fields_hash(tmp_path):
+    usage_log = tmp_path / "usage.jsonl"
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, usage_log_path=str(usage_log),
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    c.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 64)
+
+    c2 = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=CaptureSDK())
+    c2.complete(MSGS, "openai/gpt-oss-120b", 0.1, 1, 64)
+
+    events = [json.loads(line) for line in usage_log.read_text().splitlines()]
+    success = [e for e in events if e["status"] == "success"][0]
+    with_extra_hash = success["response_metadata"]["request_fields_sha256"]
+
+    # The hash for an otherwise-identical call WITHOUT the extra field must differ -- the
+    # extra field is part of what gets hashed, not silently dropped from the request identity.
+    without_extra_hash = c2.usage_events[-1]["response_metadata"]["request_fields_sha256"]
+    assert with_extra_hash != without_extra_hash
+
+
+def test_extra_request_fields_colliding_with_a_reserved_field_is_rejected_at_construction():
+    # A per-model extra field that reuses a base or transport kwarg name must never reach
+    # _build_request_kwargs's unconditional merge: it would silently override a value that
+    # already passed the reasoning-floor guard, the context-ceiling guard, or the cost-cap
+    # reservation. Reject it eagerly, at client construction, before any provider call.
+    for reserved_field, value in (
+        ("max_tokens", 10), ("model", "expensive-model"),
+        ("messages", [{"role": "user", "content": "INJECTED"}]),
+        ("temperature", 0.0), ("seed", 999),
+        ("stream", True), ("stream_options", {"include_usage": True}),
+    ):
+        with pytest.raises(ValueError, match=reserved_field):
+            ac.RejudgeClient(
+                approved_cap_usd=1.0, dry_run=True,
+                extra_request_fields={"some-model": {reserved_field: value}})
+
+
+def test_extra_request_fields_collision_check_reports_all_offending_keys():
+    with pytest.raises(ValueError, match="max_tokens.*model|model.*max_tokens"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=True,
+            extra_request_fields={
+                "some-model": {"max_tokens": 1, "model": "other", "reasoning_effort": "medium"}})
+
+
+def test_extra_request_fields_without_collisions_still_construct_fine():
+    # Non-colliding extra fields (the only legacy/current usage) are unaffected by the guard.
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True,
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    assert c.extra_request_fields == {"openai/gpt-oss-120b": {"reasoning_effort": "medium"}}
+
+
+# --- 6. RESPONSE METADATA ---------------------------------------------------------------------------
+
+def test_response_metadata_is_persisted_when_available():
+    class _RichUsage:
+        prompt_tokens = 100
+        completion_tokens = 50
+
+        class completion_tokens_details:
+            reasoning_tokens = 12
+
+    class _RichChoice:
+        finish_reason = "stop"
+
+        class message:
+            content = "YES"
+
+    class _RichResp:
+        usage = _RichUsage()
+        choices = [_RichChoice()]
+        id = "resp-123"
+        model = "returned-model-id"
+        system_fingerprint = "fp-abc"
+
+    class RichSDK:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return _RichResp()
+
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=RichSDK())
+    c.complete(MSGS, "m", 0.1, 1, 64)
+    event = c.usage_events[-1]
+    meta = event["response_metadata"]
+    assert meta["returned_model_id"] == "returned-model-id"
+    assert meta["response_id"] == "resp-123"
+    assert meta["finish_reason"] == "stop"
+    assert meta["system_fingerprint_if_present"] == "fp-abc"
+    assert meta["prompt_tokens"] == 100
+    assert meta["completion_tokens"] == 50
+    assert meta["reasoning_tokens_if_returned"] == 12
+    assert isinstance(meta["request_fields_sha256"], str) and len(meta["request_fields_sha256"]) == 64
+
+
+def test_response_metadata_missing_attributes_are_null_not_guessed():
+    # _Resp (used throughout this file) exposes only .usage and .choices -- no id, model,
+    # system_fingerprint, finish_reason, or reasoning-token breakdown.
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK())
+    c.complete(MSGS, "m", 0.1, 1, 64)
+    meta = c.usage_events[-1]["response_metadata"]
+    assert meta["returned_model_id"] is None
+    assert meta["response_id"] is None
+    assert meta["finish_reason"] is None
+    assert meta["system_fingerprint_if_present"] is None
+    assert meta["reasoning_tokens_if_returned"] is None
+    # usage-derived fields ARE available on the stub and must still be populated.
+    assert meta["prompt_tokens"] == 100
+    assert meta["completion_tokens"] == 50
+
+
+def test_response_metadata_is_persisted_on_malformed_response_too():
+    sdk = MalformedChoicesStubSDK()
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, max_retries=0)
+    with pytest.raises(RuntimeError, match="malformed API response"):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    event = c.usage_events[-1]
+    assert event["status"] == "charged_malformed"
+    meta = event["response_metadata"]
+    assert meta["prompt_tokens"] == 100          # usage was readable even though content was not
+    assert isinstance(meta["request_fields_sha256"], str)

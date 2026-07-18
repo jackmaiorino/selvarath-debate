@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from numbers import Integral
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 
 class CapExceededError(RuntimeError):
@@ -31,6 +32,16 @@ class UnknownModelPriceError(ValueError):
     pass
 
 
+class ReasoningMaxTokensError(ValueError):
+    """A Phase-2 reasoning-model call requested max_tokens below the frozen floor.
+
+    Raised only when ``require_explicit_reasoning_max_tokens=True``. Legacy (default) callers
+    keep the old silent-floor behavior unchanged; the manifest must never hash a different
+    max_tokens than the one actually sent to the provider, so this path refuses instead of
+    quietly raising the value.
+    """
+
+
 class UsageLedgerError(RuntimeError, ValueError):
     pass
 
@@ -39,8 +50,30 @@ class AccountingInvariantError(RuntimeError):
     pass
 
 
+# Base request fields plus the transport fields _build_request_kwargs adds for streaming
+# attempts. extra_request_fields is validated against this set at construction time so a
+# per-model extra field can never silently override a value that has already passed the
+# reasoning-floor guard, the context-ceiling guard, or the cost-cap reservation by the time
+# _build_request_kwargs merges it in.
+_RESERVED_REQUEST_KWARGS: frozenset[str] = frozenset(
+    {"model", "messages", "temperature", "max_tokens", "seed", "stream", "stream_options"})
+
+
 USAGE_LEDGER_SCHEMA_VERSION = 1
 _LIVE_ACCOUNTING_FACTORY_TOKEN = object()
+
+# The exact three-model Phase-2 reasoning set, imported from the frozen role-limits artifact
+# module where it is canonically defined. Falls back to a local frozen copy if import layering
+# ever makes that module unavailable here -- this module must stay importable standalone with
+# no network/SDK dependency, so the fallback avoids a hard dependency edge rather than avoiding
+# a real circular import (phase2_role_limits does not import this module).
+try:
+    from rejudge.phase2_role_limits import (
+        REASONING_MODEL_ID_SET as _PHASE2_REASONING_MODEL_ID_SET,
+    )
+except ImportError:  # pragma: no cover - defensive fallback only
+    _PHASE2_REASONING_MODEL_ID_SET = frozenset(
+        {"google/gemma-4-31B-it", "openai/gpt-oss-120b", "Qwen/Qwen3.7-Plus"})
 
 
 @dataclass(frozen=True)
@@ -416,7 +449,12 @@ class RejudgeClient:
                  strict_model_pricing=False, initial_spend_usd=0.0,
                  initial_uncertain_spend_usd=0.0, usage_log_path=None,
                  _ledger_snapshot: UsageLedgerSnapshot | None = None,
-                 _accounting_factory_token=None):
+                 _accounting_factory_token=None,
+                 require_explicit_reasoning_max_tokens: bool = False,
+                 model_context_limits: dict[str, int] | None = None,
+                 strict_context_mode: bool = False,
+                 streaming_pinned_models: frozenset[str] = frozenset(),
+                 extra_request_fields: dict[str, dict] | None = None):
         self.approved_cap_usd = float(approved_cap_usd)
         self.price_per_mtok = price_per_mtok
         self.model_prices = dict(model_prices or {})
@@ -477,7 +515,32 @@ class RejudgeClient:
         self._ledger_event_hash = (_ledger_snapshot.last_event_hash
                                    if _ledger_snapshot else None)
         self._ledger_state_path = (_ledger_snapshot.state_path if _ledger_snapshot else None)
-        self._streaming_models = set()   # endpoints that reject non-streaming calls
+
+        # -- Phase-2 hardening knobs; every one is additive and default-off (legacy behavior
+        # unchanged unless a caller opts in explicitly). See the class-level docstrings on
+        # ReasoningMaxTokensError and on complete()/_streamed_create() for what each does.
+        self.require_explicit_reasoning_max_tokens = bool(require_explicit_reasoning_max_tokens)
+        self.model_context_limits: dict[str, int] = dict(model_context_limits or {})
+        self.strict_context_mode = bool(strict_context_mode)
+        self.streaming_pinned_models: frozenset[str] = frozenset(streaming_pinned_models)
+        self.extra_request_fields: dict[str, dict] = {
+            model: dict(fields) for model, fields in (extra_request_fields or {}).items()
+        }
+        for extra_model, fields in self.extra_request_fields.items():
+            collisions = _RESERVED_REQUEST_KWARGS & set(fields)
+            if collisions:
+                raise ValueError(
+                    f"extra_request_fields[{extra_model!r}] reuses reserved request field(s) "
+                    f"{sorted(collisions)!r}; extra fields must never override the base or "
+                    "transport request fields (model/messages/temperature/max_tokens/seed/"
+                    "stream/stream_options) that the reasoning-floor guard, context-ceiling "
+                    "guard, and cost-cap reservation are computed against"
+                )
+
+        # Endpoints that must use the streaming transport. Reactive discovery (a failed
+        # non-streaming probe) still adds entries here for legacy callers; streaming_pinned_models
+        # seeds it upfront so a pinned model never wastes its first attempt on a doomed probe.
+        self._streaming_models = set(self.streaming_pinned_models)
 
     @property
     def spent_usd(self) -> float:
@@ -645,7 +708,8 @@ class RejudgeClient:
                            prompt_tokens: int, completion_tokens: int,
                            input_price: float, output_price: float, model: str,
                            kind: str, seed: int, attempt: int, status: str,
-                           attempt_id: str, request_metadata: dict | None) -> None:
+                           attempt_id: str, request_metadata: dict | None,
+                           response_metadata: dict | None = None) -> None:
         actual_cost = self._cost(
             prompt_tokens, completion_tokens, input_price, output_price)
         with self._lock:
@@ -658,6 +722,7 @@ class RejudgeClient:
                     "estimated_tokens": estimated_tokens,
                     "cost_usd": actual_cost,
                     "metadata": request_metadata or {},
+                    "response_metadata": response_metadata,
                 })
             except Exception as exc:
                 raise self._latch_accounting_error(exc) from exc
@@ -673,36 +738,146 @@ class RejudgeClient:
                 self._fatal_accounting_error = str(error)
                 raise error
 
-    def _streamed_create(self, model, messages, temperature, max_tokens, seed):
+    def _streamed_create(self, **request_kwargs):
         """Call a streaming-only endpoint and reassemble a response-shaped object.
 
-        Accumulates delta content across chunks; usage is taken from the final chunk
-        (Together sends it there when stream_options requests it). Returns an object
-        with .usage and .choices[0].message.content so the non-streaming accounting
-        path applies unchanged.
+        ``request_kwargs`` is the exact, already-built kwargs dict (base fields plus
+        ``stream``/``stream_options`` plus any per-model extra fields) -- identical in shape to
+        what a non-streaming call would send, so the caller's request-fields hash covers both
+        paths uniformly. Accumulates delta content across chunks; usage is taken from the final
+        chunk (Together sends it there when stream_options requests it). Returns an object with
+        .usage, .choices[0].message.content, .choices[0].finish_reason, .id, .model, and
+        .system_fingerprint so the non-streaming accounting/metadata path applies unchanged;
+        any field a given chunk never carries stays None rather than being guessed.
         """
-        stream = self._client().chat.completions.create(
-            model=model, messages=messages, temperature=temperature,
-            max_tokens=max_tokens, seed=seed, stream=True,
-            stream_options={"include_usage": True})
+        stream = self._client().chat.completions.create(**request_kwargs)
         parts = []
         usage = None
+        response_id = None
+        returned_model = None
+        system_fingerprint = None
+        finish_reason = None
         for chunk in stream:
             u = getattr(chunk, "usage", None)
             if u is not None:
                 usage = u
+            response_id = response_id or getattr(chunk, "id", None)
+            returned_model = returned_model or getattr(chunk, "model", None)
+            system_fingerprint = system_fingerprint or getattr(chunk, "system_fingerprint", None)
             choices = getattr(chunk, "choices", None) or []
             if choices:
-                delta = getattr(choices[0], "delta", None)
+                choice = choices[0]
+                delta = getattr(choice, "delta", None)
                 text = getattr(delta, "content", None) if delta is not None else None
                 if text:
                     parts.append(text)
+                reason = getattr(choice, "finish_reason", None)
+                if reason:
+                    finish_reason = reason
         if usage is None:
             raise RuntimeError("streaming response ended without usage chunk")
 
         message = SimpleNamespace(content="".join(parts))
-        return SimpleNamespace(usage=usage,
-                               choices=[SimpleNamespace(message=message)])
+        choice = SimpleNamespace(message=message, finish_reason=finish_reason)
+        return SimpleNamespace(
+            usage=usage, choices=[choice], id=response_id, model=returned_model,
+            system_fingerprint=system_fingerprint)
+
+    @staticmethod
+    def _response_metadata(resp: Any, request_fields_sha256: str) -> dict[str, Any]:
+        """Best-effort response-metadata snapshot, paired with the request-fields hash.
+
+        Every field the frozen Phase 2 response_metadata_to_persist list names is populated
+        when the SDK response object exposes it and left exactly ``None`` otherwise -- never
+        guessed or synthesized.
+        """
+        usage = getattr(resp, "usage", None)
+        choices = getattr(resp, "choices", None) or []
+        first_choice = choices[0] if choices else None
+        reasoning_tokens = None
+        if usage is not None:
+            details = getattr(usage, "completion_tokens_details", None)
+            if details is not None:
+                reasoning_tokens = getattr(details, "reasoning_tokens", None)
+        return {
+            "request_fields_sha256": request_fields_sha256,
+            "returned_model_id": getattr(resp, "model", None),
+            "response_id": getattr(resp, "id", None),
+            "finish_reason": (
+                getattr(first_choice, "finish_reason", None)
+                if first_choice is not None else None),
+            "system_fingerprint_if_present": getattr(resp, "system_fingerprint", None),
+            "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage is not None else None,
+            "completion_tokens": (
+                getattr(usage, "completion_tokens", None) if usage is not None else None),
+            "reasoning_tokens_if_returned": reasoning_tokens,
+        }
+
+    def _build_request_kwargs(self, *, model: str, messages, temperature, max_tokens: int,
+                              seed: int, streaming: bool) -> dict[str, Any]:
+        """Build the exact kwargs dict sent to the provider for one attempt.
+
+        Both the streaming and non-streaming transport paths call this so the recorded
+        ``request_fields_sha256`` always reflects the literal payload actually sent, including
+        any per-model extra fields (e.g. ``reasoning_effort`` for gpt-oss-120b).
+        """
+        kwargs: dict[str, Any] = {
+            "model": model, "messages": messages, "temperature": temperature,
+            "max_tokens": max_tokens, "seed": seed,
+        }
+        if streaming:
+            kwargs["stream"] = True
+            kwargs["stream_options"] = {"include_usage": True}
+        extra = self.extra_request_fields.get(model)
+        if extra:
+            kwargs.update(extra)
+        return kwargs
+
+    def _resolve_max_tokens(self, model: str, max_tokens: int) -> int:
+        """Resolve the effective max_tokens for ``model``, honoring the reasoning-model floor.
+
+        Legacy (default) behavior: silently raise max_tokens to REASONING_MAX_TOKENS_FLOOR for
+        any model matching REASONING_MODEL_PREFIXES, unchanged from before this method existed.
+
+        Strict (``require_explicit_reasoning_max_tokens=True``) behavior: no silent floor for
+        any model. Instead, a call to one of the exact three frozen Phase-2 reasoning models
+        with max_tokens already below the floor raises ReasoningMaxTokensError -- the manifest
+        must never hash a different max_tokens than the one actually sent to the provider.
+        """
+        if self.require_explicit_reasoning_max_tokens:
+            if (model in _PHASE2_REASONING_MODEL_ID_SET
+                    and max_tokens < self.REASONING_MAX_TOKENS_FLOOR):
+                raise ReasoningMaxTokensError(
+                    f"model {model!r} is in the frozen Phase 2 reasoning-model set and requires "
+                    f"an explicit max_tokens >= {self.REASONING_MAX_TOKENS_FLOOR}; got "
+                    f"{max_tokens}. Refusing to silently raise it -- the manifest must never "
+                    "hash a different max_tokens than the provider receives."
+                )
+            return max_tokens
+        if model.startswith(self.REASONING_MODEL_PREFIXES):
+            return max(max_tokens, self.REASONING_MAX_TOKENS_FLOOR)
+        return max_tokens
+
+    def _resolve_context_ceiling(self, model: str) -> int:
+        """Resolve the context-window ceiling to guard against, honoring strict per-model mode.
+
+        Legacy (default) behavior: the flat ``max_context_tokens`` ceiling, unchanged.
+
+        Strict (``strict_context_mode=True``) behavior: look up ``model`` in
+        ``model_context_limits`` with no fallback to the flat ceiling. An unknown model, a
+        model missing from the mapping, or a nonpositive/noninteger ceiling all refuse before
+        any provider call; this method never truncates a request, only ever raises.
+        """
+        if not self.strict_context_mode:
+            return self.max_context_tokens
+        if model not in self.model_context_limits:
+            raise ContextGuardError(
+                f"strict context mode: no context ceiling configured for model {model!r}")
+        ceiling = self.model_context_limits[model]
+        if isinstance(ceiling, bool) or not isinstance(ceiling, int) or ceiling <= 0:
+            raise ContextGuardError(
+                f"strict context mode: invalid context ceiling for model {model!r}: {ceiling!r}")
+        return ceiling
 
     def _log_error(self, attempt, model, exc):
         if not self.error_log_path:
@@ -729,36 +904,45 @@ class RejudgeClient:
     # empty content in 396/396 calls at max_tokens<=512 while billing ~90 tokens of reasoning).
     # For these endpoints the requested max_tokens is raised to a floor so the answer can
     # actually be emitted; the verdict/query parsers are unaffected (content stays clean).
+    #
+    # This prefix-based floor is the LEGACY (require_explicit_reasoning_max_tokens=False,
+    # default) behavior only -- see _resolve_max_tokens(). The Phase-2 path replaces it with a
+    # fail-closed assertion against the exact three-model _PHASE2_REASONING_MODEL_ID_SET so the
+    # manifest never hashes a different max_tokens than the provider actually receives.
     REASONING_MODEL_PREFIXES = ("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.7",
                                 "google/gemma-4", "openai/gpt-oss")
     REASONING_MAX_TOKENS_FLOOR = 4096
 
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
                  request_metadata: dict | None = None) -> str:
-        if model.startswith(self.REASONING_MODEL_PREFIXES):
-            max_tokens = max(max_tokens, self.REASONING_MAX_TOKENS_FLOOR)
+        max_tokens = self._resolve_max_tokens(model, max_tokens)
         estimated_prompt, estimated_completion = _estimate_usage(messages, max_tokens)
         estimated_tokens = estimated_prompt + estimated_completion
-        if estimated_tokens > self.max_context_tokens:
+        context_ceiling = self._resolve_context_ceiling(model)
+        if estimated_tokens > context_ceiling:
             raise ContextGuardError(
-                f"estimated {estimated_tokens} tokens > {self.max_context_tokens}")
+                f"estimated {estimated_tokens} tokens > {context_ceiling}")
         if self.dry_run:
             if kind not in _DRY:
                 raise ValueError(f"unknown kind: {kind!r}")
             return _DRY[kind]
         last = None
         for attempt in range(self.max_retries + 1):
+            streaming = model in self._streaming_models
+            request_kwargs = self._build_request_kwargs(
+                model=model, messages=messages, temperature=temperature,
+                max_tokens=max_tokens, seed=seed, streaming=streaming)
+            request_fields_sha256 = hashlib.sha256(
+                _canonical_json(request_kwargs).encode("utf-8")).hexdigest()
             input_price, output_price, estimated_cost, attempt_id = self._reserve_attempt(
                 model=model, prompt_tokens=estimated_prompt,
                 completion_tokens=estimated_completion, kind=kind, seed=seed,
                 attempt=attempt, request_metadata=request_metadata)
             try:
-                if model in self._streaming_models:
-                    resp = self._streamed_create(model, messages, temperature, max_tokens, seed)
+                if streaming:
+                    resp = self._streamed_create(**request_kwargs)
                 else:
-                    resp = self._client().chat.completions.create(
-                        model=model, messages=messages, temperature=temperature,
-                        max_tokens=max_tokens, seed=seed)
+                    resp = self._client().chat.completions.create(**request_kwargs)
             except Exception as exc:                     # transient API error, no charge known
                 if "streaming_required" in str(exc) or "supports streaming" in str(exc):
                     # Capability negotiation is a rejected request, not an inference. Release
@@ -816,7 +1000,8 @@ class RejudgeClient:
                     prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                     input_price=input_price, output_price=output_price, model=model,
                     kind=kind, seed=seed, attempt=attempt, status="charged_malformed",
-                    attempt_id=attempt_id, request_metadata=request_metadata)
+                    attempt_id=attempt_id, request_metadata=request_metadata,
+                    response_metadata=self._response_metadata(resp, request_fields_sha256))
                 raise RuntimeError(
                     f"malformed API response after successful charge: {exc}") from exc
             self._reconcile_success(
@@ -824,6 +1009,7 @@ class RejudgeClient:
                 prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                 input_price=input_price, output_price=output_price, model=model,
                 kind=kind, seed=seed, attempt=attempt, status="success",
-                attempt_id=attempt_id, request_metadata=request_metadata)
+                attempt_id=attempt_id, request_metadata=request_metadata,
+                response_metadata=self._response_metadata(resp, request_fields_sha256))
             return content if content is not None else ""
         raise RuntimeError(f"API call failed after {self.max_retries + 1} attempts: {last}")
