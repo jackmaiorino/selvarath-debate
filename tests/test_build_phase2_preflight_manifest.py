@@ -717,5 +717,15 @@ def test_committed_artifacts_git_commit_matches_expected_constant():
     assert r2_path.is_file()
     r2_manifest = pe.load_execution_manifest(r2_path)
     r2_commit = r2_manifest["implementation_provenance"]["git_commit"]
-    assert b.frozen_code_bytes_diverging_from_git_blob(
-        REPO_ROOT, expected_head=r2_commit) == []
+    # The r2 manifest is retired history: the CURRENT tree has legitimately moved past its
+    # commit (v5 transport work, r3 support), so working bytes must NOT be compared against
+    # its blobs. The durable invariant is fully historical: the code-bundle hash the r2
+    # manifest recorded must equal the bundle hash recomputed from the git BLOBS at its own
+    # recorded commit (mirroring pe.compute_code_bundle_sha256's structure, blob-sourced).
+    historical_entries = []
+    for relative in pe.CODE_PROVENANCE_FROZEN_FILES:
+        blob = b._git_blob_bytes(REPO_ROOT, r2_commit, relative)
+        historical_entries.append(
+            {"path": relative, "sha256": hashlib.sha256(blob).hexdigest()})
+    assert (phase2_plan.canonical_sha256(historical_entries)
+            == r2_manifest["implementation_provenance"]["code_bundle_sha256"])
