@@ -32,6 +32,7 @@ from rejudge import phase2_preflight_runner as runner_mod
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_role_limits as role_limits
+from rejudge import phase2_stage_family
 from rejudge import run_manifest
 
 
@@ -117,6 +118,21 @@ def _bypass_new_semantic_gates():
         ):
             mp.setattr(pe, name, lambda *a, **k: {"git_commit": "a" * 40,
                                                     "code_bundle_sha256": "b" * 64})
+        # r3 stage-family gates (added alongside carryforward_artifact/stage_family_ledger_
+        # artifact/ceiling_correction_artifact/the list-shaped prior_attempt_closure): bypassed
+        # the same way, each with its own real return-value shape (a 2-key-dict-unpacking-to-2-
+        # strings trick would silently produce the wrong type for these, unlike the uniform
+        # lambda above -- see each function's own real return type in phase2_execution.py).
+        mp.setattr(
+            pe, "_validate_prior_attempt_closure_list_gate",
+            lambda *a, **k: (
+                [{"path": "r1-closure-stub", "sha256": "c" * 64},
+                 {"path": "r2-closure-stub", "sha256": "d" * 64}],
+                {"stub": "r2_closure"},
+            ))
+        mp.setattr(
+            pe, "_validate_stage_family_provenance", lambda *a, **k: ("e" * 64, "f" * 64))
+        mp.setattr(pe, "_validate_ceiling_correction_gate", lambda *a, **k: "0" * 64)
         yield
 
 
@@ -154,15 +170,26 @@ def _baseline(project_root: Path) -> dict:
     approval_basis_sha256 = hashlib.sha256(
         (project_root / REL_APPROVAL_BASIS).read_bytes()).hexdigest()
 
+    # r3 shape: provider_call_inventory excludes the one carried-forward planning cell (the
+    # successful r2 Qwen call) and marks the one replacement planning cell (the r2 closure's
+    # closed-ambiguous Gemma cell) with CALL_ENTRY_REPLACEMENT_MARKER_KEY=True -- see
+    # tests/test_phase2_execution.py's ``baseline`` fixture for the same convention.
+    carried_forward_key = phase2_stage_family.QWEN_PLANNING_CELL_KEY
+    replacement_key = phase2_stage_family.GEMMA_PLANNING_CELL_KEY
+    provider_call_planning_keys = [k for k in planning_keys if k != carried_forward_key]
+
     entries_without_key = []
-    for index, key in enumerate(planning_keys):
+    for index, key in enumerate(provider_call_planning_keys):
         cell = cells_by_key[key]
         side = "A" if cell["replicate_index"] == 0 else "B"
-        entries_without_key.append({
+        entry = {
             "planning_cell_key": key, "call_role": "capability_qa", "call_index": index,
             "model": cell["judge_model"], "seed": index, "side": side,
             "request_fields_sha256": "a" * 64,
-        })
+        }
+        if key == replacement_key:
+            entry[pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY] = True
+        entries_without_key.append(entry)
     return {
         "protocol": protocol, "planning_keys": planning_keys,
         "entries_without_key": entries_without_key, "combined": combined,
@@ -219,6 +246,32 @@ def _write_artifacts(
 
     prior_attempt_closure_path = artifacts_dir / "prior_attempt_closure.json"
     prior_attempt_closure_path.write_text(json.dumps({"closure": "placeholder"}), encoding="utf-8")
+    r2_closure_path = artifacts_dir / "r2_closure.json"
+    r2_closure_path.write_text(json.dumps({"r2_closure": "placeholder"}), encoding="utf-8")
+
+    # carryforward_artifact: _run_locked itself re-verifies this (runner_mod.
+    # _verify_carried_forward_row), independently of the (bypassed) manifest-validation gate
+    # above -- so, unlike the other placeholders in this function, its content must be genuinely
+    # self-consistent: a real raw_line/raw_line_sha256 pair and a real, on-disk source_path/
+    # line_number the runner can actually read back.
+    carryforward_source_dir = tmp_path_factory.mktemp("carryforward_r2_archive")
+    carryforward_raw_line = json.dumps({"execution_call_key": "carried-forward-stub"})
+    carryforward_source_path = carryforward_source_dir / "phase2_capability_preflight_results.jsonl"
+    carryforward_source_path.write_text(carryforward_raw_line + "\n", encoding="utf-8")
+    carryforward_path = artifacts_dir / "carryforward_artifact.json"
+    carryforward_path.write_text(json.dumps({
+        "results_row": {
+            "raw_line": carryforward_raw_line,
+            "raw_line_sha256": hashlib.sha256(
+                carryforward_raw_line.encode("utf-8")).hexdigest(),
+            "source_path": str(carryforward_source_path),
+            "line_number": 1,
+        },
+    }), encoding="utf-8")
+    stage_family_ledger_path = artifacts_dir / "stage_family_ledger_artifact.json"
+    stage_family_ledger_path.write_text(json.dumps({"ledger": "placeholder"}), encoding="utf-8")
+    ceiling_correction_path = artifacts_dir / "ceiling_correction_artifact.json"
+    ceiling_correction_path.write_text(json.dumps({"correction": "placeholder"}), encoding="utf-8")
 
     return {
         "role_limits_and_request_settings": role_limits_and_request_settings,
@@ -228,6 +281,10 @@ def _write_artifacts(
         "provider_reconciliation_evidence": reconciliation_path,
         "provider_refresh": provider_refresh_path,
         "prior_attempt_closure": prior_attempt_closure_path,
+        "r2_closure": r2_closure_path,
+        "carryforward_artifact": carryforward_path,
+        "stage_family_ledger_artifact": stage_family_ledger_path,
+        "ceiling_correction_artifact": ceiling_correction_path,
         "archive_destination": archive_destination,
     }
 
@@ -242,7 +299,10 @@ def _binding(project_root: Path, path: Path) -> dict:
     return {"path": path_value, "sha256": sha}
 
 
-def _shared_fields(project_root, baseline, artifacts, *, stage, stage_cap, cumulative_cap):
+def _shared_fields(
+    project_root, baseline, artifacts, *, stage, stage_cap, cumulative_cap,
+    attempt_available_cap_usd=phase2_stage_family.R3_AVAILABLE_CAP_USD,
+):
     protocol = baseline["protocol"]
     schema_version = protocol["materialization_requirements"]["transition_model"][
         "manifest_schema_version"]
@@ -275,20 +335,31 @@ def _shared_fields(project_root, baseline, artifacts, *, stage, stage_cap, cumul
         "provider_reconciliation_evidence": _binding(
             project_root, artifacts["provider_reconciliation_evidence"]),
         "provider_refresh": _binding(project_root, artifacts["provider_refresh"]),
-        "prior_attempt_closure": _binding(project_root, artifacts["prior_attempt_closure"]),
+        "prior_attempt_closure": [
+            _binding(project_root, artifacts["prior_attempt_closure"]),
+            _binding(project_root, artifacts["r2_closure"]),
+        ],
         "implementation_provenance": {
             "git_commit": "a" * 40, "code_bundle_sha256": "b" * 64,
         },
+        "carryforward_artifact": _binding(project_root, artifacts["carryforward_artifact"]),
+        "stage_family_ledger_artifact": _binding(
+            project_root, artifacts["stage_family_ledger_artifact"]),
+        "ceiling_correction_artifact": _binding(
+            project_root, artifacts["ceiling_correction_artifact"]),
+        "attempt_available_cap_usd": attempt_available_cap_usd,
+        "expected_provider_call_count": pe.EXPECTED_PROVIDER_CALL_COUNT,
     }
 
 
 def _build_manifest(
     project_root, baseline, artifacts, *, stage="capability_preflight",
     stage_cap=15.0, cumulative_cap=1500.0,
+    attempt_available_cap_usd=phase2_stage_family.R3_AVAILABLE_CAP_USD,
 ):
     shared = _shared_fields(
         project_root, baseline, artifacts, stage=stage, stage_cap=stage_cap,
-        cumulative_cap=cumulative_cap)
+        cumulative_cap=cumulative_cap, attempt_available_cap_usd=attempt_available_cap_usd)
     identity = pe.build_execution_identity(
         schema_version=shared["schema_version"], stage=shared["stage"],
         protocol_canonical_sha256=shared["protocol_canonical_sha256"],
@@ -316,6 +387,10 @@ def _build_manifest(
         provider_refresh=shared["provider_refresh"],
         prior_attempt_closure=shared["prior_attempt_closure"],
         implementation_provenance=shared["implementation_provenance"],
+        carryforward_artifact=shared["carryforward_artifact"],
+        stage_family_ledger_artifact=shared["stage_family_ledger_artifact"],
+        ceiling_correction_artifact=shared["ceiling_correction_artifact"],
+        attempt_available_cap_usd=shared["attempt_available_cap_usd"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
     entries = [
@@ -335,6 +410,7 @@ def _build_full_manifest(
     project_root: Path, tmp_path_factory, *, stage_cap: float = 15.0,
     cumulative_cap: float = 1500.0, corpus_sha_override: str | None = None,
     corpus_count_override: int | None = None, archive_destination: str | None = None,
+    attempt_available_cap_usd: str = phase2_stage_family.R3_AVAILABLE_CAP_USD,
 ):
     baseline = _baseline(project_root)
     corpus_entries = capability_corpus.render_capability_corpus(
@@ -345,7 +421,8 @@ def _build_full_manifest(
         archive_destination=archive_destination,
     )
     manifest, identity_sha256 = _build_manifest(
-        project_root, baseline, artifacts, stage_cap=stage_cap, cumulative_cap=cumulative_cap)
+        project_root, baseline, artifacts, stage_cap=stage_cap, cumulative_cap=cumulative_cap,
+        attempt_available_cap_usd=attempt_available_cap_usd)
     return manifest, identity_sha256, artifacts
 
 
@@ -644,7 +721,7 @@ def _fake_inventory(identity_sha256: str, count: int) -> tuple[dict, ...]:
 
 def test_verify_call_inventory_accepts_self_consistent_inventory():
     identity_sha256 = "a" * 64
-    entries = _fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT)
+    entries = _fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT)
     validated = SimpleNamespace(
         execution_identity_sha256=identity_sha256, provider_call_inventory=entries,
         planning_cell_keys=tuple(e["planning_cell_key"] for e in entries),
@@ -661,7 +738,7 @@ def test_verify_call_inventory_rejects_wrong_count():
 
 def test_verify_call_inventory_rejects_tampered_call_key():
     identity_sha256 = "a" * 64
-    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT))
+    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT))
     entries[5] = {**entries[5], "execution_call_key": "0" * 64}
     validated = SimpleNamespace(
         execution_identity_sha256=identity_sha256, provider_call_inventory=tuple(entries),
@@ -675,7 +752,7 @@ def test_verify_call_inventory_rejects_tampered_call_key():
 
 def test_verify_call_inventory_rejects_out_of_order_call_index():
     identity_sha256 = "a" * 64
-    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT))
+    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT))
     entries[0], entries[1] = entries[1], entries[0]
     validated = SimpleNamespace(
         execution_identity_sha256=identity_sha256, provider_call_inventory=tuple(entries),
@@ -687,7 +764,7 @@ def test_verify_call_inventory_rejects_out_of_order_call_index():
 
 def test_verify_call_inventory_rejects_wrong_call_role():
     identity_sha256 = "a" * 64
-    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT))
+    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT))
     entries[3] = {**entries[3], "call_role": "not_capability_qa"}
     validated = SimpleNamespace(
         execution_identity_sha256=identity_sha256, provider_call_inventory=tuple(entries),
@@ -699,7 +776,7 @@ def test_verify_call_inventory_rejects_wrong_call_role():
 
 def test_verify_call_inventory_rejects_missing_planning_cell_key():
     identity_sha256 = "a" * 64
-    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT))
+    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT))
     entries[3] = {**entries[3], "planning_cell_key": ""}
     validated = SimpleNamespace(
         execution_identity_sha256=identity_sha256, provider_call_inventory=tuple(entries),
@@ -711,7 +788,7 @@ def test_verify_call_inventory_rejects_missing_planning_cell_key():
 
 def test_verify_call_inventory_rejects_duplicate_planning_cell_key():
     identity_sha256 = "a" * 64
-    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT))
+    entries = list(_fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT))
     # Two DIFFERENT call_index positions (5 and 6) sharing the same planning_cell_key: unlike a
     # duplicate execution_call_key (which call_index makes structurally unreachable here, since
     # call_index is baked into the hash and is already forced unique-per-position by the
@@ -735,7 +812,7 @@ def test_verify_call_inventory_rejects_duplicate_planning_cell_key():
 
 def test_verify_call_inventory_rejects_planning_cell_keys_disagreement():
     identity_sha256 = "a" * 64
-    entries = _fake_inventory(identity_sha256, pe.EXPECTED_CAPABILITY_CELL_COUNT)
+    entries = _fake_inventory(identity_sha256, pe.EXPECTED_PROVIDER_CALL_COUNT)
     real_planning_keys = tuple(e["planning_cell_key"] for e in entries)
     # The manifest's own planning_cell_keys inventory disagrees with what the call inventory
     # actually references (last real key swapped for one no entry references).
@@ -806,6 +883,7 @@ def test_run_locked_rejects_inventory_entry_with_unknown_planning_cell(tmp_path_
     validated = _validated_for(manifest_path, project_root)
 
     entries = list(validated.provider_call_inventory)
+    original_planning_key = entries[0]["planning_cell_key"]
     bogus_planning_key = "nonexistent-planning-cell-key"
     bogus_call_key = pe.derive_execution_call_key(
         validated.execution_identity_sha256, planning_cell_key=bogus_planning_key,
@@ -814,7 +892,14 @@ def test_run_locked_rejects_inventory_entry_with_unknown_planning_cell(tmp_path_
         **entries[0], "planning_cell_key": bogus_planning_key,
         "execution_call_key": bogus_call_key,
     }
-    planning_keys = (bogus_planning_key,) + tuple(validated.planning_cell_keys[1:])
+    # provider_call_inventory is NOT index-aligned with the full planning_cell_keys list (the
+    # latter also carries the one carried-forward cell, wherever it sorts): replace whichever
+    # planning_cell_keys entry actually matches entries[0]'s ORIGINAL planning cell, not
+    # positionally index 0.
+    planning_keys = tuple(
+        bogus_planning_key if key == original_planning_key else key
+        for key in validated.planning_cell_keys
+    )
     tampered = replace(
         validated, provider_call_inventory=tuple(entries), planning_cell_keys=planning_keys)
 
@@ -1009,7 +1094,7 @@ def test_dry_run_uses_unauthorized_manifest_and_marks_every_row_dry_run_true(com
         json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert len(rows) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(rows) == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert all(row["dry_run"] is True for row in rows)
 
     completion_payload = json.loads(
@@ -1037,17 +1122,17 @@ def test_live_run_requires_authorization(tmp_path_factory):
 def test_full_live_run_completes_all_1060_calls_and_marks_dry_run_false(completed_live_run):
     completion = completed_live_run["completion"]
     assert completion.dry_run is False
-    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert completion.total_calls == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert dict(completion.counts) == {
-        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-        "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0,
+        "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+        "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0,
     }
     results_path = Path(completion.output_rows_path)
     rows = [
         json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert len(rows) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(rows) == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert all(row["dry_run"] is False for row in rows)
 
 
@@ -1266,7 +1351,11 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
 
     params = captured_params[0]
     assert params.dry_run is True
-    assert params.approved_cap_usd == 7.5
+    # approved_cap_usd is sourced from the manifest's own attempt_available_cap_usd (the
+    # stage-family ATTEMPT cap), never stage_cap_usd=7.5 (the family total) -- see
+    # test_client_construction_params_use_attempt_cap_not_stage_or_cumulative_cap below for the
+    # dedicated positive proof that these three caps are never confused with one another.
+    assert params.approved_cap_usd == float(phase2_stage_family.R3_AVAILABLE_CAP_USD)
     assert params.require_explicit_reasoning_max_tokens is True
     assert params.strict_context_mode is True
     assert params.max_retries == 2
@@ -1290,11 +1379,18 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
             == bound_transport["per_call_wall_clock_ceiling_seconds"])
 
 
-def test_client_construction_params_use_stage_cap_not_cumulative_cap(tmp_path_factory):
+def test_client_construction_params_use_attempt_cap_not_stage_or_cumulative_cap(
+    tmp_path_factory,
+):
+    """approved_cap_usd is the manifest's own attempt_available_cap_usd -- the stage-family
+    ATTEMPT cap -- never stage_cap_usd (the family total) or cumulative_cap_usd. Uses three
+    deliberately distinct values so a client that picked the wrong one would fail this assert.
+    """
     project_root = tmp_path_factory.mktemp("preflight_cap_root")
     _copy_project_root_sources(project_root)
     manifest, _identity, _artifacts = _build_full_manifest(
-        project_root, tmp_path_factory, stage_cap=3.0, cumulative_cap=999.0)
+        project_root, tmp_path_factory, stage_cap=3.0, cumulative_cap=999.0,
+        attempt_available_cap_usd="1.23456789")
     manifest_path = _write_manifest(project_root, manifest)
 
     captured_params: list[runner_mod.ClientConstructionParams] = []
@@ -1307,7 +1403,7 @@ def test_client_construction_params_use_stage_cap_not_cumulative_cap(tmp_path_fa
         runner_mod.run_preflight(
             manifest_path, project_root, None, client_factory=factory, dry_run=True)
 
-    assert captured_params[0].approved_cap_usd == 3.0
+    assert captured_params[0].approved_cap_usd == 1.23456789
 
 
 # --- contract item 9 + 11: persist-before-advance, completion gate --------------------------------
@@ -1315,19 +1411,19 @@ def test_client_construction_params_use_stage_cap_not_cumulative_cap(tmp_path_fa
 
 def test_full_dry_run_completes_all_1060_calls_exactly(completed_dry_run):
     completion = completed_dry_run["completion"]
-    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert completion.total_calls == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert dict(completion.counts) == {
-        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-        "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0,
+        "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+        "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0,
     }
     results_path = Path(completion.output_rows_path)
     rows = [
         json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert len(rows) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(rows) == pe.EXPECTED_PROVIDER_CALL_COUNT
     call_keys = {row["execution_call_key"] for row in rows}
-    assert len(call_keys) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(call_keys) == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert all(row["verdict"] == "A" for row in rows)
     assert all(row["raw_output"] == "ANSWER: A" for row in rows)
     for row in rows:
@@ -1350,7 +1446,7 @@ def test_completion_record_written_to_disk(completed_dry_run):
     payload = json.loads(completion_path.read_text(encoding="utf-8"))
     assert payload["schema_version"] == runner_mod.COMPLETION_SCHEMA_VERSION
     assert payload["stage"] == "capability_preflight"
-    assert payload["total_calls"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert payload["total_calls"] == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert payload["archive_destination"]
 
 
@@ -1378,16 +1474,16 @@ def test_completion_gate_raises_when_final_audit_disposition_is_not_complete(
     initial_audit = pe.ResumeAudit(
         stage=validated.stage, disposition=pe.ResumeDisposition.TODO, per_call={},
         todo_call_keys=(one_key,), blockers=(), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 1,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT - 1, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 1,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT - 1, "blocked_reconciliation": 0},
     )
     # Simulates a post-loop inconsistency: the single TODO call was processed, but the
     # (stubbed) final audit still refuses to call the run COMPLETE.
     final_audit = pe.ResumeAudit(
         stage=validated.stage, disposition=pe.ResumeDisposition.TODO, per_call={},
         todo_call_keys=(), blockers=("simulated post-loop inconsistency",), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 1,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT - 1, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 1,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT - 1, "blocked_reconciliation": 0},
     )
     # A third stubbed audit for the per-call blocker check that now runs immediately after the
     # single TODO call's persist step (not just at startup and at the end): its per_call
@@ -1397,8 +1493,8 @@ def test_completion_gate_raises_when_final_audit_disposition_is_not_complete(
         stage=validated.stage, disposition=pe.ResumeDisposition.TODO,
         per_call={one_key: pe.ResumeDisposition.COMPLETE}, todo_call_keys=(), blockers=(),
         counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0},
     )
     _stub_audit_sequence(monkeypatch, initial_audit, per_call_audit, final_audit)
 
@@ -1419,8 +1515,8 @@ def test_completion_gate_raises_on_row_count_mismatch(tmp_path_factory, monkeypa
     initial_audit = pe.ResumeAudit(
         stage=validated.stage, disposition=pe.ResumeDisposition.TODO, per_call={},
         todo_call_keys=(one_key,), blockers=(), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 1,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT - 1, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 1,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT - 1, "blocked_reconciliation": 0},
     )
     # The stubbed final audit claims COMPLETE, but only one real row was ever persisted (only
     # one call was in todo_call_keys above) -- the gate's own direct row-count check must catch
@@ -1428,8 +1524,8 @@ def test_completion_gate_raises_on_row_count_mismatch(tmp_path_factory, monkeypa
     final_audit = pe.ResumeAudit(
         stage=validated.stage, disposition=pe.ResumeDisposition.COMPLETE, per_call={},
         todo_call_keys=(), blockers=(), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0},
     )
     # A third stubbed audit for the per-call blocker check that now runs immediately after the
     # single TODO call's persist step (see the sibling disposition test above for why).
@@ -1437,8 +1533,8 @@ def test_completion_gate_raises_on_row_count_mismatch(tmp_path_factory, monkeypa
         stage=validated.stage, disposition=pe.ResumeDisposition.TODO,
         per_call={one_key: pe.ResumeDisposition.COMPLETE}, todo_call_keys=(), blockers=(),
         counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0},
     )
     _stub_audit_sequence(monkeypatch, initial_audit, per_call_audit, final_audit)
 
@@ -1472,15 +1568,15 @@ def test_live_ledger_reconciliation_gate_raises_on_success_count_mismatch(
     results_path.write_text(
         "\n".join(
             json.dumps({"synthetic_row": i})
-            for i in range(pe.EXPECTED_CAPABILITY_CELL_COUNT)) + "\n",
+            for i in range(pe.EXPECTED_PROVIDER_CALL_COUNT)) + "\n",
         encoding="utf-8",
     )
 
     complete_audit = pe.ResumeAudit(
         stage=validated.stage, disposition=pe.ResumeDisposition.COMPLETE, per_call={},
         todo_call_keys=(), blockers=(), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+            "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0},
     )
     _stub_audit_sequence(monkeypatch, complete_audit, complete_audit)
 
@@ -1586,7 +1682,7 @@ def test_malformed_answer_recorded_invalid_never_retried(tmp_path_factory):
 
     completion = runner_mod.run_preflight(
         manifest_path, project_root, None, client_factory=factory, dry_run=True)
-    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert completion.total_calls == pe.EXPECTED_PROVIDER_CALL_COUNT
 
     client = created[0]
     calls_for_target = [
@@ -1599,7 +1695,7 @@ def test_malformed_answer_recorded_invalid_never_retried(tmp_path_factory):
         json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert len(rows) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(rows) == pe.EXPECTED_PROVIDER_CALL_COUNT
     target_row = next(r for r in rows if r["execution_call_key"] == target_key)
     assert target_row["verdict"] == "INVALID"
     assert target_row["raw_output"] == "the sky is blue today"
@@ -1631,7 +1727,7 @@ def test_late_archive_failure_still_leaves_a_durable_completion_record(
     completion_path = runner_mod._completion_path(project_root, validated, dry_run=True)
     assert completion_path.exists()
     payload = json.loads(completion_path.read_text(encoding="utf-8"))
-    assert payload["total_calls"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert payload["total_calls"] == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert payload["archive_destination"] == ""  # never reached the successful-archival rewrite
 
 
@@ -1669,7 +1765,7 @@ def test_blocked_reconciliation_unmatched_reservation_refuses_before_any_call(
     record = _read_abort_record(destination, validated, dry_run=True)
     assert record["reason"] == "resume_or_per_call_blocker"
     assert record["exception_type"] == "ResumeBlockedError"
-    assert record["cells_completed"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert record["cells_completed"] == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert record["dry_run"] is True
     aborted_dir = _aborted_archive_dir(destination, validated, dry_run=True)
     assert (aborted_dir / "manifest.json").exists()
@@ -1754,18 +1850,18 @@ def test_crash_and_resume_mid_run_completes_only_the_remaining_todo_cells(tmp_pa
     completion = runner_mod.run_preflight(
         manifest_path, project_root, None, client_factory=resumed_factory, dry_run=True)
 
-    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
-    assert dict(completion.counts)["complete"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert completion.total_calls == pe.EXPECTED_PROVIDER_CALL_COUNT
+    assert dict(completion.counts)["complete"] == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert dict(completion.counts)["blocked_reconciliation"] == 0
     # Only the remaining TODO cells were (re-)executed -- the first 500 were never re-run.
-    assert len(resumed_clients[0].calls) == pe.EXPECTED_CAPABILITY_CELL_COUNT - 500
+    assert len(resumed_clients[0].calls) == pe.EXPECTED_PROVIDER_CALL_COUNT - 500
 
     final_rows = [
         json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert len(final_rows) == pe.EXPECTED_CAPABILITY_CELL_COUNT
-    assert len({r["execution_call_key"] for r in final_rows}) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(final_rows) == pe.EXPECTED_PROVIDER_CALL_COUNT
+    assert len({r["execution_call_key"] for r in final_rows}) == pe.EXPECTED_PROVIDER_CALL_COUNT
 
     before_crash_keys = {r["execution_call_key"] for r in rows_after_crash}
     resumed_keys = {
@@ -2229,9 +2325,9 @@ def test_run_live_completes_a_full_authorized_run_with_a_fake_sdk(tmp_path_facto
     completion = runner_mod.run_live(manifest_path, project_root, authorization_path)
 
     assert completion.dry_run is False
-    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert completion.total_calls == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert dict(completion.counts) == {
-        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-        "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0,
+        "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+        "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0,
     }
-    assert len(fake_sdk.calls) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(fake_sdk.calls) == pe.EXPECTED_PROVIDER_CALL_COUNT

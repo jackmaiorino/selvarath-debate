@@ -1473,9 +1473,14 @@ def _validate_cost_forecast_gate(
                 provider_refresh=provider_refresh_payload,
             )
         else:
-            raise ManifestValidationError(
-                "cost_forecast does not validate as a ready capability-preflight forecast: "
-                f"unsupported schema_version {schema_version!r}")
+            # Any other schema (v1/v2/conflict/unknown) is routed through the v3 validator,
+            # which fail-closes on it -- same terminal behavior as before the v4 dispatch was
+            # added, preserving the single stubbing seam the test fixtures rely on.
+            preflight_forecast.validate_forecast_v3(
+                forecast_payload, root=root, protocol=protocol,
+                role_limits_v4=role_limits_v4_payload, snapshot=snapshot, bundle=bundle,
+                provider_refresh=provider_refresh_payload,
+            )
     except preflight_forecast.PreflightForecastError as exc:
         raise ManifestValidationError(
             f"cost_forecast does not validate as a ready capability-preflight forecast: "

@@ -98,6 +98,7 @@ from rejudge import phase2_plan
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_role_limits as role_limits
+from rejudge import phase2_stage_family
 from rejudge import run_manifest
 from rejudge.runner import OutputPersistenceError as RunnerOutputPersistenceError
 from rejudge.runner import append_jsonl_record, prepare_jsonl_output
@@ -163,6 +164,18 @@ class ArchiveError(PreflightRunnerError):
     Also raised by the pre-flight archive-writability probe (see
     :func:`_probe_archive_writability`): a destination that fails the probe refuses the entire
     run with zero calls dispatched, exactly like a real end-of-run archive failure.
+    """
+
+
+class CarriedForwardVerificationError(PreflightRunnerError):
+    """The carried-forward (r2) result row could not be re-verified against durable evidence.
+
+    Raised by :func:`_verify_carried_forward_row`, called as part of the completion gate for a
+    manifest bound to a ``carryforward_artifact`` (every capability_preflight manifest since the
+    r2 unknown-charge halt): the completion gate must never simply trust the carryforward
+    artifact's own say-so that its one carried-forward cell is durably complete -- it
+    independently recomputes the artifact's own declared ``raw_line_sha256`` and confirms the r2
+    archive source file it names is still present and byte-consistent on disk.
     """
 
 
@@ -426,6 +439,14 @@ def _completion_path(project_root: Path, validated: pe.ValidatedExecutionManifes
         filename="phase2_capability_preflight_completion.json")
 
 
+def _carried_forward_provenance_path(
+    project_root: Path, validated: pe.ValidatedExecutionManifest, *, dry_run: bool,
+) -> Path:
+    return _sibling_path(
+        project_root, validated, dry_run=dry_run,
+        filename="phase2_capability_preflight_carried_forward.json")
+
+
 def _error_log_path(project_root: Path, validated: pe.ValidatedExecutionManifest, *,
                      dry_run: bool) -> Path:
     return _sibling_path(
@@ -454,9 +475,9 @@ def _verify_call_inventory(validated: pe.ValidatedExecutionManifest) -> None:
     before a single provider call is made.
     """
     entries = validated.provider_call_inventory
-    if len(entries) != pe.EXPECTED_CAPABILITY_CELL_COUNT:
+    if len(entries) != pe.EXPECTED_PROVIDER_CALL_COUNT:
         raise InventoryMismatchError(
-            f"expected exactly {pe.EXPECTED_CAPABILITY_CELL_COUNT} manifested calls, found "
+            f"expected exactly {pe.EXPECTED_PROVIDER_CALL_COUNT} manifested calls, found "
             f"{len(entries)}")
 
     seen_call_keys: set[str] = set()
@@ -488,10 +509,99 @@ def _verify_call_inventory(validated: pe.ValidatedExecutionManifest) -> None:
             raise InventoryMismatchError(f"duplicate planning_cell_key: {planning_cell_key!r}")
         seen_planning_keys.add(planning_cell_key)
 
-    if seen_planning_keys != set(validated.planning_cell_keys):
+    # provider_call_inventory covers every planning cell EXCEPT the one carried-forward cell
+    # (see rejudge.phase2_execution's carryforward_artifact/EXPECTED_PROVIDER_CALL_COUNT): the
+    # carried-forward cell is durably complete already (verified independently by
+    # _verify_carried_forward_row) and must never be re-issued or re-appear in the inventory.
+    expected_provider_call_planning_keys = (
+        set(validated.planning_cell_keys) - {phase2_stage_family.QWEN_PLANNING_CELL_KEY})
+    if seen_planning_keys != expected_provider_call_planning_keys:
         raise InventoryMismatchError(
             "provider_call_inventory planning cells disagree with the manifest's own planning "
-            "cell inventory")
+            "cell inventory minus the one carried-forward cell")
+
+
+def _load_carryforward_artifact(
+    project_root: Path, validated: pe.ValidatedExecutionManifest,
+) -> dict[str, Any]:
+    path = _resolve_manifest_path(
+        project_root, str(validated.execution_identity["carryforward_artifact"]["path"]))
+    return _load_json(path, CarriedForwardVerificationError)
+
+
+def _verify_carried_forward_row(
+    project_root: Path, validated: pe.ValidatedExecutionManifest,
+) -> dict[str, Any]:
+    """Re-verify the carried-forward r2 result row against durable evidence, never its own say-so.
+
+    The completion gate must be able to claim the carried-forward cell as durably complete
+    without re-issuing a provider call for it -- but it must never do so from the manifest-bound
+    ``carryforward_artifact``'s own embedded content alone (that artifact could in principle be
+    stale relative to the archive it describes). This independently recomputes
+    ``sha256(results_row.raw_line)`` against the artifact's own declared ``raw_line_sha256`` (the
+    same check :func:`rejudge.phase2_stage_family.validate_carryforward` already performs
+    structurally, repeated here because that validation happened once, at manifest-validation
+    time, not necessarily immediately before this completion check) AND confirms the r2 archive
+    source file it names (``results_row.source_path``) is still present on disk and that its own
+    named line still hashes to the same value -- so a carried-forward completion can never be
+    claimed if the underlying r2 archive evidence has since gone missing or drifted.
+
+    Returns the parsed carried-forward row plus enough provenance to archive a copy of it
+    alongside this attempt's own outputs (see :func:`_archive_outputs`).
+    """
+    carryforward = _load_carryforward_artifact(project_root, validated)
+    results_row = carryforward.get("results_row")
+    if not isinstance(results_row, Mapping):
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row is missing or malformed")
+    raw_line = results_row.get("raw_line")
+    declared_sha = results_row.get("raw_line_sha256")
+    if not isinstance(raw_line, str) or not isinstance(declared_sha, str):
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.raw_line/raw_line_sha256 is missing or malformed")
+    observed_sha = hashlib.sha256(raw_line.encode("utf-8")).hexdigest()
+    if observed_sha != declared_sha:
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.raw_line_sha256 does not match sha256(raw_line): "
+            f"declared {declared_sha}, recomputed {observed_sha}")
+    try:
+        parsed_row = json.loads(raw_line)
+    except json.JSONDecodeError as exc:
+        raise CarriedForwardVerificationError(
+            f"carryforward_artifact.results_row.raw_line is not valid JSON: {exc}") from exc
+    if not isinstance(parsed_row, dict):
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.raw_line must decode to a JSON object")
+
+    source_path_value = results_row.get("source_path")
+    if not isinstance(source_path_value, str) or not source_path_value:
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.source_path is missing or malformed")
+    source_path = Path(source_path_value)
+    if not source_path.is_file():
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.source_path is not present on disk (the r2 "
+            f"archive appears to be missing): {source_path}")
+    line_number = results_row.get("line_number")
+    if type(line_number) is not int or line_number < 1:
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.line_number is missing or malformed")
+    source_lines = source_path.read_text(encoding="utf-8").splitlines()
+    if line_number > len(source_lines):
+        raise CarriedForwardVerificationError(
+            "carryforward_artifact.results_row.source_path no longer has "
+            f"{line_number} line(s): {source_path}")
+    source_line = source_lines[line_number - 1]
+    if hashlib.sha256(source_line.encode("utf-8")).hexdigest() != declared_sha:
+        raise CarriedForwardVerificationError(
+            "the r2 archive source file's own named line no longer matches the carried-forward "
+            "artifact's raw_line_sha256; the underlying evidence has drifted since the "
+            "carryforward artifact was sealed")
+
+    return {
+        "carryforward_artifact": carryforward, "parsed_row": parsed_row,
+        "source_path": source_path,
+    }
 
 
 # --- contract item 5: corpus rendering + forecast cross-check ------------------------------------
@@ -625,7 +735,12 @@ def _build_client_params(
 
     return ClientConstructionParams(
         dry_run=dry_run,
-        approved_cap_usd=validated.stage_cap_usd,
+        # The ATTEMPT cap (this stage-family's remaining budget after every prior attempt's
+        # accounted spend -- see rejudge.phase2_execution's carryforward/stage-family-ledger
+        # bindings), never the family-total stage_cap_usd: a relaunch must never be able to
+        # spend up to the FULL $15 family cap again on top of what earlier attempts already
+        # spent within it.
+        approved_cap_usd=float(validated.attempt_available_cap_usd),
         require_explicit_reasoning_max_tokens=True,
         strict_context_mode=True,
         model_context_limits=model_context_limits,
@@ -720,6 +835,7 @@ def _probe_archive_writability(
 def _archive_outputs(
     *, archive_root: Path, validated: pe.ValidatedExecutionManifest, dry_run: bool,
     manifest_path: Path, results_path: Path, completion_path: Path, usage_log_path: Path,
+    carried_forward_provenance_path: Path | None = None,
 ) -> Path:
     destination = archive_root / _archive_subdir_name(validated, dry_run=dry_run)
     try:
@@ -731,6 +847,13 @@ def _archive_outputs(
         }
         if usage_log_path.exists():
             files["usage_events.jsonl"] = usage_log_path
+        # A copy of the carried-forward cell's own provenance (the manifest-bound
+        # carryforward_artifact, re-verified by _verify_carried_forward_row before this archive
+        # step is ever reached): every capability_preflight archive since the r2 unknown-charge
+        # halt therefore carries, alongside its own 1,059 fresh rows, durable evidence of the one
+        # additional logical cell it counts as complete without having re-run it.
+        if carried_forward_provenance_path is not None:
+            files["carried_forward_provenance.json"] = carried_forward_provenance_path
         sums: list[str] = []
         for name, source in sorted(files.items()):
             target = destination / name
@@ -758,6 +881,8 @@ def _abort_reason_for(exc: BaseException) -> str:
         return "cost_cap_halt"
     if isinstance(exc, OutputPersistenceError):
         return "output_persistence_failure"
+    if isinstance(exc, CarriedForwardVerificationError):
+        return "carried_forward_verification_failure"
     if isinstance(exc, CompletionGateError):
         return "completion_gate_failure"
     return "unexpected_exception"
@@ -837,6 +962,14 @@ class CompletionRecord:
     output_rows_sha256: str
     completed_at_utc: str
     archive_destination: str
+    # r3-and-later (any manifest bound to a carryforward_artifact): the one additional logical
+    # cell counted complete without being re-run, plus the resulting logical-cell total
+    # (``total_calls`` + this). Both are 0/``total_calls`` for a manifest that never binds a
+    # carryforward_artifact (unreachable today: every capability_preflight manifest requires one
+    # -- see rejudge.phase2_execution.MANIFEST_TOP_LEVEL_KEYS -- but kept explicit rather than
+    # silently assumed).
+    carried_forward_cells: int = 0
+    logical_cells_total: int = 0
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -850,6 +983,8 @@ class CompletionRecord:
             "output_rows_sha256": self.output_rows_sha256,
             "completed_at_utc": self.completed_at_utc,
             "archive_destination": self.archive_destination,
+            "carried_forward_cells": self.carried_forward_cells,
+            "logical_cells_total": self.logical_cells_total,
         }
 
 
@@ -1062,6 +1197,10 @@ def _run_locked(
                     f"{list(post_call_audit.blockers[:5])!r}")
 
         # --- contract item 11: completion gate ---
+        # provider_call_inventory (and therefore this audit) covers EXPECTED_PROVIDER_CALL_COUNT
+        # (1,059) fresh calls; the one carried-forward cell is verified separately, below, never
+        # through audit_resume (it has no reservation/terminal ledger events in THIS attempt's
+        # own usage log -- its evidence lives entirely in the r2 archive).
         final_rows = _read_jsonl_rows(results_path)
         final_events = _read_usage_events_for_audit(usage_log_path)
         final_audit = pe.audit_resume(validated, output_rows=final_rows, usage_events=final_events)
@@ -1069,17 +1208,28 @@ def _run_locked(
             raise CompletionGateError(
                 f"completion gate failed: counts={dict(final_audit.counts)!r}; first blockers: "
                 f"{list(final_audit.blockers[:10])!r}")
-        if len(final_rows) != pe.EXPECTED_CAPABILITY_CELL_COUNT:
+        if len(final_rows) != pe.EXPECTED_PROVIDER_CALL_COUNT:
             raise CompletionGateError(
-                f"expected exactly {pe.EXPECTED_CAPABILITY_CELL_COUNT} result rows, found "
+                f"expected exactly {pe.EXPECTED_PROVIDER_CALL_COUNT} result rows, found "
                 f"{len(final_rows)}")
         if not dry_run:
             success_count = sum(1 for event in final_events if event.get("status") == "success")
-            if success_count != pe.EXPECTED_CAPABILITY_CELL_COUNT:
+            if success_count != pe.EXPECTED_PROVIDER_CALL_COUNT:
                 raise CompletionGateError(
                     "live ledger success-event count does not reconcile with "
-                    f"{pe.EXPECTED_CAPABILITY_CELL_COUNT} manifested calls: observed "
+                    f"{pe.EXPECTED_PROVIDER_CALL_COUNT} manifested calls: observed "
                     f"{success_count}")
+
+        # --- the one carried-forward logical cell: re-verified against durable r2-archive ---
+        # --- evidence (never trusted from the manifest-bound carryforward_artifact's own ---
+        # --- say-so alone), then written to a sibling path so it can be archived alongside ---
+        # --- this attempt's own outputs (contract item 12, below). ---
+        carried_forward_result = _verify_carried_forward_row(project_root, validated)
+        carried_forward_provenance_path = _carried_forward_provenance_path(
+            project_root, validated, dry_run=dry_run)
+        _atomic_write_json(
+            carried_forward_provenance_path,
+            carried_forward_result["carryforward_artifact"])
 
         output_rows_sha256 = hashlib.sha256(results_path.read_bytes()).hexdigest()
         completion = CompletionRecord(
@@ -1087,12 +1237,14 @@ def _run_locked(
             stage=validated.stage,
             execution_identity_sha256=validated.execution_identity_sha256,
             dry_run=dry_run,
-            total_calls=pe.EXPECTED_CAPABILITY_CELL_COUNT,
+            total_calls=pe.EXPECTED_PROVIDER_CALL_COUNT,
             counts=final_audit.counts,
             output_rows_path=str(results_path),
             output_rows_sha256=output_rows_sha256,
             completed_at_utc=datetime.now(timezone.utc).isoformat(),
             archive_destination="",
+            carried_forward_cells=1,
+            logical_cells_total=pe.EXPECTED_PROVIDER_CALL_COUNT + 1,
         )
         _atomic_write_json(completion_path, completion.to_json())
     except Exception as exc:
@@ -1104,6 +1256,7 @@ def _run_locked(
         archive_root=archive_root, validated=validated, dry_run=dry_run,
         manifest_path=manifest_path, results_path=results_path, completion_path=completion_path,
         usage_log_path=usage_log_path,
+        carried_forward_provenance_path=carried_forward_provenance_path,
     )
     completion = replace(completion, archive_destination=str(archive_destination))
     _atomic_write_json(completion_path, completion.to_json())

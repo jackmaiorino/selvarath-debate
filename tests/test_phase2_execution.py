@@ -20,6 +20,7 @@ from rejudge import phase2_preflight_forecast as forecast
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_role_limits as role_limits
+from rejudge import phase2_stage_family
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,11 @@ PRIOR_ATTEMPT_CLOSURE_PATH = ROOT / "rejudge" / "phase2_preflight_abort_closure_
 READY_ARTIFACT_V2_PATH = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19.json"
 PROVIDER_RECONCILIATION_2026_07_19_PATH = (
     ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json")
+R2_CLOSURE_PATH = ROOT / "rejudge" / "phase2_preflight_r2_closure_2026-07-19.json"
+CARRYFORWARD_PATH = ROOT / "rejudge" / "phase2_preflight_carryforward_2026-07-19.json"
+STAGE_FAMILY_LEDGER_PATH = ROOT / "rejudge" / "phase2_stage_family_ledger_2026-07-19.json"
+CEILING_CORRECTION_PATH = ROOT / "rejudge" / "phase2_ceiling_correction_2026-07-19.json"
+STANDING_DELEGATION_PATH = ROOT / "rejudge" / "phase2_standing_delegation_2026-07-19.json"
 STORAGE_POLICY_PATH = ROOT / "rejudge" / "phase2_storage_policy_2026-07-18.json"
 
 STAGE_CAP_USD = 15.0
@@ -526,6 +532,17 @@ def synthetic_artifacts(tmp_path_factory):
             GREEN_ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json"),
         "prior_attempt_closure": (
             GREEN_ROOT / "rejudge" / "phase2_preflight_abort_closure_2026-07-19.json"),
+        # r3 stage-family bindings: the real, committed r2-incident triple + the r2 closure
+        # itself (the second prior_attempt_closure list entry) -- all real, git-tracked
+        # artifacts that DATA_GLOB_PATTERNS' "rejudge/*.json" glob already mirrors byte-for-byte
+        # into GREEN_ROOT.
+        "r2_closure": GREEN_ROOT / "rejudge" / "phase2_preflight_r2_closure_2026-07-19.json",
+        "carryforward_artifact": (
+            GREEN_ROOT / "rejudge" / "phase2_preflight_carryforward_2026-07-19.json"),
+        "stage_family_ledger_artifact": (
+            GREEN_ROOT / "rejudge" / "phase2_stage_family_ledger_2026-07-19.json"),
+        "ceiling_correction_artifact": (
+            GREEN_ROOT / "rejudge" / "phase2_ceiling_correction_2026-07-19.json"),
         **root_relative,
     }
 
@@ -549,11 +566,20 @@ def baseline(synthetic_artifacts):
     uv_lock_sha256 = hashlib.sha256(GREEN_UV_LOCK_PATH.read_bytes()).hexdigest()
     approval_basis_sha256 = hashlib.sha256(APPROVAL_BASIS_PATH.read_bytes()).hexdigest()
 
+    # r3 shape: provider_call_inventory excludes the one carried-forward planning cell (the
+    # successful r2 Qwen call) and marks the one replacement planning cell (the r2 closure's
+    # closed-ambiguous Gemma cell) with CALL_ENTRY_REPLACEMENT_MARKER_KEY=True.
+    carried_forward_key = phase2_stage_family.QWEN_PLANNING_CELL_KEY
+    replacement_key = phase2_stage_family.GEMMA_PLANNING_CELL_KEY
+    assert carried_forward_key in cells_by_key, "fixture drift: qwen planning cell not found"
+    assert replacement_key in cells_by_key, "fixture drift: gemma planning cell not found"
+    provider_call_planning_keys = [k for k in planning_keys if k != carried_forward_key]
+
     entries_without_key = []
-    for index, key in enumerate(planning_keys):
+    for index, key in enumerate(provider_call_planning_keys):
         cell = cells_by_key[key]
         side = "A" if cell["replicate_index"] == 0 else "B"
-        entries_without_key.append({
+        entry = {
             "planning_cell_key": key,
             "call_role": "capability_qa",
             "call_index": index,
@@ -561,7 +587,10 @@ def baseline(synthetic_artifacts):
             "seed": index,
             "side": side,
             "request_fields_sha256": "a" * 64,
-        })
+        }
+        if key == replacement_key:
+            entry[pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY] = True
+        entries_without_key.append(entry)
 
     return {
         "protocol": protocol,
@@ -626,8 +655,18 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "provider_reconciliation_evidence": _artifact_binding(
             artifacts, "provider_reconciliation_evidence"),
         "provider_refresh": _artifact_binding(artifacts, "provider_refresh"),
-        "prior_attempt_closure": _artifact_binding(artifacts, "prior_attempt_closure"),
+        "prior_attempt_closure": [
+            _artifact_binding(artifacts, "prior_attempt_closure"),
+            _artifact_binding(artifacts, "r2_closure"),
+        ],
         "implementation_provenance": dict(IMPLEMENTATION_PROVENANCE_BINDING),
+        "carryforward_artifact": _artifact_binding(artifacts, "carryforward_artifact"),
+        "stage_family_ledger_artifact": _artifact_binding(
+            artifacts, "stage_family_ledger_artifact"),
+        "ceiling_correction_artifact": _artifact_binding(
+            artifacts, "ceiling_correction_artifact"),
+        "attempt_available_cap_usd": phase2_stage_family.R3_AVAILABLE_CAP_USD,
+        "expected_provider_call_count": pe.EXPECTED_PROVIDER_CALL_COUNT,
     }
 
 
@@ -675,6 +714,10 @@ def build_manifest(
         provider_refresh=shared["provider_refresh"],
         prior_attempt_closure=shared["prior_attempt_closure"],
         implementation_provenance=shared["implementation_provenance"],
+        carryforward_artifact=shared["carryforward_artifact"],
+        stage_family_ledger_artifact=shared["stage_family_ledger_artifact"],
+        ceiling_correction_artifact=shared["ceiling_correction_artifact"],
+        attempt_available_cap_usd=shared["attempt_available_cap_usd"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
     entries = [
@@ -847,12 +890,13 @@ def test_valid_manifest_validates_and_derives_the_expected_identity(manifest):
     validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     assert validated.stage == "capability_preflight"
     assert validated.execution_identity_sha256 == identity_sha256
-    assert len(validated.provider_call_inventory) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(validated.provider_call_inventory) == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert len(validated.planning_cell_keys) == pe.EXPECTED_CAPABILITY_CELL_COUNT
     assert validated.authorized is False
     assert validated.authorization is None
     assert validated.stage_cap_usd == STAGE_CAP_USD
     assert validated.cumulative_cap_usd == CUMULATIVE_CAP_USD
+    assert validated.attempt_available_cap_usd == Decimal(phase2_stage_family.R3_AVAILABLE_CAP_USD)
 
 
 def test_call_inventory_is_unique_and_bijective_with_planning_cells(manifest):
@@ -862,8 +906,9 @@ def test_call_inventory_is_unique_and_bijective_with_planning_cells(manifest):
     planning_keys = {
         entry["planning_cell_key"] for entry in validated.provider_call_inventory
     }
-    assert len(call_keys) == pe.EXPECTED_CAPABILITY_CELL_COUNT
-    assert planning_keys == set(validated.planning_cell_keys)
+    assert len(call_keys) == pe.EXPECTED_PROVIDER_CALL_COUNT
+    assert planning_keys == (
+        set(validated.planning_cell_keys) - {phase2_stage_family.QWEN_PLANNING_CELL_KEY})
 
 
 def test_dataclasses_are_frozen(manifest):
@@ -1755,21 +1800,21 @@ def test_planning_cell_keys_with_blank_element_is_rejected(manifest):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-# --- provider-call inventory: exact 1060, structure, cross-checks, duplicates ------------------------
+# --- provider-call inventory: exact 1059 (r3), structure, cross-checks, duplicates -------------
 
 
-def test_call_inventory_count_1059_is_rejected(manifest):
+def test_call_inventory_count_1058_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"].pop()
-    with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
+    with pytest.raises(pe.ManifestValidationError, match="exactly 1059"):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_call_inventory_count_1061_is_rejected(manifest):
+def test_call_inventory_count_1060_is_rejected(manifest):
     manifest_dict, _identity = manifest
     extra = deepcopy(manifest_dict["provider_call_inventory"][-1])
     manifest_dict["provider_call_inventory"].append(extra)
-    with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
+    with pytest.raises(pe.ManifestValidationError, match="exactly 1059"):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
@@ -2073,7 +2118,8 @@ def test_authorization_approval_basis_unpinned_path_fails_closed(manifest, tmp_p
         approval_basis_sha256="a" * 64,
     )
     with pytest.raises(
-        pe.ExecutionAuthorityError, match="must resolve to the frozen, git-tracked preflight",
+        pe.ExecutionAuthorityError,
+        match="must resolve to either the frozen, git-tracked preflight",
     ):
         pe.validate_execution_manifest(
             manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
@@ -3167,14 +3213,14 @@ def test_clean_resume_with_no_activity_is_all_todo(validated_manifest):
     audit = pe.audit_resume(validated_manifest, output_rows=[], usage_events=[])
     assert audit.disposition is pe.ResumeDisposition.TODO
     assert audit.counts == {
-        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": pe.EXPECTED_CAPABILITY_CELL_COUNT,
+        "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": pe.EXPECTED_PROVIDER_CALL_COUNT,
         "complete": 0, "blocked_reconciliation": 0,
     }
-    assert len(audit.todo_call_keys) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(audit.todo_call_keys) == pe.EXPECTED_PROVIDER_CALL_COUNT
     assert audit.blockers == ()
 
 
-def test_exact_completion_of_all_1060_calls_is_complete(validated_manifest):
+def test_exact_completion_of_all_1059_calls_is_complete(validated_manifest):
     output_rows = []
     usage_events = []
     for entry in validated_manifest.provider_call_inventory:
@@ -3187,8 +3233,8 @@ def test_exact_completion_of_all_1060_calls_is_complete(validated_manifest):
         validated_manifest, output_rows=output_rows, usage_events=usage_events)
     assert audit.disposition is pe.ResumeDisposition.COMPLETE
     assert audit.counts == {
-        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-        "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0,
+        "total": pe.EXPECTED_PROVIDER_CALL_COUNT, "todo": 0,
+        "complete": pe.EXPECTED_PROVIDER_CALL_COUNT, "blocked_reconciliation": 0,
     }
     assert audit.todo_call_keys == ()
     assert audit.blockers == ()
@@ -3208,7 +3254,7 @@ def test_partial_resume_leaves_untouched_calls_as_todo(validated_manifest):
         validated_manifest, output_rows=output_rows, usage_events=usage_events)
     assert audit.disposition is pe.ResumeDisposition.TODO
     assert audit.counts["complete"] == 5
-    assert audit.counts["todo"] == pe.EXPECTED_CAPABILITY_CELL_COUNT - 5
+    assert audit.counts["todo"] == pe.EXPECTED_PROVIDER_CALL_COUNT - 5
     for entry in entries:
         assert audit.per_call[entry["execution_call_key"]] is pe.ResumeDisposition.COMPLETE
 
@@ -3399,7 +3445,7 @@ def test_usage_event_missing_attempt_id_blocks_its_own_call(validated_manifest):
     assert audit.per_call[entry["execution_call_key"]] is (
         pe.ResumeDisposition.BLOCKED_RECONCILIATION)
     assert entry["execution_call_key"] not in audit.todo_call_keys
-    assert audit.counts["todo"] == pe.EXPECTED_CAPABILITY_CELL_COUNT - 1
+    assert audit.counts["todo"] == pe.EXPECTED_PROVIDER_CALL_COUNT - 1
     assert any("missing attempt_id" in blocker for blocker in audit.blockers)
 
 
@@ -3534,7 +3580,7 @@ def test_ledger_events_without_execution_call_key_metadata_are_out_of_scope(vali
         validated_manifest, output_rows=[], usage_events=other_run_events)
     assert audit.disposition is pe.ResumeDisposition.TODO
     assert audit.blockers == ()
-    assert audit.counts["todo"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert audit.counts["todo"] == pe.EXPECTED_PROVIDER_CALL_COUNT
 
 
 @pytest.mark.parametrize("bad_rows,bad_events", [
@@ -3571,3 +3617,430 @@ def test_module_defines_no_file_writing_helpers():
     assert '"w"' not in source and "'w'" not in source
     assert "write_text" not in source
     assert "write_bytes" not in source
+
+
+# =================================================================================================
+# r3 stage-family bindings: carryforward_artifact / stage_family_ledger_artifact /
+# ceiling_correction_artifact / list-shaped prior_attempt_closure / standing delegation /
+# provider_call_inventory carried-forward exclusion + replacement marker.
+# =================================================================================================
+
+
+# --- ceiling_correction_artifact --------------------------------------------------------------
+
+
+def test_ceiling_correction_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": str(CEILING_CORRECTION_PATH.relative_to(ROOT).as_posix()),
+        "sha256": _canon_sha(CEILING_CORRECTION_PATH),
+    }
+    pe._validate_ceiling_correction_gate(binding, root=ROOT)  # must not raise
+
+
+def _root_with_mutated_ceiling_correction(tmp_path: Path, mutate) -> tuple[Path, dict]:
+    root = tmp_path
+    _copy_tracked_data_files(root)
+    path = root / "rejudge" / "phase2_ceiling_correction_2026-07-19.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mutate(payload)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return root, payload
+
+
+def test_ceiling_correction_gate_rejects_wrong_ceiling_value(tmp_path):
+    root, payload = _root_with_mutated_ceiling_correction(
+        tmp_path, lambda p: p.__setitem__("correct_cumulative_project_ceiling_usd", 1709.25))
+    binding = {"path": "rejudge/phase2_ceiling_correction_2026-07-19.json",
+               "sha256": pe.canonical_sha256(payload)}
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="correct_cumulative_project_ceiling_usd must be exactly",
+    ):
+        pe._validate_ceiling_correction_gate(binding, root=root)
+
+
+def test_ceiling_correction_gate_rejects_wrong_corrects_tracked_path(tmp_path):
+    root, payload = _root_with_mutated_ceiling_correction(
+        tmp_path, lambda p: p["corrects"].__setitem__("tracked_path", "somewhere/else.json"))
+    binding = {"path": "rejudge/phase2_ceiling_correction_2026-07-19.json",
+               "sha256": pe.canonical_sha256(payload)}
+    with pytest.raises(
+        pe.ManifestValidationError, match="corrects.tracked_path must be exactly",
+    ):
+        pe._validate_ceiling_correction_gate(binding, root=root)
+
+
+def test_ceiling_correction_gate_rejects_hash_drift(tmp_path):
+    root, payload = _root_with_mutated_ceiling_correction(tmp_path, lambda p: None)
+    binding = {"path": "rejudge/phase2_ceiling_correction_2026-07-19.json",
+               "sha256": _flip_hex_digest(pe.canonical_sha256(payload))}
+    with pytest.raises(pe.ManifestValidationError, match="ceiling_correction_artifact hash drift"):
+        pe._validate_ceiling_correction_gate(binding, root=root)
+
+
+def test_ceiling_correction_gate_rejects_unpinned_path():
+    binding = {"path": "docs/phase2-decision-proposal.md", "sha256": "a" * 64}
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe._validate_ceiling_correction_gate(binding, root=ROOT)
+
+
+# --- standing delegation record ------------------------------------------------------------------
+
+
+def test_standing_delegation_record_accepts_the_real_tracked_artifact():
+    pe._validate_standing_delegation_record(
+        STANDING_DELEGATION_PATH, stage="capability_preflight", stage_cap_usd=15.0,
+        cumulative_cap_usd=1500.0)  # must not raise
+
+
+def _standing_delegation_with(tmp_path: Path, mutate) -> Path:
+    payload = json.loads(STANDING_DELEGATION_PATH.read_text(encoding="utf-8"))
+    mutate(payload)
+    path = tmp_path / "standing_delegation.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_standing_delegation_record_rejects_tampered_exact_quote(tmp_path):
+    path = _standing_delegation_with(
+        tmp_path, lambda p: p.__setitem__("exact_quote", "Sure, go ahead"))
+    with pytest.raises(pe.ExecutionAuthorityError, match="exact_quote drifted"):
+        pe._validate_standing_delegation_record(
+            path, stage="capability_preflight", stage_cap_usd=15.0, cumulative_cap_usd=1500.0)
+
+
+def test_standing_delegation_record_rejects_wrong_approver(tmp_path):
+    path = _standing_delegation_with(tmp_path, lambda p: p.__setitem__("approver", "Someone Else"))
+    with pytest.raises(pe.ExecutionAuthorityError, match="approver drifted"):
+        pe._validate_standing_delegation_record(
+            path, stage="capability_preflight", stage_cap_usd=15.0, cumulative_cap_usd=1500.0)
+
+
+def test_standing_delegation_record_rejects_missing_canary_and_main_exclusions(tmp_path):
+    path = _standing_delegation_with(
+        tmp_path,
+        lambda p: p.__setitem__("still_requires_explicit_owner_approval", ["nothing in particular"]))
+    with pytest.raises(pe.ExecutionAuthorityError, match="must mention both canary and main"):
+        pe._validate_standing_delegation_record(
+            path, stage="capability_preflight", stage_cap_usd=15.0, cumulative_cap_usd=1500.0)
+
+
+def test_standing_delegation_record_rejects_missing_transport_relaunch_grant(tmp_path):
+    path = _standing_delegation_with(
+        tmp_path,
+        lambda p: p["scope"].__setitem__("granted", ["something unrelated entirely"]))
+    with pytest.raises(pe.ExecutionAuthorityError, match="transport-only relaunch grant"):
+        pe._validate_standing_delegation_record(
+            path, stage="capability_preflight", stage_cap_usd=15.0, cumulative_cap_usd=1500.0)
+
+
+def test_standing_delegation_record_rejects_stage_cap_mismatch(tmp_path):
+    with pytest.raises(pe.ExecutionAuthorityError, match="does not match this manifest's"):
+        pe._validate_standing_delegation_record(
+            STANDING_DELEGATION_PATH, stage="capability_preflight", stage_cap_usd=999.0,
+            cumulative_cap_usd=1500.0)
+
+
+def test_standing_delegation_record_rejects_cumulative_cap_mismatch(tmp_path):
+    with pytest.raises(pe.ExecutionAuthorityError, match="does not match this manifest's"):
+        pe._validate_standing_delegation_record(
+            STANDING_DELEGATION_PATH, stage="capability_preflight", stage_cap_usd=15.0,
+            cumulative_cap_usd=999.0)
+
+
+# --- authorization: standing delegation as an ALTERNATIVE approval_basis -----------------------
+
+
+def test_authorization_accepts_the_standing_delegation_as_approval_basis(manifest):
+    manifest_dict, identity_sha256 = manifest
+    standing_sha256 = hashlib.sha256(STANDING_DELEGATION_PATH.read_bytes()).hexdigest()
+    authorization = matching_authorization(
+        identity_sha256,
+        approval_basis_tracked_path=str(STANDING_DELEGATION_PATH.relative_to(ROOT).as_posix()),
+        approval_basis_sha256=standing_sha256,
+        approved_at_utc=pe.STANDING_DELEGATION_APPROVED_AT_UTC,
+    )
+    validated = pe.validate_execution_manifest(
+        manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+        require_authorized=True,
+    )
+    assert validated.authorized is True
+
+
+def test_authorization_rejects_standing_basis_with_original_approved_at_utc(manifest):
+    """The two delegation bases each pin their OWN approved_at_utc; swapping one basis's
+    timestamp onto the other must fail closed, never silently accepted as "close enough"."""
+    manifest_dict, identity_sha256 = manifest
+    standing_sha256 = hashlib.sha256(STANDING_DELEGATION_PATH.read_bytes()).hexdigest()
+    authorization = matching_authorization(
+        identity_sha256,
+        approval_basis_tracked_path=str(STANDING_DELEGATION_PATH.relative_to(ROOT).as_posix()),
+        approval_basis_sha256=standing_sha256,
+        approved_at_utc=pe.PREFLIGHT_DELEGATION_APPROVED_AT_UTC,  # wrong basis's timestamp
+    )
+    with pytest.raises(
+        pe.ExecutionAuthorityError, match="must equal the cited standing delegation's own",
+    ):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_still_rejects_a_third_unpinned_delegation_path(manifest, tmp_path):
+    manifest_dict, identity_sha256 = manifest
+    missing = tmp_path / "not_a_real_delegation.json"
+    missing.write_text("{}", encoding="utf-8")
+    authorization = matching_authorization(
+        identity_sha256, approval_basis_tracked_path=str(missing), approval_basis_sha256="a" * 64,
+    )
+    with pytest.raises(
+        pe.ExecutionAuthorityError,
+        match="must resolve to either the frozen, git-tracked preflight",
+    ):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+# --- carried-forward exclusion + replacement marker in provider_call_inventory -----------------
+
+
+def test_provider_call_inventory_excludes_the_carried_forward_planning_cell(manifest):
+    manifest_dict, _identity = manifest
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+    planning_keys = {e["planning_cell_key"] for e in validated.provider_call_inventory}
+    assert phase2_stage_family.QWEN_PLANNING_CELL_KEY not in planning_keys
+
+
+def test_provider_call_inventory_marks_exactly_the_gemma_replacement_entry(manifest):
+    manifest_dict, _identity = manifest
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+    marked = [
+        e for e in validated.provider_call_inventory
+        if e.get(pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY) is True
+    ]
+    assert len(marked) == 1
+    assert marked[0]["planning_cell_key"] == phase2_stage_family.GEMMA_PLANNING_CELL_KEY
+
+
+def test_reintroducing_the_carried_forward_planning_cell_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    entries = manifest_dict["provider_call_inventory"]
+    # Overwrite the replacement (gemma) entry's planning_cell_key with the carried-forward
+    # (qwen) key -- an inventory that tries to re-issue the already-complete carried-forward
+    # cell must fail closed, never silently accepted.
+    for entry in entries:
+        if entry.get(pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY) is True:
+            entry["planning_cell_key"] = phase2_stage_family.QWEN_PLANNING_CELL_KEY
+            del entry[pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY]
+            break
+    with pytest.raises(
+        pe.ManifestValidationError, match="must never be re-issued",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_replacement_marker_on_the_wrong_cell_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    entries = manifest_dict["provider_call_inventory"]
+    entries[0][pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY] = True
+    if entries[0]["planning_cell_key"] == phase2_stage_family.GEMMA_PLANNING_CELL_KEY:
+        pytest.skip("entries[0] happens to already be the real replacement cell")
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="carries replacement_for_closed_ambiguous=true but its planning cell is not",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_replacement_marker_set_to_false_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    entries = manifest_dict["provider_call_inventory"]
+    for entry in entries:
+        if entry.get(pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY) is True:
+            entry[pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY] = False
+            break
+    with pytest.raises(
+        pe.ManifestValidationError, match="must be exactly true when present",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_missing_replacement_marker_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    entries = manifest_dict["provider_call_inventory"]
+    for entry in entries:
+        if entry.get(pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY) is True:
+            del entry[pe.CALL_ENTRY_REPLACEMENT_MARKER_KEY]
+            break
+    with pytest.raises(
+        pe.ManifestValidationError, match="is missing the required replacement entry",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_expected_provider_call_count_mismatch_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["expected_provider_call_count"] = pe.EXPECTED_PROVIDER_CALL_COUNT - 1
+    with pytest.raises(
+        pe.ManifestValidationError, match="expected_provider_call_count must be exactly",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+# --- attempt_available_cap_usd cross-check against the stage-family ledger ---------------------
+
+
+def test_attempt_available_cap_usd_mismatch_against_ledger_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["attempt_available_cap_usd"] = "1.00000000"  # disagrees with the real ledger
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not equal the bound stage-family ledger's r3_available_cap_usd exactly",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_attempt_available_cap_usd_malformed_decimal_string_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["attempt_available_cap_usd"] = "14.97"  # not exactly 8 fractional digits
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="attempt_available_cap_usd must be a decimal string with exactly 8",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_validated_manifest_exposes_attempt_available_cap_usd_as_decimal(manifest):
+    manifest_dict, _identity = manifest
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+    assert validated.attempt_available_cap_usd == Decimal(phase2_stage_family.R3_AVAILABLE_CAP_USD)
+    assert isinstance(validated.attempt_available_cap_usd, Decimal)
+
+
+# --- prior_attempt_closure: now a list (r1 abort closure, r2 closure) --------------------------
+
+
+def test_prior_attempt_closure_must_be_a_two_entry_list(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prior_attempt_closure"] = manifest_dict["prior_attempt_closure"][:1]
+    with pytest.raises(
+        pe.ManifestValidationError, match="must contain exactly 2 entries",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_prior_attempt_closure_r2_entry_hash_drift_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prior_attempt_closure"][1]["sha256"] = _flip_hex_digest(
+        manifest_dict["prior_attempt_closure"][1]["sha256"])
+    with pytest.raises(
+        pe.ManifestValidationError, match=r"prior_attempt_closure\[1\] \(r2 closure\) hash drift",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_prior_attempt_closure_r2_entry_unpinned_path_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["prior_attempt_closure"][1] = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",  # a real file, wrong one
+        "sha256": "a" * 64,
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match=r"prior_attempt_closure\[1\].path must resolve to the frozen",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+# --- carryforward_artifact / stage_family_ledger_artifact ---------------------------------------
+
+
+def test_carryforward_artifact_hash_drift_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["carryforward_artifact"]["sha256"] = _flip_hex_digest(
+        manifest_dict["carryforward_artifact"]["sha256"])
+    with pytest.raises(pe.ManifestValidationError, match="carryforward_artifact hash drift"):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_stage_family_ledger_artifact_hash_drift_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    manifest_dict["stage_family_ledger_artifact"]["sha256"] = _flip_hex_digest(
+        manifest_dict["stage_family_ledger_artifact"]["sha256"])
+    with pytest.raises(
+        pe.ManifestValidationError, match="stage_family_ledger_artifact hash drift",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+# --- build_execution_identity: backward-compatible optional r3 fields --------------------------
+
+
+def _minimal_identity_kwargs(**overrides) -> dict:
+    base = dict(
+        schema_version="v1", stage="capability_preflight", protocol_canonical_sha256="a" * 64,
+        a1_amendment_canonical_sha256="a" * 64, combined_ai_audit_canonical_sha256="a" * 64,
+        question_bank_bundle_sha256="a" * 64, prompt_bundle_canonical_sha256="a" * 64,
+        prompt_bundle_declared_status="candidate_pending_owner_methods_review",
+        prompt_bundle_approval_artifact={"tracked_path": "x", "sha256": "a" * 64},
+        role_limits_and_request_settings_artifact={"path": "x", "sha256": "a" * 64},
+        provider_price_snapshot_canonical_sha256="a" * 64, uv_lock_sha256="a" * 64,
+        seed_policy="p", side_assignment_policy="s", satisfied_prerequisites={},
+        ledger={"path": "x", "ledger_identity": "y"}, planning_cell_keys=["k1", "k2"],
+        provider_call_inventory_entries=[], stage_cap_usd=15.0, cumulative_cap_usd=1500.0,
+        cost_forecast={"path": "x", "sha256": "a" * 64},
+        storage_policy={"path": "x", "sha256": "a" * 64},
+        provider_reconciliation_evidence={"path": "x", "sha256": "a" * 64},
+        provider_refresh={"path": "x", "sha256": "a" * 64},
+        prior_attempt_closure={"path": "x", "sha256": "a" * 64},
+        implementation_provenance={"git_commit": "a" * 40, "code_bundle_sha256": "b" * 64},
+    )
+    base.update(overrides)
+    return base
+
+
+def test_build_execution_identity_omits_r3_fields_when_not_passed():
+    """A historical (r1/r2) caller that never passes the new r3-only kwargs gets EXACTLY the old
+    identity dict shape: execution_identity_sha256 for those already-committed, frozen manifests
+    must never be retroactively changed by this function gaining r3-only fields."""
+    identity = pe.build_execution_identity(**_minimal_identity_kwargs())
+    assert "carryforward_artifact" not in identity
+    assert "stage_family_ledger_artifact" not in identity
+    assert "ceiling_correction_artifact" not in identity
+    assert "attempt_available_cap_usd" not in identity
+    assert isinstance(identity["prior_attempt_closure"], dict)
+
+
+def test_build_execution_identity_includes_r3_fields_when_passed():
+    identity = pe.build_execution_identity(
+        **_minimal_identity_kwargs(
+            prior_attempt_closure=[{"path": "r1", "sha256": "a" * 64},
+                                    {"path": "r2", "sha256": "b" * 64}],
+        ),
+        carryforward_artifact={"path": "cf", "sha256": "c" * 64},
+        stage_family_ledger_artifact={"path": "ledger", "sha256": "d" * 64},
+        ceiling_correction_artifact={"path": "ceiling", "sha256": "e" * 64},
+        attempt_available_cap_usd="14.97676869",
+    )
+    assert identity["carryforward_artifact"] == {"path": "cf", "sha256": "c" * 64}
+    assert identity["stage_family_ledger_artifact"] == {"path": "ledger", "sha256": "d" * 64}
+    assert identity["ceiling_correction_artifact"] == {"path": "ceiling", "sha256": "e" * 64}
+    assert identity["attempt_available_cap_usd"] == "14.97676869"
+    assert isinstance(identity["prior_attempt_closure"], list)
+    assert identity["prior_attempt_closure"] == [
+        {"path": "r1", "sha256": "a" * 64}, {"path": "r2", "sha256": "b" * 64},
+    ]
+
+
+def test_build_execution_identity_r3_fields_change_the_hash():
+    old_identity = pe.build_execution_identity(**_minimal_identity_kwargs())
+    new_identity = pe.build_execution_identity(
+        **_minimal_identity_kwargs(), carryforward_artifact={"path": "cf", "sha256": "c" * 64})
+    assert (pe.derive_execution_identity_sha256(old_identity)
+            != pe.derive_execution_identity_sha256(new_identity))

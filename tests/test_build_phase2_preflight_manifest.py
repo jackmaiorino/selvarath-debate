@@ -33,6 +33,7 @@ from rejudge import phase2_execution as pe  # noqa: E402
 from rejudge import phase2_plan  # noqa: E402
 from rejudge import phase2_prompt_bundle as prompt_bundle  # noqa: E402
 from rejudge import phase2_role_limits as role_limits  # noqa: E402
+from rejudge import phase2_stage_family  # noqa: E402
 from scripts import build_phase2_preflight_manifest as b  # noqa: E402
 
 
@@ -40,18 +41,27 @@ FIXED_RECORDED_AT_UTC = "2026-07-19T01:00:00Z"
 
 
 # --- shared, module-scoped build (expensive: renders the 212-entry corpus + constructs a
-# --- RejudgeClient for 1,060 request-hash computations) --------------------------------------
+# --- RejudgeClient for 1,059 request-hash computations) ---------------------------------------
+#
+# ``built``/``built_again`` build the CURRENT relaunch attempt, r3: the base (unsuffixed)
+# ``build_manifest_and_authorization`` reproduces the historical, now-permanently-superseded r1
+# manifest shape and can no longer itself satisfy the current validator's stage-family-bindings
+# requirement (r1 has no prior attempt to bind a closure/carryforward/ledger for -- see
+# ``test_committed_r1_artifacts_no_longer_validate_without_prior_attempt_closure`` below for that
+# expected-failure proof against the real, frozen r1 artifacts). r3 is exercised here instead:
+# a fresh relaunch, built with real, immediately-valid authorization from the owner's standing
+# delegation (see ``build_manifest_and_authorization_r3``'s own docstring).
 
 
 @pytest.fixture(scope="module")
 def built():
-    return b.build_manifest_and_authorization(REPO_ROOT, recorded_at_utc=FIXED_RECORDED_AT_UTC)
+    return b.build_manifest_and_authorization_r3(REPO_ROOT, recorded_at_utc=FIXED_RECORDED_AT_UTC)
 
 
 @pytest.fixture(scope="module")
 def built_again():
     """A SECOND, independent build with the same fixed timestamp, for determinism checks."""
-    return b.build_manifest_and_authorization(REPO_ROOT, recorded_at_utc=FIXED_RECORDED_AT_UTC)
+    return b.build_manifest_and_authorization_r3(REPO_ROOT, recorded_at_utc=FIXED_RECORDED_AT_UTC)
 
 
 # ================================================================================================
@@ -63,16 +73,16 @@ def test_determinism_two_builds_are_byte_identical(built, built_again):
     assert b.canonical_json_bytes(built.manifest) == b.canonical_json_bytes(built_again.manifest)
     assert b.canonical_json_bytes(built.authorization) == b.canonical_json_bytes(
         built_again.authorization)
-    assert b.canonical_json_bytes(built.seed_derivation) == b.canonical_json_bytes(
-        built_again.seed_derivation)
     assert built.execution_identity_sha256 == built_again.execution_identity_sha256
+    assert built.request_hash_delta == built_again.request_hash_delta
 
 
 def test_determinism_recorded_at_utc_override_is_the_only_time_dependent_field(built):
     # Rebuilding with a DIFFERENT recorded_at_utc changes only that one field; everything else
     # (including the derived execution_identity_sha256, which recorded_at_utc never feeds) stays
     # byte-identical.
-    other = b.build_manifest_and_authorization(REPO_ROOT, recorded_at_utc="2026-07-19T09:30:00Z")
+    other = b.build_manifest_and_authorization_r3(
+        REPO_ROOT, recorded_at_utc="2026-07-19T09:30:00Z")
     assert b.canonical_json_bytes(built.manifest) == b.canonical_json_bytes(other.manifest)
     assert built.execution_identity_sha256 == other.execution_identity_sha256
     assert built.authorization["recorded_at_utc"] != other.authorization["recorded_at_utc"]
@@ -145,19 +155,19 @@ def test_seed_derivation_never_folds_in_attempt(built):
 
 def test_manifest_seeds_are_32_bit_non_negative_ints(built):
     seeds = [entry["seed"] for entry in built.manifest["provider_call_inventory"]]
-    assert len(seeds) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(seeds) == pe.EXPECTED_PROVIDER_CALL_COUNT
     for seed in seeds:
         assert isinstance(seed, int) and not isinstance(seed, bool)
         assert 0 <= seed < 2**32
 
 
-def test_seed_derivation_sidecar_is_not_bound_into_the_manifest(built):
-    # The KNOWN DEVIATION: seed_derivation cannot be a manifest top-level key (frozen exact key
-    # set); confirm it truly is absent from the manifest and lives only in the sidecar.
+def test_r3_manifest_has_no_seed_derivation_sidecar_key(built):
+    # Unlike the original r1 builder (which also writes an informational, non-bound sidecar --
+    # see build_manifest_and_authorization's own KNOWN DEVIATION docstring), the r3 builder
+    # returns no seed_derivation sidecar at all; only confirm it is absent from the manifest
+    # itself (the frozen exact top-level key set has no such slot for ANY attempt).
     assert "seed_derivation" not in built.manifest
     assert set(built.manifest) == pe.MANIFEST_TOP_LEVEL_KEYS
-    assert built.seed_derivation["execution_authorized"] is False
-    assert built.seed_derivation["execution_identity_sha256"] == built.execution_identity_sha256
 
 
 # ================================================================================================
@@ -327,18 +337,54 @@ def test_manifest_top_level_keys_exactly_match_frozen_schema(built):
 
 
 def test_manifest_planning_and_inventory_counts(built):
+    # planning_cell_keys still names every one of the 1,060 frozen capability_qa cells; the
+    # provider_call_inventory covers all of them EXCEPT the one carried-forward Qwen cell (never
+    # re-issued -- see phase2_stage_family.QWEN_PLANNING_CELL_KEY).
     assert len(built.manifest["planning_cell_keys"]) == pe.EXPECTED_CAPABILITY_CELL_COUNT
-    assert len(built.manifest["provider_call_inventory"]) == pe.EXPECTED_CAPABILITY_CELL_COUNT
-    assert (sorted(built.manifest["planning_cell_keys"])
-            == [e["planning_cell_key"] for e in built.manifest["provider_call_inventory"]] or
-            set(built.manifest["planning_cell_keys"])
-            == {e["planning_cell_key"] for e in built.manifest["provider_call_inventory"]})
+    assert len(built.manifest["provider_call_inventory"]) == pe.EXPECTED_PROVIDER_CALL_COUNT
+    inventory_keys = {e["planning_cell_key"] for e in built.manifest["provider_call_inventory"]}
+    assert inventory_keys == (
+        set(built.manifest["planning_cell_keys"]) - {phase2_stage_family.QWEN_PLANNING_CELL_KEY})
+    assert phase2_stage_family.QWEN_PLANNING_CELL_KEY not in inventory_keys
+
+
+def test_r3_provider_call_inventory_marks_exactly_the_gemma_replacement(built):
+    marked = [
+        e for e in built.manifest["provider_call_inventory"]
+        if e.get("replacement_for_closed_ambiguous") is True
+    ]
+    assert len(marked) == 1
+    assert marked[0]["planning_cell_key"] == phase2_stage_family.GEMMA_PLANNING_CELL_KEY
+    assert set(marked[0]) == pe.EXPECTED_CALL_ENTRY_KEYS | pe.CALL_ENTRY_OPTIONAL_KEYS
+    for entry in built.manifest["provider_call_inventory"]:
+        if entry["planning_cell_key"] != phase2_stage_family.GEMMA_PLANNING_CELL_KEY:
+            assert "replacement_for_closed_ambiguous" not in entry
+
+
+def test_r3_stage_family_bindings_and_attempt_available_cap(built):
+    assert built.manifest["carryforward_artifact"]["path"] == (
+        pe.DEFAULT_CARRYFORWARD_RELATIVE_PATH.as_posix())
+    assert built.manifest["stage_family_ledger_artifact"]["path"] == (
+        pe.DEFAULT_STAGE_FAMILY_LEDGER_RELATIVE_PATH.as_posix())
+    assert built.manifest["ceiling_correction_artifact"]["path"] == (
+        pe.DEFAULT_CEILING_CORRECTION_RELATIVE_PATH.as_posix())
+    assert built.manifest["attempt_available_cap_usd"] == phase2_stage_family.R3_AVAILABLE_CAP_USD
+    assert built.manifest["expected_provider_call_count"] == pe.EXPECTED_PROVIDER_CALL_COUNT
+
+    closures = built.manifest["prior_attempt_closure"]
+    assert isinstance(closures, list) and len(closures) == 2
+    assert closures[0]["path"] == pe.DEFAULT_PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH.as_posix()
+    assert closures[1]["path"] == pe.DEFAULT_R2_CLOSURE_RELATIVE_PATH.as_posix()
+
+
+def test_r3_request_hash_delta_is_exactly_424_reasoning_streaming_extension_entries(built):
+    assert built.request_hash_delta == {"changed": 424, "unchanged": 635}
 
 
 def test_manifest_caps_and_ledger(built):
     assert built.manifest["stage_cap_usd"] == b.STAGE_CAP_USD
     assert built.manifest["cumulative_cap_usd"] == b.CUMULATIVE_CAP_USD
-    assert built.manifest["ledger"]["path"] == b.LEDGER_PATH
+    assert built.manifest["ledger"]["path"] == b.LEDGER_PATH_R3
     assert built.manifest["ledger"]["path"].startswith("E:/")
 
 
@@ -351,8 +397,13 @@ def test_manifest_storage_policy_is_the_real_tracked_artifact_byte_for_byte(buil
 
 
 def test_manifest_implementation_provenance(built):
+    # r3 (like r2) stamps the ACTUAL current HEAD, not a pinned historical constant -- see
+    # build_manifest_and_authorization_r3's own docstring.
+    current_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True,
+        check=True).stdout.strip()
     prov = built.manifest["implementation_provenance"]
-    assert prov["git_commit"] == b.EXPECTED_GIT_COMMIT
+    assert prov["git_commit"] == current_head
     assert prov["code_bundle_sha256"] == pe.compute_code_bundle_sha256(REPO_ROOT)
 
 
@@ -362,14 +413,16 @@ def test_authorization_keys_and_cross_consistency_with_manifest(built):
     assert built.authorization["stage"] == built.manifest["stage"]
     assert built.authorization["stage_cap_usd"] == built.manifest["stage_cap_usd"]
     assert built.authorization["cumulative_cap_usd"] == built.manifest["cumulative_cap_usd"]
-    assert built.authorization["approver"] == pe.PREFLIGHT_DELEGATION_APPROVER
-    assert built.authorization["approved_at_utc"] == pe.PREFLIGHT_DELEGATION_APPROVED_AT_UTC
+    # r3's approval basis is the owner's broader standing delegation, not the original
+    # per-relaunch preflight delegation (kept, unedited, for the historical r1/r2 authorizations).
+    assert built.authorization["approver"] == pe.STANDING_DELEGATION_APPROVER
+    assert built.authorization["approved_at_utc"] == pe.STANDING_DELEGATION_APPROVED_AT_UTC
     assert (built.authorization["approval_basis_tracked_path"]
-            == pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH.as_posix())
-    real_delegation_bytes = (
-        REPO_ROOT / pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH).read_bytes()
+            == pe.DEFAULT_STANDING_DELEGATION_RELATIVE_PATH.as_posix())
+    real_standing_delegation_bytes = (
+        REPO_ROOT / pe.DEFAULT_STANDING_DELEGATION_RELATIVE_PATH).read_bytes()
     assert (built.authorization["approval_basis_sha256"]
-            == hashlib.sha256(real_delegation_bytes).hexdigest())
+            == hashlib.sha256(real_standing_delegation_bytes).hexdigest())
 
 
 def test_generated_manifest_passes_the_real_validator_with_authorization(built):
@@ -379,7 +432,7 @@ def test_generated_manifest_passes_the_real_validator_with_authorization(built):
     assert validated.authorized is True
     assert validated.execution_identity_sha256 == built.execution_identity_sha256
     assert validated.stage == pe.STAGE_CAPABILITY_PREFLIGHT
-    assert len(validated.provider_call_inventory) == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert len(validated.provider_call_inventory) == pe.EXPECTED_PROVIDER_CALL_COUNT
 
 
 def test_manifest_fails_validation_without_authorization_when_required(built):
@@ -447,11 +500,15 @@ def test_committed_r2_manifest_no_longer_validates_pending_v5_relaunch():
 
     Both the manifest and its real, finalized authorization are now EXPECTED to fail the current
     validator (schema evolution, not a regression: phase2_execution.py's merged slot is v5-only
-    after the transport fix): a v5-bound relaunch (attempt r3) requires a fresh manifest, never a
+    after the transport fix, and -- as of the r3 stage-family bindings task -- also requires
+    carryforward_artifact/stage_family_ledger_artifact/ceiling_correction_artifact/
+    attempt_available_cap_usd/expected_provider_call_count and a list-shaped prior_attempt_closure
+    the r2 manifest predates): a v5-bound relaunch (attempt r3) requires a fresh manifest, never a
     silent reuse of the pre-fix one. Codex consult #22's own recovery design is explicit that r2
     must be "preserved permanently as aborted", never silently reinterpreted as still-valid or
     replayed. See test_committed_r1_artifacts_no_longer_validate_without_prior_attempt_closure
-    for the analogous r1 precedent.
+    for the analogous r1 precedent -- the r2 manifest now fails closed at the SAME top-level
+    "fields drifted" check r1 does, one schema generation later.
     """
     manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2
     authorization_path = REPO_ROOT / b.AUTHORIZATION_RELATIVE_PATH_R2
@@ -467,17 +524,11 @@ def test_committed_r2_manifest_no_longer_validates_pending_v5_relaunch():
     assert b.REAUTHORIZATION_PENDING_MARKER_KEY not in authorization
     assert set(authorization) == pe.AUTHORIZATION_KEYS
 
-    with pytest.raises(
-        pe.ManifestValidationError,
-        match="does not validate as a v5 role-limits artifact",
-    ):
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
         pe.validate_execution_manifest(
             manifest, project_root=REPO_ROOT, require_authorized=False)
 
-    with pytest.raises(
-        pe.ManifestValidationError,
-        match="does not validate as a v5 role-limits artifact",
-    ):
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
         pe.validate_execution_manifest(
             manifest, project_root=REPO_ROOT, authorization=authorization,
             require_authorized=True)
