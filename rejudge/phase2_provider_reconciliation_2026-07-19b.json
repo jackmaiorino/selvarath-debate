@@ -1,0 +1,26 @@
+{
+  "schema_version": "phase2_provider_reconciliation_v1",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-19T13:07:00Z",
+  "evidence_channel": "read directly from the owner's authenticated Together billing dashboard via the owner's own Chrome session (Claude in Chrome), at the owner's request, replacing manual paste-backs",
+  "dashboard_monthly_spend_usd": 209.25,
+  "dashboard_credit_balance_usd": 1590.75,
+  "prepaid_topups_usd": [500, 1300],
+  "cross_check": "1800.00 total top-ups minus 1590.75 remaining equals 209.25 exactly; balance-implied draw and dashboard spend agree",
+  "verified_starting_spend_usd": 209.25,
+  "verified_prepaid_credit_usd": 1590.75,
+  "supersedes": {
+    "tracked_path": "rejudge/phase2_provider_reconciliation_2026-07-19.json",
+    "prior_spend_usd": 209.24,
+    "prior_credit_usd": 1590.76
+  },
+  "r2_attempt_reconciliation": {
+    "observed_account_delta_usd": 0.01,
+    "accounted_actuals": "Qwen call 0 actual 0.00107328 (durable output carried forward); Gemma ambiguous call adjudicated at upper bound 0.02215803 (up to 3 SDK-internal transmissions)",
+    "disposition": "the one-cent dashboard delta is consistent with the accounted events; cent rounding cannot distinguish transmission counts, so the Gemma upper bound is retained in the stage-family ledger per oracle guidance; account-level reconciliation predicate CLOSED"
+  },
+  "cumulative_project_ceiling_usd": 1709.25,
+  "ceiling_basis": "provider-verified starting spend 209.25 plus the approved incremental Phase 2 ceiling 1500",
+  "execution_authorized": false,
+  "note": "Evidence record only; grants no execution authority. This is the current reconciliation snapshot for the r3 capability-preflight manifest."
+}
