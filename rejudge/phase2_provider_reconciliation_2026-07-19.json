@@ -1,0 +1,27 @@
+{
+  "schema_version": "phase2_provider_reconciliation_v1",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-19T00:51:42Z",
+  "evidence_channel": "Together dashboard figures reported directly by Jack Maiorino in chat on 2026-07-19 (UTC), after the Gemma recovery supplement",
+  "dashboard_monthly_spend_usd": 209.24,
+  "dashboard_credit_balance_usd": 1590.76,
+  "prepaid_topups_usd": [500, 1300],
+  "cross_check": "1800.00 total top-ups minus 1590.76 remaining equals 209.24 exactly; balance-implied draw and dashboard spend agree",
+  "verified_starting_spend_usd": 209.24,
+  "verified_prepaid_credit_usd": 1590.76,
+  "supersedes": {
+    "tracked_path": "rejudge/phase2_provider_reconciliation_2026-07-18.json",
+    "pre_gemma_spend_usd": 209.22,
+    "pre_gemma_credit_usd": 1590.78
+  },
+  "gemma_recovery_reconciliation": {
+    "run_record": "rejudge/gemma_recovery_run_record_2026-07-18.json",
+    "actual_provider_delta_usd": 0.02,
+    "local_accounted_cost_usd": 0.03,
+    "disposition": "local accounting conservatively rounded up; provider-billed delta is 0.02; no unexplained discrepancy, no unknown charges"
+  },
+  "cumulative_project_ceiling_usd": 1709.24,
+  "ceiling_basis": "provider-verified starting spend 209.24 plus the approved incremental Phase 2 ceiling 1500",
+  "execution_authorized": false,
+  "note": "Evidence record only; grants no execution authority. This is the current reconciliation snapshot for the capability-preflight manifest."
+}

@@ -1,7 +1,8 @@
 {
   "schema_version": "phase2_checker_design_amendment_v1",
   "amendment_id": "checker_regression_subcounts_2026-07-18",
-  "status": "proposed_pending_owner_refreeze",
+  "status": "approved_owner_refrozen",
+  "proposed_state_file_sha256": "90dfbd8fbd1066805e713b0c6df0b5dd6de42792300346a01e42d60bf6d103be",
   "original_design_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
   "original_design_file_sha256": "02039a5d70aa5b233757e9cbfa3156da61bdb24ebaf5f9af1e46af89b14ed62c",
   "sampler_implementation_path": "rejudge/phase2_checker_sampling.py",
@@ -25,10 +26,10 @@
   "correction_basis": "The original 8/18 targets came from a pre-deduplication any-occurrence retroactive screen count. The frozen universe definition (dedupe exact-duplicate claims per question across stage-1 and calibration sources, then screen) yields exhaustive counts of 7 and 13. The correction rests only on source-universe and deduplication semantics; no checker outputs and no Phase 2 outcomes influenced it, and all available cases of both classes remain included.",
   "oracle_review": "Codex consult #19, 2026-07-18: approved with the exact-class wording above; rarity-relational phrasing rejected",
   "owner_refreeze": {
-    "approver": null,
-    "approved_at_utc": null,
-    "approval_channel": null
+    "approver": "Jack Maiorino",
+    "approved_at_utc": "2026-07-19T00:51:42Z",
+    "approval_channel": "direct chat approval ('I approve'), in response to the amendment ask, recorded same session"
   },
   "execution_authorized": false,
-  "note": "Append-only amendment record; the original frozen design file is never rewritten. Inert until owner_refreeze is completed by Jack Maiorino."
+  "note": "Append-only amendment record; the original frozen design file is never rewritten. Owner re-freeze completed 2026-07-19T00:51:42Z by filling the designed owner_refreeze slots in place; the pre-approval file state is preserved as proposed_state_file_sha256 and in git history."
 }

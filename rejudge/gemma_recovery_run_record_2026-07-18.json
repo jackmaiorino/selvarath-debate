@@ -42,7 +42,8 @@
   "reconciliation": {
     "pre_run_dashboard": {"spend_usd": 209.22, "credit_usd": 1590.78, "as_of_utc": "2026-07-18T14:53:43Z"},
     "expected_post_run": {"spend_usd": 209.25, "credit_usd": 1590.75},
-    "post_run_dashboard": null,
-    "note": "post-run dashboard figures to be supplied by Jack and recorded before the next paid stage"
+    "post_run_dashboard": {"spend_usd": 209.24, "credit_usd": 1590.76, "as_of_utc": "2026-07-19T00:51:42Z"},
+    "actual_delta_usd": 0.02,
+    "note": "post-run dashboard confirmed by Jack 2026-07-19; provider-billed delta 0.02 vs local conservative 0.03; reconciled with no unexplained discrepancy (see rejudge/phase2_provider_reconciliation_2026-07-19.json)"
   }
 }

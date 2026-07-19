@@ -272,6 +272,24 @@ Jack Maiorino approved, by direct chat approval recorded at 2026-07-18T14:32:24Z
 Chat approvals authorize recording these decisions; every paid call still requires its stage
 manifest, bound caps, and the fail-closed control-plane path before execution.
 
+## Approvals recorded 2026-07-19
+
+Jack Maiorino, by direct chat at 2026-07-19T00:51:42Z:
+
+- **Post-Gemma dashboard reconciliation supplied:** spend $209.24, credits $1,590.76 (exact
+  cross-check against $1,800 top-ups; actual Gemma delta $0.02 vs local conservative $0.03;
+  recorded in `rejudge/phase2_provider_reconciliation_2026-07-19.json`).
+- **Checker regression amendment re-frozen:** "I approve", recorded in the amendment's designed
+  owner_refreeze slots (`rejudge/phase2_checker_design_amendment_2026-07-18.json`).
+- **Delegation:** "you have approval for the rest", in direct response to the enumerated
+  remaining preflight sequence (forecast resolution, provider re-verification, execution
+  manifest, identity-hash approval, live preflight run). Interpreted and recorded as: Jack
+  delegates deterministic execution authorization for the CAPABILITY PREFLIGHT stage only, under
+  the already-approved $15 cap, once every frozen predicate validates. The forecast resolution
+  choice is delegated; the self-contained option (retry-pin reduction to 3 attempts via an
+  append-only role-limits v3) is selected. This delegation does NOT extend to canary or main-run
+  spend, which remain approved in principle only.
+
 **Provider-contact log:** as of 2026-07-18, no paid experimental calls have been made in Phase 2.
 One zero-cost authenticated `GET /v1/models` catalog request occurred on 2026-07-18 to verify the
 rotated credential; the "no provider calls" wording in the materialization progress entry applies
