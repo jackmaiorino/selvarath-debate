@@ -1,0 +1,28 @@
+{
+  "schema_version": "phase2_provider_reconciliation_v1",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-19T23:20:00Z",
+  "evidence_channel": "read directly from the owner's authenticated Together billing dashboard via the owner's own Chrome session (Claude in Chrome)",
+  "dashboard_monthly_spend_usd": 210.51,
+  "dashboard_credit_balance_usd": 1589.49,
+  "prepaid_topups_usd": [500, 1300],
+  "cross_check": "1800.00 total top-ups minus 1589.49 remaining equals 210.51 exactly",
+  "verified_starting_spend_usd": 210.51,
+  "verified_prepaid_credit_usd": 1589.49,
+  "supersedes": {
+    "tracked_path": "rejudge/phase2_provider_reconciliation_2026-07-19b.json",
+    "prior_spend_usd": 209.25,
+    "prior_credit_usd": 1590.75
+  },
+  "capability_preflight_reconciliation": {
+    "execution_identity_sha256": "19b36b30b007b04e75e357cb1da520f9f23f5dad5a8e3cffdad3478f962263b2",
+    "observed_account_delta_usd": 1.26,
+    "local_ledger_accounted_usd": 1.26517,
+    "unknown_charges": 0,
+    "disposition": "provider delta matches the local ledger at cent rounding; the r2 Gemma upper-bound adjudication (0.02215803) remains conservatively carried in the stage-family ledger; account-level reconciliation for the capability-preflight stage CLOSED"
+  },
+  "cumulative_project_ceiling_usd": 1709.24,
+  "ceiling_basis": "FIXED per rejudge/phase2_ceiling_correction_2026-07-19.json: pre-execution verified spend 209.24 plus the approved incremental ceiling 1500; never recomputed from current spend",
+  "execution_authorized": false,
+  "note": "Post-stage evidence record; grants no execution authority."
+}

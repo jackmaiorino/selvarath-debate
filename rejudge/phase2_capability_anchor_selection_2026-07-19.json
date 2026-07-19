@@ -1,0 +1,46 @@
+{
+  "schema_version": "phase2_capability_anchor_selection_v1",
+  "selection_id": "capability_preflight_anchor_selection_2026-07-19",
+  "execution_identity_sha256": "19b36b30b007b04e75e357cb1da520f9f23f5dad5a8e3cffdad3478f962263b2",
+  "completion_record": {
+    "path": "E:/selvarath-archive/capability-preflight-r3/phase2_capability_preflight_completion.json",
+    "output_rows_sha256": "aec522a9b20f33d36b996b8b17e8e61d8f9b63e9f57343e855e00439a1c0cf38",
+    "logical_cells_total": 1060,
+    "provider_calls": 1059,
+    "carried_forward_cells": 1,
+    "blocked": 0
+  },
+  "frozen_rule": "highest exact strict-correct count over all 212 mirrored cells among the four roster judges; ties by main-82 count, then lower frozen input+output price sum, then lexicographic model id (phase2_protocol.json decisions.capability_measurement.anchor_selection)",
+  "strict_scores_all_212": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {"correct": 206, "invalid": 0, "main82_correct": 161},
+    "Qwen/Qwen3.7-Plus": {"correct": 204, "invalid": 0, "main82_correct": 156, "role": "debater_not_anchor_eligible"},
+    "google/gemma-4-31B-it": {"correct": 187, "invalid": 9, "main82_correct": 140},
+    "openai/gpt-oss-120b": {"correct": 185, "invalid": 0, "main82_correct": 139},
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"correct": 153, "invalid": 57, "main82_correct": 119}
+  },
+  "selected_anchor": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "selection_basis": "mechanical application of the frozen rule; no tie-break needed (206 strictly highest among roster judges)",
+  "sensitivity_disclosure": {
+    "label": "post-hoc period-tolerant parse (accepting one optional trailing period after ANSWER: A/B); NOT the frozen rule; computed from the persisted raw outputs after completion with zero reruns",
+    "scores_all_212": {
+      "Qwen/Qwen2.5-7B-Instruct-Turbo": 206,
+      "Qwen/Qwen3.7-Plus": 204,
+      "google/gemma-4-31B-it": 187,
+      "openai/gpt-oss-120b": 185,
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": 209
+    },
+    "finding": "all 57 of Llama-3.3-70B's strict INVALIDs are the literal form 'ANSWER: X.' (a trailing period mirroring the prompt's own sentence punctuation); under the tolerant parse Llama scores 209/212, the highest of all five models, and the anchor winner CHANGES",
+    "governance_disposition": "the frozen rule stands and this artifact records its mechanical outcome; the parsing-sensitivity disagreement is escalated to the owner and the Codex oracle (available again 2026-07-24) for resolution BEFORE the canary manifest binds the second full-document ceiling anchor; no mid-run or post-hoc intervention altered the primary record"
+  },
+  "spend": {
+    "r3_accounted_usd": 1.26517,
+    "stage_family_total_with_carried_upper_bound_usd": 1.2884,
+    "family_cap_usd": 15,
+    "dashboard_pre_run_usd": 209.25,
+    "dashboard_post_run_usd": 210.51,
+    "dashboard_delta_usd": 1.26,
+    "reconciliation": "provider delta 1.26 matches the local ledger's 1.26517 at cent rounding; zero unknown charges in r3; account-level reconciliation CLOSED"
+  },
+  "execution_authorized": false,
+  "note": "Append-only mechanical selection record under the owner's standing delegation (in-phase operational act). Canary and main-run decisions remain explicitly owner-gated."
+}
