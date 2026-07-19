@@ -305,6 +305,12 @@ to that artifact checkpoint, not to this verification request.
 - Prompt-bundle owner methods review approved: **YES** / 2026-07-18T14:32:24Z
 - Gemma-recovery spend approved: **YES** / 2026-07-18T14:32:24Z (cap $2; manifested run still required)
 - Capability-preflight spend approved: **YES** / 2026-07-18T14:32:24Z (cap $15; offline prerequisites and manifest still required)
+- Capability-preflight execution authorized: **YES** / 2026-07-19, under the recorded delegation
+  of 2026-07-19T00:51:42Z; execution manifest `rejudge/phase2_preflight_manifest_2026-07-19.json`,
+  authorization `rejudge/phase2_preflight_authorization_2026-07-19.json`, execution identity
+  `23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6`, manifest commit `864d5b4`,
+  bound code state `f58cbfe` (byte-verified against git blobs), stage cap $15, cumulative ceiling
+  $1,709.24, rehearsal matrix 10/10, request-hash fidelity proven for all 1,060 entries
 - Canary spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Main-run spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
