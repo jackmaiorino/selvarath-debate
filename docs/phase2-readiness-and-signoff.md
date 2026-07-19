@@ -311,6 +311,19 @@ to that artifact checkpoint, not to this verification request.
   `23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6`, manifest commit `864d5b4`,
   bound code state `f58cbfe` (byte-verified against git blobs), stage cap $15, cumulative ceiling
   $1,709.24, rehearsal matrix 10/10, request-hash fidelity proven for all 1,060 entries
+- **Attempt 1 ABORTED at call 0, zero spend** (2026-07-19): the installed Together SDK rejects
+  `stream_options` at argument-binding time, mechanically before any network request; the
+  fail-closed halt and abort archival worked as designed. Evidence closure:
+  `rejudge/phase2_preflight_abort_closure_2026-07-19.json` (classification
+  `sdk_argument_binding_pre_transport_no_charge`, ledger retired, original accounting preserved).
+- **Relaunch r2 PENDING OWNER REAUTHORIZATION** (oracle consult #21 required the literal-predicate
+  reading of the sealed delegation): role-limits v4 removes only the unsupported field
+  (`e2dd983506c933c69ff0d6b56f8a51e1b005faa54a191873d124652f3850efde`), forecast rebuilt
+  byte-identical in all values, fresh r2 ledger directory, prior-attempt closure bound in the
+  manifest, installed-SDK signature gates added at test and runtime, signature-strict rehearsal
+  6/6 offline scenarios plus code-provenance recheck. Pending identity:
+  `5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8` (manifest
+  `rejudge/phase2_preflight_manifest_2026-07-19-r2.json`).
 - Canary spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Main-run spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
