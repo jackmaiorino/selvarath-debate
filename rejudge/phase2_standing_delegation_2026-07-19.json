@@ -1,0 +1,35 @@
+{
+  "schema_version": "phase2_standing_delegation_v1",
+  "delegation_id": "capability_preflight_standing_delegation_2026-07-19",
+  "approver": "Jack Maiorino",
+  "exact_quote": "Yes approved. You only need to ask for permission on next phase big decisions",
+  "quote_context": "Direct chat reply to the proposal of a narrow standing relaunch approval for transport-only capability-preflight relaunches, following the r2 timeout halt. The reply both approves that proposal and broadens the standing scope to operational decisions within the current phase.",
+  "approved_at_utc": "2026-07-19T12:52:37Z",
+  "scope": {
+    "granted": [
+      "capability-preflight relaunches whose diff from the last owner-named execution identity touches only transport settings (timeouts, streaming pins, SDK retry pinning), verified by the allowed-diff validator, with models, prompts, seeds, token limits, caps, and scope byte-unchanged",
+      "operational decisions within the capability-preflight stage and its analysis under the existing approved caps, including reconciliation-resolution artifacts, anchor selection by the frozen mechanical rule, archival, and reporting",
+      "each relaunch remains fully manifested, validated fail-closed, and recorded append-only"
+    ],
+    "stage_cap_usd": 15,
+    "cumulative_cap_usd": 1500
+  },
+  "still_requires_explicit_owner_approval": [
+    "canary spend and its manifest",
+    "main-run spend and its manifest",
+    "any cap increase or scope change",
+    "any diff to models, prompts, seeds, token limits, or scientific content",
+    "next-phase decisions generally, per the owner's wording"
+  ],
+  "chains": {
+    "original_delegation": {
+      "tracked_path": "rejudge/phase2_preflight_delegation_2026-07-19.json",
+      "raw_file_sha256": "c5ddb34319ad0fd318880dee88474ee7806e26cae5dec65cfa4893f74dd24951"
+    },
+    "r2_reauthorization": {
+      "tracked_path": "rejudge/phase2_preflight_reauthorization_2026-07-19.json"
+    }
+  },
+  "execution_authorized": false,
+  "note": "Standing owner delegation for transport-tuning relaunches and in-phase operational decisions. Grants no execution authority by itself; every relaunch still flows through an execution manifest and authorization record binding this artifact as its approval basis."
+}
