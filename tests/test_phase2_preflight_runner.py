@@ -46,6 +46,13 @@ REL_UV_LOCK = "uv.lock"
 REL_APPROVAL_BASIS = "docs/phase2-decision-proposal.md"
 REL_ROLE_LIMITS_V1 = "rejudge/phase2_role_limits_2026-07-18.json"
 REL_ROLE_LIMITS_V2 = "rejudge/phase2_role_limits_v2_2026-07-18.json"
+REL_ROLE_LIMITS_V3 = "rejudge/phase2_role_limits_v3_2026-07-19.json"
+REL_DELEGATION = "rejudge/phase2_preflight_delegation_2026-07-19.json"
+REL_PROVIDER_REFRESH = "rejudge/phase2_provider_refresh_2026-07-19.json"
+REL_PROVIDER_REFRESH_RAW = "rejudge/phase2_provider_models_raw_2026-07-19.json"
+REL_GEMMA_CLOSURE = "rejudge/gemma_recovery_closure_2026-07-19.json"
+REL_GEMMA_RUN_RECORD = "rejudge/gemma_recovery_run_record_2026-07-18.json"
+REL_PROVIDER_RECONCILIATION_2026_07_19 = "rejudge/phase2_provider_reconciliation_2026-07-19.json"
 REL_LEDGER = "rejudge/output/phase2_capability_preflight_ledger.jsonl"
 
 _TRACKED_DATA_FILES = (
@@ -65,6 +72,13 @@ _TRACKED_DATA_FILES = (
     REL_SNAPSHOT,
     REL_ROLE_LIMITS_V1,
     REL_ROLE_LIMITS_V2,
+    REL_ROLE_LIMITS_V3,
+    REL_DELEGATION,
+    REL_PROVIDER_REFRESH,
+    REL_PROVIDER_REFRESH_RAW,
+    REL_GEMMA_CLOSURE,
+    REL_GEMMA_RUN_RECORD,
+    REL_PROVIDER_RECONCILIATION_2026_07_19,
     "questions/carath_norn_questions.json",
     "questions/selvarath_questions.json",
     "questions/vethun_sarak_questions.json",
@@ -72,6 +86,29 @@ _TRACKED_DATA_FILES = (
     REL_APPROVAL_BASIS,
 )
 _WORLD_SPECS = ("carath_norn", "selvarath", "vethun_sarak")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _bypass_new_semantic_gates():
+    """This module tests phase2_preflight_runner.py's OWN reading of cost_forecast (an ad-hoc,
+    lighter-weight ``bindings.rendered_corpus`` binding) and storage_policy (an ad-hoc
+    ``archive_destination`` key) -- deliberately NOT phase2_execution.py's newer, real semantic
+    gates for those two slots (the READY-forecast schema; the real storage-policy schema, which
+    uses ``versioned_destination``, not ``archive_destination``). The other new gates
+    (provider_refresh, the gemma prerequisite, provider_reconciliation_evidence, and the
+    code-provenance binding) are bypassed here too, purely to keep this module's fixtures
+    minimal: their real, unpatched behavior is already exhaustively covered directly in
+    tests/test_phase2_execution.py.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        for name in (
+            "_validate_cost_forecast_gate", "_validate_storage_policy_gate",
+            "_validate_provider_refresh_gate", "_validate_gemma_prerequisite_gate",
+            "_validate_provider_reconciliation_gate", "_validate_implementation_provenance",
+        ):
+            mp.setattr(pe, name, lambda *a, **k: {"git_commit": "a" * 40,
+                                                    "code_bundle_sha256": "b" * 64})
+        yield
 
 
 def _copy_project_root_sources(destination: Path) -> None:
@@ -134,9 +171,11 @@ def _write_artifacts(
     directory = tmp_path_factory.mktemp("preflight_artifacts")
     role_limits_and_request_settings = directory / "role_limits_and_request_settings.json"
     role_limits_and_request_settings.write_text(
-        (project_root / REL_ROLE_LIMITS_V2).read_text(encoding="utf-8"), encoding="utf-8")
+        (project_root / REL_ROLE_LIMITS_V3).read_text(encoding="utf-8"), encoding="utf-8")
     gemma_waiver = directory / "gemma_recovery_waiver.json"
     gemma_waiver.write_text(json.dumps({"waiver": "placeholder"}), encoding="utf-8")
+    provider_refresh_path = directory / "provider_refresh.json"
+    provider_refresh_path.write_text(json.dumps({"refresh": "placeholder"}), encoding="utf-8")
 
     corpus_sha = corpus_sha_override or capability_corpus.corpus_canonical_sha256(corpus_entries)
     corpus_count = (
@@ -164,6 +203,7 @@ def _write_artifacts(
         "cost_forecast": cost_forecast_path,
         "storage_policy": storage_policy_path,
         "provider_reconciliation_evidence": reconciliation_path,
+        "provider_refresh": provider_refresh_path,
         "archive_destination": archive_destination,
     }
 
@@ -210,6 +250,10 @@ def _shared_fields(project_root, baseline, artifacts, *, stage, stage_cap, cumul
         "storage_policy": _binding(project_root, artifacts["storage_policy"]),
         "provider_reconciliation_evidence": _binding(
             project_root, artifacts["provider_reconciliation_evidence"]),
+        "provider_refresh": _binding(project_root, artifacts["provider_refresh"]),
+        "implementation_provenance": {
+            "git_commit": "a" * 40, "code_bundle_sha256": "b" * 64,
+        },
     }
 
 
@@ -244,6 +288,8 @@ def _build_manifest(
         stage_cap_usd=shared["stage_cap_usd"], cumulative_cap_usd=shared["cumulative_cap_usd"],
         cost_forecast=shared["cost_forecast"], storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
+        provider_refresh=shared["provider_refresh"],
+        implementation_provenance=shared["implementation_provenance"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
     entries = [
@@ -292,17 +338,24 @@ def _authorization_for(
     project_root: Path, identity_sha256: str, *, stage_cap: float, cumulative_cap: float,
 ) -> dict:
     """Build a matching, resolvable authorization record for a manifest built by
-    _build_full_manifest against the same project_root/stage_cap/cumulative_cap."""
-    baseline = _baseline(project_root)
+    _build_full_manifest against the same project_root/stage_cap/cumulative_cap.
+
+    approval_basis is now PINNED to the frozen preflight delegation record (not any
+    resolvable-from-anywhere doc), and the approver/approved_at_utc must match it exactly --
+    see phase2_execution.py's PINNED DELEGATION AUTHORIZATION BASIS.
+    """
+    delegation_sha256 = hashlib.sha256(
+        (project_root / REL_DELEGATION).read_bytes()).hexdigest()
     return {
         "execution_identity_sha256": identity_sha256,
         "stage": "capability_preflight",
         "stage_cap_usd": stage_cap,
         "cumulative_cap_usd": cumulative_cap,
-        "approver": "test-approver",
-        "approved_at_utc": "2026-07-18T00:00:00Z",
-        "approval_basis_tracked_path": REL_APPROVAL_BASIS,
-        "approval_basis_sha256": baseline["approval_basis_sha256"],
+        "approver": pe.PREFLIGHT_DELEGATION_APPROVER,
+        "approved_at_utc": pe.PREFLIGHT_DELEGATION_APPROVED_AT_UTC,
+        "recorded_at_utc": "2026-07-19T00:55:00Z",
+        "approval_basis_tracked_path": REL_DELEGATION,
+        "approval_basis_sha256": delegation_sha256,
     }
 
 
@@ -1154,6 +1207,8 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     manifest, _identity, artifacts = _build_full_manifest(
         project_root, tmp_path_factory, stage_cap=7.5)
     manifest_path = _write_manifest(project_root, manifest)
+    # role_limits_and_request_settings is now bound to v3, whose retry pin is 2 retries / 3
+    # attempts (not v2's 3/4) -- see REL_ROLE_LIMITS_V3 in _write_artifacts.
     role_limits_v2 = json.loads(
         artifacts["role_limits_and_request_settings"].read_text(encoding="utf-8"))
 
@@ -1172,7 +1227,7 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     assert params.approved_cap_usd == 7.5
     assert params.require_explicit_reasoning_max_tokens is True
     assert params.strict_context_mode is True
-    assert params.max_retries == 3
+    assert params.max_retries == 2
     assert set(params.streaming_pinned_models) == set(
         role_limits_v2["request_settings"]["streaming_pinned_models"])
     assert dict(params.extra_request_fields) == role_limits_v2["request_settings"][

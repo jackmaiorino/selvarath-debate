@@ -46,6 +46,19 @@ class UsageLedgerError(RuntimeError, ValueError):
     pass
 
 
+class UnknownChargeHalt(RuntimeError):
+    """Raised immediately when an attempt is recorded ``unknown_charge`` in strict mode.
+
+    Only raised when the client is constructed with ``halt_on_unknown_charge=True``. Legacy
+    (default) behavior is unchanged: an unknown charge is recorded and the call quietly retries
+    up to ``max_retries`` more times. In strict mode, the moment ANY attempt is recorded
+    ``unknown_charge`` (billing status genuinely unknown -- as opposed to a
+    ``released_no_charge`` capability-negotiation probe, which is never charged and always still
+    retries), this halts the call outright rather than risking a second, possibly also-unknown
+    charge on top of the first. The caller must reconcile the ledger before resuming.
+    """
+
+
 class AccountingInvariantError(RuntimeError):
     pass
 
@@ -454,7 +467,8 @@ class RejudgeClient:
                  model_context_limits: dict[str, int] | None = None,
                  strict_context_mode: bool = False,
                  streaming_pinned_models: frozenset[str] = frozenset(),
-                 extra_request_fields: dict[str, dict] | None = None):
+                 extra_request_fields: dict[str, dict] | None = None,
+                 halt_on_unknown_charge: bool = False):
         self.approved_cap_usd = float(approved_cap_usd)
         self.price_per_mtok = price_per_mtok
         self.model_prices = dict(model_prices or {})
@@ -520,6 +534,7 @@ class RejudgeClient:
         # unchanged unless a caller opts in explicitly). See the class-level docstrings on
         # ReasoningMaxTokensError and on complete()/_streamed_create() for what each does.
         self.require_explicit_reasoning_max_tokens = bool(require_explicit_reasoning_max_tokens)
+        self.halt_on_unknown_charge = bool(halt_on_unknown_charge)
         self.model_context_limits: dict[str, int] = dict(model_context_limits or {})
         self.strict_context_mode = bool(strict_context_mode)
         self.streaming_pinned_models: frozenset[str] = frozenset(streaming_pinned_models)
@@ -961,6 +976,11 @@ class RejudgeClient:
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
                 self._log_error(attempt, model, exc)
+                if self.halt_on_unknown_charge:
+                    raise UnknownChargeHalt(
+                        f"unknown charge recorded for model {model!r} on attempt {attempt}; "
+                        f"halting instead of retrying (halt_on_unknown_charge=True): {exc}"
+                    ) from exc
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
                 continue
@@ -989,6 +1009,11 @@ class RejudgeClient:
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
                 self._log_error(attempt, model, exc)
+                if self.halt_on_unknown_charge:
+                    raise UnknownChargeHalt(
+                        f"unknown charge recorded for model {model!r} on attempt {attempt}; "
+                        f"halting instead of retrying (halt_on_unknown_charge=True): {exc}"
+                    ) from exc
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
                 continue

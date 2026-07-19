@@ -36,6 +36,7 @@ from types import MappingProxyType
 from typing import Any
 
 from rejudge import phase2_plan
+from rejudge import phase2_preflight_forecast as preflight_forecast
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_resolvability_ai_review as ai_review
@@ -56,10 +57,128 @@ DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
 DEFAULT_UV_LOCK_RELATIVE_PATH = Path("uv.lock")
 DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
-# The v2 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
-# always supersedes this exact real, git-tracked v1 file; its canonical hash is recomputed fresh
-# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v2.
-DEFAULT_ROLE_LIMITS_V1_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V1_TRACKED_PATH)
+# The v3 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
+# always supersedes this exact real, git-tracked v2 file; its canonical hash is recomputed fresh
+# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v3.
+# A v2 (or v1) artifact bound into the merged slot fails closed just like v1 always failed
+# closed against validate_role_limits_v2: it lacks v3-only sections (approval_basis) and/or its
+# schema_version does not match.
+DEFAULT_ROLE_LIMITS_V2_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V2_TRACKED_PATH)
+
+# --- PINNED DELEGATION AUTHORIZATION BASIS: frozen literal bindings -----------------------------
+#
+# The authorization record's approval_basis is no longer any resolvable, hash-matching file (the
+# older, general-purpose docs/phase2-decision-proposal.md pattern): for the capability_preflight
+# stage it must resolve EXACTLY to this one frozen, git-tracked delegation record, and every
+# literal below is frozen from the real, already-committed artifact at
+# ``rejudge/phase2_preflight_delegation_2026-07-19.json``.
+DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH = Path(
+    "rejudge/phase2_preflight_delegation_2026-07-19.json")
+PREFLIGHT_DELEGATION_SCHEMA_VERSION = "phase2_preflight_delegation_v1"
+PREFLIGHT_DELEGATION_ID = "capability_preflight_delegation_2026-07-19"
+PREFLIGHT_DELEGATION_APPROVER = "Jack Maiorino"
+PREFLIGHT_DELEGATION_EXACT_QUOTE = "you have approval for the rest"
+PREFLIGHT_DELEGATION_APPROVED_AT_UTC = "2026-07-19T00:51:42Z"
+PREFLIGHT_DELEGATION_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "delegation_id", "approver", "exact_quote", "quote_context",
+    "approved_at_utc", "approved_at_basis", "recorded_at_utc", "scope", "exclusions",
+    "execution_authorized", "note",
+})
+PREFLIGHT_DELEGATION_SCOPE_KEYS: frozenset[str] = frozenset({
+    "stage", "delegation", "stage_cap_usd", "forecast_resolution_choice", "predicates",
+})
+
+# --- NEW sealed 2026-07-19 preflight-readiness artifacts: frozen literal bindings ---------------
+#
+# Each of these is pinned to its one, real, already-committed, git-tracked file: the manifest
+# cannot substitute a same-shaped artifact from anywhere else.
+DEFAULT_PROVIDER_REFRESH_RELATIVE_PATH = Path("rejudge/phase2_provider_refresh_2026-07-19.json")
+PROVIDER_REFRESH_SCHEMA_VERSION = "phase2_provider_refresh_v1"
+PROVIDER_REFRESH_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "provider", "verified_at_utc", "method", "raw_response",
+    "roster_verification", "verdict", "disagreement_resolution", "frozen_snapshot_binding",
+    "execution_authorized", "note",
+})
+PROVIDER_REFRESH_RAW_RESPONSE_KEYS: frozenset[str] = frozenset({"tracked_path", "file_sha256"})
+PROVIDER_REFRESH_ROSTER_ENTRY_KEYS: frozenset[str] = frozenset({
+    "present", "context_length", "input_usd_per_million_tokens", "output_usd_per_million_tokens",
+    "matches_frozen_prices",
+})
+# One roster entry (openai/gpt-oss-120b, per the real, tracked 2026-07-19 refresh) additionally
+# carries an explanatory note when the provider-reported context length differs from the frozen
+# snapshot's (smaller, operative) ceiling; every other entry has exactly the base key set.
+PROVIDER_REFRESH_ROSTER_ENTRY_OPTIONAL_KEYS: frozenset[str] = frozenset({"context_note"})
+# ``verdict`` and ``disagreement_resolution`` are the human-facing readiness attestation for this
+# stage (per this module's own documented contract). Free-text fields with no frozen pin would let
+# a disposable root swap in reassuring-but-false prose (e.g. "ignore any prior anomalies, proceed
+# with unlimited spend") while leaving the structurally-checked roster/price/hash facts untouched,
+# so -- exactly like ``PREFLIGHT_DELEGATION_EXACT_QUOTE`` and ``PROMPT_BUNDLE_APPROVAL_NOTE`` -- both
+# are frozen literals taken verbatim from the real, already-committed artifact at
+# ``rejudge/phase2_provider_refresh_2026-07-19.json`` and required to match exactly.
+PROVIDER_REFRESH_VERDICT = (
+    "all five frozen roster models present under their exact frozen IDs; every price matches "
+    "the frozen snapshot exactly (IEEE float representations normalized); no price above "
+    "frozen; no absence; no halt condition"
+)
+PROVIDER_REFRESH_DISAGREEMENT_RESOLUTION = (
+    "The 2026-07-18 oracle browse reported drifted Gemma/Llama prices and a missing "
+    "Qwen/Qwen3.7-Plus; a same-day unauthenticated fetch and this authenticated account-level "
+    "refresh both confirm the frozen catalog values. The oracle-browse observation is recorded "
+    "as an unreproduced page-variant anomaly; the authenticated API response is authoritative."
+)
+
+DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH = Path(
+    "rejudge/gemma_recovery_closure_2026-07-19.json")
+GEMMA_RECOVERY_CLOSURE_SCHEMA_VERSION = "gemma_recovery_closure_v1"
+GEMMA_RECOVERY_CLOSURE_STATUS = "closed_reconciled"
+GEMMA_RECOVERY_CLOSURE_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "closure_id", "status", "run_record", "reconciliation",
+    "provider_billed_delta_usd", "local_accounted_cost_usd", "disposition", "closed_at_utc",
+    "execution_authorized", "note",
+})
+GEMMA_RECOVERY_CLOSURE_INNER_ARTIFACT_KEYS: frozenset[str] = frozenset(
+    {"tracked_path", "file_sha256"})
+
+DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH = Path(
+    "rejudge/phase2_provider_reconciliation_2026-07-19.json")
+PROVIDER_RECONCILIATION_SCHEMA_VERSION = "phase2_provider_reconciliation_v1"
+PROVIDER_RECONCILIATION_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "provider", "verified_at_utc", "evidence_channel",
+    "dashboard_monthly_spend_usd", "dashboard_credit_balance_usd", "prepaid_topups_usd",
+    "cross_check", "verified_starting_spend_usd", "verified_prepaid_credit_usd", "supersedes",
+    "gemma_recovery_reconciliation", "cumulative_project_ceiling_usd", "ceiling_basis",
+    "execution_authorized", "note",
+})
+
+# --- storage_policy: real schema (replaces the old generic-hash-only binding) -------------------
+STORAGE_POLICY_SCHEMA_VERSION = "phase2_storage_policy_v1"
+STORAGE_POLICY_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "established_at_utc", "versioned_destination", "structure",
+    "retrieval_policy", "backup_owner", "physical_medium", "code_provenance", "scope",
+    "execution_authorized", "note",
+})
+
+# --- CODE-PROVENANCE BINDING ---------------------------------------------------------------------
+#
+# A frozen, ordered list of every execution-critical module: the manifest's
+# ``implementation_provenance.code_bundle_sha256`` is a canonical hash over an ordered list of
+# ``{"path", "sha256"}`` entries (RAW file bytes per entry -- source files are not JSON), one per
+# file below, in this exact order. Any change to any one of these files -- including files not
+# literally imported by phase2_execution.py itself, such as the runner and manifest modules --
+# changes the bundle hash and so must be re-bound into a fresh manifest before execution.
+CODE_PROVENANCE_FROZEN_FILES: tuple[str, ...] = (
+    "rejudge/phase2_preflight_runner.py",
+    "rejudge/api_client.py",
+    "rejudge/phase2_execution.py",
+    "rejudge/phase2_role_limits.py",
+    "rejudge/phase2_capability_corpus.py",
+    "rejudge/phase2_prompt_bundle.py",
+    "rejudge/phase2_plan.py",
+    "rejudge/runner.py",
+    "rejudge/run_manifest.py",
+)
+IMPLEMENTATION_PROVENANCE_KEYS: frozenset[str] = frozenset({"git_commit", "code_bundle_sha256"})
+_GIT_COMMIT_LEN = 40
 
 # --- prompt-bundle owner-methods-approval artifact: frozen literal bindings ---------------------
 #
@@ -131,6 +250,8 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "cost_forecast",
     "storage_policy",
     "provider_reconciliation_evidence",
+    "provider_refresh",
+    "implementation_provenance",
 })
 
 EXPECTED_CALL_ENTRY_KEYS: frozenset[str] = frozenset({
@@ -153,6 +274,7 @@ AUTHORIZATION_KEYS: frozenset[str] = frozenset({
     "cumulative_cap_usd",
     "approver",
     "approved_at_utc",
+    "recorded_at_utc",
     "approval_basis_tracked_path",
     "approval_basis_sha256",
 })
@@ -407,6 +529,23 @@ def _bind_json_artifact(root: Path, entry: Any, label: str) -> str:
 canonical_sha256 = phase2_plan.canonical_sha256
 
 
+def compute_code_bundle_sha256(project_root: str | Path) -> str:
+    """Recompute the code-provenance bundle hash from disk, fail-closed on a missing file.
+
+    A canonical hash over an ORDERED list of ``{"path", "sha256"}`` entries, one per file in
+    :data:`CODE_PROVENANCE_FROZEN_FILES`, in that exact frozen order. Each per-file ``sha256``
+    is a RAW file-bytes hash (these are Python source files, not JSON); the outer canonical
+    hash covers the ordered list itself, so both the per-file content and the frozen file
+    *order* are bound into the single resulting bundle hash.
+    """
+    root = Path(project_root)
+    entries = []
+    for relative in CODE_PROVENANCE_FROZEN_FILES:
+        path = root / relative
+        entries.append({"path": relative, "sha256": _raw_file_sha256(path)})
+    return canonical_sha256(entries)
+
+
 def build_execution_identity(
     *,
     schema_version: str,
@@ -432,6 +571,8 @@ def build_execution_identity(
     cost_forecast: Mapping[str, str],
     storage_policy: Mapping[str, str],
     provider_reconciliation_evidence: Mapping[str, str],
+    provider_refresh: Mapping[str, str],
+    implementation_provenance: Mapping[str, str],
 ) -> dict[str, Any]:
     """Assemble the execution-identity dict from already-verified pieces.
 
@@ -481,6 +622,8 @@ def build_execution_identity(
         "cost_forecast": dict(cost_forecast),
         "storage_policy": dict(storage_policy),
         "provider_reconciliation_evidence": dict(provider_reconciliation_evidence),
+        "provider_refresh": dict(provider_refresh),
+        "implementation_provenance": dict(implementation_provenance),
     }
 
 
@@ -671,6 +814,427 @@ def _validate_prompt_bundle_approval(
     return tracked_path, observed_approval_sha
 
 
+# --- PINNED DELEGATION AUTHORIZATION BASIS: the frozen preflight delegation record's content ---
+
+
+def _validate_preflight_delegation_record(
+    path: Path, *, stage: str, stage_cap_usd: float,
+) -> Mapping[str, Any]:
+    """Fully validate the frozen preflight delegation record's own literal content.
+
+    Called only once the caller has already pinned ``path`` to the one frozen, git-tracked
+    location and confirmed its raw-file hash matches the authorization's declared
+    ``approval_basis_sha256`` (see the ``require_authorized`` block above). This never itself
+    grants execution authority (``execution_authorized`` is required to be literally ``false``);
+    it only ever establishes that the cited delegation record is the real one, still says what
+    it always said, and actually covers this manifest's stage and stage cap.
+    """
+    delegation = _load_strict_json_object(path, ExecutionAuthorityError)
+    _exact_keys(
+        delegation, PREFLIGHT_DELEGATION_TOP_LEVEL_KEYS, "preflight delegation record",
+        ExecutionAuthorityError)
+
+    if delegation.get("schema_version") != PREFLIGHT_DELEGATION_SCHEMA_VERSION:
+        raise ExecutionAuthorityError("preflight delegation record schema_version drifted")
+    if delegation.get("delegation_id") != PREFLIGHT_DELEGATION_ID:
+        raise ExecutionAuthorityError("preflight delegation record delegation_id drifted")
+    if delegation.get("approver") != PREFLIGHT_DELEGATION_APPROVER:
+        raise ExecutionAuthorityError("preflight delegation record approver drifted")
+    if delegation.get("exact_quote") != PREFLIGHT_DELEGATION_EXACT_QUOTE:
+        raise ExecutionAuthorityError("preflight delegation record exact_quote drifted")
+    _string(
+        delegation.get("quote_context"), "preflight delegation record quote_context",
+        ExecutionAuthorityError)
+    _parse_utc_timestamp(
+        delegation.get("approved_at_utc"), "preflight delegation record approved_at_utc",
+        ExecutionAuthorityError)
+    if delegation.get("approved_at_utc") != PREFLIGHT_DELEGATION_APPROVED_AT_UTC:
+        raise ExecutionAuthorityError("preflight delegation record approved_at_utc drifted")
+    _string(
+        delegation.get("approved_at_basis"), "preflight delegation record approved_at_basis",
+        ExecutionAuthorityError)
+    _parse_utc_timestamp(
+        delegation.get("recorded_at_utc"), "preflight delegation record recorded_at_utc",
+        ExecutionAuthorityError)
+
+    scope = _mapping(delegation.get("scope"), "preflight delegation record scope",
+                     ExecutionAuthorityError)
+    _exact_keys(
+        scope, PREFLIGHT_DELEGATION_SCOPE_KEYS, "preflight delegation record scope",
+        ExecutionAuthorityError)
+    if scope.get("stage") != stage:
+        raise ExecutionAuthorityError(
+            "preflight delegation record scope.stage does not match this manifest's stage: "
+            f"delegation covers {scope.get('stage')!r}, manifest is {stage!r}")
+    _string(
+        scope.get("delegation"), "preflight delegation record scope.delegation",
+        ExecutionAuthorityError)
+    scope_stage_cap = _finite_positive_number(
+        scope.get("stage_cap_usd"), "preflight delegation record scope.stage_cap_usd",
+        ExecutionAuthorityError)
+    if scope_stage_cap != stage_cap_usd:
+        raise ExecutionAuthorityError(
+            "preflight delegation record scope.stage_cap_usd does not match the authorization's "
+            f"stage cap: delegation covers {scope_stage_cap}, authorization is {stage_cap_usd}")
+    _string(
+        scope.get("forecast_resolution_choice"),
+        "preflight delegation record scope.forecast_resolution_choice", ExecutionAuthorityError)
+    predicates = scope.get("predicates")
+    if (not isinstance(predicates, list) or not predicates
+            or not all(isinstance(p, str) and p for p in predicates)):
+        raise ExecutionAuthorityError(
+            "preflight delegation record scope.predicates must be a non-empty list of "
+            "non-empty strings")
+
+    exclusions = _string(
+        delegation.get("exclusions"), "preflight delegation record exclusions",
+        ExecutionAuthorityError)
+    if "canary" not in exclusions or "main" not in exclusions:
+        raise ExecutionAuthorityError(
+            "preflight delegation record exclusions must mention both canary and main")
+
+    if delegation.get("execution_authorized") is not False:
+        raise ExecutionAuthorityError(
+            "preflight delegation record execution_authorized must be exactly false: this "
+            "record grants no execution authority by itself")
+    _string(
+        delegation.get("note"), "preflight delegation record note", ExecutionAuthorityError)
+
+    return delegation
+
+
+# --- SEMANTIC ARTIFACT GATES: sealed 2026-07-19 preflight-readiness artifacts ------------------
+
+
+def _resolve_pinned_artifact(
+    root: Path, binding: Any, *, label: str, expected_relative_path: Path,
+) -> tuple[Path, str]:
+    """Resolve a ``{"path", "sha256"}`` manifest binding that must name one exact, pinned file.
+
+    Unlike :func:`_bind_json_artifact_checked` (manifest-controlled path, still constrained to
+    project_root), the artifacts this validates are pinned exactly the way the prompt-bundle
+    approval and the delegation authorization basis are pinned: the manifest cannot substitute
+    a same-shaped artifact living anywhere else. Returns the resolved path; does not itself
+    check existence or hash (the caller's semantic loader does both).
+    """
+    mapping = _mapping(binding, label)
+    _exact_keys(mapping, ARTIFACT_BINDING_KEYS, label)
+    path_value = _string(mapping.get("path"), f"{label}.path")
+    resolved = _resolve_bound_path(root, path_value, f"{label}.path", allow_absolute=False)
+    expected = (root / expected_relative_path).resolve()
+    if resolved.resolve() != expected:
+        raise ManifestValidationError(
+            f"{label}.path must resolve to the frozen, git-tracked artifact at "
+            f"{expected_relative_path.as_posix()!r} under project_root; got {path_value!r}")
+    declared_sha = _sha256_hex(mapping.get("sha256"), f"{label}.sha256")
+    return resolved, declared_sha
+
+
+def _validate_cost_forecast_gate(
+    binding: Any, *, root: Path, protocol: Mapping[str, Any],
+    role_limits_v2_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
+    bundle: Mapping[str, Any],
+) -> str:
+    """Semantically validate the ``cost_forecast`` binding: the READY forecast schema only.
+
+    Loads and recomputes the generic path/hash binding first (unchanged mechanism: the
+    forecast's own tracked location stays manifest-controlled, not pinned), then parses it
+    through :func:`phase2_preflight_forecast.validate_forecast` -- the "ready" schema; a
+    conflict-schema artifact (or any artifact that fails the ready gate: stress not strictly
+    below halt_cap_usd, i.e. no positive margin) fails closed here rather than being silently
+    accepted as a generic hash-matching blob.
+
+    NOTE on the v3 role-limits binding: :func:`phase2_preflight_forecast.validate_forecast`'s
+    own frozen schema hard-pins its ``bindings.role_limits_v2`` slot to read
+    ``rejudge/phase2_role_limits_v2_2026-07-18.json`` (the real, git-tracked v2 file) directly
+    off disk under ``root`` -- a hardcoded path this hardening pass deliberately does not touch
+    (rebuilding the forecast artifact/schema is an explicitly separate, later task). Passing the
+    v3 payload here instead would require that real v2 file to actually contain v3's bytes,
+    which would corrupt the tracked v2 artifact everything else (v1/v2 role-limits validation,
+    v3's own ``supersedes`` binding) depends on. This function therefore binds cost_forecast to
+    the real v2 role-limits content, exactly as the frozen forecast schema requires; the
+    manifest's OVERALL binding to v3 role-limits (via ``role_limits_and_request_settings_artifact``,
+    validated separately above) and to the provider-refresh raw sha (via the dedicated
+    ``provider_refresh`` slot, validated separately below) both still fold into the same single
+    ``execution_identity_sha256`` this manifest as a whole produces -- cost_forecast is not
+    silently exempt from that chain, even though neither hash is a literal JSON field inside the
+    forecast artifact itself.
+    """
+    mapping = _mapping(binding, "cost_forecast")
+    _exact_keys(mapping, ARTIFACT_BINDING_KEYS, "cost_forecast")
+    path_value = _string(mapping.get("path"), "cost_forecast.path")
+    sha_value = _sha256_hex(mapping.get("sha256"), "cost_forecast.sha256")
+    forecast_path = _resolve_bound_path(root, path_value, "cost_forecast.path", allow_absolute=False)
+    if not forecast_path.is_file():
+        raise ManifestValidationError(f"cost_forecast artifact is missing: {forecast_path}")
+    forecast_payload = _load_json_object(forecast_path, ManifestValidationError)
+    observed_sha = canonical_sha256(forecast_payload)
+    if observed_sha != sha_value:
+        raise ManifestValidationError(
+            f"cost_forecast hash drift: manifest bound {sha_value}, observed {observed_sha}")
+    try:
+        preflight_forecast.validate_forecast(
+            forecast_payload, root=root, protocol=protocol,
+            role_limits_v2=role_limits_v2_payload, snapshot=snapshot, bundle=bundle,
+        )
+    except preflight_forecast.PreflightForecastError as exc:
+        raise ManifestValidationError(
+            f"cost_forecast does not validate as a ready capability-preflight forecast: "
+            f"{exc}") from exc
+    return observed_sha
+
+
+def _validate_storage_policy_gate(binding: Any, *, root: Path) -> str:
+    """Semantically validate the ``storage_policy`` binding against its real schema.
+
+    The generic path/hash binding is recomputed exactly as before (still manifest-controlled,
+    not pinned), then the artifact's own real key set (from the tracked
+    ``rejudge/phase2_storage_policy_2026-07-18.json``) is checked, with
+    ``versioned_destination`` additionally required to be a non-empty string.
+    """
+    mapping = _mapping(binding, "storage_policy")
+    _exact_keys(mapping, ARTIFACT_BINDING_KEYS, "storage_policy")
+    path_value = _string(mapping.get("path"), "storage_policy.path")
+    sha_value = _sha256_hex(mapping.get("sha256"), "storage_policy.sha256")
+    policy_path = _resolve_bound_path(root, path_value, "storage_policy.path", allow_absolute=False)
+    if not policy_path.is_file():
+        raise ManifestValidationError(f"storage_policy artifact is missing: {policy_path}")
+    policy = _load_json_object(policy_path, ManifestValidationError)
+    observed_sha = canonical_sha256(policy)
+    if observed_sha != sha_value:
+        raise ManifestValidationError(
+            f"storage_policy hash drift: manifest bound {sha_value}, observed {observed_sha}")
+    _exact_keys(policy, STORAGE_POLICY_TOP_LEVEL_KEYS, "storage_policy")
+    if policy.get("schema_version") != STORAGE_POLICY_SCHEMA_VERSION:
+        raise ManifestValidationError("storage_policy schema_version drifted")
+    _string(policy.get("versioned_destination"), "storage_policy.versioned_destination")
+    if policy.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "storage_policy execution_authorized must be exactly false")
+    return observed_sha
+
+
+def _validate_provider_refresh_gate(
+    binding: Any, *, root: Path, snapshot: Mapping[str, Any],
+) -> str:
+    """Validate the NEW, pinned ``provider_refresh`` slot: schema, verdict, raw-response hash.
+
+    Pinned exactly to ``rejudge/phase2_provider_refresh_2026-07-19.json`` (the manifest cannot
+    substitute a same-shaped artifact elsewhere). Requires all five frozen roster models
+    present, and no price above the frozen price snapshot; the raw catalog response file the
+    refresh claims to have observed must itself be present and RAW-hash-matching. ``verdict``
+    and ``disagreement_resolution`` are the human-facing readiness attestation for this stage and
+    are frozen literals (``PROVIDER_REFRESH_VERDICT``, ``PROVIDER_REFRESH_DISAGREEMENT_RESOLUTION``)
+    required to match exactly, not merely non-empty free text: this closes the hole where a
+    disposable root could pair reassuring-but-false prose with otherwise-real, self-consistent
+    roster/price/hash data.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="provider_refresh",
+        expected_relative_path=DEFAULT_PROVIDER_REFRESH_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(f"provider_refresh artifact is missing: {resolved}")
+    refresh = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(refresh)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            f"provider_refresh hash drift: manifest bound {declared_sha}, observed "
+            f"{observed_sha}")
+
+    _exact_keys(refresh, PROVIDER_REFRESH_TOP_LEVEL_KEYS, "provider_refresh")
+    if refresh.get("schema_version") != PROVIDER_REFRESH_SCHEMA_VERSION:
+        raise ManifestValidationError("provider_refresh schema_version drifted")
+    if refresh.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "provider_refresh execution_authorized must be exactly false")
+
+    snapshot_models = _mapping(snapshot.get("models"), "snapshot models")
+    roster = _mapping(refresh.get("roster_verification"), "provider_refresh.roster_verification")
+    if set(roster) != set(snapshot_models):
+        raise ManifestValidationError(
+            "provider_refresh.roster_verification does not cover exactly the frozen roster")
+    for model_id, entry in roster.items():
+        entry_mapping = _mapping(
+            entry, f"provider_refresh.roster_verification.{model_id}")
+        entry_label = f"provider_refresh.roster_verification.{model_id}"
+        extra_keys = set(entry_mapping) - PROVIDER_REFRESH_ROSTER_ENTRY_KEYS
+        if (set(entry_mapping) < PROVIDER_REFRESH_ROSTER_ENTRY_KEYS
+                or extra_keys - PROVIDER_REFRESH_ROSTER_ENTRY_OPTIONAL_KEYS):
+            raise ManifestValidationError(f"{entry_label} fields drifted")
+        if entry_mapping.get("present") is not True:
+            raise ManifestValidationError(
+                f"provider_refresh.roster_verification.{model_id}.present must be true")
+        frozen_entry = _mapping(snapshot_models[model_id], f"snapshot models.{model_id}")
+        for price_field in ("input_usd_per_million_tokens", "output_usd_per_million_tokens"):
+            observed_price = entry_mapping.get(price_field)
+            if isinstance(observed_price, bool) or not isinstance(observed_price, (int, float)):
+                raise ManifestValidationError(
+                    f"provider_refresh.roster_verification.{model_id}.{price_field} must be a "
+                    "number")
+            frozen_price = frozen_entry.get(price_field)
+            if isinstance(frozen_price, bool) or not isinstance(frozen_price, (int, float)):
+                raise ManifestValidationError(
+                    f"snapshot models.{model_id}.{price_field} must be a number")
+            if float(observed_price) > float(frozen_price):
+                raise ManifestValidationError(
+                    f"provider_refresh.roster_verification.{model_id}.{price_field} "
+                    f"({observed_price}) is above the frozen price ({frozen_price})")
+
+    if refresh.get("verdict") != PROVIDER_REFRESH_VERDICT:
+        raise ManifestValidationError("provider_refresh.verdict drifted")
+    if refresh.get("disagreement_resolution") != PROVIDER_REFRESH_DISAGREEMENT_RESOLUTION:
+        raise ManifestValidationError("provider_refresh.disagreement_resolution drifted")
+
+    raw_response = _mapping(refresh.get("raw_response"), "provider_refresh.raw_response")
+    _exact_keys(
+        raw_response, PROVIDER_REFRESH_RAW_RESPONSE_KEYS, "provider_refresh.raw_response")
+    raw_tracked_path = _string(
+        raw_response.get("tracked_path"), "provider_refresh.raw_response.tracked_path")
+    raw_declared_sha = _sha256_hex(
+        raw_response.get("file_sha256"), "provider_refresh.raw_response.file_sha256")
+    raw_path = _resolve_bound_path(
+        root, raw_tracked_path, "provider_refresh.raw_response.tracked_path")
+    if not raw_path.is_file():
+        raise ManifestValidationError(
+            f"provider_refresh.raw_response artifact is missing: {raw_path}")
+    observed_raw_sha = _raw_file_sha256(raw_path)
+    if observed_raw_sha != raw_declared_sha:
+        raise ManifestValidationError(
+            "provider_refresh.raw_response.file_sha256 hash drift: bound "
+            f"{raw_declared_sha}, observed {observed_raw_sha}")
+
+    frozen_binding = _mapping(
+        refresh.get("frozen_snapshot_binding"), "provider_refresh.frozen_snapshot_binding")
+    _string(
+        frozen_binding.get("tracked_path"),
+        "provider_refresh.frozen_snapshot_binding.tracked_path")
+    _string(
+        frozen_binding.get("relationship"),
+        "provider_refresh.frozen_snapshot_binding.relationship")
+
+    return observed_raw_sha
+
+
+def _validate_gemma_prerequisite_gate(binding: Any, *, root: Path) -> str:
+    """Validate the pinned Gemma-recovery prerequisite: the 2026-07-19 closure record.
+
+    Pinned exactly to ``rejudge/gemma_recovery_closure_2026-07-19.json``, ``status ==
+    "closed_reconciled"``, and BOTH of its inner ``{"tracked_path", "file_sha256"}`` artifact
+    references (its own run record and the reconciliation it closes against) independently
+    hash-verified against the real files on disk.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="satisfied_prerequisites.gemma_recovery_or_waiver",
+        expected_relative_path=DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(f"gemma recovery closure artifact is missing: {resolved}")
+    closure = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(closure)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            f"gemma recovery closure hash drift: manifest bound {declared_sha}, observed "
+            f"{observed_sha}")
+
+    _exact_keys(closure, GEMMA_RECOVERY_CLOSURE_TOP_LEVEL_KEYS, "gemma recovery closure")
+    if closure.get("schema_version") != GEMMA_RECOVERY_CLOSURE_SCHEMA_VERSION:
+        raise ManifestValidationError("gemma recovery closure schema_version drifted")
+    if closure.get("status") != GEMMA_RECOVERY_CLOSURE_STATUS:
+        raise ManifestValidationError(
+            f"gemma recovery closure status must be exactly "
+            f"{GEMMA_RECOVERY_CLOSURE_STATUS!r}, got {closure.get('status')!r}")
+    if closure.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "gemma recovery closure execution_authorized must be exactly false")
+
+    for inner_key in ("run_record", "reconciliation"):
+        inner = _mapping(closure.get(inner_key), f"gemma recovery closure.{inner_key}")
+        _exact_keys(
+            inner, GEMMA_RECOVERY_CLOSURE_INNER_ARTIFACT_KEYS,
+            f"gemma recovery closure.{inner_key}")
+        inner_tracked_path = _string(
+            inner.get("tracked_path"), f"gemma recovery closure.{inner_key}.tracked_path")
+        inner_declared_sha = _sha256_hex(
+            inner.get("file_sha256"), f"gemma recovery closure.{inner_key}.file_sha256")
+        inner_path = _resolve_bound_path(
+            root, inner_tracked_path, f"gemma recovery closure.{inner_key}.tracked_path")
+        if not inner_path.is_file():
+            raise ManifestValidationError(
+                f"gemma recovery closure.{inner_key} artifact is missing: {inner_path}")
+        observed_inner_sha = _raw_file_sha256(inner_path)
+        if observed_inner_sha != inner_declared_sha:
+            raise ManifestValidationError(
+                f"gemma recovery closure.{inner_key}.file_sha256 hash drift: bound "
+                f"{inner_declared_sha}, observed {observed_inner_sha}")
+
+    return observed_sha
+
+
+def _validate_provider_reconciliation_gate(binding: Any, *, root: Path) -> str:
+    """Validate the pinned ``provider_reconciliation_evidence`` binding: the 2026-07-19 record.
+
+    Pinned exactly to ``rejudge/phase2_provider_reconciliation_2026-07-19.json``; validates the
+    real schema (its exact top-level key set) and that its cross-check fields are present.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="provider_reconciliation_evidence",
+        expected_relative_path=DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(
+            f"provider_reconciliation_evidence artifact is missing: {resolved}")
+    reconciliation = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(reconciliation)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            "provider_reconciliation_evidence hash drift: manifest bound "
+            f"{declared_sha}, observed {observed_sha}")
+
+    _exact_keys(
+        reconciliation, PROVIDER_RECONCILIATION_TOP_LEVEL_KEYS,
+        "provider_reconciliation_evidence")
+    if reconciliation.get("schema_version") != PROVIDER_RECONCILIATION_SCHEMA_VERSION:
+        raise ManifestValidationError("provider_reconciliation_evidence schema_version drifted")
+    if reconciliation.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "provider_reconciliation_evidence execution_authorized must be exactly false")
+    _string(reconciliation.get("cross_check"), "provider_reconciliation_evidence.cross_check")
+    _finite_positive_number(
+        reconciliation.get("verified_starting_spend_usd"),
+        "provider_reconciliation_evidence.verified_starting_spend_usd")
+    _finite_positive_number(
+        reconciliation.get("verified_prepaid_credit_usd"),
+        "provider_reconciliation_evidence.verified_prepaid_credit_usd")
+    _finite_positive_number(
+        reconciliation.get("cumulative_project_ceiling_usd"),
+        "provider_reconciliation_evidence.cumulative_project_ceiling_usd")
+    return observed_sha
+
+
+def _validate_implementation_provenance(binding: Any, *, root: Path) -> dict[str, str]:
+    """Validate the CODE-PROVENANCE BINDING: recompute the bundle hash fresh from disk.
+
+    ``git_commit`` is provenance only (validated as a 40-hex string; the runner's separate
+    clean-tree gate is what covers live git drift, not this module). ``code_bundle_sha256`` is
+    the authoritative, fail-closed check: it is always recomputed from the real files on disk
+    under ``root``, never trusted from the manifest alone.
+    """
+    mapping = _mapping(binding, "implementation_provenance")
+    _exact_keys(mapping, IMPLEMENTATION_PROVENANCE_KEYS, "implementation_provenance")
+    git_commit = mapping.get("git_commit")
+    if (not isinstance(git_commit, str) or len(git_commit) != _GIT_COMMIT_LEN
+            or any(ch not in _HEX_DIGITS for ch in git_commit)):
+        raise ManifestValidationError(
+            f"implementation_provenance.git_commit must be exactly {_GIT_COMMIT_LEN} lowercase "
+            "hexadecimal characters")
+    declared_bundle_sha = _sha256_hex(
+        mapping.get("code_bundle_sha256"), "implementation_provenance.code_bundle_sha256")
+    observed_bundle_sha = compute_code_bundle_sha256(root)
+    if declared_bundle_sha != observed_bundle_sha:
+        raise ManifestValidationError(
+            "implementation_provenance.code_bundle_sha256 hash drift: manifest bound "
+            f"{declared_bundle_sha}, observed {observed_bundle_sha}")
+    return {"git_commit": git_commit, "code_bundle_sha256": declared_bundle_sha}
+
+
 # --- manifest validation -----------------------------------------------------------------------
 
 
@@ -782,16 +1346,6 @@ def validate_execution_manifest(
     approval_tracked_path, observed_approval_sha = _validate_prompt_bundle_approval(
         manifest, root=root, protocol=protocol, observed_bundle_sha=observed_bundle_sha)
 
-    # --- preflight cost forecast, durable storage policy, provider reconciliation evidence ---
-    cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
-    _bind_json_artifact_checked(root, cost_forecast_binding, "cost_forecast")
-    storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
-    _bind_json_artifact_checked(root, storage_policy_binding, "storage_policy")
-    provider_reconciliation_evidence_binding = _mapping(
-        manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
-    _bind_json_artifact_checked(
-        root, provider_reconciliation_evidence_binding, "provider_reconciliation_evidence")
-
     # --- current provider price snapshot ---
     try:
         snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
@@ -802,9 +1356,10 @@ def validate_execution_manifest(
     _check_bound_hash(
         manifest, "provider_price_snapshot_canonical_sha256", observed_snapshot_sha)
 
-    # --- single merged role-limits + request-settings artifact (v2 only; a v1 artifact bound ---
-    # --- into this slot fails closed, since it lacks the v2-only supersedes/role_taxonomy ---
-    # --- sections that load_and_validate_v2's own top-level key-set check requires) ---
+    # --- single merged role-limits + request-settings artifact (v3 ONLY; a v2 or v1 artifact ---
+    # --- bound into this slot fails closed, since it lacks the v3-only approval_basis section ---
+    # --- (and/or has the wrong schema_version) that load_and_validate_v3's own top-level ---
+    # --- key-set check requires) ---
     role_limits_and_request_settings_artifact = _mapping(
         manifest.get("role_limits_and_request_settings_artifact"),
         "role_limits_and_request_settings_artifact")
@@ -828,19 +1383,41 @@ def validate_execution_manifest(
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact hash drift: manifest bound "
             f"{role_limits_sha_value}, observed {observed_role_limits_sha}")
-    v1_role_limits_path = root / DEFAULT_ROLE_LIMITS_V1_RELATIVE_PATH
-    if not v1_role_limits_path.is_file():
+    v2_role_limits_path = root / DEFAULT_ROLE_LIMITS_V2_RELATIVE_PATH
+    if not v2_role_limits_path.is_file():
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact supersedes source is missing: "
-            f"{v1_role_limits_path}")
-    v1_role_limits_payload = _load_json_object(v1_role_limits_path)
+            f"{v2_role_limits_path}")
+    v2_role_limits_payload = _load_json_object(v2_role_limits_path)
     try:
-        role_limits.validate_role_limits_v2(
-            role_limits_payload, protocol, snapshot, v1_role_limits_payload)
+        role_limits.validate_role_limits_v3(
+            role_limits_payload, protocol, snapshot, v2_role_limits_payload, project_root=root)
     except role_limits.RoleLimitsError as exc:
         raise ManifestValidationError(
-            "role_limits_and_request_settings_artifact does not validate as a v2 role-limits "
+            "role_limits_and_request_settings_artifact does not validate as a v3 role-limits "
             f"artifact: {exc}") from exc
+
+    # --- SEMANTIC ARTIFACT GATES: preflight cost forecast (READY schema only, bound to the ---
+    # --- real v2 role-limits content -- see _validate_cost_forecast_gate's own docstring for ---
+    # --- why not v3), durable storage policy (real schema), the pinned 2026-07-19 provider ---
+    # --- refresh, and the pinned 2026-07-19 provider reconciliation evidence. ---
+    cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
+    _validate_cost_forecast_gate(
+        cost_forecast_binding, root=root, protocol=protocol,
+        role_limits_v2_payload=v2_role_limits_payload, snapshot=snapshot, bundle=bundle)
+    storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
+    _validate_storage_policy_gate(storage_policy_binding, root=root)
+    provider_refresh_binding = _mapping(manifest.get("provider_refresh"), "provider_refresh")
+    _validate_provider_refresh_gate(provider_refresh_binding, root=root, snapshot=snapshot)
+    provider_reconciliation_evidence_binding = _mapping(
+        manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
+    _validate_provider_reconciliation_gate(provider_reconciliation_evidence_binding, root=root)
+
+    # --- CODE-PROVENANCE BINDING: recomputed fresh from the real files on disk ---
+    implementation_provenance_binding = _mapping(
+        manifest.get("implementation_provenance"), "implementation_provenance")
+    validated_implementation_provenance = _validate_implementation_provenance(
+        implementation_provenance_binding, root=root)
 
     # --- uv.lock: RAW file hash, never canonical-JSON ---
     observed_uv_lock_sha = _raw_file_sha256(root / DEFAULT_UV_LOCK_RELATIVE_PATH)
@@ -871,7 +1448,13 @@ def validate_execution_manifest(
     satisfied_prerequisite_bindings: dict[str, Mapping[str, str]] = {}
     for name in required_prereqs:
         binding = _mapping(satisfied[name], f"satisfied_prerequisites.{name}")
-        _bind_json_artifact(root, binding, f"satisfied_prerequisites.{name}")
+        if name == "gemma_recovery_or_waiver":
+            # PINNED: this slot must bind the real 2026-07-19 closure record, not merely any
+            # hash-matching blob (the generic _bind_json_artifact pattern every other, still
+            # unsupported, prerequisite slot uses).
+            _validate_gemma_prerequisite_gate(binding, root=root)
+        else:
+            _bind_json_artifact(root, binding, f"satisfied_prerequisites.{name}")
         satisfied_prerequisite_bindings[name] = {
             "path": str(binding["path"]), "sha256": str(binding["sha256"]),
         }
@@ -1018,6 +1601,11 @@ def validate_execution_manifest(
             "path": str(provider_reconciliation_evidence_binding["path"]),
             "sha256": str(provider_reconciliation_evidence_binding["sha256"]),
         },
+        provider_refresh={
+            "path": str(provider_refresh_binding["path"]),
+            "sha256": str(provider_refresh_binding["sha256"]),
+        },
+        implementation_provenance=validated_implementation_provenance,
     )
     execution_identity_sha256 = derive_execution_identity_sha256(identity)
 
@@ -1061,12 +1649,16 @@ def validate_execution_manifest(
             authorization_mapping.get("cumulative_cap_usd"),
             "authorization.cumulative_cap_usd", ExecutionAuthorityError,
         )
-        _string(
+        auth_approver = _string(
             authorization_mapping.get("approver"), "authorization.approver",
             ExecutionAuthorityError,
         )
         _parse_utc_timestamp(
             authorization_mapping.get("approved_at_utc"), "authorization.approved_at_utc",
+            ExecutionAuthorityError,
+        )
+        _parse_utc_timestamp(
+            authorization_mapping.get("recorded_at_utc"), "authorization.recorded_at_utc",
             ExecutionAuthorityError,
         )
         approval_basis_tracked_path = _string(
@@ -1088,14 +1680,22 @@ def validate_execution_manifest(
             raise ExecutionAuthorityError(
                 "authorization caps do not match this manifest's caps")
 
-        # --- approval basis: a resolvable, hash-matching (RAW-file) record distinguishing ---
-        # --- the owner's conditional policy approval from review of a final execution ---
-        # --- identity. Deliberately RAW file hashing (the basis may be markdown), never ---
-        # --- canonical-JSON: keep this contract distinct from every canonical-JSON binding. ---
+        # --- PINNED delegation approval basis: unlike the older, resolvable-from-anywhere ---
+        # --- approval_basis pattern, this authorization's approval_basis_tracked_path must ---
+        # --- resolve EXACTLY to the one frozen, git-tracked 2026-07-19 preflight delegation ---
+        # --- record (like the prompt-bundle approval pin above). Deliberately RAW file ---
+        # --- hashing (the delegation record's raw bytes), never canonical-JSON. ---
         approval_basis_path = _resolve_bound_path(
             root, approval_basis_tracked_path, "authorization.approval_basis_tracked_path",
             ExecutionAuthorityError,
         )
+        expected_delegation_path = (root / DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH).resolve()
+        if approval_basis_path.resolve() != expected_delegation_path:
+            raise ExecutionAuthorityError(
+                "authorization.approval_basis_tracked_path must resolve to the frozen, "
+                "git-tracked preflight delegation record at "
+                f"{DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH.as_posix()!r} under project_root; "
+                f"got {approval_basis_tracked_path!r}")
         if not approval_basis_path.is_file():
             raise ExecutionAuthorityError(
                 "authorization.approval_basis_tracked_path artifact is missing: "
@@ -1106,6 +1706,21 @@ def validate_execution_manifest(
             raise ExecutionAuthorityError(
                 "authorization.approval_basis_sha256 hash drift: authorization bound "
                 f"{approval_basis_sha256}, observed {observed_approval_basis_sha256}")
+
+        # --- the delegation record's own literal content: approver, exact quote, scope, ---
+        # --- exclusions, and its own execution_authorized=false invariant. ---
+        _validate_preflight_delegation_record(
+            approval_basis_path, stage=stage, stage_cap_usd=auth_stage_cap)
+
+        if auth_approver != PREFLIGHT_DELEGATION_APPROVER:
+            raise ExecutionAuthorityError(
+                f"authorization.approver must be exactly {PREFLIGHT_DELEGATION_APPROVER!r}, "
+                f"got {auth_approver!r}")
+        if authorization_mapping.get("approved_at_utc") != PREFLIGHT_DELEGATION_APPROVED_AT_UTC:
+            raise ExecutionAuthorityError(
+                "authorization.approved_at_utc must equal the cited delegation's own "
+                f"approved_at_utc ({PREFLIGHT_DELEGATION_APPROVED_AT_UTC!r}); got "
+                f"{authorization_mapping.get('approved_at_utc')!r}")
 
         authorized = True
         validated_authorization = dict(authorization_mapping)

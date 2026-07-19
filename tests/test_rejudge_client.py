@@ -778,3 +778,89 @@ def test_response_metadata_is_persisted_on_malformed_response_too():
     meta = event["response_metadata"]
     assert meta["prompt_tokens"] == 100          # usage was readable even though content was not
     assert isinstance(meta["request_fields_sha256"], str)
+
+
+# --- 7. halt_on_unknown_charge -----------------------------------------------------------------
+
+def test_unknown_charge_on_attempt_one_halts_with_no_attempt_two():
+    sdk = StubSDK(fail_times=99)          # every attempt raises a generic transient error
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 1                 # halted immediately; no second attempt was made
+    event = c.usage_events[-1]
+    assert event["status"] == "unknown_charge"
+
+
+def test_unknown_charge_halt_latches_the_unknown_charge_before_raising():
+    sdk = StubSDK(fail_times=99)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert c.uncertain_spend_usd > 0      # the uncertain charge is durably accounted, not lost
+
+
+def test_unknown_charge_on_malformed_usage_also_halts():
+    # The second _mark_unknown call site (usage itself unreadable) must halt too.
+    class _BadUsageResp:
+        usage = None
+        choices = []
+
+    class BadUsageSDK:
+        def __init__(self):
+            self.calls = 0
+            outer = self
+
+            class _Completions:
+                def create(self, **kwargs):
+                    outer.calls += 1
+                    return _BadUsageResp()
+
+            class _Chat:
+                completions = _Completions()
+
+            self.chat = _Chat()
+
+    sdk = BadUsageSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 1
+
+
+def test_streaming_required_probe_release_still_retries_under_halt_on_unknown_charge():
+    # A streaming_required capability-negotiation probe is released_no_charge, never
+    # unknown_charge, so it must keep retrying through the required transport even with
+    # halt_on_unknown_charge=True.
+    sdk = StreamingOnlySDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None,
+        halt_on_unknown_charge=True)
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert len(sdk.calls) == 2                        # failed probe (released) + successful stream
+    statuses = [event["status"] for event in c.usage_events]
+    assert "released_no_charge" in statuses
+    assert "unknown_charge" not in statuses
+
+
+def test_halt_on_unknown_charge_default_is_legacy_retry_behavior():
+    sdk = StubSDK(fail_times=99)
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3,
+                          _sleep=lambda s: None)
+    assert c.halt_on_unknown_charge is False
+    with pytest.raises(RuntimeError, match="API call failed after"):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 4                 # 1 initial attempt + 3 retries, unchanged from before
+
+
+def test_halt_on_unknown_charge_true_still_succeeds_when_the_first_attempt_succeeds():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK(), halt_on_unknown_charge=True)
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"

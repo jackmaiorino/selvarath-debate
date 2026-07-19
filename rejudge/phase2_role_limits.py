@@ -21,6 +21,7 @@ establish or claim execution authority: ``execution_authorized`` is always exact
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -33,8 +34,13 @@ from rejudge import phase2_provider_price_snapshot as price_snapshot
 
 DEFAULT_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_2026-07-18.json")
 DEFAULT_V2_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v2_2026-07-18.json")
+DEFAULT_V3_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v3_2026-07-19.json")
 DEFAULT_PROTOCOL_PATH = phase2_plan.DEFAULT_PROTOCOL_PATH
 DEFAULT_SNAPSHOT_PATH = price_snapshot.DEFAULT_SNAPSHOT_PATH
+# project_root for the v3 approval_basis raw-file check only; every other v3 check stays a
+# pure in-memory validation, matching v1/v2. Computed once, from this file's own location,
+# rather than threaded through as a required argument on every caller.
+DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 SCHEMA_VERSION = "phase2_role_limits_v1"
 ARTIFACT_ID = "phase2_role_limits_request_settings_2026-07-18_v1"
@@ -78,6 +84,36 @@ TOP_LEVEL_KEYS_V2: frozenset[str] = frozenset({
     "supersedes", "base_role_max_tokens", "reasoning_models", "model_role_limits",
     "context_ceilings", "request_settings", "role_taxonomy",
 })
+
+# --- v3: retry-pin reduction (self-contained forecast-resolution choice) plus a bound ----------
+# --- delegation approval_basis, on top of the frozen v2 content --------------------------------
+#
+# v3 is additive over v2 exactly the way v2 was additive over v1: every v2-checked section is
+# still validated with the EXACT SAME per-section helpers (including a re-parameterized
+# ``_validate_request_settings`` so v1/v2/v3 can never silently diverge on anything except the
+# one deliberate transport change). v3 changes exactly two things relative to v2: the transport
+# retry pin (max_retries 3->2, max_attempts 4->3 -- the self-contained forecast-resolution
+# choice recorded in the 2026-07-19 preflight delegation, chosen because the alternative would
+# require the owner's own HuggingFace account action) and a new ``approval_basis`` block binding
+# that same delegation record by path and RAW file sha256 (never canonical-JSON: the delegation
+# is a governance record, hashed the same way every other approval-basis binding in this project
+# is hashed). Its own ``supersedes`` block moves one link down the chain to bind v2 (by path and
+# v2's own recomputed canonical hash) instead of v1.
+SCHEMA_VERSION_V3 = "phase2_role_limits_v3"
+ARTIFACT_ID_V3 = "phase2_role_limits_request_settings_2026-07-19_v3"
+
+SUPERSEDES_V2_TRACKED_PATH = "rejudge/phase2_role_limits_v2_2026-07-18.json"
+
+# The frozen preflight delegation record: bound into v3's approval_basis block, and also the
+# pinned authorization approval_basis in phase2_execution.py (the same governance record is
+# deliberately checked independently at both call sites).
+APPROVAL_BASIS_V3_TRACKED_PATH = "rejudge/phase2_preflight_delegation_2026-07-19.json"
+APPROVAL_BASIS_KEYS: frozenset[str] = frozenset({"tracked_path", "sha256"})
+
+TRANSPORT_MAX_RETRIES_V3 = 2
+TRANSPORT_MAX_ATTEMPTS_V3 = TRANSPORT_MAX_RETRIES_V3 + 1
+
+TOP_LEVEL_KEYS_V3: frozenset[str] = TOP_LEVEL_KEYS_V2 | frozenset({"approval_basis"})
 
 # --- frozen base role limits (pre-reasoning-floor) --------------------------------------------
 BASE_ROLE_MAX_TOKENS: dict[str, int] = {
@@ -349,7 +385,11 @@ def _validate_context_ceilings(
             raise RoleLimitsError(f"{label}.note wording drifted from the frozen template")
 
 
-def _validate_request_settings(section_raw: Any, protocol: Mapping[str, Any]) -> None:
+def _validate_request_settings(
+    section_raw: Any, protocol: Mapping[str, Any], *,
+    expected_max_retries: int = TRANSPORT_MAX_RETRIES,
+    expected_max_attempts: int = TRANSPORT_MAX_ATTEMPTS,
+) -> None:
     section = _mapping(section_raw, "request_settings")
     _exact_keys(section, REQUEST_SETTINGS_KEYS, "request_settings")
 
@@ -386,11 +426,13 @@ def _validate_request_settings(section_raw: Any, protocol: Mapping[str, Any]) ->
     _exact_keys(transport, TRANSPORT_KEYS, "request_settings.transport")
     max_retries = _int(transport.get("max_retries"), "request_settings.transport.max_retries")
     max_attempts = _int(transport.get("max_attempts"), "request_settings.transport.max_attempts")
-    if max_retries != TRANSPORT_MAX_RETRIES:
-        raise RoleLimitsError("request_settings.transport.max_retries must be pinned to 3")
-    if max_attempts != TRANSPORT_MAX_ATTEMPTS or max_attempts != max_retries + 1:
+    if max_retries != expected_max_retries:
         raise RoleLimitsError(
-            "request_settings.transport.max_attempts must be exactly max_retries + 1 (4)")
+            f"request_settings.transport.max_retries must be pinned to {expected_max_retries}")
+    if max_attempts != expected_max_attempts or max_attempts != max_retries + 1:
+        raise RoleLimitsError(
+            "request_settings.transport.max_attempts must be exactly max_retries + 1 "
+            f"({expected_max_attempts})")
 
     metadata_fields = _list(
         section.get("response_metadata_to_persist"),
@@ -630,17 +672,148 @@ def load_and_validate_v2(
     return artifact, protocol, snapshot
 
 
+# --- v3 validation -------------------------------------------------------------------------------
+
+
+def _validate_approval_basis(section_raw: Any, root: Path) -> None:
+    """Validate v3's bound preflight-delegation approval_basis, fail-closed throughout.
+
+    Deliberately RAW file hashing (the delegation record is JSON, but is hashed the same way
+    every other approval-basis binding in this project is hashed -- see
+    ``phase2_execution.py``'s authorization ``approval_basis_sha256``), never canonical-JSON.
+    """
+    section = _mapping(section_raw, "approval_basis")
+    _exact_keys(section, APPROVAL_BASIS_KEYS, "approval_basis")
+    tracked_path = section.get("tracked_path")
+    if tracked_path != APPROVAL_BASIS_V3_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"approval_basis.tracked_path must be exactly {APPROVAL_BASIS_V3_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_sha = _sha256_hex(section.get("sha256"), "approval_basis.sha256")
+    basis_path = root / tracked_path
+    try:
+        raw = basis_path.read_bytes()
+    except OSError as exc:
+        raise RoleLimitsError(f"approval_basis artifact is missing: {basis_path}: {exc}") from exc
+    observed_sha = hashlib.sha256(raw).hexdigest()
+    if observed_sha != declared_sha:
+        raise RoleLimitsError(
+            "approval_basis.sha256 disagrees with the real delegation record on disk: "
+            f"v3 bound {declared_sha}, observed {observed_sha}")
+
+
+def validate_role_limits_v3(
+    artifact: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    v2_artifact: Mapping[str, Any],
+    *,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> None:
+    """Validate the v3 role-limits/request-settings artifact, fail-closed throughout.
+
+    Checks everything :func:`validate_role_limits_v2` checks (reusing its exact same
+    per-section helpers, so v1/v2/v3 can never silently diverge on the frozen limits) except
+    that ``request_settings.transport`` is required to be the v3 retry-pin reduction
+    (max_retries=2, max_attempts=3) instead of v2's (max_retries=3, max_attempts=4); plus the
+    ``supersedes`` block (exact v2 tracked path, and v2's canonical hash recomputed fresh from
+    ``v2_artifact`` rather than trusted from the v3 artifact alone) and the new
+    ``approval_basis`` block (the frozen preflight delegation record, bound by path and raw
+    file sha256, recomputed fresh from disk under ``project_root``).
+    """
+    artifact = _mapping(artifact, "v3 artifact")
+    protocol = _mapping(protocol, "protocol")
+    snapshot = _mapping(snapshot, "snapshot")
+    v2_artifact = _mapping(v2_artifact, "v2 artifact")
+    root = Path(project_root)
+    _exact_keys(artifact, TOP_LEVEL_KEYS_V3, "v3 artifact")
+
+    if artifact.get("schema_version") != SCHEMA_VERSION_V3:
+        raise RoleLimitsError("unsupported v3 role-limits schema_version")
+    if artifact.get("artifact_id") != ARTIFACT_ID_V3:
+        raise RoleLimitsError("v3 role-limits artifact_id drifted")
+    protocol_id = _non_empty_str(protocol.get("protocol_id"), "protocol protocol_id")
+    if artifact.get("protocol_id") != protocol_id:
+        raise RoleLimitsError("v3 role-limits protocol_id disagrees with the frozen protocol")
+    if artifact.get("status") != STATUS:
+        raise RoleLimitsError("v3 role-limits status drifted")
+    if artifact.get("execution_authorized") is not False:
+        raise RoleLimitsError("execution_authorized must be exactly false")
+
+    supersedes = _mapping(artifact.get("supersedes"), "supersedes")
+    _exact_keys(supersedes, SUPERSEDES_KEYS, "supersedes")
+    tracked_path = supersedes.get("tracked_path")
+    if tracked_path != SUPERSEDES_V2_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"supersedes.tracked_path must be exactly {SUPERSEDES_V2_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_supersedes_sha = _sha256_hex(
+        supersedes.get("canonical_sha256"), "supersedes.canonical_sha256")
+    observed_v2_sha = phase2_plan.canonical_sha256(dict(v2_artifact))
+    if declared_supersedes_sha != observed_v2_sha:
+        raise RoleLimitsError(
+            "supersedes.canonical_sha256 disagrees with the real v2 artifact on disk: "
+            f"v3 bound {declared_supersedes_sha}, observed {observed_v2_sha}")
+
+    _validate_approval_basis(artifact.get("approval_basis"), root)
+
+    _validate_base_role_max_tokens(artifact.get("base_role_max_tokens"))
+    _validate_reasoning_models(artifact.get("reasoning_models"))
+    _validate_request_settings(
+        artifact.get("request_settings"), protocol,
+        expected_max_retries=TRANSPORT_MAX_RETRIES_V3,
+        expected_max_attempts=TRANSPORT_MAX_ATTEMPTS_V3,
+    )
+    _validate_model_role_limits(artifact.get("model_role_limits"), protocol)
+    _validate_context_ceilings(artifact.get("context_ceilings"), snapshot)
+    _validate_role_taxonomy(artifact.get("role_taxonomy"), protocol)
+
+    model_role_limits = _mapping(artifact["model_role_limits"], "model_role_limits")
+    for model_id, roles in model_role_limits.items():
+        for role in _mapping(roles, f"model_role_limits.{model_id}"):
+            resolve_request_parameters(artifact, protocol, model_id, role)
+
+
+def load_and_validate_v3(
+    artifact_path: str | Path = DEFAULT_V3_ARTIFACT_PATH,
+    protocol_path: str | Path = DEFAULT_PROTOCOL_PATH,
+    snapshot_path: str | Path = DEFAULT_SNAPSHOT_PATH,
+    v2_artifact_path: str | Path = DEFAULT_V2_ARTIFACT_PATH,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    protocol = phase2_plan.load_protocol(protocol_path)
+    snapshot, _snapshot_protocol = price_snapshot.load_and_validate(snapshot_path, protocol_path)
+    artifact = _load_json(artifact_path)
+    v2_artifact = _load_json(v2_artifact_path)
+    validate_role_limits_v3(artifact, protocol, snapshot, v2_artifact, project_root=project_root)
+    return artifact, protocol, snapshot
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--v2", action="store_true")
+    parser.add_argument("--v3", action="store_true")
     parser.add_argument("--artifact", default=None)
     parser.add_argument("--v1-artifact", default=str(DEFAULT_ARTIFACT_PATH))
+    parser.add_argument("--v2-artifact", default=str(DEFAULT_V2_ARTIFACT_PATH))
     parser.add_argument("--protocol", default=str(DEFAULT_PROTOCOL_PATH))
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT_PATH))
+    parser.add_argument("--project-root", default=str(DEFAULT_PROJECT_ROOT))
     args = parser.parse_args(argv)
     if not args.check:
         parser.error("only --check is supported")
+    if args.v3:
+        artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V3_ARTIFACT_PATH)
+        artifact, _protocol, _snapshot = load_and_validate_v3(
+            artifact_path, args.protocol, args.snapshot, args.v2_artifact, args.project_root)
+        print(
+            "verified frozen Phase 2 role-limits v3 artifact; "
+            f"models={len(artifact['model_role_limits'])}; "
+            f"canonical_sha256={phase2_plan.canonical_sha256(artifact)}; "
+            "execution_authorized=NO"
+        )
+        return 0
     if args.v2:
         artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V2_ARTIFACT_PATH)
         artifact, _protocol, _snapshot = load_and_validate_v2(

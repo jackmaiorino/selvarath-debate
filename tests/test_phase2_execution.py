@@ -3,17 +3,23 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+from rejudge import phase2_capability_corpus as capability_corpus
 from rejudge import phase2_execution as pe
 from rejudge import phase2_plan
+from rejudge import phase2_preflight_forecast as forecast
 from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
+from rejudge import phase2_role_limits as role_limits
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +31,15 @@ PROMPT_BUNDLE_APPROVAL_PATH = (
     ROOT / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json")
 PRICE_SNAPSHOT_PATH = ROOT / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json"
 UV_LOCK_PATH = ROOT / "uv.lock"
-APPROVAL_BASIS_PATH = ROOT / "docs" / "phase2-decision-proposal.md"
+DELEGATION_PATH = ROOT / "rejudge" / "phase2_preflight_delegation_2026-07-19.json"
+# The authorization's approval_basis is now PINNED to the frozen preflight delegation record
+# (see pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH), not any resolvable-from-anywhere doc.
+APPROVAL_BASIS_PATH = DELEGATION_PATH
+PROVIDER_REFRESH_PATH = ROOT / "rejudge" / "phase2_provider_refresh_2026-07-19.json"
+GEMMA_CLOSURE_PATH = ROOT / "rejudge" / "gemma_recovery_closure_2026-07-19.json"
+PROVIDER_RECONCILIATION_2026_07_19_PATH = (
+    ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json")
+STORAGE_POLICY_PATH = ROOT / "rejudge" / "phase2_storage_policy_2026-07-18.json"
 
 STAGE_CAP_USD = 15.0
 CUMULATIVE_CAP_USD = 1500.0
@@ -35,6 +49,10 @@ LEDGER_BINDING = {
 }
 APPROVAL_BASIS_TRACKED_PATH = str(APPROVAL_BASIS_PATH.relative_to(ROOT).as_posix())
 APPROVAL_BASIS_SHA256 = hashlib.sha256(APPROVAL_BASIS_PATH.read_bytes()).hexdigest()
+IMPLEMENTATION_PROVENANCE_BINDING = {
+    "git_commit": "a" * 40,
+    "code_bundle_sha256": pe.compute_code_bundle_sha256(ROOT),
+}
 
 
 def _canon_sha(path: Path) -> str:
@@ -67,9 +85,6 @@ SYNTHETIC_ROOT_RELATIVE_ARTIFACTS: dict[str, tuple[str, dict]] = {
         f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_cost_forecast.json", {"forecast": "placeholder"}),
     "storage_policy": (
         f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_storage_policy.json", {"policy": "placeholder"}),
-    "provider_reconciliation_evidence": (
-        f"{SYNTHETIC_ROOT_RELATIVE_DIR}/phase2_provider_reconciliation_evidence.json",
-        {"evidence": "placeholder"}),
 }
 
 
@@ -84,51 +99,265 @@ def _write_synthetic_root_relative_artifacts(root: Path) -> dict[str, Path]:
     return paths
 
 
+# Every top-level rejudge/*.json artifact (including the new 2026-07-19 sealed artifacts:
+# the preflight delegation, provider refresh, its raw response, the gemma recovery closure and
+# its run record, and the 2026-07-19 provider reconciliation), every question bank, every world
+# spec, uv.lock, and the historical decision-proposal doc. Deliberately globs rather than
+# hand-listing so a new tracked rejudge/*.json artifact is automatically included; deliberately
+# EXCLUDES rejudge/output/ (hundreds of MB of run data, except the one small tracked file it
+# needs) and does not glob subdirectories.
+DATA_GLOB_PATTERNS: tuple[str, ...] = (
+    "questions/*.json", "world_specs/*.txt", "rejudge/*.json",
+    "rejudge/output/calibration_models.json",
+)
+DATA_EXTRA_FILES: tuple[str, ...] = ("uv.lock", "docs/phase2-decision-proposal.md")
+# The code-provenance frozen file list, needed so implementation_provenance's recomputed
+# code_bundle_sha256 matches under any tmp-copied root a full manifest validates against.
+DATA_CODE_FILES: tuple[str, ...] = pe.CODE_PROVENANCE_FROZEN_FILES
+
+
+def _copy_tracked_data_files(destination: Path) -> Path:
+    """Copy every small tracked data file (and the frozen code-provenance files) a full
+    validation needs into ``destination``, preserving each source's relative path.
+    """
+    for pattern in DATA_GLOB_PATTERNS:
+        for source in ROOT.glob(pattern):
+            relative = source.relative_to(ROOT)
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
+    for relative in DATA_EXTRA_FILES + DATA_CODE_FILES:
+        source = ROOT / relative
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+    # cost_forecast/storage_policy are frozen as always relative to project_root, so any root a
+    # manifest built from `synthetic_artifacts` is validated against needs its own copy at the
+    # same relative path (placeholder content here; callers that need the real, semantically
+    # valid content -- see `_build_green_root` -- overwrite these two files afterward).
+    _write_synthetic_root_relative_artifacts(destination)
+    return destination
+
+
+def _build_green_root() -> Path:
+    """Build a disposable, fully self-contained, byte-for-byte copy of every tracked data and
+    code file this suite's happy-path tests validate a manifest against.
+
+    Deliberately byte-identical to ROOT (no content is ever mutated here): several already-
+    frozen modules pin hardcoded canonical hashes of the REAL, unmodified protocol
+    (``phase2_resolvability_ai_review.BASE_PROTOCOL_CANONICAL_SHA256`` and its analogues), so
+    this cannot be a "cheap prices" root the way test_phase2_preflight_forecast.py's own
+    ``ready_context`` fixture is -- that fixture calls ``phase2_preflight_forecast.
+    validate_forecast`` directly (bypassing ``price_snapshot.load_and_validate``'s cross-check
+    against the frozen protocol prices entirely); this module instead goes through the full
+    ``phase2_execution.validate_execution_manifest``, which loads and re-validates the real
+    protocol/snapshot pair as part of every call. This fixture exists only so tests never write
+    into the live repository tree and so the new 2026-07-19 sealed artifacts and the frozen
+    code-provenance files are present at a stable location every test can share.
+
+    Because no genuinely "ready" (gate-clearing) capability-preflight forecast can exist against
+    the real, frozen prices right now (four_attempt_stress currently exceeds halt_cap_usd; see
+    the tracked ``rejudge/phase2_preflight_forecast_conflict_2026-07-18.json`` -- rebuilding the
+    real, price-accurate "green" forecast is an explicitly separate, later task), the ``manifest``
+    fixture below stubs out the deep economics check inside cost_forecast's semantic gate for
+    every test that uses it; the REAL, unpatched gate is exercised directly by the dedicated
+    cost_forecast tests further down, which build their own fully offline, self-consistent
+    "ready" forecast the same way test_phase2_preflight_forecast.py's ``ready_context`` does.
+    """
+    green = Path(tempfile.mkdtemp(prefix="phase2_execution_green_root_"))
+    _copy_tracked_data_files(green)
+    return green
+
+
+GREEN_ROOT = _build_green_root()
+GREEN_PROTOCOL_PATH = GREEN_ROOT / "rejudge" / "phase2_protocol.json"
+GREEN_PRICE_SNAPSHOT_PATH = GREEN_ROOT / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json"
+GREEN_PROMPT_BUNDLE_APPROVAL_PATH = (
+    GREEN_ROOT / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json")
+GREEN_UV_LOCK_PATH = GREEN_ROOT / "uv.lock"
+
+
+def _build_ready_forecast_payload(
+    *, root: Path, protocol: Mapping, role_limits_v2: Mapping, snapshot: Mapping,
+    bundle: Mapping,
+) -> dict:
+    """Build a genuinely-passing "ready" capability-preflight forecast, offline, from the
+    validator's own requirements -- no network, no real tokenizer download.
+
+    Reuses the REAL per-model token stats / tokenizer pins / rendered-corpus binding from the
+    tracked conflict-report artifact unchanged (those sections are price-independent, and the
+    corpus/protocol/bundle content is byte-identical to what produced them), and only
+    recomputes the dollar scenario totals against ``role_limits_v2``'s retry-attempt count and
+    ``snapshot``'s prices -- mirrors tests/test_phase2_preflight_forecast.py's own
+    ``ready_context`` fixture. At the REAL, frozen prices, this only clears halt_cap_usd when
+    ``role_limits_v2`` carries the v3 retry-pin reduction (2 retries / 3 attempts, not v2's real
+    3/4): ``no_retry_maximum * 3 < halt_cap_usd`` but ``* 4`` does not (see the tracked
+    ``rejudge/phase2_preflight_forecast_conflict_2026-07-18.json``).
+    """
+    # Loaded as raw JSON, deliberately NOT re-validated here: the tracked conflict artifact's
+    # own ``bindings`` section is bound to the REAL, expensive-priced protocol/snapshot, which
+    # would disagree with GREEN_ROOT's cheap-priced copies. Only its price-INDEPENDENT sections
+    # (per-model token stats, tokenizer pins, corpus binding) are reused below; every
+    # price-sensitive field is freshly recomputed and the resulting artifact IS fully validated
+    # (via ``forecast.validate_forecast`` at the end of this function) before being returned.
+    conflict_artifact = json.loads(
+        forecast.DEFAULT_CONFLICT_ARTIFACT_PATH.read_text(encoding="utf-8"))
+    calls = capability_corpus.EXPECTED_ENTRY_COUNT
+    output_ceilings = {
+        model_id: role_limits.resolve_request_parameters(
+            role_limits_v2, protocol, model_id, "capability_qa").effective_max_tokens
+        for model_id in forecast.MODEL_IDS
+    }
+
+    def price_for(model_id):
+        entry = snapshot["models"][model_id]
+        return (
+            Decimal(str(entry["input_usd_per_million_tokens"])),
+            Decimal(str(entry["output_usd_per_million_tokens"])),
+        )
+
+    theo_per_model, no_retry_per_model = {}, {}
+    theo_total = no_retry_total = Decimal(0)
+    no_retry_component_usd = {}
+    for model_id in forecast.MODEL_IDS:
+        total_input_tokens = conflict_artifact["per_model_token_stats"][model_id][
+            "input_tokens"]["total"]
+        input_price, output_price = price_for(model_id)
+        theo = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls,
+            output_tokens_per_call=forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL,
+            input_price=input_price, output_price=output_price,
+        )
+        theo_per_model[model_id] = theo
+        theo_total += Decimal(theo["total_usd"])
+        no_retry = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        no_retry_per_model[model_id] = no_retry
+        no_retry_component_usd[model_id] = Decimal(no_retry["total_usd"])
+        no_retry_total += Decimal(no_retry["total_usd"])
+
+    max_attempts = int(role_limits_v2["request_settings"]["transport"]["max_attempts"])
+
+    def derived(multiplier):
+        per_model, total = {}, Decimal(0)
+        for model_id in forecast.MODEL_IDS:
+            value = no_retry_component_usd[model_id] * multiplier
+            per_model[model_id] = {"total_usd": str(value)}
+            total += value
+        return per_model, total
+
+    planning_per_model, planning_total = derived(forecast.PLANNING_RETRY_MULTIPLIER)
+    stress_per_model, stress_total = derived(Decimal(max_attempts))
+
+    qwen_id = next(iter(forecast.PROXY_TOKENIZER_MODEL_IDS))
+    qwen_input_price, qwen_output_price = price_for(qwen_id)
+    qwen_byte_total = conflict_artifact["per_model_token_stats"][qwen_id][
+        "utf8_byte_reservation_bound"]["total"]
+    qwen_byte_component = forecast.compute_scenario_component(
+        total_input_tokens=qwen_byte_total, calls=calls,
+        output_tokens_per_call=output_ceilings[qwen_id],
+        input_price=qwen_input_price, output_price=qwen_output_price,
+    )
+    qwen_byte_stress = Decimal(qwen_byte_component["total_usd"]) * Decimal(max_attempts)
+
+    halt_cap = Decimal(str(
+        protocol["materialization_requirements"]["capability_preflight"]["proposed_cap_usd"]))
+    if not stress_total < halt_cap:
+        raise AssertionError(
+            "fixture prices must be cheap enough to clear the gate: "
+            f"stress_total={stress_total}, halt_cap={halt_cap}")
+
+    artifact = deepcopy(conflict_artifact)
+    artifact["schema_version"] = forecast.SCHEMA_VERSION
+    artifact["artifact_id"] = forecast.ARTIFACT_ID
+    artifact["status"] = forecast.STATUS
+    del artifact["resolution"]
+    artifact["bindings"]["protocol"]["canonical_sha256"] = phase2_plan.canonical_sha256(protocol)
+    artifact["bindings"]["role_limits_v2"]["canonical_sha256"] = (
+        phase2_plan.canonical_sha256(role_limits_v2))
+    artifact["bindings"]["price_snapshot"]["canonical_sha256"] = (
+        phase2_plan.canonical_sha256(snapshot))
+    artifact["retry_policy"]["max_attempts"] = max_attempts
+    artifact["retry_policy"]["max_retries"] = int(
+        role_limits_v2["request_settings"]["transport"]["max_retries"])
+    artifact["scenarios"]["theoretical_minimum"]["per_model"] = theo_per_model
+    artifact["scenarios"]["theoretical_minimum"]["total_usd"] = str(theo_total)
+    artifact["scenarios"]["no_retry_maximum"]["per_model"] = no_retry_per_model
+    artifact["scenarios"]["no_retry_maximum"]["total_usd"] = str(no_retry_total)
+    artifact["scenarios"]["planning_retry_scenario"]["per_model"] = planning_per_model
+    artifact["scenarios"]["planning_retry_scenario"]["total_usd"] = str(planning_total)
+    artifact["scenarios"]["four_attempt_stress"]["multiplier"] = str(max_attempts)
+    artifact["scenarios"]["four_attempt_stress"]["per_model"] = stress_per_model
+    artifact["scenarios"]["four_attempt_stress"]["total_usd"] = str(stress_total)
+    artifact["scenarios"]["four_attempt_stress"][
+        "qwen_3_7_plus_byte_bound_stress_usd"] = str(qwen_byte_stress)
+    artifact["halt_cap_usd"] = str(halt_cap)
+    artifact["stress_margin_usd"] = str(halt_cap - stress_total)
+
+    forecast.validate_forecast(
+        artifact, root=root, protocol=protocol, role_limits_v2=role_limits_v2,
+        snapshot=snapshot, bundle=bundle,
+    )
+    return artifact
+
+
 # --- shared fixtures: build the real, valid pieces once per module -----------------------------
 
 
-ROLE_LIMITS_V1_PATH = ROOT / "rejudge" / "phase2_role_limits_2026-07-18.json"
-ROLE_LIMITS_V2_PATH = ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+ROLE_LIMITS_V1_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_2026-07-18.json"
+ROLE_LIMITS_V2_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+ROLE_LIMITS_V3_PATH = ROOT / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
 
 
 @pytest.fixture(scope="module")
 def synthetic_artifacts(tmp_path_factory):
-    """Paths for the artifacts that materialization has not produced yet.
+    """Paths for the artifacts that materialization has not produced yet, plus the pinned
+    2026-07-19 sealed artifacts (already real, tracked files inside GREEN_ROOT).
 
-    ``role_limits_and_request_settings`` and ``gemma_waiver`` are absolute tmp paths so they
-    can be bound from any ``project_root`` (including the real repo root) without writing
-    anything under the tracked repository -- the deliberately-anywhere pattern
-    ``_resolve_bound_path`` documents for those bindings. ``role_limits_and_request_settings``
-    is a real, byte-identical copy of the tracked v2 role-limits artifact (not a placeholder):
-    the merged manifest slot must VALIDATE as a v2 role-limits artifact, not just hash-match, so
-    an inert placeholder can no longer stand in for it.
+    ``role_limits_and_request_settings`` is an absolute tmp path so it can be bound from any
+    ``project_root`` without writing anything under GREEN_ROOT itself -- the
+    deliberately-anywhere pattern ``_resolve_bound_path`` documents for that binding. It is a
+    real, byte-identical copy of the tracked v3 role-limits artifact (not a placeholder): the
+    merged manifest slot must VALIDATE as a v3 role-limits artifact, not just hash-match.
 
-    ``cost_forecast``, ``storage_policy``, and ``provider_reconciliation_evidence`` are frozen
-    as always relative to project_root (see ``_bind_json_artifact_checked``), so they are
-    written under a throwaway, gitignored subdirectory of the real repo root instead, and
-    cleaned up when this module's tests finish.
+    ``cost_forecast`` is a structurally-valid-JSON placeholder: the ``manifest`` fixture stubs
+    out cost_forecast's deep economics check (see ``_build_green_root``'s docstring), so this
+    only needs to be a real, hash-matchable JSON object here, not a genuine ready forecast.
+    ``storage_policy`` is frozen as always relative to project_root (see
+    ``_bind_json_artifact_checked``), so it is written directly into GREEN_ROOT (a throwaway
+    directory, safe to mutate) with real, semantically valid content: a byte-identical copy of
+    the real tracked storage policy.
+
+    ``gemma_closure``, ``provider_refresh``, and ``provider_reconciliation_evidence`` are PINNED
+    slots: GREEN_ROOT already carries real, byte-identical copies of their one frozen,
+    git-tracked location, so no further materialization is needed for those three.
     """
     directory = tmp_path_factory.mktemp("phase2_execution_artifacts")
     role_limits_and_request_settings = _write_json(
         directory, "role_limits_and_request_settings.json",
-        json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8")))
-    gemma_waiver = _write_json(
-        directory, "gemma_recovery_waiver.json", {"waiver": "placeholder"})
-    root_relative = _write_synthetic_root_relative_artifacts(ROOT)
-    try:
-        yield {
-            "role_limits_and_request_settings": role_limits_and_request_settings,
-            "gemma_waiver": gemma_waiver,
-            **root_relative,
-        }
-    finally:
-        shutil.rmtree(ROOT / SYNTHETIC_ROOT_RELATIVE_DIR, ignore_errors=True)
+        json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8")))
+
+    root_relative = _write_synthetic_root_relative_artifacts(GREEN_ROOT)
+    root_relative["storage_policy"].write_text(
+        STORAGE_POLICY_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+
+    yield {
+        "role_limits_and_request_settings": role_limits_and_request_settings,
+        "gemma_closure": GREEN_ROOT / "rejudge" / "gemma_recovery_closure_2026-07-19.json",
+        "provider_refresh": GREEN_ROOT / "rejudge" / "phase2_provider_refresh_2026-07-19.json",
+        "provider_reconciliation_evidence": (
+            GREEN_ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json"),
+        **root_relative,
+    }
 
 
 @pytest.fixture(scope="module")
 def baseline(synthetic_artifacts):
-    protocol = phase2_plan.load_protocol(PROTOCOL_PATH)
-    main_ids = phase2_plan.load_main_question_ids(protocol, ROOT)
+    protocol = phase2_plan.load_protocol(GREEN_PROTOCOL_PATH)
+    main_ids = phase2_plan.load_main_question_ids(protocol, GREEN_ROOT)
     cells = phase2_plan.enumerate_cells(protocol, main_ids)
     capability_cells = [cell for cell in cells if cell["kind"] == "capability_qa"]
     planning_keys = sorted(cell["cell_key"] for cell in capability_cells)
@@ -136,11 +365,12 @@ def baseline(synthetic_artifacts):
 
     combined = json.loads(COMBINED_AI_AUDIT_PATH.read_text(encoding="utf-8"))
     amendment = json.loads(A1_AMENDMENT_PATH.read_text(encoding="utf-8"))
-    bundle, _bundle_protocol = prompt_bundle.load_and_validate(PROMPT_BUNDLE_PATH, PROTOCOL_PATH)
-    approval = json.loads(PROMPT_BUNDLE_APPROVAL_PATH.read_text(encoding="utf-8"))
+    bundle, _bundle_protocol = prompt_bundle.load_and_validate(
+        GREEN_ROOT / "rejudge" / "phase2_prompt_bundle.json", GREEN_PROTOCOL_PATH)
+    approval = json.loads(GREEN_PROMPT_BUNDLE_APPROVAL_PATH.read_text(encoding="utf-8"))
     snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
-        PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
-    uv_lock_sha256 = hashlib.sha256(UV_LOCK_PATH.read_bytes()).hexdigest()
+        GREEN_PRICE_SNAPSHOT_PATH, GREEN_PROTOCOL_PATH)
+    uv_lock_sha256 = hashlib.sha256(GREEN_UV_LOCK_PATH.read_bytes()).hexdigest()
     approval_basis_sha256 = hashlib.sha256(APPROVAL_BASIS_PATH.read_bytes()).hexdigest()
 
     entries_without_key = []
@@ -173,9 +403,13 @@ def baseline(synthetic_artifacts):
 
 def _artifact_binding(artifacts, name: str) -> dict:
     path = artifacts[name]
-    try:
-        path_value = str(path.relative_to(ROOT).as_posix())
-    except ValueError:
+    for base in (GREEN_ROOT, ROOT):
+        try:
+            path_value = str(path.relative_to(base).as_posix())
+            break
+        except ValueError:
+            continue
+    else:
         path_value = str(path)
     return {"path": path_value, "sha256": _canon_sha(path)}
 
@@ -195,7 +429,7 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "prompt_bundle_canonical_sha256": phase2_plan.canonical_sha256(baseline["bundle"]),
         "prompt_bundle_declared_status": baseline["bundle"]["status"],
         "prompt_bundle_approval_tracked_path": str(
-            PROMPT_BUNDLE_APPROVAL_PATH.relative_to(ROOT).as_posix()),
+            GREEN_PROMPT_BUNDLE_APPROVAL_PATH.relative_to(GREEN_ROOT).as_posix()),
         "prompt_bundle_approval_canonical_sha256": phase2_plan.canonical_sha256(
             baseline["approval"]),
         "role_limits_and_request_settings_artifact": _artifact_binding(
@@ -206,7 +440,7 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "seed_policy": execution_semantics["seed_policy"],
         "side_assignment_policy": execution_semantics["side_assignment_policy"],
         "satisfied_prerequisites": {
-            "gemma_recovery_or_waiver": _artifact_binding(artifacts, "gemma_waiver"),
+            "gemma_recovery_or_waiver": _artifact_binding(artifacts, "gemma_closure"),
         },
         "ledger": dict(LEDGER_BINDING),
         "stage_cap_usd": stage_cap,
@@ -215,6 +449,8 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "storage_policy": _artifact_binding(artifacts, "storage_policy"),
         "provider_reconciliation_evidence": _artifact_binding(
             artifacts, "provider_reconciliation_evidence"),
+        "provider_refresh": _artifact_binding(artifacts, "provider_refresh"),
+        "implementation_provenance": dict(IMPLEMENTATION_PROVENANCE_BINDING),
     }
 
 
@@ -259,6 +495,8 @@ def build_manifest(
         cost_forecast=shared["cost_forecast"],
         storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
+        provider_refresh=shared["provider_refresh"],
+        implementation_provenance=shared["implementation_provenance"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
     entries = [
@@ -284,61 +522,21 @@ def matching_authorization(
     stage_cap=STAGE_CAP_USD, cumulative_cap=CUMULATIVE_CAP_USD,
     approval_basis_tracked_path=APPROVAL_BASIS_TRACKED_PATH,
     approval_basis_sha256=APPROVAL_BASIS_SHA256,
+    approved_at_utc=pe.PREFLIGHT_DELEGATION_APPROVED_AT_UTC,
+    recorded_at_utc="2026-07-19T00:55:00Z",
+    approver="Jack Maiorino",
 ):
     return {
         "execution_identity_sha256": identity_sha256,
         "stage": stage,
         "stage_cap_usd": stage_cap,
         "cumulative_cap_usd": cumulative_cap,
-        "approver": "Jack Maiorino",
-        "approved_at_utc": "2026-07-18T00:00:00Z",
+        "approver": approver,
+        "approved_at_utc": approved_at_utc,
+        "recorded_at_utc": recorded_at_utc,
         "approval_basis_tracked_path": approval_basis_tracked_path,
         "approval_basis_sha256": approval_basis_sha256,
     }
-
-
-DATA_FILES_FOR_ROOT_COPY = (
-    "rejudge/phase2_protocol.json",
-    "rejudge/output/calibration_models.json",
-    "rejudge/calibration_questions_2026-07-14.json",
-    "rejudge/oracle_shortcut_audit_2026-07-12.json",
-    "rejudge/calibration_recovery_gemma_2026-07-15.json",
-    "rejudge/phase2_resolvability_review.json",
-    "rejudge/phase2_resolvability_ai_review.json",
-    "rejudge/phase2_resolvability_ai_review_carath_norn.json",
-    "rejudge/phase2_resolvability_ai_review_selvarath.json",
-    "rejudge/phase2_resolvability_ai_review_vethun_sarak.json",
-    "rejudge/phase2_resolvability_review_amendment_2026-07-16.json",
-    "rejudge/phase2_prompt_bundle.json",
-    "rejudge/phase2_prompt_bundle_approval_2026-07-18.json",
-    "rejudge/phase2_provider_price_snapshot_2026-07-18.json",
-    "rejudge/phase2_role_limits_2026-07-18.json",
-    "rejudge/phase2_role_limits_v2_2026-07-18.json",
-    "questions/carath_norn_questions.json",
-    "questions/selvarath_questions.json",
-    "questions/vethun_sarak_questions.json",
-    "uv.lock",
-    "docs/phase2-decision-proposal.md",
-)
-
-
-def _copy_tracked_data_files(destination: Path) -> Path:
-    """Copy only the small tracked JSON/lock data files a full validation needs.
-
-    Deliberately excludes rejudge/output/ (hundreds of MB of run data) and every .py
-    module: project_root is a data lookup root, not a code root, so no source files need
-    copying at all.
-    """
-    for relative in DATA_FILES_FOR_ROOT_COPY:
-        source = ROOT / relative
-        target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(source.read_bytes())
-    # cost_forecast/storage_policy/provider_reconciliation_evidence are frozen as always
-    # relative to project_root, so any root a manifest built from `synthetic_artifacts` is
-    # validated against needs its own copy at the same relative path and content.
-    _write_synthetic_root_relative_artifacts(destination)
-    return destination
 
 
 @pytest.fixture(scope="module")
@@ -424,17 +622,17 @@ def missing_approval_root(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def missing_v1_role_limits_root(tmp_path_factory):
-    """A tmp copy of the tracked data files with the frozen v1 role-limits file removed.
+def missing_v2_role_limits_root(tmp_path_factory):
+    """A tmp copy of the tracked data files with the frozen v2 role-limits file removed.
 
     The manifest's role_limits_and_request_settings_artifact binding itself (an absolute tmp
     path via ``synthetic_artifacts``) is untouched; only the separate, always-project-root-
-    relative v1 "supersedes" source that role_limits.validate_role_limits_v2 independently
+    relative v2 "supersedes" source that role_limits.validate_role_limits_v3 independently
     re-reads from disk is missing here.
     """
-    destination = tmp_path_factory.mktemp("missing_v1_role_limits_root")
+    destination = tmp_path_factory.mktemp("missing_v2_role_limits_root")
     _copy_tracked_data_files(destination)
-    path = destination / "rejudge" / "phase2_role_limits_2026-07-18.json"
+    path = destination / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
     path.unlink()
     return destination
 
@@ -445,8 +643,19 @@ def valid_manifest(baseline, synthetic_artifacts):
 
 
 @pytest.fixture
-def manifest(valid_manifest):
-    """A fresh mutable deep copy of the valid baseline manifest for each test."""
+def manifest(valid_manifest, monkeypatch):
+    """A fresh mutable deep copy of the valid baseline manifest for each test.
+
+    Stubs cost_forecast's deep economics check (``phase2_preflight_forecast.validate_forecast``,
+    called from ``pe._validate_cost_forecast_gate``) to a no-op: see ``_build_green_root``'s
+    docstring for why no genuinely "ready" forecast can exist against the real, frozen prices
+    right now. Every other check on cost_forecast (the generic path/hash binding) and on
+    storage_policy/provider_refresh/gemma/provider_reconciliation/role-limits v3/authorization/
+    etc. still runs for real, unpatched. The REAL, unpatched ``validate_forecast`` behavior
+    (READY acceptance, CONFLICT rejection, the v2 role-limits binding) is exercised directly by
+    the dedicated cost_forecast gate tests further down.
+    """
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
     manifest, identity_sha256 = valid_manifest
     return deepcopy(manifest), identity_sha256
 
@@ -456,7 +665,7 @@ def manifest(valid_manifest):
 
 def test_valid_manifest_validates_and_derives_the_expected_identity(manifest):
     manifest_dict, identity_sha256 = manifest
-    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     assert validated.stage == "capability_preflight"
     assert validated.execution_identity_sha256 == identity_sha256
     assert len(validated.provider_call_inventory) == pe.EXPECTED_CAPABILITY_CELL_COUNT
@@ -469,7 +678,7 @@ def test_valid_manifest_validates_and_derives_the_expected_identity(manifest):
 
 def test_call_inventory_is_unique_and_bijective_with_planning_cells(manifest):
     manifest_dict, _identity = manifest
-    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     call_keys = {entry["execution_call_key"] for entry in validated.provider_call_inventory}
     planning_keys = {
         entry["planning_cell_key"] for entry in validated.provider_call_inventory
@@ -480,7 +689,7 @@ def test_call_inventory_is_unique_and_bijective_with_planning_cells(manifest):
 
 def test_dataclasses_are_frozen(manifest):
     manifest_dict, _identity = manifest
-    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     with pytest.raises(FrozenInstanceError):
         setattr(validated, "stage", "canary")
     audit = pe.audit_resume(validated, output_rows=[], usage_events=[])
@@ -493,7 +702,7 @@ def test_dataclasses_are_frozen(manifest):
 
 def test_non_dict_manifest_is_rejected():
     with pytest.raises(pe.ManifestValidationError, match="must be an object"):
-        pe.validate_execution_manifest(cast(Any, []), project_root=ROOT)
+        pe.validate_execution_manifest(cast(Any, []), project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra"])
@@ -504,28 +713,28 @@ def test_top_level_key_drift_is_rejected(manifest, mutation):
     else:
         manifest_dict["unexpected_field"] = "x"
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_wrong_schema_version_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["schema_version"] = "phase2_execution_manifest_v0"
     with pytest.raises(pe.ManifestValidationError, match="unsupported execution manifest"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_unrecognized_stage_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["stage"] = "not_a_real_stage"
     with pytest.raises(pe.ManifestValidationError, match="unrecognized execution stage"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("stage", ["gemma_recovery_or_waiver", "canary", "main"])
 def test_unsupported_stages_raise_unconditionally(baseline, synthetic_artifacts, stage):
     manifest_dict, _identity = build_manifest(baseline, synthetic_artifacts, stage=stage)
     with pytest.raises(pe.UnsupportedStageError, match=stage):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- hash drift for every bound artifact ---------------------------------------------------------
@@ -543,7 +752,7 @@ def test_top_level_hash_drift_is_rejected(manifest, field):
     manifest_dict, _identity = manifest
     manifest_dict[field] = _flip_hex_digest(manifest_dict[field])
     with pytest.raises(pe.ManifestValidationError, match="hash drift"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", [
@@ -554,7 +763,7 @@ def test_artifact_binding_hash_drift_is_rejected(manifest, field):
     manifest_dict, _identity = manifest
     manifest_dict[field]["sha256"] = _flip_hex_digest(manifest_dict[field]["sha256"])
     with pytest.raises(pe.ManifestValidationError, match="hash drift"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
@@ -565,7 +774,7 @@ def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(missing), "sha256": "a" * 64}
     with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- role_limits_and_request_settings_artifact: merged-slot-specific behavior ------------------
@@ -573,39 +782,57 @@ def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
 
 def test_role_limits_and_request_settings_artifact_v1_in_slot_is_rejected(manifest, tmp_path):
     # A v1 artifact byte-identical to the real, tracked v1 file is a real, hash-matchable JSON
-    # object -- it must still fail because it lacks the v2-only supersedes/role_taxonomy
-    # sections and its schema_version is phase2_role_limits_v1, not phase2_role_limits_v2.
+    # object -- it must still fail because it lacks the v3-only approval_basis/supersedes/
+    # role_taxonomy sections and its schema_version is phase2_role_limits_v1, not v3.
     manifest_dict, _identity = manifest
     v1_payload = json.loads(ROLE_LIMITS_V1_PATH.read_text(encoding="utf-8"))
-    v1_copy = tmp_path / "v1_in_v2_slot.json"
+    v1_copy = tmp_path / "v1_in_v3_slot.json"
     v1_copy.write_text(json.dumps(v1_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v1_copy), "sha256": phase2_plan.canonical_sha256(v1_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v2 role-limits artifact",
+        match="does not validate as a v3 role-limits artifact",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_v2_in_slot_is_rejected(manifest, tmp_path):
+    # Same guarantee one link up the chain: a real, byte-identical v2 artifact still fails
+    # closed in the merged slot, since v2 lacks v3's approval_basis section and its
+    # schema_version is phase2_role_limits_v2, not v3.
+    manifest_dict, _identity = manifest
+    v2_payload = json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8"))
+    v2_copy = tmp_path / "v2_in_v3_slot.json"
+    v2_copy.write_text(json.dumps(v2_payload), encoding="utf-8")
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(v2_copy), "sha256": phase2_plan.canonical_sha256(v2_payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v3 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_supersedes_drift_is_rejected(
     manifest, tmp_path,
 ):
     manifest_dict, _identity = manifest
-    payload = json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
     payload["supersedes"]["canonical_sha256"] = _flip_hex_digest(
         payload["supersedes"]["canonical_sha256"])
-    tampered = tmp_path / "tampered_v2.json"
+    tampered = tmp_path / "tampered_v3.json"
     tampered.write_text(json.dumps(payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(tampered), "sha256": phase2_plan.canonical_sha256(payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v2 role-limits artifact",
+        match="does not validate as a v3 role-limits artifact",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("stray_key", [
@@ -617,7 +844,7 @@ def test_old_two_slot_keys_are_rejected_even_alongside_the_new_key(manifest, str
     manifest_dict, _identity = manifest
     manifest_dict[stray_key] = dict(manifest_dict["role_limits_and_request_settings_artifact"])
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_reverting_to_the_old_two_slot_manifest_shape_is_rejected(manifest):
@@ -626,7 +853,7 @@ def test_reverting_to_the_old_two_slot_manifest_shape_is_rejected(manifest):
     manifest_dict["per_model_role_limits_artifact"] = binding
     manifest_dict["provider_request_fields_artifact"] = dict(binding)
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_key_set_drift_is_rejected(manifest):
@@ -635,7 +862,7 @@ def test_role_limits_and_request_settings_artifact_key_set_drift_is_rejected(man
     with pytest.raises(
         pe.ManifestValidationError, match="role_limits_and_request_settings_artifact",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_missing_key_is_rejected(manifest):
@@ -644,7 +871,7 @@ def test_role_limits_and_request_settings_artifact_missing_key_is_rejected(manif
     manifest_dict, _identity = manifest
     del manifest_dict["role_limits_and_request_settings_artifact"]["sha256"]
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_non_string_path_is_rejected(manifest):
@@ -654,7 +881,7 @@ def test_role_limits_and_request_settings_artifact_non_string_path_is_rejected(m
         pe.ManifestValidationError,
         match=r"role_limits_and_request_settings_artifact\.path",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_malformed_sha_format_is_rejected(manifest):
@@ -667,31 +894,33 @@ def test_role_limits_and_request_settings_artifact_malformed_sha_format_is_rejec
         pe.ManifestValidationError,
         match=r"role_limits_and_request_settings_artifact\.sha256",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_role_limits_v1_supersedes_source_missing_fails_closed(
-    manifest, missing_v1_role_limits_root,
+def test_role_limits_v2_supersedes_source_missing_fails_closed(
+    manifest, missing_v2_role_limits_root,
 ):
     manifest_dict, _identity = manifest
     with pytest.raises(
         pe.ManifestValidationError, match="supersedes source is missing",
     ):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=missing_v1_role_limits_root)
+            manifest_dict, project_root=missing_v2_role_limits_root)
 
 
-@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
-                                    "provider_reconciliation_evidence"])
+@pytest.mark.parametrize("field", ["cost_forecast", "storage_policy"])
 def test_new_binding_missing_file_fails_closed(manifest, field):
-    # Unlike the pair above, these three are frozen as always relative to project_root, so
-    # the missing-file probe must itself be a non-escaping relative path.
+    # Unlike the pair above, these are frozen as always relative to project_root, so the
+    # missing-file probe must itself be a non-escaping relative path. (Unlike these two,
+    # provider_reconciliation_evidence is now PINNED to one exact location -- see
+    # test_provider_reconciliation_evidence_missing_file_fails_closed below -- so a
+    # syntactically-fine-but-unpinned path fails the pinning check first, not this one.)
     manifest_dict, _identity = manifest
     manifest_dict[field] = {
         "path": f"{SYNTHETIC_ROOT_RELATIVE_DIR}/does_not_exist.json", "sha256": "a" * 64,
     }
     with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
@@ -702,7 +931,7 @@ def test_new_binding_relative_path_escape_fails_closed(manifest, field):
         "path": "../outside_the_repo_root.json", "sha256": "a" * 64,
     }
     with pytest.raises(pe.ManifestValidationError, match="escapes the repository root"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
@@ -719,7 +948,7 @@ def test_new_binding_absolute_path_outside_root_fails_closed(manifest, tmp_path,
         "path": str(outside), "sha256": phase2_plan.canonical_sha256(payload),
     }
     with pytest.raises(pe.ManifestValidationError, match="must be a path relative to"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy",
@@ -729,25 +958,40 @@ def test_new_binding_non_mapping_value_is_rejected(manifest, field):
     manifest_dict, _identity = manifest
     manifest_dict[field] = "not a mapping"
     with pytest.raises(pe.ManifestValidationError, match="must be an object"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_gemma_recovery_waiver_hash_drift_is_rejected(manifest):
+def test_gemma_recovery_closure_hash_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     binding = manifest_dict["satisfied_prerequisites"]["gemma_recovery_or_waiver"]
     binding["sha256"] = _flip_hex_digest(binding["sha256"])
     with pytest.raises(pe.ManifestValidationError, match="hash drift"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_gemma_recovery_waiver_missing_file_fails_closed(manifest, tmp_path):
+def test_gemma_recovery_closure_unpinned_absolute_path_fails_closed(manifest, tmp_path):
+    # The gemma_recovery_or_waiver slot is now PINNED to the real 2026-07-19 closure record
+    # (unlike its predecessor, an absolute path anywhere is no longer accepted at all).
     manifest_dict, _identity = manifest
-    missing = tmp_path / "no_waiver.json"
+    missing = tmp_path / "no_closure.json"
     manifest_dict["satisfied_prerequisites"]["gemma_recovery_or_waiver"] = {
         "path": str(missing), "sha256": "b" * 64,
     }
-    with pytest.raises(pe.ManifestValidationError, match="artifact is missing"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    with pytest.raises(pe.ManifestValidationError, match="must be a path relative to"):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_gemma_recovery_closure_unpinned_relative_path_fails_closed(manifest):
+    # A syntactically-fine, non-escaping relative path that simply names the wrong file must
+    # still be rejected: the location is pinned, not manifest-controlled.
+    manifest_dict, _identity = manifest
+    manifest_dict["satisfied_prerequisites"]["gemma_recovery_or_waiver"] = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json", "sha256": "b" * 64,
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_satisfied_prerequisites_key_set_drift_is_rejected(manifest):
@@ -756,7 +1000,7 @@ def test_satisfied_prerequisites_key_set_drift_is_rejected(manifest):
         "path": "x", "sha256": "c" * 64,
     }
     with pytest.raises(pe.ManifestValidationError, match="satisfied_prerequisites"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- A1 / combined AI audit binding mismatches ----------------------------------------------------
@@ -766,7 +1010,7 @@ def test_missing_a1_amendment_binding_is_rejected(manifest):
     manifest_dict, _identity = manifest
     del manifest_dict["a1_amendment_canonical_sha256"]
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_combined_ai_audit_that_fails_its_own_validator_is_rejected(
@@ -834,7 +1078,7 @@ def test_question_bank_bundle_hash_disagreement_is_rejected(manifest):
     manifest_dict["question_bank_bundle_sha256"] = _flip_hex_digest(
         manifest_dict["question_bank_bundle_sha256"])
     with pytest.raises(pe.ManifestValidationError, match="question_bank_bundle_sha256"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- prompt bundle: hash + declared status -----------------------------------------------------
@@ -844,7 +1088,7 @@ def test_prompt_bundle_declared_status_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["prompt_bundle_declared_status"] = "owner_approved"
     with pytest.raises(pe.ManifestValidationError, match="prompt_bundle_declared_status"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_candidate_prompt_bundle_with_valid_approval_is_authorized(manifest):
@@ -856,7 +1100,7 @@ def test_candidate_prompt_bundle_with_valid_approval_is_authorized(manifest):
     manifest_dict, identity_sha256 = manifest
     authorization = matching_authorization(identity_sha256)
     validated = pe.validate_execution_manifest(
-        manifest_dict, project_root=ROOT, authorization=authorization, require_authorized=True)
+        manifest_dict, project_root=GREEN_ROOT, authorization=authorization, require_authorized=True)
     assert validated.authorized is True
     assert validated.authorization is not None
 
@@ -866,7 +1110,7 @@ def test_candidate_prompt_bundle_does_not_block_unauthorized_validation(manifest
     # though the tracked bundle stays a permanent candidate, as long as the approval-artifact
     # binding is itself valid.
     manifest_dict, _identity = manifest
-    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     assert validated.authorized is False
 
 
@@ -904,12 +1148,12 @@ def test_approval_artifact_hash_missing_from_identity_is_impossible_without_a_bi
     manifest_dict, _identity = manifest
     del manifest_dict["prompt_bundle_approval_canonical_sha256"]
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_artifact_binds_into_the_execution_identity(manifest):
     manifest_dict, identity_sha256 = manifest
-    validated = pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    validated = pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
     assert validated.execution_identity_sha256 == identity_sha256
     approval_binding = validated.execution_identity["prompt_bundle_approval_artifact"]
     assert approval_binding["sha256"] == manifest_dict["prompt_bundle_approval_canonical_sha256"]
@@ -921,7 +1165,7 @@ def test_approval_declared_hash_drift_is_rejected(manifest):
     manifest_dict["prompt_bundle_approval_canonical_sha256"] = _flip_hex_digest(
         manifest_dict["prompt_bundle_approval_canonical_sha256"])
     with pytest.raises(pe.ManifestValidationError, match="hash drift"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_tracked_path_blank_is_rejected(manifest):
@@ -930,7 +1174,7 @@ def test_approval_tracked_path_blank_is_rejected(manifest):
     with pytest.raises(
         pe.ManifestValidationError, match="prompt_bundle_approval_tracked_path",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_tracked_path_non_string_is_rejected(manifest):
@@ -939,7 +1183,7 @@ def test_approval_tracked_path_non_string_is_rejected(manifest):
     with pytest.raises(
         pe.ManifestValidationError, match="prompt_bundle_approval_tracked_path",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_canonical_sha256_malformed_is_rejected(manifest):
@@ -948,7 +1192,7 @@ def test_approval_canonical_sha256_malformed_is_rejected(manifest):
     with pytest.raises(
         pe.ManifestValidationError, match="prompt_bundle_approval_canonical_sha256",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_artifact_missing_file_fails_closed(manifest, missing_approval_root):
@@ -965,7 +1209,7 @@ def test_approval_tracked_path_escape_fails_closed(manifest):
     manifest_dict = deepcopy(manifest_dict)
     manifest_dict["prompt_bundle_approval_tracked_path"] = "../outside_the_repo_root.json"
     with pytest.raises(pe.ManifestValidationError, match="escapes the repository root"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_tracked_path_must_be_the_frozen_location(manifest):
@@ -976,7 +1220,7 @@ def test_approval_tracked_path_must_be_the_frozen_location(manifest):
     manifest_dict["prompt_bundle_approval_tracked_path"] = (
         "rejudge/phase2_resolvability_ai_review.json")
     with pytest.raises(pe.ManifestValidationError, match="frozen, git-tracked approval"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_approval_tracked_path_absolute_untracked_copy_is_rejected(manifest, tmp_path):
@@ -989,7 +1233,7 @@ def test_approval_tracked_path_absolute_untracked_copy_is_rejected(manifest, tmp
     untracked_copy.write_bytes(PROMPT_BUNDLE_APPROVAL_PATH.read_bytes())
     manifest_dict["prompt_bundle_approval_tracked_path"] = str(untracked_copy)
     with pytest.raises(pe.ManifestValidationError, match="frozen, git-tracked approval"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("mutation", ["missing_key", "extra_key"])
@@ -1220,14 +1464,14 @@ def test_seed_policy_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["seed_policy"] = "some other policy"
     with pytest.raises(pe.ManifestValidationError, match="seed_policy"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_side_assignment_policy_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["side_assignment_policy"] = "some other policy"
     with pytest.raises(pe.ManifestValidationError, match="side_assignment_policy"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- ledger binding (structure only) -----------------------------------------------------------------
@@ -1237,14 +1481,14 @@ def test_ledger_key_set_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["ledger"] = {"path": "x"}
     with pytest.raises(pe.ManifestValidationError, match="ledger"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_ledger_blank_identity_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["ledger"]["ledger_identity"] = ""
     with pytest.raises(pe.ManifestValidationError, match="ledger.ledger_identity"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- planning cell inventory: exact 1060, no duplicates, matches the frozen protocol -----------------
@@ -1254,42 +1498,42 @@ def test_planning_cell_count_1059_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"].pop()
     with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_planning_cell_count_1061_via_duplicate_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"].append(manifest_dict["planning_cell_keys"][0])
     with pytest.raises(pe.ManifestValidationError, match="duplicate cell keys"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_planning_cell_set_mismatch_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"][0] = "bogus-planning-cell-key"
     with pytest.raises(pe.ManifestValidationError, match="does not match the frozen"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_planning_cell_keys_not_a_list_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"] = {"not": "a list"}
     with pytest.raises(pe.ManifestValidationError, match="list of non-empty strings"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_planning_cell_keys_with_non_string_element_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"][0] = 12345
     with pytest.raises(pe.ManifestValidationError, match="list of non-empty strings"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_planning_cell_keys_with_blank_element_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["planning_cell_keys"][0] = ""
     with pytest.raises(pe.ManifestValidationError, match="list of non-empty strings"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- provider-call inventory: exact 1060, structure, cross-checks, duplicates ------------------------
@@ -1299,7 +1543,7 @@ def test_call_inventory_count_1059_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"].pop()
     with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_count_1061_is_rejected(manifest):
@@ -1307,7 +1551,7 @@ def test_call_inventory_count_1061_is_rejected(manifest):
     extra = deepcopy(manifest_dict["provider_call_inventory"][-1])
     manifest_dict["provider_call_inventory"].append(extra)
     with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_duplicate_planning_cell_is_rejected(manifest):
@@ -1315,7 +1559,7 @@ def test_call_inventory_duplicate_planning_cell_is_rejected(manifest):
     entries = manifest_dict["provider_call_inventory"]
     entries[1]["planning_cell_key"] = entries[0]["planning_cell_key"]
     with pytest.raises(pe.ManifestValidationError, match="duplicate planning cell"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_duplicate_execution_call_key_is_rejected(manifest):
@@ -1323,35 +1567,35 @@ def test_call_inventory_duplicate_execution_call_key_is_rejected(manifest):
     entries = manifest_dict["provider_call_inventory"]
     entries[1]["execution_call_key"] = entries[0]["execution_call_key"]
     with pytest.raises(pe.ManifestValidationError, match="duplicate execution_call_key"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_entry_key_set_drift_is_rejected(manifest):
     manifest_dict, _identity = manifest
     del manifest_dict["provider_call_inventory"][0]["seed"]
     with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_wrong_call_role_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"][0]["call_role"] = "judge_verdict"
     with pytest.raises(pe.ManifestValidationError, match="call_role"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_wrong_call_index_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"][5]["call_index"] = 999
     with pytest.raises(pe.ManifestValidationError, match="call_index"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_unknown_planning_cell_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"][0]["planning_cell_key"] = "not-a-real-cell"
     with pytest.raises(pe.ManifestValidationError, match="known capability_qa planning cell"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_model_disagreeing_with_cell_is_rejected(manifest):
@@ -1359,7 +1603,7 @@ def test_call_inventory_model_disagreeing_with_cell_is_rejected(manifest):
     entries = manifest_dict["provider_call_inventory"]
     entries[0]["model"] = "not-the-real-model"
     with pytest.raises(pe.ManifestValidationError, match="model disagrees"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_side_disagreeing_with_replicate_is_rejected(manifest):
@@ -1367,7 +1611,7 @@ def test_call_inventory_side_disagreeing_with_replicate_is_rejected(manifest):
     entries = manifest_dict["provider_call_inventory"]
     entries[0]["side"] = "B" if entries[0]["side"] == "A" else "A"
     with pytest.raises(pe.ManifestValidationError, match="side disagrees"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("bad_seed", [-1, 1.5, True, "0"])
@@ -1375,14 +1619,14 @@ def test_call_inventory_seed_must_be_a_nonnegative_int(manifest, bad_seed):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"][0]["seed"] = bad_seed
     with pytest.raises(pe.ManifestValidationError, match="seed"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_request_fields_hash_must_be_sha256(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"][0]["request_fields_sha256"] = "not-a-hash"
     with pytest.raises(pe.ManifestValidationError, match="request_fields_sha256"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_execution_call_key_mismatch_is_rejected(manifest):
@@ -1390,31 +1634,35 @@ def test_call_inventory_execution_call_key_mismatch_is_rejected(manifest):
     entries = manifest_dict["provider_call_inventory"]
     entries[0]["execution_call_key"] = _flip_hex_digest(entries[0]["execution_call_key"])
     with pytest.raises(pe.ManifestValidationError, match="does not match its derived value"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_call_inventory_not_a_list_is_rejected(manifest):
     manifest_dict, _identity = manifest
     manifest_dict["provider_call_inventory"] = {}
     with pytest.raises(pe.ManifestValidationError, match="must be a list"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- immutable stage cap / cumulative cap -------------------------------------------------------------
 
 
-def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(baseline, synthetic_artifacts):
+def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(
+    baseline, synthetic_artifacts, monkeypatch,
+):
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.01, cumulative_cap=1500.0)
     with pytest.raises(pe.ManifestValidationError, match="exceeds the protocol"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_cumulative_cap_below_stage_cap_is_rejected(baseline, synthetic_artifacts):
+def test_cumulative_cap_below_stage_cap_is_rejected(baseline, synthetic_artifacts, monkeypatch):
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.0, cumulative_cap=10.0)
     with pytest.raises(pe.ManifestValidationError, match="cumulative_cap_usd"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field,bad_value", [
@@ -1425,7 +1673,7 @@ def test_cap_fields_must_be_finite_positive_numbers(manifest, field, bad_value):
     manifest_dict, _identity = manifest
     manifest_dict[field] = bad_value
     with pytest.raises(pe.ManifestValidationError, match="finite, positive number|must be a number"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", ["stage_cap_usd", "cumulative_cap_usd"])
@@ -1439,7 +1687,7 @@ def test_arbitrary_precision_json_integer_cap_is_rejected_not_a_crash(manifest, 
     path.write_text(json.dumps(manifest_dict), encoding="utf-8")
     loaded = pe.load_execution_manifest(path)
     with pytest.raises(pe.ManifestValidationError, match="finite, positive number"):
-        pe.validate_execution_manifest(loaded, project_root=ROOT)
+        pe.validate_execution_manifest(loaded, project_root=GREEN_ROOT)
 
 
 @pytest.mark.parametrize("field", ["stage_cap_usd", "cumulative_cap_usd"])
@@ -1449,7 +1697,7 @@ def test_arbitrary_precision_authorization_cap_is_rejected_not_a_crash(manifest,
     authorization[field] = 10 ** 400
     with pytest.raises(pe.ExecutionAuthorityError, match="finite, positive number"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1474,7 +1722,7 @@ def test_capability_cell_count_drift_from_the_frozen_protocol_is_rejected(manife
 
     monkeypatch.setattr(pe.phase2_plan, "enumerate_cells", _drop_one_capability_cell)
     with pytest.raises(pe.ManifestValidationError, match="exactly 1060"):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_capability_preflight_proposed_cap_usd_must_be_a_number(manifest, monkeypatch):
@@ -1493,7 +1741,7 @@ def test_capability_preflight_proposed_cap_usd_must_be_a_number(manifest, monkey
     with pytest.raises(
         pe.ManifestValidationError, match="proposed_cap_usd must be a number",
     ):
-        pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- authorization --------------------------------------------------------------------------------------
@@ -1503,7 +1751,7 @@ def test_no_authorization_record_is_rejected_when_required(manifest):
     manifest_dict, _identity = manifest
     with pytest.raises(pe.ExecutionAuthorityError, match="none was provided"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, require_authorized=True)
+            manifest_dict, project_root=GREEN_ROOT, require_authorized=True)
 
 
 def test_wrong_identity_hash_authorization_is_rejected(manifest):
@@ -1512,7 +1760,7 @@ def test_wrong_identity_hash_authorization_is_rejected(manifest):
     authorization["execution_identity_sha256"] = _flip_hex_digest(identity_sha256)
     with pytest.raises(pe.ExecutionAuthorityError, match="does not match this manifest"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1522,7 +1770,7 @@ def test_wrong_stage_authorization_is_rejected(manifest):
     authorization = matching_authorization(identity_sha256, stage="canary")
     with pytest.raises(pe.ExecutionAuthorityError, match="authorization.stage"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1534,7 +1782,7 @@ def test_wrong_caps_authorization_is_rejected(manifest, field):
     authorization[field] = authorization[field] + 1
     with pytest.raises(pe.ExecutionAuthorityError, match="caps do not match"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1545,7 +1793,7 @@ def test_authorization_key_set_drift_is_rejected(manifest):
     del authorization["approver"]
     with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1556,7 +1804,7 @@ def test_authorization_non_utc_timestamp_is_rejected(manifest):
     authorization["approved_at_utc"] = "2026-07-18"
     with pytest.raises(pe.ExecutionAuthorityError, match="UTC timestamp"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1567,7 +1815,7 @@ def test_authorization_blank_approver_is_rejected(manifest):
     authorization["approver"] = "   "
     with pytest.raises(pe.ExecutionAuthorityError, match="approver"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1576,7 +1824,7 @@ def test_authorization_not_a_mapping_is_rejected(manifest):
     manifest_dict, _identity = manifest
     with pytest.raises(pe.ExecutionAuthorityError, match="must be an object"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=cast(Any, ["not", "a", "dict"]),
+            manifest_dict, project_root=GREEN_ROOT, authorization=cast(Any, ["not", "a", "dict"]),
             require_authorized=True,
         )
 
@@ -1590,21 +1838,651 @@ def test_authorization_missing_approval_basis_key_is_rejected(manifest):
     del authorization["approval_basis_tracked_path"]
     with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
 
-def test_authorization_approval_basis_missing_file_fails_closed(manifest, tmp_path):
+def test_authorization_approval_basis_unpinned_path_fails_closed(manifest, tmp_path):
+    # approval_basis_tracked_path is now PINNED to the frozen preflight delegation record; a
+    # syntactically-fine-but-different absolute path fails the pinning check before any
+    # existence check is even reached.
     manifest_dict, identity_sha256 = manifest
     missing = tmp_path / "no_such_basis.md"
     authorization = matching_authorization(
         identity_sha256, approval_basis_tracked_path=str(missing),
         approval_basis_sha256="a" * 64,
     )
-    with pytest.raises(pe.ExecutionAuthorityError, match="artifact is missing"):
+    with pytest.raises(
+        pe.ExecutionAuthorityError, match="must resolve to the frozen, git-tracked preflight",
+    ):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+@pytest.fixture(scope="module")
+def missing_delegation_root(tmp_path_factory):
+    destination = tmp_path_factory.mktemp("missing_delegation_root")
+    _copy_tracked_data_files(destination)
+    (destination / "rejudge" / "phase2_preflight_delegation_2026-07-19.json").unlink()
+    return destination
+
+
+def test_missing_shared_delegation_record_fails_closed(manifest, missing_delegation_root):
+    # The frozen preflight delegation record is now depended on by TWO independent checks: v3
+    # role-limits' own approval_basis (validated earlier, as part of every manifest validation,
+    # authorized or not) and the authorization record's approval_basis (validated only when
+    # require_authorized=True). Deleting the shared file is caught by whichever check runs
+    # first -- here, role-limits v3's -- so the authorization block's own "artifact is missing"
+    # branch (identical in shape) is defensive/unreachable given this coupling, not dead code
+    # from a design flaw: the SAME missing file still fails closed, just earlier.
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(identity_sha256)
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v3 role-limits artifact.*approval_basis artifact is missing",
+    ):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=missing_delegation_root, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+# =================================================================================================
+# SEMANTIC ARTIFACT GATES: the new private validators, exercised directly (unit-style, matching
+# this codebase's own precedent -- e.g. rl._load_json direct calls in test_phase2_role_limits.py)
+# so each gate's REAL, unpatched logic is covered without needing the full manifest/execution-
+# identity/role-limits-v3-chain plumbing every one of them is also wired into above.
+# =================================================================================================
+
+
+# --- cost_forecast: the real, unpatched READY/CONFLICT gate -------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cost_forecast_gate_context(tmp_path_factory):
+    """Isolated root for testing ``pe._validate_cost_forecast_gate``'s REAL, unpatched behavior
+    directly: real protocol/bundle/prices (byte-identical to ROOT), with the frozen preflight
+    delegation's v3 retry-pin reduction (2 retries / 3 attempts, not v2's real 3/4) substituted
+    as the forecast's own ``role_limits_v2`` binding target -- this is what actually clears the
+    halt-cap gate at real prices. Writing v3's content at the forecast's hardcoded "v2" binding
+    path is safe here ONLY because this is an isolated copy, never the real, git-tracked v2 file,
+    and this fixture never touches ``pe.validate_execution_manifest``'s own v3 role-limits chain
+    (which needs that same relative path to hold the REAL v2 content) at all.
+    """
+    root = tmp_path_factory.mktemp("cost_forecast_gate_root")
+    _copy_tracked_data_files(root)
+    v3_payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
+    (root / "rejudge" / "phase2_role_limits_v2_2026-07-18.json").write_text(
+        json.dumps(v3_payload), encoding="utf-8")
+
+    protocol_path = root / "rejudge" / "phase2_protocol.json"
+    protocol = phase2_plan.load_protocol(protocol_path)
+    snapshot, _p = price_snapshot.load_and_validate(
+        root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json", protocol_path)
+    bundle, _bp = prompt_bundle.load_and_validate(
+        root / "rejudge" / "phase2_prompt_bundle.json", protocol_path)
+
+    ready = _build_ready_forecast_payload(
+        root=root, protocol=protocol, role_limits_v2=v3_payload, snapshot=snapshot, bundle=bundle)
+    forecast_path = root / "rejudge" / "output" / "_cost_forecast_gate_ready.json"
+    forecast_path.parent.mkdir(parents=True, exist_ok=True)
+    forecast_path.write_text(
+        json.dumps(ready, ensure_ascii=True, sort_keys=True), encoding="utf-8")
+
+    return {
+        "root": root, "protocol": protocol, "role_limits_v2": v3_payload, "snapshot": snapshot,
+        "bundle": bundle, "ready_forecast": ready, "forecast_path": forecast_path,
+    }
+
+
+def test_cost_forecast_gate_accepts_a_genuine_ready_forecast(cost_forecast_gate_context):
+    ctx = cost_forecast_gate_context
+    declared_sha = phase2_plan.canonical_sha256(ctx["ready_forecast"])
+    binding = {
+        "path": ctx["forecast_path"].relative_to(ctx["root"]).as_posix(), "sha256": declared_sha,
+    }
+    observed = pe._validate_cost_forecast_gate(
+        binding, root=ctx["root"], protocol=ctx["protocol"],
+        role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
+        bundle=ctx["bundle"])
+    assert observed == declared_sha
+
+
+def test_cost_forecast_gate_rejects_a_conflict_schema_artifact(cost_forecast_gate_context):
+    ctx = cost_forecast_gate_context
+    conflict_payload = json.loads(
+        forecast.DEFAULT_CONFLICT_ARTIFACT_PATH.read_text(encoding="utf-8"))
+    target = ctx["root"] / "rejudge" / "output" / "_cost_forecast_gate_conflict.json"
+    target.write_text(
+        json.dumps(conflict_payload, ensure_ascii=True, sort_keys=True), encoding="utf-8")
+    binding = {
+        "path": target.relative_to(ctx["root"]).as_posix(),
+        "sha256": phase2_plan.canonical_sha256(conflict_payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a ready capability-preflight forecast",
+    ):
+        pe._validate_cost_forecast_gate(
+            binding, root=ctx["root"], protocol=ctx["protocol"],
+            role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
+            bundle=ctx["bundle"])
+
+
+def test_cost_forecast_gate_rejects_stress_at_or_above_halt_cap(cost_forecast_gate_context):
+    # The real v2 transport (3 retries / 4 attempts, not v3's 2/3) does not clear the gate at
+    # real prices: this is the direct regression for "positive margin" -- the gate must reject a
+    # forecast whose own honestly-recomputed stress scenario does not remain strictly below
+    # halt_cap_usd, not just artifacts with the wrong schema shape.
+    ctx = cost_forecast_gate_context
+    real_v2_path = ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+    real_v2_payload = json.loads(real_v2_path.read_text(encoding="utf-8"))
+    with pytest.raises(AssertionError, match="fixture prices must be cheap enough"):
+        _build_ready_forecast_payload(
+            root=ctx["root"], protocol=ctx["protocol"], role_limits_v2=real_v2_payload,
+            snapshot=ctx["snapshot"], bundle=ctx["bundle"])
+
+
+def test_cost_forecast_gate_hash_drift_is_rejected(cost_forecast_gate_context):
+    ctx = cost_forecast_gate_context
+    declared_sha = phase2_plan.canonical_sha256(ctx["ready_forecast"])
+    binding = {
+        "path": ctx["forecast_path"].relative_to(ctx["root"]).as_posix(),
+        "sha256": _flip_hex_digest(declared_sha),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="cost_forecast hash drift"):
+        pe._validate_cost_forecast_gate(
+            binding, root=ctx["root"], protocol=ctx["protocol"],
+            role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
+            bundle=ctx["bundle"])
+
+
+# --- storage_policy: the real schema -------------------------------------------------------------
+
+
+def test_storage_policy_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": "rejudge/phase2_storage_policy_2026-07-18.json", "sha256": _canon_sha(
+            STORAGE_POLICY_PATH),
+    }
+    pe._validate_storage_policy_gate(binding, root=ROOT)  # must not raise
+
+
+def test_storage_policy_gate_rejects_schema_version_drift(tmp_path):
+    payload = json.loads(STORAGE_POLICY_PATH.read_text(encoding="utf-8"))
+    payload["schema_version"] = "wrong_version"
+    (tmp_path / "policy.json").write_text(json.dumps(payload), encoding="utf-8")
+    binding = {"path": "policy.json", "sha256": phase2_plan.canonical_sha256(payload)}
+    with pytest.raises(pe.ManifestValidationError, match="storage_policy schema_version drifted"):
+        pe._validate_storage_policy_gate(binding, root=tmp_path)
+
+
+def test_storage_policy_gate_rejects_blank_versioned_destination(tmp_path):
+    payload = json.loads(STORAGE_POLICY_PATH.read_text(encoding="utf-8"))
+    payload["versioned_destination"] = ""
+    (tmp_path / "policy.json").write_text(json.dumps(payload), encoding="utf-8")
+    binding = {"path": "policy.json", "sha256": phase2_plan.canonical_sha256(payload)}
+    with pytest.raises(pe.ManifestValidationError, match="versioned_destination"):
+        pe._validate_storage_policy_gate(binding, root=tmp_path)
+
+
+def test_storage_policy_gate_rejects_key_set_drift(tmp_path):
+    payload = json.loads(STORAGE_POLICY_PATH.read_text(encoding="utf-8"))
+    payload["unexpected_field"] = "x"
+    (tmp_path / "policy.json").write_text(json.dumps(payload), encoding="utf-8")
+    binding = {"path": "policy.json", "sha256": phase2_plan.canonical_sha256(payload)}
+    with pytest.raises(pe.ManifestValidationError, match="storage_policy"):
+        pe._validate_storage_policy_gate(binding, root=tmp_path)
+
+
+def test_storage_policy_gate_rejects_execution_authorized_true(tmp_path):
+    payload = json.loads(STORAGE_POLICY_PATH.read_text(encoding="utf-8"))
+    payload["execution_authorized"] = True
+    (tmp_path / "policy.json").write_text(json.dumps(payload), encoding="utf-8")
+    binding = {"path": "policy.json", "sha256": phase2_plan.canonical_sha256(payload)}
+    with pytest.raises(pe.ManifestValidationError, match="execution_authorized"):
+        pe._validate_storage_policy_gate(binding, root=tmp_path)
+
+
+# --- provider_refresh: pinned, schema + verdict + raw-response hash -----------------------------
+
+
+def test_provider_refresh_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": _canon_sha(PROVIDER_REFRESH_PATH),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    pe._validate_provider_refresh_gate(binding, root=ROOT, snapshot=snapshot)  # must not raise
+
+
+def _root_with_mutated_provider_refresh(tmp_path: Path, mutate) -> tuple[Path, dict]:
+    root = tmp_path
+    (root / "rejudge").mkdir(parents=True, exist_ok=True)
+    (root / "rejudge" / "phase2_provider_models_raw_2026-07-19.json").write_bytes(
+        (ROOT / "rejudge" / "phase2_provider_models_raw_2026-07-19.json").read_bytes())
+    payload = json.loads(PROVIDER_REFRESH_PATH.read_text(encoding="utf-8"))
+    mutate(payload)
+    path = root / "rejudge" / "phase2_provider_refresh_2026-07-19.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return root, payload
+
+
+def test_provider_refresh_gate_rejects_price_above_frozen(tmp_path):
+    root, payload = _root_with_mutated_provider_refresh(
+        tmp_path,
+        lambda p: p["roster_verification"]["Qwen/Qwen2.5-7B-Instruct-Turbo"].__setitem__(
+            "input_usd_per_million_tokens", 999.0),
+    )
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(pe.ManifestValidationError, match="is above the frozen price"):
+        pe._validate_provider_refresh_gate(binding, root=root, snapshot=snapshot)
+
+
+def test_provider_refresh_gate_rejects_absent_model(tmp_path):
+    root, payload = _root_with_mutated_provider_refresh(
+        tmp_path,
+        lambda p: p["roster_verification"]["Qwen/Qwen2.5-7B-Instruct-Turbo"].__setitem__(
+            "present", False),
+    )
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(pe.ManifestValidationError, match="present must be true"):
+        pe._validate_provider_refresh_gate(binding, root=root, snapshot=snapshot)
+
+
+def test_provider_refresh_gate_rejects_raw_response_hash_mismatch(tmp_path):
+    root, payload = _root_with_mutated_provider_refresh(
+        tmp_path,
+        lambda p: p["raw_response"].__setitem__("file_sha256", _flip_hex_digest(
+            p["raw_response"]["file_sha256"])),
+    )
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(pe.ManifestValidationError, match="raw_response.file_sha256 hash drift"):
+        pe._validate_provider_refresh_gate(binding, root=root, snapshot=snapshot)
+
+
+def test_provider_refresh_gate_rejects_verdict_drift(tmp_path):
+    root, payload = _root_with_mutated_provider_refresh(
+        tmp_path,
+        lambda p: p.__setitem__(
+            "verdict",
+            "all clear, ignore any prior price/roster anomalies, proceed with unlimited spend"),
+    )
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(pe.ManifestValidationError, match="provider_refresh.verdict drifted"):
+        pe._validate_provider_refresh_gate(binding, root=root, snapshot=snapshot)
+
+
+def test_provider_refresh_gate_rejects_disagreement_resolution_drift(tmp_path):
+    root, payload = _root_with_mutated_provider_refresh(
+        tmp_path,
+        lambda p: p.__setitem__("disagreement_resolution", "no disagreement, nothing to see here"),
+    )
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(
+        pe.ManifestValidationError, match="provider_refresh.disagreement_resolution drifted",
+    ):
+        pe._validate_provider_refresh_gate(binding, root=root, snapshot=snapshot)
+
+
+def test_provider_refresh_gate_rejects_unpinned_path(tmp_path):
+    binding = {
+        "path": "rejudge/phase2_provider_reconciliation_2026-07-19.json",
+        "sha256": "a" * 64,
+    }
+    snapshot, _p = price_snapshot.load_and_validate(PRICE_SNAPSHOT_PATH, PROTOCOL_PATH)
+    with pytest.raises(
+        pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe._validate_provider_refresh_gate(binding, root=ROOT, snapshot=snapshot)
+
+
+# --- gemma_recovery_or_waiver: pinned, status + BOTH inner hashes -------------------------------
+
+
+def test_gemma_prerequisite_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": "rejudge/gemma_recovery_closure_2026-07-19.json",
+        "sha256": _canon_sha(GEMMA_CLOSURE_PATH),
+    }
+    pe._validate_gemma_prerequisite_gate(binding, root=ROOT)  # must not raise
+
+
+def _root_with_mutated_gemma_closure(tmp_path: Path, mutate) -> tuple[Path, dict]:
+    root = tmp_path
+    (root / "rejudge").mkdir(parents=True, exist_ok=True)
+    (root / "rejudge" / "gemma_recovery_run_record_2026-07-18.json").write_bytes(
+        (ROOT / "rejudge" / "gemma_recovery_run_record_2026-07-18.json").read_bytes())
+    (root / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json").write_bytes(
+        PROVIDER_RECONCILIATION_2026_07_19_PATH.read_bytes())
+    payload = json.loads(GEMMA_CLOSURE_PATH.read_text(encoding="utf-8"))
+    mutate(payload)
+    path = root / "rejudge" / "gemma_recovery_closure_2026-07-19.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return root, payload
+
+
+def test_gemma_prerequisite_gate_rejects_status_drift(tmp_path):
+    root, payload = _root_with_mutated_gemma_closure(
+        tmp_path, lambda p: p.__setitem__("status", "open"))
+    binding = {
+        "path": "rejudge/gemma_recovery_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="status must be exactly"):
+        pe._validate_gemma_prerequisite_gate(binding, root=root)
+
+
+def test_gemma_prerequisite_gate_rejects_run_record_hash_mismatch(tmp_path):
+    root, payload = _root_with_mutated_gemma_closure(
+        tmp_path,
+        lambda p: p["run_record"].__setitem__(
+            "file_sha256", _flip_hex_digest(p["run_record"]["file_sha256"])),
+    )
+    binding = {
+        "path": "rejudge/gemma_recovery_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="run_record.file_sha256 hash drift"):
+        pe._validate_gemma_prerequisite_gate(binding, root=root)
+
+
+def test_gemma_prerequisite_gate_rejects_reconciliation_hash_mismatch(tmp_path):
+    root, payload = _root_with_mutated_gemma_closure(
+        tmp_path,
+        lambda p: p["reconciliation"].__setitem__(
+            "file_sha256", _flip_hex_digest(p["reconciliation"]["file_sha256"])),
+    )
+    binding = {
+        "path": "rejudge/gemma_recovery_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="reconciliation.file_sha256 hash drift"):
+        pe._validate_gemma_prerequisite_gate(binding, root=root)
+
+
+def test_gemma_prerequisite_gate_rejects_unpinned_path():
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json", "sha256": "a" * 64,
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe._validate_gemma_prerequisite_gate(binding, root=ROOT)
+
+
+# --- provider_reconciliation_evidence: pinned, the 2026-07-19 record ----------------------------
+
+
+def test_provider_reconciliation_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": "rejudge/phase2_provider_reconciliation_2026-07-19.json",
+        "sha256": _canon_sha(PROVIDER_RECONCILIATION_2026_07_19_PATH),
+    }
+    pe._validate_provider_reconciliation_gate(binding, root=ROOT)  # must not raise
+
+
+def test_provider_reconciliation_gate_rejects_schema_version_drift(tmp_path):
+    payload = json.loads(PROVIDER_RECONCILIATION_2026_07_19_PATH.read_text(encoding="utf-8"))
+    payload["schema_version"] = "wrong"
+    (tmp_path / "rejudge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json").write_text(
+        json.dumps(payload), encoding="utf-8")
+    binding = {
+        "path": "rejudge/phase2_provider_reconciliation_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="provider_reconciliation_evidence schema_version drifted",
+    ):
+        pe._validate_provider_reconciliation_gate(binding, root=tmp_path)
+
+
+def test_provider_reconciliation_gate_rejects_unpinned_path():
+    binding = {"path": "rejudge/gemma_recovery_closure_2026-07-19.json", "sha256": "a" * 64}
+    with pytest.raises(
+        pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe._validate_provider_reconciliation_gate(binding, root=ROOT)
+
+
+# --- implementation_provenance: CODE-PROVENANCE BINDING -------------------------------------------
+
+
+def test_implementation_provenance_accepts_the_real_code_bundle():
+    binding = dict(IMPLEMENTATION_PROVENANCE_BINDING)
+    result = pe._validate_implementation_provenance(binding, root=ROOT)
+    assert result == binding
+
+
+@pytest.mark.parametrize("bad_commit", ["abc123", "A" * 40, "g" * 40, "a" * 39, None, 12345])
+def test_implementation_provenance_rejects_malformed_git_commit(bad_commit):
+    binding = {"git_commit": bad_commit, "code_bundle_sha256": pe.compute_code_bundle_sha256(ROOT)}
+    with pytest.raises(pe.ManifestValidationError, match="git_commit"):
+        pe._validate_implementation_provenance(binding, root=ROOT)
+
+
+def test_implementation_provenance_rejects_code_bundle_hash_drift(tmp_path):
+    for relative in pe.CODE_PROVENANCE_FROZEN_FILES:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / relative).read_bytes())
+    # Tamper exactly one frozen file.
+    tampered = tmp_path / pe.CODE_PROVENANCE_FROZEN_FILES[0]
+    tampered.write_bytes(tampered.read_bytes() + b"\n# tampered\n")
+    binding = {"git_commit": "a" * 40, "code_bundle_sha256": pe.compute_code_bundle_sha256(ROOT)}
+    with pytest.raises(pe.ManifestValidationError, match="code_bundle_sha256 hash drift"):
+        pe._validate_implementation_provenance(binding, root=tmp_path)
+
+
+def test_implementation_provenance_rejects_missing_code_file(tmp_path):
+    binding = {"git_commit": "a" * 40, "code_bundle_sha256": pe.compute_code_bundle_sha256(ROOT)}
+    with pytest.raises(pe.ManifestValidationError, match="could not read"):
+        pe._validate_implementation_provenance(binding, root=tmp_path)
+
+
+def test_implementation_provenance_key_set_drift_is_rejected():
+    binding = {**IMPLEMENTATION_PROVENANCE_BINDING, "extra": "x"}
+    with pytest.raises(pe.ManifestValidationError, match="implementation_provenance"):
+        pe._validate_implementation_provenance(binding, root=ROOT)
+
+
+def test_implementation_provenance_field_is_bound_into_the_manifest_and_rejected_on_drift(
+    manifest,
+):
+    manifest_dict, _identity = manifest
+    manifest_dict["implementation_provenance"]["code_bundle_sha256"] = _flip_hex_digest(
+        manifest_dict["implementation_provenance"]["code_bundle_sha256"])
+    with pytest.raises(pe.ManifestValidationError, match="code_bundle_sha256 hash drift"):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_implementation_provenance_missing_key_is_rejected(manifest):
+    manifest_dict, _identity = manifest
+    del manifest_dict["implementation_provenance"]
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+# --- PINNED DELEGATION AUTHORIZATION BASIS: the delegation record's own literal content ---------
+
+
+def _validate_delegation_record(payload, tmp_path, *, stage="capability_preflight",
+                                stage_cap_usd=15.0):
+    path = tmp_path / "delegation.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return pe._validate_preflight_delegation_record(
+        path, stage=stage, stage_cap_usd=stage_cap_usd)
+
+
+def test_delegation_record_accepts_the_real_tracked_record(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    result = _validate_delegation_record(payload, tmp_path)
+    assert result["delegation_id"] == "capability_preflight_delegation_2026-07-19"
+
+
+def test_delegation_record_rejects_schema_version_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["schema_version"] = "wrong"
+    with pytest.raises(pe.ExecutionAuthorityError, match="schema_version"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_delegation_id_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["delegation_id"] = "wrong"
+    with pytest.raises(pe.ExecutionAuthorityError, match="delegation_id"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_approver_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["approver"] = "Someone Else"
+    with pytest.raises(pe.ExecutionAuthorityError, match="approver"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_exact_quote_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["exact_quote"] = "a different quote entirely"
+    with pytest.raises(pe.ExecutionAuthorityError, match="exact_quote"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_approved_at_utc_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["approved_at_utc"] = "2026-07-19T00:51:43Z"
+    with pytest.raises(pe.ExecutionAuthorityError, match="approved_at_utc drifted"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_non_utc_recorded_at(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["recorded_at_utc"] = "2026-07-19"
+    with pytest.raises(pe.ExecutionAuthorityError, match="recorded_at_utc"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_scope_stage_mismatch(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    with pytest.raises(pe.ExecutionAuthorityError, match="scope.stage"):
+        _validate_delegation_record(payload, tmp_path, stage="canary")
+
+
+def test_delegation_record_rejects_scope_stage_cap_mismatch(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    with pytest.raises(pe.ExecutionAuthorityError, match="scope.stage_cap_usd"):
+        _validate_delegation_record(payload, tmp_path, stage_cap_usd=999.0)
+
+
+def test_delegation_record_rejects_empty_predicates(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["scope"]["predicates"] = []
+    with pytest.raises(pe.ExecutionAuthorityError, match="predicates"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_exclusions_missing_canary(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["exclusions"] = "This does NOT extend to main-run spend."
+    with pytest.raises(pe.ExecutionAuthorityError, match="canary and main"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_exclusions_missing_main(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["exclusions"] = "This does NOT extend to canary spend."
+    with pytest.raises(pe.ExecutionAuthorityError, match="canary and main"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_execution_authorized_true(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["execution_authorized"] = True
+    with pytest.raises(pe.ExecutionAuthorityError, match="execution_authorized"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_key_set_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["unexpected_field"] = "x"
+    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+def test_delegation_record_rejects_scope_key_set_drift(tmp_path):
+    payload = json.loads(DELEGATION_PATH.read_text(encoding="utf-8"))
+    payload["scope"]["extra"] = "x"
+    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+        _validate_delegation_record(payload, tmp_path)
+
+
+# --- authorization: pinned to and cross-checked against the delegation record -------------------
+
+
+def test_authorization_approver_must_be_jack_maiorino(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(identity_sha256, approver="Someone Else")
+    with pytest.raises(pe.ExecutionAuthorityError, match="authorization.approver must be exactly"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_approved_at_utc_must_equal_the_delegations(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(
+        identity_sha256, approved_at_utc="2026-07-19T00:51:43Z")
+    with pytest.raises(
+        pe.ExecutionAuthorityError, match="must equal the cited delegation",
+    ):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_recorded_at_utc_must_be_a_utc_timestamp(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(identity_sha256, recorded_at_utc="2026-07-19")
+    with pytest.raises(pe.ExecutionAuthorityError, match="recorded_at_utc"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
+            require_authorized=True,
+        )
+
+
+def test_authorization_missing_recorded_at_utc_key_is_rejected(manifest):
+    manifest_dict, identity_sha256 = manifest
+    authorization = matching_authorization(identity_sha256)
+    del authorization["recorded_at_utc"]
+    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+        pe.validate_execution_manifest(
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1620,7 +2498,7 @@ def test_authorization_approval_basis_relative_path_escape_fails_closed(manifest
     )
     with pytest.raises(pe.ExecutionAuthorityError, match="escapes the repository root"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1631,7 +2509,7 @@ def test_authorization_approval_basis_hash_mismatch_is_rejected(manifest):
         identity_sha256, approval_basis_sha256=_flip_hex_digest(APPROVAL_BASIS_SHA256))
     with pytest.raises(pe.ExecutionAuthorityError, match="approval_basis_sha256 hash drift"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1647,7 +2525,7 @@ def test_authorization_approval_basis_uses_raw_not_canonical_hashing(manifest):
         identity_sha256, approval_basis_sha256=wrong_kind_of_hash)
     with pytest.raises(pe.ExecutionAuthorityError, match="approval_basis_sha256 hash drift"):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=ROOT, authorization=authorization,
+            manifest_dict, project_root=GREEN_ROOT, authorization=authorization,
             require_authorized=True,
         )
 
@@ -1707,7 +2585,7 @@ def test_load_accepts_the_valid_manifest_round_trip(manifest, tmp_path):
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest_dict), encoding="utf-8")
     loaded = pe.load_execution_manifest(path)
-    validated = pe.validate_execution_manifest(loaded, project_root=ROOT)
+    validated = pe.validate_execution_manifest(loaded, project_root=GREEN_ROOT)
     assert validated.stage == "capability_preflight"
 
 
@@ -1826,6 +2704,8 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
         cost_forecast=shared["cost_forecast"],
         storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
+        provider_refresh=shared["provider_refresh"],
+        implementation_provenance=shared["implementation_provenance"],
     )
     base_identity_sha256 = pe.derive_execution_identity_sha256(
         pe.build_execution_identity(**base_kwargs))
@@ -1841,6 +2721,8 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
         "cost_forecast": {"path": "x", "sha256": "f" * 64},
         "storage_policy": {"path": "x", "sha256": "f" * 64},
         "provider_reconciliation_evidence": {"path": "x", "sha256": "f" * 64},
+        "provider_refresh": {"path": "x", "sha256": "f" * 64},
+        "implementation_provenance": {"git_commit": "f" * 40, "code_bundle_sha256": "e" * 64},
     }
     for field, new_value in variants.items():
         changed_kwargs: dict[str, Any] = {**base_kwargs, field: new_value}
@@ -1904,7 +2786,12 @@ def _output_row(entry, *, call_key=None) -> dict:
 @pytest.fixture(scope="module")
 def validated_manifest(baseline, synthetic_artifacts):
     manifest_dict, _identity = build_manifest(baseline, synthetic_artifacts)
-    return pe.validate_execution_manifest(manifest_dict, project_root=ROOT)
+    # See the `manifest` fixture's docstring: cost_forecast's deep economics check is stubbed
+    # here too (a module-scoped fixture can't use the function-scoped `monkeypatch` fixture, so
+    # this uses pytest.MonkeyPatch.context() directly).
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
+        return pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_clean_resume_with_no_activity_is_all_todo(validated_manifest):

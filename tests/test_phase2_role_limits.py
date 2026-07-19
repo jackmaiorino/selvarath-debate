@@ -1,3 +1,5 @@
+import hashlib
+import json
 from copy import deepcopy
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -10,6 +12,8 @@ from rejudge import phase2_plan, phase2_role_limits as rl
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_PATH = ROOT / "rejudge" / "phase2_role_limits_2026-07-18.json"
 V2_ARTIFACT_PATH = ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+V3_ARTIFACT_PATH = ROOT / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
+DELEGATION_PATH = ROOT / "rejudge" / "phase2_preflight_delegation_2026-07-19.json"
 PROTOCOL_PATH = ROOT / "rejudge" / "phase2_protocol.json"
 SNAPSHOT_PATH = ROOT / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json"
 
@@ -20,6 +24,11 @@ def _artifacts():
 
 def _v2_artifacts():
     return rl.load_and_validate_v2(V2_ARTIFACT_PATH, PROTOCOL_PATH, SNAPSHOT_PATH, ARTIFACT_PATH)
+
+
+def _v3_artifacts():
+    return rl.load_and_validate_v3(
+        V3_ARTIFACT_PATH, PROTOCOL_PATH, SNAPSHOT_PATH, V2_ARTIFACT_PATH, ROOT)
 
 
 def _flip_hex_digest(value: str) -> str:
@@ -777,3 +786,258 @@ def test_cli_v1_check_still_works_without_v2_flag(capsys):
     ]) == 0
     output = capsys.readouterr().out
     assert "role-limits/request-settings artifact" in output
+
+
+# =================================================================================================
+# v3: retry-pin reduction + approval_basis
+# =================================================================================================
+
+
+def test_v3_tracked_artifact_validates():
+    artifact, protocol, snapshot = _v3_artifacts()
+    assert artifact["schema_version"] == "phase2_role_limits_v3"
+    assert artifact["execution_authorized"] is False
+    assert artifact["protocol_id"] == protocol["protocol_id"]
+    assert set(artifact["model_role_limits"]) == set(snapshot["models"])
+
+
+def test_v3_reproduces_every_v2_value_byte_semantically_except_transport():
+    v2_artifact, _protocol, _snapshot = _v2_artifacts()
+    v3_artifact, _protocol2, _snapshot2 = _v3_artifacts()
+    for key in (
+        "base_role_max_tokens", "reasoning_models", "model_role_limits", "context_ceilings",
+        "role_taxonomy",
+    ):
+        assert v3_artifact[key] == v2_artifact[key], f"{key} diverged from v2"
+    # request_settings itself differs only in its transport sub-block.
+    for key in ("base_fields", "streaming_pinned_models", "per_model_extra_fields",
+                "reasoning_control_note", "response_metadata_to_persist"):
+        assert v3_artifact["request_settings"][key] == v2_artifact["request_settings"][key]
+    assert v3_artifact["request_settings"]["transport"] != v2_artifact["request_settings"][
+        "transport"]
+
+
+def test_v3_transport_retry_pin_is_two_at_most_three_attempts():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    assert artifact["request_settings"]["transport"] == {"max_retries": 2, "max_attempts": 3}
+    changed = deepcopy(artifact)
+    changed["request_settings"]["transport"]["max_retries"] = 3
+    with pytest.raises(rl.RoleLimitsError, match="max_retries"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+    changed = deepcopy(artifact)
+    changed["request_settings"]["transport"]["max_attempts"] = 4
+    with pytest.raises(rl.RoleLimitsError, match="max_attempts"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_supersedes_binds_the_real_v2_artifact():
+    artifact, _protocol, _snapshot = _v3_artifacts()
+    v2_artifact, _protocol2, _snapshot2 = _v2_artifacts()
+    supersedes = artifact["supersedes"]
+    assert supersedes["tracked_path"] == "rejudge/phase2_role_limits_v2_2026-07-18.json"
+    assert supersedes["canonical_sha256"] == phase2_plan.canonical_sha256(v2_artifact)
+
+
+def test_v3_supersedes_wrong_tracked_path_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["supersedes"]["tracked_path"] = "rejudge/some_other_file.json"
+    with pytest.raises(rl.RoleLimitsError, match="supersedes.tracked_path"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_supersedes_wrong_sha_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["supersedes"]["canonical_sha256"] = _flip_hex_digest(
+        changed["supersedes"]["canonical_sha256"])
+    with pytest.raises(rl.RoleLimitsError, match="supersedes.canonical_sha256"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_supersedes_drifts_when_the_real_v2_file_on_disk_changes():
+    artifact, protocol, snapshot = _v3_artifacts()
+    tampered_v2 = deepcopy(rl._load_json(V2_ARTIFACT_PATH))
+    tampered_v2["base_role_max_tokens"]["oracle"] = 999
+    with pytest.raises(rl.RoleLimitsError, match="supersedes.canonical_sha256"):
+        rl.validate_role_limits_v3(artifact, protocol, snapshot, tampered_v2, project_root=ROOT)
+
+
+def test_load_and_validate_v3_fails_closed_on_missing_v2_file(tmp_path):
+    missing_v2 = tmp_path / "does_not_exist.json"
+    with pytest.raises(rl.RoleLimitsError, match="could not read"):
+        rl.load_and_validate_v3(V3_ARTIFACT_PATH, PROTOCOL_PATH, SNAPSHOT_PATH, missing_v2, ROOT)
+
+
+# --- approval_basis --------------------------------------------------------------------------
+
+
+def test_v3_approval_basis_binds_the_real_delegation_record():
+    artifact, _protocol, _snapshot = _v3_artifacts()
+    basis = artifact["approval_basis"]
+    assert basis["tracked_path"] == "rejudge/phase2_preflight_delegation_2026-07-19.json"
+    assert basis["sha256"] == hashlib.sha256(DELEGATION_PATH.read_bytes()).hexdigest()
+
+
+def test_v3_approval_basis_wrong_tracked_path_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["approval_basis"]["tracked_path"] = "rejudge/some_other_file.json"
+    with pytest.raises(rl.RoleLimitsError, match="approval_basis.tracked_path"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_approval_basis_wrong_sha_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["approval_basis"]["sha256"] = _flip_hex_digest(changed["approval_basis"]["sha256"])
+    with pytest.raises(rl.RoleLimitsError, match="approval_basis.sha256"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_approval_basis_uses_raw_not_canonical_hashing():
+    # The delegation record is JSON but must be hashed as raw bytes, not canonical JSON.
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    wrong_kind_of_hash = phase2_plan.canonical_sha256(
+        json.loads(DELEGATION_PATH.read_text(encoding="utf-8")))
+    changed = deepcopy(artifact)
+    changed["approval_basis"]["sha256"] = wrong_kind_of_hash
+    with pytest.raises(rl.RoleLimitsError, match="approval_basis.sha256"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_approval_basis_missing_file_fails_closed(tmp_path):
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    with pytest.raises(rl.RoleLimitsError, match="approval_basis artifact is missing"):
+        rl.validate_role_limits_v3(artifact, protocol, snapshot, v2_artifact, project_root=tmp_path)
+
+
+def test_v3_approval_basis_key_set_drift_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["approval_basis"]["extra"] = "x"
+    with pytest.raises(rl.RoleLimitsError, match="fields drifted"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+# --- top-level / reuse-of-v2-checks regressions --------------------------------------------------
+
+
+def test_v3_top_level_key_drift_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["unexpected_field"] = True
+    with pytest.raises(rl.RoleLimitsError, match="fields drifted"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+    changed = deepcopy(artifact)
+    del changed["approval_basis"]
+    with pytest.raises(rl.RoleLimitsError, match="fields drifted"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_schema_version_drift_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["schema_version"] = "phase2_role_limits_v2"
+    with pytest.raises(rl.RoleLimitsError, match="schema_version"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_artifact_id_value_drift_is_rejected():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["artifact_id"] = rl.ARTIFACT_ID_V2
+    with pytest.raises(rl.RoleLimitsError, match="v3 role-limits artifact_id drifted"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_execution_authorized_cannot_be_flipped_true():
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["execution_authorized"] = True
+    with pytest.raises(rl.RoleLimitsError, match="execution_authorized"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_reuses_v2_section_checks():
+    # Regression: v3 must reuse the exact same per-section checks as v1/v2, not a parallel
+    # re-implementation that could silently diverge.
+    artifact, protocol, snapshot = _v3_artifacts()
+    v2_artifact, _p, _s = _v2_artifacts()
+    changed = deepcopy(artifact)
+    changed["reasoning_models"]["floor_max_tokens"] = 2048
+    with pytest.raises(rl.RoleLimitsError, match="floor_max_tokens"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+    changed = deepcopy(artifact)
+    changed["base_role_max_tokens"]["oracle"] = 64
+    with pytest.raises(rl.RoleLimitsError, match="base_role_max_tokens.oracle"):
+        rl.validate_role_limits_v3(changed, protocol, snapshot, v2_artifact, project_root=ROOT)
+
+
+def test_v3_role_taxonomy_is_frozen_and_exact():
+    artifact, _protocol, _snapshot = _v3_artifacts()
+    assert artifact["role_taxonomy"] == rl.ROLE_TAXONOMY
+
+
+def test_resolve_request_parameters_works_against_v3_artifact():
+    # resolve_request_parameters accepts the v3 shape unmodified: identical
+    # model_role_limits/role_taxonomy sections to v2, so every resolution matches.
+    v3_artifact, protocol, _snapshot = _v3_artifacts()
+    result = rl.resolve_request_parameters(
+        v3_artifact, protocol, "google/gemma-4-31B-it", "judge_query")
+    assert result.effective_max_tokens == 4096
+    assert result.protocol_role == "judge_query"
+
+
+def test_every_applicable_pair_resolves_against_v3():
+    artifact, protocol, _snapshot = _v3_artifacts()
+    seen = 0
+    for model_id, roles in artifact["model_role_limits"].items():
+        for role, entry in roles.items():
+            result = rl.resolve_request_parameters(artifact, protocol, model_id, role)
+            assert result.effective_max_tokens == entry["effective_request_max_tokens"]
+            seen += 1
+    assert seen == 24
+
+
+# --- v3 CLI ----------------------------------------------------------------------------------
+
+
+def test_cli_v3_check_is_offline_and_prints_canonical_hash(capsys):
+    assert rl.main([
+        "--check", "--v3", "--artifact", str(V3_ARTIFACT_PATH), "--protocol", str(PROTOCOL_PATH),
+        "--snapshot", str(SNAPSHOT_PATH), "--v2-artifact", str(V2_ARTIFACT_PATH),
+        "--project-root", str(ROOT),
+    ]) == 0
+    output = capsys.readouterr().out
+    artifact, _protocol, _snapshot = _v3_artifacts()
+    assert phase2_plan.canonical_sha256(artifact) in output
+    assert "execution_authorized=NO" in output
+
+
+def test_cli_v3_check_uses_default_paths():
+    assert rl.main(["--check", "--v3"]) == 0
+
+
+def test_cli_v2_still_works_alongside_v3_flag_added(capsys):
+    assert rl.main([
+        "--check", "--v2", "--artifact", str(V2_ARTIFACT_PATH), "--protocol", str(PROTOCOL_PATH),
+        "--snapshot", str(SNAPSHOT_PATH), "--v1-artifact", str(ARTIFACT_PATH),
+    ]) == 0
+    output = capsys.readouterr().out
+    assert "role-limits v2 artifact" in output
