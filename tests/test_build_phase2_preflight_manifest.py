@@ -724,7 +724,8 @@ def test_committed_artifacts_git_commit_matches_expected_constant():
     # recorded commit (mirroring pe.compute_code_bundle_sha256's structure, blob-sourced).
     historical_entries = []
     for relative in pe.CODE_PROVENANCE_FROZEN_FILES:
-        blob = b._git_blob_bytes(REPO_ROOT, r2_commit, relative)
+        blob = b._git_blob_bytes(
+            REPO_ROOT, revision=r2_commit, relative_path=relative, run=subprocess.run)
         historical_entries.append(
             {"path": relative, "sha256": hashlib.sha256(blob).hexdigest()})
     assert (phase2_plan.canonical_sha256(historical_entries)
