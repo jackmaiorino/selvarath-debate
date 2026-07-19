@@ -81,7 +81,7 @@ from rejudge import phase2_stage_family  # noqa: E402
 # The builder REFUSES to run against any other HEAD (see assert_clean_git_state): rebinding to a
 # newer commit is a deliberate act (update this constant after re-reviewing that commit), not an
 # automatic side effect of running the script again.
-EXPECTED_GIT_COMMIT = "0ad286fb96fd02ef25fac99ece48ea0139e642ba"
+EXPECTED_GIT_COMMIT = "ae5eeaaef9a2190eb38d0faf2fa7b016fb5211e7"
 
 MANIFEST_RELATIVE_PATH = "rejudge/phase2_preflight_manifest_2026-07-19.json"
 AUTHORIZATION_RELATIVE_PATH = "rejudge/phase2_preflight_authorization_2026-07-19.json"
