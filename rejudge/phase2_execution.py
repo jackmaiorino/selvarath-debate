@@ -932,33 +932,22 @@ def _resolve_pinned_artifact(
 
 def _validate_cost_forecast_gate(
     binding: Any, *, root: Path, protocol: Mapping[str, Any],
-    role_limits_v2_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
-    bundle: Mapping[str, Any],
+    role_limits_v3_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
+    bundle: Mapping[str, Any], provider_refresh_payload: Mapping[str, Any],
 ) -> str:
-    """Semantically validate the ``cost_forecast`` binding: the READY forecast schema only.
+    """Semantically validate the ``cost_forecast`` binding: the v2 READY forecast schema only.
 
     Loads and recomputes the generic path/hash binding first (unchanged mechanism: the
     forecast's own tracked location stays manifest-controlled, not pinned), then parses it
-    through :func:`phase2_preflight_forecast.validate_forecast` -- the "ready" schema; a
-    conflict-schema artifact (or any artifact that fails the ready gate: stress not strictly
-    below halt_cap_usd, i.e. no positive margin) fails closed here rather than being silently
-    accepted as a generic hash-matching blob.
-
-    NOTE on the v3 role-limits binding: :func:`phase2_preflight_forecast.validate_forecast`'s
-    own frozen schema hard-pins its ``bindings.role_limits_v2`` slot to read
-    ``rejudge/phase2_role_limits_v2_2026-07-18.json`` (the real, git-tracked v2 file) directly
-    off disk under ``root`` -- a hardcoded path this hardening pass deliberately does not touch
-    (rebuilding the forecast artifact/schema is an explicitly separate, later task). Passing the
-    v3 payload here instead would require that real v2 file to actually contain v3's bytes,
-    which would corrupt the tracked v2 artifact everything else (v1/v2 role-limits validation,
-    v3's own ``supersedes`` binding) depends on. This function therefore binds cost_forecast to
-    the real v2 role-limits content, exactly as the frozen forecast schema requires; the
-    manifest's OVERALL binding to v3 role-limits (via ``role_limits_and_request_settings_artifact``,
-    validated separately above) and to the provider-refresh raw sha (via the dedicated
-    ``provider_refresh`` slot, validated separately below) both still fold into the same single
-    ``execution_identity_sha256`` this manifest as a whole produces -- cost_forecast is not
-    silently exempt from that chain, even though neither hash is a literal JSON field inside the
-    forecast artifact itself.
+    through :func:`phase2_preflight_forecast.validate_forecast_v2` -- the v2 "ready" schema,
+    bound to role-limits v3 (the real, already-validated payload from
+    ``role_limits_and_request_settings_artifact`` above -- no longer a v2-file substitution
+    workaround) and the pinned 2026-07-19 provider refresh (the real, already-validated payload
+    from ``_validate_provider_refresh_gate`` above). A v1/conflict-schema artifact, or any
+    artifact that fails the ready gate (``attempt_ceiling_stress`` not strictly below
+    ``halt_cap_usd``, i.e. no positive margin), fails closed here rather than being silently
+    accepted as a generic hash-matching blob. cost_forecast's hash still folds into the same
+    single ``execution_identity_sha256`` this manifest as a whole produces, exactly as before.
     """
     mapping = _mapping(binding, "cost_forecast")
     _exact_keys(mapping, ARTIFACT_BINDING_KEYS, "cost_forecast")
@@ -973,9 +962,10 @@ def _validate_cost_forecast_gate(
         raise ManifestValidationError(
             f"cost_forecast hash drift: manifest bound {sha_value}, observed {observed_sha}")
     try:
-        preflight_forecast.validate_forecast(
+        preflight_forecast.validate_forecast_v2(
             forecast_payload, root=root, protocol=protocol,
-            role_limits_v2=role_limits_v2_payload, snapshot=snapshot, bundle=bundle,
+            role_limits_v3=role_limits_v3_payload, snapshot=snapshot, bundle=bundle,
+            provider_refresh=provider_refresh_payload,
         )
     except preflight_forecast.PreflightForecastError as exc:
         raise ManifestValidationError(
@@ -1016,7 +1006,7 @@ def _validate_storage_policy_gate(binding: Any, *, root: Path) -> str:
 
 def _validate_provider_refresh_gate(
     binding: Any, *, root: Path, snapshot: Mapping[str, Any],
-) -> str:
+) -> tuple[str, dict[str, Any]]:
     """Validate the NEW, pinned ``provider_refresh`` slot: schema, verdict, raw-response hash.
 
     Pinned exactly to ``rejudge/phase2_provider_refresh_2026-07-19.json`` (the manifest cannot
@@ -1028,6 +1018,10 @@ def _validate_provider_refresh_gate(
     required to match exactly, not merely non-empty free text: this closes the hole where a
     disposable root could pair reassuring-but-false prose with otherwise-real, self-consistent
     roster/price/hash data.
+
+    Returns ``(observed_raw_sha, refresh)`` -- the parsed, now-fully-validated refresh payload is
+    also returned so the ``cost_forecast`` gate (validated right after this one) can bind it into
+    the v2 forecast schema without a second, redundant load+parse of the same pinned file.
     """
     resolved, declared_sha = _resolve_pinned_artifact(
         root, binding, label="provider_refresh",
@@ -1112,7 +1106,7 @@ def _validate_provider_refresh_gate(
         frozen_binding.get("relationship"),
         "provider_refresh.frozen_snapshot_binding.relationship")
 
-    return observed_raw_sha
+    return observed_raw_sha, refresh
 
 
 def _validate_gemma_prerequisite_gate(binding: Any, *, root: Path) -> str:
@@ -1397,18 +1391,21 @@ def validate_execution_manifest(
             "role_limits_and_request_settings_artifact does not validate as a v3 role-limits "
             f"artifact: {exc}") from exc
 
-    # --- SEMANTIC ARTIFACT GATES: preflight cost forecast (READY schema only, bound to the ---
-    # --- real v2 role-limits content -- see _validate_cost_forecast_gate's own docstring for ---
-    # --- why not v3), durable storage policy (real schema), the pinned 2026-07-19 provider ---
-    # --- refresh, and the pinned 2026-07-19 provider reconciliation evidence. ---
+    # --- SEMANTIC ARTIFACT GATES: the pinned 2026-07-19 provider refresh (validated FIRST so its
+    # --- parsed payload is available below), preflight cost forecast (v2 READY schema only,
+    # --- bound to the real v3 role-limits payload validated just above and this same refresh
+    # --- payload -- no longer a v2-file substitution workaround), durable storage policy (real
+    # --- schema), and the pinned 2026-07-19 provider reconciliation evidence. ---
+    provider_refresh_binding = _mapping(manifest.get("provider_refresh"), "provider_refresh")
+    _observed_provider_refresh_raw_sha, provider_refresh_payload = _validate_provider_refresh_gate(
+        provider_refresh_binding, root=root, snapshot=snapshot)
     cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
     _validate_cost_forecast_gate(
         cost_forecast_binding, root=root, protocol=protocol,
-        role_limits_v2_payload=v2_role_limits_payload, snapshot=snapshot, bundle=bundle)
+        role_limits_v3_payload=role_limits_payload, snapshot=snapshot, bundle=bundle,
+        provider_refresh_payload=provider_refresh_payload)
     storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
     _validate_storage_policy_gate(storage_policy_binding, root=root)
-    provider_refresh_binding = _mapping(manifest.get("provider_refresh"), "provider_refresh")
-    _validate_provider_refresh_gate(provider_refresh_binding, root=root, snapshot=snapshot)
     provider_reconciliation_evidence_binding = _mapping(
         manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
     _validate_provider_reconciliation_gate(provider_reconciliation_evidence_binding, root=root)

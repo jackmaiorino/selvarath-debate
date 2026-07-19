@@ -24,6 +24,7 @@ from typing import Any, cast
 
 import pytest
 
+from rejudge import api_client
 from rejudge import phase2_capability_corpus as capability_corpus
 from rejudge import phase2_execution as pe
 from rejudge import phase2_plan
@@ -91,14 +92,15 @@ _WORLD_SPECS = ("carath_norn", "selvarath", "vethun_sarak")
 @pytest.fixture(autouse=True, scope="module")
 def _bypass_new_semantic_gates():
     """This module tests phase2_preflight_runner.py's OWN reading of cost_forecast (an ad-hoc,
-    lighter-weight ``bindings.rendered_corpus`` binding) and storage_policy (an ad-hoc
-    ``archive_destination`` key) -- deliberately NOT phase2_execution.py's newer, real semantic
-    gates for those two slots (the READY-forecast schema; the real storage-policy schema, which
-    uses ``versioned_destination``, not ``archive_destination``). The other new gates
-    (provider_refresh, the gemma prerequisite, provider_reconciliation_evidence, and the
-    code-provenance binding) are bypassed here too, purely to keep this module's fixtures
-    minimal: their real, unpatched behavior is already exhaustively covered directly in
-    tests/test_phase2_execution.py.
+    lighter-weight ``bindings.rendered_corpus`` binding, unlike phase2_execution.py's READY-
+    forecast schema) -- deliberately NOT phase2_execution.py's newer, real semantic gate for that
+    slot. storage_policy is NOT bypassed here: phase2_preflight_runner.py now validates it
+    against the real schema itself (``versioned_destination``, matching
+    phase2_execution.py's own gate), so _write_artifacts writes real-schema storage_policy
+    content. The other new gates (provider_refresh, the gemma prerequisite,
+    provider_reconciliation_evidence, and the code-provenance binding) are bypassed here too,
+    purely to keep this module's fixtures minimal: their real, unpatched behavior is already
+    exhaustively covered directly in tests/test_phase2_execution.py.
     """
     with pytest.MonkeyPatch.context() as mp:
         for name in (
@@ -191,8 +193,19 @@ def _write_artifacts(
     if archive_destination is None:
         archive_destination = str(tmp_path_factory.mktemp("preflight_archive_dest"))
     storage_policy_path = artifacts_dir / "storage_policy.json"
-    storage_policy_path.write_text(
-        json.dumps({"archive_destination": archive_destination}), encoding="utf-8")
+    storage_policy_path.write_text(json.dumps({
+        "schema_version": pe.STORAGE_POLICY_SCHEMA_VERSION,
+        "established_at_utc": "2026-07-18T14:53:43Z",
+        "versioned_destination": archive_destination,
+        "structure": "test placeholder structure",
+        "retrieval_policy": "test placeholder retrieval policy",
+        "backup_owner": "Test Owner",
+        "physical_medium": "test placeholder medium",
+        "code_provenance": "test placeholder provenance",
+        "scope": "test placeholder scope",
+        "execution_authorized": False,
+        "note": "test placeholder note",
+    }), encoding="utf-8")
 
     reconciliation_path = artifacts_dir / "provider_reconciliation_evidence.json"
     reconciliation_path.write_text(json.dumps({"evidence": "placeholder"}), encoding="utf-8")
@@ -383,6 +396,21 @@ def _stub_audit_sequence(monkeypatch, *audits: "pe.ResumeAudit") -> None:
         return remaining.pop(0)
 
     monkeypatch.setattr(runner_mod.pe, "audit_resume", _fake)
+
+
+def _read_abort_record(
+    project_root: Path, validated: pe.ValidatedExecutionManifest, *, dry_run: bool,
+) -> dict:
+    path = runner_mod._abort_record_path(project_root, validated, dry_run=dry_run)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _aborted_archive_dir(
+    project_root: Path, validated: pe.ValidatedExecutionManifest, *, dry_run: bool,
+) -> Path:
+    policy = runner_mod._load_and_validate_storage_policy(project_root, validated)
+    archive_root = runner_mod._storage_policy_archive_root(policy)
+    return archive_root / runner_mod._archive_subdir_name(validated, dry_run=dry_run, suffix="-aborted")
 
 
 def _poison_factory(_params):
@@ -1340,7 +1368,18 @@ def test_completion_gate_raises_when_final_audit_disposition_is_not_complete(
             "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 1,
             "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT - 1, "blocked_reconciliation": 0},
     )
-    _stub_audit_sequence(monkeypatch, initial_audit, final_audit)
+    # A third stubbed audit for the per-call blocker check that now runs immediately after the
+    # single TODO call's persist step (not just at startup and at the end): its per_call
+    # verdict for that key must not itself be BLOCKED_RECONCILIATION, or the run would halt
+    # there instead of reaching the (stubbed) final-audit completion gate this test targets.
+    per_call_audit = pe.ResumeAudit(
+        stage=validated.stage, disposition=pe.ResumeDisposition.TODO,
+        per_call={one_key: pe.ResumeDisposition.COMPLETE}, todo_call_keys=(), blockers=(),
+        counts={
+            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+    )
+    _stub_audit_sequence(monkeypatch, initial_audit, per_call_audit, final_audit)
 
     with pytest.raises(runner_mod.CompletionGateError, match="completion gate failed"):
         runner_mod.run_preflight(
@@ -1371,7 +1410,16 @@ def test_completion_gate_raises_on_row_count_mismatch(tmp_path_factory, monkeypa
             "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
             "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
     )
-    _stub_audit_sequence(monkeypatch, initial_audit, final_audit)
+    # A third stubbed audit for the per-call blocker check that now runs immediately after the
+    # single TODO call's persist step (see the sibling disposition test above for why).
+    per_call_audit = pe.ResumeAudit(
+        stage=validated.stage, disposition=pe.ResumeDisposition.TODO,
+        per_call={one_key: pe.ResumeDisposition.COMPLETE}, todo_call_keys=(), blockers=(),
+        counts={
+            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
+            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
+    )
+    _stub_audit_sequence(monkeypatch, initial_audit, per_call_audit, final_audit)
 
     with pytest.raises(runner_mod.CompletionGateError, match="expected exactly"):
         runner_mod.run_preflight(
@@ -1424,38 +1472,60 @@ def test_live_ledger_reconciliation_gate_raises_on_success_count_mismatch(
             client_factory=lambda params: ScriptedClient(params.usage_log_path), dry_run=False)
 
 
-# --- StoragePolicyError: missing/empty archive_destination ----------------------------------------
+# --- StoragePolicyError: real-schema validation, now checked BEFORE any call is dispatched --------
+#
+# The storage-policy artifact is validated (and the archive destination's writability probed)
+# early in _run_locked, before the client is ever constructed -- so, unlike the pre-hardening
+# design, none of these tests need a stubbed audit_resume or synthetic pre-existing output rows
+# to reach the error: client_factory=_poison_factory proves zero calls are ever dispatched.
 
 
-def test_storage_policy_error_when_archive_destination_is_empty(tmp_path_factory, monkeypatch):
+def test_storage_policy_error_when_versioned_destination_is_empty(tmp_path_factory):
     project_root = tmp_path_factory.mktemp("preflight_storage_policy_root")
     _copy_project_root_sources(project_root)
     manifest, _identity, _artifacts = _build_full_manifest(
         project_root, tmp_path_factory, archive_destination="")
     manifest_path = _write_manifest(project_root, manifest)
-    validated = _validated_for(manifest_path, project_root)
 
-    results_path = runner_mod._results_path(project_root, validated, dry_run=True)
-    results_path.parent.mkdir(parents=True, exist_ok=True)
-    results_path.write_text(
-        "\n".join(
-            json.dumps({"synthetic_row": i})
-            for i in range(pe.EXPECTED_CAPABILITY_CELL_COUNT)) + "\n",
-        encoding="utf-8",
-    )
-
-    complete_audit = pe.ResumeAudit(
-        stage=validated.stage, disposition=pe.ResumeDisposition.COMPLETE, per_call={},
-        todo_call_keys=(), blockers=(), counts={
-            "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
-            "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0},
-    )
-    _stub_audit_sequence(monkeypatch, complete_audit, complete_audit)
-
-    with pytest.raises(runner_mod.StoragePolicyError, match="archive_destination"):
+    with pytest.raises(runner_mod.StoragePolicyError, match="versioned_destination"):
         runner_mod.run_preflight(
-            manifest_path, project_root, None,
-            client_factory=lambda params: ScriptedClient(params.usage_log_path), dry_run=True)
+            manifest_path, project_root, None, client_factory=_poison_factory, dry_run=True)
+
+
+def test_storage_policy_error_when_schema_version_drifted(tmp_path_factory):
+    project_root = tmp_path_factory.mktemp("preflight_storage_policy_schema_root")
+    _copy_project_root_sources(project_root)
+    baseline = _baseline(project_root)
+    corpus_entries = capability_corpus.render_capability_corpus(
+        baseline["bundle"], baseline["protocol"], project_root)
+    artifacts = _write_artifacts(project_root, tmp_path_factory, corpus_entries)
+    payload = json.loads(artifacts["storage_policy"].read_text(encoding="utf-8"))
+    payload["schema_version"] = "some_other_schema_v9"
+    artifacts["storage_policy"].write_text(json.dumps(payload), encoding="utf-8")
+    manifest, _identity = _build_manifest(project_root, baseline, artifacts)
+    manifest_path = _write_manifest(project_root, manifest)
+
+    with pytest.raises(runner_mod.StoragePolicyError, match="schema_version"):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=_poison_factory, dry_run=True)
+
+
+def test_archive_writability_probe_failure_refuses_before_any_call(tmp_path_factory):
+    """Contract item (storage fix): a manifest-bound archive destination that fails the
+    pre-flight create+fsync+delete writability probe refuses the ENTIRE run with zero calls
+    dispatched -- occupying the destination with a plain file (so mkdir underneath it fails)
+    is the simplest reliable way to fail the probe portably."""
+    project_root = tmp_path_factory.mktemp("preflight_probe_failure_root")
+    _copy_project_root_sources(project_root)
+    blocked_archive = tmp_path_factory.mktemp("preflight_probe_blocked_parent") / "blocked"
+    blocked_archive.write_text("occupied by a regular file, not a directory", encoding="utf-8")
+    manifest, _identity, _artifacts = _build_full_manifest(
+        project_root, tmp_path_factory, archive_destination=str(blocked_archive))
+    manifest_path = _write_manifest(project_root, manifest)
+
+    with pytest.raises(runner_mod.ArchiveError, match="writability probe"):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=_poison_factory, dry_run=True)
 
 
 # --- contract item 12: archival on a full run -------------------------------------------------
@@ -1473,19 +1543,13 @@ def test_archive_contains_manifest_results_completion_and_sha256sums(completed_d
         assert name in sums
 
 
-# --- contract item 8 + 9: malformed answer -> INVALID, never retried; archive failure -------------
+# --- contract item 8 + 9: malformed answer -> INVALID, never retried; late archive failure --------
 
 
-def test_malformed_answer_recorded_invalid_never_retried_and_archive_failure_refuses(
-    tmp_path_factory,
-):
+def test_malformed_answer_recorded_invalid_never_retried(tmp_path_factory):
     project_root = tmp_path_factory.mktemp("preflight_malformed_root")
     _copy_project_root_sources(project_root)
-    blocked_archive = tmp_path_factory.mktemp("preflight_blocked_archive_parent") / "blocked"
-    blocked_archive.write_text("occupied", encoding="utf-8")
-
-    manifest, _identity, _artifacts = _build_full_manifest(
-        project_root, tmp_path_factory, archive_destination=str(blocked_archive))
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
     manifest_path = _write_manifest(project_root, manifest)
 
     target_entry = manifest["provider_call_inventory"][7]
@@ -1499,9 +1563,9 @@ def test_malformed_answer_recorded_invalid_never_retried_and_archive_failure_ref
         created.append(client)
         return client
 
-    with pytest.raises(runner_mod.ArchiveError):
-        runner_mod.run_preflight(
-            manifest_path, project_root, None, client_factory=factory, dry_run=True)
+    completion = runner_mod.run_preflight(
+        manifest_path, project_root, None, client_factory=factory, dry_run=True)
+    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
 
     client = created[0]
     calls_for_target = [
@@ -1519,10 +1583,35 @@ def test_malformed_answer_recorded_invalid_never_retried_and_archive_failure_ref
     assert target_row["verdict"] == "INVALID"
     assert target_row["raw_output"] == "the sky is blue today"
 
-    # The completion record is durable proof of the 1,060 results even though archival (a
-    # separate, later step) failed and the run therefore refused to report success.
+
+def test_late_archive_failure_still_leaves_a_durable_completion_record(
+    tmp_path_factory, monkeypatch,
+):
+    """The mandatory final archival step (contract item 12) runs AFTER the writability probe
+    already succeeded, so it can still fail later (e.g. a race, a full disk). When it does, the
+    completion record already durably written to disk beforehand is proof the 1,060 results are
+    real and complete even though the run refuses to report overall success."""
+    project_root = tmp_path_factory.mktemp("preflight_late_archive_failure_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+
+    def _boom(**_kwargs):
+        raise runner_mod.ArchiveError("simulated late archive failure after a successful probe")
+
+    monkeypatch.setattr(runner_mod, "_archive_outputs", _boom)
+
+    with pytest.raises(runner_mod.ArchiveError, match="simulated late archive failure"):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None,
+            client_factory=lambda params: ScriptedClient(params.usage_log_path), dry_run=True)
+
+    validated = _validated_for(manifest_path, project_root)
     completion_path = runner_mod._completion_path(project_root, validated, dry_run=True)
     assert completion_path.exists()
+    payload = json.loads(completion_path.read_text(encoding="utf-8"))
+    assert payload["total_calls"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert payload["archive_destination"] == ""  # never reached the successful-archival rewrite
 
 
 # --- contract item 10: startup resume audit; blocked reconciliation; duplicate output -------------
@@ -1553,6 +1642,20 @@ def test_blocked_reconciliation_unmatched_reservation_refuses_before_any_call(
         runner_mod.run_preflight(
             destination / "manifest.json", destination, None,
             client_factory=_poison_factory, dry_run=True)
+
+    # --- ABORT ARCHIVAL: a blocker refusal, even one already-complete (1,060 real rows on
+    # --- disk), writes an abort record and archives that partial (here: complete) state ---
+    record = _read_abort_record(destination, validated, dry_run=True)
+    assert record["reason"] == "resume_or_per_call_blocker"
+    assert record["exception_type"] == "ResumeBlockedError"
+    assert record["cells_completed"] == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert record["dry_run"] is True
+    aborted_dir = _aborted_archive_dir(destination, validated, dry_run=True)
+    assert (aborted_dir / "manifest.json").exists()
+    assert (aborted_dir / "abort.json").exists()
+    assert (aborted_dir / "results.jsonl").exists()
+    assert (aborted_dir / "usage_events.jsonl").exists()
+    assert (aborted_dir / "SHA256SUMS").exists()
 
 
 def test_duplicate_output_row_blocks_resume(completed_dry_run, tmp_path_factory):
@@ -1680,3 +1783,431 @@ def test_persist_before_advance_holds_at_every_call_not_just_a_round_crash_bound
         if line.strip()
     ]
     assert len(rows) == 137
+
+
+# --- ABORT ARCHIVAL: every exception path writes a distinct abort record and archives partial
+# --- state (outputs so far + ledger + manifest + SHA256SUMS) to an -aborted destination ------------
+
+
+def test_abort_archival_on_cost_cap_halt(tmp_path_factory):
+    project_root = tmp_path_factory.mktemp("preflight_abort_cap_halt_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    def factory(params):
+        return ScriptedClient(
+            params.usage_log_path, fail_after=3,
+            fail_with=api_client.CapExceededError("simulated cap exceeded"))
+
+    with pytest.raises(api_client.CapExceededError):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=factory, dry_run=True)
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["schema_version"] == runner_mod.ABORT_SCHEMA_VERSION
+    assert record["stage"] == "capability_preflight"
+    assert record["reason"] == "cost_cap_halt"
+    assert record["exception_type"] == "CapExceededError"
+    assert "simulated cap exceeded" in record["exception_message"]
+    assert record["cells_completed"] == 3
+    assert record["dry_run"] is True
+    assert record["aborted_at_utc"]
+
+    aborted_dir = _aborted_archive_dir(project_root, validated, dry_run=True)
+    assert (aborted_dir / "manifest.json").exists()
+    assert (aborted_dir / "abort.json").exists()
+    assert (aborted_dir / "usage_events.jsonl").exists()
+    assert (aborted_dir / "SHA256SUMS").exists()
+    rows = [
+        json.loads(line)
+        for line in (aborted_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 3
+    sums = (aborted_dir / "SHA256SUMS").read_text(encoding="utf-8")
+    for name in ("manifest.json", "abort.json", "results.jsonl", "usage_events.jsonl"):
+        assert name in sums
+
+
+def test_abort_archival_on_unknown_charge_halt(tmp_path_factory):
+    project_root = tmp_path_factory.mktemp("preflight_abort_unknown_charge_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    def factory(params):
+        return ScriptedClient(
+            params.usage_log_path, fail_after=5,
+            fail_with=api_client.UnknownChargeHalt("simulated unknown-charge halt"))
+
+    with pytest.raises(api_client.UnknownChargeHalt):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=factory, dry_run=True)
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["reason"] == "unknown_charge_halt"
+    assert record["exception_type"] == "UnknownChargeHalt"
+    assert record["cells_completed"] == 5
+
+    aborted_dir = _aborted_archive_dir(project_root, validated, dry_run=True)
+    rows = [
+        json.loads(line)
+        for line in (aborted_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 5
+
+
+def test_abort_archival_on_corpus_refusal_after_outputs_already_exist(tmp_path_factory):
+    """A resume that already has real, durably-persisted output rows on disk, but whose corpus
+    verification then fails (e.g. a tampered world document), must archive that partial state --
+    not just refuse silently -- before re-raising."""
+    project_root = tmp_path_factory.mktemp("preflight_abort_corpus_refusal_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    def crashing_factory(params):
+        return ScriptedClient(
+            params.usage_log_path, fail_after=200,
+            fail_with=_SimulatedCrash("simulated crash at cell 200"))
+
+    with pytest.raises(_SimulatedCrash):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=crashing_factory, dry_run=True)
+
+    results_path = runner_mod._results_path(project_root, validated, dry_run=True)
+    rows_after_crash = [
+        line for line in results_path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    assert len(rows_after_crash) == 200
+
+    # Corrupt a world document AFTER the crash, so the NEXT (resume) invocation's corpus
+    # verification fails outright -- with 200 real rows already durably on disk.
+    (project_root / "world_specs" / "selvarath.txt").unlink()
+
+    with pytest.raises(runner_mod.CorpusMismatchError):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=_poison_factory, dry_run=True)
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["reason"] == "corpus_or_inventory_refusal"
+    assert record["exception_type"] == "CorpusMismatchError"
+    assert record["cells_completed"] == 200
+
+    aborted_dir = _aborted_archive_dir(project_root, validated, dry_run=True)
+    rows = [
+        json.loads(line)
+        for line in (aborted_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(rows) == 200
+
+
+def test_abort_archival_on_unexpected_exception(tmp_path_factory, monkeypatch):
+    project_root = tmp_path_factory.mktemp("preflight_abort_unexpected_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("simulated unexpected failure")
+
+    monkeypatch.setattr(runner_mod, "_capability_cells_by_key", _boom)
+
+    with pytest.raises(RuntimeError, match="simulated unexpected failure"):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=_poison_factory, dry_run=True)
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["reason"] == "unexpected_exception"
+    assert record["exception_type"] == "RuntimeError"
+    assert record["cells_completed"] == 0
+
+    aborted_dir = _aborted_archive_dir(project_root, validated, dry_run=True)
+    assert (aborted_dir / "manifest.json").exists()
+    assert (aborted_dir / "abort.json").exists()
+    # No output row was ever persisted; the abort archive never claims one exists.
+    assert not (aborted_dir / "results.jsonl").exists()
+
+
+def test_abort_record_never_folds_into_execution_identity(tmp_path_factory):
+    """The abort record's timestamp is a runtime-only diagnostic: two aborts of the SAME
+    manifest at different wall-clock times must still bind the identical
+    execution_identity_sha256 the run itself derived (never a hash affected by the abort
+    record's own timestamp)."""
+    project_root = tmp_path_factory.mktemp("preflight_abort_identity_root")
+    _copy_project_root_sources(project_root)
+    manifest, identity_sha256, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    def factory(params):
+        return ScriptedClient(
+            params.usage_log_path, fail_after=1,
+            fail_with=api_client.CapExceededError("simulated cap exceeded"))
+
+    with pytest.raises(api_client.CapExceededError):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=factory, dry_run=True)
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["execution_identity_sha256"] == identity_sha256 == validated.execution_identity_sha256
+
+
+# --- contract item 3: per-call blocker detection, not deferred to finalization --------------------
+
+
+def test_per_call_blocker_detection_halts_immediately_on_a_duplicate_terminal_event(
+    tmp_path_factory,
+):
+    """A duplicate SUCCESSFUL ledger event for the same call -- the kind of inconsistency a
+    non-strict client_factory's client could introduce -- must halt the run the moment it
+    becomes visible in durable state (right after that call's own persist step), not be
+    deferred all the way to the end-of-loop completion gate."""
+    project_root = tmp_path_factory.mktemp("preflight_per_call_blocker_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    validated = _validated_for(manifest_path, project_root)
+
+    class DuplicatingClient(ScriptedClient):
+        """Behaves exactly like ScriptedClient, except call number 4 durably appends a SECOND,
+        byte-identical 'success' usage event for the SAME attempt/call immediately after its own
+        real one -- simulating a non-strict client with a retry/duplication bug."""
+
+        def complete(self, **kwargs):
+            result = super().complete(**kwargs)
+            if self._counter == 4:
+                last_event = json.loads(
+                    self._usage_log_path.read_text(encoding="utf-8").splitlines()[-1])
+                with self._usage_log_path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(last_event, sort_keys=True) + "\n")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            return result
+
+    def factory(params):
+        return DuplicatingClient(params.usage_log_path)
+
+    with pytest.raises(runner_mod.ResumeBlockedError, match="blocker condition detected"):
+        runner_mod.run_preflight(
+            manifest_path, project_root, None, client_factory=factory, dry_run=True)
+
+    results_path = runner_mod._results_path(project_root, validated, dry_run=True)
+    rows = [
+        json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    # Halted after call 4, never proceeding to any further call.
+    assert len(rows) == 4
+
+    record = _read_abort_record(project_root, validated, dry_run=True)
+    assert record["reason"] == "resume_or_per_call_blocker"
+    assert record["cells_completed"] == 4
+
+
+# --- contract item 4: the production client factory + run_live -------------------------------------
+
+
+class _FakeUsage:
+    def __init__(self, prompt_tokens: int, completion_tokens: int) -> None:
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.completion_tokens_details = None
+
+
+class _FakeChoice:
+    def __init__(self, content: str, finish_reason: str = "stop") -> None:
+        self.finish_reason = finish_reason
+        self.message = SimpleNamespace(content=content)
+
+
+class _FakeResponse:
+    def __init__(self, content: str, *, response_id: str, model: str) -> None:
+        self.usage = _FakeUsage(11, 3)
+        self.choices = [_FakeChoice(content)]
+        self.id = response_id
+        self.model = model
+        self.system_fingerprint = "fp-fake"
+
+
+class _FakeStreamChunk:
+    """A single-chunk fake stream: satisfies api_client.RejudgeClient._streamed_create's own
+    chunk-shape expectations (.usage, .id, .model, .system_fingerprint,
+    .choices[0].delta.content, .choices[0].finish_reason) for a streaming-pinned model
+    (Qwen/Qwen3.7-Plus under the frozen v3 role-limits artifact)."""
+
+    def __init__(self, content: str, *, response_id: str, model: str) -> None:
+        self.usage = _FakeUsage(11, 3)
+        self.id = response_id
+        self.model = model
+        self.system_fingerprint = "fp-fake"
+        self.choices = [SimpleNamespace(
+            delta=SimpleNamespace(content=content), finish_reason="stop")]
+
+
+class FakeTogetherSDK:
+    """A minimal fake standing in for a real together.Together() client: only the surface
+    api_client.RejudgeClient actually touches (.chat.completions.create), for both the
+    non-streaming and streaming-pinned transport paths."""
+
+    def __init__(self, content: str = "ANSWER: A") -> None:
+        self.calls: list[dict] = []
+        self._content = content
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls.append(kwargs)
+                response_id = f"fake-{len(outer.calls)}"
+                if kwargs.get("stream"):
+                    return iter([_FakeStreamChunk(
+                        outer._content, response_id=response_id, model=kwargs["model"])])
+                return _FakeResponse(outer._content, response_id=response_id, model=kwargs["model"])
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def _production_params(tmp_path, *, ledger_path: Path | None = None) -> "runner_mod.ClientConstructionParams":
+    model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    return runner_mod.ClientConstructionParams(
+        dry_run=False, approved_cap_usd=5.0, require_explicit_reasoning_max_tokens=True,
+        strict_context_mode=True, model_context_limits={model: 131072}, max_retries=2,
+        streaming_pinned_models=frozenset(), extra_request_fields={},
+        model_prices={model: {"in": 0.1, "out": 0.1}},
+        usage_log_path=ledger_path or (tmp_path / "ledger.jsonl"),
+        error_log_path=tmp_path / "errors.jsonl",
+        ledger_identity={
+            "path": "rejudge/output/phase2_capability_preflight_ledger.jsonl",
+            "ledger_identity": "phase2-project-wide-ledger-v1",
+        },
+    )
+
+
+def test_build_production_client_factory_never_imports_together_at_build_time():
+    """Calling build_production_client_factory() itself must never import the real SDK; only
+    invoking the FACTORY IT RETURNS, for a live run, may."""
+    script = (
+        "import sys\n"
+        "from rejudge import phase2_preflight_runner\n"
+        "phase2_preflight_runner.build_production_client_factory()\n"
+        "assert 'together' not in sys.modules, 'together SDK must not be imported'\n"
+        "print('PURITY_OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "PURITY_OK" in result.stdout
+
+
+def test_build_production_client_factory_refuses_dry_run_params(tmp_path):
+    factory = runner_mod.build_production_client_factory(
+        sdk_client_factory=lambda: FakeTogetherSDK())
+    params = replace(_production_params(tmp_path), dry_run=True)
+    with pytest.raises(ValueError, match="dry_run"):
+        factory(params)
+
+
+def test_build_production_client_factory_refuses_missing_ledger_identity(tmp_path):
+    factory = runner_mod.build_production_client_factory(
+        sdk_client_factory=lambda: FakeTogetherSDK())
+    params = replace(_production_params(tmp_path), ledger_identity=None)
+    with pytest.raises(ValueError, match="ledger_identity"):
+        factory(params)
+
+
+def test_build_production_client_factory_builds_strict_client_with_fake_sdk(tmp_path):
+    fake_sdk = FakeTogetherSDK(content="ANSWER: B")
+    factory = runner_mod.build_production_client_factory(
+        sdk_client_factory=lambda: fake_sdk)
+    params = _production_params(tmp_path)
+
+    client = factory(params)
+    result = client.complete(
+        messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}],
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo", temperature=0.0, seed=1, max_tokens=32,
+        request_metadata={"execution_call_key": "a" * 64, "request_fields_sha256": "b" * 64},
+    )
+
+    assert result.raw_output == "ANSWER: B"
+    assert result.response_metadata["returned_model_id"] == "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    assert result.response_metadata["prompt_tokens"] == 11
+    assert result.response_metadata["completion_tokens"] == 3
+    assert result.response_metadata["request_fields_sha256"]
+    assert len(fake_sdk.calls) == 1
+
+    # The real ledger was actually created and chained (mirrors legacy rejudge/runner.py's own
+    # live bootstrapping: api_client.prepare_usage_ledger against the manifest-bound PATH).
+    ledger_path = params.usage_log_path
+    assert ledger_path.exists()
+    events = [
+        json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert events[0]["status"] == "ledger_genesis"
+    assert events[-1]["status"] == "success"
+
+
+def test_build_production_client_factory_resumes_an_existing_ledger(tmp_path):
+    ledger_path = tmp_path / "resumable_ledger.jsonl"
+    api_client.prepare_usage_ledger(ledger_path, allow_create=True)
+
+    fake_sdk = FakeTogetherSDK(content="ANSWER: A")
+    factory = runner_mod.build_production_client_factory(sdk_client_factory=lambda: fake_sdk)
+    params = _production_params(tmp_path, ledger_path=ledger_path)
+    client = factory(params)
+    client.complete(
+        messages=[{"role": "user", "content": "hi"}],
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo", temperature=0.0, seed=1, max_tokens=32,
+        request_metadata={"execution_call_key": "c" * 64, "request_fields_sha256": "d" * 64},
+    )
+    events = [
+        json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    # Exactly one genesis event, even though the ledger already existed before this call.
+    assert sum(1 for e in events if e["status"] == "ledger_genesis") == 1
+
+
+def test_run_live_requires_authorization_path(tmp_path_factory):
+    project_root = tmp_path_factory.mktemp("preflight_run_live_no_auth_root")
+    _copy_project_root_sources(project_root)
+    manifest, _identity, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    with pytest.raises(runner_mod.ManifestRejectedError, match="authorization_path"):
+        runner_mod.run_live(manifest_path, project_root, cast(Any, None))
+
+
+def test_run_live_completes_a_full_authorized_run_with_a_fake_sdk(tmp_path_factory, monkeypatch):
+    project_root = tmp_path_factory.mktemp("preflight_run_live_full_root")
+    _copy_project_root_sources(project_root)
+    manifest, identity_sha256, _artifacts = _build_full_manifest(project_root, tmp_path_factory)
+    manifest_path = _write_manifest(project_root, manifest)
+    authorization = _authorization_for(
+        project_root, identity_sha256, stage_cap=15.0, cumulative_cap=1500.0)
+    authorization_path = _write_authorization(project_root, authorization)
+
+    fake_sdk = FakeTogetherSDK(content="ANSWER: A")
+    original_build_factory = runner_mod.build_production_client_factory
+    monkeypatch.setattr(
+        runner_mod, "build_production_client_factory",
+        lambda **_kwargs: original_build_factory(sdk_client_factory=lambda: fake_sdk))
+
+    completion = runner_mod.run_live(manifest_path, project_root, authorization_path)
+
+    assert completion.dry_run is False
+    assert completion.total_calls == pe.EXPECTED_CAPABILITY_CELL_COUNT
+    assert dict(completion.counts) == {
+        "total": pe.EXPECTED_CAPABILITY_CELL_COUNT, "todo": 0,
+        "complete": pe.EXPECTED_CAPABILITY_CELL_COUNT, "blocked_reconciliation": 0,
+    }
+    assert len(fake_sdk.calls) == pe.EXPECTED_CAPABILITY_CELL_COUNT

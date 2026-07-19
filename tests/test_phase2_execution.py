@@ -177,35 +177,36 @@ GREEN_PROMPT_BUNDLE_APPROVAL_PATH = (
 GREEN_UV_LOCK_PATH = GREEN_ROOT / "uv.lock"
 
 
-def _build_ready_forecast_payload(
-    *, root: Path, protocol: Mapping, role_limits_v2: Mapping, snapshot: Mapping,
-    bundle: Mapping,
+def _build_ready_forecast_payload_v2(
+    *, root: Path, protocol: Mapping, role_limits_v3: Mapping, snapshot: Mapping,
+    bundle: Mapping, provider_refresh: Mapping,
 ) -> dict:
-    """Build a genuinely-passing "ready" capability-preflight forecast, offline, from the
+    """Build a genuinely-passing v2 "ready" capability-preflight forecast, offline, from the
     validator's own requirements -- no network, no real tokenizer download.
 
-    Reuses the REAL per-model token stats / tokenizer pins / rendered-corpus binding from the
-    tracked conflict-report artifact unchanged (those sections are price-independent, and the
-    corpus/protocol/bundle content is byte-identical to what produced them), and only
-    recomputes the dollar scenario totals against ``role_limits_v2``'s retry-attempt count and
-    ``snapshot``'s prices -- mirrors tests/test_phase2_preflight_forecast.py's own
-    ``ready_context`` fixture. At the REAL, frozen prices, this only clears halt_cap_usd when
-    ``role_limits_v2`` carries the v3 retry-pin reduction (2 retries / 3 attempts, not v2's real
-    3/4): ``no_retry_maximum * 3 < halt_cap_usd`` but ``* 4`` does not (see the tracked
-    ``rejudge/phase2_preflight_forecast_conflict_2026-07-18.json``).
+    Reuses the REAL per-model token stats / tokenizer pins / rendered-corpus binding / byte-
+    reservation-bound-per-prompt from the tracked conflict-report artifact unchanged (those
+    sections are price-independent, and the corpus/protocol/bundle content is byte-identical to
+    what produced them), and recomputes every price-sensitive field (the four scenarios AND the
+    new UTF-8 reservation-envelope disclosure) fresh against ``role_limits_v3``'s retry-attempt
+    count and ``snapshot``'s prices -- mirrors ``scripts/build_phase2_preflight_forecast.py``'s
+    own ``build_forecast_v2`` and ``tests/test_phase2_preflight_forecast.py``'s ``ready_context``
+    fixture. Raises ``AssertionError`` (not a production exception) if the given
+    ``role_limits_v3``/``snapshot`` combination is too expensive to clear ``halt_cap_usd`` --
+    this helper never fabricates a passing artifact.
     """
     # Loaded as raw JSON, deliberately NOT re-validated here: the tracked conflict artifact's
-    # own ``bindings`` section is bound to the REAL, expensive-priced protocol/snapshot, which
-    # would disagree with GREEN_ROOT's cheap-priced copies. Only its price-INDEPENDENT sections
-    # (per-model token stats, tokenizer pins, corpus binding) are reused below; every
+    # own ``bindings`` section is bound to the REAL protocol/snapshot, which may disagree with a
+    # caller-supplied synthetic snapshot. Only its price-INDEPENDENT sections (per-model token
+    # stats, tokenizer pins, corpus binding, byte-reservation bound) are reused below; every
     # price-sensitive field is freshly recomputed and the resulting artifact IS fully validated
-    # (via ``forecast.validate_forecast`` at the end of this function) before being returned.
+    # (via ``forecast.validate_forecast_v2`` at the end of this function) before being returned.
     conflict_artifact = json.loads(
         forecast.DEFAULT_CONFLICT_ARTIFACT_PATH.read_text(encoding="utf-8"))
     calls = capability_corpus.EXPECTED_ENTRY_COUNT
     output_ceilings = {
         model_id: role_limits.resolve_request_parameters(
-            role_limits_v2, protocol, model_id, "capability_qa").effective_max_tokens
+            role_limits_v3, protocol, model_id, "capability_qa").effective_max_tokens
         for model_id in forecast.MODEL_IDS
     }
 
@@ -239,7 +240,8 @@ def _build_ready_forecast_payload(
         no_retry_component_usd[model_id] = Decimal(no_retry["total_usd"])
         no_retry_total += Decimal(no_retry["total_usd"])
 
-    max_attempts = int(role_limits_v2["request_settings"]["transport"]["max_attempts"])
+    max_attempts = int(role_limits_v3["request_settings"]["transport"]["max_attempts"])
+    max_retries = int(role_limits_v3["request_settings"]["transport"]["max_retries"])
 
     def derived(multiplier):
         per_model, total = {}, Decimal(0)
@@ -252,16 +254,19 @@ def _build_ready_forecast_payload(
     planning_per_model, planning_total = derived(forecast.PLANNING_RETRY_MULTIPLIER)
     stress_per_model, stress_total = derived(Decimal(max_attempts))
 
-    qwen_id = next(iter(forecast.PROXY_TOKENIZER_MODEL_IDS))
-    qwen_input_price, qwen_output_price = price_for(qwen_id)
-    qwen_byte_total = conflict_artifact["per_model_token_stats"][qwen_id][
-        "utf8_byte_reservation_bound"]["total"]
-    qwen_byte_component = forecast.compute_scenario_component(
-        total_input_tokens=qwen_byte_total, calls=calls,
-        output_tokens_per_call=output_ceilings[qwen_id],
-        input_price=qwen_input_price, output_price=qwen_output_price,
-    )
-    qwen_byte_stress = Decimal(qwen_byte_component["total_usd"]) * Decimal(max_attempts)
+    byte_bound_per_prompt = conflict_artifact["corpus_utf8_byte_reservation_bound_per_prompt"]
+    byte_bound_total = sum(byte_bound_per_prompt)
+    envelope_per_model, envelope_total = {}, Decimal(0)
+    for model_id in forecast.MODEL_IDS:
+        input_price, output_price = price_for(model_id)
+        byte_component = forecast.compute_scenario_component(
+            total_input_tokens=byte_bound_total, calls=calls,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        value = Decimal(byte_component["total_usd"]) * Decimal(max_attempts)
+        envelope_per_model[model_id] = {"total_usd": str(value)}
+        envelope_total += value
 
     halt_cap = Decimal(str(
         protocol["materialization_requirements"]["capability_preflight"]["proposed_cap_usd"]))
@@ -271,35 +276,57 @@ def _build_ready_forecast_payload(
             f"stress_total={stress_total}, halt_cap={halt_cap}")
 
     artifact = deepcopy(conflict_artifact)
-    artifact["schema_version"] = forecast.SCHEMA_VERSION
-    artifact["artifact_id"] = forecast.ARTIFACT_ID
-    artifact["status"] = forecast.STATUS
+    artifact["schema_version"] = forecast.SCHEMA_VERSION_V2
+    artifact["artifact_id"] = forecast.ARTIFACT_ID_V2
+    artifact["status"] = forecast.STATUS_V2
     del artifact["resolution"]
     artifact["bindings"]["protocol"]["canonical_sha256"] = phase2_plan.canonical_sha256(protocol)
-    artifact["bindings"]["role_limits_v2"]["canonical_sha256"] = (
-        phase2_plan.canonical_sha256(role_limits_v2))
+    del artifact["bindings"]["role_limits_v2"]
+    artifact["bindings"]["role_limits_v3"] = {
+        "tracked_path": forecast.EXPECTED_BINDING_PATHS_V2["role_limits_v3"],
+        "canonical_sha256": phase2_plan.canonical_sha256(role_limits_v3),
+    }
     artifact["bindings"]["price_snapshot"]["canonical_sha256"] = (
         phase2_plan.canonical_sha256(snapshot))
+    artifact["bindings"]["provider_refresh"] = {
+        "tracked_path": forecast.EXPECTED_BINDING_PATHS_V2["provider_refresh"],
+        "canonical_sha256": phase2_plan.canonical_sha256(provider_refresh),
+    }
     artifact["retry_policy"]["max_attempts"] = max_attempts
-    artifact["retry_policy"]["max_retries"] = int(
-        role_limits_v2["request_settings"]["transport"]["max_retries"])
+    artifact["retry_policy"]["max_retries"] = max_retries
     artifact["scenarios"]["theoretical_minimum"]["per_model"] = theo_per_model
     artifact["scenarios"]["theoretical_minimum"]["total_usd"] = str(theo_total)
     artifact["scenarios"]["no_retry_maximum"]["per_model"] = no_retry_per_model
     artifact["scenarios"]["no_retry_maximum"]["total_usd"] = str(no_retry_total)
     artifact["scenarios"]["planning_retry_scenario"]["per_model"] = planning_per_model
     artifact["scenarios"]["planning_retry_scenario"]["total_usd"] = str(planning_total)
-    artifact["scenarios"]["four_attempt_stress"]["multiplier"] = str(max_attempts)
-    artifact["scenarios"]["four_attempt_stress"]["per_model"] = stress_per_model
-    artifact["scenarios"]["four_attempt_stress"]["total_usd"] = str(stress_total)
-    artifact["scenarios"]["four_attempt_stress"][
-        "qwen_3_7_plus_byte_bound_stress_usd"] = str(qwen_byte_stress)
+    stress_entry = artifact["scenarios"].pop("four_attempt_stress")
+    del stress_entry["qwen_3_7_plus_byte_bound_stress_usd"]
+    del stress_entry["qwen_3_7_plus_byte_bound_note"]
+    stress_entry["multiplier"] = str(max_attempts)
+    stress_entry["per_model"] = stress_per_model
+    stress_entry["total_usd"] = str(stress_total)
+    artifact["scenarios"][forecast.ATTEMPT_CEILING_STRESS_SCENARIO] = stress_entry
     artifact["halt_cap_usd"] = str(halt_cap)
     artifact["stress_margin_usd"] = str(halt_cap - stress_total)
+    artifact["disclosures"] = {
+        "utf8_reservation_envelope_3_attempts": {
+            "formula": "test-fixture UTF-8 reservation envelope formula",
+            "attempts": max_attempts,
+            "per_model": envelope_per_model,
+            "total_usd": str(envelope_total),
+            "relationship_to_halt_cap": forecast.FROZEN_RESERVATION_ENVELOPE_SENTENCE,
+        },
+    }
+    artifact["supersedes"] = {
+        "tracked_path": forecast.SUPERSEDED_ARTIFACT_TRACKED_PATH,
+        "canonical_sha256": phase2_plan.canonical_sha256(conflict_artifact),
+        "note": forecast.SUPERSEDES_CONFLICT_NOTE,
+    }
 
-    forecast.validate_forecast(
-        artifact, root=root, protocol=protocol, role_limits_v2=role_limits_v2,
-        snapshot=snapshot, bundle=bundle,
+    forecast.validate_forecast_v2(
+        artifact, root=root, protocol=protocol, role_limits_v3=role_limits_v3,
+        snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh,
     )
     return artifact
 
@@ -646,16 +673,16 @@ def valid_manifest(baseline, synthetic_artifacts):
 def manifest(valid_manifest, monkeypatch):
     """A fresh mutable deep copy of the valid baseline manifest for each test.
 
-    Stubs cost_forecast's deep economics check (``phase2_preflight_forecast.validate_forecast``,
-    called from ``pe._validate_cost_forecast_gate``) to a no-op: see ``_build_green_root``'s
-    docstring for why no genuinely "ready" forecast can exist against the real, frozen prices
-    right now. Every other check on cost_forecast (the generic path/hash binding) and on
-    storage_policy/provider_refresh/gemma/provider_reconciliation/role-limits v3/authorization/
-    etc. still runs for real, unpatched. The REAL, unpatched ``validate_forecast`` behavior
-    (READY acceptance, CONFLICT rejection, the v2 role-limits binding) is exercised directly by
-    the dedicated cost_forecast gate tests further down.
+    Stubs cost_forecast's deep economics check (``phase2_preflight_forecast.validate_forecast_v2``,
+    called from ``pe._validate_cost_forecast_gate``) to a no-op, so every OTHER manifest-field
+    test below stays decoupled from the forecast's own economics and doesn't need to construct a
+    real "ready" forecast. Every other check on cost_forecast (the generic path/hash binding) and
+    on storage_policy/provider_refresh/gemma/provider_reconciliation/role-limits v3/authorization/
+    etc. still runs for real, unpatched. The REAL, unpatched ``validate_forecast_v2`` behavior
+    (READY acceptance, gate-direction rejection, the v3 role-limits + provider-refresh binding)
+    is exercised directly by the dedicated cost_forecast gate tests further down.
     """
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
     manifest, identity_sha256 = valid_manifest
     return deepcopy(manifest), identity_sha256
 
@@ -1650,7 +1677,7 @@ def test_call_inventory_not_a_list_is_rejected(manifest):
 def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(
     baseline, synthetic_artifacts, monkeypatch,
 ):
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.01, cumulative_cap=1500.0)
     with pytest.raises(pe.ManifestValidationError, match="exceeds the protocol"):
@@ -1658,7 +1685,7 @@ def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(
 
 
 def test_cumulative_cap_below_stage_cap_is_rejected(baseline, synthetic_artifacts, monkeypatch):
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.0, cumulative_cap=10.0)
     with pytest.raises(pe.ManifestValidationError, match="cumulative_cap_usd"):
@@ -1904,37 +1931,39 @@ def test_missing_shared_delegation_record_fails_closed(manifest, missing_delegat
 @pytest.fixture(scope="module")
 def cost_forecast_gate_context(tmp_path_factory):
     """Isolated root for testing ``pe._validate_cost_forecast_gate``'s REAL, unpatched behavior
-    directly: real protocol/bundle/prices (byte-identical to ROOT), with the frozen preflight
-    delegation's v3 retry-pin reduction (2 retries / 3 attempts, not v2's real 3/4) substituted
-    as the forecast's own ``role_limits_v2`` binding target -- this is what actually clears the
-    halt-cap gate at real prices. Writing v3's content at the forecast's hardcoded "v2" binding
-    path is safe here ONLY because this is an isolated copy, never the real, git-tracked v2 file,
-    and this fixture never touches ``pe.validate_execution_manifest``'s own v3 role-limits chain
-    (which needs that same relative path to hold the REAL v2 content) at all.
+    directly against the v2 forecast schema: real protocol/bundle/role-limits-v3/provider-refresh
+    (byte-identical to ROOT). No more v2-role-limits-file-content-substitution workaround is
+    needed here -- that was only ever required because the forecast schema itself still bound
+    role-limits v2; ``validate_forecast_v2`` binds v3 for real, so the real, tracked v3 artifact
+    is used directly and the real v2 file at its own frozen path is left completely untouched.
     """
     root = tmp_path_factory.mktemp("cost_forecast_gate_root")
     _copy_tracked_data_files(root)
-    v3_payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
-    (root / "rejudge" / "phase2_role_limits_v2_2026-07-18.json").write_text(
-        json.dumps(v3_payload), encoding="utf-8")
 
     protocol_path = root / "rejudge" / "phase2_protocol.json"
     protocol = phase2_plan.load_protocol(protocol_path)
-    snapshot, _p = price_snapshot.load_and_validate(
-        root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json", protocol_path)
+    role_limits_v3, _p, snapshot = role_limits.load_and_validate_v3(
+        root / "rejudge" / "phase2_role_limits_v3_2026-07-19.json", protocol_path,
+        root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json",
+        root / "rejudge" / "phase2_role_limits_v2_2026-07-18.json", project_root=root)
     bundle, _bp = prompt_bundle.load_and_validate(
         root / "rejudge" / "phase2_prompt_bundle.json", protocol_path)
+    provider_refresh = json.loads(
+        (root / "rejudge" / "phase2_provider_refresh_2026-07-19.json").read_text(
+            encoding="utf-8"))
 
-    ready = _build_ready_forecast_payload(
-        root=root, protocol=protocol, role_limits_v2=v3_payload, snapshot=snapshot, bundle=bundle)
+    ready = _build_ready_forecast_payload_v2(
+        root=root, protocol=protocol, role_limits_v3=role_limits_v3, snapshot=snapshot,
+        bundle=bundle, provider_refresh=provider_refresh)
     forecast_path = root / "rejudge" / "output" / "_cost_forecast_gate_ready.json"
     forecast_path.parent.mkdir(parents=True, exist_ok=True)
     forecast_path.write_text(
         json.dumps(ready, ensure_ascii=True, sort_keys=True), encoding="utf-8")
 
     return {
-        "root": root, "protocol": protocol, "role_limits_v2": v3_payload, "snapshot": snapshot,
-        "bundle": bundle, "ready_forecast": ready, "forecast_path": forecast_path,
+        "root": root, "protocol": protocol, "role_limits_v3": role_limits_v3,
+        "snapshot": snapshot, "bundle": bundle, "provider_refresh": provider_refresh,
+        "ready_forecast": ready, "forecast_path": forecast_path,
     }
 
 
@@ -1946,12 +1975,32 @@ def test_cost_forecast_gate_accepts_a_genuine_ready_forecast(cost_forecast_gate_
     }
     observed = pe._validate_cost_forecast_gate(
         binding, root=ctx["root"], protocol=ctx["protocol"],
-        role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
-        bundle=ctx["bundle"])
+        role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+        bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
     assert observed == declared_sha
 
 
-def test_cost_forecast_gate_rejects_a_conflict_schema_artifact(cost_forecast_gate_context):
+def test_cost_forecast_gate_accepts_the_real_tracked_2026_07_19_artifact(
+    cost_forecast_gate_context,
+):
+    """The actual, real ``rejudge/phase2_preflight_forecast_2026-07-19.json`` this task builds
+    -- not a synthetic fixture reconstruction of it -- must independently clear the same gate."""
+    ctx = cost_forecast_gate_context
+    real_path = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19.json"
+    real_payload = json.loads(real_path.read_text(encoding="utf-8"))
+    declared_sha = phase2_plan.canonical_sha256(real_payload)
+    binding = {
+        "path": real_path.relative_to(ROOT).as_posix(),
+        "sha256": declared_sha,
+    }
+    observed = pe._validate_cost_forecast_gate(
+        binding, root=ROOT, protocol=ctx["protocol"],
+        role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+        bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
+    assert observed == declared_sha
+
+
+def test_cost_forecast_gate_rejects_a_wrong_schema_artifact(cost_forecast_gate_context):
     ctx = cost_forecast_gate_context
     conflict_payload = json.loads(
         forecast.DEFAULT_CONFLICT_ARTIFACT_PATH.read_text(encoding="utf-8"))
@@ -1968,22 +2017,27 @@ def test_cost_forecast_gate_rejects_a_conflict_schema_artifact(cost_forecast_gat
     ):
         pe._validate_cost_forecast_gate(
             binding, root=ctx["root"], protocol=ctx["protocol"],
-            role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
-            bundle=ctx["bundle"])
+            role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+            bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
 
 
 def test_cost_forecast_gate_rejects_stress_at_or_above_halt_cap(cost_forecast_gate_context):
-    # The real v2 transport (3 retries / 4 attempts, not v3's 2/3) does not clear the gate at
-    # real prices: this is the direct regression for "positive margin" -- the gate must reject a
-    # forecast whose own honestly-recomputed stress scenario does not remain strictly below
-    # halt_cap_usd, not just artifacts with the wrong schema shape.
+    # Real, frozen 2026-07-19 prices/role-limits-v3 genuinely clear the gate now (that's this
+    # task's whole point), so there is no longer a "real inputs" combination that fails to clear
+    # it the way v1's real 4-attempt transport did. This constructs an otherwise fully honest v2
+    # forecast against a synthetic, deliberately 10x-inflated price snapshot instead, proving the
+    # positive-margin requirement is still a live, price-sensitive gate, not a fixed pass.
     ctx = cost_forecast_gate_context
-    real_v2_path = ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
-    real_v2_payload = json.loads(real_v2_path.read_text(encoding="utf-8"))
+    expensive_snapshot = deepcopy(ctx["snapshot"])
+    for entry in expensive_snapshot["models"].values():
+        entry["input_usd_per_million_tokens"] = float(entry["input_usd_per_million_tokens"]) * 10
+        entry["output_usd_per_million_tokens"] = (
+            float(entry["output_usd_per_million_tokens"]) * 10)
     with pytest.raises(AssertionError, match="fixture prices must be cheap enough"):
-        _build_ready_forecast_payload(
-            root=ctx["root"], protocol=ctx["protocol"], role_limits_v2=real_v2_payload,
-            snapshot=ctx["snapshot"], bundle=ctx["bundle"])
+        _build_ready_forecast_payload_v2(
+            root=ctx["root"], protocol=ctx["protocol"], role_limits_v3=ctx["role_limits_v3"],
+            snapshot=expensive_snapshot, bundle=ctx["bundle"],
+            provider_refresh=ctx["provider_refresh"])
 
 
 def test_cost_forecast_gate_hash_drift_is_rejected(cost_forecast_gate_context):
@@ -1996,8 +2050,8 @@ def test_cost_forecast_gate_hash_drift_is_rejected(cost_forecast_gate_context):
     with pytest.raises(pe.ManifestValidationError, match="cost_forecast hash drift"):
         pe._validate_cost_forecast_gate(
             binding, root=ctx["root"], protocol=ctx["protocol"],
-            role_limits_v2_payload=ctx["role_limits_v2"], snapshot=ctx["snapshot"],
-            bundle=ctx["bundle"])
+            role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+            bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
 
 
 # --- storage_policy: the real schema -------------------------------------------------------------
@@ -2790,7 +2844,7 @@ def validated_manifest(baseline, synthetic_artifacts):
     # here too (a module-scoped fixture can't use the function-scoped `monkeypatch` fixture, so
     # this uses pytest.MonkeyPatch.context() directly).
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(pe.preflight_forecast, "validate_forecast", lambda *a, **k: None)
+        mp.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
         return pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 

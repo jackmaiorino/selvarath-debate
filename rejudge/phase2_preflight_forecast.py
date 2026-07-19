@@ -29,6 +29,7 @@ authority: ``execution_authorized`` is always exactly ``false``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
@@ -408,6 +409,69 @@ REQUIRED_CAVEAT_IDS: frozenset[str] = frozenset({
 })
 
 
+# --- v2 forecast: v3 role-limits + provider-refresh binding, a 3-attempt stress scenario, and a
+# --- new UTF-8 reservation-envelope disclosure. Additive over v1 exactly the way v2/v3 role-
+# --- limits are additive over v1 in ``phase2_role_limits.py``: every generic private helper
+# --- below (byte-reservation math, corpus section, tokenizer pins, per-model stats, scenario
+# --- Decimal arithmetic, caveats) is reused UNMODIFIED for v2 -- only what genuinely changes
+# --- (bindings, the retry-policy expectation, the stress-scenario's name, and the new
+# --- disclosures section) forks into v2-specific code. The v1 "ready"/"conflict" schemas
+# --- (SCHEMA_VERSION/ARTIFACT_ID/validate_forecast/validate_conflict_report) and the frozen,
+# --- historical 2026-07-18 conflict artifact are UNTOUCHED by any of this: SUPERSEDES_* below
+# --- only ever READS that file, to confirm it still matches its own frozen hash, and never
+# --- writes to it.
+SCHEMA_VERSION_V2 = "phase2_preflight_forecast_v2"
+ARTIFACT_ID_V2 = "phase2_preflight_forecast_2026-07-19"
+STATUS_V2 = STATUS  # the same frozen "ready" status string as v1
+
+DEFAULT_ARTIFACT_V2_PATH = Path(__file__).with_name("phase2_preflight_forecast_2026-07-19.json")
+DEFAULT_ROLE_LIMITS_V3_PATH = phase2_role_limits.DEFAULT_V3_ARTIFACT_PATH
+DEFAULT_ROLE_LIMITS_V2_FOR_V3_SUPERSEDES_PATH = phase2_role_limits.DEFAULT_V2_ARTIFACT_PATH
+DEFAULT_PROVIDER_REFRESH_PATH = Path(__file__).with_name("phase2_provider_refresh_2026-07-19.json")
+
+ATTEMPT_CEILING_STRESS_SCENARIO: str = "attempt_ceiling_stress"
+SCENARIO_NAMES_V2: tuple[str, ...] = (
+    "theoretical_minimum", "no_retry_maximum", "planning_retry_scenario",
+    ATTEMPT_CEILING_STRESS_SCENARIO,
+)
+
+EXPECTED_BINDING_PATHS_V2: dict[str, str] = {
+    "protocol": "rejudge/phase2_protocol.json",
+    "role_limits_v3": "rejudge/phase2_role_limits_v3_2026-07-19.json",
+    "price_snapshot": "rejudge/phase2_provider_price_snapshot_2026-07-18.json",
+    "prompt_bundle": "rejudge/phase2_prompt_bundle.json",
+    "provider_refresh": "rejudge/phase2_provider_refresh_2026-07-19.json",
+}
+BINDINGS_KEYS_V2: frozenset[str] = (
+    frozenset(EXPECTED_BINDING_PATHS_V2) | frozenset({"rendered_corpus"}))
+PROVIDER_REFRESH_RAW_TRACKED_PATH = "rejudge/phase2_provider_models_raw_2026-07-19.json"
+
+SUPERSEDED_ARTIFACT_TRACKED_PATH = "rejudge/phase2_preflight_forecast_conflict_2026-07-18.json"
+SUPERSEDES_CONFLICT_KEYS: frozenset[str] = frozenset({"tracked_path", "canonical_sha256", "note"})
+SUPERSEDES_CONFLICT_NOTE = (
+    "This artifact supersedes the frozen, historical conflict report at the tracked_path above; "
+    "that file is never edited -- it stays exactly as it was written on 2026-07-18, and this "
+    "note is the only place the supersession is recorded."
+)
+
+DISCLOSURES_KEYS: frozenset[str] = frozenset({"utf8_reservation_envelope_3_attempts"})
+RESERVATION_ENVELOPE_KEYS: frozenset[str] = frozenset(
+    {"formula", "attempts", "per_model", "total_usd", "relationship_to_halt_cap"})
+RESERVATION_ENVELOPE_PER_MODEL_KEYS: frozenset[str] = frozenset({"total_usd"})
+# Frozen literal, checked verbatim (matching this codebase's REASONING_CONTROL_NOTE /
+# PROMPT_BUNDLE_APPROVAL_NOTE / PROVIDER_REFRESH_VERDICT convention): a disposable root must
+# never be able to pair a scary-looking dollar figure with reassuring-but-false prose about what
+# happens when it is exceeded.
+FROZEN_RESERVATION_ENVELOPE_SENTENCE = (
+    "utf8_reservation_envelope_3_attempts is the reservation-cap envelope that halt_cap_usd "
+    "refuses rather than overspends: if the honestly-computed worst case reservation exceeds "
+    "the frozen ledger cap, the runtime accounting ledger halts the live run cleanly, short of "
+    "completing all 1,060 capability_qa cells -- it never overspends past the cap."
+)
+
+TOP_LEVEL_KEYS_V2: frozenset[str] = TOP_LEVEL_KEYS | frozenset({"disclosures", "supersedes"})
+
+
 # --- section validators ---------------------------------------------------------------------
 
 
@@ -748,9 +812,24 @@ def _validate_scenarios(
     section_raw: Any, *, per_model_stats: Mapping[str, Mapping[str, Any]],
     output_ceilings: Mapping[str, int], snapshot: Mapping[str, Any], max_attempts: int,
     byte_bound_stats_by_model: Mapping[str, dict[str, Any]],
+    stress_scenario_name: str = "four_attempt_stress",
+    include_byte_bound_stress_extra: bool = True,
 ) -> Decimal:
+    """Validate the four scenarios, fail-closed, and return the final derived scenario's total.
+
+    ``stress_scenario_name``/``include_byte_bound_stress_extra`` let v2 (:func:`validate_forecast_v2`)
+    reuse this exact same Decimal arithmetic and per-field checking for its differently-named,
+    differently-shaped ``attempt_ceiling_stress`` scenario (3 attempts, no embedded Qwen
+    byte-bound comparator -- that moves to the v2-only ``disclosures`` section) without
+    duplicating a single line of it; v1's defaults reproduce its original ``four_attempt_stress``
+    behavior exactly.
+    """
     section = _mapping(section_raw, "scenarios")
-    _exact_keys(section, SCENARIO_NAMES, "scenarios")
+    scenario_names = (
+        "theoretical_minimum", "no_retry_maximum", "planning_retry_scenario",
+        stress_scenario_name,
+    )
+    _exact_keys(section, scenario_names, "scenarios")
     calls_per_model = capability_corpus.EXPECTED_ENTRY_COUNT
 
     def per_model_total(model_id: str) -> int:
@@ -835,28 +914,30 @@ def _validate_scenarios(
     _validate_derived("planning_retry_scenario", PLANNING_RETRY_MULTIPLIER)
 
     stress_entry, stress_total = _validate_derived(
-        "four_attempt_stress", Decimal(max_attempts), FOUR_ATTEMPT_EXTRA_KEYS)
+        stress_scenario_name, Decimal(max_attempts),
+        FOUR_ATTEMPT_EXTRA_KEYS if include_byte_bound_stress_extra else frozenset())
 
-    qwen_id = next(iter(PROXY_TOKENIZER_MODEL_IDS))
-    qwen_input_price, qwen_output_price = _prices_for_model(snapshot, qwen_id)
-    qwen_byte_total = int(byte_bound_stats_by_model[qwen_id]["total"])
-    qwen_byte_component = compute_scenario_component(
-        total_input_tokens=qwen_byte_total, calls=calls_per_model,
-        output_tokens_per_call=output_ceilings[qwen_id],
-        input_price=qwen_input_price, output_price=qwen_output_price,
-    )
-    expected_byte_stress = Decimal(qwen_byte_component["total_usd"]) * Decimal(max_attempts)
-    observed_byte_stress = _decimal_string(
-        stress_entry.get("qwen_3_7_plus_byte_bound_stress_usd"),
-        "scenarios.four_attempt_stress.qwen_3_7_plus_byte_bound_stress_usd")
-    if observed_byte_stress != expected_byte_stress:
-        raise PreflightForecastError(
-            "scenarios.four_attempt_stress.qwen_3_7_plus_byte_bound_stress_usd disagrees with "
-            f"the recomputed value: observed {observed_byte_stress}, "
-            f"expected {expected_byte_stress}")
-    _non_empty_str(
-        stress_entry.get("qwen_3_7_plus_byte_bound_note"),
-        "scenarios.four_attempt_stress.qwen_3_7_plus_byte_bound_note")
+    if include_byte_bound_stress_extra:
+        qwen_id = next(iter(PROXY_TOKENIZER_MODEL_IDS))
+        qwen_input_price, qwen_output_price = _prices_for_model(snapshot, qwen_id)
+        qwen_byte_total = int(byte_bound_stats_by_model[qwen_id]["total"])
+        qwen_byte_component = compute_scenario_component(
+            total_input_tokens=qwen_byte_total, calls=calls_per_model,
+            output_tokens_per_call=output_ceilings[qwen_id],
+            input_price=qwen_input_price, output_price=qwen_output_price,
+        )
+        expected_byte_stress = Decimal(qwen_byte_component["total_usd"]) * Decimal(max_attempts)
+        observed_byte_stress = _decimal_string(
+            stress_entry.get("qwen_3_7_plus_byte_bound_stress_usd"),
+            f"scenarios.{stress_scenario_name}.qwen_3_7_plus_byte_bound_stress_usd")
+        if observed_byte_stress != expected_byte_stress:
+            raise PreflightForecastError(
+                f"scenarios.{stress_scenario_name}.qwen_3_7_plus_byte_bound_stress_usd disagrees "
+                f"with the recomputed value: observed {observed_byte_stress}, "
+                f"expected {expected_byte_stress}")
+        _non_empty_str(
+            stress_entry.get("qwen_3_7_plus_byte_bound_note"),
+            f"scenarios.{stress_scenario_name}.qwen_3_7_plus_byte_bound_note")
 
     return stress_total
 
@@ -876,6 +957,218 @@ def _validate_caveats(section_raw: Any) -> None:
     missing = REQUIRED_CAVEAT_IDS - seen_ids
     if missing:
         raise PreflightForecastError(f"caveats missing required entries: {sorted(missing)!r}")
+
+
+# --- v2-only section validators: provider-refresh binding, v3 bindings, the supersession -------
+# --- pointer to the frozen v1 conflict artifact, and the UTF-8 reservation-envelope disclosure -
+
+
+def _validate_provider_refresh_binding(
+    section_raw: Any, root: Path, provider_refresh: Mapping[str, Any],
+) -> None:
+    """Validate ``bindings.provider_refresh``: canonical-JSON hash of the whole refresh
+    artifact, PLUS an independent, fresh recompute of its own embedded
+    ``raw_response.file_sha256`` against the real raw catalog-response file on disk -- so the
+    chain from this forecast down to the actual bytes the provider's API returned is never
+    trusted at just one hop (mirrors ``phase2_role_limits._validate_approval_basis``'s raw-file
+    re-hash pattern)."""
+    section = _mapping(section_raw, "bindings.provider_refresh")
+    _exact_keys(section, ARTIFACT_BINDING_KEYS, "bindings.provider_refresh")
+    tracked_path = _non_empty_str(
+        section.get("tracked_path"), "bindings.provider_refresh.tracked_path")
+    if tracked_path != EXPECTED_BINDING_PATHS_V2["provider_refresh"]:
+        raise PreflightForecastError(
+            "bindings.provider_refresh.tracked_path must be exactly "
+            f"{EXPECTED_BINDING_PATHS_V2['provider_refresh']!r}, got {tracked_path!r}")
+    declared_sha = _sha256_hex(
+        section.get("canonical_sha256"), "bindings.provider_refresh.canonical_sha256")
+    observed_sha = phase2_plan.canonical_sha256(dict(provider_refresh))
+    if declared_sha != observed_sha:
+        raise PreflightForecastError(
+            "bindings.provider_refresh.canonical_sha256 disagrees with the loaded provider "
+            "refresh artifact")
+
+    raw_response = _mapping(
+        provider_refresh.get("raw_response"), "provider_refresh.raw_response")
+    raw_tracked_path = _non_empty_str(
+        raw_response.get("tracked_path"), "provider_refresh.raw_response.tracked_path")
+    if raw_tracked_path != PROVIDER_REFRESH_RAW_TRACKED_PATH:
+        raise PreflightForecastError(
+            "provider_refresh.raw_response.tracked_path must be exactly "
+            f"{PROVIDER_REFRESH_RAW_TRACKED_PATH!r}, got {raw_tracked_path!r}")
+    declared_raw_sha = _sha256_hex(
+        raw_response.get("file_sha256"), "provider_refresh.raw_response.file_sha256")
+    raw_path = Path(root) / raw_tracked_path
+    try:
+        raw_bytes = raw_path.read_bytes()
+    except OSError as exc:
+        raise PreflightForecastError(
+            f"provider_refresh raw response file is missing: {raw_path}: {exc}") from exc
+    observed_raw_sha = hashlib.sha256(raw_bytes).hexdigest()
+    if observed_raw_sha != declared_raw_sha:
+        raise PreflightForecastError(
+            "provider_refresh.raw_response.file_sha256 disagrees with the real raw response "
+            f"file on disk: bound {declared_raw_sha}, observed {observed_raw_sha}")
+
+
+def _validate_bindings_v2(
+    section_raw: Any, root: Path, protocol: Mapping[str, Any],
+    role_limits_v3: Mapping[str, Any], snapshot: Mapping[str, Any], bundle: Mapping[str, Any],
+    provider_refresh: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """The v2 sibling of :func:`_validate_bindings`: role_limits_v3 instead of role_limits_v2,
+    plus the new provider_refresh binding. protocol/price_snapshot/prompt_bundle/rendered_corpus
+    are checked identically (same tracked paths, same recomputation)."""
+    section = _mapping(section_raw, "bindings")
+    _exact_keys(section, BINDINGS_KEYS_V2, "bindings")
+
+    for key, label in (
+        ("protocol", "bindings.protocol"), ("role_limits_v3", "bindings.role_limits_v3"),
+        ("price_snapshot", "bindings.price_snapshot"), ("prompt_bundle", "bindings.prompt_bundle"),
+    ):
+        _validate_artifact_binding(
+            section.get(key), label, root, expected_tracked_path=EXPECTED_BINDING_PATHS_V2[key])
+
+    if _sha256_hex(
+        section["protocol"]["canonical_sha256"], "bindings.protocol.canonical_sha256"
+    ) != phase2_plan.canonical_sha256(protocol):
+        raise PreflightForecastError("bindings.protocol disagrees with the loaded protocol")
+    if _sha256_hex(
+        section["role_limits_v3"]["canonical_sha256"], "bindings.role_limits_v3.canonical_sha256"
+    ) != phase2_plan.canonical_sha256(role_limits_v3):
+        raise PreflightForecastError(
+            "bindings.role_limits_v3 disagrees with the loaded role-limits v3 artifact")
+    if _sha256_hex(
+        section["price_snapshot"]["canonical_sha256"], "bindings.price_snapshot.canonical_sha256"
+    ) != phase2_plan.canonical_sha256(snapshot):
+        raise PreflightForecastError(
+            "bindings.price_snapshot disagrees with the loaded price snapshot")
+    if _sha256_hex(
+        section["prompt_bundle"]["canonical_sha256"], "bindings.prompt_bundle.canonical_sha256"
+    ) != phase2_plan.canonical_sha256(bundle):
+        raise PreflightForecastError("bindings.prompt_bundle disagrees with the loaded bundle")
+
+    _validate_provider_refresh_binding(section.get("provider_refresh"), root, provider_refresh)
+
+    rendered_corpus = _mapping(section.get("rendered_corpus"), "bindings.rendered_corpus")
+    _exact_keys(rendered_corpus, RENDERED_CORPUS_BINDING_KEYS, "bindings.rendered_corpus")
+    declared_corpus_sha = _sha256_hex(
+        rendered_corpus.get("canonical_sha256"), "bindings.rendered_corpus.canonical_sha256")
+    declared_entry_count = _positive_int(
+        rendered_corpus.get("entry_count"), "bindings.rendered_corpus.entry_count")
+    if declared_entry_count != capability_corpus.EXPECTED_ENTRY_COUNT:
+        raise PreflightForecastError(
+            "bindings.rendered_corpus.entry_count disagrees with the frozen corpus size")
+
+    entries = capability_corpus.render_capability_corpus(bundle, protocol, root)
+    observed_corpus_sha = capability_corpus.corpus_canonical_sha256(entries)
+    if declared_corpus_sha != observed_corpus_sha:
+        raise PreflightForecastError(
+            "bindings.rendered_corpus.canonical_sha256 disagrees with the corpus freshly "
+            f"rendered from tracked sources: bound {declared_corpus_sha}, "
+            f"observed {observed_corpus_sha}")
+    return entries
+
+
+def _validate_supersedes_conflict_artifact(section_raw: Any, root: Path) -> None:
+    """Validate the ``supersedes`` pointer to the frozen, historical v1 conflict artifact.
+
+    Recomputes the canonical hash fresh from the real file on disk (never trusted from this
+    artifact alone) so this check doubles as proof the old artifact was never edited; the note
+    text is a frozen literal, checked verbatim.
+    """
+    section = _mapping(section_raw, "supersedes")
+    _exact_keys(section, SUPERSEDES_CONFLICT_KEYS, "supersedes")
+    tracked_path = section.get("tracked_path")
+    if tracked_path != SUPERSEDED_ARTIFACT_TRACKED_PATH:
+        raise PreflightForecastError(
+            f"supersedes.tracked_path must be exactly {SUPERSEDED_ARTIFACT_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_sha = _sha256_hex(section.get("canonical_sha256"), "supersedes.canonical_sha256")
+    conflict_path = Path(root) / tracked_path
+    try:
+        payload = json.loads(conflict_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise PreflightForecastError(
+            f"superseded conflict artifact is missing or unreadable: {conflict_path}: {exc}"
+        ) from exc
+    observed_sha = phase2_plan.canonical_sha256(payload)
+    if declared_sha != observed_sha:
+        raise PreflightForecastError(
+            "supersedes.canonical_sha256 disagrees with the real historical conflict artifact "
+            f"on disk (it must never be edited): bound {declared_sha}, observed {observed_sha}")
+    note = _non_empty_str(section.get("note"), "supersedes.note")
+    if note != SUPERSEDES_CONFLICT_NOTE:
+        raise PreflightForecastError("supersedes.note wording drifted from the frozen template")
+
+
+def _validate_disclosures(
+    section_raw: Any, *, per_model_byte_bound_stats: Mapping[str, Mapping[str, Any]],
+    output_ceilings: Mapping[str, int], snapshot: Mapping[str, Any], max_attempts: int,
+) -> None:
+    """Validate ``disclosures.utf8_reservation_envelope_3_attempts``, fail-closed.
+
+    Unlike every scenario in ``scenarios``, this prices EVERY model (not just the proxy-
+    tokenizer Qwen/Qwen3.7-Plus) from its own UTF-8 byte-reservation bound rather than its
+    counted input tokens: the worst-case reservation envelope the runtime ledger would refuse to
+    exceed, at the pinned ``max_attempts`` multiplier. ``relationship_to_halt_cap`` is a frozen
+    literal (``FROZEN_RESERVATION_ENVELOPE_SENTENCE``), checked verbatim.
+    """
+    section = _mapping(section_raw, "disclosures")
+    _exact_keys(section, DISCLOSURES_KEYS, "disclosures")
+    envelope = _mapping(
+        section.get("utf8_reservation_envelope_3_attempts"),
+        "disclosures.utf8_reservation_envelope_3_attempts")
+    _exact_keys(
+        envelope, RESERVATION_ENVELOPE_KEYS, "disclosures.utf8_reservation_envelope_3_attempts")
+    _non_empty_str(
+        envelope.get("formula"), "disclosures.utf8_reservation_envelope_3_attempts.formula")
+    declared_attempts = _positive_int(
+        envelope.get("attempts"), "disclosures.utf8_reservation_envelope_3_attempts.attempts")
+    if declared_attempts != max_attempts:
+        raise PreflightForecastError(
+            "disclosures.utf8_reservation_envelope_3_attempts.attempts disagrees with the "
+            "pinned retry_policy.max_attempts")
+
+    calls_per_model = capability_corpus.EXPECTED_ENTRY_COUNT
+    per_model_raw = _mapping(
+        envelope.get("per_model"), "disclosures.utf8_reservation_envelope_3_attempts.per_model")
+    _exact_keys(
+        per_model_raw, MODEL_IDS, "disclosures.utf8_reservation_envelope_3_attempts.per_model")
+    running_total = Decimal(0)
+    for model_id in MODEL_IDS:
+        label = f"disclosures.utf8_reservation_envelope_3_attempts.per_model.{model_id}"
+        model_entry = _mapping(per_model_raw[model_id], label)
+        _exact_keys(model_entry, RESERVATION_ENVELOPE_PER_MODEL_KEYS, label)
+        input_price, output_price = _prices_for_model(snapshot, model_id)
+        byte_total = int(per_model_byte_bound_stats[model_id]["total"])
+        component = compute_scenario_component(
+            total_input_tokens=byte_total, calls=calls_per_model,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        expected_value = Decimal(component["total_usd"]) * Decimal(max_attempts)
+        observed_value = _decimal_string(model_entry.get("total_usd"), f"{label}.total_usd")
+        if observed_value != expected_value:
+            raise PreflightForecastError(
+                f"{label}.total_usd disagrees with the recomputed value: "
+                f"observed {observed_value}, expected {expected_value}")
+        running_total += observed_value
+
+    declared_total = _decimal_string(
+        envelope.get("total_usd"), "disclosures.utf8_reservation_envelope_3_attempts.total_usd")
+    if declared_total != running_total:
+        raise PreflightForecastError(
+            "disclosures.utf8_reservation_envelope_3_attempts.total_usd disagrees with the "
+            "recomputed value")
+
+    relationship = _non_empty_str(
+        envelope.get("relationship_to_halt_cap"),
+        "disclosures.utf8_reservation_envelope_3_attempts.relationship_to_halt_cap")
+    if relationship != FROZEN_RESERVATION_ENVELOPE_SENTENCE:
+        raise PreflightForecastError(
+            "disclosures.utf8_reservation_envelope_3_attempts.relationship_to_halt_cap wording "
+            "drifted from the frozen sentence")
 
 
 # --- top-level validation ------------------------------------------------------------------------
@@ -899,10 +1192,19 @@ def _validate_caveats(section_raw: Any) -> None:
 
 def _validate_shared_body(
     artifact: Mapping[str, Any], *, root: Path,
-    protocol: Mapping[str, Any], role_limits_v2: Mapping[str, Any],
+    protocol: Mapping[str, Any], role_limits_artifact: Mapping[str, Any],
     snapshot: Mapping[str, Any], bundle: Mapping[str, Any],
+    validate_bindings=_validate_bindings,
+    stress_scenario_name: str = "four_attempt_stress",
+    include_byte_bound_stress_extra: bool = True,
 ) -> tuple[Decimal, Decimal]:
-    """Validate every section common to both artifact shapes; return (stress_total, halt_cap)."""
+    """Validate every section common to both artifact shapes; return (stress_total, halt_cap).
+
+    ``validate_bindings``/``stress_scenario_name``/``include_byte_bound_stress_extra`` default
+    to the exact v1 behavior (unchanged for every existing v1 caller); :func:`validate_forecast_v2`
+    is the only caller that overrides them, to reuse this whole function for its v3-role-limits
+    bindings and differently-named ``attempt_ceiling_stress`` scenario without duplicating it.
+    """
     timestamp = artifact.get("generated_at_utc")
     if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
         raise PreflightForecastError("generated_at_utc must be an explicit UTC timestamp")
@@ -913,8 +1215,8 @@ def _validate_shared_body(
     for name in DEPENDENCY_VERSIONS_KEYS:
         _non_empty_str(dependency_versions.get(name), f"dependency_versions.{name}")
 
-    entries = _validate_bindings(
-        artifact.get("bindings"), root, protocol, role_limits_v2, snapshot, bundle)
+    entries = validate_bindings(
+        artifact.get("bindings"), root, protocol, role_limits_artifact, snapshot, bundle)
     _validate_corpus_section(artifact.get("corpus"), protocol)
     proxy_per_prompt_by_model = _validate_tokenizer_pins(artifact.get("tokenizer_pins"))
 
@@ -954,8 +1256,8 @@ def _validate_shared_body(
                 "elementwise max of its two recorded proxy tokenizer series")
 
     output_ceilings = _validate_output_token_policy(
-        artifact.get("output_token_policy"), role_limits_v2, protocol)
-    max_attempts = _validate_retry_policy(artifact.get("retry_policy"), role_limits_v2)
+        artifact.get("output_token_policy"), role_limits_artifact, protocol)
+    max_attempts = _validate_retry_policy(artifact.get("retry_policy"), role_limits_artifact)
     _non_empty_str(
         artifact.get("replace_with_actuals_requirement"), "replace_with_actuals_requirement")
 
@@ -963,6 +1265,8 @@ def _validate_shared_body(
         artifact.get("scenarios"), per_model_stats=per_model_resolved,
         output_ceilings=output_ceilings, snapshot=snapshot, max_attempts=max_attempts,
         byte_bound_stats_by_model=byte_bound_stats_by_model,
+        stress_scenario_name=stress_scenario_name,
+        include_byte_bound_stress_extra=include_byte_bound_stress_extra,
     )
 
     capability_preflight = _mapping(
@@ -1010,7 +1314,7 @@ def validate_forecast(
         raise PreflightForecastError("execution_authorized must be exactly false")
 
     stress_total, halt_cap = _validate_shared_body(
-        artifact, root=root, protocol=protocol, role_limits_v2=role_limits_v2,
+        artifact, root=root, protocol=protocol, role_limits_artifact=role_limits_v2,
         snapshot=snapshot, bundle=bundle,
     )
     if stress_total >= halt_cap:
@@ -1051,7 +1355,7 @@ def validate_conflict_report(
         raise PreflightForecastError("execution_authorized must be exactly false")
 
     stress_total, halt_cap = _validate_shared_body(
-        artifact, root=root, protocol=protocol, role_limits_v2=role_limits_v2,
+        artifact, root=root, protocol=protocol, role_limits_artifact=role_limits_v2,
         snapshot=snapshot, bundle=bundle,
     )
     if stress_total < halt_cap:
@@ -1072,6 +1376,72 @@ def validate_conflict_report(
         raise PreflightForecastError("resolution.options must be a non-empty list")
     for index, option in enumerate(options):
         _non_empty_str(option, f"resolution.options[{index}]")
+
+
+def validate_forecast_v2(
+    artifact: Mapping[str, Any], *, root: str | Path,
+    protocol: Mapping[str, Any], role_limits_v3: Mapping[str, Any],
+    snapshot: Mapping[str, Any], bundle: Mapping[str, Any], provider_refresh: Mapping[str, Any],
+) -> None:
+    """Validate the v2 "ready" capability-preflight forecast artifact, fail-closed throughout.
+
+    The v3 sibling of :func:`validate_forecast`: bound to role-limits v3 (the 2-retry/3-attempt
+    pin) and the 2026-07-19 provider refresh instead of role-limits v2, gates the differently-
+    named ``attempt_ceiling_stress`` scenario (still strictly below ``halt_cap_usd``, with a
+    recorded positive margin) instead of ``four_attempt_stress``, additionally validates the new
+    ``disclosures.utf8_reservation_envelope_3_attempts`` section and the ``supersedes`` pointer
+    to the frozen, historical v1 conflict artifact, and reuses every other section validator
+    (corpus, tokenizer pins, per-model stats, byte-reservation math, caveats) via
+    :func:`_validate_shared_body` completely unmodified.
+    """
+    root = Path(root)
+    artifact = _mapping(artifact, "artifact")
+    _exact_keys(artifact, TOP_LEVEL_KEYS_V2, "artifact")
+
+    if artifact.get("schema_version") != SCHEMA_VERSION_V2:
+        raise PreflightForecastError("unsupported forecast schema_version")
+    if artifact.get("artifact_id") != ARTIFACT_ID_V2:
+        raise PreflightForecastError("forecast artifact_id drifted")
+    protocol_id = _non_empty_str(protocol.get("protocol_id"), "protocol protocol_id")
+    if artifact.get("protocol_id") != protocol_id:
+        raise PreflightForecastError("forecast protocol_id disagrees with the frozen protocol")
+    if artifact.get("status") != STATUS_V2:
+        raise PreflightForecastError("forecast status drifted")
+    if artifact.get("execution_authorized") is not False:
+        raise PreflightForecastError("execution_authorized must be exactly false")
+
+    def _bind_v2(section_raw, root_, protocol_, role_limits_v3_, snapshot_, bundle_):
+        return _validate_bindings_v2(
+            section_raw, root_, protocol_, role_limits_v3_, snapshot_, bundle_, provider_refresh)
+
+    stress_total, halt_cap = _validate_shared_body(
+        artifact, root=root, protocol=protocol, role_limits_artifact=role_limits_v3,
+        snapshot=snapshot, bundle=bundle, validate_bindings=_bind_v2,
+        stress_scenario_name=ATTEMPT_CEILING_STRESS_SCENARIO,
+        include_byte_bound_stress_extra=False,
+    )
+    if stress_total >= halt_cap:
+        raise PreflightForecastError(
+            f"{ATTEMPT_CEILING_STRESS_SCENARIO} total ({stress_total}) does not remain below "
+            f"halt_cap_usd ({halt_cap}); this artifact fails its own frozen readiness gate")
+
+    output_ceilings = _validate_output_token_policy(
+        artifact.get("output_token_policy"), role_limits_v3, protocol)
+    max_attempts = _validate_retry_policy(artifact.get("retry_policy"), role_limits_v3)
+    byte_bound_per_prompt = [
+        _positive_int(v, f"corpus_utf8_byte_reservation_bound_per_prompt[{i}]")
+        for i, v in enumerate(_list(
+            artifact.get("corpus_utf8_byte_reservation_bound_per_prompt"),
+            "corpus_utf8_byte_reservation_bound_per_prompt"))
+    ]
+    byte_bound_stats = compute_token_stats(byte_bound_per_prompt)
+    byte_bound_stats_by_model = {model_id: byte_bound_stats for model_id in MODEL_IDS}
+    _validate_disclosures(
+        artifact.get("disclosures"), per_model_byte_bound_stats=byte_bound_stats_by_model,
+        output_ceilings=output_ceilings, snapshot=snapshot, max_attempts=max_attempts,
+    )
+
+    _validate_supersedes_conflict_artifact(artifact.get("supersedes"), root)
 
 
 def load_and_validate(
@@ -1122,22 +1492,77 @@ def load_and_validate_conflict_report(
     return artifact
 
 
+def load_and_validate_v2(
+    artifact_path: str | Path = DEFAULT_ARTIFACT_V2_PATH,
+    protocol_path: str | Path = DEFAULT_PROTOCOL_PATH,
+    role_limits_v3_path: str | Path = DEFAULT_ROLE_LIMITS_V3_PATH,
+    role_limits_v2_path: str | Path = DEFAULT_ROLE_LIMITS_V2_FOR_V3_SUPERSEDES_PATH,
+    snapshot_path: str | Path = DEFAULT_SNAPSHOT_PATH,
+    bundle_path: str | Path = DEFAULT_BUNDLE_PATH,
+    provider_refresh_path: str | Path = DEFAULT_PROVIDER_REFRESH_PATH,
+    project_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Load and validate the v2 "ready" forecast: bound to role-limits v3 + the provider refresh.
+
+    ``role_limits_v3_path``'s OWN loader (:func:`phase2_role_limits.load_and_validate_v3`)
+    requires the real v2 role-limits artifact (``role_limits_v2_path``) to validate v3's
+    ``supersedes`` chain; that real v2 content is used ONLY for that supersedes check, never
+    bound into this forecast (this forecast's own ``bindings`` slot is role_limits_v3, not v2).
+    """
+    protocol_path = Path(protocol_path)
+    root = Path(project_root) if project_root is not None else protocol_path.resolve().parent.parent
+    protocol = phase2_plan.load_protocol(protocol_path)
+    role_limits_v3, _protocol, snapshot = phase2_role_limits.load_and_validate_v3(
+        role_limits_v3_path, protocol_path, snapshot_path, role_limits_v2_path,
+        project_root=root)
+    bundle, _protocol2 = phase2_prompt_bundle.load_and_validate(
+        bundle_path=bundle_path, protocol_path=protocol_path)
+    provider_refresh = _load_json(provider_refresh_path)
+    artifact = _load_json(artifact_path)
+    validate_forecast_v2(
+        artifact, root=root, protocol=protocol, role_limits_v3=role_limits_v3,
+        snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh,
+    )
+    return artifact
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument(
         "--conflict", action="store_true",
         help="validate the diagnostic conflict-report artifact instead of the ready forecast")
+    parser.add_argument(
+        "--v2", action="store_true",
+        help=(
+            "validate the v2 'ready' forecast (bound to role-limits v3 + the provider refresh) "
+            "instead of the v1 forecast"))
     parser.add_argument("--artifact", default=None)
     parser.add_argument("--protocol", default=str(DEFAULT_PROTOCOL_PATH))
     parser.add_argument("--role-limits-v2", default=str(DEFAULT_ROLE_LIMITS_V2_PATH))
     parser.add_argument("--role-limits-v1", default=str(DEFAULT_ROLE_LIMITS_V1_PATH))
+    parser.add_argument("--role-limits-v3", default=str(DEFAULT_ROLE_LIMITS_V3_PATH))
+    parser.add_argument("--provider-refresh", default=str(DEFAULT_PROVIDER_REFRESH_PATH))
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT_PATH))
     parser.add_argument("--bundle", default=str(DEFAULT_BUNDLE_PATH))
     parser.add_argument("--project-root", default=None)
     args = parser.parse_args(argv)
     if not args.check:
         parser.error("only --check is supported")
+    if args.v2:
+        if args.conflict:
+            parser.error("--v2 and --conflict are mutually exclusive")
+        artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_ARTIFACT_V2_PATH)
+        artifact = load_and_validate_v2(
+            artifact_path, args.protocol, args.role_limits_v3, args.role_limits_v2,
+            args.snapshot, args.bundle, args.provider_refresh, args.project_root,
+        )
+        print(
+            "verified frozen Phase 2 capability-preflight token/cost forecast v2 (role-limits "
+            f"v3 + provider refresh bound); canonical_sha256={phase2_plan.canonical_sha256(artifact)}; "
+            "execution_authorized=NO"
+        )
+        return 0
     if args.conflict:
         artifact_path = args.artifact if args.artifact is not None else str(
             DEFAULT_CONFLICT_ARTIFACT_PATH)
