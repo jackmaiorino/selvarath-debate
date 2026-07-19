@@ -1,0 +1,29 @@
+{
+  "schema_version": "phase2_standing_delegation_selfrestriction_v1",
+  "record_id": "standing_delegation_assistant_selfrestriction_2026-07-19",
+  "recorded_by": "the assistant operating under the owner's standing delegation",
+  "recorded_at_utc": "2026-07-19T13:55:00Z",
+  "relationship_to_authority": "This record is NOT an approval basis and must never be bound as one. Authority for relaunches flows exclusively from the owner-authored standing delegation at rejudge/phase2_standing_delegation_2026-07-19.json. This record only NARROWS how the assistant will exercise that delegation, adopting the oracle's consult #22 constraint list verbatim. Narrowing constraints bind the assistant; they cannot expand any authority.",
+  "constraints_adopted": [
+    "capability preflight only",
+    "one aggregate $15 cap across every attempt; fresh per-attempt ledgers never reset it",
+    "models, prompts, questions, seeds, sides, temperatures, token limits, parsing, scoring, and selection unchanged",
+    "transport-only diffs verified mechanically by the allowed-diff validators",
+    "SDK-internal retries fixed at zero; ledger attempts never increased above three",
+    "streaming may only expand, with all reasoning models required to stream",
+    "bounded timeout changes only",
+    "fresh execution identity and fresh ledger per attempt; immutable closures for every prior attempt",
+    "sequential execution; one exclusive live-run owner",
+    "successful cells always carried forward, never replayed",
+    "no-output ambiguous cells replaceable only after an immutable closure with worst-case accounting",
+    "automatic authority expires on scientific drift, price or model drift, cap exhaustion, stage completion, canary or main transition, five relaunches, or 2026-08-31, whichever comes first"
+  ],
+  "chains": {
+    "standing_delegation": {
+      "tracked_path": "rejudge/phase2_standing_delegation_2026-07-19.json"
+    },
+    "oracle_source": "Codex consult #22, 2026-07-19, thread 019f640d"
+  },
+  "execution_authorized": false,
+  "note": "A prior subagent correctly declined to seal scope-modifying text as part of the authority chain. This record resolves that concern by construction: it lives outside the chain, restricts only the assistant's own conduct, and any manifest binding it as an approval basis must fail validation."
+}

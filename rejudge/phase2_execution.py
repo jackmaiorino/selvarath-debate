@@ -27,9 +27,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
@@ -41,11 +43,18 @@ from rejudge import phase2_prompt_bundle as prompt_bundle
 from rejudge import phase2_provider_price_snapshot as price_snapshot
 from rejudge import phase2_resolvability_ai_review as ai_review
 from rejudge import phase2_role_limits as role_limits
+from rejudge import phase2_stage_family
 
 
 STAGE_CAPABILITY_PREFLIGHT = "capability_preflight"
 CAPABILITY_CALL_ROLE = "capability_qa"
 EXPECTED_CAPABILITY_CELL_COUNT = 1060
+# r3 (and any later attempt within the same stage-family): the manifest's OWN provider_call_
+# inventory excludes exactly the one carried-forward logical cell (the successful r2 Qwen call;
+# see phase2_stage_family.QWEN_PLANNING_CELL_KEY) -- it is durably complete already and must
+# never be re-issued -- while still including a REPLACEMENT call for the closed-ambiguous Gemma
+# cell. 1,060 planning cells minus that one carried-forward cell is 1,059 fresh provider calls.
+EXPECTED_PROVIDER_CALL_COUNT = EXPECTED_CAPABILITY_CELL_COUNT - 1
 
 DEFAULT_PROTOCOL_RELATIVE_PATH = Path("rejudge/phase2_protocol.json")
 DEFAULT_COMBINED_AI_AUDIT_RELATIVE_PATH = Path("rejudge/phase2_resolvability_ai_review.json")
@@ -216,6 +225,327 @@ def _validate_prior_attempt_closure_gate(binding: Any, *, root: Path) -> str:
     return observed_sha
 
 
+def _validate_r2_closure_binding(binding: Any, *, root: Path) -> tuple[str, dict[str, Any]]:
+    """Validate the pinned r2-closure entry of ``prior_attempt_closure``: schema + real content.
+
+    Pinned exactly to ``rejudge/phase2_preflight_r2_closure_2026-07-19.json`` (the manifest
+    cannot substitute a same-shaped artifact elsewhere). Structural/semantic validation is
+    delegated entirely to :func:`rejudge.phase2_stage_family.validate_r2_closure` -- the same
+    function that already validates this artifact's shape, frozen literal facts, and internal
+    consistency for the stand-alone stage-family checker -- rather than re-implementing any of
+    that here. Returns ``(observed_sha256, parsed_closure)``; the parsed payload is reused by
+    :func:`_validate_stage_family_provenance` for the carryforward/ledger cross-check so it is
+    never loaded twice.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="prior_attempt_closure[1]",
+        expected_relative_path=DEFAULT_R2_CLOSURE_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(f"prior_attempt_closure[1] (r2 closure) is missing: {resolved}")
+    closure = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(closure)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            "prior_attempt_closure[1] (r2 closure) hash drift: manifest bound "
+            f"{declared_sha}, observed {observed_sha}")
+    try:
+        phase2_stage_family.validate_r2_closure(closure)
+    except phase2_stage_family.StageFamilyError as exc:
+        raise ManifestValidationError(
+            f"prior_attempt_closure[1] (r2 closure) does not validate: {exc}") from exc
+    return observed_sha, closure
+
+
+def _validate_prior_attempt_closure_list_gate(
+    bindings: Any, *, root: Path,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    """Validate ``prior_attempt_closure`` as an ordered, exactly-2-entry list: r1 then r2.
+
+    A relaunch built after the r2 unknown-charge halt must bind BOTH closures that adjudicate
+    the stage-family's history so far -- the r1 SDK-argument-binding abort (unchanged validation:
+    :func:`_validate_prior_attempt_closure_gate`) and the r2 closed-ambiguous-charge resolution
+    (:func:`_validate_r2_closure_binding`) -- never merely the most recent one, so a future
+    validator/reader can always reconstruct the full attempt history from the manifest alone.
+    Returns ``(normalized bindings for the execution identity, the parsed r2 closure)``.
+    """
+    items = _list(bindings, "prior_attempt_closure")
+    if len(items) != 2:
+        raise ManifestValidationError(
+            "prior_attempt_closure must contain exactly 2 entries (the r1 abort closure "
+            f"followed by the r2 closure), found {len(items)}")
+    r1_binding, r2_binding = items
+    r1_sha = _validate_prior_attempt_closure_gate(r1_binding, root=root)
+    r2_sha, r2_closure = _validate_r2_closure_binding(r2_binding, root=root)
+    normalized = [
+        {"path": str(_mapping(r1_binding, "prior_attempt_closure[0]")["path"]), "sha256": r1_sha},
+        {"path": str(_mapping(r2_binding, "prior_attempt_closure[1]")["path"]), "sha256": r2_sha},
+    ]
+    return normalized, r2_closure
+
+
+def _validate_stage_family_provenance(
+    *, root: Path, carryforward_binding: Any, stage_family_ledger_binding: Any,
+    r2_closure: Mapping[str, Any], attempt_available_cap_usd: Decimal,
+) -> tuple[str, str]:
+    """Validate carryforward_artifact + stage_family_ledger_artifact as one consistent triple.
+
+    Pinned exactly to their one real, git-tracked locations. Structural/mutual-consistency
+    validation (with the ALREADY-validated ``r2_closure`` payload) is delegated entirely to
+    :func:`rejudge.phase2_stage_family.validate_stage_family`, never re-implemented here.
+    Additionally cross-checks the manifest's own ``attempt_available_cap_usd`` against the
+    ledger's ``r3_available_cap_usd`` EXACTLY (Decimal, never float): the manifest can never
+    claim more spending room than the stage-family ledger actually has left. Returns
+    ``(carryforward_observed_sha256, ledger_observed_sha256)``.
+    """
+    cf_resolved, cf_declared_sha = _resolve_pinned_artifact(
+        root, carryforward_binding, label="carryforward_artifact",
+        expected_relative_path=DEFAULT_CARRYFORWARD_RELATIVE_PATH)
+    if not cf_resolved.is_file():
+        raise ManifestValidationError(f"carryforward_artifact is missing: {cf_resolved}")
+    carryforward = _load_json_object(cf_resolved, ManifestValidationError)
+    cf_observed_sha = canonical_sha256(carryforward)
+    if cf_observed_sha != cf_declared_sha:
+        raise ManifestValidationError(
+            f"carryforward_artifact hash drift: manifest bound {cf_declared_sha}, observed "
+            f"{cf_observed_sha}")
+
+    ledger_resolved, ledger_declared_sha = _resolve_pinned_artifact(
+        root, stage_family_ledger_binding, label="stage_family_ledger_artifact",
+        expected_relative_path=DEFAULT_STAGE_FAMILY_LEDGER_RELATIVE_PATH)
+    if not ledger_resolved.is_file():
+        raise ManifestValidationError(
+            f"stage_family_ledger_artifact is missing: {ledger_resolved}")
+    ledger = _load_json_object(ledger_resolved, ManifestValidationError)
+    ledger_observed_sha = canonical_sha256(ledger)
+    if ledger_observed_sha != ledger_declared_sha:
+        raise ManifestValidationError(
+            "stage_family_ledger_artifact hash drift: manifest bound "
+            f"{ledger_declared_sha}, observed {ledger_observed_sha}")
+
+    try:
+        phase2_stage_family.validate_stage_family(r2_closure, carryforward, ledger)
+    except phase2_stage_family.StageFamilyError as exc:
+        raise ManifestValidationError(
+            "carryforward_artifact / stage_family_ledger_artifact / the bound r2 closure do "
+            f"not cross-validate as one consistent stage-family story: {exc}") from exc
+
+    ledger_r3_available = _decimal_usd_string(
+        ledger.get("r3_available_cap_usd"), "stage_family_ledger_artifact.r3_available_cap_usd")
+    if attempt_available_cap_usd != ledger_r3_available:
+        raise ManifestValidationError(
+            "attempt_available_cap_usd does not equal the bound stage-family ledger's "
+            f"r3_available_cap_usd exactly: manifest bound {attempt_available_cap_usd}, "
+            f"ledger states {ledger_r3_available}")
+
+    return cf_observed_sha, ledger_observed_sha
+
+
+def _validate_ceiling_correction_gate(binding: Any, *, root: Path) -> str:
+    """Validate the pinned ``ceiling_correction_artifact``: schema + the fixed, corrected ceiling.
+
+    Pinned exactly to ``rejudge/phase2_ceiling_correction_2026-07-19.json``: the append-only fix
+    for the 2026-07-19b provider-reconciliation snapshot's drifted ``cumulative_project_ceiling_
+    usd`` field (a same-day rebasing bug: 1709.25 instead of the correct, FIXED 1709.24 -- see
+    that artifact's own ``basis``). Requires the correction to name exactly that erroneous field
+    at exactly that erroneous artifact's tracked path, and to state exactly the corrected ceiling.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="ceiling_correction_artifact",
+        expected_relative_path=DEFAULT_CEILING_CORRECTION_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(f"ceiling_correction_artifact is missing: {resolved}")
+    correction = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(correction)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            f"ceiling_correction_artifact hash drift: manifest bound {declared_sha}, observed "
+            f"{observed_sha}")
+
+    _exact_keys(correction, CEILING_CORRECTION_TOP_LEVEL_KEYS, "ceiling_correction_artifact")
+    if correction.get("schema_version") != CEILING_CORRECTION_SCHEMA_VERSION:
+        raise ManifestValidationError("ceiling_correction_artifact schema_version drifted")
+
+    corrects = _mapping(correction.get("corrects"), "ceiling_correction_artifact.corrects")
+    _exact_keys(
+        corrects, CEILING_CORRECTION_CORRECTS_KEYS, "ceiling_correction_artifact.corrects")
+    if corrects.get("tracked_path") != CEILING_CORRECTION_CORRECTS_TRACKED_PATH:
+        raise ManifestValidationError(
+            "ceiling_correction_artifact.corrects.tracked_path must be exactly "
+            f"{CEILING_CORRECTION_CORRECTS_TRACKED_PATH!r}")
+    if corrects.get("erroneous_field") != CEILING_CORRECTION_CORRECTS_ERRONEOUS_FIELD:
+        raise ManifestValidationError(
+            "ceiling_correction_artifact.corrects.erroneous_field must be exactly "
+            f"{CEILING_CORRECTION_CORRECTS_ERRONEOUS_FIELD!r}")
+
+    correct_value = correction.get("correct_cumulative_project_ceiling_usd")
+    if isinstance(correct_value, bool) or not isinstance(correct_value, (int, float)):
+        raise ManifestValidationError(
+            "ceiling_correction_artifact.correct_cumulative_project_ceiling_usd must be a number")
+    if float(correct_value) != CORRECT_CUMULATIVE_PROJECT_CEILING_USD:
+        raise ManifestValidationError(
+            "ceiling_correction_artifact.correct_cumulative_project_ceiling_usd must be exactly "
+            f"{CORRECT_CUMULATIVE_PROJECT_CEILING_USD}, got {correct_value!r}")
+
+    if correction.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "ceiling_correction_artifact.execution_authorized must be exactly false")
+    _string(correction.get("basis"), "ceiling_correction_artifact.basis")
+    _string(correction.get("oracle_review"), "ceiling_correction_artifact.oracle_review")
+    _string(correction.get("note"), "ceiling_correction_artifact.note")
+    return observed_sha
+
+
+def _validate_standing_delegation_record(
+    path: Path, *, stage: str, stage_cap_usd: float, cumulative_cap_usd: float,
+) -> Mapping[str, Any]:
+    """Fully validate the owner's standing-delegation record's own literal content.
+
+    An ALTERNATIVE ``approval_basis`` to :func:`_validate_preflight_delegation_record`'s
+    original, per-relaunch preflight delegation (kept, unedited, for the historical r2
+    authorization record): the owner's broader 2026-07-19 standing approval for transport-only
+    capability-preflight relaunches and in-phase operational decisions. Never itself grants
+    execution authority (``execution_authorized`` is required to be literally ``false``); it
+    only establishes that the cited standing-delegation record is the real one, still says what
+    it always said, and actually covers this manifest's stage and both caps.
+    """
+    delegation = _load_strict_json_object(path, ExecutionAuthorityError)
+    _exact_keys(
+        delegation, STANDING_DELEGATION_TOP_LEVEL_KEYS, "standing delegation record",
+        ExecutionAuthorityError)
+
+    if delegation.get("schema_version") != STANDING_DELEGATION_SCHEMA_VERSION:
+        raise ExecutionAuthorityError("standing delegation record schema_version drifted")
+    if delegation.get("approver") != STANDING_DELEGATION_APPROVER:
+        raise ExecutionAuthorityError("standing delegation record approver drifted")
+    if delegation.get("exact_quote") != STANDING_DELEGATION_EXACT_QUOTE:
+        raise ExecutionAuthorityError("standing delegation record exact_quote drifted")
+    _string(
+        delegation.get("quote_context"), "standing delegation record quote_context",
+        ExecutionAuthorityError)
+    _parse_utc_timestamp(
+        delegation.get("approved_at_utc"), "standing delegation record approved_at_utc",
+        ExecutionAuthorityError)
+    if delegation.get("approved_at_utc") != STANDING_DELEGATION_APPROVED_AT_UTC:
+        raise ExecutionAuthorityError("standing delegation record approved_at_utc drifted")
+
+    scope = _mapping(
+        delegation.get("scope"), "standing delegation record scope", ExecutionAuthorityError)
+    _exact_keys(
+        scope, STANDING_DELEGATION_SCOPE_KEYS, "standing delegation record scope",
+        ExecutionAuthorityError)
+    granted = scope.get("granted")
+    if (not isinstance(granted, list) or not granted
+            or not all(isinstance(item, str) and item for item in granted)):
+        raise ExecutionAuthorityError(
+            "standing delegation record scope.granted must be a non-empty list of non-empty "
+            "strings")
+    if not any("transport" in item and "relaunch" in item for item in granted):
+        raise ExecutionAuthorityError(
+            "standing delegation record scope.granted must include the transport-only "
+            "relaunch grant")
+    scope_stage_cap = _finite_positive_number(
+        scope.get("stage_cap_usd"), "standing delegation record scope.stage_cap_usd",
+        ExecutionAuthorityError)
+    if scope_stage_cap != stage_cap_usd:
+        raise ExecutionAuthorityError(
+            "standing delegation record scope.stage_cap_usd does not match this manifest's "
+            f"stage cap: delegation covers {scope_stage_cap}, manifest is {stage_cap_usd}")
+    scope_cumulative_cap = _finite_positive_number(
+        scope.get("cumulative_cap_usd"), "standing delegation record scope.cumulative_cap_usd",
+        ExecutionAuthorityError)
+    if scope_cumulative_cap != cumulative_cap_usd:
+        raise ExecutionAuthorityError(
+            "standing delegation record scope.cumulative_cap_usd does not match this "
+            f"manifest's cumulative cap: delegation covers {scope_cumulative_cap}, manifest "
+            f"is {cumulative_cap_usd}")
+
+    still_requires = delegation.get("still_requires_explicit_owner_approval")
+    if not isinstance(still_requires, list) or not all(
+            isinstance(item, str) and item for item in still_requires):
+        raise ExecutionAuthorityError(
+            "standing delegation record still_requires_explicit_owner_approval must be a "
+            "non-empty list of non-empty strings")
+    joined = " ".join(still_requires)
+    if "canary" not in joined or "main" not in joined:
+        raise ExecutionAuthorityError(
+            "standing delegation record still_requires_explicit_owner_approval must mention "
+            "both canary and main")
+
+    chains = _mapping(
+        delegation.get("chains"), "standing delegation record chains", ExecutionAuthorityError)
+    if "original_delegation" not in chains:
+        raise ExecutionAuthorityError(
+            "standing delegation record chains.original_delegation is required")
+    if stage != STAGE_CAPABILITY_PREFLIGHT:
+        raise ExecutionAuthorityError(
+            "standing delegation record is only bound to cover the capability_preflight stage")
+
+    if delegation.get("execution_authorized") is not False:
+        raise ExecutionAuthorityError(
+            "standing delegation record execution_authorized must be exactly false: this "
+            "record grants no execution authority by itself")
+    _string(delegation.get("note"), "standing delegation record note", ExecutionAuthorityError)
+    return delegation
+
+
+# --- r3 STAGE-FAMILY BINDINGS: the 2026-07-19 r2-incident carryforward/ledger/ceiling triple ----
+#
+# REQUIRED for a relaunch attempt built after the r2 unknown-charge halt: a single $15 cap
+# applies across every capability_preflight attempt of every kind (see
+# ``rejudge.phase2_stage_family``'s own module docstring), so a fresh manifest can never simply
+# re-derive its own remaining budget from its own attempt alone -- it must bind the one
+# aggregate, append-only stage-family ledger, the carried-forward successful call it accounts
+# for, and the r2 closure that adjudicated the ambiguous call. Each of these three pinned
+# artifacts is validated both structurally (via :mod:`rejudge.phase2_stage_family`, the same
+# module that already validates their mutual cross-consistency) and, together with the r2 entry
+# in ``prior_attempt_closure``, cross-checked as one consistent stage-family story.
+DEFAULT_CARRYFORWARD_RELATIVE_PATH = Path(
+    "rejudge/phase2_preflight_carryforward_2026-07-19.json")
+DEFAULT_STAGE_FAMILY_LEDGER_RELATIVE_PATH = Path(
+    "rejudge/phase2_stage_family_ledger_2026-07-19.json")
+DEFAULT_R2_CLOSURE_RELATIVE_PATH = Path(
+    "rejudge/phase2_preflight_r2_closure_2026-07-19.json")
+
+# --- ceiling_correction: the append-only fix for the 2026-07-19b reconciliation's drifted
+# --- cumulative_project_ceiling_usd field (1709.25 -> the correct, fixed 1709.24) -------------
+DEFAULT_CEILING_CORRECTION_RELATIVE_PATH = Path(
+    "rejudge/phase2_ceiling_correction_2026-07-19.json")
+CEILING_CORRECTION_SCHEMA_VERSION = "phase2_ceiling_correction_v1"
+CEILING_CORRECTION_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "correction_id", "corrects", "correct_cumulative_project_ceiling_usd",
+    "basis", "oracle_review", "execution_authorized", "note",
+})
+CEILING_CORRECTION_CORRECTS_KEYS: frozenset[str] = frozenset({
+    "tracked_path", "erroneous_field", "erroneous_value",
+})
+CEILING_CORRECTION_CORRECTS_TRACKED_PATH = (
+    "rejudge/phase2_provider_reconciliation_2026-07-19b.json")
+CEILING_CORRECTION_CORRECTS_ERRONEOUS_FIELD = "cumulative_project_ceiling_usd"
+CORRECT_CUMULATIVE_PROJECT_CEILING_USD = 1709.24
+
+# --- STANDING DELEGATION: the owner's 2026-07-19 standing approval for transport-only ----------
+# --- relaunches and in-phase operational decisions, an ALTERNATIVE approval_basis to the -------
+# --- original per-relaunch preflight delegation record (kept, unedited, for the historical r2 --
+# --- authorization). Grants no execution authority by itself -- like every other delegation ----
+# --- record in this module, its own ``execution_authorized`` field is required to be literally -
+# --- ``false``; a manifest's authorization must still separately bind a resolvable, matching ---
+# --- authorization record the normal way. -------------------------------------------------------
+DEFAULT_STANDING_DELEGATION_RELATIVE_PATH = Path(
+    "rejudge/phase2_standing_delegation_2026-07-19.json")
+STANDING_DELEGATION_SCHEMA_VERSION = "phase2_standing_delegation_v1"
+STANDING_DELEGATION_APPROVER = "Jack Maiorino"
+STANDING_DELEGATION_EXACT_QUOTE = (
+    "Yes approved. You only need to ask for permission on next phase big decisions")
+STANDING_DELEGATION_APPROVED_AT_UTC = "2026-07-19T12:52:37Z"
+STANDING_DELEGATION_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "delegation_id", "approver", "exact_quote", "quote_context",
+    "approved_at_utc", "scope", "still_requires_explicit_owner_approval", "chains",
+    "execution_authorized", "note",
+})
+STANDING_DELEGATION_SCOPE_KEYS: frozenset[str] = frozenset({
+    "granted", "stage_cap_usd", "cumulative_cap_usd",
+})
+
 DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH = Path(
     "rejudge/phase2_provider_reconciliation_2026-07-19.json")
 PROVIDER_RECONCILIATION_SCHEMA_VERSION = "phase2_provider_reconciliation_v1"
@@ -330,6 +660,11 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "provider_refresh",
     "prior_attempt_closure",
     "implementation_provenance",
+    "carryforward_artifact",
+    "stage_family_ledger_artifact",
+    "ceiling_correction_artifact",
+    "attempt_available_cap_usd",
+    "expected_provider_call_count",
 })
 
 EXPECTED_CALL_ENTRY_KEYS: frozenset[str] = frozenset({
@@ -342,6 +677,31 @@ EXPECTED_CALL_ENTRY_KEYS: frozenset[str] = frozenset({
     "side",
     "request_fields_sha256",
 })
+# The exact one gemma replacement entry (see phase2_stage_family.GEMMA_PLANNING_CELL_KEY) carries
+# this marker, set to exactly ``True``; every other entry omits the key entirely (never carries
+# it set to ``False`` -- an explicit-false marker on an ordinary cell would itself be schema
+# drift, just like every other exact-key-set check in this module).
+CALL_ENTRY_REPLACEMENT_MARKER_KEY = "replacement_for_closed_ambiguous"
+CALL_ENTRY_OPTIONAL_KEYS: frozenset[str] = frozenset({CALL_ENTRY_REPLACEMENT_MARKER_KEY})
+
+_DECIMAL_USD_PATTERN = re.compile(r"^-?\d+\.\d{8}$")
+
+
+def _decimal_usd_string(
+    value: Any, label: str, error_cls: type[Phase2ExecutionError] | None = None,
+) -> Decimal:
+    """Require an exact 8-decimal-place USD string; never accept a JSON float or int.
+
+    Mirrors ``rejudge.phase2_stage_family``'s own ``_decimal_usd`` convention (this module
+    cannot import that helper directly: it is private to that module), so every dollar figure
+    that must agree EXACTLY (Decimal, not float) with a stage-family ledger figure is parsed the
+    same way on both sides of the comparison.
+    """
+    cls = error_cls or ManifestValidationError
+    if not isinstance(value, str) or not _DECIMAL_USD_PATTERN.match(value):
+        raise cls(
+            f"{label} must be a decimal string with exactly 8 fractional digits, got {value!r}")
+    return Decimal(value)
 
 ARTIFACT_BINDING_KEYS: frozenset[str] = frozenset({"path", "sha256"})
 LEDGER_KEYS: frozenset[str] = frozenset({"path", "ledger_identity"})
@@ -400,6 +760,7 @@ class ValidatedExecutionManifest:
     execution_identity_sha256: str
     stage_cap_usd: float
     cumulative_cap_usd: float
+    attempt_available_cap_usd: Decimal
     planning_cell_keys: tuple[str, ...]
     provider_call_inventory: tuple[Mapping[str, Any], ...]
     authorized: bool
@@ -426,6 +787,14 @@ def _mapping(
 ) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise error_cls(f"{label} must be an object")
+    return value
+
+
+def _list(
+    value: Any, label: str, error_cls: type[Phase2ExecutionError] = ManifestValidationError,
+) -> list[Any]:
+    if not isinstance(value, list):
+        raise error_cls(f"{label} must be an array")
     return value
 
 
@@ -650,8 +1019,12 @@ def build_execution_identity(
     storage_policy: Mapping[str, str],
     provider_reconciliation_evidence: Mapping[str, str],
     provider_refresh: Mapping[str, str],
-    prior_attempt_closure: Mapping[str, str],
+    prior_attempt_closure: Mapping[str, str] | Sequence[Mapping[str, str]],
     implementation_provenance: Mapping[str, str],
+    carryforward_artifact: Mapping[str, str] | None = None,
+    stage_family_ledger_artifact: Mapping[str, str] | None = None,
+    ceiling_correction_artifact: Mapping[str, str] | None = None,
+    attempt_available_cap_usd: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the execution-identity dict from already-verified pieces.
 
@@ -662,13 +1035,32 @@ def build_execution_identity(
     entries (each may or may not already carry ``execution_call_key``); this function strips
     that field for hashing so the inventory contribution to the identity never depends on
     values the identity itself is used to derive (non-circular).
+
+    ``prior_attempt_closure`` accepts EITHER shape a caller may hold: a single ``{"path",
+    "sha256"}`` mapping (the historical r1/r2-relaunch shape, still produced unchanged by
+    ``scripts/build_phase2_preflight_manifest.py``) or an ordered sequence of such mappings (the
+    r3-and-later stage-family shape: r1 abort closure, then r2 closure). Whichever shape is
+    passed is embedded byte-for-byte as-is; this keeps every historical identity this function
+    ever produced byte-reproducible without a caller-side branch.
+
+    The four ``carryforward_artifact``/``stage_family_ledger_artifact``/
+    ``ceiling_correction_artifact``/``attempt_available_cap_usd`` keyword arguments are OPTIONAL
+    and default to omitted-from-the-identity (not merely ``None``-valued): a caller that never
+    passes them (every historical r1/r2 caller) gets the exact same identity dict shape this
+    function has always produced, so ``execution_identity_sha256`` for those already-committed,
+    frozen manifests is never retroactively changed by this function gaining r3-only fields. A
+    caller building an r3-and-later manifest passes all four explicitly.
     """
     ordered_planning_keys = sorted(str(key) for key in planning_cell_keys)
     inventory_for_hash = [
         {key: value for key, value in entry.items() if key != "execution_call_key"}
         for entry in provider_call_inventory_entries
     ]
-    return {
+    if isinstance(prior_attempt_closure, Mapping):
+        prior_attempt_closure_for_identity: Any = dict(prior_attempt_closure)
+    else:
+        prior_attempt_closure_for_identity = [dict(item) for item in prior_attempt_closure]
+    identity: dict[str, Any] = {
         "schema_version": schema_version,
         "stage": stage,
         "protocol_canonical_sha256": protocol_canonical_sha256,
@@ -702,9 +1094,18 @@ def build_execution_identity(
         "storage_policy": dict(storage_policy),
         "provider_reconciliation_evidence": dict(provider_reconciliation_evidence),
         "provider_refresh": dict(provider_refresh),
-        "prior_attempt_closure": dict(prior_attempt_closure),
+        "prior_attempt_closure": prior_attempt_closure_for_identity,
         "implementation_provenance": dict(implementation_provenance),
     }
+    if carryforward_artifact is not None:
+        identity["carryforward_artifact"] = dict(carryforward_artifact)
+    if stage_family_ledger_artifact is not None:
+        identity["stage_family_ledger_artifact"] = dict(stage_family_ledger_artifact)
+    if ceiling_correction_artifact is not None:
+        identity["ceiling_correction_artifact"] = dict(ceiling_correction_artifact)
+    if attempt_available_cap_usd is not None:
+        identity["attempt_available_cap_usd"] = str(attempt_available_cap_usd)
+    return identity
 
 
 def derive_execution_identity_sha256(identity: Mapping[str, Any]) -> str:
@@ -1014,8 +1415,9 @@ def _validate_cost_forecast_gate(
     binding: Any, *, root: Path, protocol: Mapping[str, Any],
     role_limits_v4_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
     bundle: Mapping[str, Any], provider_refresh_payload: Mapping[str, Any],
+    role_limits_v5_payload: Mapping[str, Any] | None = None,
 ) -> str:
-    """Semantically validate the ``cost_forecast`` binding: the v3 READY forecast schema only.
+    """Semantically validate the ``cost_forecast`` binding: v3 or v4 READY forecast schemas only.
 
     Loads and recomputes the generic path/hash binding first (unchanged mechanism: the
     forecast's own tracked location stays manifest-controlled, not pinned), then parses it
@@ -1048,12 +1450,32 @@ def _validate_cost_forecast_gate(
     if observed_sha != sha_value:
         raise ManifestValidationError(
             f"cost_forecast hash drift: manifest bound {sha_value}, observed {observed_sha}")
+    # Schema dispatch: the historical r2-era v3 READY schema stays pinned to the real v4
+    # role-limits payload forever (its own bindings/retry checks read the pre-v5 transport
+    # shape); the r3-era v4 READY schema binds the merged slot's v5 payload. Anything else --
+    # v1/v2/conflict schemas, unknown versions -- fails closed identically.
+    schema_version = forecast_payload.get("schema_version")
     try:
-        preflight_forecast.validate_forecast_v3(
-            forecast_payload, root=root, protocol=protocol,
-            role_limits_v4=role_limits_v4_payload, snapshot=snapshot, bundle=bundle,
-            provider_refresh=provider_refresh_payload,
-        )
+        if schema_version == preflight_forecast.SCHEMA_VERSION_V3:
+            preflight_forecast.validate_forecast_v3(
+                forecast_payload, root=root, protocol=protocol,
+                role_limits_v4=role_limits_v4_payload, snapshot=snapshot, bundle=bundle,
+                provider_refresh=provider_refresh_payload,
+            )
+        elif schema_version == getattr(preflight_forecast, "SCHEMA_VERSION_V4", None):
+            if role_limits_v5_payload is None:
+                raise ManifestValidationError(
+                    "cost_forecast is a v4-schema forecast but no v5 role-limits payload was "
+                    "supplied to the gate")
+            preflight_forecast.validate_forecast_v4(
+                forecast_payload, root=root, protocol=protocol,
+                role_limits_v5=role_limits_v5_payload, snapshot=snapshot, bundle=bundle,
+                provider_refresh=provider_refresh_payload,
+            )
+        else:
+            raise ManifestValidationError(
+                "cost_forecast does not validate as a ready capability-preflight forecast: "
+                f"unsupported schema_version {schema_version!r}")
     except preflight_forecast.PreflightForecastError as exc:
         raise ManifestValidationError(
             f"cost_forecast does not validate as a ready capability-preflight forecast: "
@@ -1507,15 +1929,49 @@ def validate_execution_manifest(
     _validate_cost_forecast_gate(
         cost_forecast_binding, root=root, protocol=protocol,
         role_limits_v4_payload=v4_role_limits_payload, snapshot=snapshot, bundle=bundle,
-        provider_refresh_payload=provider_refresh_payload)
+        provider_refresh_payload=provider_refresh_payload,
+        role_limits_v5_payload=role_limits_payload)
     storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
     _validate_storage_policy_gate(storage_policy_binding, root=root)
     provider_reconciliation_evidence_binding = _mapping(
         manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
     _validate_provider_reconciliation_gate(provider_reconciliation_evidence_binding, root=root)
-    prior_attempt_closure_binding = _mapping(
-        manifest.get("prior_attempt_closure"), "prior_attempt_closure")
-    _validate_prior_attempt_closure_gate(prior_attempt_closure_binding, root=root)
+
+    # --- prior_attempt_closure: an ordered, exactly-2-entry list (r1 abort closure, r2 closure)
+    # --- for a relaunch built after the r2 unknown-charge halt -- required for every relaunch:
+    # --- binds this manifest to the SAME adjudications that closed both previous attempts. ---
+    prior_attempt_closure_raw = manifest.get("prior_attempt_closure")
+    _validated_prior_attempt_closure_bindings, r2_closure_payload = (
+        _validate_prior_attempt_closure_list_gate(prior_attempt_closure_raw, root=root))
+    # The execution identity folds in the manifest's OWN declared {"path", "sha256"} bindings
+    # (exactly like every other artifact binding below), never the gate's re-derived return
+    # value: the two always agree once the gate has passed (it fails closed on any hash drift),
+    # so this is a distinction without a difference in production, but it keeps every binding's
+    # contribution to the identity sourced the same, consistent way.
+    prior_attempt_closure_for_identity = [
+        {"path": str(_mapping(item, f"prior_attempt_closure[{index}]")["path"]),
+         "sha256": str(_mapping(item, f"prior_attempt_closure[{index}]")["sha256"])}
+        for index, item in enumerate(_list(prior_attempt_closure_raw, "prior_attempt_closure"))
+    ]
+
+    # --- r3 STAGE-FAMILY BINDINGS: the aggregate stage-family ledger, the carried-forward
+    # --- successful Qwen call, and the append-only ceiling correction -- see the constants'
+    # --- own module-header note for why a fresh manifest can never re-derive its own remaining
+    # --- budget from its own attempt alone. attempt_available_cap_usd is parsed here (a
+    # --- structural, always-required Decimal-string check) so it is ready for the cross-check
+    # --- inside _validate_stage_family_provenance below. ---
+    attempt_available_cap_usd = _decimal_usd_string(
+        manifest.get("attempt_available_cap_usd"), "attempt_available_cap_usd")
+    carryforward_binding = _mapping(manifest.get("carryforward_artifact"), "carryforward_artifact")
+    stage_family_ledger_binding = _mapping(
+        manifest.get("stage_family_ledger_artifact"), "stage_family_ledger_artifact")
+    _validate_stage_family_provenance(
+        root=root, carryforward_binding=carryforward_binding,
+        stage_family_ledger_binding=stage_family_ledger_binding, r2_closure=r2_closure_payload,
+        attempt_available_cap_usd=attempt_available_cap_usd)
+    ceiling_correction_binding = _mapping(
+        manifest.get("ceiling_correction_artifact"), "ceiling_correction_artifact")
+    _validate_ceiling_correction_gate(ceiling_correction_binding, root=root)
 
     # --- CODE-PROVENANCE BINDING: recomputed fresh from the real files on disk ---
     implementation_provenance_binding = _mapping(
@@ -1596,22 +2052,51 @@ def validate_execution_manifest(
             "planning_cell_keys does not match the frozen capability_qa cell inventory")
     ordered_planning_keys = sorted(str(key) for key in manifest_planning_keys)
 
+    # --- expected_provider_call_count: a manifest-declared, self-consistency-checked count ---
+    expected_provider_call_count = manifest.get("expected_provider_call_count")
+    if (isinstance(expected_provider_call_count, bool)
+            or not isinstance(expected_provider_call_count, int)
+            or expected_provider_call_count != EXPECTED_PROVIDER_CALL_COUNT):
+        raise ManifestValidationError(
+            f"expected_provider_call_count must be exactly {EXPECTED_PROVIDER_CALL_COUNT}, got "
+            f"{expected_provider_call_count!r}")
+
+    # --- the one carried-forward planning cell (never re-issued) and the one replacement ---
+    # --- planning cell (the closed-ambiguous Gemma cell) -- both named by the ALREADY- ---
+    # --- validated carryforward/r2-closure artifacts, never re-derived or hardcoded here. ---
+    carried_forward_planning_cell_key = phase2_stage_family.QWEN_PLANNING_CELL_KEY
+    replacement_planning_cell_key = phase2_stage_family.GEMMA_PLANNING_CELL_KEY
+    if carried_forward_planning_cell_key not in cells_by_key:
+        raise ManifestValidationError(
+            "the carried-forward planning cell key bound by carryforward_artifact does not "
+            "reference a known capability_qa planning cell")
+    if replacement_planning_cell_key not in cells_by_key:
+        raise ManifestValidationError(
+            "the replacement planning cell key bound by the r2 closure does not reference a "
+            "known capability_qa planning cell")
+    expected_provider_call_planning_keys = (
+        set(expected_planning_keys) - {carried_forward_planning_cell_key})
+
     # --- provider-call inventory: structure, uniqueness, and cross-checks against cells ---
     raw_entries = manifest.get("provider_call_inventory")
     if not isinstance(raw_entries, list):
         raise ManifestValidationError("provider_call_inventory must be a list")
-    if len(raw_entries) != EXPECTED_CAPABILITY_CELL_COUNT:
+    if len(raw_entries) != EXPECTED_PROVIDER_CALL_COUNT:
         raise ManifestValidationError(
-            f"provider_call_inventory must contain exactly {EXPECTED_CAPABILITY_CELL_COUNT} "
+            f"provider_call_inventory must contain exactly {EXPECTED_PROVIDER_CALL_COUNT} "
             f"calls, found {len(raw_entries)}")
 
     seen_planning_keys: set[str] = set()
     seen_call_keys: set[str] = set()
+    replacement_entries_seen: list[str] = []
     normalized_entries: list[dict[str, Any]] = []
     for index, raw_entry in enumerate(raw_entries):
         label = f"provider_call_inventory[{index}]"
         entry = _mapping(raw_entry, label)
-        _exact_keys(entry, EXPECTED_CALL_ENTRY_KEYS, label)
+        entry_keys = set(entry)
+        if (entry_keys != EXPECTED_CALL_ENTRY_KEYS
+                and entry_keys != EXPECTED_CALL_ENTRY_KEYS | CALL_ENTRY_OPTIONAL_KEYS):
+            raise ManifestValidationError(f"{label} fields drifted")
 
         if entry.get("call_role") != CAPABILITY_CALL_ROLE:
             raise ManifestValidationError(f"{label}.call_role must be {CAPABILITY_CALL_ROLE!r}")
@@ -1623,11 +2108,27 @@ def validate_execution_manifest(
         if not isinstance(planning_cell_key, str) or planning_cell_key not in cells_by_key:
             raise ManifestValidationError(
                 f"{label} does not reference a known capability_qa planning cell")
+        if planning_cell_key == carried_forward_planning_cell_key:
+            raise ManifestValidationError(
+                f"{label} references the carried-forward planning cell "
+                f"{carried_forward_planning_cell_key!r}, which must never be re-issued")
         if planning_cell_key in seen_planning_keys:
             raise ManifestValidationError(
                 f"duplicate planning cell in provider_call_inventory: {planning_cell_key!r}")
         seen_planning_keys.add(planning_cell_key)
         cell = cells_by_key[planning_cell_key]
+
+        if CALL_ENTRY_REPLACEMENT_MARKER_KEY in entry:
+            if entry.get(CALL_ENTRY_REPLACEMENT_MARKER_KEY) is not True:
+                raise ManifestValidationError(
+                    f"{label}.{CALL_ENTRY_REPLACEMENT_MARKER_KEY} must be exactly true when "
+                    "present")
+            if planning_cell_key != replacement_planning_cell_key:
+                raise ManifestValidationError(
+                    f"{label} carries {CALL_ENTRY_REPLACEMENT_MARKER_KEY}=true but its planning "
+                    f"cell is not the one named by the r2 closure as the closed-ambiguous "
+                    f"cell's replacement ({replacement_planning_cell_key!r})")
+            replacement_entries_seen.append(planning_cell_key)
 
         if entry.get("model") != cell["judge_model"]:
             raise ManifestValidationError(f"{label}.model disagrees with its planning cell")
@@ -1647,6 +2148,21 @@ def validate_execution_manifest(
                 f"{execution_call_key!r}")
         seen_call_keys.add(execution_call_key)
         normalized_entries.append(dict(entry))
+
+    if seen_planning_keys != expected_provider_call_planning_keys:
+        raise ManifestValidationError(
+            "provider_call_inventory does not cover exactly every capability_qa planning cell "
+            "except the one carried-forward cell (the bound carryforward_artifact's own call)")
+    if replacement_planning_cell_key not in replacement_entries_seen:
+        raise ManifestValidationError(
+            f"provider_call_inventory is missing the required replacement entry for planning "
+            f"cell {replacement_planning_cell_key!r} (marked "
+            f"{CALL_ENTRY_REPLACEMENT_MARKER_KEY}=true), the bound r2 closure's closed-ambiguous "
+            "Gemma cell")
+    if len(replacement_entries_seen) != 1:
+        raise ManifestValidationError(
+            f"provider_call_inventory carries {CALL_ENTRY_REPLACEMENT_MARKER_KEY}=true on "
+            f"{len(replacement_entries_seen)} entries, expected exactly 1")
 
     # --- immutable stage cap and cumulative cap ---
     stage_cap_usd = _finite_positive_number(manifest.get("stage_cap_usd"), "stage_cap_usd")
@@ -1709,11 +2225,21 @@ def validate_execution_manifest(
             "path": str(provider_refresh_binding["path"]),
             "sha256": str(provider_refresh_binding["sha256"]),
         },
-        prior_attempt_closure={
-            "path": str(prior_attempt_closure_binding["path"]),
-            "sha256": str(prior_attempt_closure_binding["sha256"]),
-        },
+        prior_attempt_closure=prior_attempt_closure_for_identity,
         implementation_provenance=validated_implementation_provenance,
+        carryforward_artifact={
+            "path": str(carryforward_binding["path"]),
+            "sha256": str(carryforward_binding["sha256"]),
+        },
+        stage_family_ledger_artifact={
+            "path": str(stage_family_ledger_binding["path"]),
+            "sha256": str(stage_family_ledger_binding["sha256"]),
+        },
+        ceiling_correction_artifact={
+            "path": str(ceiling_correction_binding["path"]),
+            "sha256": str(ceiling_correction_binding["sha256"]),
+        },
+        attempt_available_cap_usd=str(attempt_available_cap_usd),
     )
     execution_identity_sha256 = derive_execution_identity_sha256(identity)
 
@@ -1790,19 +2316,30 @@ def validate_execution_manifest(
 
         # --- PINNED delegation approval basis: unlike the older, resolvable-from-anywhere ---
         # --- approval_basis pattern, this authorization's approval_basis_tracked_path must ---
-        # --- resolve EXACTLY to the one frozen, git-tracked 2026-07-19 preflight delegation ---
-        # --- record (like the prompt-bundle approval pin above). Deliberately RAW file ---
-        # --- hashing (the delegation record's raw bytes), never canonical-JSON. ---
+        # --- resolve EXACTLY to EITHER the one frozen, git-tracked 2026-07-19 preflight ---
+        # --- delegation record (kept, unedited, for the historical r2 authorization) OR the ---
+        # --- owner's broader 2026-07-19 standing delegation (transport-only relaunches plus ---
+        # --- in-phase operational decisions) -- never any other, unpinned path. Deliberately ---
+        # --- RAW file hashing (the delegation record's raw bytes), never canonical-JSON. ---
         approval_basis_path = _resolve_bound_path(
             root, approval_basis_tracked_path, "authorization.approval_basis_tracked_path",
             ExecutionAuthorityError,
         )
         expected_delegation_path = (root / DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH).resolve()
-        if approval_basis_path.resolve() != expected_delegation_path:
+        expected_standing_delegation_path = (
+            root / DEFAULT_STANDING_DELEGATION_RELATIVE_PATH).resolve()
+        resolved_approval_basis_path = approval_basis_path.resolve()
+        if resolved_approval_basis_path == expected_delegation_path:
+            approval_basis_kind = "original"
+        elif resolved_approval_basis_path == expected_standing_delegation_path:
+            approval_basis_kind = "standing"
+        else:
             raise ExecutionAuthorityError(
-                "authorization.approval_basis_tracked_path must resolve to the frozen, "
+                "authorization.approval_basis_tracked_path must resolve to either the frozen, "
                 "git-tracked preflight delegation record at "
-                f"{DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH.as_posix()!r} under project_root; "
+                f"{DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH.as_posix()!r} or the frozen "
+                "standing delegation record at "
+                f"{DEFAULT_STANDING_DELEGATION_RELATIVE_PATH.as_posix()!r} under project_root; "
                 f"got {approval_basis_tracked_path!r}")
         if not approval_basis_path.is_file():
             raise ExecutionAuthorityError(
@@ -1815,20 +2352,36 @@ def validate_execution_manifest(
                 "authorization.approval_basis_sha256 hash drift: authorization bound "
                 f"{approval_basis_sha256}, observed {observed_approval_basis_sha256}")
 
-        # --- the delegation record's own literal content: approver, exact quote, scope, ---
-        # --- exclusions, and its own execution_authorized=false invariant. ---
-        _validate_preflight_delegation_record(
-            approval_basis_path, stage=stage, stage_cap_usd=auth_stage_cap)
-
-        if auth_approver != PREFLIGHT_DELEGATION_APPROVER:
-            raise ExecutionAuthorityError(
-                f"authorization.approver must be exactly {PREFLIGHT_DELEGATION_APPROVER!r}, "
-                f"got {auth_approver!r}")
-        if authorization_mapping.get("approved_at_utc") != PREFLIGHT_DELEGATION_APPROVED_AT_UTC:
-            raise ExecutionAuthorityError(
-                "authorization.approved_at_utc must equal the cited delegation's own "
-                f"approved_at_utc ({PREFLIGHT_DELEGATION_APPROVED_AT_UTC!r}); got "
-                f"{authorization_mapping.get('approved_at_utc')!r}")
+        # --- the cited delegation record's own literal content: approver, exact quote, scope, ---
+        # --- exclusions/still-requires, and its own execution_authorized=false invariant. No ---
+        # --- reauthorization_pending concept exists for either basis: AUTHORIZATION_KEYS is an ---
+        # --- exact key set (see the _exact_keys check above), so any such extra marker key ---
+        # --- already fails closed there before this branch is even reached. ---
+        if approval_basis_kind == "original":
+            _validate_preflight_delegation_record(
+                approval_basis_path, stage=stage, stage_cap_usd=auth_stage_cap)
+            if auth_approver != PREFLIGHT_DELEGATION_APPROVER:
+                raise ExecutionAuthorityError(
+                    f"authorization.approver must be exactly {PREFLIGHT_DELEGATION_APPROVER!r}, "
+                    f"got {auth_approver!r}")
+            if authorization_mapping.get("approved_at_utc") != PREFLIGHT_DELEGATION_APPROVED_AT_UTC:
+                raise ExecutionAuthorityError(
+                    "authorization.approved_at_utc must equal the cited delegation's own "
+                    f"approved_at_utc ({PREFLIGHT_DELEGATION_APPROVED_AT_UTC!r}); got "
+                    f"{authorization_mapping.get('approved_at_utc')!r}")
+        else:
+            _validate_standing_delegation_record(
+                approval_basis_path, stage=stage, stage_cap_usd=auth_stage_cap,
+                cumulative_cap_usd=auth_cumulative_cap)
+            if auth_approver != STANDING_DELEGATION_APPROVER:
+                raise ExecutionAuthorityError(
+                    f"authorization.approver must be exactly {STANDING_DELEGATION_APPROVER!r}, "
+                    f"got {auth_approver!r}")
+            if authorization_mapping.get("approved_at_utc") != STANDING_DELEGATION_APPROVED_AT_UTC:
+                raise ExecutionAuthorityError(
+                    "authorization.approved_at_utc must equal the cited standing delegation's "
+                    f"own approved_at_utc ({STANDING_DELEGATION_APPROVED_AT_UTC!r}); got "
+                    f"{authorization_mapping.get('approved_at_utc')!r}")
 
         authorized = True
         validated_authorization = dict(authorization_mapping)
@@ -1840,6 +2393,7 @@ def validate_execution_manifest(
         execution_identity_sha256=execution_identity_sha256,
         stage_cap_usd=stage_cap_usd,
         cumulative_cap_usd=cumulative_cap_usd,
+        attempt_available_cap_usd=attempt_available_cap_usd,
         planning_cell_keys=tuple(ordered_planning_keys),
         provider_call_inventory=tuple(finalized_entries),
         authorized=authorized,
