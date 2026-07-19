@@ -1,0 +1,29 @@
+{
+  "schema_version": "phase2_checker_label_split_v1",
+  "rule": "sha256(item_id) hex ordering; first 20 = overlap labeled by both; remaining 180 alternate by parity (even Jack, odd Joey); presentation order stays the frozen set order",
+  "overlap_item_ids": [
+    "0062707833ae8328",
+    "05186579d29f71fb",
+    "1f3a6b0590a3abd6",
+    "2270997d96d28f79",
+    "3051c04eddfa1e0a",
+    "3350089ca12c495d",
+    "3f207b552fb8e03b",
+    "516a6ea4ecdcc207",
+    "5b37d7a4cd48b2cd",
+    "6eb99982f5bc86e9",
+    "7004881be5ec8db6",
+    "87c855defd026fef",
+    "96496a8fa6550b3f",
+    "a2193aa76c6e7a48",
+    "ac7db54e6085038a",
+    "bc2710b1cbdc6a74",
+    "bcda92a94429762e",
+    "c01734e154de3518",
+    "f18d036796abea97",
+    "faf4d3b4992dd4e9"
+  ],
+  "jack_item_count": 110,
+  "joey_item_count": 110,
+  "overlap_count": 20
+}

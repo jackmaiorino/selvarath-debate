@@ -1,0 +1,21 @@
+{
+  "schema_version": "phase2_checker_design_amendment_v1",
+  "amendment_id": "checker_labeling_two_labeler_split_2026-07-19",
+  "status": "approved_pending_oracle_posthoc_review",
+  "amends": {
+    "tracked_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+    "amended_provision": "labeler: single primary validator (Jack Maiorino) labels all 200 primary items"
+  },
+  "amended_to": "Two named human labelers split the primary set: Jack Maiorino (110 items) and Joey Marcellino (110 items), sharing a deterministic 20-item overlap block labeled independently by both. Inter-rater agreement on the overlap is computed and reported (an upgrade over the single-owner design: it quantifies label reliability, mirroring the mechanism-audit's two-blind-pass precedent). Overlap disagreements are adjudicated by Jack Maiorino as primary validator, with the disagreement and adjudication recorded per item. The frozen label minimums (100 allow / 60 reject / 20 unresolved) and reserve-draw rule apply to the merged 200-item set unchanged.",
+  "split_rule_record": "rejudge/phase2_checker_label_split_2026-07-19.json",
+  "rationale": "All labels remain fully human; no model suggestions are shown to either labeler; the anti-anchoring suppression of synthetic/boundary metadata is preserved in both tools. The change reduces per-person burden while strictly adding information (inter-rater agreement).",
+  "owner_approval": {
+    "approver": "Jack Maiorino",
+    "approved_at_utc": "2026-07-19T23:45:00Z",
+    "approval_channel": "direct chat request ('Can you split it for joey to label half and ill do the other half?') and confirmation of the overlap design in the same exchange"
+  },
+  "oracle_review": "Codex unavailable until 2026-07-24 (usage limit); post-hoc review REQUIRED and scheduled before the merged labels are consumed by checker-candidate selection; consumption is blocked until that review passes",
+  "second_labeler_note": "Joey Marcellino also fills the design's previously-null second-human slot; the accepted_query_auditor assignment for live-run audits remains open",
+  "execution_authorized": false,
+  "note": "Append-only amendment; the original design file is never rewritten."
+}
