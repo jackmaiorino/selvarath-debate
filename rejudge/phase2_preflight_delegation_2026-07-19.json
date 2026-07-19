@@ -1,0 +1,29 @@
+{
+  "schema_version": "phase2_preflight_delegation_v1",
+  "delegation_id": "capability_preflight_delegation_2026-07-19",
+  "approver": "Jack Maiorino",
+  "exact_quote": "you have approval for the rest",
+  "quote_context": "Direct chat reply to the assistant's enumerated remaining preflight sequence: (1) post-Gemma dashboard figures, (2) checker amendment re-freeze, (3) forecast resolution choice, (4) timestamped provider re-verification, (5) execution manifest assembly, (6) binding approval of the execution-identity hash, (7) live capability-preflight run. Items (1) and (2) were separately satisfied in the same message.",
+  "approved_at_utc": "2026-07-19T00:51:42Z",
+  "approved_at_basis": "recording-time bound: the chat message arrived minutes before this timestamp was captured; no earlier machine timestamp exists for the chat channel",
+  "recorded_at_utc": "2026-07-19T00:51:42Z",
+  "scope": {
+    "stage": "capability_preflight",
+    "delegation": "deterministic execution authorization once every frozen predicate validates",
+    "stage_cap_usd": 15,
+    "forecast_resolution_choice": "delegated; the self-contained retry-pin reduction (max_attempts 4 to 3, append-only role-limits v3) selected because the alternative requires the owner's own HuggingFace account action",
+    "predicates": [
+      "base protocol, A1 amendment, combined AI audit, and question banks validate and hash-match",
+      "prompt bundle validates with its owner methods-approval artifact at the pinned path",
+      "role-limits v3 validates and supersedes v2 by hash chain",
+      "green preflight forecast validates ready with attempt-ceiling stress below the stage cap and binds v3 and the provider refresh",
+      "timestamped authenticated provider refresh confirms all five roster models present with prices not above frozen values",
+      "storage policy validates and the archive destination is writable",
+      "provider reconciliation of 2026-07-19 is bound and the Gemma prerequisite closure artifact validates",
+      "execution manifest validates with require_authorized=True against the authorization record citing this delegation"
+    ]
+  },
+  "exclusions": "This delegation does NOT extend to canary spend, main-run spend, or any cap increase; those remain approved in principle only and require separate explicit owner authorization bound to their own manifests.",
+  "execution_authorized": false,
+  "note": "Immutable delegation-basis record. It grants no execution authority by itself; authority arises only through an execution manifest plus an authorization record binding this artifact's path and hash."
+}

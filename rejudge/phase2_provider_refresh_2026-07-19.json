@@ -1,0 +1,25 @@
+{
+  "schema_version": "phase2_provider_refresh_v1",
+  "provider": "Together AI",
+  "verified_at_utc": "2026-07-19T01:04:48Z",
+  "method": "authenticated zero-cost GET https://api.together.xyz/v1/models (HTTP 200, 272 models returned)",
+  "raw_response": {
+    "tracked_path": "rejudge/phase2_provider_models_raw_2026-07-19.json",
+    "file_sha256": "0428afd7d4e068cf6490bd143f7257c01a42af7e53b017b484552b18d96a1c6c"
+  },
+  "roster_verification": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {"present": true, "context_length": 32768, "input_usd_per_million_tokens": 0.3, "output_usd_per_million_tokens": 0.3, "matches_frozen_prices": true},
+    "google/gemma-4-31B-it": {"present": true, "context_length": 262144, "input_usd_per_million_tokens": 0.39, "output_usd_per_million_tokens": 0.97, "matches_frozen_prices": true},
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"present": true, "context_length": 131072, "input_usd_per_million_tokens": 1.04, "output_usd_per_million_tokens": 1.04, "matches_frozen_prices": true},
+    "openai/gpt-oss-120b": {"present": true, "context_length": 131072, "input_usd_per_million_tokens": 0.15, "output_usd_per_million_tokens": 0.6, "matches_frozen_prices": true, "context_note": "provider reports 131072 vs the frozen snapshot's 128000; the smaller frozen value remains the operative conservative ceiling"},
+    "Qwen/Qwen3.7-Plus": {"present": true, "context_length": 1000000, "input_usd_per_million_tokens": 0.32, "output_usd_per_million_tokens": 1.28, "matches_frozen_prices": true}
+  },
+  "verdict": "all five frozen roster models present under their exact frozen IDs; every price matches the frozen snapshot exactly (IEEE float representations normalized); no price above frozen; no absence; no halt condition",
+  "disagreement_resolution": "The 2026-07-18 oracle browse reported drifted Gemma/Llama prices and a missing Qwen/Qwen3.7-Plus; a same-day unauthenticated fetch and this authenticated account-level refresh both confirm the frozen catalog values. The oracle-browse observation is recorded as an unreproduced page-variant anomaly; the authenticated API response is authoritative.",
+  "frozen_snapshot_binding": {
+    "tracked_path": "rejudge/phase2_provider_price_snapshot_2026-07-18.json",
+    "relationship": "this refresh confirms and never replaces the frozen snapshot; forecasts price from the frozen snapshot"
+  },
+  "execution_authorized": false,
+  "note": "Timestamped pre-authorization refresh required by the readiness process. Evidence only; grants no execution authority."
+}

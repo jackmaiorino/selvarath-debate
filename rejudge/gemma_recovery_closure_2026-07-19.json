@@ -1,0 +1,19 @@
+{
+  "schema_version": "gemma_recovery_closure_v1",
+  "closure_id": "gemma_recovery_reconciliation_closure_2026-07-19",
+  "status": "closed_reconciled",
+  "run_record": {
+    "tracked_path": "rejudge/gemma_recovery_run_record_2026-07-18.json",
+    "file_sha256": "ad2b34d3ab66ff37584e60cd3ac000134fef65738bf0127e6fbeaf4388dba704"
+  },
+  "reconciliation": {
+    "tracked_path": "rejudge/phase2_provider_reconciliation_2026-07-19.json",
+    "file_sha256": "31d293dd6df17b92cd9ac5a1e8a936a0a3b1ce5acf6b465532731dc756d46258"
+  },
+  "provider_billed_delta_usd": 0.02,
+  "local_accounted_cost_usd": 0.03,
+  "disposition": "11/11 cells complete, zero errors, provider delta 0.02 within the local conservative 0.03, no unknown charges, no unexplained discrepancy; the gemma_recovery_or_waiver prerequisite for capability preflight is SATISFIED by this closure",
+  "closed_at_utc": "2026-07-19T00:51:42Z",
+  "execution_authorized": false,
+  "note": "Append-only closure artifact; the historical run record keeps its original status text. Execution manifests bind THIS artifact as the satisfied Gemma prerequisite."
+}
