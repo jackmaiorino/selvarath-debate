@@ -1,0 +1,54 @@
+{
+  "schema_version": "phase2_stage_family_carryforward_v1",
+  "carryforward_id": "phase2_preflight_carryforward_2026-07-19",
+  "stage": "capability_preflight",
+  "source_attempt": "r2",
+  "source_execution_identity_sha256": "5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8",
+  "r2_closure_binding": {
+    "tracked_path": "rejudge/phase2_preflight_r2_closure_2026-07-19.json",
+    "note": "This carryforward artifact is the companion of the r2 closure's resolution.carried_forward_call block; the two must never disagree. Cross-checked by rejudge/phase2_stage_family.py's validate_stage_family()."
+  },
+  "call": {
+    "execution_call_key": "52f5e228ab939a6023d91411aca3becf8d8a5dc5fab7c1c89af564849ec47939",
+    "attempt_id": "1f1c34abbbe14543b6aa74842df3f6e0",
+    "call_index": 0,
+    "call_role": "capability_qa",
+    "model": "Qwen/Qwen3.7-Plus",
+    "question_id": "SEL-027",
+    "seed": 2171884933,
+    "side": "B",
+    "planning_cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:capability_qa:001fd59e7df85a7792981fda50a5a7cf175222b6ec61b46c6a946e33bce91e8d",
+    "request_fields_sha256": "1a8111f5194c824e5e40b372619d662e4e22c6e2f18475bb06f2d37011a4b7f5"
+  },
+  "results_row": {
+    "source_path": "E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_results.jsonl",
+    "line_number": 1,
+    "raw_line_sha256": "e36e9b5a81c3376c5384855386b87863a61c6f4e5babf6e67f604ec2801efd6f",
+    "raw_line_sha256_note": "sha256 of the exact line bytes (874 bytes, UTF-8, no trailing newline included in the hash) as they appear on line 1 of the source file.",
+    "raw_line": "{\"execution_call_key\": \"52f5e228ab939a6023d91411aca3becf8d8a5dc5fab7c1c89af564849ec47939\", \"planning_cell_key\": \"phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:capability_qa:001fd59e7df85a7792981fda50a5a7cf175222b6ec61b46c6a946e33bce91e8d\", \"call_index\": 0, \"question_id\": \"SEL-027\", \"model\": \"Qwen/Qwen3.7-Plus\", \"seed\": 2171884933, \"side\": \"B\", \"raw_output\": \"ANSWER: B\", \"verdict\": \"B\", \"request_fields_sha256\": \"1a8111f5194c824e5e40b372619d662e4e22c6e2f18475bb06f2d37011a4b7f5\", \"response_metadata\": {\"request_fields_sha256\": \"1a8111f5194c824e5e40b372619d662e4e22c6e2f18475bb06f2d37011a4b7f5\", \"returned_model_id\": \"Qwen/Qwen3.7-Plus\", \"response_id\": \"chatcmpl-e97c6b0f-7574-9b95-8a71-67e618d79448\", \"finish_reason\": \"stop\", \"system_fingerprint_if_present\": null, \"prompt_tokens\": 1402, \"completion_tokens\": 488, \"reasoning_tokens_if_returned\": null}, \"dry_run\": false}",
+    "verdict": "B",
+    "raw_output": "ANSWER: B"
+  },
+  "response_metadata": {
+    "response_id": "chatcmpl-e97c6b0f-7574-9b95-8a71-67e618d79448",
+    "returned_model_id": "Qwen/Qwen3.7-Plus",
+    "finish_reason": "stop",
+    "prompt_tokens": 1402,
+    "completion_tokens": 488
+  },
+  "ledger_success_event": {
+    "ledger_path": "E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_ledger.jsonl",
+    "ledger_id": "80832328bf0d474e8a402747b07f4c0b",
+    "sequence": 2,
+    "event_hash": "e5b4305bda54063d1c9984cb64cd411fafae6503eb5dd0757be8d6eb41e83a08",
+    "prev_event_hash": "f9de8295c7b2c7a596031fde269ff78b6e24bc43a6419ed093b8883c09c36b37",
+    "status": "success"
+  },
+  "actual_charge_usd": "0.00107328",
+  "actual_charge_usd_note": "Real observed cost_usd from the ledger's success event (sequence 2), not the earlier 0.00737088 reservation estimate at sequence 1; the ledger's own reserved-vs-actual reconciliation on success already replaced the estimate with the true value.",
+  "carryforward_rule": "r3 execution manifests must count this call as 1 of the 1,060 planned capability-preflight logical cells (planning_cell_key above) already durably completed. r3 must NOT re-issue a provider call for this planning_cell_key, must NOT mint a new execution_call_key/attempt_id for it, and must bind this artifact (by tracked_path and canonical_sha256) as the source of its output row instead. Any r3 execution manifest or runner that reissues a call for this planning_cell_key is malformed and must fail closed.",
+  "execution_authorized": false,
+  "note": "Evidence/accounting record only; grants no execution authority. Companion of rejudge/phase2_preflight_r2_closure_2026-07-19.json and rejudge/phase2_stage_family_ledger_2026-07-19.json.",
+  "closed_at_utc": "2026-07-19T13:20:00Z",
+  "committed": false
+}

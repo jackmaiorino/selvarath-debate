@@ -1,0 +1,258 @@
+{
+  "schema_version": "phase2_preflight_r2_closure_v1",
+  "closure_id": "phase2_preflight_r2_closure_2026-07-19",
+  "status": "closed_ambiguous_upper_bound_counted",
+  "stage": "capability_preflight",
+  "attempt": "r2",
+  "execution_identity_sha256": "5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8",
+  "r2_manifest_binding": {
+    "tracked_path": "rejudge/phase2_preflight_manifest_2026-07-19-r2.json",
+    "canonical_sha256": "6c3b57101c4ce15ebdcadb5faf3634286732ababb54545be05646ea1eb7cffe7",
+    "raw_file_sha256": "e4f0e1d05dd2a86e63b9afea90d293a507d63a8df3c6f6cb0b75eadd26f8d6be",
+    "hash_method": "rejudge.phase2_plan.canonical_sha256: json.dumps(value, ensure_ascii=True, separators=(',', ':'), sort_keys=True).encode('utf-8') -> sha256 hexdigest",
+    "raw_file_sha256_note": "raw_file_sha256 is the plain byte sha256 of the tracked file as checked into the repo; it is independently cross-checked below against the archive's own SHA256SUMS entry for its manifest.json mirror and they agree exactly, proving the archived manifest snapshot is byte-identical to the tracked repo file.",
+    "implementation_provenance": {
+      "code_bundle_sha256": "2dfc3e95c865a2c70a0f94c0c94c28d77d7bcfe3087a8b02f5394496d6b310d8",
+      "git_commit": "aef9838701d0ee0323e6496ba6784916114e5ea1"
+    },
+    "prior_attempt_closure_binding": {
+      "tracked_path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+      "canonical_sha256": "309968ab9d67dd7a2e4a8d096f2ce6695efea87ff894b52d336ae8f4434c13dd",
+      "note": "This is the r1 abort closure the r2 manifest itself binds as prior_attempt_closure; the r2 manifest's own bound sha256 for it (read directly from rejudge/phase2_preflight_manifest_2026-07-19-r2.json's prior_attempt_closure.sha256 field) agrees with this independently recomputed value."
+    },
+    "role_limits_binding": {
+      "tracked_path": "rejudge/phase2_role_limits_v4_2026-07-19.json",
+      "canonical_sha256": "e2dd983506c933c69ff0d6b56f8a51e1b005faa54a191873d124652f3850efde",
+      "note": "v4 removed the stream_options field that caused the r1 abort but did NOT pin request_settings.transport.sdk_internal_max_retries (that field did not exist in the v4 schema at all -- only a single, ambiguous request_settings.transport.max_retries=2 governing this project's OWN ledger-level retry loop). The installed Together SDK's own HTTP-transport-level retry-on-timeout behavior was left at its unbound legacy default for the entire r2 attempt. This is the root cause of the ambiguity resolved below, and is the reason role-limits v5 (in progress, not yet committed as of this closure) restructures request_settings.transport into explicit sdk_internal_max_retries / ledger_max_retries / ledger_max_attempts / http_timeout / per_call_wall_clock_ceiling_seconds fields, pinning sdk_internal_max_retries to 0."
+    }
+  },
+  "r2_authorization_binding": {
+    "tracked_path": "rejudge/phase2_preflight_authorization_2026-07-19-r2.json",
+    "canonical_sha256": "363a95ca36dffe9dd076fd13cca4c404963b5ea1b88c2ec04e7258e2a00ac986",
+    "raw_file_sha256": "cd36b5034d601d24a9eb571dc26073ee8298cf767f774897578d489311b85859",
+    "hash_method": "same as r2_manifest_binding.hash_method",
+    "content": {
+      "approval_basis_sha256": "c5ddb34319ad0fd318880dee88474ee7806e26cae5dec65cfa4893f74dd24951",
+      "approval_basis_tracked_path": "rejudge/phase2_preflight_delegation_2026-07-19.json",
+      "approved_at_utc": "2026-07-19T00:51:42Z",
+      "approver": "Jack Maiorino",
+      "cumulative_cap_usd": 1500.0,
+      "execution_identity_sha256": "5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8",
+      "recorded_at_utc": "2026-07-19T12:43:16Z",
+      "stage": "capability_preflight",
+      "stage_cap_usd": 15.0
+    }
+  },
+  "reauthorization_binding": {
+    "tracked_path": "rejudge/phase2_preflight_reauthorization_2026-07-19.json",
+    "canonical_sha256": "9ec5872e52973cd65fbb830d8776aa5db6a66f0a6485f70eaa124a6560341c0b",
+    "hash_method": "same as r2_manifest_binding.hash_method",
+    "note": "Jack Maiorino's chat reply 'Yes' at 2026-07-19T12:43:16Z to the frozen reauthorization ask, chaining the original delegation, the ask artifact, role-limits v4, and the r1 abort closure. Does not extend to canary or main-run spend."
+  },
+  "archive": {
+    "root": "E:/selvarath-archive/capability_preflight_5ab39b4d14790506_live-aborted/",
+    "live_stage_directory_mirror": "E:/selvarath-archive/capability-preflight-r2/",
+    "abort_json": {
+      "path": "E:/selvarath-archive/capability_preflight_5ab39b4d14790506_live-aborted/abort.json",
+      "file_sha256": "616fb4395e6f8389633866ae0248ea4a52d800c17353b90911114d662babec81",
+      "matches_sha256sums": true,
+      "matches_live_stage_directory_mirror": true,
+      "content": {
+        "aborted_at_utc": "2026-07-19T12:47:43.565473+00:00",
+        "cells_completed": 1,
+        "dry_run": false,
+        "exception_message": "unknown charge recorded for model 'google/gemma-4-31B-it' on attempt 0; halting instead of retrying (halt_on_unknown_charge=True): Request timed out.",
+        "exception_type": "UnknownChargeHalt",
+        "execution_identity_sha256": "5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8",
+        "reason": "unknown_charge_halt",
+        "schema_version": "phase2_capability_preflight_abort_v1",
+        "stage": "capability_preflight"
+      }
+    },
+    "sha256sums_file": {
+      "path": "E:/selvarath-archive/capability_preflight_5ab39b4d14790506_live-aborted/SHA256SUMS",
+      "file_sha256": "8d3151347aec9e07012d39c4bc78a494df3d96dfe07845327dc6d72f6ffc0035",
+      "listed_entries": [
+        {"file": "abort.json", "sha256": "616fb4395e6f8389633866ae0248ea4a52d800c17353b90911114d662babec81", "independently_recomputed_match": true},
+        {"file": "manifest.json", "sha256": "e4f0e1d05dd2a86e63b9afea90d293a507d63a8df3c6f6cb0b75eadd26f8d6be", "independently_recomputed_match": true, "note": "byte-identical to the tracked rejudge/phase2_preflight_manifest_2026-07-19-r2.json raw_file_sha256 above"},
+        {"file": "results.jsonl", "sha256": "8d01b5ab0fdf9fca53b65877284d302143b193edd420cf9d6eb7c9d3c5da2cac", "independently_recomputed_match": true, "note": "NOT empty (875 bytes, 1 line) -- unlike the r1 abort, one cell (the Qwen call, call_index 0) completed and was durably recorded before the halt"},
+        {"file": "usage_events.jsonl", "sha256": "d8257824969b6757201991d5dca119692519787511e2db6082cecb9985295628", "independently_recomputed_match": true, "note": "ledger mirror (3623 bytes, 5 lines: genesis, qwen reserved, qwen success, gemma reserved, gemma unknown_charge); byte-identical to the live ledger at E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_ledger.jsonl"}
+      ]
+    },
+    "results_jsonl": {
+      "path": "E:/selvarath-archive/capability_preflight_5ab39b4d14790506_live-aborted/results.jsonl",
+      "file_sha256": "8d01b5ab0fdf9fca53b65877284d302143b193edd420cf9d6eb7c9d3c5da2cac",
+      "bytes": 875,
+      "lines": 1,
+      "note": "the sole line is the completed Qwen call 0 durable output; bound verbatim in the sibling carryforward artifact"
+    },
+    "usage_events_jsonl": {
+      "path": "E:/selvarath-archive/capability_preflight_5ab39b4d14790506_live-aborted/usage_events.jsonl",
+      "file_sha256": "d8257824969b6757201991d5dca119692519787511e2db6082cecb9985295628",
+      "bytes": 3623,
+      "note": "ledger mirror only, byte-identical to the live ledger; contains no provider-side usage/response payload beyond what the ledger itself records"
+    },
+    "capability_preflight_errors_jsonl": {
+      "path": "E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_errors.jsonl",
+      "file_sha256": "2c3c2332990eb4ca5b6797bb55ecb8b03095281fab083419267258ff434fb3ed",
+      "content": {
+        "ts": "2026-07-19T12:47:43.565245+00:00",
+        "attempt": 0,
+        "model": "google/gemma-4-31B-it",
+        "error": "Request timed out."
+      },
+      "note": "error text byte-identical to abort.json's exception_message tail and to the ledger's terminal event error field below"
+    }
+  },
+  "ledger_evidence": {
+    "ledger_path": "E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_ledger.jsonl",
+    "ledger_identity": "phase2-project-wide-ledger-v1",
+    "ledger_id": "80832328bf0d474e8a402747b07f4c0b",
+    "genesis_event_hash": "0d1eaa9faf311e94f46ad509a6f0a1f8ccd0dda3f76129e8c9bdd2128cb03c3e",
+    "events": [
+      {
+        "sequence": 0, "status": "ledger_genesis",
+        "event_hash": "0d1eaa9faf311e94f46ad509a6f0a1f8ccd0dda3f76129e8c9bdd2128cb03c3e",
+        "prev_event_hash": null, "ts": "2026-07-19T12:44:25.531552+00:00"
+      },
+      {
+        "sequence": 1, "status": "reserved",
+        "event_hash": "f9de8295c7b2c7a596031fde269ff78b6e24bc43a6419ed093b8883c09c36b37",
+        "prev_event_hash": "0d1eaa9faf311e94f46ad509a6f0a1f8ccd0dda3f76129e8c9bdd2128cb03c3e",
+        "attempt_id": "1f1c34abbbe14543b6aa74842df3f6e0", "attempt": 0,
+        "model": "Qwen/Qwen3.7-Plus", "kind": "capability_qa", "seed": 2171884933,
+        "cost_usd": 0.00737088, "ts": "2026-07-19T12:44:27.565721+00:00"
+      },
+      {
+        "sequence": 2, "status": "success",
+        "event_hash": "e5b4305bda54063d1c9984cb64cd411fafae6503eb5dd0757be8d6eb41e83a08",
+        "prev_event_hash": "f9de8295c7b2c7a596031fde269ff78b6e24bc43a6419ed093b8883c09c36b37",
+        "attempt_id": "1f1c34abbbe14543b6aa74842df3f6e0", "attempt": 0,
+        "model": "Qwen/Qwen3.7-Plus", "kind": "capability_qa", "seed": 2171884933,
+        "cost_usd": 0.00107328, "completion_tokens": 488, "prompt_tokens": 1402,
+        "ts": "2026-07-19T12:44:40.126926+00:00",
+        "note": "successful qwen call 0; carried forward in the sibling carryforward artifact"
+      },
+      {
+        "sequence": 3, "status": "reserved",
+        "event_hash": "0e21c0cfa9471aa531e6fc41656de7c8c19a1133f469a664d346dc1e46f8b7dd",
+        "prev_event_hash": "e5b4305bda54063d1c9984cb64cd411fafae6503eb5dd0757be8d6eb41e83a08",
+        "attempt_id": "72fa729a402545c799c4bb35d798aadf", "attempt": 0,
+        "model": "google/gemma-4-31B-it", "kind": "capability_qa", "seed": 3251599368,
+        "cost_usd": 0.00738601, "ts": "2026-07-19T12:44:40.564050+00:00"
+      },
+      {
+        "sequence": 4, "status": "unknown_charge",
+        "event_hash": "a6f176fe8479bd6f24ec3e0c2b4691b79278b31e910c883ab999656bfe48fa8b",
+        "prev_event_hash": "0e21c0cfa9471aa531e6fc41656de7c8c19a1133f469a664d346dc1e46f8b7dd",
+        "attempt_id": "72fa729a402545c799c4bb35d798aadf", "attempt": 0,
+        "model": "google/gemma-4-31B-it", "kind": "capability_qa", "seed": 3251599368,
+        "cost_usd": 0.00738601, "error": "Request timed out.",
+        "ts": "2026-07-19T12:47:43.484154+00:00", "is_chain_head": true,
+        "note": "ledger's terminal/chain-head event; nothing was appended after it because the run aborted here"
+      }
+    ],
+    "live_ledger_directory_byte_identical_to_archive_mirror": true
+  },
+  "resolution": {
+    "carried_forward_call": {
+      "execution_call_key": "52f5e228ab939a6023d91411aca3becf8d8a5dc5fab7c1c89af564849ec47939",
+      "attempt_id": "1f1c34abbbe14543b6aa74842df3f6e0",
+      "model": "Qwen/Qwen3.7-Plus",
+      "disposition": "carried_forward_success",
+      "note": "Full detail bound in the sibling carryforward artifact, not repeated here to avoid an editable second copy of load-bearing numbers."
+    },
+    "ambiguous_call": {
+      "execution_call_key": "c2b36c65bbb02bfbe1c31a252abbc934e2bbb163b92700baea664dbb8e093dfd",
+      "attempt_id": "72fa729a402545c799c4bb35d798aadf",
+      "model": "google/gemma-4-31B-it",
+      "planning_cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:capability_qa:0044a8665dadba42627513de95916ec6312916e7d71cb547aa25fb1268320062",
+      "request_fields_sha256": "69e5769f86e51cfaeb582e83e1fa0a0e082a1a0adf716e10a12aa62edaeed62b",
+      "ledger_reserved_event_hash": "0e21c0cfa9471aa531e6fc41656de7c8c19a1133f469a664d346dc1e46f8b7dd",
+      "ledger_terminal_event_hash": "a6f176fe8479bd6f24ec3e0c2b4691b79278b31e910c883ab999656bfe48fa8b",
+      "exception_type": "UnknownChargeHalt",
+      "exception_message": "unknown charge recorded for model 'google/gemma-4-31B-it' on attempt 0; halting instead of retrying (halt_on_unknown_charge=True): Request timed out.",
+      "durable_output_observed": false,
+      "provider_dashboard_confirmation": "not available; the same-day dashboard reconciliation (rejudge/phase2_provider_reconciliation_2026-07-19b.json, r2_attempt_reconciliation) observed only a $0.01 whole-period account delta, too coarse (cent rounding) to distinguish a 1x-transmission charge from a 3x-transmission charge",
+      "ambiguity_basis": "role-limits v4 (bound above) did not pin the installed Together SDK's own internal HTTP-transport retry count (sdk_internal_max_retries); the SDK's unbound legacy default was in effect for the entire r2 attempt, so the ONE ledger-recorded reservation/unknown_charge pair for this ONE logical attempt_id may correspond to up to 3 real, independent HTTP transmissions to the provider beneath this project's own single-reservation ledger accounting, any one of which could have reached the provider and been billed, invisibly to the ledger",
+      "sdk_internal_retry_exposure": {
+        "sdk_internal_max_retries_pinned_in_v4": false,
+        "legacy_together_sdk_unbound_default_in_effect": true,
+        "maximum_possible_transmissions_for_this_attempt": 3,
+        "fix_going_forward": "role-limits v5 (in progress at closure time, not yet committed) pins request_settings.transport.sdk_internal_max_retries=0, eliminating this exact class of ambiguity for every future attempt; r3 must not launch under any role-limits artifact that leaves sdk_internal_max_retries unpinned"
+      },
+      "classification": "CLOSED_AMBIGUOUS_COUNTED_CHARGED_NO_OUTPUT",
+      "classification_definition": "A charge whose true amount cannot be resolved to either a confirmed value or a confirmed zero from any available local or provider-side evidence (ledger accounting is ambiguous by construction here because the SDK's own internal retry count was unpinned), and which produced no durable output. Because it cannot be trusted as free, it is COUNTED against the stage cap at an adjudicated UPPER BOUND (the reserved per-transmission cost times the maximum possible transmission count). Because it cannot be trusted as a confirmed single charge either, and because it produced no output to preserve, it is CLOSED to further resume attempts rather than left open pending an exact reconciliation that may never arrive.",
+      "classification_scope_restriction": "This label separates TRUTH from ACCOUNTING and must never be read as a provider confirmation: provider_charge_truth stays 'unresolved' forever unless a future, separately-dated superseding artifact binds an exact provider-side line item for this call. accounting_treatment ('charged_at_upper_bound') governs the stage-family ledger only.",
+      "provider_charge_truth": "unresolved",
+      "accounting_treatment": "charged_at_upper_bound",
+      "max_possible_transmissions": 3,
+      "resume_eligible": false,
+      "adjudicated_reserved_cost_usd": "0.00738601",
+      "adjudicated_transmission_multiplier": 3,
+      "adjudicated_upper_bound_spend_usd": "0.02215803",
+      "adjudicated_upper_bound_spend_usd_derivation": "0.00738601 x 3 SDK-internal transmissions = 0.02215803 (Decimal-exact; see rejudge/phase2_stage_family.py's GEMMA_UPPER_BOUND_SPEND_USD and its arithmetic test)",
+      "installed_sdk_evidence": {
+        "package": "together",
+        "installed_version": "2.7.0",
+        "verified_via": "uv run python -c \"import together._constants as c; print(c.DEFAULT_MAX_RETRIES)\" against the project's pinned .venv",
+        "together_together_init_signature_max_retries_default": 2,
+        "constants_module_default_max_retries": 2,
+        "derivation": "max_retries=2 means up to 2 SDK-internal retries after the first send, i.e. range(max_retries + 1) = 3 possible transmissions total for one logical .create() call, when sdk_internal_max_retries is left unpinned (as it was for the entire r2 attempt under role-limits v4)",
+        "uv_lock_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848"
+      },
+      "negative_evidence": {
+        "gemma_result_row_present": false,
+        "gemma_response_id_present": false,
+        "gemma_usage_response_present": false,
+        "basis": "results.jsonl at both E:/selvarath-archive/capability-preflight-r2/phase2_capability_preflight_results.jsonl and its byte-identical archive mirror contains exactly 1 line (875 bytes), and that line's execution_call_key is 52f5e228ab939a6023d91411aca3becf8d8a5dc5fab7c1c89af564849ec47939 (the Qwen call). No line anywhere in either file carries execution_call_key c2b36c65bbb02bfbe1c31a252abbc934e2bbb163b92700baea664dbb8e093dfd (the Gemma call) or any google/gemma-4-31B-it response_id/usage payload."
+      },
+      "resume_eligibility": "never_eligible_for_resume",
+      "resume_eligibility_note": "This attempt_id/execution_call_key must never be resumed or replayed under any future manifest; this is a strengthened application of the project's existing rule that a charge without its durable output blocks reconciliation and is never replayed (rejudge/phase2_execution.py resume-audit dispositions) -- here the charge amount itself is also ambiguous, which is strictly worse than a merely-unreconciled known charge, so resume is refused outright rather than left BLOCKED_RECONCILIATION pending evidence that may never resolve it.",
+      "r3_disposition": "replacement_call_under_new_identity",
+      "r3_disposition_note": "The r3 execution manifest must mint a brand-new execution_call_key and attempt_id for planning_cell_key 0044a8665dadba42627513de95916ec6312916e7d71cb547aa25fb1268320062 under the r3 execution identity, exactly as the planner already derives every call key non-circularly from (execution_identity, planning_cell_key, call_role, call_index). This is a REPLACEMENT call, not a resumption: it shares no attempt_id or execution_call_key with 72fa729a402545c799c4bb35d798aadf, and its own resulting charge is accounted independently under the r3 ledger, on top of (not instead of) the 0.02215803 upper bound already counted here.",
+      "r3_binding_requirements": {
+        "planning_cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:capability_qa:0044a8665dadba42627513de95916ec6312916e7d71cb547aa25fb1268320062",
+        "replacement_of_execution_call_key": "c2b36c65bbb02bfbe1c31a252abbc934e2bbb163b92700baea664dbb8e093dfd",
+        "replacement_of_attempt_id": "72fa729a402545c799c4bb35d798aadf",
+        "resolution_artifact_tracked_path": "rejudge/phase2_preflight_r2_closure_2026-07-19.json",
+        "resolution_artifact_binding_method": "the r3 manifest must bind this closure's own canonical_sha256 (computed via rejudge.phase2_plan.canonical_sha256 over this file's parsed JSON at bind time), the same way the r2 manifest bound the r1 abort closure's canonical_sha256 as prior_attempt_closure",
+        "replacement_reason": "closed_ambiguous_charged_no_output",
+        "proof_of_no_output_required": "the r3 manifest/runner must re-verify (not merely assume) that no durable output row exists for execution_call_key c2b36c65bbb02bfbe1c31a252abbc934e2bbb163b92700baea664dbb8e093dfd before treating this planning cell as open for a replacement call",
+        "prerequisite": "r3 must not launch under any role-limits artifact that leaves request_settings.transport.sdk_internal_max_retries unpinned (see role_limits_binding.note above); the constructed SDK client's actual retry/timeout configuration must be read back and verified equal to the pin before any reservation, not merely passed as a constructor kwarg"
+      }
+    }
+  },
+  "codex_adversarial_review": {
+    "consulted": true,
+    "thread_id": "019f640d-05d1-7563-931a-772d76362e9d",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "xhigh",
+    "verdict": "GO-WITH-CHANGES",
+    "changes_applied_to_this_artifact": [
+      "added provider_charge_truth='unresolved' and accounting_treatment='charged_at_upper_bound' as separate fields so the classification label is never misread as a provider confirmation",
+      "added max_possible_transmissions, durable_output_observed, resume_eligible boolean fields alongside the existing prose fields",
+      "added installed_sdk_evidence binding the verified together==2.7.0 DEFAULT_MAX_RETRIES=2 constant (confirmed live against the project's pinned .venv, not assumed) as the basis for the 3-transmission upper bound",
+      "added negative_evidence confirming no Gemma result row/response_id/usage payload exists anywhere in the archived results files",
+      "added r3_binding_requirements enumerating exactly what the eventual r3 manifest must bind (planning_cell_key, replacement_of_execution_call_key, replacement_of_attempt_id, this closure's own canonical_sha256, replacement_reason, a proof-of-no-output re-check, and the sdk_internal_max_retries=0 prerequisite) so the replacement semantics cannot be silently dropped when r3 is eventually built"
+    ],
+    "changes_out_of_scope_for_this_artifact": [
+      "Codex flagged that the in-progress (uncommitted) role-limits v5 per_call_wall_clock_ceiling_seconds check only fires after the SDK call returns, so it is a post-return acceptance rule rather than a true deadline and could itself manufacture a future ambiguity; this is a code-level v5/api_client.py concern for whoever finishes item #11, not a defect in this closure artifact, and is called out here only so it is not lost.",
+      "Codex flagged that rejudge/phase2_provider_reconciliation_2026-07-19b.json's cumulative_project_ceiling_usd (1709.25) silently rebases the fixed $1,709.24 approved ceiling recorded in docs/phase2-readiness-and-signoff.md by one cent instead of tracking it as a separate provider-verified balance figure; Codex recommends an append-only correction to that already-tracked file (not owned by this closure) rather than binding the drifted 1709.25 figure into any future r3 manifest. This closure does not bind or rely on that ceiling figure."
+    ]
+  },
+  "ledger_retired": true,
+  "ledger_disposition": {
+    "recorded_ledger_status": "unknown_charge",
+    "governance_adjudication": "CLOSED_AMBIGUOUS_COUNTED_CHARGED_NO_OUTPUT",
+    "effective_billable_amount_for_cumulative_accounting_usd": "0.02215803",
+    "reused_for_future_attempts": false,
+    "supersession_policy": "Any future contradictory evidence (e.g. an exact provider dashboard line-item for this call) must be handled through a new, separately-dated superseding closure artifact -- never by mutating this artifact or the original ledger."
+  },
+  "execution_authorized": false,
+  "note": "The original archived and live 'unknown_charge' ledger terminal event (event_hash a6f176fe8479bd6f24ec3e0c2b4691b79278b31e910c883ab999656bfe48fa8b) is preserved UNMUTATED; the halt-on-unknown-charge safety mechanism correctly recorded uncertainty at runtime. This closure artifact is a separate, append-only governance-layer resolution assembled from the available evidence; it explains and adjudicates the historical event for cumulative accounting purposes, it does not rewrite it. This closure grants no execution authority of any kind: a new authorization record bound to a new r3 execution identity is required before any further capability-preflight attempt.",
+  "closed_at_utc": "2026-07-19T13:20:00Z",
+  "closure_repo_git_head": "394825a879bf2cffc14f1bd4699c95d89caf36e5",
+  "committed": false,
+  "self_note": "This artifact is intentionally left uncommitted in the working tree per instruction; the orchestrator decides disposition."
+}

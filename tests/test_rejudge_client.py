@@ -1063,3 +1063,339 @@ def test_non_factory_test_client_never_runs_the_sdk_compat_gate():
     out = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out == "YES"
     assert sdk.calls[0]["totally_bogus_field"] is True
+
+
+# --- 10. v5 TRANSPORT: pinned http_timeout / sdk_internal_max_retries, threaded into the real
+# --- Together() constructor and asserted post-construction (2026-07-19 r2-incident hardening) ---
+
+_V5_HTTP_TIMEOUT = {"connect": 10, "read": 600, "write": 60, "pool": 60}
+
+
+def test_http_timeout_rejects_wrong_field_set():
+    for bad in ({"connect": 1, "read": 2, "write": 3}, {**_V5_HTTP_TIMEOUT, "extra": 1}):
+        with pytest.raises(ValueError, match="http_timeout"):
+            ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True, http_timeout=bad)
+
+
+@pytest.mark.parametrize("bad_value", [0, -1, float("nan"), float("inf"), True])
+def test_http_timeout_rejects_non_positive_or_non_finite_or_bool_values(bad_value):
+    with pytest.raises(ValueError, match="http_timeout"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=True,
+            http_timeout={**_V5_HTTP_TIMEOUT, "read": bad_value})
+
+
+def test_http_timeout_accepts_the_pinned_v5_shape():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True, http_timeout=_V5_HTTP_TIMEOUT)
+    assert c.http_timeout == {"connect": 10.0, "read": 600.0, "write": 60.0, "pool": 60.0}
+
+
+@pytest.mark.parametrize("bad_value", [-1, 1.5, True, "0"])
+def test_sdk_internal_max_retries_rejects_invalid_values(bad_value):
+    with pytest.raises(ValueError, match="sdk_internal_max_retries"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=True, sdk_internal_max_retries=bad_value)
+
+
+def test_sdk_internal_max_retries_accepts_zero():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True, sdk_internal_max_retries=0)
+    assert c.sdk_internal_max_retries == 0
+
+
+@pytest.mark.parametrize("bad_value", [0, -1, float("nan"), float("inf"), True])
+def test_per_call_wall_clock_ceiling_rejects_invalid_values(bad_value):
+    with pytest.raises(ValueError, match="per_call_wall_clock_ceiling_seconds"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=True,
+            per_call_wall_clock_ceiling_seconds=bad_value)
+
+
+def test_per_call_wall_clock_ceiling_accepts_the_pinned_value():
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True, per_call_wall_clock_ceiling_seconds=1200)
+    assert c.per_call_wall_clock_ceiling_seconds == 1200.0
+
+
+def test_legacy_construction_leaves_new_transport_knobs_none():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    assert c.http_timeout is None
+    assert c.sdk_internal_max_retries is None
+    assert c.per_call_wall_clock_ceiling_seconds is None
+
+
+def test_pinned_timeout_and_retries_are_threaded_into_the_real_together_constructor(monkeypatch):
+    # Zero-network: constructing together.Together() with a fake API key never dials out: only
+    # __init__ runs. Proves the pins are threaded into the SDK's OWN constructor kwargs (never
+    # hardcoded in api_client.py) and that the built client's actual .timeout/.max_retries match.
+    monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True, http_timeout=_V5_HTTP_TIMEOUT,
+        sdk_internal_max_retries=0)
+    sdk = c._client()
+    import httpx
+    assert sdk.timeout == httpx.Timeout(connect=10, read=600, write=60, pool=60)
+    assert sdk.max_retries == 0
+    assert c._client() is sdk               # memoized: a second call never reconstructs
+
+
+def test_unpinned_client_construction_leaves_together_defaults_untouched(monkeypatch):
+    # Legacy behavior: with neither knob configured, Together() is still constructed with no
+    # arguments at all -- proven by capturing the exact kwargs a monkeypatched Together() sees.
+    monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
+    captured = {}
+
+    class _FakeTogether:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.timeout = "irrelevant"
+            self.max_retries = "irrelevant"
+
+    import together
+    monkeypatch.setattr(together, "Together", _FakeTogether)
+    c = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    c._client()
+    assert captured == {}
+
+
+def test_sdk_transport_pin_mismatch_on_timeout_fails_closed(monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
+
+    class _WrongTimeoutTogether:
+        def __init__(self, **kwargs):
+            self.timeout = "not-the-pinned-timeout"
+            self.max_retries = kwargs.get("max_retries")
+
+    import together
+    monkeypatch.setattr(together, "Together", _WrongTimeoutTogether)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True, http_timeout=_V5_HTTP_TIMEOUT,
+        sdk_internal_max_retries=0)
+    with pytest.raises(ac.SdkTransportPinMismatchError, match="timeout"):
+        c._client()
+
+
+def test_sdk_transport_pin_mismatch_on_max_retries_fails_closed(monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
+
+    class _WrongRetriesTogether:
+        def __init__(self, **kwargs):
+            import httpx
+            self.timeout = kwargs.get("timeout")
+            self.max_retries = 4              # not the pinned 0
+
+    import together
+    monkeypatch.setattr(together, "Together", _WrongRetriesTogether)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True, http_timeout=_V5_HTTP_TIMEOUT,
+        sdk_internal_max_retries=0)
+    with pytest.raises(ac.SdkTransportPinMismatchError, match="max_retries"):
+        c._client()
+
+
+def test_check_sdk_constructor_compatibility_is_a_noop_when_unset():
+    ac.check_sdk_constructor_compatibility(
+        http_timeout=None, sdk_internal_max_retries=None)  # must not raise
+
+
+def test_check_sdk_constructor_compatibility_accepts_the_v5_pins():
+    ac.check_sdk_constructor_compatibility(
+        http_timeout=_V5_HTTP_TIMEOUT, sdk_internal_max_retries=0)  # must not raise
+
+
+def test_check_sdk_constructor_compatibility_rejects_an_unsupported_kwarg(monkeypatch):
+    import together
+
+    class _NoTransportKwargsTogether:
+        def __init__(self, api_key=None):
+            pass
+
+    monkeypatch.setattr(together, "Together", _NoTransportKwargsTogether)
+    with pytest.raises(ac.SdkRequestShapeError, match="timeout"):
+        ac.check_sdk_constructor_compatibility(
+            http_timeout=_V5_HTTP_TIMEOUT, sdk_internal_max_retries=None)
+
+
+def test_live_construction_runs_constructor_compat_gate_before_any_reservation(tmp_path, monkeypatch):
+    import together
+
+    class _NoTransportKwargsTogether:
+        def __init__(self, api_key=None):
+            pass
+
+    monkeypatch.setattr(together, "Together", _NoTransportKwargsTogether)
+
+    ledger = tmp_path / "usage.jsonl"
+    ac.prepare_usage_ledger(ledger, allow_create=True)
+    snapshot = ac.load_chained_usage_ledger(ledger)
+
+    with pytest.raises(ac.SdkRequestShapeError, match="timeout"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=False, strict_model_pricing=True,
+            model_prices={"m": {"in": 1.0, "out": 1.0}},
+            usage_log_path=str(ledger), _ledger_snapshot=snapshot,
+            _accounting_factory_token=ac._LIVE_ACCOUNTING_FACTORY_TOKEN,
+            http_timeout=_V5_HTTP_TIMEOUT)
+
+    # Only the genesis event was ever written -- no reservation for the doomed configuration.
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["status"] == "ledger_genesis"
+
+
+# --- 11. PER-CALL WALL-CLOCK CEILING: an over-ceiling "successful" attempt is unknown_charge ----
+
+
+class SlowSuccessSDK:
+    """A create() that sleeps ``delay`` seconds before returning a normal successful response."""
+
+    def __init__(self, delay: float) -> None:
+        self.calls = 0
+        self.delay = delay
+
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls += 1
+                time.sleep(outer.delay)
+                return _Resp()
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+class SlowStreamSDK:
+    """Like SlowSuccessSDK but streams the recorded chunk fixture instead of a plain response."""
+
+    def __init__(self, delay: float) -> None:
+        self.calls = 0
+        self.delay = delay
+
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls += 1
+                time.sleep(outer.delay)
+                return iter(_recorded_stream_chunks())
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def test_wall_clock_ceiling_exceeded_marks_attempt_unknown_charge_not_success():
+    sdk = SlowSuccessSDK(delay=0.05)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=0,
+        per_call_wall_clock_ceiling_seconds=0.01, _sleep=lambda s: None)
+    with pytest.raises(RuntimeError, match="API call failed"):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert c.actual_spent_usd == 0
+    assert c.uncertain_spend_usd > 0
+    event = c.usage_events[-1]
+    assert event["status"] == "unknown_charge"
+    assert "wall-clock ceiling" in event["error"]
+
+
+def test_wall_clock_ceiling_exceeded_halts_under_halt_on_unknown_charge():
+    sdk = SlowSuccessSDK(delay=0.05)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3,
+        per_call_wall_clock_ceiling_seconds=0.01, halt_on_unknown_charge=True,
+        _sleep=lambda s: None)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == 1                     # halted immediately; no second attempt
+
+
+def test_wall_clock_ceiling_not_exceeded_still_succeeds():
+    sdk = SlowSuccessSDK(delay=0.0)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, per_call_wall_clock_ceiling_seconds=60)
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert c.usage_events[-1]["status"] == "success"
+
+
+def test_wall_clock_ceiling_unset_by_default_never_halts_a_slow_success():
+    # Legacy behavior: with no ceiling configured, an arbitrarily slow-but-successful attempt is
+    # still trusted as a normal success (unchanged from before this knob existed).
+    sdk = SlowSuccessSDK(delay=0.05)
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk)
+    assert c.per_call_wall_clock_ceiling_seconds is None
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert c.usage_events[-1]["status"] == "success"
+
+
+def test_wall_clock_ceiling_applies_to_the_streaming_path_too():
+    sdk = SlowStreamSDK(delay=0.05)
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=0,
+        per_call_wall_clock_ceiling_seconds=0.01, _sleep=lambda s: None,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}))
+    with pytest.raises(RuntimeError, match="API call failed"):
+        c.complete(MSGS, "Qwen/Qwen3.7-Plus", 0.1, 1, 64)
+    assert c.usage_events[-1]["status"] == "unknown_charge"
+
+
+# --- 12. MIDSTREAM STREAM DEATH: a stream that dies after partial chunks is unknown_charge ------
+
+
+class MidstreamDeathSDK:
+    """Yields a couple of real content chunks, then the stream iterator itself raises -- no
+    final usage chunk ever arrives. Reproduces a connection drop mid-stream after content has
+    already started arriving (never a clean 'ended without usage chunk' RuntimeError)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls += 1
+
+                def _gen():
+                    delta = SimpleNamespace(content="Partial")
+                    choice = SimpleNamespace(delta=delta, finish_reason=None)
+                    yield SimpleNamespace(
+                        usage=None, id="mid-1", model=kwargs["model"],
+                        system_fingerprint=None, choices=[choice])
+                    raise ConnectionError("connection reset mid-stream")
+
+                return _gen()
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def test_midstream_stream_failure_after_partial_chunks_is_unknown_charge():
+    sdk = MidstreamDeathSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=0, _sleep=lambda s: None,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}))
+    with pytest.raises(RuntimeError, match="API call failed"):
+        c.complete(MSGS, "Qwen/Qwen3.7-Plus", 0.1, 1, 64)
+    assert sdk.calls == 1
+    assert c.actual_spent_usd == 0
+    assert c.uncertain_spend_usd > 0           # partial content never silently trusted/billed
+    event = c.usage_events[-1]
+    assert event["status"] == "unknown_charge"
+    assert "connection reset mid-stream" in event["error"]
+
+
+def test_midstream_stream_failure_halts_under_halt_on_unknown_charge():
+    sdk = MidstreamDeathSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}))
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "Qwen/Qwen3.7-Plus", 0.1, 1, 64)
+    assert sdk.calls == 1                      # halted immediately; no retry burned a 2nd attempt

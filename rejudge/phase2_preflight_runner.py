@@ -175,17 +175,26 @@ class ClientConstructionParams:
 
     A production factory is expected to build this run's ``rejudge.api_client.RejudgeClient``
     from exactly these fields: ``require_explicit_reasoning_max_tokens=True``,
-    ``strict_context_mode=True`` with ``model_context_limits``, ``max_retries`` (sourced from the
-    manifest-bound role-limits-and-request-settings artifact's own
-    ``request_settings.transport.max_retries`` -- 2 under the frozen v4 artifact (unchanged from
-    v3), not the older v2 pin of 3), ``streaming_pinned_models``/``extra_request_fields`` copied
-    verbatim from that same artifact, ``halt_on_unknown_charge=True``, and the manifest's OWN
-    stage cap (never the
-    cumulative cap) as the client's ``approved_cap_usd``. ``usage_log_path`` is the single
-    durable events log the client must append every reservation/terminal lifecycle event to
-    (fsynced before each ``complete()`` call returns) -- this module's resume and completion
+    ``strict_context_mode=True`` with ``model_context_limits``, ``max_retries`` (the LEDGER-level
+    retry pin, sourced from the manifest-bound role-limits-and-request-settings artifact's own
+    ``request_settings.transport`` via
+    ``rejudge.phase2_role_limits.resolve_transport_ledger_max_retries`` -- 2 under the frozen v5
+    artifact, unchanged in VALUE from v3/v4, only renamed from the ambiguous ``max_retries`` to
+    ``ledger_max_retries``), ``streaming_pinned_models``/``extra_request_fields`` copied verbatim
+    from that same artifact, ``halt_on_unknown_charge=True``, and the manifest's OWN stage cap
+    (never the cumulative cap) as the client's ``approved_cap_usd``. ``usage_log_path`` is the
+    single durable events log the client must append every reservation/terminal lifecycle event
+    to (fsynced before each ``complete()`` call returns) -- this module's resume and completion
     audits read only that file, never any in-process client state, so a resumed process with a
-    brand-new client object still sees every prior call correctly. See
+    brand-new client object still sees every prior call correctly.
+
+    ``sdk_internal_max_retries``/``http_timeout``/``per_call_wall_clock_ceiling_seconds`` are the
+    v5 transport pins (the 2026-07-19 r2-incident hardening): sourced from the SAME bound
+    artifact's ``request_settings.transport`` (``sdk_internal_max_retries``, ``http_timeout``,
+    ``per_call_wall_clock_ceiling_seconds`` respectively) and threaded verbatim into
+    ``api_client.RejudgeClient``'s own like-named constructor parameters -- see that class's
+    ``_client()`` for how ``http_timeout``/``sdk_internal_max_retries`` build the real
+    ``Together(...)`` client and assert its actual values match afterward. See
     :func:`build_production_client_factory` for the one REAL factory this module ships.
     """
 
@@ -201,6 +210,9 @@ class ClientConstructionParams:
     usage_log_path: Path
     error_log_path: Path
     ledger_identity: Mapping[str, Any] | None
+    sdk_internal_max_retries: int
+    http_timeout: Mapping[str, float]
+    per_call_wall_clock_ceiling_seconds: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -574,9 +586,20 @@ def _build_client_params(
         for model_id, fields in request_settings["per_model_extra_fields"].items()
     }
     # Sourced from whatever role-limits-and-request-settings artifact the manifest actually
-    # binds (the v4 artifact in every real manifest today: max_retries=2, unchanged from v3,
-    # not v2's 3) -- this function never hardcodes a retry count of its own.
-    max_retries = int(request_settings["transport"]["max_retries"])
+    # binds (the v5 artifact in every real manifest today: ledger_max_retries=2, unchanged in
+    # VALUE from v3/v4's max_retries, only renamed) -- via the shared resolver so this function
+    # never hardcodes a retry count, or a field-name assumption, of its own.
+    max_retries = role_limits.resolve_transport_ledger_max_retries(request_settings)
+    # The v5 transport pins (2026-07-19 r2-incident hardening): threaded verbatim into
+    # api_client.RejudgeClient's like-named constructor parameters (see
+    # ClientConstructionParams's own docstring) -- never hardcoded here either.
+    transport = request_settings["transport"]
+    sdk_internal_max_retries = int(transport["sdk_internal_max_retries"])
+    http_timeout = {
+        field: float(value) for field, value in transport["http_timeout"].items()
+    }
+    per_call_wall_clock_ceiling_seconds = float(
+        transport["per_call_wall_clock_ceiling_seconds"])
 
     snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
         project_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
@@ -613,6 +636,9 @@ def _build_client_params(
         usage_log_path=usage_log_path,
         error_log_path=error_log_path,
         ledger_identity=ledger_identity,
+        sdk_internal_max_retries=sdk_internal_max_retries,
+        http_timeout=http_timeout,
+        per_call_wall_clock_ceiling_seconds=per_call_wall_clock_ceiling_seconds,
     )
 
 
@@ -1087,11 +1113,20 @@ def _run_locked(
 # --- production client factory (contract item 4) + run_live ---------------------------------------
 
 
-def _lazy_together_sdk_client() -> Any:
-    """Import and construct the real ``together`` SDK client. Called only for a live run."""
-    from together import Together
+def _lazy_together_sdk_client(
+    *, http_timeout: Mapping[str, float] | None = None,
+    sdk_internal_max_retries: int | None = None,
+) -> Any:
+    """Import and construct the real ``together`` SDK client. Called only for a live run.
 
-    return Together()
+    Threads the v5 transport pins (``http_timeout``/``sdk_internal_max_retries``) into the SDK's
+    own constructor via ``api_client.build_pinned_together_client`` -- the SAME function
+    ``api_client.RejudgeClient._client()`` itself calls -- so this eager, factory-time
+    construction path and that lazy, in-``complete()``-loop path can never silently diverge on
+    how the pins are applied or asserted.
+    """
+    return api_client.build_pinned_together_client(
+        http_timeout=http_timeout, sdk_internal_max_retries=sdk_internal_max_retries)
 
 
 class _ProductionClientAdapter:
@@ -1158,9 +1193,13 @@ def build_production_client_factory(
     ``test_module_purity_no_sdk_import_at_module_load``). Pass ``sdk_client_factory`` to fully
     unit-test this path with a fake SDK object injected in place of a real ``together.Together()``
     client -- exactly the seam ``api_client.RejudgeClient``'s own ``_sdk_client`` constructor
-    parameter exists for.
+    parameter exists for. When ``sdk_client_factory`` is NOT supplied (the real, live-run path),
+    the v5 transport pins (``params.http_timeout``/``params.sdk_internal_max_retries``) are
+    threaded into the default ``_lazy_together_sdk_client``'s own construction of the real SDK
+    client (see that function); an injected ``sdk_client_factory`` is always called exactly as
+    the caller supplied it (zero arguments), since a caller supplying its own SDK object is
+    already responsible for whatever transport configuration that object carries.
     """
-    resolved_sdk_factory = sdk_client_factory or _lazy_together_sdk_client
 
     def _factory(params: ClientConstructionParams) -> PreflightClient:
         if params.dry_run:
@@ -1177,7 +1216,12 @@ def build_production_client_factory(
         snapshot = api_client.load_chained_usage_ledger(
             params.usage_log_path, expected_identity=real_ledger_identity)
 
-        sdk_client = resolved_sdk_factory()
+        if sdk_client_factory is None:
+            sdk_client = _lazy_together_sdk_client(
+                http_timeout=params.http_timeout,
+                sdk_internal_max_retries=params.sdk_internal_max_retries)
+        else:
+            sdk_client = sdk_client_factory()
         client = api_client.RejudgeClient(
             approved_cap_usd=params.approved_cap_usd,
             dry_run=False,
@@ -1198,6 +1242,9 @@ def build_production_client_factory(
             extra_request_fields={
                 model: dict(fields) for model, fields in params.extra_request_fields.items()},
             halt_on_unknown_charge=True,
+            http_timeout=dict(params.http_timeout),
+            sdk_internal_max_retries=params.sdk_internal_max_retries,
+            per_call_wall_clock_ceiling_seconds=params.per_call_wall_clock_ceiling_seconds,
         )
         return _ProductionClientAdapter(client)
 

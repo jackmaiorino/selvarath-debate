@@ -1,0 +1,14 @@
+{
+  "schema_version": "phase2_ceiling_correction_v1",
+  "correction_id": "cumulative_ceiling_fixed_basis_2026-07-19",
+  "corrects": {
+    "tracked_path": "rejudge/phase2_provider_reconciliation_2026-07-19b.json",
+    "erroneous_field": "cumulative_project_ceiling_usd",
+    "erroneous_value": 1709.25
+  },
+  "correct_cumulative_project_ceiling_usd": 1709.24,
+  "basis": "the cumulative ceiling is FIXED at the last provider-verified spend before any Phase 2 stage execution (209.24, verified 2026-07-19T00:51:42Z) plus the approved incremental ceiling 1500. Recomputing it from current spend after execution begins would raise the ceiling by every dollar spent, unbounding the cap over time; the 2026-07-19b snapshot's ceiling field made exactly that error and is superseded by this record. The snapshot's spend/credit figures themselves remain valid evidence.",
+  "oracle_review": "flagged by the Codex-reviewed closure task (thread 019f640d, GO-WITH-CHANGES), 2026-07-19",
+  "execution_authorized": false,
+  "note": "Append-only correction; the erroneous artifact is never edited. All manifests and the stage-family ledger bind the corrected fixed ceiling."
+}

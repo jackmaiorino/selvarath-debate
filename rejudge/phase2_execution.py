@@ -57,13 +57,18 @@ DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
 DEFAULT_UV_LOCK_RELATIVE_PATH = Path("uv.lock")
 DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
-# The v4 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
-# always supersedes this exact real, git-tracked v3 file; its canonical hash is recomputed fresh
-# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v4.
-# A v3 (or v2, or v1) artifact bound into the merged slot fails closed just like v2/v1 always
-# failed closed against validate_role_limits_v3: it lacks v4-only sections
-# (sdk_compatibility_basis) and/or its schema_version does not match.
+# The v4 role-limits/request-settings artifact: still needed as v5's own "supersedes" source
+# (exactly as v3 was needed to validate v4) and as the frozen v3 READY forecast schema's pinned
+# bindings.role_limits_v4 binding (see _validate_cost_forecast_gate's call site below) -- never
+# trusted from either bound artifact alone, always recomputed fresh from this path.
 DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V3_TRACKED_PATH)
+# The v5 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
+# always supersedes this exact real, git-tracked v4 file; its canonical hash is recomputed fresh
+# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v5.
+# A v4 (or v3, v2, or v1) artifact bound into the merged slot fails closed just like v3/v2/v1 always
+# failed closed against validate_role_limits_v4: it lacks v5's restructured request_settings.
+# transport section and/or its schema_version does not match.
+DEFAULT_ROLE_LIMITS_V4_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V4_TRACKED_PATH)
 
 # --- PINNED DELEGATION AUTHORIZATION BASIS: frozen literal bindings -----------------------------
 #
@@ -1015,14 +1020,21 @@ def _validate_cost_forecast_gate(
     Loads and recomputes the generic path/hash binding first (unchanged mechanism: the
     forecast's own tracked location stays manifest-controlled, not pinned), then parses it
     through :func:`phase2_preflight_forecast.validate_forecast_v3` -- the v3 "ready" schema
-    (relaunch attempt r2), bound to role-limits v4 (the real, already-validated payload from
-    ``role_limits_and_request_settings_artifact`` above) and the pinned 2026-07-19 provider
-    refresh (the real, already-validated payload from ``_validate_provider_refresh_gate``
-    above). A v1/v2/conflict-schema artifact, or any artifact that fails the ready gate
+    (relaunch attempt r2), bound to role-limits v4 and the pinned 2026-07-19 provider refresh
+    (the real, already-validated payload from ``_validate_provider_refresh_gate`` above). A
+    v1/v2/conflict-schema artifact, or any artifact that fails the ready gate
     (``attempt_ceiling_stress`` not strictly below ``halt_cap_usd``, i.e. no positive margin),
     fails closed here rather than being silently accepted as a generic hash-matching blob.
     cost_forecast's hash still folds into the same single ``execution_identity_sha256`` this
     manifest as a whole produces, exactly as before.
+
+    ``role_limits_v4_payload`` is DELIBERATELY the real v4 artifact loaded fresh from
+    :data:`DEFAULT_ROLE_LIMITS_V4_RELATIVE_PATH` -- NOT the ``role_limits_and_request_settings_
+    artifact`` manifest slot's own (now v5) payload. The frozen v3 READY forecast schema's
+    ``bindings.role_limits_v4`` binding is pinned, by name and by hash, to the real v4 artifact
+    forever (it predates v5, and its own ``retry_policy`` cross-check still reads v4's
+    pre-restructure ``request_settings.transport`` shape); see the merged-slot validation block
+    above for why this deliberate split changes nothing about what the forecast verifies.
     """
     mapping = _mapping(binding, "cost_forecast")
     _exact_keys(mapping, ARTIFACT_BINDING_KEYS, "cost_forecast")
@@ -1425,10 +1437,25 @@ def validate_execution_manifest(
     _check_bound_hash(
         manifest, "provider_price_snapshot_canonical_sha256", observed_snapshot_sha)
 
-    # --- single merged role-limits + request-settings artifact (v4 ONLY; a v3, v2, or v1 ---
-    # --- artifact bound into this slot fails closed, since it lacks the v4-only ---
-    # --- sdk_compatibility_basis section (and/or has the wrong schema_version) that ---
-    # --- load_and_validate_v4's own top-level key-set check requires) ---
+    # --- single merged role-limits + request-settings artifact (v5 ONLY; a v4, v3, v2, or v1 ---
+    # --- artifact bound into this slot fails closed, since it lacks the v5-only restructured ---
+    # --- request_settings.transport section (and/or has the wrong schema_version) that ---
+    # --- load_and_validate_v5's own top-level key-set check requires) ---
+    #
+    # v5 is the 2026-07-19 r2-incident transport fix (streaming pin extended to all three
+    # reasoning models; SDK-internal retries pinned to 0; explicit http_timeout; a new
+    # application-level per-call wall-clock ceiling -- see rejudge/phase2_role_limits.py's own
+    # v5 section docstring). Loading+validating the real v4 file here is required regardless (v5's
+    # own supersedes binding demands it, exactly as v4 demanded v3, v3 demanded v2, etc.); the SAME
+    # already-loaded v4_role_limits_payload is deliberately also the value threaded into
+    # _validate_cost_forecast_gate below, NOT the just-validated v5 payload -- the frozen v3 READY
+    # forecast schema's bindings.role_limits_v4 slot (rejudge.phase2_preflight_forecast.
+    # validate_forecast_v3) is pinned, by name and by hash, to the real v4 artifact forever; it
+    # predates v5 and its own retry_policy check still reads the pre-v5 request_settings.transport
+    # shape (max_retries/max_attempts), which v5 no longer has. Cost/token forecasting is
+    # unaffected by which models stream or by SDK-internal-retry/timeout pins, so this split
+    # changes nothing about what the forecast actually verifies -- it only avoids forcing an
+    # unrelated forecast-schema rebuild onto a transport-only fix.
     role_limits_and_request_settings_artifact = _mapping(
         manifest.get("role_limits_and_request_settings_artifact"),
         "role_limits_and_request_settings_artifact")
@@ -1452,34 +1479,34 @@ def validate_execution_manifest(
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact hash drift: manifest bound "
             f"{role_limits_sha_value}, observed {observed_role_limits_sha}")
-    v3_role_limits_path = root / DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH
-    if not v3_role_limits_path.is_file():
+    v4_role_limits_path = root / DEFAULT_ROLE_LIMITS_V4_RELATIVE_PATH
+    if not v4_role_limits_path.is_file():
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact supersedes source is missing: "
-            f"{v3_role_limits_path}")
-    v3_role_limits_payload = _load_json_object(v3_role_limits_path)
+            f"{v4_role_limits_path}")
+    v4_role_limits_payload = _load_json_object(v4_role_limits_path)
     try:
-        role_limits.validate_role_limits_v4(
-            role_limits_payload, protocol, snapshot, v3_role_limits_payload, project_root=root)
+        role_limits.validate_role_limits_v5(
+            role_limits_payload, protocol, snapshot, v4_role_limits_payload, project_root=root)
     except role_limits.RoleLimitsError as exc:
         raise ManifestValidationError(
-            "role_limits_and_request_settings_artifact does not validate as a v4 role-limits "
+            "role_limits_and_request_settings_artifact does not validate as a v5 role-limits "
             f"artifact: {exc}") from exc
 
     # --- SEMANTIC ARTIFACT GATES: the pinned 2026-07-19 provider refresh (validated FIRST so its
-    # --- parsed payload is available below), preflight cost forecast (v3 READY schema, bound to
-    # --- role-limits v4 -- the manifest's own already-validated execution-slot payload, no ---
-    # --- longer a v3-file substitution workaround), durable storage policy (real schema), the ---
-    # --- pinned 2026-07-19 provider reconciliation evidence, and the pinned prior-attempt ---
-    # --- closure (required for every relaunch: binds this manifest to the SAME adjudication ---
-    # --- that closed the previous aborted attempt). ---
+    # --- parsed payload is available below), preflight cost forecast (v3 READY schema, pinned to
+    # --- the real role-limits v4 artifact -- see the v4_role_limits_payload note above, NOT the ---
+    # --- v5 merged-slot payload), durable storage policy (real schema), the pinned 2026-07-19 ---
+    # --- provider reconciliation evidence, and the pinned prior-attempt closure (required for ---
+    # --- every relaunch: binds this manifest to the SAME adjudication that closed the previous ---
+    # --- aborted attempt). ---
     provider_refresh_binding = _mapping(manifest.get("provider_refresh"), "provider_refresh")
     _observed_provider_refresh_raw_sha, provider_refresh_payload = _validate_provider_refresh_gate(
         provider_refresh_binding, root=root, snapshot=snapshot)
     cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
     _validate_cost_forecast_gate(
         cost_forecast_binding, root=root, protocol=protocol,
-        role_limits_v4_payload=role_limits_payload, snapshot=snapshot, bundle=bundle,
+        role_limits_v4_payload=v4_role_limits_payload, snapshot=snapshot, bundle=bundle,
         provider_refresh_payload=provider_refresh_payload)
     storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
     _validate_storage_policy_gate(storage_policy_binding, root=root)

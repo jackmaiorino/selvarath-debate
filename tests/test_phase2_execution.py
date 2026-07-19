@@ -483,6 +483,7 @@ ROLE_LIMITS_V1_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_2026-07-18.js
 ROLE_LIMITS_V2_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
 ROLE_LIMITS_V3_PATH = ROOT / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
 ROLE_LIMITS_V4_PATH = ROOT / "rejudge" / "phase2_role_limits_v4_2026-07-19.json"
+ROLE_LIMITS_V5_PATH = ROOT / "rejudge" / "phase2_role_limits_v5_2026-07-19.json"
 
 
 @pytest.fixture(scope="module")
@@ -493,8 +494,8 @@ def synthetic_artifacts(tmp_path_factory):
     ``role_limits_and_request_settings`` is an absolute tmp path so it can be bound from any
     ``project_root`` without writing anything under GREEN_ROOT itself -- the
     deliberately-anywhere pattern ``_resolve_bound_path`` documents for that binding. It is a
-    real, byte-identical copy of the tracked v4 role-limits artifact (not a placeholder): the
-    merged manifest slot must VALIDATE as a v4 role-limits artifact, not just hash-match.
+    real, byte-identical copy of the tracked v5 role-limits artifact (not a placeholder): the
+    merged manifest slot must VALIDATE as a v5 role-limits artifact, not just hash-match.
 
     ``cost_forecast`` is a structurally-valid-JSON placeholder: the ``manifest`` fixture stubs
     out cost_forecast's deep economics check (see ``_build_green_root``'s docstring), so this
@@ -511,7 +512,7 @@ def synthetic_artifacts(tmp_path_factory):
     directory = tmp_path_factory.mktemp("phase2_execution_artifacts")
     role_limits_and_request_settings = _write_json(
         directory, "role_limits_and_request_settings.json",
-        json.loads(ROLE_LIMITS_V4_PATH.read_text(encoding="utf-8")))
+        json.loads(ROLE_LIMITS_V5_PATH.read_text(encoding="utf-8")))
 
     root_relative = _write_synthetic_root_relative_artifacts(GREEN_ROOT)
     root_relative["storage_policy"].write_text(
@@ -799,17 +800,17 @@ def missing_approval_root(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def missing_v3_role_limits_root(tmp_path_factory):
-    """A tmp copy of the tracked data files with the frozen v3 role-limits file removed.
+def missing_v4_role_limits_root(tmp_path_factory):
+    """A tmp copy of the tracked data files with the frozen v4 role-limits file removed.
 
     The manifest's role_limits_and_request_settings_artifact binding itself (an absolute tmp
     path via ``synthetic_artifacts``) is untouched; only the separate, always-project-root-
-    relative v3 "supersedes" source that role_limits.validate_role_limits_v4 independently
+    relative v4 "supersedes" source that role_limits.validate_role_limits_v5 independently
     re-reads from disk is missing here.
     """
-    destination = tmp_path_factory.mktemp("missing_v3_role_limits_root")
+    destination = tmp_path_factory.mktemp("missing_v4_role_limits_root")
     _copy_tracked_data_files(destination)
-    path = destination / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
+    path = destination / "rejudge" / "phase2_role_limits_v4_2026-07-19.json"
     path.unlink()
     return destination
 
@@ -960,57 +961,76 @@ def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
 
 def test_role_limits_and_request_settings_artifact_v1_in_slot_is_rejected(manifest, tmp_path):
     # A v1 artifact byte-identical to the real, tracked v1 file is a real, hash-matchable JSON
-    # object -- it must still fail because it lacks the v4-only sdk_compatibility_basis/
-    # supersedes/approval_basis/role_taxonomy sections and its schema_version is
-    # phase2_role_limits_v1, not v4.
+    # object -- it must still fail because it lacks the v5-only sections (approval_basis,
+    # sdk_compatibility_basis, role_taxonomy, the restructured transport section) and its
+    # schema_version is phase2_role_limits_v1, not v5.
     manifest_dict, _identity = manifest
     v1_payload = json.loads(ROLE_LIMITS_V1_PATH.read_text(encoding="utf-8"))
-    v1_copy = tmp_path / "v1_in_v4_slot.json"
+    v1_copy = tmp_path / "v1_in_v5_slot.json"
     v1_copy.write_text(json.dumps(v1_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v1_copy), "sha256": phase2_plan.canonical_sha256(v1_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v4 role-limits artifact",
+        match="does not validate as a v5 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_v2_in_slot_is_rejected(manifest, tmp_path):
     # Same guarantee one link up the chain: a real, byte-identical v2 artifact still fails
-    # closed in the merged slot, since v2 lacks v4's sdk_compatibility_basis/approval_basis
-    # sections and its schema_version is phase2_role_limits_v2, not v4.
+    # closed in the merged slot, since v2 lacks v5's sections and its schema_version is
+    # phase2_role_limits_v2, not v5.
     manifest_dict, _identity = manifest
     v2_payload = json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8"))
-    v2_copy = tmp_path / "v2_in_v4_slot.json"
+    v2_copy = tmp_path / "v2_in_v5_slot.json"
     v2_copy.write_text(json.dumps(v2_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v2_copy), "sha256": phase2_plan.canonical_sha256(v2_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v4 role-limits artifact",
+        match="does not validate as a v5 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_v3_in_slot_is_rejected(manifest, tmp_path):
-    # v3 is now retired from the merged slot exactly like v2/v1: it lacks v4's
-    # sdk_compatibility_basis section and its schema_version is phase2_role_limits_v3, not v4 --
-    # this is the streaming-transport SDK-compatibility fix's own regression guard, proving the
-    # slot can never silently fall back to the stream_options-sending artifact that caused the
-    # frozen 2026-07-19 capability-preflight abort.
+    # v3 is now retired from the merged slot exactly like v2/v1: it lacks v5's sections and its
+    # schema_version is phase2_role_limits_v3, not v5.
     manifest_dict, _identity = manifest
     v3_payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
-    v3_copy = tmp_path / "v3_in_v4_slot.json"
+    v3_copy = tmp_path / "v3_in_v5_slot.json"
     v3_copy.write_text(json.dumps(v3_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v3_copy), "sha256": phase2_plan.canonical_sha256(v3_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v4 role-limits artifact",
+        match="does not validate as a v5 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_v4_in_slot_is_rejected(manifest, tmp_path):
+    # v4 is now retired from the merged slot too: it lacks v5's restructured
+    # request_settings.transport section (sdk_internal_max_retries/ledger_max_retries/
+    # ledger_max_attempts/http_timeout/per_call_wall_clock_ceiling_seconds) and its
+    # schema_version is phase2_role_limits_v4, not v5 -- this is the v5 transport-hardening
+    # fix's own regression guard, proving the slot can never silently fall back to the
+    # artifact that lacked the pinned SDK timeout/retry settings behind the real 2026-07-19 r2
+    # relaunch's ambiguous-charge halt.
+    manifest_dict, _identity = manifest
+    v4_payload = json.loads(ROLE_LIMITS_V4_PATH.read_text(encoding="utf-8"))
+    v4_copy = tmp_path / "v4_in_v5_slot.json"
+    v4_copy.write_text(json.dumps(v4_payload), encoding="utf-8")
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(v4_copy), "sha256": phase2_plan.canonical_sha256(v4_payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v5 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
@@ -1019,17 +1039,17 @@ def test_role_limits_and_request_settings_artifact_supersedes_drift_is_rejected(
     manifest, tmp_path,
 ):
     manifest_dict, _identity = manifest
-    payload = json.loads(ROLE_LIMITS_V4_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(ROLE_LIMITS_V5_PATH.read_text(encoding="utf-8"))
     payload["supersedes"]["canonical_sha256"] = _flip_hex_digest(
         payload["supersedes"]["canonical_sha256"])
-    tampered = tmp_path / "tampered_v4.json"
+    tampered = tmp_path / "tampered_v5.json"
     tampered.write_text(json.dumps(payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(tampered), "sha256": phase2_plan.canonical_sha256(payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v4 role-limits artifact",
+        match="does not validate as a v5 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
@@ -1096,15 +1116,15 @@ def test_role_limits_and_request_settings_artifact_malformed_sha_format_is_rejec
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_role_limits_v3_supersedes_source_missing_fails_closed(
-    manifest, missing_v3_role_limits_root,
+def test_role_limits_v4_supersedes_source_missing_fails_closed(
+    manifest, missing_v4_role_limits_root,
 ):
     manifest_dict, _identity = manifest
     with pytest.raises(
         pe.ManifestValidationError, match="supersedes source is missing",
     ):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=missing_v3_role_limits_root)
+            manifest_dict, project_root=missing_v4_role_limits_root)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy"])
@@ -2070,19 +2090,19 @@ def missing_delegation_root(tmp_path_factory):
 
 
 def test_missing_shared_delegation_record_fails_closed(manifest, missing_delegation_root):
-    # The frozen preflight delegation record is now depended on by TWO independent checks: v4
-    # role-limits' own approval_basis (reused unmodified from v3, validated earlier, as part of
-    # every manifest validation, authorized or not) and the authorization record's approval_basis
-    # (validated only when require_authorized=True). Deleting the shared file is caught by
-    # whichever check runs first -- here, role-limits v4's -- so the authorization block's own
-    # "artifact is missing" branch (identical in shape) is defensive/unreachable given this
-    # coupling, not dead code from a design flaw: the SAME missing file still fails closed, just
-    # earlier.
+    # The frozen preflight delegation record is now depended on by TWO independent checks: v5
+    # role-limits' own approval_basis (reused unmodified from v3/v4, validated earlier, as part
+    # of every manifest validation, authorized or not) and the authorization record's
+    # approval_basis (validated only when require_authorized=True). Deleting the shared file is
+    # caught by whichever check runs first -- here, role-limits v5's -- so the authorization
+    # block's own "artifact is missing" branch (identical in shape) is defensive/unreachable
+    # given this coupling, not dead code from a design flaw: the SAME missing file still fails
+    # closed, just earlier.
     manifest_dict, identity_sha256 = manifest
     authorization = matching_authorization(identity_sha256)
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v4 role-limits artifact.*approval_basis artifact is missing",
+        match="does not validate as a v5 role-limits artifact.*approval_basis artifact is missing",
     ):
         pe.validate_execution_manifest(
             manifest_dict, project_root=missing_delegation_root, authorization=authorization,

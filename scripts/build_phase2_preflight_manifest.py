@@ -119,6 +119,17 @@ CAPABILITY_CONDITION_ID = "full_document_solo_qa"
 # rather than hardcoding a second copy of the filename.
 ROLE_LIMITS_V4_RELATIVE_PATH = (
     role_limits.DEFAULT_V4_ARTIFACT_PATH.resolve().relative_to(REPO_ROOT.resolve()).as_posix())
+# Same story for the v5 (2026-07-19 r2-incident transport hardening) artifact: streaming pin
+# extended to all three reasoning models, SDK-internal retries pinned to 0, an explicit
+# http_timeout, and a new application-level per-call wall-clock ceiling -- see
+# rejudge/phase2_role_limits.py's own v5 section docstring. The MERGED
+# role_limits_and_request_settings_artifact manifest slot is now v5-only (phase2_execution.py's
+# validate_execution_manifest rejects v4/v3/v2/v1 there); the frozen v3 READY forecast schema
+# (FORECAST_R2_RELATIVE_PATH below) stays bound to the real v4 artifact regardless -- see
+# phase2_execution.py's own merged-slot validation block for why that split is deliberate and
+# unaffected by this transport-only fix.
+ROLE_LIMITS_V5_RELATIVE_PATH = (
+    role_limits.DEFAULT_V5_ARTIFACT_PATH.resolve().relative_to(REPO_ROOT.resolve()).as_posix())
 # Same story for the v2 "ready" forecast artifact.
 FORECAST_RELATIVE_PATH = (
     preflight_forecast.DEFAULT_ARTIFACT_V2_PATH.resolve()
@@ -361,17 +372,20 @@ _UNUSED_FAKE_SDK = object()
 
 
 def capability_qa_client_construction_inputs(
-    v4_payload: dict[str, Any], snapshot: dict[str, Any],
+    role_limits_payload: dict[str, Any], snapshot: dict[str, Any],
 ) -> tuple[dict[str, int], frozenset[str], dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
     """Extract (model_context_limits, streaming_pinned_models, extra_request_fields, model_prices)
 
     Mirrors ``rejudge.phase2_preflight_runner._build_client_params``'s own extraction of these
-    four fields from the bound v4 role-limits-and-request-settings artifact and the price
-    snapshot (the runner's ``max_retries``/``usage_log_path``/``ledger_identity`` fields are
-    irrelevant to request-kwargs construction and are not needed here).
+    four fields from the bound role-limits-and-request-settings artifact and the price snapshot
+    (the runner's ``max_retries``/``usage_log_path``/``ledger_identity`` fields are irrelevant to
+    request-kwargs construction and are not needed here). ``role_limits_payload`` is whatever
+    schema version the caller passes (v5 for the current merged-slot binding; the historical r2
+    relaunch builder still passes v4 -- these four fields' SHAPE is identical across v4/v5, only
+    ``streaming_pinned_models``'s per-model VALUE differs).
     """
-    request_settings = v4_payload["request_settings"]
-    context_ceilings = v4_payload["context_ceilings"]
+    request_settings = role_limits_payload["request_settings"]
+    context_ceilings = role_limits_payload["context_ceilings"]
     model_context_limits = {
         model_id: int(entry["context_length_tokens"])
         for model_id, entry in context_ceilings.items()
@@ -720,6 +734,24 @@ def build_manifest_and_authorization(
         v3_artifact_path=repo_root / pe.DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH,
         project_root=repo_root,
     )
+    # v5 is the 2026-07-19 r2-incident transport fix (streaming pin extended to all three
+    # reasoning models; SDK-internal retries pinned to 0; explicit http_timeout; a new
+    # application-level per-call wall-clock ceiling). The MERGED role_limits_and_request_
+    # settings_artifact manifest slot is v5-only (phase2_execution.py's validate_execution_
+    # manifest rejects v4/v3/v2/v1 there), so it -- not v4_payload -- is what's bound below and
+    # what drives request-hash computation (streaming_pinned_models' now-3-model value is a real
+    # content change to the request kwargs the live client will actually send). v4_payload is
+    # STILL loaded and used, deliberately, for the frozen v3 READY forecast schema's
+    # bindings.role_limits_v4 slot immediately below -- that binding is pinned to the real v4
+    # artifact forever and is unaffected by a transport-only fix; see phase2_execution.py's own
+    # merged-slot validation block for why this split is correct.
+    v5_payload, _v5_protocol, _v5_snapshot = role_limits.load_and_validate_v5(
+        artifact_path=repo_root / ROLE_LIMITS_V5_RELATIVE_PATH,
+        protocol_path=repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH,
+        snapshot_path=repo_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
+        v4_artifact_path=repo_root / ROLE_LIMITS_V4_RELATIVE_PATH,
+        project_root=repo_root,
+    )
     # The manifest's cost_forecast slot now requires the v3 "ready" forecast schema (relaunch
     # attempt r2), bound to role-limits v4 directly -- no more v3-payload substitution workaround
     # (that was only ever needed while the forecast schema itself still bound role-limits v3; see
@@ -749,9 +781,9 @@ def build_manifest_and_authorization(
     corpus_entries = capability_corpus.render_capability_corpus(bundle, protocol, repo_root)
     corpus_lookup = {(str(e["question_id"]), str(e["side"])): e for e in corpus_entries}
 
-    # --- request-hash inputs ---
+    # --- request-hash inputs (v5-bound: this is where the streaming-pin extension shows up) ----
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        capability_qa_client_construction_inputs(v4_payload, snapshot))
+        capability_qa_client_construction_inputs(v5_payload, snapshot))
     hash_client = build_hash_only_client(
         model_context_limits=model_context_limits,
         streaming_pinned_models=streaming_pinned_models,
@@ -778,7 +810,7 @@ def build_manifest_and_authorization(
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            v4_payload, protocol, model, pe.CAPABILITY_CALL_ROLE)
+            v5_payload, protocol, model, pe.CAPABILITY_CALL_ROLE)
 
         seed = derive_capability_qa_seed(
             namespace=namespace, question_id=question_id, model=model, condition=condition,
@@ -812,7 +844,7 @@ def build_manifest_and_authorization(
         "sha256": pe.canonical_sha256(approval),
     }
     role_limits_binding = {
-        "path": ROLE_LIMITS_V4_RELATIVE_PATH, "sha256": pe.canonical_sha256(v4_payload),
+        "path": ROLE_LIMITS_V5_RELATIVE_PATH, "sha256": pe.canonical_sha256(v5_payload),
     }
     cost_forecast_binding = {
         "path": FORECAST_R2_RELATIVE_PATH, "sha256": pe.canonical_sha256(forecast_payload),

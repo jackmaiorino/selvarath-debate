@@ -49,6 +49,7 @@ REL_ROLE_LIMITS_V1 = "rejudge/phase2_role_limits_2026-07-18.json"
 REL_ROLE_LIMITS_V2 = "rejudge/phase2_role_limits_v2_2026-07-18.json"
 REL_ROLE_LIMITS_V3 = "rejudge/phase2_role_limits_v3_2026-07-19.json"
 REL_ROLE_LIMITS_V4 = "rejudge/phase2_role_limits_v4_2026-07-19.json"
+REL_ROLE_LIMITS_V5 = "rejudge/phase2_role_limits_v5_2026-07-19.json"
 REL_DELEGATION = "rejudge/phase2_preflight_delegation_2026-07-19.json"
 REL_ABORT_CLOSURE = "rejudge/phase2_preflight_abort_closure_2026-07-19.json"
 REL_PROVIDER_REFRESH = "rejudge/phase2_provider_refresh_2026-07-19.json"
@@ -77,6 +78,7 @@ _TRACKED_DATA_FILES = (
     REL_ROLE_LIMITS_V2,
     REL_ROLE_LIMITS_V3,
     REL_ROLE_LIMITS_V4,
+    REL_ROLE_LIMITS_V5,
     REL_DELEGATION,
     REL_ABORT_CLOSURE,
     REL_PROVIDER_REFRESH,
@@ -178,7 +180,7 @@ def _write_artifacts(
     directory = tmp_path_factory.mktemp("preflight_artifacts")
     role_limits_and_request_settings = directory / "role_limits_and_request_settings.json"
     role_limits_and_request_settings.write_text(
-        (project_root / REL_ROLE_LIMITS_V4).read_text(encoding="utf-8"), encoding="utf-8")
+        (project_root / REL_ROLE_LIMITS_V5).read_text(encoding="utf-8"), encoding="utf-8")
     gemma_waiver = directory / "gemma_recovery_waiver.json"
     gemma_waiver.write_text(json.dumps({"waiver": "placeholder"}), encoding="utf-8")
     provider_refresh_path = directory / "provider_refresh.json"
@@ -1246,8 +1248,9 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     manifest, _identity, artifacts = _build_full_manifest(
         project_root, tmp_path_factory, stage_cap=7.5)
     manifest_path = _write_manifest(project_root, manifest)
-    # role_limits_and_request_settings is now bound to v4, whose retry pin is unchanged from v3
-    # (2 retries / 3 attempts, not v2's 3/4) -- see REL_ROLE_LIMITS_V4 in _write_artifacts.
+    # role_limits_and_request_settings is now bound to v5, whose LEDGER retry pin is unchanged in
+    # value from v3/v4 (2 retries / 3 attempts, not v2's 3/4, only renamed) -- see
+    # REL_ROLE_LIMITS_V5 in _write_artifacts.
     role_limits_bound = json.loads(
         artifacts["role_limits_and_request_settings"].read_text(encoding="utf-8"))
 
@@ -1278,6 +1281,13 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     assert dict(params.model_context_limits) == expected_context
     assert str(params.usage_log_path).endswith(".dry_run.jsonl")
     assert params.ledger_identity is None  # dry run: never the manifest-bound live ledger
+
+    # --- v5 transport pins: threaded verbatim from the bound artifact, never hardcoded ---
+    bound_transport = role_limits_bound["request_settings"]["transport"]
+    assert params.sdk_internal_max_retries == bound_transport["sdk_internal_max_retries"]
+    assert dict(params.http_timeout) == bound_transport["http_timeout"]
+    assert (params.per_call_wall_clock_ceiling_seconds
+            == bound_transport["per_call_wall_clock_ceiling_seconds"])
 
 
 def test_client_construction_params_use_stage_cap_not_cumulative_cap(tmp_path_factory):
@@ -2101,6 +2111,9 @@ def _production_params(tmp_path, *, ledger_path: Path | None = None) -> "runner_
             "path": "rejudge/output/phase2_capability_preflight_ledger.jsonl",
             "ledger_identity": "phase2-project-wide-ledger-v1",
         },
+        sdk_internal_max_retries=0,
+        http_timeout={"connect": 10.0, "read": 600.0, "write": 60.0, "pool": 60.0},
+        per_call_wall_clock_ceiling_seconds=1200.0,
     )
 
 

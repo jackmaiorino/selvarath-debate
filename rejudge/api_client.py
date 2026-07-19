@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from numbers import Integral
@@ -62,6 +63,41 @@ class UnknownChargeHalt(RuntimeError):
 
 class AccountingInvariantError(RuntimeError):
     pass
+
+
+class SdkTransportPinMismatchError(RuntimeError):
+    """The installed together SDK client's ACTUAL constructed timeout/max_retries disagree with
+    the pinned values ``RejudgeClient`` asked for.
+
+    Raised by :meth:`RejudgeClient._client` immediately after constructing the real SDK client,
+    reading the pinned values back off the constructed object itself (``client.timeout``,
+    ``client.max_retries``) rather than trusting that passing a kwarg to the constructor is
+    sufficient proof it took effect. This is the "built values match" half of the v5 transport
+    contract; :func:`check_sdk_constructor_compatibility` is the complementary, zero-network,
+    construction-time half that only proves the constructor's SIGNATURE accepts these kwargs at
+    all (Python enforces no type or value constraints at bind time). Never raised for a client
+    with no ``http_timeout``/``sdk_internal_max_retries`` pin configured (legacy default:
+    ``Together()`` constructed with no arguments, unchanged).
+    """
+
+
+class WallClockCeilingExceededError(RuntimeError):
+    """One provider attempt exceeded ``per_call_wall_clock_ceiling_seconds``.
+
+    Raised internally, inside :meth:`RejudgeClient.complete`'s per-attempt try block, immediately
+    after a transport call (streaming or not) returns -- so it is caught by the SAME generic
+    ``except Exception`` handler every other transport failure already flows through, and is
+    therefore ALWAYS recorded ``unknown_charge`` (never trusted as a genuine success) regardless
+    of whether the underlying SDK call appeared to succeed. httpx's own ``read`` timeout only
+    bounds waiting for the NEXT byte/chunk, not a call's total streamed duration (see
+    https://www.python-httpx.org/advanced/timeouts/); this is a separate, application-level,
+    defense-in-depth ceiling around the whole attempt. Only active when
+    ``per_call_wall_clock_ceiling_seconds`` is configured (additive, default-off).
+    """
+
+
+# The exact four fields httpx.Timeout accepts, and the only shape http_timeout may take.
+_HTTP_TIMEOUT_FIELDS: frozenset[str] = frozenset({"connect", "read", "write", "pool"})
 
 
 class SdkRequestShapeError(RuntimeError):
@@ -512,6 +548,105 @@ def check_sdk_request_compatibility(shapes: "list[dict[str, Any]] | tuple[dict[s
                 f"with keys {sorted(kwargs)!r}: {exc}") from exc
 
 
+def check_sdk_constructor_compatibility(
+    *, http_timeout: Mapping[str, float] | None = None,
+    sdk_internal_max_retries: int | None = None,
+) -> None:
+    """Fail closed if the installed together SDK's ``Together.__init__`` cannot bind the v5
+    transport pins (``timeout``/``max_retries``).
+
+    The CONSTRUCTOR-level sibling of :func:`check_sdk_request_compatibility`: that function
+    proves the per-call request shape binds against ``CompletionsResource.create``'s installed
+    signature; this one proves the same, offline, zero-network way for
+    ``together.Together.__init__`` itself, which is where ``RejudgeClient._client()`` threads the
+    v5-pinned ``http_timeout``/``sdk_internal_max_retries`` settings (see that method). Checks
+    parameter NAMES only -- Python enforces no type or value constraints at ``Signature.bind``
+    time -- so this can never observe whether the constructed client's ACTUAL ``.timeout``/
+    ``.max_retries`` end up equal to what was requested; :meth:`RejudgeClient._client` asserts
+    that separately, immediately after a real construction, and raises
+    :class:`SdkTransportPinMismatchError` on any mismatch. Together these two checks are the
+    "constructor accepts timeout/max_retries AND the built values match" contract in full.
+
+    A no-op (always passes trivially) when both ``http_timeout`` and ``sdk_internal_max_retries``
+    are ``None`` -- matching every other Phase-2 hardening knob's additive, default-off shape.
+
+    Imports ``together`` lazily (only inside this call), matching every other real-SDK import in
+    this module; importing the package and inspecting a class's signature touches no network.
+    """
+    from together import Together
+
+    signature = inspect.signature(Together.__init__)
+    valid_names = frozenset(signature.parameters) - {"self"}
+    kwargs: dict[str, Any] = {}
+    if http_timeout is not None:
+        kwargs["timeout"] = object()          # placeholder: only the parameter NAME is checked
+    if sdk_internal_max_retries is not None:
+        kwargs["max_retries"] = sdk_internal_max_retries
+    unknown = sorted(set(kwargs) - valid_names)
+    if unknown:
+        raise SdkRequestShapeError(
+            "installed together SDK's Together.__init__() does not accept keyword argument(s) "
+            f"{unknown!r}; refusing before any usage-ledger reservation or provider call")
+    try:
+        signature.bind(None, **kwargs)
+    except TypeError as exc:
+        raise SdkRequestShapeError(
+            "installed together SDK's Together.__init__() rejects constructor kwargs "
+            f"{sorted(kwargs)!r}: {exc}") from exc
+
+
+def build_pinned_together_client(
+    *, http_timeout: Mapping[str, float] | None = None,
+    sdk_internal_max_retries: int | None = None,
+) -> Any:
+    """Construct a real ``together.Together`` client, threading ``http_timeout``/
+    ``sdk_internal_max_retries`` into its OWN constructor kwargs -- NEVER hardcoded -- and
+    asserting the constructed client's ACTUAL ``.timeout``/``.max_retries`` equal the pins
+    immediately afterward.
+
+    Fails closed with :class:`SdkTransportPinMismatchError` on any mismatch, proving the
+    constructor kwarg genuinely took effect rather than merely being accepted (see
+    :func:`check_sdk_constructor_compatibility` for the complementary, zero-network,
+    construction-time signature check). Legacy (default) behavior when both are ``None`` is
+    unchanged: ``Together()`` with no arguments, no assertion.
+
+    The SINGLE real-SDK-construction implementation for the v5 transport pins: both
+    ``RejudgeClient._client()`` (the lazy, in-``complete()``-loop construction path) and
+    ``rejudge.phase2_preflight_runner``'s production ``sdk_client_factory`` default (the
+    eager, factory-time construction path ``build_production_client_factory`` uses) call this
+    SAME function, so the pin-and-assert logic can never silently diverge between the two call
+    sites. Imports ``together``/``httpx`` lazily, matching every other real-SDK import in this
+    module.
+    """
+    from together import Together
+
+    construct_kwargs: dict[str, Any] = {}
+    expected_timeout = None
+    if http_timeout is not None:
+        import httpx
+        expected_timeout = httpx.Timeout(**http_timeout)
+        construct_kwargs["timeout"] = expected_timeout
+    if sdk_internal_max_retries is not None:
+        construct_kwargs["max_retries"] = sdk_internal_max_retries
+    client = Together(**construct_kwargs)
+    if expected_timeout is not None:
+        observed_timeout = getattr(client, "timeout", None)
+        if observed_timeout != expected_timeout:
+            raise SdkTransportPinMismatchError(
+                f"installed together SDK client's constructed timeout {observed_timeout!r} "
+                f"does not equal the pinned {expected_timeout!r}; refusing to use a client "
+                "whose actual transport configuration cannot be proven")
+    if sdk_internal_max_retries is not None:
+        observed_max_retries = getattr(client, "max_retries", None)
+        if observed_max_retries != sdk_internal_max_retries:
+            raise SdkTransportPinMismatchError(
+                "installed together SDK client's constructed max_retries "
+                f"{observed_max_retries!r} does not equal the pinned "
+                f"{sdk_internal_max_retries!r}; refusing to use a client whose actual "
+                "transport configuration cannot be proven")
+    return client
+
+
 class RejudgeClient:
     def __init__(self, approved_cap_usd, price_per_mtok=1.04, dry_run=False,
                  error_log_path=None, max_context_tokens=131072, max_retries=4,
@@ -525,7 +660,10 @@ class RejudgeClient:
                  strict_context_mode: bool = False,
                  streaming_pinned_models: frozenset[str] = frozenset(),
                  extra_request_fields: dict[str, dict] | None = None,
-                 halt_on_unknown_charge: bool = False):
+                 halt_on_unknown_charge: bool = False,
+                 http_timeout: Mapping[str, float] | None = None,
+                 sdk_internal_max_retries: int | None = None,
+                 per_call_wall_clock_ceiling_seconds: float | None = None):
         self.approved_cap_usd = float(approved_cap_usd)
         self.price_per_mtok = price_per_mtok
         self.model_prices = dict(model_prices or {})
@@ -614,6 +752,46 @@ class RejudgeClient:
         # seeds it upfront so a pinned model never wastes its first attempt on a doomed probe.
         self._streaming_models = set(self.streaming_pinned_models)
 
+        # -- v5 transport knobs (2026-07-19 r2-incident hardening); additive and default-off,
+        # matching every other Phase-2 hardening knob above. See SdkTransportPinMismatchError,
+        # WallClockCeilingExceededError, and _client()'s own docstring for what each does.
+        self.http_timeout: dict[str, float] | None = None
+        if http_timeout is not None:
+            observed_fields = frozenset(http_timeout)
+            if observed_fields != _HTTP_TIMEOUT_FIELDS:
+                raise ValueError(
+                    f"http_timeout must have exactly the fields {sorted(_HTTP_TIMEOUT_FIELDS)!r}, "
+                    f"got {sorted(observed_fields)!r}")
+            resolved_timeout: dict[str, float] = {}
+            for field, value in http_timeout.items():
+                if (isinstance(value, bool) or not isinstance(value, (int, float))
+                        or not math.isfinite(value) or value <= 0):
+                    raise ValueError(
+                        f"http_timeout[{field!r}] must be a finite positive number, got {value!r}")
+                resolved_timeout[field] = float(value)
+            self.http_timeout = resolved_timeout
+
+        if sdk_internal_max_retries is not None:
+            if (isinstance(sdk_internal_max_retries, bool)
+                    or not isinstance(sdk_internal_max_retries, int)
+                    or sdk_internal_max_retries < 0):
+                raise ValueError(
+                    "sdk_internal_max_retries must be a non-negative integer, got "
+                    f"{sdk_internal_max_retries!r}")
+        self.sdk_internal_max_retries: int | None = sdk_internal_max_retries
+
+        if per_call_wall_clock_ceiling_seconds is not None:
+            if (isinstance(per_call_wall_clock_ceiling_seconds, bool)
+                    or not isinstance(per_call_wall_clock_ceiling_seconds, (int, float))
+                    or not math.isfinite(per_call_wall_clock_ceiling_seconds)
+                    or per_call_wall_clock_ceiling_seconds <= 0):
+                raise ValueError(
+                    "per_call_wall_clock_ceiling_seconds must be a finite positive number, got "
+                    f"{per_call_wall_clock_ceiling_seconds!r}")
+        self.per_call_wall_clock_ceiling_seconds: float | None = (
+            float(per_call_wall_clock_ceiling_seconds)
+            if per_call_wall_clock_ceiling_seconds is not None else None)
+
         # INSTALLED-SDK COMPATIBILITY GATE (runtime layer): for a genuinely live client (never a
         # dry run, never a test/stub client built without the factory token), verify every
         # distinct request-kwargs shape this client's configuration can ever send binds cleanly
@@ -622,8 +800,13 @@ class RejudgeClient:
         # SdkRequestShapeError naming the offending kwarg(s) instead of letting the first live
         # attempt burn a reservation on a request the SDK will reject client-side (see
         # check_sdk_request_compatibility's docstring and the frozen 2026-07-19 abort closure).
+        # check_sdk_constructor_compatibility is the same class of check for the CONSTRUCTOR
+        # itself (the v5 timeout/max_retries pins _client() threads into Together(...)).
         if not self.dry_run and _accounting_factory_token is _LIVE_ACCOUNTING_FACTORY_TOKEN:
             check_sdk_request_compatibility(self._manifested_request_shapes())
+            check_sdk_constructor_compatibility(
+                http_timeout=self.http_timeout,
+                sdk_internal_max_retries=self.sdk_internal_max_retries)
 
     def _manifested_request_shapes(self) -> list[dict[str, Any]]:
         """Every distinct request-kwargs SHAPE this client's configuration can ever send.
@@ -1008,14 +1191,18 @@ class RejudgeClient:
                                     "error": str(exc)}) + "\n")
 
     def _client(self):
+        """Lazily construct (and memoize) the real Together SDK client, applying this client's
+        own pinned ``http_timeout``/``sdk_internal_max_retries`` (see
+        :func:`build_pinned_together_client`)."""
         if self._sdk is None:
             api_key = os.environ.get("TOGETHER_API_KEY")
             if api_key is None or not api_key.strip():
                 raise ValueError(
                     "TOGETHER_API_KEY environment variable is missing or blank; a live "
                     "Together SDK client cannot be constructed")
-            from together import Together
-            self._sdk = Together()
+            self._sdk = build_pinned_together_client(
+                http_timeout=self.http_timeout,
+                sdk_internal_max_retries=self.sdk_internal_max_retries)
         return self._sdk
 
     # Models whose replies arrive after a hidden reasoning phase that consumes output tokens.
@@ -1057,11 +1244,27 @@ class RejudgeClient:
                 model=model, prompt_tokens=estimated_prompt,
                 completion_tokens=estimated_completion, kind=kind, seed=seed,
                 attempt=attempt, request_metadata=request_metadata)
+            attempt_started_monotonic = time.monotonic()
             try:
                 if streaming:
                     resp = self._streamed_create(**request_kwargs)
                 else:
                     resp = self._client().chat.completions.create(**request_kwargs)
+                if self.per_call_wall_clock_ceiling_seconds is not None:
+                    elapsed = time.monotonic() - attempt_started_monotonic
+                    if elapsed > self.per_call_wall_clock_ceiling_seconds:
+                        # A "successful" response that took this long is not trustworthy: httpx's
+                        # own read timeout only bounds waiting for the NEXT chunk, not a call's
+                        # total streamed duration, and an attempt this slow may itself be a
+                        # duplicate of a transport-layer retry outside this ledger's accounting
+                        # (exactly the r2 incident's failure mode). Raised INSIDE this try block
+                        # so the except clause immediately below treats it exactly like any other
+                        # transport failure: unknown_charge, never a trusted success.
+                        raise WallClockCeilingExceededError(
+                            f"attempt {attempt} for model {model!r} took {elapsed:.1f}s, "
+                            f"exceeding the {self.per_call_wall_clock_ceiling_seconds:.0f}s "
+                            "application-level wall-clock ceiling; treating as unknown_charge "
+                            "rather than trusting a delayed response")
             except Exception as exc:                     # transient API error, no charge known
                 if "streaming_required" in str(exc) or "supports streaming" in str(exc):
                     # Capability negotiation is a rejected request, not an inference. Release

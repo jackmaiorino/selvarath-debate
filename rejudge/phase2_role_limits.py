@@ -36,6 +36,7 @@ DEFAULT_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_2026-07-18.
 DEFAULT_V2_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v2_2026-07-18.json")
 DEFAULT_V3_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v3_2026-07-19.json")
 DEFAULT_V4_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v4_2026-07-19.json")
+DEFAULT_V5_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v5_2026-07-19.json")
 DEFAULT_PROTOCOL_PATH = phase2_plan.DEFAULT_PROTOCOL_PATH
 DEFAULT_SNAPSHOT_PATH = price_snapshot.DEFAULT_SNAPSHOT_PATH
 # project_root for the v3 approval_basis raw-file check only; every other v3 check stays a
@@ -386,15 +387,21 @@ def _validate_context_ceilings(
             raise RoleLimitsError(f"{label}.note wording drifted from the frozen template")
 
 
-def _validate_request_settings(
-    section_raw: Any, protocol: Mapping[str, Any], *,
-    expected_max_retries: int = TRANSPORT_MAX_RETRIES,
-    expected_max_attempts: int = TRANSPORT_MAX_ATTEMPTS,
-    expected_streaming_pinned_models: dict[str, dict[str, Any]] | None = None,
-) -> None:
-    if expected_streaming_pinned_models is None:
-        expected_streaming_pinned_models = STREAMING_PINNED_MODELS
-    section = _mapping(section_raw, "request_settings")
+def _validate_request_settings_common(
+    section: Mapping[str, Any], protocol: Mapping[str, Any], *,
+    expected_streaming_pinned_models: dict[str, dict[str, Any]],
+) -> Mapping[str, Any]:
+    """Validate every ``request_settings`` subfield EXCEPT ``transport``; return the raw
+    ``transport`` mapping (unvalidated) for the caller's own version-specific transport check.
+
+    Shared by every schema version's transport-specific wrapper (v1-v4's :func:`_validate_
+    request_settings` and v5's :func:`_validate_request_settings_v5`) so ``base_fields``,
+    ``streaming_pinned_models`` (against the version's own frozen expected mapping),
+    ``per_model_extra_fields``, ``reasoning_control_note``, and ``response_metadata_to_persist``
+    can never silently diverge between versions -- only ``transport``'s own shape is
+    version-specific (v1-v4: flat ``{max_retries, max_attempts}``; v5: a restructured 5-field
+    section with the renamed ledger-retry-count fields plus the new SDK/timeout/wall-clock pins).
+    """
     _exact_keys(section, REQUEST_SETTINGS_KEYS, "request_settings")
 
     base_fields = _list(section.get("base_fields"), "request_settings.base_fields")
@@ -426,7 +433,28 @@ def _validate_request_settings(
     if note != REASONING_CONTROL_NOTE:
         raise RoleLimitsError("request_settings.reasoning_control_note wording drifted")
 
-    transport = _mapping(section.get("transport"), "request_settings.transport")
+    metadata_fields = _list(
+        section.get("response_metadata_to_persist"),
+        "request_settings.response_metadata_to_persist")
+    if list(metadata_fields) != list(RESPONSE_METADATA_TO_PERSIST):
+        raise RoleLimitsError(
+            "request_settings.response_metadata_to_persist must be exactly the frozen field list")
+
+    return _mapping(section.get("transport"), "request_settings.transport")
+
+
+def _validate_request_settings(
+    section_raw: Any, protocol: Mapping[str, Any], *,
+    expected_max_retries: int = TRANSPORT_MAX_RETRIES,
+    expected_max_attempts: int = TRANSPORT_MAX_ATTEMPTS,
+    expected_streaming_pinned_models: dict[str, dict[str, Any]] | None = None,
+) -> None:
+    if expected_streaming_pinned_models is None:
+        expected_streaming_pinned_models = STREAMING_PINNED_MODELS
+    section = _mapping(section_raw, "request_settings")
+    transport = _validate_request_settings_common(
+        section, protocol, expected_streaming_pinned_models=expected_streaming_pinned_models)
+
     _exact_keys(transport, TRANSPORT_KEYS, "request_settings.transport")
     max_retries = _int(transport.get("max_retries"), "request_settings.transport.max_retries")
     max_attempts = _int(transport.get("max_attempts"), "request_settings.transport.max_attempts")
@@ -437,13 +465,6 @@ def _validate_request_settings(
         raise RoleLimitsError(
             "request_settings.transport.max_attempts must be exactly max_retries + 1 "
             f"({expected_max_attempts})")
-
-    metadata_fields = _list(
-        section.get("response_metadata_to_persist"),
-        "request_settings.response_metadata_to_persist")
-    if list(metadata_fields) != list(RESPONSE_METADATA_TO_PERSIST):
-        raise RoleLimitsError(
-            "request_settings.response_metadata_to_persist must be exactly the frozen field list")
 
 
 def validate_role_limits(
@@ -966,22 +987,261 @@ def load_and_validate_v4(
     return artifact, protocol, snapshot
 
 
+# --- v5: transport hardening after the real r2 relaunch's ambiguous-charge halt ------------------
+#
+# v5 is additive over v4 in the SAME sense v4 was additive over v3 -- EXCEPT that, like v4's own
+# allowed-diff, this version deliberately changes exactly one more thing beyond that pattern:
+# request_settings.transport is RESTRUCTURED (not merely re-valued), because the real 2026-07-19
+# r2 relaunch attempt halted on a genuine ambiguous charge (a non-streaming google/gemma-4-31B-it
+# call hit an httpx ReadTimeout at the installed together SDK's UNPINNED 60s default read timeout,
+# after apparently retrying internally up to 3 times outside this project's own ledger accounting
+# -- see the frozen incident record this artifact's provenance traces to). Every OTHER v4-checked
+# section (base_role_max_tokens, reasoning_models, model_role_limits, context_ceilings,
+# role_taxonomy, approval_basis, sdk_compatibility_basis, and every other request_settings
+# subfield -- base_fields, per_model_extra_fields, reasoning_control_note,
+# response_metadata_to_persist) is still validated with the EXACT SAME frozen Python constants
+# v1/v2/v3/v4 already use (via the identical, unmodified private helpers, including the shared
+# ``_validate_request_settings_common`` every transport-shape version now funnels through), so v5
+# can never silently diverge from them either.
+#
+# The two substantive changes:
+#   1. request_settings.streaming_pinned_models now pins ALL THREE frozen Phase-2 reasoning
+#      models (google/gemma-4-31B-it, openai/gpt-oss-120b, Qwen/Qwen3.7-Plus -- exactly
+#      REASONING_MODEL_IDS), each {"stream": true} only, matching v4's already-fixed shape (no
+#      stream_options). The two non-reasoning models remain non-streaming (they observably answer
+#      in single-digit seconds; no timeout exposure). A reasoning call at the frozen 4096-token
+#      floor routinely thinks past a short non-streaming read timeout; streaming keeps the
+#      connection alive via chunks the whole time, exactly as it already did for Qwen3.7-Plus.
+#   2. request_settings.transport is restructured from the old, ambiguous {max_retries,
+#      max_attempts} pair into five explicit fields: sdk_internal_max_retries (pinned to 0 -- ALL
+#      retry semantics live in this project's own ledger-accounted transport loop, never silently
+#      duplicated by the SDK's own internal retry-on-timeout behavior, which is exactly what made
+#      the r2 incident's attempt-level accounting ambiguous in the first place), ledger_max_retries
+#      / ledger_max_attempts (the renamed former max_retries/max_attempts -- still pinned to 2/3,
+#      unchanged in VALUE from v3/v4, only in name, so the ambiguous bare "max_retries" name can
+#      never again be misread as covering both layers), http_timeout (the previously-UNBOUND SDK
+#      default now an explicit, pinned {connect, read, write, pool} setting -- connect=10, read=
+#      600, write=60, pool=60), and per_call_wall_clock_ceiling_seconds (a NEW application-level
+#      ceiling, 1200s, wrapping each provider attempt independently of the SDK's own httpx timeout
+#      -- httpx's read timeout only bounds waiting for the NEXT chunk, not a call's total streamed
+#      duration, so this is a genuinely separate defense-in-depth bound).
+SCHEMA_VERSION_V5 = "phase2_role_limits_v5"
+ARTIFACT_ID_V5 = "phase2_role_limits_request_settings_2026-07-19_v5"
+
+SUPERSEDES_V4_TRACKED_PATH = "rejudge/phase2_role_limits_v4_2026-07-19.json"
+
+STREAMING_PINNED_MODELS_V5: dict[str, dict[str, Any]] = {
+    model_id: {"stream": True} for model_id in REASONING_MODEL_IDS
+}
+
+TRANSPORT_KEYS_V5: frozenset[str] = frozenset({
+    "sdk_internal_max_retries", "ledger_max_retries", "ledger_max_attempts",
+    "http_timeout", "per_call_wall_clock_ceiling_seconds",
+})
+HTTP_TIMEOUT_KEYS: frozenset[str] = frozenset({"connect", "read", "write", "pool"})
+SDK_INTERNAL_MAX_RETRIES_V5 = 0
+LEDGER_MAX_RETRIES_V5 = 2
+LEDGER_MAX_ATTEMPTS_V5 = LEDGER_MAX_RETRIES_V5 + 1
+HTTP_TIMEOUT_V5: dict[str, int] = {"connect": 10, "read": 600, "write": 60, "pool": 60}
+PER_CALL_WALL_CLOCK_CEILING_SECONDS_V5 = 1200
+
+TOP_LEVEL_KEYS_V5: frozenset[str] = TOP_LEVEL_KEYS_V4
+
+
+def _validate_transport_v5(transport_raw: Any) -> None:
+    """Validate v5's restructured ``request_settings.transport`` section, fail-closed throughout."""
+    transport = _mapping(transport_raw, "request_settings.transport")
+    _exact_keys(transport, TRANSPORT_KEYS_V5, "request_settings.transport")
+
+    sdk_internal_max_retries = _int(
+        transport.get("sdk_internal_max_retries"),
+        "request_settings.transport.sdk_internal_max_retries")
+    if sdk_internal_max_retries != SDK_INTERNAL_MAX_RETRIES_V5:
+        raise RoleLimitsError(
+            "request_settings.transport.sdk_internal_max_retries must be pinned to "
+            f"{SDK_INTERNAL_MAX_RETRIES_V5}")
+
+    ledger_max_retries = _int(
+        transport.get("ledger_max_retries"), "request_settings.transport.ledger_max_retries")
+    ledger_max_attempts = _int(
+        transport.get("ledger_max_attempts"), "request_settings.transport.ledger_max_attempts")
+    if ledger_max_retries != LEDGER_MAX_RETRIES_V5:
+        raise RoleLimitsError(
+            "request_settings.transport.ledger_max_retries must be pinned to "
+            f"{LEDGER_MAX_RETRIES_V5}")
+    if (ledger_max_attempts != LEDGER_MAX_ATTEMPTS_V5
+            or ledger_max_attempts != ledger_max_retries + 1):
+        raise RoleLimitsError(
+            "request_settings.transport.ledger_max_attempts must be exactly "
+            f"ledger_max_retries + 1 ({LEDGER_MAX_ATTEMPTS_V5})")
+
+    http_timeout = _mapping(
+        transport.get("http_timeout"), "request_settings.transport.http_timeout")
+    _exact_keys(http_timeout, HTTP_TIMEOUT_KEYS, "request_settings.transport.http_timeout")
+    for field, expected in HTTP_TIMEOUT_V5.items():
+        observed = _int(
+            http_timeout.get(field), f"request_settings.transport.http_timeout.{field}")
+        if observed != expected:
+            raise RoleLimitsError(
+                f"request_settings.transport.http_timeout.{field} must be pinned to {expected}")
+
+    ceiling = _int(
+        transport.get("per_call_wall_clock_ceiling_seconds"),
+        "request_settings.transport.per_call_wall_clock_ceiling_seconds")
+    if ceiling != PER_CALL_WALL_CLOCK_CEILING_SECONDS_V5:
+        raise RoleLimitsError(
+            "request_settings.transport.per_call_wall_clock_ceiling_seconds must be pinned to "
+            f"{PER_CALL_WALL_CLOCK_CEILING_SECONDS_V5}")
+
+
+def _validate_request_settings_v5(section_raw: Any, protocol: Mapping[str, Any]) -> None:
+    section = _mapping(section_raw, "request_settings")
+    transport = _validate_request_settings_common(
+        section, protocol, expected_streaming_pinned_models=STREAMING_PINNED_MODELS_V5)
+    _validate_transport_v5(transport)
+
+
+def resolve_transport_ledger_max_retries(request_settings: Mapping[str, Any]) -> int:
+    """Resolve the ledger-level (transport-loop) retry-count pin from a ``request_settings``
+    mapping, reading v5's own ``ledger_max_retries`` field name first.
+
+    Backward-compatible with a v1-v4-shaped ``request_settings.transport`` (the ambiguous
+    ``max_retries`` name v5 renamed away from): a caller resolving this value from whichever
+    role-limits-and-request-settings artifact schema version a manifest actually binds does not
+    need its own version-sniffing branch.
+    """
+    transport = _mapping(request_settings.get("transport"), "request_settings.transport")
+    if "ledger_max_retries" in transport:
+        return _int(
+            transport["ledger_max_retries"], "request_settings.transport.ledger_max_retries")
+    return _int(transport.get("max_retries"), "request_settings.transport.max_retries")
+
+
+def _validate_sdk_compatibility_basis_v5(section_raw: Any, root: Path) -> None:
+    """v5 reuses v4's sdk_compatibility_basis check unmodified: v5 keeps v4's stream_options fix
+    (no stream_options is ever sent) and only extends WHICH models stream, so the same bound
+    abort-closure evidence still applies unchanged."""
+    _validate_sdk_compatibility_basis(section_raw, root)
+
+
+def validate_role_limits_v5(
+    artifact: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    v4_artifact: Mapping[str, Any],
+    *,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> None:
+    """Validate the v5 role-limits/request-settings artifact, fail-closed throughout.
+
+    This is an EXACT ALLOWED-DIFF validator relative to v4: every section other than
+    ``request_settings.streaming_pinned_models`` and ``request_settings.transport`` is checked
+    against the identical frozen Python constants v1/v2/v3/v4 already use (the same private
+    helpers, completely unmodified -- including ``approval_basis`` and
+    ``sdk_compatibility_basis``, still bound to the same frozen preflight-delegation record and
+    abort-closure evidence v3/v4 bound and still independently re-verified against the real files
+    on disk), so any OTHER semantic difference from the real v4 artifact on disk fails closed here
+    exactly as it would have failed a v4-vs-v3 or v3-vs-v2 comparison. The only content permitted
+    to differ is: ``request_settings.streaming_pinned_models`` (pinned to
+    :data:`STREAMING_PINNED_MODELS_V5` instead of :data:`STREAMING_PINNED_MODELS_V4`),
+    ``request_settings.transport`` (restructured per :func:`_validate_transport_v5`),
+    ``schema_version``/``artifact_id``/``supersedes`` (which now bind v4 instead of v3, by
+    construction), and provenance/wording text.
+    """
+    artifact = _mapping(artifact, "v5 artifact")
+    protocol = _mapping(protocol, "protocol")
+    snapshot = _mapping(snapshot, "snapshot")
+    v4_artifact = _mapping(v4_artifact, "v4 artifact")
+    root = Path(project_root)
+    _exact_keys(artifact, TOP_LEVEL_KEYS_V5, "v5 artifact")
+
+    if artifact.get("schema_version") != SCHEMA_VERSION_V5:
+        raise RoleLimitsError("unsupported v5 role-limits schema_version")
+    if artifact.get("artifact_id") != ARTIFACT_ID_V5:
+        raise RoleLimitsError("v5 role-limits artifact_id drifted")
+    protocol_id = _non_empty_str(protocol.get("protocol_id"), "protocol protocol_id")
+    if artifact.get("protocol_id") != protocol_id:
+        raise RoleLimitsError("v5 role-limits protocol_id disagrees with the frozen protocol")
+    if artifact.get("status") != STATUS:
+        raise RoleLimitsError("v5 role-limits status drifted")
+    if artifact.get("execution_authorized") is not False:
+        raise RoleLimitsError("execution_authorized must be exactly false")
+
+    supersedes = _mapping(artifact.get("supersedes"), "supersedes")
+    _exact_keys(supersedes, SUPERSEDES_KEYS, "supersedes")
+    tracked_path = supersedes.get("tracked_path")
+    if tracked_path != SUPERSEDES_V4_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"supersedes.tracked_path must be exactly {SUPERSEDES_V4_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_supersedes_sha = _sha256_hex(
+        supersedes.get("canonical_sha256"), "supersedes.canonical_sha256")
+    observed_v4_sha = phase2_plan.canonical_sha256(dict(v4_artifact))
+    if declared_supersedes_sha != observed_v4_sha:
+        raise RoleLimitsError(
+            "supersedes.canonical_sha256 disagrees with the real v4 artifact on disk: "
+            f"v5 bound {declared_supersedes_sha}, observed {observed_v4_sha}")
+
+    _validate_approval_basis(artifact.get("approval_basis"), root)
+    _validate_sdk_compatibility_basis_v5(artifact.get("sdk_compatibility_basis"), root)
+
+    _validate_base_role_max_tokens(artifact.get("base_role_max_tokens"))
+    _validate_reasoning_models(artifact.get("reasoning_models"))
+    _validate_request_settings_v5(artifact.get("request_settings"), protocol)
+    _validate_model_role_limits(artifact.get("model_role_limits"), protocol)
+    _validate_context_ceilings(artifact.get("context_ceilings"), snapshot)
+    _validate_role_taxonomy(artifact.get("role_taxonomy"), protocol)
+
+    model_role_limits = _mapping(artifact["model_role_limits"], "model_role_limits")
+    for model_id, roles in model_role_limits.items():
+        for role in _mapping(roles, f"model_role_limits.{model_id}"):
+            resolve_request_parameters(artifact, protocol, model_id, role)
+
+
+def load_and_validate_v5(
+    artifact_path: str | Path = DEFAULT_V5_ARTIFACT_PATH,
+    protocol_path: str | Path = DEFAULT_PROTOCOL_PATH,
+    snapshot_path: str | Path = DEFAULT_SNAPSHOT_PATH,
+    v4_artifact_path: str | Path = DEFAULT_V4_ARTIFACT_PATH,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    protocol = phase2_plan.load_protocol(protocol_path)
+    snapshot, _snapshot_protocol = price_snapshot.load_and_validate(snapshot_path, protocol_path)
+    artifact = _load_json(artifact_path)
+    v4_artifact = _load_json(v4_artifact_path)
+    validate_role_limits_v5(artifact, protocol, snapshot, v4_artifact, project_root=project_root)
+    return artifact, protocol, snapshot
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--v2", action="store_true")
     parser.add_argument("--v3", action="store_true")
     parser.add_argument("--v4", action="store_true")
+    parser.add_argument("--v5", action="store_true")
     parser.add_argument("--artifact", default=None)
     parser.add_argument("--v1-artifact", default=str(DEFAULT_ARTIFACT_PATH))
     parser.add_argument("--v2-artifact", default=str(DEFAULT_V2_ARTIFACT_PATH))
     parser.add_argument("--v3-artifact", default=str(DEFAULT_V3_ARTIFACT_PATH))
+    parser.add_argument("--v4-artifact", default=str(DEFAULT_V4_ARTIFACT_PATH))
     parser.add_argument("--protocol", default=str(DEFAULT_PROTOCOL_PATH))
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT_PATH))
     parser.add_argument("--project-root", default=str(DEFAULT_PROJECT_ROOT))
     args = parser.parse_args(argv)
     if not args.check:
         parser.error("only --check is supported")
+    if args.v5:
+        artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V5_ARTIFACT_PATH)
+        artifact, _protocol, _snapshot = load_and_validate_v5(
+            artifact_path, args.protocol, args.snapshot, args.v4_artifact, args.project_root)
+        print(
+            "verified frozen Phase 2 role-limits v5 artifact; "
+            f"models={len(artifact['model_role_limits'])}; "
+            f"canonical_sha256={phase2_plan.canonical_sha256(artifact)}; "
+            "execution_authorized=NO"
+        )
+        return 0
     if args.v4:
         artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V4_ARTIFACT_PATH)
         artifact, _protocol, _snapshot = load_and_validate_v4(

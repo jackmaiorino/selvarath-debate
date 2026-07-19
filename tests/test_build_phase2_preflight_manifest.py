@@ -222,10 +222,10 @@ def capability_qa_context():
         REPO_ROOT / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
     corpus_entries = capability_corpus.render_capability_corpus(bundle, protocol, REPO_ROOT)
     corpus_lookup = {(str(e["question_id"]), str(e["side"])): e for e in corpus_entries}
-    v4_payload, _v4_protocol, snapshot = role_limits.load_and_validate_v4(project_root=REPO_ROOT)
+    v5_payload, _v5_protocol, snapshot = role_limits.load_and_validate_v5(project_root=REPO_ROOT)
     return SimpleNamespace(
         protocol=protocol, cells_by_key=cells_by_key, corpus_lookup=corpus_lookup,
-        v4_payload=v4_payload, snapshot=snapshot)
+        v5_payload=v5_payload, snapshot=snapshot)
 
 
 def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_context):
@@ -246,7 +246,7 @@ def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_c
     assert "openai/gpt-oss-120b" in by_model  # per-model extra_request_fields model
 
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        b.capability_qa_client_construction_inputs(ctx.v4_payload, ctx.snapshot))
+        b.capability_qa_client_construction_inputs(ctx.v5_payload, ctx.snapshot))
     assert "Qwen/Qwen3.7-Plus" in streaming_pinned_models
     assert "openai/gpt-oss-120b" in extra_request_fields
 
@@ -272,7 +272,7 @@ def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_c
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            ctx.v4_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
+            ctx.v5_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
 
         client.complete(
             messages=messages, model=entry["model"], temperature=resolved.temperature,
@@ -294,7 +294,7 @@ def test_compute_request_fields_sha256_matches_manifest_for_every_entry(
     per-entry loop, independent of whether a live complete() call would agree)."""
     ctx = capability_qa_context
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        b.capability_qa_client_construction_inputs(ctx.v4_payload, ctx.snapshot))
+        b.capability_qa_client_construction_inputs(ctx.v5_payload, ctx.snapshot))
     hash_client = b.build_hash_only_client(
         model_context_limits=model_context_limits,
         streaming_pinned_models=streaming_pinned_models,
@@ -309,7 +309,7 @@ def test_compute_request_fields_sha256_matches_manifest_for_every_entry(
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            ctx.v4_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
+            ctx.v5_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
         recomputed = b.compute_request_fields_sha256(
             hash_client, model=entry["model"], messages=messages,
             temperature=resolved.temperature, max_tokens=resolved.effective_max_tokens,
@@ -436,7 +436,23 @@ def test_committed_manifest_is_canonical_json():
 # ================================================================================================
 
 
-def test_committed_r2_manifest_validates_unauthorized_and_refuses_pending_authorization():
+def test_committed_r2_manifest_no_longer_validates_pending_v5_relaunch():
+    """The historical r2 relaunch manifest (2026-07-19) is a frozen, append-only artifact --
+    never edited -- bound to the v4 role-limits-and-request-settings artifact in the merged
+    slot. Jack's real reauthorization of r2 was already recorded (the authorization file on
+    disk is finalized, not the earlier pending template); the run was actually launched and then
+    genuinely halted on an ambiguous httpx ReadTimeout charge on a non-streaming
+    google/gemma-4-31B-it call (see rejudge/phase2_role_limits.py's v5 section docstring -- v5
+    is precisely the transport fix for that real incident).
+
+    Both the manifest and its real, finalized authorization are now EXPECTED to fail the current
+    validator (schema evolution, not a regression: phase2_execution.py's merged slot is v5-only
+    after the transport fix): a v5-bound relaunch (attempt r3) requires a fresh manifest, never a
+    silent reuse of the pre-fix one. Codex consult #22's own recovery design is explicit that r2
+    must be "preserved permanently as aborted", never silently reinterpreted as still-valid or
+    replayed. See test_committed_r1_artifacts_no_longer_validate_without_prior_attempt_closure
+    for the analogous r1 precedent.
+    """
     manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2
     authorization_path = REPO_ROOT / b.AUTHORIZATION_RELATIVE_PATH_R2
     assert manifest_path.is_file(), (
@@ -445,17 +461,25 @@ def test_committed_r2_manifest_validates_unauthorized_and_refuses_pending_author
     assert authorization_path.is_file()
 
     manifest = pe.load_execution_manifest(manifest_path)
-    authorization_template = json.loads(authorization_path.read_text(encoding="utf-8"))
+    authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
+    # No longer a pending template: Jack's real reauthorization was recorded and the run was
+    # actually launched under this exact authorization.
+    assert b.REAUTHORIZATION_PENDING_MARKER_KEY not in authorization
+    assert set(authorization) == pe.AUTHORIZATION_KEYS
 
-    validated_unauthorized = pe.validate_execution_manifest(
-        manifest, project_root=REPO_ROOT, require_authorized=False)
-    assert validated_unauthorized.authorized is False
-    print(f"r2 execution_identity_sha256={validated_unauthorized.execution_identity_sha256}")
-
-    assert authorization_template[b.REAUTHORIZATION_PENDING_MARKER_KEY] is True
-    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v5 role-limits artifact",
+    ):
         pe.validate_execution_manifest(
-            manifest, project_root=REPO_ROOT, authorization=authorization_template,
+            manifest, project_root=REPO_ROOT, require_authorized=False)
+
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v5 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(
+            manifest, project_root=REPO_ROOT, authorization=authorization,
             require_authorized=True)
 
 
