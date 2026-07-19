@@ -821,6 +821,300 @@ def build_forecast_v2() -> dict[str, Any]:
     return artifact
 
 
+# =================================================================================================
+# v3 builder: role-limits v4 (installed-SDK stream_options compatibility fix) + the SAME provider
+# refresh, tokenizer pins, and corpus as the v2 build. This is the "relaunch attempt r2" forecast:
+# REUSES v2's real, tracked (2026-07-19) artifact wholesale for every price-independent AND
+# price-dependent section except the role-limits binding itself and the supersedes pointer, since
+# v4 changes nothing cost-relevant relative to v3 (only streaming_pinned_models's per-model VALUE
+# differs -- the request field removed is never priced). Recomputes every scenario fresh against
+# role-limits v4's resolved output ceilings/retry policy anyway (never merely copies numbers) and
+# ASSERTS the result is byte-identical to the reused v2 numbers, so any future drift between v3
+# and v4's cost-relevant fields fails loudly here rather than silently producing a stale forecast.
+# =================================================================================================
+
+
+def build_forecast_v3() -> dict[str, Any]:
+    """Build the v3 "ready" forecast (rejudge/phase2_preflight_forecast_2026-07-19-r2.json).
+
+    Reuses the real, tracked v2 forecast's tokenizer_pins/per_model_token_stats/corpus/caveats
+    verbatim (byte-identical corpus, independently re-verified offline below), rebinds
+    role-limits v4 instead of v3, and recomputes every scenario/disclosure fresh against v4's
+    resolved output ceilings and retry policy -- then asserts every recomputed dollar figure is
+    byte-identical to the reused v2 build's own figures (numbers must be unchanged; only the
+    role-limits binding and the supersedes pointer differ). Raises if that assertion fails: this
+    function never fabricates a passing artifact and never silently accepts a numeric drift.
+    """
+    if not forecast.DEFAULT_ARTIFACT_V2_PATH.is_file():
+        raise RuntimeError(
+            f"the frozen v2 forecast is missing: {forecast.DEFAULT_ARTIFACT_V2_PATH}; the v3 "
+            "builder reuses its tokenizer_pins/per_model_token_stats/corpus/caveats data and "
+            "cannot proceed without it")
+    v2_payload = json.loads(forecast.DEFAULT_ARTIFACT_V2_PATH.read_text(encoding="utf-8"))
+
+    protocol = phase2_plan.load_protocol()
+    role_limits_v4, _protocol, snapshot = phase2_role_limits.load_and_validate_v4()
+    bundle, _protocol2 = phase2_prompt_bundle.load_and_validate()
+    provider_refresh_path = REPO_ROOT / forecast.EXPECTED_BINDING_PATHS_V3["provider_refresh"]
+    provider_refresh = json.loads(provider_refresh_path.read_text(encoding="utf-8"))
+
+    # --- corpus reuse, independently verified offline (no network / no tokenizer download) -----
+    entries = capability_corpus.render_capability_corpus(bundle, protocol, REPO_ROOT)
+    corpus_sha = capability_corpus.corpus_canonical_sha256(entries)
+    reused_corpus_sha = v2_payload["bindings"]["rendered_corpus"]["canonical_sha256"]
+    if corpus_sha != reused_corpus_sha:
+        raise RuntimeError(
+            "corpus rendering has drifted since the 2026-07-19 v2 build "
+            f"(fresh={corpus_sha!r}, v2-build={reused_corpus_sha!r}); reusing its "
+            "tokenizer_pins/per_model_token_stats would no longer be honest -- rerun "
+            "build_forecast() (the full tokenizer-download path) instead of this reuse path")
+    print(
+        f"corpus rendering confirmed byte-identical to the 2026-07-19 v2 build; "
+        f"corpus_sha256={corpus_sha}; reusing its tokenizer_pins/per_model_token_stats verbatim")
+
+    tokenizer_pins = v2_payload["tokenizer_pins"]
+    per_model_token_stats = v2_payload["per_model_token_stats"]
+    byte_bound_per_prompt = v2_payload["corpus_utf8_byte_reservation_bound_per_prompt"]
+    byte_bound_stats = forecast.compute_token_stats(byte_bound_per_prompt)
+
+    # --- output token policy / retry policy, from role-limits v4 (not v3) ----------------------
+    output_ceilings: dict[str, int] = {}
+    for model_id in forecast.MODEL_IDS:
+        resolved = phase2_role_limits.resolve_request_parameters(
+            role_limits_v4, protocol, model_id, CAP_LIMITS_ROLE)
+        output_ceilings[model_id] = resolved.effective_max_tokens
+    transport = role_limits_v4["request_settings"]["transport"]
+    max_retries = int(transport["max_retries"])
+    max_attempts = int(transport["max_attempts"])
+
+    calls_per_model = capability_corpus.EXPECTED_ENTRY_COUNT
+
+    def prices(model_id: str) -> tuple[Decimal, Decimal]:
+        entry = snapshot["models"][model_id]
+        return (
+            Decimal(str(entry["input_usd_per_million_tokens"])),
+            Decimal(str(entry["output_usd_per_million_tokens"])),
+        )
+
+    theoretical_minimum_per_model: dict[str, Any] = {}
+    theoretical_minimum_total = Decimal(0)
+    no_retry_maximum_per_model: dict[str, Any] = {}
+    no_retry_maximum_total = Decimal(0)
+    no_retry_component_usd: dict[str, Decimal] = {}
+    for model_id in forecast.MODEL_IDS:
+        total_input_tokens = per_model_token_stats[model_id]["input_tokens"]["total"]
+        input_price, output_price = prices(model_id)
+
+        theo_component = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls_per_model,
+            output_tokens_per_call=forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL,
+            input_price=input_price, output_price=output_price,
+        )
+        theoretical_minimum_per_model[model_id] = theo_component
+        theoretical_minimum_total += Decimal(theo_component["total_usd"])
+
+        ceiling_component = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls_per_model,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        no_retry_maximum_per_model[model_id] = ceiling_component
+        no_retry_component_usd[model_id] = Decimal(ceiling_component["total_usd"])
+        no_retry_maximum_total += Decimal(ceiling_component["total_usd"])
+
+    def derived_scenario(multiplier: Decimal) -> tuple[dict[str, Any], Decimal]:
+        per_model = {}
+        total = Decimal(0)
+        for model_id in forecast.MODEL_IDS:
+            value = no_retry_component_usd[model_id] * multiplier
+            per_model[model_id] = {"total_usd": str(value)}
+            total += value
+        return per_model, total
+
+    planning_per_model, planning_total = derived_scenario(forecast.PLANNING_RETRY_MULTIPLIER)
+    stress_per_model, stress_total = derived_scenario(Decimal(max_attempts))
+
+    envelope_per_model: dict[str, Any] = {}
+    envelope_total = Decimal(0)
+    for model_id in forecast.MODEL_IDS:
+        input_price, output_price = prices(model_id)
+        byte_component = forecast.compute_scenario_component(
+            total_input_tokens=byte_bound_stats["total"], calls=calls_per_model,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        value = Decimal(byte_component["total_usd"]) * Decimal(max_attempts)
+        envelope_per_model[model_id] = {"total_usd": str(value)}
+        envelope_total += value
+
+    capability_preflight = protocol["materialization_requirements"]["capability_preflight"]
+    halt_cap = Decimal(str(capability_preflight["proposed_cap_usd"]))
+    is_ready = stress_total < halt_cap
+    stress_margin = halt_cap - stress_total
+    if not is_ready:
+        raise RuntimeError(
+            f"attempt_ceiling_stress total {stress_total} does not remain below halt_cap_usd "
+            f"{halt_cap} (margin {stress_margin}); the v3 builder only ever writes the READY "
+            "schema and refuses to fabricate a passing artifact -- this is a genuine regression, "
+            "not something this function may silently paper over"
+        )
+
+    # --- numbers-unchanged assertion: v4 must be cost-identical to v3 (this task's premise) -----
+    v2_scenarios = v2_payload["scenarios"]
+    if (
+        v2_scenarios["theoretical_minimum"]["total_usd"] != str(theoretical_minimum_total)
+        or v2_scenarios["no_retry_maximum"]["total_usd"] != str(no_retry_maximum_total)
+        or v2_scenarios["planning_retry_scenario"]["total_usd"] != str(planning_total)
+        or v2_scenarios[forecast.ATTEMPT_CEILING_STRESS_SCENARIO]["total_usd"] != str(stress_total)
+        or v2_payload["retry_policy"]["max_attempts"] != max_attempts
+        or v2_payload["retry_policy"]["max_retries"] != max_retries
+        or v2_payload["output_token_policy"]["effective_output_ceiling_per_model"]
+        != output_ceilings
+    ):
+        raise RuntimeError(
+            "role-limits v4's cost-relevant fields (output ceilings/retry policy/prices) have "
+            "diverged from v3's: the v3 forecast builder's core premise -- 'numbers unchanged, "
+            "only the streaming_pinned_models VALUE differs' -- no longer holds. Refusing to "
+            "silently write a forecast with different economics than the reused v2 build; a "
+            "genuine repricing task is needed, not a role-limits rebind."
+        )
+    print(
+        "numbers-unchanged assertion passed: every scenario total, retry_policy field, and "
+        "output ceiling recomputed against role-limits v4 is byte-identical to the reused v2 "
+        "(role-limits v3) build's own figures."
+    )
+
+    protocol_sha = phase2_plan.canonical_sha256(protocol)
+    role_limits_v4_sha = phase2_plan.canonical_sha256(role_limits_v4)
+    snapshot_sha = phase2_plan.canonical_sha256(snapshot)
+    bundle_sha = phase2_plan.canonical_sha256(bundle)
+    provider_refresh_sha = phase2_plan.canonical_sha256(provider_refresh)
+    v2_sha = phase2_plan.canonical_sha256(v2_payload)
+
+    artifact: dict[str, Any] = {
+        "schema_version": forecast.SCHEMA_VERSION_V3,
+        "artifact_id": forecast.ARTIFACT_ID_V3,
+        "protocol_id": protocol["protocol_id"],
+        "status": forecast.STATUS_V3,
+        "execution_authorized": False,
+        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "dependency_versions": {
+            "transformers": transformers.__version__,
+            "tokenizers": tokenizers_pkg.__version__,
+            "jinja2": jinja2.__version__,
+        },
+        "bindings": {
+            "protocol": {
+                "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["protocol"],
+                "canonical_sha256": protocol_sha,
+            },
+            "role_limits_v4": {
+                "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["role_limits_v4"],
+                "canonical_sha256": role_limits_v4_sha,
+            },
+            "price_snapshot": {
+                "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["price_snapshot"],
+                "canonical_sha256": snapshot_sha,
+            },
+            "prompt_bundle": {
+                "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["prompt_bundle"],
+                "canonical_sha256": bundle_sha,
+            },
+            "provider_refresh": {
+                "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["provider_refresh"],
+                "canonical_sha256": provider_refresh_sha,
+            },
+            "rendered_corpus": {"canonical_sha256": corpus_sha, "entry_count": len(entries)},
+        },
+        "corpus": v2_payload["corpus"],
+        "tokenizer_pins": tokenizer_pins,
+        "per_model_token_stats": per_model_token_stats,
+        "corpus_utf8_byte_reservation_bound_per_prompt": byte_bound_per_prompt,
+        "output_token_policy": {
+            "theoretical_minimum_output_tokens_per_call": (
+                forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL),
+            "effective_output_ceiling_per_model": output_ceilings,
+            "source": (
+                f"{forecast.EXPECTED_BINDING_PATHS_V3['role_limits_v4']} via "
+                "phase2_role_limits.resolve_request_parameters(model, 'capability_qa')"
+            ),
+        },
+        "retry_policy": {
+            "max_retries": max_retries, "max_attempts": max_attempts,
+            "source": (
+                f"{forecast.EXPECTED_BINDING_PATHS_V3['role_limits_v4']} "
+                "request_settings.transport"
+            ),
+        },
+        "replace_with_actuals_requirement": v2_payload["replace_with_actuals_requirement"],
+        "scenarios": {
+            "theoretical_minimum": {
+                "formula": (
+                    "sum over 212 calls per model of (counted input tokens x input price) + "
+                    f"({forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL} output tokens x "
+                    "212 calls x output price); no retries"
+                ),
+                "calls_per_model": calls_per_model,
+                "output_tokens_per_call_by_model": {
+                    model_id: forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL
+                    for model_id in forecast.MODEL_IDS
+                },
+                "per_model": theoretical_minimum_per_model,
+                "total_usd": str(theoretical_minimum_total),
+            },
+            "no_retry_maximum": {
+                "formula": (
+                    "sum over 212 calls per model of (counted input tokens x input price) + "
+                    "(effective per-model-role output ceiling x 212 calls x output price); "
+                    "no retries"
+                ),
+                "calls_per_model": calls_per_model,
+                "output_tokens_per_call_by_model": output_ceilings,
+                "per_model": no_retry_maximum_per_model,
+                "total_usd": str(no_retry_maximum_total),
+            },
+            "planning_retry_scenario": {
+                "formula": "no_retry_maximum x 1.05 (a planning scenario, not a ceiling)",
+                "multiplier": str(forecast.PLANNING_RETRY_MULTIPLIER),
+                "per_model": planning_per_model,
+                "total_usd": str(planning_total),
+            },
+            forecast.ATTEMPT_CEILING_STRESS_SCENARIO: {
+                "formula": (
+                    "no_retry_maximum x max_attempts (every call charged at the pinned v4 "
+                    "three-attempt ceiling: 2 retries + 1 initial attempt; unchanged from v3)"
+                ),
+                "multiplier": str(Decimal(max_attempts)),
+                "per_model": stress_per_model,
+                "total_usd": str(stress_total),
+            },
+        },
+        "halt_cap_usd": str(halt_cap),
+        "stress_margin_usd": str(stress_margin),
+        "disclosures": {
+            "utf8_reservation_envelope_3_attempts": {
+                "formula": (
+                    "sum over all five roster models of (corpus UTF-8 byte-reservation-bound "
+                    "total x input price) + (effective per-model-role output ceiling x 212 "
+                    "calls x output price), each model priced from its OWN byte-reservation "
+                    "bound rather than its counted tokens, all x max_attempts"
+                ),
+                "attempts": max_attempts,
+                "per_model": envelope_per_model,
+                "total_usd": str(envelope_total),
+                "relationship_to_halt_cap": forecast.FROZEN_RESERVATION_ENVELOPE_SENTENCE,
+            },
+        },
+        "supersedes": {
+            "tracked_path": forecast.SUPERSEDED_ARTIFACT_TRACKED_PATH_V3,
+            "canonical_sha256": v2_sha,
+            "note": forecast.SUPERSEDES_V2_FORECAST_NOTE,
+        },
+        "caveats": v2_payload["caveats"],
+    }
+    return artifact
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -829,7 +1123,25 @@ def main() -> None:
             "build the v2 'ready' forecast bound to role-limits v3 + the provider refresh, "
             "reusing the conflict build's tokenizer pins/corpus, instead of the v1 builder "
             "(which downloads tokenizers fresh and never overwrites the frozen conflict file)"))
+    parser.add_argument(
+        "--v4", action="store_true",
+        help=(
+            "build the v3 'ready' forecast (relaunch attempt r2) bound to role-limits v4 + the "
+            "SAME provider refresh, reusing the v2 build's tokenizer pins/corpus/caveats, "
+            "instead of the v1/v3 builders"))
     args = parser.parse_args()
+
+    if args.v4:
+        if args.v3:
+            parser.error("--v3 and --v4 are mutually exclusive")
+        artifact = build_forecast_v3()
+        rendered = render_forecast(artifact)
+        forecast.DEFAULT_ARTIFACT_V3_PATH.write_text(rendered, encoding="utf-8", newline="\n")
+        print(
+            f"wrote READY forecast v3 (r2): {forecast.DEFAULT_ARTIFACT_V3_PATH}; "
+            f"canonical_sha256={phase2_plan.canonical_sha256(artifact)}"
+        )
+        return
 
     if args.v3:
         artifact = build_forecast_v2()

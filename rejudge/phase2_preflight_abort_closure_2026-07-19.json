@@ -1,0 +1,197 @@
+{
+  "schema_version": "phase2_preflight_abort_closure_v1",
+  "closure_id": "phase2_preflight_abort_closure_2026-07-19",
+  "status": "closed_locally_adjudicated_no_charge",
+  "stage": "capability_preflight",
+  "execution_identity_sha256": "23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6",
+  "execution_identity_reverification": {
+    "method": "rejudge.phase2_execution.validate_execution_manifest(manifest, project_root='.', authorization=authorization, require_authorized=True) called fresh against the two real tracked files below; every bound hash inside the manifest is recomputed from the real artifacts under project_root and compared, nothing is trusted from the manifest's own text",
+    "observed_execution_identity_sha256": "23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6",
+    "observed_authorized": true,
+    "matches_task_identity": true
+  },
+  "old_manifest_binding": {
+    "tracked_path": "rejudge/phase2_preflight_manifest_2026-07-19.json",
+    "canonical_sha256": "8229673a2524aa19ea6651a9617ca06c8fda545a99600b89ddd1d04d971d8476",
+    "hash_method": "rejudge.phase2_plan.canonical_sha256: json.dumps(value, ensure_ascii=True, separators=(',', ':'), sort_keys=True).encode('utf-8') -> sha256 hexdigest",
+    "implementation_provenance": {
+      "code_bundle_sha256": "fa85cc3dd732fa2171ac38db4f5244d02a994161dc08241370adc2de4692d096",
+      "git_commit": "f58cbfe546c0ca05ce6c58a381719aa144d1044b",
+      "git_commit_is_ancestor_of_closure_head": true
+    }
+  },
+  "old_authorization_binding": {
+    "tracked_path": "rejudge/phase2_preflight_authorization_2026-07-19.json",
+    "canonical_sha256": "cbdbf0304a0a4b4f6e79eb7208832c24bf5f6feec4ecef335e53e6b56d6a281a",
+    "hash_method": "same as old_manifest_binding.hash_method",
+    "content": {
+      "approval_basis_sha256": "c5ddb34319ad0fd318880dee88474ee7806e26cae5dec65cfa4893f74dd24951",
+      "approval_basis_tracked_path": "rejudge/phase2_preflight_delegation_2026-07-19.json",
+      "approved_at_utc": "2026-07-19T00:51:42Z",
+      "approver": "Jack Maiorino",
+      "cumulative_cap_usd": 1500.0,
+      "execution_identity_sha256": "23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6",
+      "recorded_at_utc": "2026-07-19T05:39:40Z",
+      "stage": "capability_preflight",
+      "stage_cap_usd": 15.0
+    }
+  },
+  "archive": {
+    "root": "E:/selvarath-archive/capability_preflight_23060e5e08ca2b0c_live-aborted/",
+    "abort_json": {
+      "path": "E:/selvarath-archive/capability_preflight_23060e5e08ca2b0c_live-aborted/abort.json",
+      "file_sha256": "ae3861ab3470f6b06b3a148955485e4be7f66e51e3ff6fa97af77eb0c66d829a",
+      "matches_sha256sums": true,
+      "content": {
+        "aborted_at_utc": "2026-07-19T05:59:31.809255+00:00",
+        "cells_completed": 0,
+        "dry_run": false,
+        "exception_message": "unknown charge recorded for model 'Qwen/Qwen3.7-Plus' on attempt 0; halting instead of retrying (halt_on_unknown_charge=True): CompletionsResource.create() got an unexpected keyword argument 'stream_options'",
+        "exception_type": "UnknownChargeHalt",
+        "execution_identity_sha256": "23060e5e08ca2b0c6856529d74184400bab5e8cb4468b29e641a465e35346ab6",
+        "reason": "unknown_charge_halt",
+        "schema_version": "phase2_capability_preflight_abort_v1",
+        "stage": "capability_preflight"
+      }
+    },
+    "sha256sums_file": {
+      "path": "E:/selvarath-archive/capability_preflight_23060e5e08ca2b0c_live-aborted/SHA256SUMS",
+      "file_sha256": "6b17f07b0ceb4bf6ea5f35f006bb95bbaa6210d866231192aaae75c0091ae226",
+      "listed_entries": [
+        {"file": "abort.json", "sha256": "ae3861ab3470f6b06b3a148955485e4be7f66e51e3ff6fa97af77eb0c66d829a", "independently_recomputed_match": true},
+        {"file": "manifest.json", "sha256": "baf597ca917e76f38e87426caea504e1fca728f7fab8cdf344c502a25f1c55f6", "independently_recomputed_match": true},
+        {"file": "results.jsonl", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "independently_recomputed_match": true, "note": "this is the well-known SHA-256 of the empty string; results.jsonl is 0 bytes"},
+        {"file": "usage_events.jsonl", "sha256": "e28bb779cfa6109f02a297805f82c441a3cf030caeda70833498b9cebdf4a8cd", "independently_recomputed_match": true, "note": "NOT empty (1834 bytes) -- correction from an earlier drafting error in this investigation: it is the archived ledger mirror (genesis + reserved + unknown_charge events, byte-identical to the live ledger below), not a record of any provider-observed usage. No provider response or token-usage payload appears anywhere in this file."}
+      ]
+    },
+    "results_jsonl": {
+      "path": "E:/selvarath-archive/capability_preflight_23060e5e08ca2b0c_live-aborted/results.jsonl",
+      "file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "note": "byte-empty: zero completions were ever recorded"
+    },
+    "usage_events_jsonl": {
+      "path": "E:/selvarath-archive/capability_preflight_23060e5e08ca2b0c_live-aborted/usage_events.jsonl",
+      "file_sha256": "e28bb779cfa6109f02a297805f82c441a3cf030caeda70833498b9cebdf4a8cd",
+      "bytes": 1834,
+      "note": "ledger mirror only (3 lines: genesis, reserved, unknown_charge); contains no provider-side usage/response data"
+    },
+    "capability_preflight_errors_jsonl": {
+      "path": "E:/selvarath-archive/capability-preflight/phase2_capability_preflight_errors.jsonl",
+      "content": {
+        "ts": "2026-07-19T05:59:31.808580+00:00",
+        "attempt": 0,
+        "model": "Qwen/Qwen3.7-Plus",
+        "error": "CompletionsResource.create() got an unexpected keyword argument 'stream_options'"
+      },
+      "note": "error text byte-identical to abort.json's exception_message tail and to this closure's own reproduced TypeError below"
+    }
+  },
+  "ledger_evidence": {
+    "ledger_path": "E:/selvarath-archive/capability-preflight/phase2_capability_preflight_ledger.jsonl",
+    "ledger_identity": "phase2-project-wide-ledger-v1",
+    "ledger_id": "46d90ea8ce21475a87a54258566790ac",
+    "genesis_event_hash": "40adc466ccb4277a46358536756ed20313b5cd7c5b25d5a410fce71ed11040b7",
+    "reservation_event": {
+      "sequence": 1,
+      "status": "reserved",
+      "event_hash": "41e7e4ee892c2584a73c9795150fe9efe9a235cb00ba92bee20836d1eb81a1c7",
+      "prev_event_hash": "40adc466ccb4277a46358536756ed20313b5cd7c5b25d5a410fce71ed11040b7",
+      "attempt_id": "1d3d75ffc47346e28ad0069939de05b2",
+      "attempt": 0,
+      "model": "Qwen/Qwen3.7-Plus",
+      "kind": "capability_qa",
+      "seed": 2171884933,
+      "cost_usd_reserved": 0.00737088,
+      "ts": "2026-07-19T05:59:31.509597+00:00"
+    },
+    "terminal_event": {
+      "sequence": 2,
+      "status": "unknown_charge",
+      "event_hash": "1d5c051f8d6cf048034de8d378896e8ac5d106a46abeea5a9e60af85212e1447",
+      "prev_event_hash": "41e7e4ee892c2584a73c9795150fe9efe9a235cb00ba92bee20836d1eb81a1c7",
+      "attempt_id": "1d3d75ffc47346e28ad0069939de05b2",
+      "attempt": 0,
+      "model": "Qwen/Qwen3.7-Plus",
+      "error": "CompletionsResource.create() got an unexpected keyword argument 'stream_options'",
+      "ts": "2026-07-19T05:59:31.729270+00:00",
+      "is_chain_head": true,
+      "note": "this is the ledger's terminal/chain-head event; nothing was appended after it because the run aborted"
+    },
+    "attempt_id": "1d3d75ffc47346e28ad0069939de05b2",
+    "execution_call_key": "6f2f34668ddbba54fe558830cf49d45f869ccba1c0ed98653183a2720cb12c1d",
+    "request_fields_sha256": "d50ed1767820c6989764be88071edfd3a0802cc59a1614412bebd08b3578d609",
+    "estimated_tokens": 10746,
+    "reserved_cost_usd": 0.00737088,
+    "live_ledger_directory_byte_identical_to_archive_mirror": true
+  },
+  "sdk_evidence": {
+    "installed_together_version": "2.7.0",
+    "python_version": "3.13.5 (main, Jun 12 2025, 12:42:35) [MSC v.1943 64 bit (AMD64)]",
+    "uv_lock_together_package_entry": {
+      "name": "together",
+      "version": "2.7.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/29/1d/4fd2726ce9dafec7959bb17250156a6e5b2bc410a77b3833330a97881fc1/together-2.7.0-py3-none-any.whl",
+      "wheel_sha256": "2c557507bf990e02a7a4a0914c9bcabd09e524273a65af0793fcae46c43265ce"
+    },
+    "uv_lock_raw_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848",
+    "uv_lock_raw_sha256_matches_manifest_binding": true,
+    "manifest_bound_uv_lock_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848",
+    "installed_package_file_raw_sha256": {
+      "together/resources/chat/completions.py": "a8255909bf382a8f0ab126fefcb92a89c4a53ae18dd12b0953bfaa227acbf8c4",
+      "together/_utils/_utils.py": "83d7ed125074f64553e8455f088943fe751f00d8435f9fef64eeb51435a82102"
+    },
+    "completions_resource_create_signature": "(self, *, messages: 'Iterable[completion_create_params.Message]', model: 'str', chat_template_kwargs: 'object | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, compliance: \"Literal['hipaa'] | Omit\" = <together.Omit object at 0x00000184F4E9E3C0>, context_length_exceeded_behavior: \"Literal['truncate', 'error'] | Omit\" = <together.Omit object at 0x00000184F4E9E3C0>, echo: 'bool | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, frequency_penalty: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, function_call: 'completion_create_params.FunctionCall | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, logit_bias: 'Dict[str, float] | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, logprobs: 'int | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, max_tokens: 'int | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, min_p: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, n: 'int | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, presence_penalty: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, reasoning: 'completion_create_params.Reasoning | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, reasoning_effort: \"Literal['low', 'medium', 'high'] | Omit\" = <together.Omit object at 0x00000184F4E9E3C0>, repetition_penalty: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, response_format: 'completion_create_params.ResponseFormat | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, safety_model: 'str | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, seed: 'int | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, stop: 'SequenceNotStr[str] | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, stream: 'Literal[False] | Literal[True] | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, temperature: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, tool_choice: 'completion_create_params.ToolChoice | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, tools: 'Iterable[ToolsParam] | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, top_k: 'int | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, top_p: 'float | Omit' = <together.Omit object at 0x00000184F4E9E3C0>, extra_headers: 'Headers | None' = None, extra_query: 'Query | None' = None, extra_body: 'Body | None' = None, timeout: 'float | httpx.Timeout | None | NotGiven' = NOT_GIVEN) -> 'ChatCompletion | Stream[ChatCompletionChunk]'",
+    "signature_captured_via": "inspect.signature(together.resources.chat.completions.CompletionsResource.create) against the installed 2.7.0 package at .venv/Lib/site-packages/together/resources/chat/completions.py",
+    "stream_options_absent_from_signature": true,
+    "create_body_only_io_call": "return self._post('/chat/completions', body=maybe_transform({...}), ...)",
+    "post_binding": "self._post is bound at CompletionsResource.__init__ time directly to the Together client's .post method (together._resource.SyncAPIResource.__init__: self._post = client.post); it is the SDK's sole HTTP-transport entry point for this call"
+  },
+  "trap_test": {
+    "description": "No-network reproduction proving argument binding fails before the SDK's transport entry point (client.post / resource._post) is ever reached. Two independent traps installed: (1) client.post monkeypatched to raise a sentinel if called, (2) socket.socket globally monkeypatched to raise a sentinel if any real socket is opened for any reason (defense in depth beyond the post patch alone). The offending kwarg (stream_options) from the archived error is passed verbatim.",
+    "script_path_ephemeral": "C:\\Users\\Jack\\AppData\\Local\\Temp\\claude\\C--Users-Jack-Dev-FailureModeExperiment\\679c0922-13df-47ec-92ab-9a0d5228581f\\scratchpad\\trap_test.py",
+    "script_source": "\"\"\"No-network trap test.\n\nProves that CompletionsResource.create(..., stream_options=...) raises TypeError from\nPython's own argument-binding machinery BEFORE the SDK's HTTP-transport entry point\n(``client.post`` / ``resource._post``) is ever reached -- i.e. the failure that produced\nthe archived ledger's ``unknown_charge`` event happened client-side, pre-transport, with\nno possibility that a request left the process.\n\nMethod: monkeypatch the *live* Together client's bound ``.post`` method (the exact\ncallable ``CompletionsResource._post`` is aliased to at construction time; see\n``together._resource.SyncAPIResource.__init__``) to raise a sentinel exception if it is\never invoked, then call ``.create()`` with the same offending keyword\n(``stream_options``) that appears in the archived abort/ledger records. If the sentinel\nexception fires, the trap was reached (transport was touched) -- the classification\nwould be FALSE. If a bare ``TypeError`` fires instead, argument binding failed before\nthe resource method body (and therefore before ``_post``) ever ran.\n\"\"\"\nimport os\nimport socket\nimport traceback\n\nos.environ.setdefault(\"TOGETHER_API_KEY\", \"sk-trap-test-not-a-real-key\")\n\nfrom together import Together  # noqa: E402\n\n\nclass TrapReached(AssertionError):\n    \"\"\"Raised if the network-transport entry point is ever reached. Must NOT fire.\"\"\"\n\n\ndef _trap_post(*args, **kwargs):\n    raise TrapReached(\n        f\"client.post WAS reached with args={args!r} kwargs={kwargs!r} \"\n        \"-- transport boundary was touched; classification is FALSE\"\n    )\n\n\ndef _block_all_sockets(*args, **kwargs):\n    raise TrapReached(\n        \"socket.socket() was constructed -- a real network connection was attempted; \"\n        \"classification is FALSE\"\n    )\n\n\n# Defense in depth, independent of the client.post patch below: if ANY code path in this\n# process tries to open a real socket for any reason during the test, fail loudly instead\n# of silently allowing a connection attempt.\nsocket.socket = _block_all_sockets\n\n\ndef main():\n    client = Together()\n    # Patch the bound method the resource captured at construction time (the exact\n    # object CompletionsResource._post is aliased to), not just the class method --\n    # this is the same callable identity the real client held during the archived run.\n    client.post = _trap_post\n\n    print(f\"pre-call: client.post identity = {client.post!r}\")\n    print(\"pre-call: trap installed on client.post; calling \"\n          \"client.chat.completions.create(..., stream_options=...) now\")\n\n    try:\n        client.chat.completions.create(\n            messages=[{\"role\": \"user\", \"content\": \"trap\"}],\n            model=\"Qwen/Qwen3.7-Plus\",\n            stream_options={\"include_usage\": True},\n        )\n    except TrapReached:\n        raise  # would mean the trap fired -- must propagate as a hard failure\n    except TypeError as exc:\n        print(\"RESULT: TypeError raised, trap NOT reached\")\n        print(f\"RESULT: TypeError message = {exc!r}\")\n        print(\"RESULT: client.post was never called (no transport, no network, no \"\n              \"possibility of a provider-side charge)\")\n        return 0\n    else:\n        print(\"RESULT: no exception raised at all -- unexpected\")\n        return 2\n\n    return 1\n\n\nif __name__ == \"__main__\":\n    try:\n        code = main()\n    except TrapReached as exc:\n        print(f\"TRAP FIRED (unexpected): {exc}\")\n        traceback.print_exc()\n        code = 3\n    raise SystemExit(code)\n",
+    "invocation": "uv run python trap_test.py (run from the repo root so the project's pinned .venv/together==2.7.0 was used)",
+    "stdout_verbatim": "pre-call: client.post identity = <function _trap_post at 0x000001FB936314E0>\npre-call: trap installed on client.post; calling client.chat.completions.create(..., stream_options=...) now\nRESULT: TypeError raised, trap NOT reached\nRESULT: TypeError message = TypeError(\"CompletionsResource.create() got an unexpected keyword argument 'stream_options'\")\nRESULT: client.post was never called (no transport, no network, no possibility of a provider-side charge)",
+    "exit_code": 0,
+    "trap_fired": false,
+    "socket_trap_fired": false,
+    "exception_type_observed": "TypeError",
+    "exception_message_observed": "CompletionsResource.create() got an unexpected keyword argument 'stream_options'",
+    "exception_message_byte_identical_to_archived_error": true,
+    "conclusion": "Argument binding raised TypeError before self._post (the SDK's sole HTTP-transport entry point) was ever reached; neither the client.post sentinel nor the socket-level sentinel fired. No HTTP request could have left the process during this reproduction."
+  },
+  "codex_adversarial_review": {
+    "consulted": true,
+    "thread_id": "019f640d-05d1-7563-931a-772d76362e9d",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "xhigh",
+    "verdict": "GO-WITH-CHANGES",
+    "summary": "Codex independently reran an equivalent trap (socket denial installed before client construction, _post bound to a sentinel) and reproduced the identical TypeError with neither transport trap firing. It confirmed sdk_argument_binding_pre_transport_no_charge as the correct classification, ruling out retries (halt_on_unknown_charge stopped on attempt zero, no second reservation in the ledger), a different resource instance (same unmodified class/signature), a pre-existing connection/DNS activity (irrelevant because no request body was ever submitted through _post), or connection pooling as alternate charging paths. It flagged that the trap test alone proves only the reproduction, not the original run directly, and that this must be supplemented by binding the reproduction to the original run's frozen code/SDK/lock/ledger provenance (done in this artifact via old_manifest_binding, sdk_evidence, and ledger_evidence). It corrected an error in the initial brief: usage_events.jsonl is NOT byte-empty (fixed in this artifact's archive.usage_events_jsonl and archive.sha256sums_file.listed_entries). It recommended precise 'locally adjudicated' language over 'provider-reconciled' absent dashboard evidence, and recommended narrowly scoping this closure classification so it is never reused for timeouts, HTTP errors, malformed responses, connection resets, or any exception raised after _post begins execution."
+  },
+  "classification": "sdk_argument_binding_pre_transport_no_charge",
+  "classification_definition": "A client-side TypeError raised by CPython's own function-call argument-binding machinery, before the target method's body (and therefore before any SDK HTTP-transport call) begins executing, because the caller passed a keyword argument the installed SDK version's method signature does not accept. Because argument binding happens strictly prior to function-body execution, the SDK's transport entry point cannot have been reached and no request can have left the process.",
+  "classification_scope_restriction": "This closure classification applies ONLY when a TypeError from Python's own call-binding demonstrably precedes any transport call, as independently reproduced here. It must never be reused to close out timeouts, HTTP-level errors, malformed provider responses, connection resets, or any exception raised after the SDK's _post begins execution -- those failure modes cannot rule out that a request reached the provider and must be adjudicated by other means (e.g. provider dashboard reconciliation).",
+  "adjudication": {
+    "provider_request_observed": false,
+    "provider_response_observed": false,
+    "adjudicated_charge_usd": 0.0,
+    "adjudication_basis": "local_pre_transport_proof",
+    "provider_dashboard_confirmation": "not_required_for_local_classification",
+    "note": "This is a LOCAL adjudication from process-internal evidence (argument-binding proof + provenance bridge to the original run), not a provider-side billing reconciliation. It is deliberately described as 'locally adjudicated', not 'provider-reconciled'."
+  },
+  "ledger_retired": true,
+  "ledger_disposition": {
+    "recorded_ledger_status": "unknown_charge",
+    "governance_adjudication": "sdk_argument_binding_pre_transport_no_charge",
+    "effective_billable_amount_for_cumulative_accounting_usd": 0.0,
+    "reused_for_future_attempts": false,
+    "supersession_policy": "Any future contradictory evidence must be handled through a new, separately-dated superseding closure artifact -- never by mutating this artifact or the original ledger."
+  },
+  "execution_authorized": false,
+  "note": "The original archived and live 'unknown_charge' ledger terminal event (event_hash 1d5c051f8d6cf048034de8d378896e8ac5d106a46abeea5a9e60af85212e1447) is preserved UNMUTATED; the halt-on-unknown-charge safety mechanism correctly recorded uncertainty at runtime, when the billing outcome genuinely could not yet be confirmed. This closure artifact is a separate, append-only governance-layer explanation assembled after the fact from independently reproduced and cross-checked evidence; it explains the historical event, it does not rewrite it. This closure grants no execution authority of any kind: a new authorization record bound to a new execution identity is required before any further capability-preflight attempt.",
+  "closed_at_utc": "2026-07-19T06:00:00Z",
+  "closure_repo_git_head": "51a2a06693b1ebbc193eb80ae9b7f2f06fa37f00",
+  "committed": false,
+  "self_note": "This artifact is intentionally left uncommitted in the working tree per instruction; the orchestrator decides disposition."
+}

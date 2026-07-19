@@ -13,7 +13,7 @@ Run with::
 
 Everything this script binds is either a real, already-committed, git-tracked repo artifact
 (protocol, combined AI audit + A1 amendment, prompt bundle + its owner-methods approval,
-provider price snapshot, role-limits v3, the 2026-07-19 preflight delegation, provider refresh,
+provider price snapshot, role-limits v4, the 2026-07-19 preflight delegation, provider refresh,
 provider reconciliation, the Gemma recovery closure, uv.lock, the real storage policy) or a value
 this script derives from those artifacts by calling the SAME frozen validation/derivation code
 ``rejudge.phase2_execution.validate_execution_manifest`` will itself call at manifest-validation
@@ -114,11 +114,11 @@ CUMULATIVE_CAP_USD = 1500.0
 
 CAPABILITY_CONDITION_ID = "full_document_solo_qa"
 
-# rejudge/phase2_role_limits_v3_2026-07-19.json has no repo-relative-string constant of its own
-# in phase2_role_limits.py (only an absolute DEFAULT_V3_ARTIFACT_PATH); derive it once, robustly,
+# rejudge/phase2_role_limits_v4_2026-07-19.json has no repo-relative-string constant of its own
+# in phase2_role_limits.py (only an absolute DEFAULT_V4_ARTIFACT_PATH); derive it once, robustly,
 # rather than hardcoding a second copy of the filename.
-ROLE_LIMITS_V3_RELATIVE_PATH = (
-    role_limits.DEFAULT_V3_ARTIFACT_PATH.resolve().relative_to(REPO_ROOT.resolve()).as_posix())
+ROLE_LIMITS_V4_RELATIVE_PATH = (
+    role_limits.DEFAULT_V4_ARTIFACT_PATH.resolve().relative_to(REPO_ROOT.resolve()).as_posix())
 # Same story for the v2 "ready" forecast artifact.
 FORECAST_RELATIVE_PATH = (
     preflight_forecast.DEFAULT_ARTIFACT_V2_PATH.resolve()
@@ -127,6 +127,167 @@ FORECAST_RELATIVE_PATH = (
 # manifest-controlled, not pinned -- see _validate_storage_policy_gate); this is simply where the
 # one real, tracked policy record lives.
 STORAGE_POLICY_RELATIVE_PATH = "rejudge/phase2_storage_policy_2026-07-18.json"
+
+# =================================================================================================
+# RELAUNCH ATTEMPT r2: rebuilds the manifest + authorization for a fresh run directory, bound to
+# the v3 (role-limits-v4) forecast and the frozen prior-attempt closure, with a PENDING
+# authorization template (never auto-authorized off the old blanket delegation alone -- see
+# ``build_authorization_template_r2``).
+# =================================================================================================
+
+MANIFEST_RELATIVE_PATH_R2 = "rejudge/phase2_preflight_manifest_2026-07-19-r2.json"
+AUTHORIZATION_RELATIVE_PATH_R2 = "rejudge/phase2_preflight_authorization_2026-07-19-r2.json"
+REAUTHORIZATION_ASK_RELATIVE_PATH_R2 = (
+    "rejudge/phase2_preflight_reauthorization_ask_2026-07-19-r2.json")
+
+# A genuinely fresh archive directory: the prior (r1) attempt's ledger/results/errors/abort files
+# live under LEDGER_ARCHIVE_DIR (E:/selvarath-archive/capability-preflight) and are NEVER reused
+# or written into by a relaunch -- see assert_r2_run_directory_absent.
+LEDGER_ARCHIVE_DIR_R2 = "E:/selvarath-archive/capability-preflight-r2"
+LEDGER_PATH_R2 = f"{LEDGER_ARCHIVE_DIR_R2}/phase2_capability_preflight_ledger.jsonl"
+
+# Every sibling output path rejudge.phase2_preflight_runner derives from the ledger path (see its
+# _results_path/_completion_path/_error_log_path/_abort_path, all Path.with_name/_sibling_path
+# derivations off the same ledger.path). A relaunch manifest must bind a directory none of these
+# already exist in -- reusing r1's directory (or a stale partial r2 attempt) would risk a resume
+# audit silently treating old output as this new identity's own.
+R2_SIBLING_FILENAMES: tuple[str, ...] = (
+    "phase2_capability_preflight_ledger.jsonl",
+    "phase2_capability_preflight_results.jsonl",
+    "phase2_capability_preflight_completion.json",
+    "phase2_capability_preflight_errors.jsonl",
+    "phase2_capability_preflight_abort.json",
+)
+
+# rejudge/phase2_preflight_forecast_2026-07-19-r2.json has no repo-relative-string constant of
+# its own in phase2_preflight_forecast.py (only an absolute DEFAULT_ARTIFACT_V3_PATH); derive it
+# once, robustly, rather than hardcoding a second copy of the filename.
+FORECAST_R2_RELATIVE_PATH = (
+    preflight_forecast.DEFAULT_ARTIFACT_V3_PATH.resolve()
+    .relative_to(REPO_ROOT.resolve()).as_posix())
+PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH = pe.DEFAULT_PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH.as_posix()
+
+REAUTHORIZATION_PENDING_MARKER_KEY = "reauthorization_pending"
+
+REAUTHORIZATION_ASK_TEMPLATE = (
+    "Approve relaunch of the capability preflight under execution identity {identity}, "
+    "role-limits v4 {v4_sha}, and the existing $15 cap. V4 only removes the SDK-unsupported "
+    "stream_options field while retaining stream: true; models, prompts, seeds, token limits, "
+    "three-attempt ceiling, scope, and canary/main exclusions are unchanged."
+)
+
+
+def build_reauthorization_ask_text(*, execution_identity_sha256: str, role_limits_v4_sha256: str) -> str:
+    """The exact, one-line reauthorization ask text for the delegated owner (Jack Maiorino)."""
+    return REAUTHORIZATION_ASK_TEMPLATE.format(
+        identity=execution_identity_sha256, v4_sha=role_limits_v4_sha256)
+
+
+def assert_r2_run_directory_absent(archive_dir: str = LEDGER_ARCHIVE_DIR_R2) -> None:
+    """Refuse to proceed unless every sibling output path under ``archive_dir`` is ABSENT.
+
+    A relaunch manifest must bind a genuinely fresh run directory: this is a pure filesystem
+    check (independent of manifest validation itself, which never filesystem-checks
+    ``ledger.path`` -- see ``phase2_execution``'s deliberately-anywhere ledger binding), run
+    BEFORE any artifact is written, so a stale or reused directory halts the build immediately.
+    """
+    directory = Path(archive_dir)
+    if not directory.is_dir():
+        return
+    existing = [name for name in R2_SIBLING_FILENAMES if (directory / name).exists()]
+    if existing:
+        raise BuilderRefusedError(
+            f"refusing to build the r2 manifest: run directory {archive_dir!r} already contains "
+            f"sibling output path(s) {existing!r}. A relaunch manifest must bind a genuinely "
+            "fresh run directory, never one a prior attempt (or a stale partial relaunch) "
+            "already wrote into.")
+
+
+def assert_exactly_qwen_request_hashes_changed(
+    old_manifest: dict[str, Any], new_entries: list[dict[str, Any]],
+) -> dict[str, int]:
+    """Assert the r2 request-hash regeneration changed EXACTLY the 212 Qwen/Qwen3.7-Plus entries.
+
+    Removing ``stream_options`` from the streaming transport only changes the request-kwargs
+    shape (and therefore ``request_fields_sha256``) for the one model in
+    ``STREAMING_PINNED_MODELS_V4`` (Qwen/Qwen3.7-Plus); every other of the 1,060 capability_qa
+    calls must be byte-identical to the old (r1, role-limits-v3-bound) manifest's own
+    ``request_fields_sha256``. Fails closed (not merely a warning) if any OTHER model's hash
+    changed, if Qwen's hash failed to change, or if the changed/unchanged counts are not exactly
+    212/848.
+    """
+    old_by_key = {
+        str(entry["planning_cell_key"]): entry
+        for entry in old_manifest["provider_call_inventory"]
+    }
+    changed: list[dict[str, Any]] = []
+    unchanged: list[dict[str, Any]] = []
+    for entry in new_entries:
+        key = str(entry["planning_cell_key"])
+        old_entry = old_by_key.get(key)
+        if old_entry is None:
+            raise BuilderRefusedError(
+                f"planning_cell_key {key!r} is present in the new (r2) inventory but absent "
+                "from the old (r1) manifest; the two inventories must cover an identical cell "
+                "set for this comparison to be meaningful")
+        if old_entry["model"] != entry["model"]:
+            raise BuilderRefusedError(
+                f"planning_cell_key {key!r} is bound to a different model across r1/r2 "
+                f"({old_entry['model']!r} vs {entry['model']!r}); the cell-to-model assignment "
+                "must be identical across a relaunch")
+        if old_entry["request_fields_sha256"] != entry["request_fields_sha256"]:
+            changed.append(entry)
+        else:
+            unchanged.append(entry)
+
+    changed_models = {str(entry["model"]) for entry in changed}
+    if changed_models != {"Qwen/Qwen3.7-Plus"}:
+        raise BuilderRefusedError(
+            "request_fields_sha256 changed for model(s) other than exactly "
+            f"{{'Qwen/Qwen3.7-Plus'}}: observed changed_models={sorted(changed_models)!r} "
+            f"({len(changed)} changed entries)")
+    if len(changed) != 212 or len(unchanged) != 848:
+        raise BuilderRefusedError(
+            "expected exactly 212 changed / 848 unchanged request_fields_sha256 entries (the "
+            f"Qwen/Qwen3.7-Plus stream_options removal), observed {len(changed)} changed / "
+            f"{len(unchanged)} unchanged")
+    return {"changed": len(changed), "unchanged": len(unchanged)}
+
+
+def build_authorization_template_r2(
+    *, execution_identity_sha256: str, stage_cap_usd: float, cumulative_cap_usd: float,
+    recorded_at_utc: str,
+) -> dict[str, Any]:
+    """The r2 (relaunch) authorization record TEMPLATE: pending reauthorization.
+
+    Reuses the SAME delegation basis, approver, and ``approved_at_utc`` as the frozen 2026-07-19
+    preflight delegation (the delegation itself is unedited and still real), but is deliberately
+    NOT a valid :data:`rejudge.phase2_execution.AUTHORIZATION_KEYS`-shaped record: the extra
+    ``reauthorization_pending`` key makes
+    ``pe.validate_execution_manifest(require_authorized=True)`` refuse it via the same
+    ``_exact_keys`` "fields drifted" check every other schema drift in this codebase fails closed
+    on (see ``pe._exact_keys``). This manifest's execution identity differs materially from the
+    one the original delegation covered (new code, new run directory, a new required
+    prior-attempt-closure binding, a new forecast) -- reusing the old blanket delegation to
+    silently authorize a materially different execution would defeat the point of binding
+    authorization to a specific, re-derived identity. It becomes a real, accepted authorization
+    only once Jack explicitly reauthorizes (see :func:`build_reauthorization_ask_text`) and the
+    pending marker is removed; no script in this repository promotes this template to a real
+    authorization automatically.
+    """
+    delegation_raw = (REPO_ROOT / pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH).read_bytes()
+    return {
+        "execution_identity_sha256": execution_identity_sha256,
+        "stage": pe.STAGE_CAPABILITY_PREFLIGHT,
+        "stage_cap_usd": float(stage_cap_usd),
+        "cumulative_cap_usd": float(cumulative_cap_usd),
+        "approver": pe.PREFLIGHT_DELEGATION_APPROVER,
+        "approved_at_utc": pe.PREFLIGHT_DELEGATION_APPROVED_AT_UTC,
+        "recorded_at_utc": recorded_at_utc,
+        "approval_basis_tracked_path": pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH.as_posix(),
+        "approval_basis_sha256": hashlib.sha256(delegation_raw).hexdigest(),
+        REAUTHORIZATION_PENDING_MARKER_KEY: True,
+    }
 
 
 class BuilderRefusedError(RuntimeError):
@@ -200,17 +361,17 @@ _UNUSED_FAKE_SDK = object()
 
 
 def capability_qa_client_construction_inputs(
-    v3_payload: dict[str, Any], snapshot: dict[str, Any],
+    v4_payload: dict[str, Any], snapshot: dict[str, Any],
 ) -> tuple[dict[str, int], frozenset[str], dict[str, dict[str, Any]], dict[str, dict[str, float]]]:
     """Extract (model_context_limits, streaming_pinned_models, extra_request_fields, model_prices)
 
     Mirrors ``rejudge.phase2_preflight_runner._build_client_params``'s own extraction of these
-    four fields from the bound v3 role-limits-and-request-settings artifact and the price
+    four fields from the bound v4 role-limits-and-request-settings artifact and the price
     snapshot (the runner's ``max_retries``/``usage_log_path``/``ledger_identity`` fields are
     irrelevant to request-kwargs construction and are not needed here).
     """
-    request_settings = v3_payload["request_settings"]
-    context_ceilings = v3_payload["context_ceilings"]
+    request_settings = v4_payload["request_settings"]
+    context_ceilings = v4_payload["context_ceilings"]
     model_context_limits = {
         model_id: int(entry["context_length_tokens"])
         for model_id, entry in context_ceilings.items()
@@ -272,7 +433,7 @@ def compute_request_fields_sha256(
     frozen ``transport_retry_policy``, every identical-seed retry) attempt of the same call:
 
     1. ``max_tokens`` passes through the client's own ``_resolve_max_tokens`` (the
-       reasoning-floor guard) -- a no-op here since the v3 role-limits artifact's
+       reasoning-floor guard) -- a no-op here since the v4 role-limits artifact's
        ``effective_request_max_tokens`` already applies that floor, but calling it anyway keeps
        this function byte-identical to ``complete()``'s own code path rather than merely
        "equivalent".
@@ -552,20 +713,23 @@ def build_manifest_and_authorization(
         repo_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
         repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
 
-    v3_payload, _v3_protocol, _v3_snapshot = role_limits.load_and_validate_v3(
-        artifact_path=repo_root / ROLE_LIMITS_V3_RELATIVE_PATH,
+    v4_payload, _v4_protocol, _v4_snapshot = role_limits.load_and_validate_v4(
+        artifact_path=repo_root / ROLE_LIMITS_V4_RELATIVE_PATH,
         protocol_path=repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH,
         snapshot_path=repo_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
-        v2_artifact_path=repo_root / pe.DEFAULT_ROLE_LIMITS_V2_RELATIVE_PATH,
+        v3_artifact_path=repo_root / pe.DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH,
         project_root=repo_root,
     )
-
+    # The manifest's cost_forecast slot now requires the v3 "ready" forecast schema (relaunch
+    # attempt r2), bound to role-limits v4 directly -- no more v3-payload substitution workaround
+    # (that was only ever needed while the forecast schema itself still bound role-limits v3; see
+    # rejudge.phase2_preflight_forecast.validate_forecast_v3 and this task's r2 forecast rebuild).
     provider_refresh_payload = json.loads(
         (repo_root / pe.DEFAULT_PROVIDER_REFRESH_RELATIVE_PATH).read_text(encoding="utf-8"))
     forecast_payload = json.loads(
-        (repo_root / FORECAST_RELATIVE_PATH).read_text(encoding="utf-8"))
-    preflight_forecast.validate_forecast_v2(
-        forecast_payload, root=repo_root, protocol=protocol, role_limits_v3=v3_payload,
+        (repo_root / FORECAST_R2_RELATIVE_PATH).read_text(encoding="utf-8"))
+    preflight_forecast.validate_forecast_v3(
+        forecast_payload, root=repo_root, protocol=protocol, role_limits_v4=v4_payload,
         snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh_payload)
     storage_policy_payload = json.loads(
         (repo_root / STORAGE_POLICY_RELATIVE_PATH).read_text(encoding="utf-8"))
@@ -574,6 +738,8 @@ def build_manifest_and_authorization(
         .read_text(encoding="utf-8"))
     gemma_closure_payload = json.loads(
         (repo_root / pe.DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH).read_text(encoding="utf-8"))
+    prior_attempt_closure_payload = json.loads(
+        (repo_root / PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH).read_text(encoding="utf-8"))
     delegation_raw = (repo_root / pe.DEFAULT_PREFLIGHT_DELEGATION_RELATIVE_PATH).read_bytes()
 
     uv_lock_sha256 = hashlib.sha256(
@@ -585,7 +751,7 @@ def build_manifest_and_authorization(
 
     # --- request-hash inputs ---
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        capability_qa_client_construction_inputs(v3_payload, snapshot))
+        capability_qa_client_construction_inputs(v4_payload, snapshot))
     hash_client = build_hash_only_client(
         model_context_limits=model_context_limits,
         streaming_pinned_models=streaming_pinned_models,
@@ -612,7 +778,7 @@ def build_manifest_and_authorization(
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            v3_payload, protocol, model, pe.CAPABILITY_CALL_ROLE)
+            v4_payload, protocol, model, pe.CAPABILITY_CALL_ROLE)
 
         seed = derive_capability_qa_seed(
             namespace=namespace, question_id=question_id, model=model, condition=condition,
@@ -646,10 +812,10 @@ def build_manifest_and_authorization(
         "sha256": pe.canonical_sha256(approval),
     }
     role_limits_binding = {
-        "path": ROLE_LIMITS_V3_RELATIVE_PATH, "sha256": pe.canonical_sha256(v3_payload),
+        "path": ROLE_LIMITS_V4_RELATIVE_PATH, "sha256": pe.canonical_sha256(v4_payload),
     }
     cost_forecast_binding = {
-        "path": FORECAST_RELATIVE_PATH, "sha256": pe.canonical_sha256(forecast_payload),
+        "path": FORECAST_R2_RELATIVE_PATH, "sha256": pe.canonical_sha256(forecast_payload),
     }
     storage_policy_binding = {
         "path": STORAGE_POLICY_RELATIVE_PATH,
@@ -666,6 +832,10 @@ def build_manifest_and_authorization(
     gemma_closure_binding = {
         "path": pe.DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH.as_posix(),
         "sha256": pe.canonical_sha256(gemma_closure_payload),
+    }
+    prior_attempt_closure_binding = {
+        "path": PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH,
+        "sha256": pe.canonical_sha256(prior_attempt_closure_payload),
     }
     implementation_provenance = {
         "git_commit": git_commit,
@@ -699,6 +869,7 @@ def build_manifest_and_authorization(
         "storage_policy": storage_policy_binding,
         "provider_reconciliation_evidence": provider_reconciliation_binding,
         "provider_refresh": provider_refresh_binding,
+        "prior_attempt_closure": prior_attempt_closure_binding,
         "implementation_provenance": implementation_provenance,
     }
 
@@ -727,6 +898,7 @@ def build_manifest_and_authorization(
         cost_forecast=cost_forecast_binding, storage_policy=storage_policy_binding,
         provider_reconciliation_evidence=provider_reconciliation_binding,
         provider_refresh=provider_refresh_binding,
+        prior_attempt_closure=prior_attempt_closure_binding,
         implementation_provenance=implementation_provenance,
     )
     execution_identity_sha256 = pe.derive_execution_identity_sha256(identity)
@@ -800,14 +972,399 @@ def build_manifest_and_authorization(
         execution_identity_sha256=execution_identity_sha256)
 
 
+@dataclass(frozen=True, slots=True)
+class BuiltArtifactsR2:
+    manifest: dict[str, Any]
+    authorization_template: dict[str, Any]
+    reauthorization_ask: dict[str, Any]
+    execution_identity_sha256: str
+    request_hash_delta: dict[str, int]
+
+
+def build_manifest_and_authorization_r2(
+    repo_root: Path,
+    *,
+    recorded_at_utc: str | None = None,
+    stage_cap_usd: float = STAGE_CAP_USD,
+    cumulative_cap_usd: float = CUMULATIVE_CAP_USD,
+    git_commit: str | None = None,
+) -> BuiltArtifactsR2:
+    """Build the r2 (relaunch) manifest + PENDING authorization template + reauthorization ask.
+
+    Pure function of the real, tracked repo artifacts under ``repo_root`` (plus the E: r2 run
+    directory's absence, asserted as a side-effect-free filesystem check). Every hash is
+    recomputed fresh from disk; nothing is trusted from any prior build. Never writes anything.
+
+    ``git_commit`` defaults to the actual current ``git rev-parse HEAD`` -- unlike the r1
+    builder's pinned ``EXPECTED_GIT_COMMIT``, this is deliberately dynamic: the orchestrator
+    commits the code fix separately and may rebuild this any number of times as HEAD moves, so
+    this path must stay cheap to rerun without a manual constant bump (see this module's r2
+    section docstring). ``implementation_provenance.code_bundle_sha256`` is, as always,
+    recomputed fresh from the real files on disk under ``repo_root`` regardless of what
+    ``git_commit`` says -- git_commit is provenance-only (see
+    ``rejudge.phase2_execution._validate_implementation_provenance``'s own docstring).
+    """
+    repo_root = Path(repo_root)
+    assert_r2_run_directory_absent()
+
+    if git_commit is None:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True,
+            check=True)
+        git_commit = result.stdout.strip()
+
+    protocol = phase2_plan.load_protocol(repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
+    execution_semantics = protocol["decisions"]["execution_semantics"]
+    seed_policy = str(execution_semantics["seed_policy"])
+    side_assignment_policy = str(execution_semantics["side_assignment_policy"])
+    namespace = str(protocol["cell_key_namespace"])
+    capability_condition_id = str(
+        protocol["decisions"]["capability_measurement"]["condition_id"])
+    if capability_condition_id != CAPABILITY_CONDITION_ID:
+        raise BuilderRefusedError(
+            "frozen protocol decisions.capability_measurement.condition_id drifted from "
+            f"{CAPABILITY_CONDITION_ID!r}: observed {capability_condition_id!r}")
+
+    planning_keys, cells_by_key = load_capability_planning(protocol, repo_root)
+
+    combined = json.loads(
+        (repo_root / pe.DEFAULT_COMBINED_AI_AUDIT_RELATIVE_PATH).read_text(encoding="utf-8"))
+    ai_review.validate_combined(combined, root=repo_root)
+    amendment = json.loads(
+        (repo_root / pe.DEFAULT_A1_AMENDMENT_RELATIVE_PATH).read_text(encoding="utf-8"))
+    ai_review.validate_amendment(amendment, combined_review=combined, root=repo_root)
+
+    bundle, _bundle_protocol = prompt_bundle.load_and_validate(
+        repo_root / pe.DEFAULT_PROMPT_BUNDLE_RELATIVE_PATH,
+        repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
+    approval = json.loads(
+        (repo_root / pe.DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH).read_text(encoding="utf-8"))
+
+    snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
+        repo_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
+        repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
+
+    v4_payload, _v4_protocol, _v4_snapshot = role_limits.load_and_validate_v4(
+        artifact_path=repo_root / ROLE_LIMITS_V4_RELATIVE_PATH,
+        protocol_path=repo_root / pe.DEFAULT_PROTOCOL_RELATIVE_PATH,
+        snapshot_path=repo_root / pe.DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH,
+        v3_artifact_path=repo_root / pe.DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH,
+        project_root=repo_root,
+    )
+
+    provider_refresh_payload = json.loads(
+        (repo_root / pe.DEFAULT_PROVIDER_REFRESH_RELATIVE_PATH).read_text(encoding="utf-8"))
+    forecast_payload = json.loads(
+        (repo_root / FORECAST_R2_RELATIVE_PATH).read_text(encoding="utf-8"))
+    preflight_forecast.validate_forecast_v3(
+        forecast_payload, root=repo_root, protocol=protocol, role_limits_v4=v4_payload,
+        snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh_payload)
+
+    storage_policy_payload = json.loads(
+        (repo_root / STORAGE_POLICY_RELATIVE_PATH).read_text(encoding="utf-8"))
+    provider_reconciliation_payload = json.loads(
+        (repo_root / pe.DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH)
+        .read_text(encoding="utf-8"))
+    gemma_closure_payload = json.loads(
+        (repo_root / pe.DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH).read_text(encoding="utf-8"))
+    prior_attempt_closure_payload = json.loads(
+        (repo_root / PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH).read_text(encoding="utf-8"))
+
+    uv_lock_sha256 = hashlib.sha256(
+        (repo_root / pe.DEFAULT_UV_LOCK_RELATIVE_PATH).read_bytes()).hexdigest()
+
+    # --- corpus (byte-identical messages the runner will itself render and send) ---
+    corpus_entries = capability_corpus.render_capability_corpus(bundle, protocol, repo_root)
+    corpus_lookup = {(str(e["question_id"]), str(e["side"])): e for e in corpus_entries}
+
+    # --- request-hash inputs (v4-bound: this is where the stream_options removal shows up) -----
+    model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
+        capability_qa_client_construction_inputs(v4_payload, snapshot))
+    hash_client = build_hash_only_client(
+        model_context_limits=model_context_limits,
+        streaming_pinned_models=streaming_pinned_models,
+        extra_request_fields=extra_request_fields, model_prices=model_prices,
+        approved_cap_usd=float(cumulative_cap_usd))
+
+    entries_without_key: list[dict[str, Any]] = []
+    for index, planning_cell_key in enumerate(planning_keys):
+        cell = cells_by_key[planning_cell_key]
+        model = str(cell["judge_model"])
+        question_id = str(cell["question_id"])
+        replicate_index = int(cell["replicate_index"])
+        side = "A" if replicate_index == 0 else "B"
+        condition = str(cell["condition"])
+
+        corpus_entry = corpus_lookup.get((question_id, side))
+        if corpus_entry is None:
+            raise BuilderRefusedError(
+                f"no rendered capability_qa corpus entry for question {question_id!r} side "
+                f"{side!r} (planning cell {planning_cell_key!r})")
+        messages = [
+            {"role": "system", "content": corpus_entry["system_prompt"]},
+            {"role": "user", "content": corpus_entry["user_prompt"]},
+        ]
+        resolved = role_limits.resolve_request_parameters(
+            v4_payload, protocol, model, pe.CAPABILITY_CALL_ROLE)
+
+        seed = derive_capability_qa_seed(
+            namespace=namespace, question_id=question_id, model=model, condition=condition,
+            replicate_index=replicate_index)
+
+        request_fields_sha256 = compute_request_fields_sha256(
+            hash_client, model=model, messages=messages, temperature=resolved.temperature,
+            max_tokens=resolved.effective_max_tokens, seed=seed)
+
+        entries_without_key.append({
+            "planning_cell_key": planning_cell_key,
+            "call_role": pe.CAPABILITY_CALL_ROLE,
+            "call_index": index,
+            "model": model,
+            "seed": seed,
+            "side": side,
+            "request_fields_sha256": request_fields_sha256,
+        })
+
+    schema_version = str(protocol["materialization_requirements"]["transition_model"][
+        "manifest_schema_version"])
+
+    prompt_bundle_approval_binding = {
+        "tracked_path": pe.DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH.as_posix(),
+        "sha256": pe.canonical_sha256(approval),
+    }
+    role_limits_binding = {
+        "path": ROLE_LIMITS_V4_RELATIVE_PATH, "sha256": pe.canonical_sha256(v4_payload),
+    }
+    cost_forecast_binding = {
+        "path": FORECAST_R2_RELATIVE_PATH, "sha256": pe.canonical_sha256(forecast_payload),
+    }
+    storage_policy_binding = {
+        "path": STORAGE_POLICY_RELATIVE_PATH,
+        "sha256": pe.canonical_sha256(storage_policy_payload),
+    }
+    provider_reconciliation_binding = {
+        "path": pe.DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH.as_posix(),
+        "sha256": pe.canonical_sha256(provider_reconciliation_payload),
+    }
+    provider_refresh_binding = {
+        "path": pe.DEFAULT_PROVIDER_REFRESH_RELATIVE_PATH.as_posix(),
+        "sha256": pe.canonical_sha256(provider_refresh_payload),
+    }
+    gemma_closure_binding = {
+        "path": pe.DEFAULT_GEMMA_RECOVERY_CLOSURE_RELATIVE_PATH.as_posix(),
+        "sha256": pe.canonical_sha256(gemma_closure_payload),
+    }
+    prior_attempt_closure_binding = {
+        "path": PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH,
+        "sha256": pe.canonical_sha256(prior_attempt_closure_payload),
+    }
+    implementation_provenance = {
+        "git_commit": git_commit,
+        "code_bundle_sha256": pe.compute_code_bundle_sha256(repo_root),
+    }
+    ledger_binding = {"path": LEDGER_PATH_R2, "ledger_identity": LEDGER_IDENTITY_LABEL}
+    satisfied_prerequisites = {"gemma_recovery_or_waiver": gemma_closure_binding}
+
+    manifest_without_inventory = {
+        "schema_version": schema_version,
+        "stage": pe.STAGE_CAPABILITY_PREFLIGHT,
+        "protocol_canonical_sha256": pe.canonical_sha256(protocol),
+        "a1_amendment_canonical_sha256": pe.canonical_sha256(amendment),
+        "combined_ai_audit_canonical_sha256": pe.canonical_sha256(combined),
+        "question_bank_bundle_sha256": protocol["source_bindings"]["question_bank_bundle_sha256"],
+        "prompt_bundle_canonical_sha256": pe.canonical_sha256(bundle),
+        "prompt_bundle_declared_status": bundle["status"],
+        "prompt_bundle_approval_tracked_path": prompt_bundle_approval_binding["tracked_path"],
+        "prompt_bundle_approval_canonical_sha256": prompt_bundle_approval_binding["sha256"],
+        "role_limits_and_request_settings_artifact": role_limits_binding,
+        "provider_price_snapshot_canonical_sha256": pe.canonical_sha256(snapshot),
+        "uv_lock_sha256": uv_lock_sha256,
+        "seed_policy": seed_policy,
+        "side_assignment_policy": side_assignment_policy,
+        "satisfied_prerequisites": satisfied_prerequisites,
+        "ledger": ledger_binding,
+        "planning_cell_keys": list(planning_keys),
+        "stage_cap_usd": float(stage_cap_usd),
+        "cumulative_cap_usd": float(cumulative_cap_usd),
+        "cost_forecast": cost_forecast_binding,
+        "storage_policy": storage_policy_binding,
+        "provider_reconciliation_evidence": provider_reconciliation_binding,
+        "provider_refresh": provider_refresh_binding,
+        "prior_attempt_closure": prior_attempt_closure_binding,
+        "implementation_provenance": implementation_provenance,
+    }
+
+    identity = pe.build_execution_identity(
+        schema_version=schema_version,
+        stage=pe.STAGE_CAPABILITY_PREFLIGHT,
+        protocol_canonical_sha256=manifest_without_inventory["protocol_canonical_sha256"],
+        a1_amendment_canonical_sha256=manifest_without_inventory["a1_amendment_canonical_sha256"],
+        combined_ai_audit_canonical_sha256=manifest_without_inventory[
+            "combined_ai_audit_canonical_sha256"],
+        question_bank_bundle_sha256=manifest_without_inventory["question_bank_bundle_sha256"],
+        prompt_bundle_canonical_sha256=manifest_without_inventory[
+            "prompt_bundle_canonical_sha256"],
+        prompt_bundle_declared_status=manifest_without_inventory["prompt_bundle_declared_status"],
+        prompt_bundle_approval_artifact=prompt_bundle_approval_binding,
+        role_limits_and_request_settings_artifact=role_limits_binding,
+        provider_price_snapshot_canonical_sha256=manifest_without_inventory[
+            "provider_price_snapshot_canonical_sha256"],
+        uv_lock_sha256=uv_lock_sha256,
+        seed_policy=seed_policy, side_assignment_policy=side_assignment_policy,
+        satisfied_prerequisites=satisfied_prerequisites,
+        ledger=ledger_binding,
+        planning_cell_keys=planning_keys,
+        provider_call_inventory_entries=entries_without_key,
+        stage_cap_usd=float(stage_cap_usd), cumulative_cap_usd=float(cumulative_cap_usd),
+        cost_forecast=cost_forecast_binding, storage_policy=storage_policy_binding,
+        provider_reconciliation_evidence=provider_reconciliation_binding,
+        provider_refresh=provider_refresh_binding,
+        prior_attempt_closure=prior_attempt_closure_binding,
+        implementation_provenance=implementation_provenance,
+    )
+    execution_identity_sha256 = pe.derive_execution_identity_sha256(identity)
+
+    provider_call_inventory = [
+        {
+            **entry,
+            "execution_call_key": pe.derive_execution_call_key(
+                execution_identity_sha256, planning_cell_key=entry["planning_cell_key"],
+                call_role=entry["call_role"], call_index=entry["call_index"]),
+        }
+        for entry in entries_without_key
+    ]
+
+    manifest = {**manifest_without_inventory, "provider_call_inventory": provider_call_inventory}
+    if set(manifest) != pe.MANIFEST_TOP_LEVEL_KEYS:
+        # Defensive only: every key above is drawn 1:1 from MANIFEST_TOP_LEVEL_KEYS, so this
+        # can only fire if that frozen set itself changes out from under this builder.
+        raise BuilderRefusedError(
+            "assembled r2 manifest key set no longer matches "
+            "rejudge.phase2_execution.MANIFEST_TOP_LEVEL_KEYS; this builder needs updating")
+
+    # --- the 212/848 regenerated-request-hash invariant, against the real OLD (r1) manifest ----
+    old_manifest_path = repo_root / MANIFEST_RELATIVE_PATH
+    old_manifest = json.loads(old_manifest_path.read_text(encoding="utf-8"))
+    request_hash_delta = assert_exactly_qwen_request_hashes_changed(
+        old_manifest, provider_call_inventory)
+
+    if recorded_at_utc is None:
+        recorded_at_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    authorization_template = build_authorization_template_r2(
+        execution_identity_sha256=execution_identity_sha256, stage_cap_usd=stage_cap_usd,
+        cumulative_cap_usd=cumulative_cap_usd, recorded_at_utc=recorded_at_utc)
+
+    role_limits_v4_sha256 = pe.canonical_sha256(v4_payload)
+    ask_text = build_reauthorization_ask_text(
+        execution_identity_sha256=execution_identity_sha256,
+        role_limits_v4_sha256=role_limits_v4_sha256)
+    reauthorization_ask = {
+        "schema_version": "phase2_preflight_reauthorization_ask_v1",
+        "artifact_id": "phase2_preflight_reauthorization_ask_2026-07-19-r2",
+        "execution_identity_sha256": execution_identity_sha256,
+        "role_limits_v4_sha256": role_limits_v4_sha256,
+        "stage_cap_usd": float(stage_cap_usd),
+        "ask_text": ask_text,
+        "execution_authorized": False,
+        "note": (
+            "Informational only. NOT bound or hashed into the execution manifest or the "
+            "authorization record; this is the exact text to send to the delegated owner (Jack "
+            "Maiorino) to clear the authorization template's reauthorization_pending marker."
+        ),
+    }
+
+    return BuiltArtifactsR2(
+        manifest=manifest, authorization_template=authorization_template,
+        reauthorization_ask=reauthorization_ask,
+        execution_identity_sha256=execution_identity_sha256,
+        request_hash_delta=request_hash_delta,
+    )
+
+
+def main_r2(repo_root: Path, *, recorded_at_utc: str | None = None) -> int:
+    """Build, verify, and write the r2 relaunch manifest + pending authorization template."""
+    built = build_manifest_and_authorization_r2(repo_root, recorded_at_utc=recorded_at_utc)
+
+    # require_authorized=False must fully validate: the manifest itself, apart from
+    # authorization, is structurally and semantically complete.
+    validated_unauthorized = pe.validate_execution_manifest(
+        built.manifest, project_root=repo_root, require_authorized=False)
+    if validated_unauthorized.authorized:
+        raise BuilderRefusedError(
+            "require_authorized=False unexpectedly reported authorized=True; unreachable given "
+            "no authorization argument was passed")
+    if validated_unauthorized.execution_identity_sha256 != built.execution_identity_sha256:
+        raise BuilderRefusedError(
+            "builder-computed execution_identity_sha256 disagrees with the validator's own "
+            f"independently recomputed value: builder={built.execution_identity_sha256!r}, "
+            f"validator={validated_unauthorized.execution_identity_sha256!r}")
+
+    # require_authorized=True must REFUSE the pending-marker template, and for the RIGHT reason:
+    # the extra reauthorization_pending key makes AUTHORIZATION_KEYS drift ("fields drifted"),
+    # not some unrelated failure.
+    try:
+        pe.validate_execution_manifest(
+            built.manifest, project_root=repo_root, authorization=built.authorization_template,
+            require_authorized=True)
+    except pe.ExecutionAuthorityError as exc:
+        if "fields drifted" not in str(exc):
+            raise BuilderRefusedError(
+                "require_authorized=True refused the pending authorization template, but NOT "
+                f"for the expected reason ('fields drifted'): {exc}") from exc
+        print(f"require_authorized=True correctly REFUSED (pending marker): {exc}")
+    else:
+        raise BuilderRefusedError(
+            "require_authorized=True unexpectedly ACCEPTED the pending authorization template; "
+            "this must never happen while reauthorization_pending is set")
+
+    manifest_path = repo_root / MANIFEST_RELATIVE_PATH_R2
+    authorization_path = repo_root / AUTHORIZATION_RELATIVE_PATH_R2
+    ask_path = repo_root / REAUTHORIZATION_ASK_RELATIVE_PATH_R2
+    write_canonical_json(manifest_path, built.manifest)
+    write_canonical_json(authorization_path, built.authorization_template)
+    write_canonical_json(ask_path, built.reauthorization_ask)
+
+    # Allowed: creating the E: r2 archive directory. NEVER create the ledger file itself.
+    Path(LEDGER_ARCHIVE_DIR_R2).mkdir(parents=True, exist_ok=True)
+
+    # Re-load the just-written bytes from disk and re-validate (require_authorized=False): proves
+    # the COMMITTED manifest itself passes, not merely the in-memory object that produced it.
+    reloaded_manifest = pe.load_execution_manifest(manifest_path)
+    revalidated = pe.validate_execution_manifest(
+        reloaded_manifest, project_root=repo_root, require_authorized=False)
+
+    print(f"execution_identity_sha256={revalidated.execution_identity_sha256}")
+    print(f"authorized={revalidated.authorized}")
+    print(f"request_hash_delta={built.request_hash_delta}")
+    print(f"manifest_path={manifest_path}")
+    print(f"authorization_template_path={authorization_path}")
+    print(f"reauthorization_ask_path={ask_path}")
+    print(f"reauthorization_ask_text={built.reauthorization_ask['ask_text']}")
+    print(f"ledger_archive_dir_created={LEDGER_ARCHIVE_DIR_R2}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", default=str(REPO_ROOT))
     parser.add_argument(
         "--recorded-at-utc", default=None,
         help="Override authorization.recorded_at_utc (mainly for deterministic tests).")
+    parser.add_argument(
+        "--r2", action="store_true",
+        help=(
+            "build the relaunch-attempt-r2 manifest + PENDING authorization template (new run "
+            "directory, v3/v4-bound forecast, required prior_attempt_closure binding) instead "
+            "of the original r1 manifest+authorization pair. Does NOT run the r1 git-clean-HEAD "
+            "gates: it stamps whatever the actual current HEAD is (see build_manifest_and_"
+            "authorization_r2's docstring) so it stays cheap to rerun as the orchestrator "
+            "commits the code fix."))
     args = parser.parse_args(argv)
     repo_root = Path(args.repo_root).resolve()
+
+    if args.r2:
+        return main_r2(repo_root, recorded_at_utc=args.recorded_at_utc)
 
     head = assert_clean_git_state(
         repo_root, allowed_relative_posix_paths=ALLOWED_DIRTY_RELATIVE_PATHS)

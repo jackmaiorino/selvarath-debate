@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -434,7 +435,7 @@ def test_streaming_only_endpoint_auto_fallback():
     assert c.total_tokens == 150                       # usage from final chunk
     assert sdk.calls[0].get("stream") is None or sdk.calls[0].get("stream") is False or "stream" not in sdk.calls[0]
     assert sdk.calls[1]["stream"] is True
-    assert sdk.calls[1]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in sdk.calls[1]      # dropped: installed SDK has no such param
     # second call skips the failed non-streaming probe entirely
     out2 = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out2 == "YES"
@@ -621,7 +622,7 @@ def test_streaming_pinned_model_uses_streaming_from_first_attempt():
     assert out == "YES"
     assert len(sdk.calls) == 1                       # no wasted non-streaming probe
     assert sdk.calls[0]["stream"] is True
-    assert sdk.calls[0]["stream_options"] == {"include_usage": True}
+    assert "stream_options" not in sdk.calls[0]      # dropped: installed SDK has no such param
 
 
 def test_unpinned_model_still_uses_reactive_streaming_discovery():
@@ -680,11 +681,15 @@ def test_extra_request_fields_colliding_with_a_reserved_field_is_rejected_at_con
     # _build_request_kwargs's unconditional merge: it would silently override a value that
     # already passed the reasoning-floor guard, the context-ceiling guard, or the cost-cap
     # reservation. Reject it eagerly, at client construction, before any provider call.
+    # stream_options is deliberately absent here: it is no longer a transport field this client
+    # ever builds (the installed together SDK's CompletionsResource.create has no such
+    # parameter), so it is no longer reserved -- an extra_request_fields entry naming it would
+    # simply be checked, and rejected, by check_sdk_request_compatibility instead.
     for reserved_field, value in (
         ("max_tokens", 10), ("model", "expensive-model"),
         ("messages", [{"role": "user", "content": "INJECTED"}]),
         ("temperature", 0.0), ("seed", 999),
-        ("stream", True), ("stream_options", {"include_usage": True}),
+        ("stream", True),
     ):
         with pytest.raises(ValueError, match=reserved_field):
             ac.RejudgeClient(
@@ -864,3 +869,191 @@ def test_halt_on_unknown_charge_true_still_succeeds_when_the_first_attempt_succe
     c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK(), halt_on_unknown_charge=True)
     out = c.complete(MSGS, "m", 0.1, 1, 64)
     assert out == "YES"
+
+
+# --- 8. RECORDED-STREAM FIXTURE: usage still parses from the final chunk without stream_options -
+
+
+def _recorded_stream_chunks():
+    """A recorded-shape sequence of Together streaming chunks (three content deltas plus a
+    final usage-only chunk), used to prove usage still parses from the final chunk when the
+    request never sent stream_options at all."""
+    def chunk(content, *, usage=None, finish_reason=None):
+        delta = SimpleNamespace(content=content)
+        choice = SimpleNamespace(delta=delta, finish_reason=finish_reason)
+        return SimpleNamespace(
+            id="8f2b1c3d4e5f6a7b", model="Qwen/Qwen3.7-Plus", system_fingerprint=None,
+            choices=[choice] if content is not None else [], usage=usage)
+
+    final_usage = SimpleNamespace(prompt_tokens=212, completion_tokens=31)
+    return [
+        chunk("The"), chunk(" capital"), chunk(" is Paris."),
+        chunk(None, usage=final_usage, finish_reason="stop"),
+    ]
+
+
+class RecordedStreamSDK:
+    """Records the exact kwargs sent and replays the recorded chunk fixture above."""
+
+    def __init__(self):
+        self.calls: list[dict] = []
+        outer = self
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls.append(kwargs)
+                return iter(_recorded_stream_chunks())
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def test_recorded_stream_fixture_parses_usage_without_stream_options():
+    sdk = RecordedStreamSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}))
+    out = c.complete(MSGS, "Qwen/Qwen3.7-Plus", 0.1, 1, 64)
+    assert out == "The capital is Paris."
+    assert c.total_tokens == 212 + 31                    # usage parsed from the final chunk
+    assert len(sdk.calls) == 1
+    assert sdk.calls[0]["stream"] is True
+    assert "stream_options" not in sdk.calls[0]          # never sent, by construction
+
+
+# --- 9. INSTALLED-SDK COMPATIBILITY GATE ---------------------------------------------------------
+
+
+def test_manifested_request_shapes_bind_against_the_installed_together_signature():
+    # Every distinct manifested request shape (standard call, Qwen streaming pin, gpt-oss
+    # reasoning_effort extra field), built via the exact same _build_request_kwargs the live
+    # call path uses, must bind cleanly against the real, installed together SDK's signature.
+    import inspect
+    from together.resources.chat.completions import CompletionsResource
+
+    signature = inspect.signature(CompletionsResource.create)
+
+    standard_client = ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True)
+    standard = standard_client._build_request_kwargs(
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo", messages=MSGS, temperature=0.1,
+        max_tokens=64, seed=1, streaming=False)
+
+    qwen_streaming = standard_client._build_request_kwargs(
+        model="Qwen/Qwen3.7-Plus", messages=MSGS, temperature=0.1, max_tokens=4096, seed=1,
+        streaming=True)
+
+    gpt_oss_client = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True,
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    gpt_oss_reasoning = gpt_oss_client._build_request_kwargs(
+        model="openai/gpt-oss-120b", messages=MSGS, temperature=0.1, max_tokens=4096, seed=1,
+        streaming=False)
+
+    for shape in (standard, qwen_streaming, gpt_oss_reasoning):
+        signature.bind(None, **shape)          # must not raise TypeError
+
+
+def test_dummy_post_trap_proves_an_invalid_kwarg_fails_before_transport(monkeypatch):
+    # Mirrors rejudge/phase2_preflight_abort_closure_2026-07-19.json's trap_test.py: a kwarg
+    # the installed SDK's signature does not accept (stream_options) raises TypeError from
+    # Python's own argument-binding machinery before the SDK's transport entry point
+    # (client.post) is ever reached -- no network, no possibility of a provider-side charge.
+    monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
+    from together import Together
+
+    client = Together()
+
+    class _TrapReached(AssertionError):
+        pass
+
+    def _trap_post(*args, **kwargs):
+        raise _TrapReached("transport entry point was reached -- must not happen")
+
+    client.post = _trap_post
+
+    with pytest.raises(TypeError, match="stream_options"):
+        client.chat.completions.create(
+            model="Qwen/Qwen3.7-Plus", messages=MSGS, stream_options={"include_usage": True})
+
+
+def test_check_sdk_request_compatibility_accepts_the_frozen_phase2_shapes():
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}),
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    shapes = c._manifested_request_shapes()
+    assert len(shapes) == 3                    # standard + Qwen streaming pin + gpt-oss extra
+    ac.check_sdk_request_compatibility(shapes)  # must not raise
+
+
+def test_check_sdk_request_compatibility_rejects_stream_options_naming_the_kwarg():
+    bad_shape = {
+        "model": "Qwen/Qwen3.7-Plus", "messages": MSGS, "temperature": 0.1,
+        "max_tokens": 64, "seed": 1, "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    with pytest.raises(ac.SdkRequestShapeError, match="stream_options"):
+        ac.check_sdk_request_compatibility([bad_shape])
+
+
+def test_live_construction_runs_sdk_compat_gate_before_any_reservation(tmp_path):
+    # A live client (real factory token, strict pricing, a prepared durable ledger) whose
+    # extra_request_fields would produce an SDK-incompatible shape must refuse construction --
+    # before returning from __init__, so before any caller could ever reserve a ledger event.
+    ledger = tmp_path / "usage.jsonl"
+    ac.prepare_usage_ledger(ledger, allow_create=True)
+    snapshot = ac.load_chained_usage_ledger(ledger)
+
+    with pytest.raises(ac.SdkRequestShapeError, match="totally_bogus_field"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=False, strict_model_pricing=True,
+            model_prices={"m": {"in": 1.0, "out": 1.0}},
+            usage_log_path=str(ledger), _ledger_snapshot=snapshot,
+            _accounting_factory_token=ac._LIVE_ACCOUNTING_FACTORY_TOKEN,
+            extra_request_fields={"m": {"totally_bogus_field": True}})
+
+    # Only the genesis event was ever written -- no reservation for the doomed shape.
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["status"] == "ledger_genesis"
+
+
+def test_live_construction_passes_the_frozen_phase2_shapes_without_error(tmp_path):
+    ledger = tmp_path / "usage.jsonl"
+    ac.prepare_usage_ledger(ledger, allow_create=True)
+    snapshot = ac.load_chained_usage_ledger(ledger)
+
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=False, strict_model_pricing=True,
+        model_prices={
+            "Qwen/Qwen3.7-Plus": {"in": 1.0, "out": 1.0},
+            "openai/gpt-oss-120b": {"in": 1.0, "out": 1.0},
+        },
+        usage_log_path=str(ledger), _ledger_snapshot=snapshot,
+        _accounting_factory_token=ac._LIVE_ACCOUNTING_FACTORY_TOKEN,
+        streaming_pinned_models=frozenset({"Qwen/Qwen3.7-Plus"}),
+        extra_request_fields={"openai/gpt-oss-120b": {"reasoning_effort": "medium"}})
+    assert client.streaming_pinned_models == frozenset({"Qwen/Qwen3.7-Plus"})
+
+
+def test_dry_run_construction_never_runs_the_sdk_compat_gate():
+    # dry_run clients never spend real money and must not require the together package's
+    # signature to accept a deliberately-incompatible extra field.
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, dry_run=True,
+        extra_request_fields={"m": {"totally_bogus_field": True}})
+    assert c.extra_request_fields == {"m": {"totally_bogus_field": True}}
+
+
+def test_non_factory_test_client_never_runs_the_sdk_compat_gate():
+    # A plain _sdk_client=stub construction (no live factory token) is the pervasive pattern
+    # used throughout this file's other tests; it must not be gated by SDK-signature checks.
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk,
+        extra_request_fields={"m": {"totally_bogus_field": True}})
+    out = c.complete(MSGS, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert sdk.calls[0]["totally_bogus_field"] is True

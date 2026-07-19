@@ -57,13 +57,13 @@ DEFAULT_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
 DEFAULT_UV_LOCK_RELATIVE_PATH = Path("uv.lock")
 DEFAULT_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
-# The v3 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
-# always supersedes this exact real, git-tracked v2 file; its canonical hash is recomputed fresh
-# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v3.
-# A v2 (or v1) artifact bound into the merged slot fails closed just like v1 always failed
-# closed against validate_role_limits_v2: it lacks v3-only sections (approval_basis) and/or its
-# schema_version does not match.
-DEFAULT_ROLE_LIMITS_V2_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V2_TRACKED_PATH)
+# The v4 role-limits/request-settings artifact bound into role_limits_and_request_settings_artifact
+# always supersedes this exact real, git-tracked v3 file; its canonical hash is recomputed fresh
+# from this path (never trusted from the bound artifact alone) by role_limits.validate_role_limits_v4.
+# A v3 (or v2, or v1) artifact bound into the merged slot fails closed just like v2/v1 always
+# failed closed against validate_role_limits_v3: it lacks v4-only sections
+# (sdk_compatibility_basis) and/or its schema_version does not match.
+DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH = Path(role_limits.SUPERSEDES_V3_TRACKED_PATH)
 
 # --- PINNED DELEGATION AUTHORIZATION BASIS: frozen literal bindings -----------------------------
 #
@@ -138,6 +138,78 @@ GEMMA_RECOVERY_CLOSURE_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
 })
 GEMMA_RECOVERY_CLOSURE_INNER_ARTIFACT_KEYS: frozenset[str] = frozenset(
     {"tracked_path", "file_sha256"})
+
+# --- prior_attempt_closure: the frozen 2026-07-19 capability-preflight abort closure -----------
+#
+# REQUIRED for a relaunch attempt: this manifest's identity is bound to the SAME closure that
+# adjudicated the prior aborted attempt (the stream_options SDK-argument-binding halt), so an
+# execution identity can never be re-derived without acknowledging that history. Pinned exactly
+# to the one real, git-tracked closure record -- the manifest cannot substitute a same-shaped
+# artifact living anywhere else -- and validated for: real schema (its exact top-level key set,
+# reusing no generic placeholder), the classification this closure's own scope restriction
+# permits reuse of (a client-side pre-transport argument-binding TypeError; NEVER a timeout,
+# HTTP error, or any exception raised after transport begins), and ``ledger_retired: true`` (the
+# prior attempt's ledger terminal event is retired from cumulative accounting, not reused for any
+# future attempt -- see the closure's own ``ledger_disposition.reused_for_future_attempts:
+# false``). This binding grants no execution authority of its own; it only proves the new
+# manifest was built with the prior attempt's outcome in hand, not built blind to it.
+DEFAULT_PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH = Path(
+    "rejudge/phase2_preflight_abort_closure_2026-07-19.json")
+PRIOR_ATTEMPT_CLOSURE_SCHEMA_VERSION = "phase2_preflight_abort_closure_v1"
+PRIOR_ATTEMPT_CLOSURE_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
+    "schema_version", "closure_id", "status", "stage", "execution_identity_sha256",
+    "execution_identity_reverification", "old_manifest_binding", "old_authorization_binding",
+    "archive", "ledger_evidence", "sdk_evidence", "trap_test", "codex_adversarial_review",
+    "classification", "classification_definition", "classification_scope_restriction",
+    "adjudication", "ledger_retired", "ledger_disposition", "execution_authorized", "note",
+    "closed_at_utc", "closure_repo_git_head", "committed", "self_note",
+})
+# The one classification this closure schema's own scope restriction (see the tracked artifact's
+# ``classification_scope_restriction``) permits a manifest to bind: a client-side pre-transport
+# argument-binding TypeError, independently reproduced and cross-checked, never reachable for a
+# timeout, HTTP error, malformed response, or any exception raised after transport begins.
+PRIOR_ATTEMPT_CLOSURE_ALLOWED_CLASSIFICATION = "sdk_argument_binding_pre_transport_no_charge"
+
+
+def _validate_prior_attempt_closure_gate(binding: Any, *, root: Path) -> str:
+    """Validate the pinned ``prior_attempt_closure`` binding: schema, classification, ledger_retired.
+
+    Pinned exactly to ``rejudge/phase2_preflight_abort_closure_2026-07-19.json`` (the manifest
+    cannot substitute a same-shaped artifact elsewhere). Requires the real, frozen abort-closure
+    schema, a classification within this closure's own scope restriction (a local, pre-transport,
+    zero-charge adjudication -- never a billing-uncertain outcome), and ``ledger_retired: true``.
+    """
+    resolved, declared_sha = _resolve_pinned_artifact(
+        root, binding, label="prior_attempt_closure",
+        expected_relative_path=DEFAULT_PRIOR_ATTEMPT_CLOSURE_RELATIVE_PATH)
+    if not resolved.is_file():
+        raise ManifestValidationError(f"prior_attempt_closure artifact is missing: {resolved}")
+    closure = _load_json_object(resolved, ManifestValidationError)
+    observed_sha = canonical_sha256(closure)
+    if observed_sha != declared_sha:
+        raise ManifestValidationError(
+            f"prior_attempt_closure hash drift: manifest bound {declared_sha}, observed "
+            f"{observed_sha}")
+
+    _exact_keys(closure, PRIOR_ATTEMPT_CLOSURE_TOP_LEVEL_KEYS, "prior_attempt_closure")
+    if closure.get("schema_version") != PRIOR_ATTEMPT_CLOSURE_SCHEMA_VERSION:
+        raise ManifestValidationError("prior_attempt_closure schema_version drifted")
+    if closure.get("stage") != STAGE_CAPABILITY_PREFLIGHT:
+        raise ManifestValidationError(
+            f"prior_attempt_closure.stage must be exactly {STAGE_CAPABILITY_PREFLIGHT!r}")
+    if closure.get("classification") != PRIOR_ATTEMPT_CLOSURE_ALLOWED_CLASSIFICATION:
+        raise ManifestValidationError(
+            "prior_attempt_closure.classification must be exactly "
+            f"{PRIOR_ATTEMPT_CLOSURE_ALLOWED_CLASSIFICATION!r}, got "
+            f"{closure.get('classification')!r}")
+    if closure.get("ledger_retired") is not True:
+        raise ManifestValidationError("prior_attempt_closure.ledger_retired must be exactly true")
+    if closure.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "prior_attempt_closure execution_authorized must be exactly false")
+    _string(closure.get("execution_identity_sha256"), "prior_attempt_closure.execution_identity_sha256")
+    return observed_sha
+
 
 DEFAULT_PROVIDER_RECONCILIATION_2026_07_19_RELATIVE_PATH = Path(
     "rejudge/phase2_provider_reconciliation_2026-07-19.json")
@@ -251,6 +323,7 @@ MANIFEST_TOP_LEVEL_KEYS: frozenset[str] = frozenset({
     "storage_policy",
     "provider_reconciliation_evidence",
     "provider_refresh",
+    "prior_attempt_closure",
     "implementation_provenance",
 })
 
@@ -572,6 +645,7 @@ def build_execution_identity(
     storage_policy: Mapping[str, str],
     provider_reconciliation_evidence: Mapping[str, str],
     provider_refresh: Mapping[str, str],
+    prior_attempt_closure: Mapping[str, str],
     implementation_provenance: Mapping[str, str],
 ) -> dict[str, Any]:
     """Assemble the execution-identity dict from already-verified pieces.
@@ -623,6 +697,7 @@ def build_execution_identity(
         "storage_policy": dict(storage_policy),
         "provider_reconciliation_evidence": dict(provider_reconciliation_evidence),
         "provider_refresh": dict(provider_refresh),
+        "prior_attempt_closure": dict(prior_attempt_closure),
         "implementation_provenance": dict(implementation_provenance),
     }
 
@@ -932,22 +1007,22 @@ def _resolve_pinned_artifact(
 
 def _validate_cost_forecast_gate(
     binding: Any, *, root: Path, protocol: Mapping[str, Any],
-    role_limits_v3_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
+    role_limits_v4_payload: Mapping[str, Any], snapshot: Mapping[str, Any],
     bundle: Mapping[str, Any], provider_refresh_payload: Mapping[str, Any],
 ) -> str:
-    """Semantically validate the ``cost_forecast`` binding: the v2 READY forecast schema only.
+    """Semantically validate the ``cost_forecast`` binding: the v3 READY forecast schema only.
 
     Loads and recomputes the generic path/hash binding first (unchanged mechanism: the
     forecast's own tracked location stays manifest-controlled, not pinned), then parses it
-    through :func:`phase2_preflight_forecast.validate_forecast_v2` -- the v2 "ready" schema,
-    bound to role-limits v3 (the real, already-validated payload from
-    ``role_limits_and_request_settings_artifact`` above -- no longer a v2-file substitution
-    workaround) and the pinned 2026-07-19 provider refresh (the real, already-validated payload
-    from ``_validate_provider_refresh_gate`` above). A v1/conflict-schema artifact, or any
-    artifact that fails the ready gate (``attempt_ceiling_stress`` not strictly below
-    ``halt_cap_usd``, i.e. no positive margin), fails closed here rather than being silently
-    accepted as a generic hash-matching blob. cost_forecast's hash still folds into the same
-    single ``execution_identity_sha256`` this manifest as a whole produces, exactly as before.
+    through :func:`phase2_preflight_forecast.validate_forecast_v3` -- the v3 "ready" schema
+    (relaunch attempt r2), bound to role-limits v4 (the real, already-validated payload from
+    ``role_limits_and_request_settings_artifact`` above) and the pinned 2026-07-19 provider
+    refresh (the real, already-validated payload from ``_validate_provider_refresh_gate``
+    above). A v1/v2/conflict-schema artifact, or any artifact that fails the ready gate
+    (``attempt_ceiling_stress`` not strictly below ``halt_cap_usd``, i.e. no positive margin),
+    fails closed here rather than being silently accepted as a generic hash-matching blob.
+    cost_forecast's hash still folds into the same single ``execution_identity_sha256`` this
+    manifest as a whole produces, exactly as before.
     """
     mapping = _mapping(binding, "cost_forecast")
     _exact_keys(mapping, ARTIFACT_BINDING_KEYS, "cost_forecast")
@@ -962,9 +1037,9 @@ def _validate_cost_forecast_gate(
         raise ManifestValidationError(
             f"cost_forecast hash drift: manifest bound {sha_value}, observed {observed_sha}")
     try:
-        preflight_forecast.validate_forecast_v2(
+        preflight_forecast.validate_forecast_v3(
             forecast_payload, root=root, protocol=protocol,
-            role_limits_v3=role_limits_v3_payload, snapshot=snapshot, bundle=bundle,
+            role_limits_v4=role_limits_v4_payload, snapshot=snapshot, bundle=bundle,
             provider_refresh=provider_refresh_payload,
         )
     except preflight_forecast.PreflightForecastError as exc:
@@ -1350,10 +1425,10 @@ def validate_execution_manifest(
     _check_bound_hash(
         manifest, "provider_price_snapshot_canonical_sha256", observed_snapshot_sha)
 
-    # --- single merged role-limits + request-settings artifact (v3 ONLY; a v2 or v1 artifact ---
-    # --- bound into this slot fails closed, since it lacks the v3-only approval_basis section ---
-    # --- (and/or has the wrong schema_version) that load_and_validate_v3's own top-level ---
-    # --- key-set check requires) ---
+    # --- single merged role-limits + request-settings artifact (v4 ONLY; a v3, v2, or v1 ---
+    # --- artifact bound into this slot fails closed, since it lacks the v4-only ---
+    # --- sdk_compatibility_basis section (and/or has the wrong schema_version) that ---
+    # --- load_and_validate_v4's own top-level key-set check requires) ---
     role_limits_and_request_settings_artifact = _mapping(
         manifest.get("role_limits_and_request_settings_artifact"),
         "role_limits_and_request_settings_artifact")
@@ -1377,38 +1452,43 @@ def validate_execution_manifest(
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact hash drift: manifest bound "
             f"{role_limits_sha_value}, observed {observed_role_limits_sha}")
-    v2_role_limits_path = root / DEFAULT_ROLE_LIMITS_V2_RELATIVE_PATH
-    if not v2_role_limits_path.is_file():
+    v3_role_limits_path = root / DEFAULT_ROLE_LIMITS_V3_RELATIVE_PATH
+    if not v3_role_limits_path.is_file():
         raise ManifestValidationError(
             "role_limits_and_request_settings_artifact supersedes source is missing: "
-            f"{v2_role_limits_path}")
-    v2_role_limits_payload = _load_json_object(v2_role_limits_path)
+            f"{v3_role_limits_path}")
+    v3_role_limits_payload = _load_json_object(v3_role_limits_path)
     try:
-        role_limits.validate_role_limits_v3(
-            role_limits_payload, protocol, snapshot, v2_role_limits_payload, project_root=root)
+        role_limits.validate_role_limits_v4(
+            role_limits_payload, protocol, snapshot, v3_role_limits_payload, project_root=root)
     except role_limits.RoleLimitsError as exc:
         raise ManifestValidationError(
-            "role_limits_and_request_settings_artifact does not validate as a v3 role-limits "
+            "role_limits_and_request_settings_artifact does not validate as a v4 role-limits "
             f"artifact: {exc}") from exc
 
     # --- SEMANTIC ARTIFACT GATES: the pinned 2026-07-19 provider refresh (validated FIRST so its
-    # --- parsed payload is available below), preflight cost forecast (v2 READY schema only,
-    # --- bound to the real v3 role-limits payload validated just above and this same refresh
-    # --- payload -- no longer a v2-file substitution workaround), durable storage policy (real
-    # --- schema), and the pinned 2026-07-19 provider reconciliation evidence. ---
+    # --- parsed payload is available below), preflight cost forecast (v3 READY schema, bound to
+    # --- role-limits v4 -- the manifest's own already-validated execution-slot payload, no ---
+    # --- longer a v3-file substitution workaround), durable storage policy (real schema), the ---
+    # --- pinned 2026-07-19 provider reconciliation evidence, and the pinned prior-attempt ---
+    # --- closure (required for every relaunch: binds this manifest to the SAME adjudication ---
+    # --- that closed the previous aborted attempt). ---
     provider_refresh_binding = _mapping(manifest.get("provider_refresh"), "provider_refresh")
     _observed_provider_refresh_raw_sha, provider_refresh_payload = _validate_provider_refresh_gate(
         provider_refresh_binding, root=root, snapshot=snapshot)
     cost_forecast_binding = _mapping(manifest.get("cost_forecast"), "cost_forecast")
     _validate_cost_forecast_gate(
         cost_forecast_binding, root=root, protocol=protocol,
-        role_limits_v3_payload=role_limits_payload, snapshot=snapshot, bundle=bundle,
+        role_limits_v4_payload=role_limits_payload, snapshot=snapshot, bundle=bundle,
         provider_refresh_payload=provider_refresh_payload)
     storage_policy_binding = _mapping(manifest.get("storage_policy"), "storage_policy")
     _validate_storage_policy_gate(storage_policy_binding, root=root)
     provider_reconciliation_evidence_binding = _mapping(
         manifest.get("provider_reconciliation_evidence"), "provider_reconciliation_evidence")
     _validate_provider_reconciliation_gate(provider_reconciliation_evidence_binding, root=root)
+    prior_attempt_closure_binding = _mapping(
+        manifest.get("prior_attempt_closure"), "prior_attempt_closure")
+    _validate_prior_attempt_closure_gate(prior_attempt_closure_binding, root=root)
 
     # --- CODE-PROVENANCE BINDING: recomputed fresh from the real files on disk ---
     implementation_provenance_binding = _mapping(
@@ -1601,6 +1681,10 @@ def validate_execution_manifest(
         provider_refresh={
             "path": str(provider_refresh_binding["path"]),
             "sha256": str(provider_refresh_binding["sha256"]),
+        },
+        prior_attempt_closure={
+            "path": str(prior_attempt_closure_binding["path"]),
+            "sha256": str(prior_attempt_closure_binding["sha256"]),
         },
         implementation_provenance=validated_implementation_provenance,
     )

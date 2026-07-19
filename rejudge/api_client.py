@@ -5,6 +5,7 @@ The real SDK is imported lazily and only when needed, so tests never touch it.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import math
 import os
@@ -63,13 +64,28 @@ class AccountingInvariantError(RuntimeError):
     pass
 
 
+class SdkRequestShapeError(RuntimeError):
+    """A manifested request shape cannot bind against the installed provider SDK's signature.
+
+    Raised by :func:`check_sdk_request_compatibility` -- always BEFORE any usage-ledger
+    reservation for the client whose configuration produced the offending shape (see
+    ``RejudgeClient.__init__``'s live-construction gate). This is the same class of failure
+    documented in the frozen 2026-07-19 capability-preflight abort closure (a client-side
+    ``TypeError`` raised by Python's own argument-binding machinery before the SDK's transport
+    entry point is ever reached, e.g. a ``stream_options`` kwarg the installed SDK version's
+    ``CompletionsResource.create`` no longer accepts) -- checking for it here turns what used to
+    be a paid reservation plus an ``unknown_charge`` requiring manual reconciliation into a
+    zero-cost refusal before constructing a live client at all.
+    """
+
+
 # Base request fields plus the transport fields _build_request_kwargs adds for streaming
 # attempts. extra_request_fields is validated against this set at construction time so a
 # per-model extra field can never silently override a value that has already passed the
 # reasoning-floor guard, the context-ceiling guard, or the cost-cap reservation by the time
 # _build_request_kwargs merges it in.
 _RESERVED_REQUEST_KWARGS: frozenset[str] = frozenset(
-    {"model", "messages", "temperature", "max_tokens", "seed", "stream", "stream_options"})
+    {"model", "messages", "temperature", "max_tokens", "seed", "stream"})
 
 
 USAGE_LEDGER_SCHEMA_VERSION = 1
@@ -455,6 +471,47 @@ def summarize_usage_log(path) -> dict[str, float | int]:
     return _summarize_usage_events(events, path, strict_lifecycle=False)
 
 
+def check_sdk_request_compatibility(shapes: "list[dict[str, Any]] | tuple[dict[str, Any], ...]",
+                                    ) -> None:
+    """Fail closed if the installed together SDK cannot bind every request ``shapes`` entry.
+
+    Each entry in ``shapes`` must be a complete kwargs dict exactly as
+    :meth:`RejudgeClient._build_request_kwargs` would build it (base fields plus ``stream`` for
+    a streaming attempt plus any per-model extra fields). This performs pure, zero-network
+    Python-level argument-binding validation against
+    ``together.resources.chat.completions.CompletionsResource.create``'s real, installed
+    signature -- the exact same binding step that raises a client-side ``TypeError`` before any
+    transport call when a kwarg the installed SDK version does not accept is passed (the failure
+    mode documented in ``rejudge/phase2_preflight_abort_closure_2026-07-19.json``: a
+    ``stream_options`` kwarg the installed together==2.7.0 SDK's signature has no parameter for
+    at all). Running this check before any usage-ledger reservation turns that failure from a
+    paid reservation plus an ``unknown_charge`` requiring manual reconciliation into a clean,
+    zero-cost :class:`SdkRequestShapeError` naming the offending kwarg(s).
+
+    Imports ``together`` lazily (only inside this call), matching every other real-SDK import in
+    this module; importing the package and inspecting a class's signature touches no network.
+    """
+    from together.resources.chat.completions import CompletionsResource
+
+    signature = inspect.signature(CompletionsResource.create)
+    valid_names = frozenset(signature.parameters) - {"self"}
+    for shape in shapes:
+        kwargs = dict(shape)
+        unknown = sorted(set(kwargs) - valid_names)
+        if unknown:
+            raise SdkRequestShapeError(
+                "installed together SDK's CompletionsResource.create() does not accept "
+                f"keyword argument(s) {unknown!r} in request shape with keys "
+                f"{sorted(kwargs)!r}; refusing before any usage-ledger reservation or "
+                "provider call")
+        try:
+            signature.bind(None, **kwargs)
+        except TypeError as exc:
+            raise SdkRequestShapeError(
+                "installed together SDK's CompletionsResource.create() rejects request shape "
+                f"with keys {sorted(kwargs)!r}: {exc}") from exc
+
+
 class RejudgeClient:
     def __init__(self, approved_cap_usd, price_per_mtok=1.04, dry_run=False,
                  error_log_path=None, max_context_tokens=131072, max_retries=4,
@@ -548,14 +605,49 @@ class RejudgeClient:
                     f"extra_request_fields[{extra_model!r}] reuses reserved request field(s) "
                     f"{sorted(collisions)!r}; extra fields must never override the base or "
                     "transport request fields (model/messages/temperature/max_tokens/seed/"
-                    "stream/stream_options) that the reasoning-floor guard, context-ceiling "
-                    "guard, and cost-cap reservation are computed against"
+                    "stream) that the reasoning-floor guard, context-ceiling guard, and "
+                    "cost-cap reservation are computed against"
                 )
 
         # Endpoints that must use the streaming transport. Reactive discovery (a failed
         # non-streaming probe) still adds entries here for legacy callers; streaming_pinned_models
         # seeds it upfront so a pinned model never wastes its first attempt on a doomed probe.
         self._streaming_models = set(self.streaming_pinned_models)
+
+        # INSTALLED-SDK COMPATIBILITY GATE (runtime layer): for a genuinely live client (never a
+        # dry run, never a test/stub client built without the factory token), verify every
+        # distinct request-kwargs shape this client's configuration can ever send binds cleanly
+        # against the installed together SDK's real signature -- BEFORE this constructor returns,
+        # so before any caller of this client can ever reserve a ledger event. Fails closed with
+        # SdkRequestShapeError naming the offending kwarg(s) instead of letting the first live
+        # attempt burn a reservation on a request the SDK will reject client-side (see
+        # check_sdk_request_compatibility's docstring and the frozen 2026-07-19 abort closure).
+        if not self.dry_run and _accounting_factory_token is _LIVE_ACCOUNTING_FACTORY_TOKEN:
+            check_sdk_request_compatibility(self._manifested_request_shapes())
+
+    def _manifested_request_shapes(self) -> list[dict[str, Any]]:
+        """Every distinct request-kwargs SHAPE this client's configuration can ever send.
+
+        Built through the exact same :meth:`_build_request_kwargs` the live call path uses (with
+        inert placeholder request values), so a shape checked by
+        :func:`check_sdk_request_compatibility` can never silently diverge from what a real
+        attempt would actually send. Always includes the plain/base shape (no streaming pin, no
+        extra fields) plus one shape per streaming-pinned model plus one shape per extra-fields
+        model (e.g., for the frozen Phase-2 roster: a standard call, the Qwen streaming pin, and
+        the gpt-oss ``reasoning_effort`` extra field).
+        """
+        placeholder_messages = [{"role": "user", "content": "x"}]
+        models: dict[str, bool] = {"__sdk_compat_standard_probe__": False}
+        for model in self.streaming_pinned_models:
+            models[model] = True
+        for model in self.extra_request_fields:
+            models.setdefault(model, False)
+        return [
+            self._build_request_kwargs(
+                model=model, messages=placeholder_messages, temperature=0.0, max_tokens=1,
+                seed=0, streaming=streaming)
+            for model, streaming in models.items()
+        ]
 
     @property
     def spent_usd(self) -> float:
@@ -756,14 +848,17 @@ class RejudgeClient:
     def _streamed_create(self, **request_kwargs):
         """Call a streaming-only endpoint and reassemble a response-shaped object.
 
-        ``request_kwargs`` is the exact, already-built kwargs dict (base fields plus
-        ``stream``/``stream_options`` plus any per-model extra fields) -- identical in shape to
-        what a non-streaming call would send, so the caller's request-fields hash covers both
-        paths uniformly. Accumulates delta content across chunks; usage is taken from the final
-        chunk (Together sends it there when stream_options requests it). Returns an object with
-        .usage, .choices[0].message.content, .choices[0].finish_reason, .id, .model, and
-        .system_fingerprint so the non-streaming accounting/metadata path applies unchanged;
-        any field a given chunk never carries stays None rather than being guessed.
+        ``request_kwargs`` is the exact, already-built kwargs dict (base fields plus ``stream``
+        plus any per-model extra fields) -- identical in shape to what a non-streaming call
+        would send, so the caller's request-fields hash covers both paths uniformly. Accumulates
+        delta content across chunks; usage is taken from the final chunk. Together includes usage
+        in the final stream chunk unconditionally -- no ``stream_options`` request field is sent
+        or needed (the installed together SDK's ``CompletionsResource.create`` does not even
+        accept one; see ``rejudge/phase2_preflight_abort_closure_2026-07-19.json`` and commit
+        8ab0461). Returns an object with .usage, .choices[0].message.content,
+        .choices[0].finish_reason, .id, .model, and .system_fingerprint so the non-streaming
+        accounting/metadata path applies unchanged; any field a given chunk never carries stays
+        None rather than being guessed.
         """
         stream = self._client().chat.completions.create(**request_kwargs)
         parts = []
@@ -834,7 +929,17 @@ class RejudgeClient:
 
         Both the streaming and non-streaming transport paths call this so the recorded
         ``request_fields_sha256`` always reflects the literal payload actually sent, including
-        any per-model extra fields (e.g. ``reasoning_effort`` for gpt-oss-120b).
+        any per-model extra fields (e.g. ``reasoning_effort`` for gpt-oss-120b). A streaming
+        attempt sends ``{"stream": True}`` ONLY -- no ``stream_options``. The installed together
+        SDK's ``CompletionsResource.create`` signature has no ``stream_options`` parameter at
+        all (passing one raises a client-side ``TypeError`` from Python's own argument-binding
+        machinery before any transport call, i.e. before any provider charge is even possible --
+        see ``rejudge/phase2_preflight_abort_closure_2026-07-19.json``'s ``sdk_evidence`` and
+        ``trap_test``), and Together includes usage in the final stream chunk regardless of
+        whether ``stream_options`` was ever requested (``_streamed_create`` reads it from there
+        unconditionally). This restores historical commit 8ab0461 ("Drop unsupported
+        stream_options; Together includes usage in final chunk"), whose fix was silently
+        reintroduced by a later role-limits artifact freeze.
         """
         kwargs: dict[str, Any] = {
             "model": model, "messages": messages, "temperature": temperature,
@@ -842,7 +947,6 @@ class RejudgeClient:
         }
         if streaming:
             kwargs["stream"] = True
-            kwargs["stream_options"] = {"include_usage": True}
         extra = self.extra_request_fields.get(model)
         if extra:
             kwargs.update(extra)

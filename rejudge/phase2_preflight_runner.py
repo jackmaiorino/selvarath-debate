@@ -177,9 +177,10 @@ class ClientConstructionParams:
     from exactly these fields: ``require_explicit_reasoning_max_tokens=True``,
     ``strict_context_mode=True`` with ``model_context_limits``, ``max_retries`` (sourced from the
     manifest-bound role-limits-and-request-settings artifact's own
-    ``request_settings.transport.max_retries`` -- 2 under the frozen v3 artifact, not the older
-    v2 pin of 3), ``streaming_pinned_models``/``extra_request_fields`` copied verbatim from that
-    same artifact, ``halt_on_unknown_charge=True``, and the manifest's OWN stage cap (never the
+    ``request_settings.transport.max_retries`` -- 2 under the frozen v4 artifact (unchanged from
+    v3), not the older v2 pin of 3), ``streaming_pinned_models``/``extra_request_fields`` copied
+    verbatim from that same artifact, ``halt_on_unknown_charge=True``, and the manifest's OWN
+    stage cap (never the
     cumulative cap) as the client's ``approved_cap_usd``. ``usage_log_path`` is the single
     durable events log the client must append every reservation/terminal lifecycle event to
     (fsynced before each ``complete()`` call returns) -- this module's resume and completion
@@ -573,8 +574,8 @@ def _build_client_params(
         for model_id, fields in request_settings["per_model_extra_fields"].items()
     }
     # Sourced from whatever role-limits-and-request-settings artifact the manifest actually
-    # binds (the v3 artifact in every real manifest today: max_retries=2, not v2's 3) -- this
-    # function never hardcodes a retry count of its own.
+    # binds (the v4 artifact in every real manifest today: max_retries=2, unchanged from v3,
+    # not v2's 3) -- this function never hardcodes a retry count of its own.
     max_retries = int(request_settings["transport"]["max_retries"])
 
     snapshot, _snapshot_protocol = price_snapshot.load_and_validate(
@@ -1133,7 +1134,8 @@ def build_production_client_factory(
     Every strict-mode Phase 2 setting :class:`ClientConstructionParams` carries is threaded
     through verbatim: ``require_explicit_reasoning_max_tokens=True``, ``strict_context_mode=True``
     with its per-model ``model_context_limits``, ``max_retries`` (as resolved by
-    :func:`_build_client_params` from the bound v3 role-limits artifact -- 2, not v2's 3),
+    :func:`_build_client_params` from the bound v4 role-limits artifact -- 2, unchanged from v3,
+    not v2's 3),
     ``streaming_pinned_models``, ``extra_request_fields``, ``halt_on_unknown_charge=True`` (so
     this module's own abort-archival ``except`` in :func:`_run_locked` also covers a
     client-raised :class:`rejudge.api_client.UnknownChargeHalt`), and the manifest's OWN stage

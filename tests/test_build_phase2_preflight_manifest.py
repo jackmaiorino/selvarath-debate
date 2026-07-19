@@ -222,10 +222,10 @@ def capability_qa_context():
         REPO_ROOT / pe.DEFAULT_PROTOCOL_RELATIVE_PATH)
     corpus_entries = capability_corpus.render_capability_corpus(bundle, protocol, REPO_ROOT)
     corpus_lookup = {(str(e["question_id"]), str(e["side"])): e for e in corpus_entries}
-    v3_payload, _v3_protocol, snapshot = role_limits.load_and_validate_v3(project_root=REPO_ROOT)
+    v4_payload, _v4_protocol, snapshot = role_limits.load_and_validate_v4(project_root=REPO_ROOT)
     return SimpleNamespace(
         protocol=protocol, cells_by_key=cells_by_key, corpus_lookup=corpus_lookup,
-        v3_payload=v3_payload, snapshot=snapshot)
+        v4_payload=v4_payload, snapshot=snapshot)
 
 
 def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_context):
@@ -246,7 +246,7 @@ def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_c
     assert "openai/gpt-oss-120b" in by_model  # per-model extra_request_fields model
 
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        b.capability_qa_client_construction_inputs(ctx.v3_payload, ctx.snapshot))
+        b.capability_qa_client_construction_inputs(ctx.v4_payload, ctx.snapshot))
     assert "Qwen/Qwen3.7-Plus" in streaming_pinned_models
     assert "openai/gpt-oss-120b" in extra_request_fields
 
@@ -272,7 +272,7 @@ def test_request_fields_sha256_matches_live_complete_call(built, capability_qa_c
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            ctx.v3_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
+            ctx.v4_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
 
         client.complete(
             messages=messages, model=entry["model"], temperature=resolved.temperature,
@@ -294,7 +294,7 @@ def test_compute_request_fields_sha256_matches_manifest_for_every_entry(
     per-entry loop, independent of whether a live complete() call would agree)."""
     ctx = capability_qa_context
     model_context_limits, streaming_pinned_models, extra_request_fields, model_prices = (
-        b.capability_qa_client_construction_inputs(ctx.v3_payload, ctx.snapshot))
+        b.capability_qa_client_construction_inputs(ctx.v4_payload, ctx.snapshot))
     hash_client = b.build_hash_only_client(
         model_context_limits=model_context_limits,
         streaming_pinned_models=streaming_pinned_models,
@@ -309,7 +309,7 @@ def test_compute_request_fields_sha256_matches_manifest_for_every_entry(
             {"role": "user", "content": corpus_entry["user_prompt"]},
         ]
         resolved = role_limits.resolve_request_parameters(
-            ctx.v3_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
+            ctx.v4_payload, ctx.protocol, entry["model"], pe.CAPABILITY_CALL_ROLE)
         recomputed = b.compute_request_fields_sha256(
             hash_client, model=entry["model"], messages=messages,
             temperature=resolved.temperature, max_tokens=resolved.effective_max_tokens,
@@ -400,7 +400,15 @@ def test_manifest_validates_unauthorized_without_an_authorization_record(built):
 # ================================================================================================
 
 
-def test_committed_artifacts_pass_real_validator():
+def test_committed_r1_artifacts_no_longer_validate_without_prior_attempt_closure():
+    """The historical r1 manifest/authorization (2026-07-19, pre-relaunch) is a frozen,
+    append-only artifact -- never edited -- and predates the required ``prior_attempt_closure``
+    binding this task adds. It is EXPECTED to fail the current validator's top-level key check
+    now (schema evolution, not a regression): a relaunch requires a fresh manifest bound to the
+    prior attempt's own closure, never a silent reuse of the pre-relaunch manifest. See
+    ``test_committed_r2_manifest_validates_unauthorized_and_refuses_pending_authorization`` for
+    the real, current relaunch artifacts.
+    """
     manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH
     authorization_path = REPO_ROOT / b.AUTHORIZATION_RELATIVE_PATH
     assert manifest_path.is_file(), (
@@ -410,10 +418,10 @@ def test_committed_artifacts_pass_real_validator():
 
     manifest = pe.load_execution_manifest(manifest_path)
     authorization = json.loads(authorization_path.read_text(encoding="utf-8"))
-    validated = pe.validate_execution_manifest(
-        manifest, project_root=REPO_ROOT, authorization=authorization, require_authorized=True)
-    assert validated.authorized is True
-    print(f"committed execution_identity_sha256={validated.execution_identity_sha256}")
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(
+            manifest, project_root=REPO_ROOT, authorization=authorization,
+            require_authorized=True)
 
 
 def test_committed_manifest_is_canonical_json():
@@ -421,6 +429,49 @@ def test_committed_manifest_is_canonical_json():
     raw = manifest_path.read_bytes()
     payload = json.loads(raw.decode("utf-8"))
     assert raw == b.canonical_json_bytes(payload)
+
+
+# ================================================================================================
+# Relaunch attempt r2: the real, committed r2 manifest + PENDING authorization template.
+# ================================================================================================
+
+
+def test_committed_r2_manifest_validates_unauthorized_and_refuses_pending_authorization():
+    manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2
+    authorization_path = REPO_ROOT / b.AUTHORIZATION_RELATIVE_PATH_R2
+    assert manifest_path.is_file(), (
+        f"{manifest_path} does not exist yet; run "
+        "`uv run python scripts/build_phase2_preflight_manifest.py --r2` before this test")
+    assert authorization_path.is_file()
+
+    manifest = pe.load_execution_manifest(manifest_path)
+    authorization_template = json.loads(authorization_path.read_text(encoding="utf-8"))
+
+    validated_unauthorized = pe.validate_execution_manifest(
+        manifest, project_root=REPO_ROOT, require_authorized=False)
+    assert validated_unauthorized.authorized is False
+    print(f"r2 execution_identity_sha256={validated_unauthorized.execution_identity_sha256}")
+
+    assert authorization_template[b.REAUTHORIZATION_PENDING_MARKER_KEY] is True
+    with pytest.raises(pe.ExecutionAuthorityError, match="fields drifted"):
+        pe.validate_execution_manifest(
+            manifest, project_root=REPO_ROOT, authorization=authorization_template,
+            require_authorized=True)
+
+
+def test_committed_r2_manifest_is_canonical_json():
+    manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2
+    raw = manifest_path.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    assert raw == b.canonical_json_bytes(payload)
+
+
+def test_committed_r2_request_hash_delta_is_exactly_212_qwen_entries():
+    old_manifest = pe.load_execution_manifest(REPO_ROOT / b.MANIFEST_RELATIVE_PATH)
+    new_manifest = pe.load_execution_manifest(REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2)
+    delta = b.assert_exactly_qwen_request_hashes_changed(
+        old_manifest, new_manifest["provider_call_inventory"])
+    assert delta == {"changed": 212, "unchanged": 848}
 
 
 # ================================================================================================

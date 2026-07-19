@@ -1456,3 +1456,215 @@ def test_v2_check_cli_prints_canonical_sha(capsys):
     captured = capsys.readouterr()
     assert "canonical_sha256=" in captured.out
     assert "execution_authorized=NO" in captured.out
+
+
+# =================================================================================================
+# v3 "ready" forecast (relaunch attempt r2): role-limits v4 (installed-SDK stream_options
+# compatibility fix) instead of v3, identical economics, supersedes the real, tracked v2 forecast
+# instead of the v1 conflict artifact. The real, tracked 2026-07-19-r2 artifact this task builds
+# is used directly throughout, mirroring the v2 block's own use of the real tracked artifact.
+# =================================================================================================
+
+
+READY_ARTIFACT_V3_PATH = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19-r2.json"
+
+
+@pytest.fixture(scope="module")
+def role_limits_v4(protocol):
+    artifact, _protocol, _snapshot = phase2_role_limits.load_and_validate_v4()
+    return artifact
+
+
+@pytest.fixture(scope="module")
+def ready_v3_artifact():
+    return forecast.load_and_validate_v3()
+
+
+def _validate_v3(artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh):
+    forecast.validate_forecast_v3(
+        artifact, root=ROOT, protocol=protocol, role_limits_v4=role_limits_v4,
+        snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh,
+    )
+
+
+def test_ready_v3_artifact_loads_and_validates(ready_v3_artifact, protocol):
+    assert ready_v3_artifact["execution_authorized"] is False
+    assert ready_v3_artifact["schema_version"] == forecast.SCHEMA_VERSION_V3
+    assert ready_v3_artifact["artifact_id"] == forecast.ARTIFACT_ID_V3
+    assert ready_v3_artifact["status"] == forecast.STATUS_V3
+    assert ready_v3_artifact["protocol_id"] == protocol["protocol_id"]
+
+
+def test_ready_v3_retry_policy_is_unchanged_from_v2(ready_v3_artifact, ready_v2_artifact):
+    assert ready_v3_artifact["retry_policy"]["max_attempts"] == (
+        ready_v2_artifact["retry_policy"]["max_attempts"])
+    assert ready_v3_artifact["retry_policy"]["max_retries"] == (
+        ready_v2_artifact["retry_policy"]["max_retries"])
+    assert ready_v3_artifact["retry_policy"]["max_attempts"] == 3
+
+
+def test_ready_v3_numbers_unchanged_from_v2(ready_v3_artifact, ready_v2_artifact):
+    """This task's whole premise: v4 only drops streaming_pinned_models's stream_options field --
+    every dollar figure must be byte-identical to the real v2 (role-limits-v3-bound) artifact."""
+    for scenario_name in (
+        "theoretical_minimum", "no_retry_maximum", "planning_retry_scenario",
+        forecast.ATTEMPT_CEILING_STRESS_SCENARIO,
+    ):
+        assert ready_v3_artifact["scenarios"][scenario_name]["total_usd"] == (
+            ready_v2_artifact["scenarios"][scenario_name]["total_usd"])
+    assert ready_v3_artifact["halt_cap_usd"] == ready_v2_artifact["halt_cap_usd"]
+    assert ready_v3_artifact["stress_margin_usd"] == ready_v2_artifact["stress_margin_usd"]
+    assert ready_v3_artifact["disclosures"] == ready_v2_artifact["disclosures"]
+    assert ready_v3_artifact["output_token_policy"]["effective_output_ceiling_per_model"] == (
+        ready_v2_artifact["output_token_policy"]["effective_output_ceiling_per_model"])
+
+
+def test_ready_v3_attempt_ceiling_stress_clears_the_cap_with_positive_margin(ready_v3_artifact):
+    halt_cap = Decimal(ready_v3_artifact["halt_cap_usd"])
+    stress = Decimal(ready_v3_artifact["scenarios"][forecast.ATTEMPT_CEILING_STRESS_SCENARIO][
+        "total_usd"])
+    margin = Decimal(ready_v3_artifact["stress_margin_usd"])
+    assert halt_cap == Decimal("15")
+    assert stress < halt_cap
+    assert margin == halt_cap - stress
+    assert margin > 0
+
+
+def test_ready_v3_supersedes_the_real_untouched_v2_forecast(ready_v3_artifact):
+    supersedes = ready_v3_artifact["supersedes"]
+    assert supersedes["tracked_path"] == forecast.SUPERSEDED_ARTIFACT_TRACKED_PATH_V3
+    assert supersedes["note"] == forecast.SUPERSEDES_V2_FORECAST_NOTE
+    real_v2 = json.loads(READY_ARTIFACT_V2_PATH.read_text(encoding="utf-8"))
+    assert supersedes["canonical_sha256"] == phase2_plan.canonical_sha256(real_v2)
+
+
+def test_ready_v3_bindings_name_role_limits_v4_and_provider_refresh(ready_v3_artifact):
+    bindings = ready_v3_artifact["bindings"]
+    assert bindings["role_limits_v4"]["tracked_path"] == (
+        "rejudge/phase2_role_limits_v4_2026-07-19.json")
+    assert bindings["provider_refresh"]["tracked_path"] == (
+        "rejudge/phase2_provider_refresh_2026-07-19.json")
+    assert "role_limits_v3" not in bindings
+
+
+def test_ready_v3_top_level_key_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    changed = deepcopy(ready_v3_artifact)
+    changed["unexpected_extra_field"] = True
+    with pytest.raises(forecast.PreflightForecastError, match="fields drifted"):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_validate_forecast_v2_rejects_the_v3_shaped_artifact(
+    ready_v3_artifact, protocol, role_limits_v3, snapshot, bundle, provider_refresh,
+):
+    """The v2 'ready' validator must never accept the v3 shape (role_limits_v4 binding key
+    instead of role_limits_v3, different artifact_id/supersedes target), or vice versa."""
+    with pytest.raises(forecast.PreflightForecastError):
+        forecast.validate_forecast_v2(
+            ready_v3_artifact, root=ROOT, protocol=protocol, role_limits_v3=role_limits_v3,
+            snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh,
+        )
+
+
+@pytest.mark.parametrize("field,value,match", [
+    ("schema_version", "phase2_preflight_forecast_v0", "unsupported forecast schema_version"),
+    ("artifact_id", "phase2_preflight_forecast_2020-01-01", "artifact_id drifted"),
+    ("protocol_id", "not-the-real-protocol-id", "protocol_id disagrees"),
+    ("status", "not_the_frozen_status", "status drifted"),
+    ("execution_authorized", True, "execution_authorized must be exactly false"),
+])
+def test_validate_forecast_v3_header_fields_are_pinned(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+    field, value, match,
+):
+    changed = deepcopy(ready_v3_artifact)
+    changed[field] = value
+    with pytest.raises(forecast.PreflightForecastError, match=match):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_role_limits_v4_binding_hash_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    changed = deepcopy(ready_v3_artifact)
+    sha = changed["bindings"]["role_limits_v4"]["canonical_sha256"]
+    changed["bindings"]["role_limits_v4"]["canonical_sha256"] = (
+        sha[:-1] + ("0" if sha[-1] != "0" else "1"))
+    with pytest.raises(forecast.PreflightForecastError, match="disagrees with"):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_supersedes_tracked_path_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    changed = deepcopy(ready_v3_artifact)
+    changed["supersedes"]["tracked_path"] = "rejudge/some_other_file.json"
+    with pytest.raises(forecast.PreflightForecastError, match="supersedes.tracked_path must be exactly"):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_supersedes_hash_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    """Proves the historical v2 forecast's real hash is recomputed fresh from disk, not trusted
+    from this artifact's own claim -- so a forecast could never falsely claim supersession of a
+    v2 file it doesn't actually match."""
+    changed = deepcopy(ready_v3_artifact)
+    sha = changed["supersedes"]["canonical_sha256"]
+    changed["supersedes"]["canonical_sha256"] = sha[:-1] + ("0" if sha[-1] != "0" else "1")
+    with pytest.raises(
+        forecast.PreflightForecastError,
+        match="disagrees with the real historical v2 forecast on disk",
+    ):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_supersedes_note_wording_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    changed = deepcopy(ready_v3_artifact)
+    changed["supersedes"]["note"] = "some other note"
+    with pytest.raises(forecast.PreflightForecastError, match="supersedes.note wording drifted"):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_disclosures_total_drift_is_rejected(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh,
+):
+    changed = deepcopy(ready_v3_artifact)
+    changed["disclosures"]["utf8_reservation_envelope_3_attempts"]["total_usd"] = "999999"
+    with pytest.raises(
+        forecast.PreflightForecastError,
+        match="utf8_reservation_envelope_3_attempts.total_usd disagrees",
+    ):
+        _validate_v3(changed, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_ready_v3_gate_fires_when_stress_does_not_clear_the_cap(
+    ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh, monkeypatch,
+):
+    """Isolates just ``validate_forecast_v3``'s final gate direction, mirroring the v2 block's
+    own isolation test: stubs ``_validate_shared_body`` with a fixed (stress, halt_cap) pair
+    where stress does NOT clear the cap."""
+    monkeypatch.setattr(
+        forecast, "_validate_shared_body",
+        lambda *args, **kwargs: (Decimal("20"), Decimal("15")))
+    with pytest.raises(
+        forecast.PreflightForecastError, match="does not remain below halt_cap_usd",
+    ):
+        _validate_v3(
+            ready_v3_artifact, protocol, role_limits_v4, snapshot, bundle, provider_refresh)
+
+
+def test_load_and_validate_v3_returns_the_real_artifact(ready_v3_artifact):
+    assert ready_v3_artifact["artifact_id"] == forecast.ARTIFACT_ID_V3
+
+
+def test_v3_check_cli_prints_canonical_sha(capsys):
+    exit_code = forecast.main(["--check", "--v3"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "canonical_sha256=" in captured.out
+    assert "execution_authorized=NO" in captured.out

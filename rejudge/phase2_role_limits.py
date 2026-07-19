@@ -35,6 +35,7 @@ from rejudge import phase2_provider_price_snapshot as price_snapshot
 DEFAULT_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_2026-07-18.json")
 DEFAULT_V2_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v2_2026-07-18.json")
 DEFAULT_V3_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v3_2026-07-19.json")
+DEFAULT_V4_ARTIFACT_PATH = Path(__file__).with_name("phase2_role_limits_v4_2026-07-19.json")
 DEFAULT_PROTOCOL_PATH = phase2_plan.DEFAULT_PROTOCOL_PATH
 DEFAULT_SNAPSHOT_PATH = price_snapshot.DEFAULT_SNAPSHOT_PATH
 # project_root for the v3 approval_basis raw-file check only; every other v3 check stays a
@@ -389,7 +390,10 @@ def _validate_request_settings(
     section_raw: Any, protocol: Mapping[str, Any], *,
     expected_max_retries: int = TRANSPORT_MAX_RETRIES,
     expected_max_attempts: int = TRANSPORT_MAX_ATTEMPTS,
+    expected_streaming_pinned_models: dict[str, dict[str, Any]] | None = None,
 ) -> None:
+    if expected_streaming_pinned_models is None:
+        expected_streaming_pinned_models = STREAMING_PINNED_MODELS
     section = _mapping(section_raw, "request_settings")
     _exact_keys(section, REQUEST_SETTINGS_KEYS, "request_settings")
 
@@ -401,7 +405,7 @@ def _validate_request_settings(
 
     streaming = _mapping(
         section.get("streaming_pinned_models"), "request_settings.streaming_pinned_models")
-    if dict(streaming) != STREAMING_PINNED_MODELS:
+    if dict(streaming) != expected_streaming_pinned_models:
         raise RoleLimitsError(
             "request_settings.streaming_pinned_models must be exactly the frozen mapping")
     if not set(streaming).issubset(set(registry)):
@@ -789,20 +793,206 @@ def load_and_validate_v3(
     return artifact, protocol, snapshot
 
 
+# --- v4: installed-SDK streaming-transport compatibility fix (self-contained, offline-verifiable)
+#
+# v4 is additive over v3 in the SAME sense v2 was additive over v1 and v3 over v2 -- EXCEPT that
+# this time the frozen content itself is deliberately allowed to change in exactly one place:
+# request_settings.streaming_pinned_models's per-model value. Every OTHER v3-checked section
+# (base_role_max_tokens, reasoning_models, model_role_limits, context_ceilings, role_taxonomy,
+# and every other request_settings subfield -- base_fields, per_model_extra_fields,
+# reasoning_control_note, transport, response_metadata_to_persist) is still validated with the
+# EXACT SAME frozen Python constants v1/v2/v3 already use (via the identical, unmodified private
+# helpers), so v4 can never silently diverge from them either -- this is what makes v4's
+# allowed-diff exact rather than merely additive: every unlisted field is pinned byte-for-byte to
+# the same frozen truth v1 established, and the one field that IS allowed to change is pinned to
+# its own new frozen constant (STREAMING_PINNED_MODELS_V4) rather than left free-form.
+#
+# The one substantive change: request_settings.streaming_pinned_models["Qwen/Qwen3.7-Plus"] drops
+# "stream_options" and keeps "stream": true. The installed together==2.7.0 SDK's
+# CompletionsResource.create signature has no stream_options parameter at all -- passing one
+# raises a client-side TypeError from Python's own argument-binding machinery before any
+# transport call, i.e. before any provider charge is even possible (see the frozen
+# rejudge/phase2_preflight_abort_closure_2026-07-19.json's sdk_evidence and trap_test, bound
+# below as sdk_compatibility_basis). Together includes usage in the final stream chunk
+# unconditionally, matching historical commit 8ab0461 ("Drop unsupported stream_options;
+# Together includes usage in final chunk") -- whose fix this restores after the v2 artifact
+# freeze silently reintroduced stream_options.
+SCHEMA_VERSION_V4 = "phase2_role_limits_v4"
+ARTIFACT_ID_V4 = "phase2_role_limits_request_settings_2026-07-19_v4"
+
+SUPERSEDES_V3_TRACKED_PATH = "rejudge/phase2_role_limits_v3_2026-07-19.json"
+
+STREAMING_PINNED_MODELS_V4: dict[str, dict[str, Any]] = {
+    "Qwen/Qwen3.7-Plus": {"stream": True},
+}
+
+SDK_COMPATIBILITY_BASIS_TRACKED_PATH = "rejudge/phase2_preflight_abort_closure_2026-07-19.json"
+SDK_COMPATIBILITY_BASIS_KEYS: frozenset[str] = frozenset({"tracked_path", "sha256", "note"})
+SDK_COMPATIBILITY_NOTE = (
+    "request_settings.streaming_pinned_models no longer sends stream_options: the installed "
+    "together==2.7.0 CompletionsResource.create signature (captured verbatim in this bound "
+    "abort-closure artifact's sdk_evidence.completions_resource_create_signature) has no "
+    "stream_options parameter, so passing it raised TypeError before any transport call was "
+    "ever reached (see the same artifact's trap_test). stream: true is retained unchanged; "
+    "Together includes usage in the final stream chunk regardless, matching historical commit "
+    "8ab0461 ('Drop unsupported stream_options; Together includes usage in final chunk'), whose "
+    "fix this restores after a later artifact freeze (v2) silently reintroduced stream_options."
+)
+
+TOP_LEVEL_KEYS_V4: frozenset[str] = TOP_LEVEL_KEYS_V3 | frozenset({"sdk_compatibility_basis"})
+
+
+def _validate_sdk_compatibility_basis(section_raw: Any, root: Path) -> None:
+    """Validate v4's bound SDK-compatibility evidence, fail-closed throughout.
+
+    Deliberately RAW file hashing (like v3's approval_basis and unlike every canonical-JSON
+    ``supersedes`` binding in this module): the bound artifact is the real abort-closure record,
+    hashed the same way every other approval/evidence binding in this project is hashed.
+    """
+    section = _mapping(section_raw, "sdk_compatibility_basis")
+    _exact_keys(section, SDK_COMPATIBILITY_BASIS_KEYS, "sdk_compatibility_basis")
+    tracked_path = section.get("tracked_path")
+    if tracked_path != SDK_COMPATIBILITY_BASIS_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"sdk_compatibility_basis.tracked_path must be exactly "
+            f"{SDK_COMPATIBILITY_BASIS_TRACKED_PATH!r}, got {tracked_path!r}")
+    declared_sha = _sha256_hex(section.get("sha256"), "sdk_compatibility_basis.sha256")
+    basis_path = root / tracked_path
+    try:
+        raw = basis_path.read_bytes()
+    except OSError as exc:
+        raise RoleLimitsError(
+            f"sdk_compatibility_basis artifact is missing: {basis_path}: {exc}") from exc
+    observed_sha = hashlib.sha256(raw).hexdigest()
+    if observed_sha != declared_sha:
+        raise RoleLimitsError(
+            "sdk_compatibility_basis.sha256 disagrees with the real abort-closure artifact on "
+            f"disk: v4 bound {declared_sha}, observed {observed_sha}")
+    note = _non_empty_str(section.get("note"), "sdk_compatibility_basis.note")
+    if note != SDK_COMPATIBILITY_NOTE:
+        raise RoleLimitsError("sdk_compatibility_basis.note wording drifted from the frozen template")
+
+
+def validate_role_limits_v4(
+    artifact: Mapping[str, Any],
+    protocol: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    v3_artifact: Mapping[str, Any],
+    *,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> None:
+    """Validate the v4 role-limits/request-settings artifact, fail-closed throughout.
+
+    This is an EXACT ALLOWED-DIFF validator relative to v3: every section other than
+    ``request_settings.streaming_pinned_models`` is checked against the identical frozen Python
+    constants v1/v2/v3 already use (the same private helpers, completely unmodified -- including
+    ``approval_basis``, still bound to the same frozen preflight-delegation record v3 bound and
+    still independently re-verified against the real file on disk), so any OTHER semantic
+    difference from the real v3 artifact on disk fails closed here exactly as it would have
+    failed a v3-vs-v2 or v2-vs-v1 comparison. The only content permitted to differ is:
+    ``request_settings.streaming_pinned_models`` (pinned to :data:`STREAMING_PINNED_MODELS_V4`
+    instead of :data:`STREAMING_PINNED_MODELS`), ``schema_version``/``artifact_id``/
+    ``supersedes`` (which now bind v3 instead of v2, by construction), and the new
+    ``sdk_compatibility_basis`` section citing the installed SDK's signature evidence and commit
+    8ab0461.
+    """
+    artifact = _mapping(artifact, "v4 artifact")
+    protocol = _mapping(protocol, "protocol")
+    snapshot = _mapping(snapshot, "snapshot")
+    v3_artifact = _mapping(v3_artifact, "v3 artifact")
+    root = Path(project_root)
+    _exact_keys(artifact, TOP_LEVEL_KEYS_V4, "v4 artifact")
+
+    if artifact.get("schema_version") != SCHEMA_VERSION_V4:
+        raise RoleLimitsError("unsupported v4 role-limits schema_version")
+    if artifact.get("artifact_id") != ARTIFACT_ID_V4:
+        raise RoleLimitsError("v4 role-limits artifact_id drifted")
+    protocol_id = _non_empty_str(protocol.get("protocol_id"), "protocol protocol_id")
+    if artifact.get("protocol_id") != protocol_id:
+        raise RoleLimitsError("v4 role-limits protocol_id disagrees with the frozen protocol")
+    if artifact.get("status") != STATUS:
+        raise RoleLimitsError("v4 role-limits status drifted")
+    if artifact.get("execution_authorized") is not False:
+        raise RoleLimitsError("execution_authorized must be exactly false")
+
+    supersedes = _mapping(artifact.get("supersedes"), "supersedes")
+    _exact_keys(supersedes, SUPERSEDES_KEYS, "supersedes")
+    tracked_path = supersedes.get("tracked_path")
+    if tracked_path != SUPERSEDES_V3_TRACKED_PATH:
+        raise RoleLimitsError(
+            f"supersedes.tracked_path must be exactly {SUPERSEDES_V3_TRACKED_PATH!r}, "
+            f"got {tracked_path!r}")
+    declared_supersedes_sha = _sha256_hex(
+        supersedes.get("canonical_sha256"), "supersedes.canonical_sha256")
+    observed_v3_sha = phase2_plan.canonical_sha256(dict(v3_artifact))
+    if declared_supersedes_sha != observed_v3_sha:
+        raise RoleLimitsError(
+            "supersedes.canonical_sha256 disagrees with the real v3 artifact on disk: "
+            f"v4 bound {declared_supersedes_sha}, observed {observed_v3_sha}")
+
+    _validate_approval_basis(artifact.get("approval_basis"), root)
+    _validate_sdk_compatibility_basis(artifact.get("sdk_compatibility_basis"), root)
+
+    _validate_base_role_max_tokens(artifact.get("base_role_max_tokens"))
+    _validate_reasoning_models(artifact.get("reasoning_models"))
+    _validate_request_settings(
+        artifact.get("request_settings"), protocol,
+        expected_max_retries=TRANSPORT_MAX_RETRIES_V3,
+        expected_max_attempts=TRANSPORT_MAX_ATTEMPTS_V3,
+        expected_streaming_pinned_models=STREAMING_PINNED_MODELS_V4,
+    )
+    _validate_model_role_limits(artifact.get("model_role_limits"), protocol)
+    _validate_context_ceilings(artifact.get("context_ceilings"), snapshot)
+    _validate_role_taxonomy(artifact.get("role_taxonomy"), protocol)
+
+    model_role_limits = _mapping(artifact["model_role_limits"], "model_role_limits")
+    for model_id, roles in model_role_limits.items():
+        for role in _mapping(roles, f"model_role_limits.{model_id}"):
+            resolve_request_parameters(artifact, protocol, model_id, role)
+
+
+def load_and_validate_v4(
+    artifact_path: str | Path = DEFAULT_V4_ARTIFACT_PATH,
+    protocol_path: str | Path = DEFAULT_PROTOCOL_PATH,
+    snapshot_path: str | Path = DEFAULT_SNAPSHOT_PATH,
+    v3_artifact_path: str | Path = DEFAULT_V3_ARTIFACT_PATH,
+    project_root: str | Path = DEFAULT_PROJECT_ROOT,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    protocol = phase2_plan.load_protocol(protocol_path)
+    snapshot, _snapshot_protocol = price_snapshot.load_and_validate(snapshot_path, protocol_path)
+    artifact = _load_json(artifact_path)
+    v3_artifact = _load_json(v3_artifact_path)
+    validate_role_limits_v4(artifact, protocol, snapshot, v3_artifact, project_root=project_root)
+    return artifact, protocol, snapshot
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--v2", action="store_true")
     parser.add_argument("--v3", action="store_true")
+    parser.add_argument("--v4", action="store_true")
     parser.add_argument("--artifact", default=None)
     parser.add_argument("--v1-artifact", default=str(DEFAULT_ARTIFACT_PATH))
     parser.add_argument("--v2-artifact", default=str(DEFAULT_V2_ARTIFACT_PATH))
+    parser.add_argument("--v3-artifact", default=str(DEFAULT_V3_ARTIFACT_PATH))
     parser.add_argument("--protocol", default=str(DEFAULT_PROTOCOL_PATH))
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT_PATH))
     parser.add_argument("--project-root", default=str(DEFAULT_PROJECT_ROOT))
     args = parser.parse_args(argv)
     if not args.check:
         parser.error("only --check is supported")
+    if args.v4:
+        artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V4_ARTIFACT_PATH)
+        artifact, _protocol, _snapshot = load_and_validate_v4(
+            artifact_path, args.protocol, args.snapshot, args.v3_artifact, args.project_root)
+        print(
+            "verified frozen Phase 2 role-limits v4 artifact; "
+            f"models={len(artifact['model_role_limits'])}; "
+            f"canonical_sha256={phase2_plan.canonical_sha256(artifact)}; "
+            "execution_authorized=NO"
+        )
+        return 0
     if args.v3:
         artifact_path = args.artifact if args.artifact is not None else str(DEFAULT_V3_ARTIFACT_PATH)
         artifact, _protocol, _snapshot = load_and_validate_v3(

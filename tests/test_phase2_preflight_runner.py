@@ -48,7 +48,9 @@ REL_APPROVAL_BASIS = "docs/phase2-decision-proposal.md"
 REL_ROLE_LIMITS_V1 = "rejudge/phase2_role_limits_2026-07-18.json"
 REL_ROLE_LIMITS_V2 = "rejudge/phase2_role_limits_v2_2026-07-18.json"
 REL_ROLE_LIMITS_V3 = "rejudge/phase2_role_limits_v3_2026-07-19.json"
+REL_ROLE_LIMITS_V4 = "rejudge/phase2_role_limits_v4_2026-07-19.json"
 REL_DELEGATION = "rejudge/phase2_preflight_delegation_2026-07-19.json"
+REL_ABORT_CLOSURE = "rejudge/phase2_preflight_abort_closure_2026-07-19.json"
 REL_PROVIDER_REFRESH = "rejudge/phase2_provider_refresh_2026-07-19.json"
 REL_PROVIDER_REFRESH_RAW = "rejudge/phase2_provider_models_raw_2026-07-19.json"
 REL_GEMMA_CLOSURE = "rejudge/gemma_recovery_closure_2026-07-19.json"
@@ -74,7 +76,9 @@ _TRACKED_DATA_FILES = (
     REL_ROLE_LIMITS_V1,
     REL_ROLE_LIMITS_V2,
     REL_ROLE_LIMITS_V3,
+    REL_ROLE_LIMITS_V4,
     REL_DELEGATION,
+    REL_ABORT_CLOSURE,
     REL_PROVIDER_REFRESH,
     REL_PROVIDER_REFRESH_RAW,
     REL_GEMMA_CLOSURE,
@@ -107,6 +111,7 @@ def _bypass_new_semantic_gates():
             "_validate_cost_forecast_gate", "_validate_storage_policy_gate",
             "_validate_provider_refresh_gate", "_validate_gemma_prerequisite_gate",
             "_validate_provider_reconciliation_gate", "_validate_implementation_provenance",
+            "_validate_prior_attempt_closure_gate",
         ):
             mp.setattr(pe, name, lambda *a, **k: {"git_commit": "a" * 40,
                                                     "code_bundle_sha256": "b" * 64})
@@ -173,7 +178,7 @@ def _write_artifacts(
     directory = tmp_path_factory.mktemp("preflight_artifacts")
     role_limits_and_request_settings = directory / "role_limits_and_request_settings.json"
     role_limits_and_request_settings.write_text(
-        (project_root / REL_ROLE_LIMITS_V3).read_text(encoding="utf-8"), encoding="utf-8")
+        (project_root / REL_ROLE_LIMITS_V4).read_text(encoding="utf-8"), encoding="utf-8")
     gemma_waiver = directory / "gemma_recovery_waiver.json"
     gemma_waiver.write_text(json.dumps({"waiver": "placeholder"}), encoding="utf-8")
     provider_refresh_path = directory / "provider_refresh.json"
@@ -210,6 +215,9 @@ def _write_artifacts(
     reconciliation_path = artifacts_dir / "provider_reconciliation_evidence.json"
     reconciliation_path.write_text(json.dumps({"evidence": "placeholder"}), encoding="utf-8")
 
+    prior_attempt_closure_path = artifacts_dir / "prior_attempt_closure.json"
+    prior_attempt_closure_path.write_text(json.dumps({"closure": "placeholder"}), encoding="utf-8")
+
     return {
         "role_limits_and_request_settings": role_limits_and_request_settings,
         "gemma_waiver": gemma_waiver,
@@ -217,6 +225,7 @@ def _write_artifacts(
         "storage_policy": storage_policy_path,
         "provider_reconciliation_evidence": reconciliation_path,
         "provider_refresh": provider_refresh_path,
+        "prior_attempt_closure": prior_attempt_closure_path,
         "archive_destination": archive_destination,
     }
 
@@ -264,6 +273,7 @@ def _shared_fields(project_root, baseline, artifacts, *, stage, stage_cap, cumul
         "provider_reconciliation_evidence": _binding(
             project_root, artifacts["provider_reconciliation_evidence"]),
         "provider_refresh": _binding(project_root, artifacts["provider_refresh"]),
+        "prior_attempt_closure": _binding(project_root, artifacts["prior_attempt_closure"]),
         "implementation_provenance": {
             "git_commit": "a" * 40, "code_bundle_sha256": "b" * 64,
         },
@@ -302,6 +312,7 @@ def _build_manifest(
         cost_forecast=shared["cost_forecast"], storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
         provider_refresh=shared["provider_refresh"],
+        prior_attempt_closure=shared["prior_attempt_closure"],
         implementation_provenance=shared["implementation_provenance"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
@@ -1235,9 +1246,9 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     manifest, _identity, artifacts = _build_full_manifest(
         project_root, tmp_path_factory, stage_cap=7.5)
     manifest_path = _write_manifest(project_root, manifest)
-    # role_limits_and_request_settings is now bound to v3, whose retry pin is 2 retries / 3
-    # attempts (not v2's 3/4) -- see REL_ROLE_LIMITS_V3 in _write_artifacts.
-    role_limits_v2 = json.loads(
+    # role_limits_and_request_settings is now bound to v4, whose retry pin is unchanged from v3
+    # (2 retries / 3 attempts, not v2's 3/4) -- see REL_ROLE_LIMITS_V4 in _write_artifacts.
+    role_limits_bound = json.loads(
         artifacts["role_limits_and_request_settings"].read_text(encoding="utf-8"))
 
     captured_params: list[runner_mod.ClientConstructionParams] = []
@@ -1257,12 +1268,12 @@ def test_client_construction_params_carry_every_strict_setting(tmp_path_factory)
     assert params.strict_context_mode is True
     assert params.max_retries == 2
     assert set(params.streaming_pinned_models) == set(
-        role_limits_v2["request_settings"]["streaming_pinned_models"])
-    assert dict(params.extra_request_fields) == role_limits_v2["request_settings"][
+        role_limits_bound["request_settings"]["streaming_pinned_models"])
+    assert dict(params.extra_request_fields) == role_limits_bound["request_settings"][
         "per_model_extra_fields"]
     expected_context = {
         model_id: entry["context_length_tokens"]
-        for model_id, entry in role_limits_v2["context_ceilings"].items()
+        for model_id, entry in role_limits_bound["context_ceilings"].items()
     }
     assert dict(params.model_context_limits) == expected_context
     assert str(params.usage_log_path).endswith(".dry_run.jsonl")

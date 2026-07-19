@@ -37,6 +37,8 @@ DELEGATION_PATH = ROOT / "rejudge" / "phase2_preflight_delegation_2026-07-19.jso
 APPROVAL_BASIS_PATH = DELEGATION_PATH
 PROVIDER_REFRESH_PATH = ROOT / "rejudge" / "phase2_provider_refresh_2026-07-19.json"
 GEMMA_CLOSURE_PATH = ROOT / "rejudge" / "gemma_recovery_closure_2026-07-19.json"
+PRIOR_ATTEMPT_CLOSURE_PATH = ROOT / "rejudge" / "phase2_preflight_abort_closure_2026-07-19.json"
+READY_ARTIFACT_V2_PATH = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19.json"
 PROVIDER_RECONCILIATION_2026_07_19_PATH = (
     ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json")
 STORAGE_POLICY_PATH = ROOT / "rejudge" / "phase2_storage_policy_2026-07-18.json"
@@ -331,12 +333,156 @@ def _build_ready_forecast_payload_v2(
     return artifact
 
 
+def _build_ready_forecast_payload_v3(
+    *, root: Path, protocol: Mapping, role_limits_v4: Mapping, snapshot: Mapping,
+    bundle: Mapping, provider_refresh: Mapping,
+) -> dict:
+    """Build a genuinely-passing v3 "ready" capability-preflight forecast, offline, from the
+    validator's own requirements -- the v4-role-limits sibling of
+    :func:`_build_ready_forecast_payload_v2`.
+
+    Reuses the REAL per-model token stats / tokenizer pins / rendered-corpus binding / byte-
+    reservation-bound-per-prompt / corpus / caveats from the tracked, real v2 "ready" artifact
+    unchanged (those sections are price-independent, and the corpus/protocol/bundle content is
+    byte-identical to what produced them), and recomputes every price-sensitive field fresh
+    against ``role_limits_v4``'s retry-attempt count and ``snapshot``'s prices -- mirrors
+    ``scripts/build_phase2_preflight_forecast.py``'s own ``build_forecast_v3``. Raises
+    ``AssertionError`` (not a production exception) if the given ``role_limits_v4``/``snapshot``
+    combination is too expensive to clear ``halt_cap_usd`` -- this helper never fabricates a
+    passing artifact.
+    """
+    v2_artifact = json.loads(READY_ARTIFACT_V2_PATH.read_text(encoding="utf-8"))
+    calls = capability_corpus.EXPECTED_ENTRY_COUNT
+    output_ceilings = {
+        model_id: role_limits.resolve_request_parameters(
+            role_limits_v4, protocol, model_id, "capability_qa").effective_max_tokens
+        for model_id in forecast.MODEL_IDS
+    }
+
+    def price_for(model_id):
+        entry = snapshot["models"][model_id]
+        return (
+            Decimal(str(entry["input_usd_per_million_tokens"])),
+            Decimal(str(entry["output_usd_per_million_tokens"])),
+        )
+
+    theo_per_model, no_retry_per_model = {}, {}
+    theo_total = no_retry_total = Decimal(0)
+    no_retry_component_usd = {}
+    for model_id in forecast.MODEL_IDS:
+        total_input_tokens = v2_artifact["per_model_token_stats"][model_id][
+            "input_tokens"]["total"]
+        input_price, output_price = price_for(model_id)
+        theo = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls,
+            output_tokens_per_call=forecast.THEORETICAL_MINIMUM_OUTPUT_TOKENS_PER_CALL,
+            input_price=input_price, output_price=output_price,
+        )
+        theo_per_model[model_id] = theo
+        theo_total += Decimal(theo["total_usd"])
+        no_retry = forecast.compute_scenario_component(
+            total_input_tokens=total_input_tokens, calls=calls,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        no_retry_per_model[model_id] = no_retry
+        no_retry_component_usd[model_id] = Decimal(no_retry["total_usd"])
+        no_retry_total += Decimal(no_retry["total_usd"])
+
+    max_attempts = int(role_limits_v4["request_settings"]["transport"]["max_attempts"])
+    max_retries = int(role_limits_v4["request_settings"]["transport"]["max_retries"])
+
+    def derived(multiplier):
+        per_model, total = {}, Decimal(0)
+        for model_id in forecast.MODEL_IDS:
+            value = no_retry_component_usd[model_id] * multiplier
+            per_model[model_id] = {"total_usd": str(value)}
+            total += value
+        return per_model, total
+
+    planning_per_model, planning_total = derived(forecast.PLANNING_RETRY_MULTIPLIER)
+    stress_per_model, stress_total = derived(Decimal(max_attempts))
+
+    byte_bound_per_prompt = v2_artifact["corpus_utf8_byte_reservation_bound_per_prompt"]
+    byte_bound_total = sum(byte_bound_per_prompt)
+    envelope_per_model, envelope_total = {}, Decimal(0)
+    for model_id in forecast.MODEL_IDS:
+        input_price, output_price = price_for(model_id)
+        byte_component = forecast.compute_scenario_component(
+            total_input_tokens=byte_bound_total, calls=calls,
+            output_tokens_per_call=output_ceilings[model_id],
+            input_price=input_price, output_price=output_price,
+        )
+        value = Decimal(byte_component["total_usd"]) * Decimal(max_attempts)
+        envelope_per_model[model_id] = {"total_usd": str(value)}
+        envelope_total += value
+
+    halt_cap = Decimal(str(
+        protocol["materialization_requirements"]["capability_preflight"]["proposed_cap_usd"]))
+    if not stress_total < halt_cap:
+        raise AssertionError(
+            "fixture prices must be cheap enough to clear the gate: "
+            f"stress_total={stress_total}, halt_cap={halt_cap}")
+
+    artifact = deepcopy(v2_artifact)
+    artifact["schema_version"] = forecast.SCHEMA_VERSION_V3
+    artifact["artifact_id"] = forecast.ARTIFACT_ID_V3
+    artifact["status"] = forecast.STATUS_V3
+    artifact["bindings"]["protocol"]["canonical_sha256"] = phase2_plan.canonical_sha256(protocol)
+    del artifact["bindings"]["role_limits_v3"]
+    artifact["bindings"]["role_limits_v4"] = {
+        "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["role_limits_v4"],
+        "canonical_sha256": phase2_plan.canonical_sha256(role_limits_v4),
+    }
+    artifact["bindings"]["price_snapshot"]["canonical_sha256"] = (
+        phase2_plan.canonical_sha256(snapshot))
+    artifact["bindings"]["provider_refresh"] = {
+        "tracked_path": forecast.EXPECTED_BINDING_PATHS_V3["provider_refresh"],
+        "canonical_sha256": phase2_plan.canonical_sha256(provider_refresh),
+    }
+    artifact["retry_policy"]["max_attempts"] = max_attempts
+    artifact["retry_policy"]["max_retries"] = max_retries
+    artifact["scenarios"]["theoretical_minimum"]["per_model"] = theo_per_model
+    artifact["scenarios"]["theoretical_minimum"]["total_usd"] = str(theo_total)
+    artifact["scenarios"]["no_retry_maximum"]["per_model"] = no_retry_per_model
+    artifact["scenarios"]["no_retry_maximum"]["total_usd"] = str(no_retry_total)
+    artifact["scenarios"]["planning_retry_scenario"]["per_model"] = planning_per_model
+    artifact["scenarios"]["planning_retry_scenario"]["total_usd"] = str(planning_total)
+    stress_entry = artifact["scenarios"][forecast.ATTEMPT_CEILING_STRESS_SCENARIO]
+    stress_entry["multiplier"] = str(max_attempts)
+    stress_entry["per_model"] = stress_per_model
+    stress_entry["total_usd"] = str(stress_total)
+    artifact["halt_cap_usd"] = str(halt_cap)
+    artifact["stress_margin_usd"] = str(halt_cap - stress_total)
+    artifact["disclosures"] = {
+        "utf8_reservation_envelope_3_attempts": {
+            "formula": "test-fixture UTF-8 reservation envelope formula",
+            "attempts": max_attempts,
+            "per_model": envelope_per_model,
+            "total_usd": str(envelope_total),
+            "relationship_to_halt_cap": forecast.FROZEN_RESERVATION_ENVELOPE_SENTENCE,
+        },
+    }
+    artifact["supersedes"] = {
+        "tracked_path": forecast.SUPERSEDED_ARTIFACT_TRACKED_PATH_V3,
+        "canonical_sha256": phase2_plan.canonical_sha256(v2_artifact),
+        "note": forecast.SUPERSEDES_V2_FORECAST_NOTE,
+    }
+
+    forecast.validate_forecast_v3(
+        artifact, root=root, protocol=protocol, role_limits_v4=role_limits_v4,
+        snapshot=snapshot, bundle=bundle, provider_refresh=provider_refresh,
+    )
+    return artifact
+
+
 # --- shared fixtures: build the real, valid pieces once per module -----------------------------
 
 
 ROLE_LIMITS_V1_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_2026-07-18.json"
 ROLE_LIMITS_V2_PATH = GREEN_ROOT / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
 ROLE_LIMITS_V3_PATH = ROOT / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
+ROLE_LIMITS_V4_PATH = ROOT / "rejudge" / "phase2_role_limits_v4_2026-07-19.json"
 
 
 @pytest.fixture(scope="module")
@@ -347,8 +493,8 @@ def synthetic_artifacts(tmp_path_factory):
     ``role_limits_and_request_settings`` is an absolute tmp path so it can be bound from any
     ``project_root`` without writing anything under GREEN_ROOT itself -- the
     deliberately-anywhere pattern ``_resolve_bound_path`` documents for that binding. It is a
-    real, byte-identical copy of the tracked v3 role-limits artifact (not a placeholder): the
-    merged manifest slot must VALIDATE as a v3 role-limits artifact, not just hash-match.
+    real, byte-identical copy of the tracked v4 role-limits artifact (not a placeholder): the
+    merged manifest slot must VALIDATE as a v4 role-limits artifact, not just hash-match.
 
     ``cost_forecast`` is a structurally-valid-JSON placeholder: the ``manifest`` fixture stubs
     out cost_forecast's deep economics check (see ``_build_green_root``'s docstring), so this
@@ -365,7 +511,7 @@ def synthetic_artifacts(tmp_path_factory):
     directory = tmp_path_factory.mktemp("phase2_execution_artifacts")
     role_limits_and_request_settings = _write_json(
         directory, "role_limits_and_request_settings.json",
-        json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8")))
+        json.loads(ROLE_LIMITS_V4_PATH.read_text(encoding="utf-8")))
 
     root_relative = _write_synthetic_root_relative_artifacts(GREEN_ROOT)
     root_relative["storage_policy"].write_text(
@@ -377,6 +523,8 @@ def synthetic_artifacts(tmp_path_factory):
         "provider_refresh": GREEN_ROOT / "rejudge" / "phase2_provider_refresh_2026-07-19.json",
         "provider_reconciliation_evidence": (
             GREEN_ROOT / "rejudge" / "phase2_provider_reconciliation_2026-07-19.json"),
+        "prior_attempt_closure": (
+            GREEN_ROOT / "rejudge" / "phase2_preflight_abort_closure_2026-07-19.json"),
         **root_relative,
     }
 
@@ -477,6 +625,7 @@ def _shared_manifest_fields(baseline, artifacts, *, stage, stage_cap, cumulative
         "provider_reconciliation_evidence": _artifact_binding(
             artifacts, "provider_reconciliation_evidence"),
         "provider_refresh": _artifact_binding(artifacts, "provider_refresh"),
+        "prior_attempt_closure": _artifact_binding(artifacts, "prior_attempt_closure"),
         "implementation_provenance": dict(IMPLEMENTATION_PROVENANCE_BINDING),
     }
 
@@ -523,6 +672,7 @@ def build_manifest(
         storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
         provider_refresh=shared["provider_refresh"],
+        prior_attempt_closure=shared["prior_attempt_closure"],
         implementation_provenance=shared["implementation_provenance"],
     )
     identity_sha256 = pe.derive_execution_identity_sha256(identity)
@@ -649,17 +799,17 @@ def missing_approval_root(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def missing_v2_role_limits_root(tmp_path_factory):
-    """A tmp copy of the tracked data files with the frozen v2 role-limits file removed.
+def missing_v3_role_limits_root(tmp_path_factory):
+    """A tmp copy of the tracked data files with the frozen v3 role-limits file removed.
 
     The manifest's role_limits_and_request_settings_artifact binding itself (an absolute tmp
     path via ``synthetic_artifacts``) is untouched; only the separate, always-project-root-
-    relative v2 "supersedes" source that role_limits.validate_role_limits_v3 independently
+    relative v3 "supersedes" source that role_limits.validate_role_limits_v4 independently
     re-reads from disk is missing here.
     """
-    destination = tmp_path_factory.mktemp("missing_v2_role_limits_root")
+    destination = tmp_path_factory.mktemp("missing_v3_role_limits_root")
     _copy_tracked_data_files(destination)
-    path = destination / "rejudge" / "phase2_role_limits_v2_2026-07-18.json"
+    path = destination / "rejudge" / "phase2_role_limits_v3_2026-07-19.json"
     path.unlink()
     return destination
 
@@ -673,16 +823,17 @@ def valid_manifest(baseline, synthetic_artifacts):
 def manifest(valid_manifest, monkeypatch):
     """A fresh mutable deep copy of the valid baseline manifest for each test.
 
-    Stubs cost_forecast's deep economics check (``phase2_preflight_forecast.validate_forecast_v2``,
+    Stubs cost_forecast's deep economics check (``phase2_preflight_forecast.validate_forecast_v3``,
     called from ``pe._validate_cost_forecast_gate``) to a no-op, so every OTHER manifest-field
     test below stays decoupled from the forecast's own economics and doesn't need to construct a
     real "ready" forecast. Every other check on cost_forecast (the generic path/hash binding) and
-    on storage_policy/provider_refresh/gemma/provider_reconciliation/role-limits v3/authorization/
-    etc. still runs for real, unpatched. The REAL, unpatched ``validate_forecast_v2`` behavior
-    (READY acceptance, gate-direction rejection, the v3 role-limits + provider-refresh binding)
-    is exercised directly by the dedicated cost_forecast gate tests further down.
+    on storage_policy/provider_refresh/gemma/provider_reconciliation/prior_attempt_closure/
+    role-limits v4/authorization/etc. still runs for real, unpatched. The REAL, unpatched
+    ``validate_forecast_v3`` behavior (READY acceptance, gate-direction rejection, the v4
+    role-limits + provider-refresh binding) is exercised directly by the dedicated cost_forecast
+    gate tests further down.
     """
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v3", lambda *a, **k: None)
     manifest, identity_sha256 = valid_manifest
     return deepcopy(manifest), identity_sha256
 
@@ -809,36 +960,57 @@ def test_artifact_binding_missing_file_fails_closed(manifest, tmp_path):
 
 def test_role_limits_and_request_settings_artifact_v1_in_slot_is_rejected(manifest, tmp_path):
     # A v1 artifact byte-identical to the real, tracked v1 file is a real, hash-matchable JSON
-    # object -- it must still fail because it lacks the v3-only approval_basis/supersedes/
-    # role_taxonomy sections and its schema_version is phase2_role_limits_v1, not v3.
+    # object -- it must still fail because it lacks the v4-only sdk_compatibility_basis/
+    # supersedes/approval_basis/role_taxonomy sections and its schema_version is
+    # phase2_role_limits_v1, not v4.
     manifest_dict, _identity = manifest
     v1_payload = json.loads(ROLE_LIMITS_V1_PATH.read_text(encoding="utf-8"))
-    v1_copy = tmp_path / "v1_in_v3_slot.json"
+    v1_copy = tmp_path / "v1_in_v4_slot.json"
     v1_copy.write_text(json.dumps(v1_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v1_copy), "sha256": phase2_plan.canonical_sha256(v1_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v3 role-limits artifact",
+        match="does not validate as a v4 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 def test_role_limits_and_request_settings_artifact_v2_in_slot_is_rejected(manifest, tmp_path):
     # Same guarantee one link up the chain: a real, byte-identical v2 artifact still fails
-    # closed in the merged slot, since v2 lacks v3's approval_basis section and its
-    # schema_version is phase2_role_limits_v2, not v3.
+    # closed in the merged slot, since v2 lacks v4's sdk_compatibility_basis/approval_basis
+    # sections and its schema_version is phase2_role_limits_v2, not v4.
     manifest_dict, _identity = manifest
     v2_payload = json.loads(ROLE_LIMITS_V2_PATH.read_text(encoding="utf-8"))
-    v2_copy = tmp_path / "v2_in_v3_slot.json"
+    v2_copy = tmp_path / "v2_in_v4_slot.json"
     v2_copy.write_text(json.dumps(v2_payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(v2_copy), "sha256": phase2_plan.canonical_sha256(v2_payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v3 role-limits artifact",
+        match="does not validate as a v4 role-limits artifact",
+    ):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
+
+
+def test_role_limits_and_request_settings_artifact_v3_in_slot_is_rejected(manifest, tmp_path):
+    # v3 is now retired from the merged slot exactly like v2/v1: it lacks v4's
+    # sdk_compatibility_basis section and its schema_version is phase2_role_limits_v3, not v4 --
+    # this is the streaming-transport SDK-compatibility fix's own regression guard, proving the
+    # slot can never silently fall back to the stream_options-sending artifact that caused the
+    # frozen 2026-07-19 capability-preflight abort.
+    manifest_dict, _identity = manifest
+    v3_payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
+    v3_copy = tmp_path / "v3_in_v4_slot.json"
+    v3_copy.write_text(json.dumps(v3_payload), encoding="utf-8")
+    manifest_dict["role_limits_and_request_settings_artifact"] = {
+        "path": str(v3_copy), "sha256": phase2_plan.canonical_sha256(v3_payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a v4 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
@@ -847,17 +1019,17 @@ def test_role_limits_and_request_settings_artifact_supersedes_drift_is_rejected(
     manifest, tmp_path,
 ):
     manifest_dict, _identity = manifest
-    payload = json.loads(ROLE_LIMITS_V3_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(ROLE_LIMITS_V4_PATH.read_text(encoding="utf-8"))
     payload["supersedes"]["canonical_sha256"] = _flip_hex_digest(
         payload["supersedes"]["canonical_sha256"])
-    tampered = tmp_path / "tampered_v3.json"
+    tampered = tmp_path / "tampered_v4.json"
     tampered.write_text(json.dumps(payload), encoding="utf-8")
     manifest_dict["role_limits_and_request_settings_artifact"] = {
         "path": str(tampered), "sha256": phase2_plan.canonical_sha256(payload),
     }
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v3 role-limits artifact",
+        match="does not validate as a v4 role-limits artifact",
     ):
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
@@ -924,15 +1096,15 @@ def test_role_limits_and_request_settings_artifact_malformed_sha_format_is_rejec
         pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
-def test_role_limits_v2_supersedes_source_missing_fails_closed(
-    manifest, missing_v2_role_limits_root,
+def test_role_limits_v3_supersedes_source_missing_fails_closed(
+    manifest, missing_v3_role_limits_root,
 ):
     manifest_dict, _identity = manifest
     with pytest.raises(
         pe.ManifestValidationError, match="supersedes source is missing",
     ):
         pe.validate_execution_manifest(
-            manifest_dict, project_root=missing_v2_role_limits_root)
+            manifest_dict, project_root=missing_v3_role_limits_root)
 
 
 @pytest.mark.parametrize("field", ["cost_forecast", "storage_policy"])
@@ -1677,7 +1849,7 @@ def test_call_inventory_not_a_list_is_rejected(manifest):
 def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(
     baseline, synthetic_artifacts, monkeypatch,
 ):
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v3", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.01, cumulative_cap=1500.0)
     with pytest.raises(pe.ManifestValidationError, match="exceeds the protocol"):
@@ -1685,7 +1857,7 @@ def test_stage_cap_escalation_over_protocol_ceiling_is_rejected(
 
 
 def test_cumulative_cap_below_stage_cap_is_rejected(baseline, synthetic_artifacts, monkeypatch):
-    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
+    monkeypatch.setattr(pe.preflight_forecast, "validate_forecast_v3", lambda *a, **k: None)
     manifest_dict, _identity = build_manifest(
         baseline, synthetic_artifacts, stage_cap=15.0, cumulative_cap=10.0)
     with pytest.raises(pe.ManifestValidationError, match="cumulative_cap_usd"):
@@ -1898,18 +2070,19 @@ def missing_delegation_root(tmp_path_factory):
 
 
 def test_missing_shared_delegation_record_fails_closed(manifest, missing_delegation_root):
-    # The frozen preflight delegation record is now depended on by TWO independent checks: v3
-    # role-limits' own approval_basis (validated earlier, as part of every manifest validation,
-    # authorized or not) and the authorization record's approval_basis (validated only when
-    # require_authorized=True). Deleting the shared file is caught by whichever check runs
-    # first -- here, role-limits v3's -- so the authorization block's own "artifact is missing"
-    # branch (identical in shape) is defensive/unreachable given this coupling, not dead code
-    # from a design flaw: the SAME missing file still fails closed, just earlier.
+    # The frozen preflight delegation record is now depended on by TWO independent checks: v4
+    # role-limits' own approval_basis (reused unmodified from v3, validated earlier, as part of
+    # every manifest validation, authorized or not) and the authorization record's approval_basis
+    # (validated only when require_authorized=True). Deleting the shared file is caught by
+    # whichever check runs first -- here, role-limits v4's -- so the authorization block's own
+    # "artifact is missing" branch (identical in shape) is defensive/unreachable given this
+    # coupling, not dead code from a design flaw: the SAME missing file still fails closed, just
+    # earlier.
     manifest_dict, identity_sha256 = manifest
     authorization = matching_authorization(identity_sha256)
     with pytest.raises(
         pe.ManifestValidationError,
-        match="does not validate as a v3 role-limits artifact.*approval_basis artifact is missing",
+        match="does not validate as a v4 role-limits artifact.*approval_basis artifact is missing",
     ):
         pe.validate_execution_manifest(
             manifest_dict, project_root=missing_delegation_root, authorization=authorization,
@@ -1931,29 +2104,28 @@ def test_missing_shared_delegation_record_fails_closed(manifest, missing_delegat
 @pytest.fixture(scope="module")
 def cost_forecast_gate_context(tmp_path_factory):
     """Isolated root for testing ``pe._validate_cost_forecast_gate``'s REAL, unpatched behavior
-    directly against the v2 forecast schema: real protocol/bundle/role-limits-v3/provider-refresh
-    (byte-identical to ROOT). No more v2-role-limits-file-content-substitution workaround is
-    needed here -- that was only ever required because the forecast schema itself still bound
-    role-limits v2; ``validate_forecast_v2`` binds v3 for real, so the real, tracked v3 artifact
-    is used directly and the real v2 file at its own frozen path is left completely untouched.
+    directly against the v3 forecast schema: real protocol/bundle/role-limits-v4/provider-refresh
+    (byte-identical to ROOT). ``validate_forecast_v3`` binds v4 for real, so the real, tracked v4
+    artifact is used directly and the real v2/v3 files at their own frozen paths are left
+    completely untouched.
     """
     root = tmp_path_factory.mktemp("cost_forecast_gate_root")
     _copy_tracked_data_files(root)
 
     protocol_path = root / "rejudge" / "phase2_protocol.json"
     protocol = phase2_plan.load_protocol(protocol_path)
-    role_limits_v3, _p, snapshot = role_limits.load_and_validate_v3(
-        root / "rejudge" / "phase2_role_limits_v3_2026-07-19.json", protocol_path,
+    role_limits_v4, _p, snapshot = role_limits.load_and_validate_v4(
+        root / "rejudge" / "phase2_role_limits_v4_2026-07-19.json", protocol_path,
         root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json",
-        root / "rejudge" / "phase2_role_limits_v2_2026-07-18.json", project_root=root)
+        root / "rejudge" / "phase2_role_limits_v3_2026-07-19.json", project_root=root)
     bundle, _bp = prompt_bundle.load_and_validate(
         root / "rejudge" / "phase2_prompt_bundle.json", protocol_path)
     provider_refresh = json.loads(
         (root / "rejudge" / "phase2_provider_refresh_2026-07-19.json").read_text(
             encoding="utf-8"))
 
-    ready = _build_ready_forecast_payload_v2(
-        root=root, protocol=protocol, role_limits_v3=role_limits_v3, snapshot=snapshot,
+    ready = _build_ready_forecast_payload_v3(
+        root=root, protocol=protocol, role_limits_v4=role_limits_v4, snapshot=snapshot,
         bundle=bundle, provider_refresh=provider_refresh)
     forecast_path = root / "rejudge" / "output" / "_cost_forecast_gate_ready.json"
     forecast_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1961,7 +2133,7 @@ def cost_forecast_gate_context(tmp_path_factory):
         json.dumps(ready, ensure_ascii=True, sort_keys=True), encoding="utf-8")
 
     return {
-        "root": root, "protocol": protocol, "role_limits_v3": role_limits_v3,
+        "root": root, "protocol": protocol, "role_limits_v4": role_limits_v4,
         "snapshot": snapshot, "bundle": bundle, "provider_refresh": provider_refresh,
         "ready_forecast": ready, "forecast_path": forecast_path,
     }
@@ -1975,18 +2147,18 @@ def test_cost_forecast_gate_accepts_a_genuine_ready_forecast(cost_forecast_gate_
     }
     observed = pe._validate_cost_forecast_gate(
         binding, root=ctx["root"], protocol=ctx["protocol"],
-        role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+        role_limits_v4_payload=ctx["role_limits_v4"], snapshot=ctx["snapshot"],
         bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
     assert observed == declared_sha
 
 
-def test_cost_forecast_gate_accepts_the_real_tracked_2026_07_19_artifact(
+def test_cost_forecast_gate_accepts_the_real_tracked_2026_07_19_r2_artifact(
     cost_forecast_gate_context,
 ):
-    """The actual, real ``rejudge/phase2_preflight_forecast_2026-07-19.json`` this task builds
+    """The actual, real ``rejudge/phase2_preflight_forecast_2026-07-19-r2.json`` this task builds
     -- not a synthetic fixture reconstruction of it -- must independently clear the same gate."""
     ctx = cost_forecast_gate_context
-    real_path = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19.json"
+    real_path = ROOT / "rejudge" / "phase2_preflight_forecast_2026-07-19-r2.json"
     real_payload = json.loads(real_path.read_text(encoding="utf-8"))
     declared_sha = phase2_plan.canonical_sha256(real_payload)
     binding = {
@@ -1995,7 +2167,7 @@ def test_cost_forecast_gate_accepts_the_real_tracked_2026_07_19_artifact(
     }
     observed = pe._validate_cost_forecast_gate(
         binding, root=ROOT, protocol=ctx["protocol"],
-        role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+        role_limits_v4_payload=ctx["role_limits_v4"], snapshot=ctx["snapshot"],
         bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
     assert observed == declared_sha
 
@@ -2017,14 +2189,35 @@ def test_cost_forecast_gate_rejects_a_wrong_schema_artifact(cost_forecast_gate_c
     ):
         pe._validate_cost_forecast_gate(
             binding, root=ctx["root"], protocol=ctx["protocol"],
-            role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+            role_limits_v4_payload=ctx["role_limits_v4"], snapshot=ctx["snapshot"],
+            bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
+
+
+def test_cost_forecast_gate_rejects_the_v2_shaped_artifact(cost_forecast_gate_context):
+    """The real, tracked v2 forecast (bound to role-limits v3) must fail the manifest's cost_
+    forecast gate now that it requires v3 (bound to role-limits v4) -- this is the r2 relaunch's
+    own regression guard, proving the gate can never silently fall back to the superseded v2
+    schema."""
+    ctx = cost_forecast_gate_context
+    real_v2_payload = json.loads(READY_ARTIFACT_V2_PATH.read_text(encoding="utf-8"))
+    declared_sha = phase2_plan.canonical_sha256(real_v2_payload)
+    binding = {
+        "path": READY_ARTIFACT_V2_PATH.relative_to(ROOT).as_posix(), "sha256": declared_sha,
+    }
+    with pytest.raises(
+        pe.ManifestValidationError,
+        match="does not validate as a ready capability-preflight forecast",
+    ):
+        pe._validate_cost_forecast_gate(
+            binding, root=ROOT, protocol=ctx["protocol"],
+            role_limits_v4_payload=ctx["role_limits_v4"], snapshot=ctx["snapshot"],
             bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
 
 
 def test_cost_forecast_gate_rejects_stress_at_or_above_halt_cap(cost_forecast_gate_context):
-    # Real, frozen 2026-07-19 prices/role-limits-v3 genuinely clear the gate now (that's this
+    # Real, frozen 2026-07-19 prices/role-limits-v4 genuinely clear the gate now (that's this
     # task's whole point), so there is no longer a "real inputs" combination that fails to clear
-    # it the way v1's real 4-attempt transport did. This constructs an otherwise fully honest v2
+    # it the way v1's real 4-attempt transport did. This constructs an otherwise fully honest v3
     # forecast against a synthetic, deliberately 10x-inflated price snapshot instead, proving the
     # positive-margin requirement is still a live, price-sensitive gate, not a fixed pass.
     ctx = cost_forecast_gate_context
@@ -2034,8 +2227,8 @@ def test_cost_forecast_gate_rejects_stress_at_or_above_halt_cap(cost_forecast_ga
         entry["output_usd_per_million_tokens"] = (
             float(entry["output_usd_per_million_tokens"]) * 10)
     with pytest.raises(AssertionError, match="fixture prices must be cheap enough"):
-        _build_ready_forecast_payload_v2(
-            root=ctx["root"], protocol=ctx["protocol"], role_limits_v3=ctx["role_limits_v3"],
+        _build_ready_forecast_payload_v3(
+            root=ctx["root"], protocol=ctx["protocol"], role_limits_v4=ctx["role_limits_v4"],
             snapshot=expensive_snapshot, bundle=ctx["bundle"],
             provider_refresh=ctx["provider_refresh"])
 
@@ -2050,7 +2243,7 @@ def test_cost_forecast_gate_hash_drift_is_rejected(cost_forecast_gate_context):
     with pytest.raises(pe.ManifestValidationError, match="cost_forecast hash drift"):
         pe._validate_cost_forecast_gate(
             binding, root=ctx["root"], protocol=ctx["protocol"],
-            role_limits_v3_payload=ctx["role_limits_v3"], snapshot=ctx["snapshot"],
+            role_limits_v4_payload=ctx["role_limits_v4"], snapshot=ctx["snapshot"],
             bundle=ctx["bundle"], provider_refresh_payload=ctx["provider_refresh"])
 
 
@@ -2286,6 +2479,106 @@ def test_gemma_prerequisite_gate_rejects_unpinned_path():
         pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
     ):
         pe._validate_gemma_prerequisite_gate(binding, root=ROOT)
+
+
+# --- prior_attempt_closure: pinned, schema + classification + ledger_retired --------------------
+
+
+def test_prior_attempt_closure_gate_accepts_the_real_tracked_artifact():
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": _canon_sha(PRIOR_ATTEMPT_CLOSURE_PATH),
+    }
+    pe._validate_prior_attempt_closure_gate(binding, root=ROOT)  # must not raise
+
+
+def _root_with_mutated_prior_attempt_closure(tmp_path: Path, mutate) -> tuple[Path, dict]:
+    root = tmp_path
+    (root / "rejudge").mkdir(parents=True, exist_ok=True)
+    payload = json.loads(PRIOR_ATTEMPT_CLOSURE_PATH.read_text(encoding="utf-8"))
+    mutate(payload)
+    path = root / "rejudge" / "phase2_preflight_abort_closure_2026-07-19.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return root, payload
+
+
+def test_prior_attempt_closure_gate_rejects_schema_version_drift(tmp_path):
+    root, payload = _root_with_mutated_prior_attempt_closure(
+        tmp_path, lambda p: p.__setitem__("schema_version", "wrong_version"))
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="prior_attempt_closure schema_version drifted",
+    ):
+        pe._validate_prior_attempt_closure_gate(binding, root=root)
+
+
+def test_prior_attempt_closure_gate_rejects_wrong_classification(tmp_path):
+    root, payload = _root_with_mutated_prior_attempt_closure(
+        tmp_path, lambda p: p.__setitem__("classification", "some_other_classification"))
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="prior_attempt_closure.classification must be exactly",
+    ):
+        pe._validate_prior_attempt_closure_gate(binding, root=root)
+
+
+def test_prior_attempt_closure_gate_rejects_ledger_retired_false(tmp_path):
+    root, payload = _root_with_mutated_prior_attempt_closure(
+        tmp_path, lambda p: p.__setitem__("ledger_retired", False))
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="prior_attempt_closure.ledger_retired must be exactly true",
+    ):
+        pe._validate_prior_attempt_closure_gate(binding, root=root)
+
+
+def test_prior_attempt_closure_gate_rejects_wrong_stage(tmp_path):
+    root, payload = _root_with_mutated_prior_attempt_closure(
+        tmp_path, lambda p: p.__setitem__("stage", "main"))
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": phase2_plan.canonical_sha256(payload),
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="prior_attempt_closure.stage must be exactly",
+    ):
+        pe._validate_prior_attempt_closure_gate(binding, root=root)
+
+
+def test_prior_attempt_closure_gate_rejects_hash_drift(tmp_path):
+    root, payload = _root_with_mutated_prior_attempt_closure(tmp_path, lambda p: None)
+    binding = {
+        "path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json",
+        "sha256": _flip_hex_digest(phase2_plan.canonical_sha256(payload)),
+    }
+    with pytest.raises(pe.ManifestValidationError, match="prior_attempt_closure hash drift"):
+        pe._validate_prior_attempt_closure_gate(binding, root=root)
+
+
+def test_prior_attempt_closure_gate_rejects_unpinned_path():
+    binding = {
+        "path": "rejudge/phase2_provider_refresh_2026-07-19.json", "sha256": "a" * 64,
+    }
+    with pytest.raises(
+        pe.ManifestValidationError, match="must resolve to the frozen, git-tracked artifact",
+    ):
+        pe._validate_prior_attempt_closure_gate(binding, root=ROOT)
+
+
+def test_manifest_missing_prior_attempt_closure_fails_closed(manifest):
+    manifest_dict, _identity = manifest
+    del manifest_dict["prior_attempt_closure"]
+    with pytest.raises(pe.ManifestValidationError, match="fields drifted"):
+        pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
 # --- provider_reconciliation_evidence: pinned, the 2026-07-19 record ----------------------------
@@ -2759,6 +3052,7 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
         storage_policy=shared["storage_policy"],
         provider_reconciliation_evidence=shared["provider_reconciliation_evidence"],
         provider_refresh=shared["provider_refresh"],
+        prior_attempt_closure=shared["prior_attempt_closure"],
         implementation_provenance=shared["implementation_provenance"],
     )
     base_identity_sha256 = pe.derive_execution_identity_sha256(
@@ -2776,6 +3070,7 @@ def test_new_and_renamed_identity_fields_change_the_execution_identity(
         "storage_policy": {"path": "x", "sha256": "f" * 64},
         "provider_reconciliation_evidence": {"path": "x", "sha256": "f" * 64},
         "provider_refresh": {"path": "x", "sha256": "f" * 64},
+        "prior_attempt_closure": {"path": "x", "sha256": "f" * 64},
         "implementation_provenance": {"git_commit": "f" * 40, "code_bundle_sha256": "e" * 64},
     }
     for field, new_value in variants.items():
@@ -2844,7 +3139,7 @@ def validated_manifest(baseline, synthetic_artifacts):
     # here too (a module-scoped fixture can't use the function-scoped `monkeypatch` fixture, so
     # this uses pytest.MonkeyPatch.context() directly).
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(pe.preflight_forecast, "validate_forecast_v2", lambda *a, **k: None)
+        mp.setattr(pe.preflight_forecast, "validate_forecast_v3", lambda *a, **k: None)
         return pe.validate_execution_manifest(manifest_dict, project_root=GREEN_ROOT)
 
 
