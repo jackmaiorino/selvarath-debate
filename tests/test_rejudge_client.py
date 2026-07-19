@@ -971,11 +971,17 @@ def test_dummy_post_trap_proves_an_invalid_kwarg_fails_before_transport(monkeypa
     def _trap_post(*args, **kwargs):
         raise _TrapReached("transport entry point was reached -- must not happen")
 
-    client.post = _trap_post
+    # setattr keeps the runtime monkeypatch while sidestepping the SDK's typed attribute
+    # signature; the kwargs dict likewise defeats static overload matching so the binding
+    # failure is exercised at runtime, which is the whole point of this trap test.
+    setattr(client, "post", _trap_post)
 
+    bad_kwargs: dict = {
+        "model": "Qwen/Qwen3.7-Plus", "messages": MSGS,
+        "stream_options": {"include_usage": True},
+    }
     with pytest.raises(TypeError, match="stream_options"):
-        client.chat.completions.create(
-            model="Qwen/Qwen3.7-Plus", messages=MSGS, stream_options={"include_usage": True})
+        client.chat.completions.create(**bad_kwargs)
 
 
 def test_check_sdk_request_compatibility_accepts_the_frozen_phase2_shapes():

@@ -627,12 +627,20 @@ def test_frozen_code_bytes_match_git_blob_for_the_real_repo_pinned_commit():
 
 
 def test_committed_artifacts_git_commit_matches_expected_constant():
-    # implementation_provenance.git_commit is a frozen literal (EXPECTED_GIT_COMMIT), not
-    # recomputed from the live repo's current HEAD here: by the time this deliverable itself is
-    # committed, HEAD has necessarily moved past the commit the manifest binds (this builder
-    # cannot commit itself). This only checks internal consistency between the constant and the
-    # artifact it produced, not that HEAD == EXPECTED_GIT_COMMIT right now.
+    # The superseded v1 manifest is immutable history: it stays bound to the commit that was
+    # HEAD when it was reviewed and built, independent of where EXPECTED_GIT_COMMIT has since
+    # been repointed for later builds. The r2 manifest records its own build-time commit
+    # dynamically; its self-consistency requirement is that the nine frozen code-provenance
+    # files' working bytes match the blobs at that recorded commit, byte for byte.
+    V1_HISTORICAL_GIT_COMMIT = "f58cbfe546c0ca05ce6c58a381719aa144d1044b"
     manifest_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH
     assert manifest_path.is_file()
     manifest = pe.load_execution_manifest(manifest_path)
-    assert manifest["implementation_provenance"]["git_commit"] == b.EXPECTED_GIT_COMMIT
+    assert manifest["implementation_provenance"]["git_commit"] == V1_HISTORICAL_GIT_COMMIT
+
+    r2_path = REPO_ROOT / b.MANIFEST_RELATIVE_PATH_R2
+    assert r2_path.is_file()
+    r2_manifest = pe.load_execution_manifest(r2_path)
+    r2_commit = r2_manifest["implementation_provenance"]["git_commit"]
+    assert b.frozen_code_bytes_diverging_from_git_blob(
+        REPO_ROOT, expected_head=r2_commit) == []
