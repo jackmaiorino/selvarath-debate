@@ -1,0 +1,31 @@
+{
+  "schema_version": "phase2_preflight_reauthorization_v1",
+  "reauthorization_id": "capability_preflight_r2_reauthorization_2026-07-19",
+  "approver": "Jack Maiorino",
+  "approval_reply": "Yes",
+  "approval_context": "Direct chat reply to the exact reauthorization ask, which was presented verbatim (formal wording plus a plain-language explanation at the owner's request) and is frozen in the ask artifact bound below.",
+  "approved_at_utc": "2026-07-19T12:43:16Z",
+  "chains": {
+    "original_delegation": {
+      "tracked_path": "rejudge/phase2_preflight_delegation_2026-07-19.json",
+      "raw_file_sha256": "c5ddb34319ad0fd318880dee88474ee7806e26cae5dec65cfa4893f74dd24951"
+    },
+    "reauthorization_ask": {
+      "tracked_path": "rejudge/phase2_preflight_reauthorization_ask_2026-07-19-r2.json",
+      "raw_file_sha256": "357e542bbcc7ebfb70807259a13bb7f2cbf3ec867cf3210b14de300417ced679"
+    },
+    "role_limits_v4_canonical_sha256": "e2dd983506c933c69ff0d6b56f8a51e1b005faa54a191873d124652f3850efde",
+    "abort_closure_canonical_sha256": "309968ab9d67dd7a2e4a8d096f2ce6695efea87ff894b52d336ae8f4434c13dd",
+    "execution_identity_sha256": "5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8"
+  },
+  "scope": {
+    "stage": "capability_preflight",
+    "stage_cap_usd": 15,
+    "cumulative_cap_usd": 1500,
+    "unchanged": "models, prompts, seeds, token limits, three-attempt ceiling, scope"
+  },
+  "exclusions": "This reauthorization does NOT extend to canary spend, main-run spend, or any cap increase; those remain approved in principle only.",
+  "dashboard_confirmation": "not provided with this reply; not required, since the aborted attempt is proven pre-network by the trap-test evidence in the bound closure artifact; post-run reconciliation will be requested regardless",
+  "execution_authorized": false,
+  "note": "Append-only owner reauthorization evidence for relaunch attempt r2. Authority flows through the execution manifest plus the completed authorization record binding the pinned delegation; this artifact records the fresh owner approval naming v4 and the exact execution identity."
+}

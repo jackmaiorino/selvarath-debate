@@ -324,6 +324,11 @@ to that artifact checkpoint, not to this verification request.
   6/6 offline scenarios plus code-provenance recheck. Pending identity:
   `5ab39b4d1479050683a37811a377538ec028ca491f28a88db6dbd23f79113aa8` (manifest
   `rejudge/phase2_preflight_manifest_2026-07-19-r2.json`).
+- **R2 REAUTHORIZED AND LAUNCHED** / 2026-07-19T12:43:16Z: owner reply "Yes" to the exact ask,
+  recorded in `rejudge/phase2_preflight_reauthorization_2026-07-19.json` (chains the delegation,
+  the frozen ask, v4, the abort closure, and the execution identity); authorization record
+  finalized; `validate_execution_manifest(require_authorized=True)` passes with the approved
+  identity.
 - Canary spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Main-run spend approved: **NO** (approved in principle 2026-07-18; binding authorization deferred to its manifest)
 - Design protocol canonical JSON SHA-256: `54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75`
