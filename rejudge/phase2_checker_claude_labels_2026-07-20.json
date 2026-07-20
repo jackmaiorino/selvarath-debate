@@ -1,0 +1,849 @@
+{
+  "schema_version": "phase2_checker_model_proposed_labels_v1",
+  "labeler_model": "Claude (Fable 5), claude-fable-5",
+  "labeled_at_utc": "2026-07-20T00:00:00Z",
+  "labeled_from": "blinded 4-field view (item_id, world, candidate_a, candidate_b, raw_query); all synthetic/boundary/mechanical-reasons metadata excluded from the labeling context",
+  "contract": "the frozen rules header of rejudge/checker_labeling_tool_2026-07-19.html (allow = single atomic factual claim checkable against the world document; reject = names positions/debaters/the debate, substantially restates a candidate answer, joins independently checkable facts, or asks for evaluation/inference/implication/likelihood; unresolved = cannot classify unambiguously)",
+  "conventions": "Claude's blinded labels for the 200-item checker primary set.\n\nLabeled 2026-07-20 by Claude (Fable 5) from a blinded 4-field view (item_id, world,\ncandidate_a, candidate_b, raw_query) with all synthetic/boundary/mechanical metadata\nstripped, applying the frozen contract shown in the human labeling tool header.\n\nConsistency conventions applied (recorded so the owner and Codex can audit the line):\n- One predicate with a compound object (\"ring the basin on the north and east\",\n  \"relies on trade with the Shel and the Confederacy\") = atomic -> allow.\n- Two or more predicates, each independently checkable (\"assigned the gates AND fixed\n  the rates\", \"army of 4,000, funded by transit taxes\") = joined facts -> reject.\n- Identifying appositions (\"Sera Drath, the current lord of House Drath\") do not count\n  as a second fact; appended extra facts not needed to identify the referent do.\n- \"Is it stated in the text that X\" wrappers are judged on X itself.\n- Reported-perception claims (\"was widely regarded as\", \"is commonly assumed to be\")\n  are treated as atomic factual claims about what the document reports -> allow;\n  the oracle answers NOT-ADDRESSED when the document is silent.\n- A query that reproduces a candidate's core answer (not merely one supporting fact\n  cited inside it) = restatement -> reject; likewise queries referencing the debate\n  itself (\"whichever side is right...\").\n",
+  "counts": {
+    "allow": 117,
+    "reject": 83,
+    "unresolved": 0
+  },
+  "audit_block_rule": "sha256('audit:'+item_id) hex ordering; first 30 item_ids form the owner blind-audit block; the verification tool omits Claude labels for those items entirely",
+  "audit_block_item_ids": [
+    "0062707833ae8328",
+    "02cd01ee6f31f6e7",
+    "0bc0376582898116",
+    "1d7d7a2d71a61987",
+    "1f7217bc4efd1b5f",
+    "24eb1f1b42f2f1ad",
+    "334e51710a606bfa",
+    "35db8831b5602560",
+    "4c1c4f4617778acc",
+    "4cde9297fd48bdd1",
+    "4da05412193c210e",
+    "523d9aef815b0c84",
+    "57d3fc033d0daee3",
+    "5daeaadb52f4bbc7",
+    "7193f91051966219",
+    "7bae645b0b5995bb",
+    "83801012ea1333fd",
+    "83d6dc1db907a1ba",
+    "8fa7d626bece90a3",
+    "ac7db54e6085038a",
+    "b08103ef50b11f40",
+    "b8ac5a01ba4d6341",
+    "d5dc2355b7753c01",
+    "db43e2471979ee9c",
+    "de455e091555e399",
+    "e6f4c4f24a7a44fc",
+    "f533947e5f6ca9b4",
+    "fc1ed7a5441166b8",
+    "fdd4c7006283e184",
+    "fee4af4e87380875"
+  ],
+  "status": "PROPOSED ONLY - carries no label authority; final labels are the owner's decisions exported from checker_verification_jack_2026-07-20.html",
+  "labels": {
+    "0085c3de29fa54f5": {
+      "label": "allow",
+      "rationale": "atomic: single failure-rate fact cited by candidate A"
+    },
+    "05186579d29f71fb": {
+      "label": "allow",
+      "rationale": "atomic negative-existence claim (no boundary treaty)"
+    },
+    "0bc0376582898116": {
+      "label": "reject",
+      "rationale": "joins two facts: self-reported counts AND no verification mechanism"
+    },
+    "0d2aa4368b6d62db": {
+      "label": "allow",
+      "rationale": "atomic membership count"
+    },
+    "0e86125d3a5752e3": {
+      "label": "allow",
+      "rationale": "atomic single-event claim"
+    },
+    "17307709adada32d": {
+      "label": "reject",
+      "rationale": "joins facts (in place long AND no recorded crisis) + vague 'extended period'"
+    },
+    "1792ed27efb65aa2": {
+      "label": "reject",
+      "rationale": "restates candidate B's core jurisdiction claim (the debate question itself)"
+    },
+    "17b457de40092797": {
+      "label": "reject",
+      "rationale": "fact + appended inference ('making grain import dependence an ongoing necessity')"
+    },
+    "184139951431645a": {
+      "label": "reject",
+      "rationale": "joins two facts: appoints Executor AND serves at pleasure/no fixed term"
+    },
+    "1bb9d9654b340c67": {
+      "label": "reject",
+      "rationale": "joins three facts: no barriers, water-limited movement, 85km spacing"
+    },
+    "1d7d7a2d71a61987": {
+      "label": "allow",
+      "rationale": "atomic: was the 20% law in effect at Year 31 (checkable; likely not addressed)"
+    },
+    "1e66a60470183eac": {
+      "label": "reject",
+      "rationale": "joins three facts: lands reverted, 5 seats, elected Paramount Lord"
+    },
+    "1f3a6b0590a3abd6": {
+      "label": "allow",
+      "rationale": "atomic repayment fact"
+    },
+    "1f92f47c044ff06c": {
+      "label": "reject",
+      "rationale": "joins two facts: army size AND funding source"
+    },
+    "1ffdc1e42a299646": {
+      "label": "allow",
+      "rationale": "atomic repayment fact"
+    },
+    "20181750baf2e5c2": {
+      "label": "reject",
+      "rationale": "joins two facts: assigned gate control AND fixed tax rates"
+    },
+    "2270997d96d28f79": {
+      "label": "allow",
+      "rationale": "single reliance predicate with compound object (Shel and Confederacy)"
+    },
+    "22ebe30820ab1193": {
+      "label": "allow",
+      "rationale": "atomic: one ruling event (long but single claim)"
+    },
+    "269e5990f3e252b3": {
+      "label": "allow",
+      "rationale": "single predicate (operate year-round) with compound means"
+    },
+    "2b6d4deef5304f10": {
+      "label": "allow",
+      "rationale": "atomic quoted-provision claim"
+    },
+    "2d7574e135c3bb2f": {
+      "label": "allow",
+      "rationale": "atomic universal-negative, checkable against text"
+    },
+    "303ea9d738f8aeb6": {
+      "label": "allow",
+      "rationale": "atomic: one current-negotiation fact"
+    },
+    "3051c04eddfa1e0a": {
+      "label": "reject",
+      "rationale": "evaluative/inferential ('allows efficient allocation...converts advantage'); restates candidate A fragment"
+    },
+    "3148a5dfef349dc6": {
+      "label": "allow",
+      "rationale": "atomic rotation-cycle fact"
+    },
+    "334e51710a606bfa": {
+      "label": "allow",
+      "rationale": "atomic: measurement cessation Years 95-101"
+    },
+    "3350089ca12c495d": {
+      "label": "reject",
+      "rationale": "joins facts + interpretive 'which are a direct result of trade flow'"
+    },
+    "3e0222be837ae255": {
+      "label": "allow",
+      "rationale": "single predicate with compound directions (north and east)"
+    },
+    "3f207b552fb8e03b": {
+      "label": "allow",
+      "rationale": "atomic departure event"
+    },
+    "3f725ce74e57d542": {
+      "label": "allow",
+      "rationale": "atomic seat-allocation rule"
+    },
+    "416878d727833ca1": {
+      "label": "allow",
+      "rationale": "single narrated event (threat) with its stated occasion"
+    },
+    "43d022fea2e488dd": {
+      "label": "allow",
+      "rationale": "atomic repayment fact"
+    },
+    "46bf56ff907f6fd7": {
+      "label": "allow",
+      "rationale": "atomic control fact; apposition only identifies the referent"
+    },
+    "4cde9297fd48bdd1": {
+      "label": "allow",
+      "rationale": "atomic army-size fact"
+    },
+    "4da05412193c210e": {
+      "label": "allow",
+      "rationale": "atomic only-harbor fact"
+    },
+    "516a6ea4ecdcc207": {
+      "label": "allow",
+      "rationale": "atomic: upcoming adjudication requirement"
+    },
+    "523d9aef815b0c84": {
+      "label": "reject",
+      "rationale": "joins two outcomes: panel established AND fees secured"
+    },
+    "52eb7793a1d915bb": {
+      "label": "allow",
+      "rationale": "atomic withdrawal fact"
+    },
+    "54e10b4fef93a45e": {
+      "label": "allow",
+      "rationale": "atomic statistic (38% over 4 years)"
+    },
+    "57d3fc033d0daee3": {
+      "label": "reject",
+      "rationale": "joins two facts: army size AND funding source (same as sibling)"
+    },
+    "57f4776cc39411d1": {
+      "label": "allow",
+      "rationale": "atomic is-it-stated claim (likely not addressed; that is the point)"
+    },
+    "5989f34cf85fb8e5": {
+      "label": "reject",
+      "rationale": "joins facts: control-via-tax AND tax-funds-army; control mechanism itself interpretive"
+    },
+    "5cae2b85480fb0c9": {
+      "label": "reject",
+      "rationale": "joins two facts: brokered Resolution AND secured fees"
+    },
+    "5daeaadb52f4bbc7": {
+      "label": "allow",
+      "rationale": "atomic import-dependence fact"
+    },
+    "60d61e955502563c": {
+      "label": "allow",
+      "rationale": "atomic treaty-grant fact"
+    },
+    "615174baf36dc68e": {
+      "label": "allow",
+      "rationale": "single dependency predicate, compound gerund object"
+    },
+    "6279b38be5274691": {
+      "label": "allow",
+      "rationale": "atomic grant event"
+    },
+    "66819389949f0ba8": {
+      "label": "allow",
+      "rationale": "atomic 'only one recorded' claim, checkable"
+    },
+    "68adaabb465db3b3": {
+      "label": "allow",
+      "rationale": "atomic refusal-to-acknowledge fact"
+    },
+    "69c40fa8bb42a31f": {
+      "label": "reject",
+      "rationale": "fact + evaluative inference ('giving the Compact a significant lever')"
+    },
+    "6b2be968b6c3329f": {
+      "label": "reject",
+      "rationale": "joins two facts: has army AND has escort contract"
+    },
+    "6b8850f58c061242": {
+      "label": "allow",
+      "rationale": "atomic waterpower fact"
+    },
+    "6cff23e5d3274f50": {
+      "label": "reject",
+      "rationale": "joins two rainfall facts ('while')"
+    },
+    "6eb99982f5bc86e9": {
+      "label": "reject",
+      "rationale": "fact + appended general inference ('which can be severely impacted by droughts')"
+    },
+    "7004881be5ec8db6": {
+      "label": "allow",
+      "rationale": "atomic resolution claim (likely false/unstated; form is fine)"
+    },
+    "714587d49d9ab622": {
+      "label": "allow",
+      "rationale": "atomic rainfall fact"
+    },
+    "7193f91051966219": {
+      "label": "allow",
+      "rationale": "atomic reconstitution rule"
+    },
+    "7217ca4428b1a0cc": {
+      "label": "allow",
+      "rationale": "atomic yield-decline statistic"
+    },
+    "7aa71dd680758433": {
+      "label": "allow",
+      "rationale": "single narrated penalty event with its stated ground"
+    },
+    "7bd4fa0840075278": {
+      "label": "allow",
+      "rationale": "atomic: content of the Caran initial claim"
+    },
+    "83d6dc1db907a1ba": {
+      "label": "allow",
+      "rationale": "atomic repayment fact ('in full, with interest' = one event)"
+    },
+    "84d7dacae8f65aaa": {
+      "label": "allow",
+      "rationale": "one narrated situation: disputed election causing the vacancy"
+    },
+    "865ef7ec1633d107": {
+      "label": "allow",
+      "rationale": "atomic absence-of-definition claim about the document"
+    },
+    "87c855defd026fef": {
+      "label": "reject",
+      "rationale": "joins two facts: Shel settlement AND only deep-water harbor"
+    },
+    "8ab2e259bebd6f96": {
+      "label": "reject",
+      "rationale": "causal inference chain (refusal -> raised bar -> harder removal); restates candidate A"
+    },
+    "8fa7d626bece90a3": {
+      "label": "allow",
+      "rationale": "atomic rule: fixed 24-vote threshold ('regardless of size' is the rule itself)"
+    },
+    "942dd4f999dcbcdc": {
+      "label": "allow",
+      "rationale": "atomic penalty-payment fact"
+    },
+    "96496a8fa6550b3f": {
+      "label": "allow",
+      "rationale": "atomic: the Compact's dispute characterization, quoted"
+    },
+    "983a89fca9be8d89": {
+      "label": "allow",
+      "rationale": "atomic rotation-eligibility fact"
+    },
+    "9939ea8bb3cb6450": {
+      "label": "reject",
+      "rationale": "joins two checkable claims: the grant AND the absence of Wanderer consent (borderline)"
+    },
+    "a07dd413ea4cb4be": {
+      "label": "allow",
+      "rationale": "atomic rainfall fact"
+    },
+    "a2193aa76c6e7a48": {
+      "label": "reject",
+      "rationale": "evaluative ('demonstrated its ability to adapt and evolve')"
+    },
+    "a44f6c5c0bfcc730": {
+      "label": "allow",
+      "rationale": "one rule: serves at pleasure / no fixed term is a single provision"
+    },
+    "a4c0d99c6ec0b410": {
+      "label": "allow",
+      "rationale": "atomic occupation-duration fact"
+    },
+    "a5465bd3ed144397": {
+      "label": "allow",
+      "rationale": "atomic is-it-stated check of a feasibility claim's presence (it is not stated)"
+    },
+    "a8e7e0a1413c5fe5": {
+      "label": "allow",
+      "rationale": "atomic yield-decline statistic"
+    },
+    "aa029fb0f9355535": {
+      "label": "allow",
+      "rationale": "atomic toll-collapse statistic"
+    },
+    "aa4fd7d4f5a149ff": {
+      "label": "reject",
+      "rationale": "interpretive claim + multiple joined facts"
+    },
+    "ad8dfebe9cfefb30": {
+      "label": "allow",
+      "rationale": "atomic schedule fact"
+    },
+    "b08103ef50b11f40": {
+      "label": "allow",
+      "rationale": "atomic duration fact"
+    },
+    "b39e2ba20d74b81e": {
+      "label": "reject",
+      "rationale": "evaluative/inferential ('structural disadvantage', 'as evidenced by')"
+    },
+    "b62b001f170c9d28": {
+      "label": "allow",
+      "rationale": "atomic negative control claim; apposition identifies Vethara"
+    },
+    "b6e4e6b68a7cd6bf": {
+      "label": "allow",
+      "rationale": "atomic never-failed claim"
+    },
+    "b8ac5a01ba4d6341": {
+      "label": "allow",
+      "rationale": "atomic proposal fact"
+    },
+    "bc2710b1cbdc6a74": {
+      "label": "allow",
+      "rationale": "atomic activation rule"
+    },
+    "bdc4568782192824": {
+      "label": "reject",
+      "rationale": "joins facts: separate entity AND own passes AND own administration"
+    },
+    "bfe471a8c27b8710": {
+      "label": "allow",
+      "rationale": "atomic term rule"
+    },
+    "c01734e154de3518": {
+      "label": "allow",
+      "rationale": "atomic claim that a crisis has occurred since the reduction (checkable)"
+    },
+    "c06cc939ddaef15a": {
+      "label": "allow",
+      "rationale": "atomic: one institutional change"
+    },
+    "c130ac442a1ed8a4": {
+      "label": "allow",
+      "rationale": "atomic: system in place at Year 31"
+    },
+    "c155d6cb6950c462": {
+      "label": "reject",
+      "rationale": "speculation ('could lead it to take a harder line')"
+    },
+    "c251ae5e7873507a": {
+      "label": "reject",
+      "rationale": "joins three facts"
+    },
+    "c26c931978eb2c98": {
+      "label": "allow",
+      "rationale": "atomic event claim (likely unstated; form is fine)"
+    },
+    "c4320f6ecc0a8afd": {
+      "label": "reject",
+      "rationale": "capability/evaluation claim ('can challenge the Directorate's authority')"
+    },
+    "c7a655e71f677e2a": {
+      "label": "reject",
+      "rationale": "rotation fact + appended title fact not needed to identify the referent (borderline vs sibling allow)"
+    },
+    "ca965c65372cbb1c": {
+      "label": "reject",
+      "rationale": "joins three rules: majority, non-compulsory attendance, quorum"
+    },
+    "cdf829e0389f7b6b": {
+      "label": "allow",
+      "rationale": "atomic: recorded-as-violation in minutes"
+    },
+    "cf6845cda21207d6": {
+      "label": "reject",
+      "rationale": "interpretive purpose claim ('to ensure... not unduly impact')"
+    },
+    "d0099fedcbfae02d": {
+      "label": "reject",
+      "rationale": "joins two facts: has army AND has escort contract"
+    },
+    "d4b1a6813312082c": {
+      "label": "allow",
+      "rationale": "one renewal event; 'without amendment' characterizes that same event"
+    },
+    "d520ae5fa64bbbed": {
+      "label": "allow",
+      "rationale": "atomic system description"
+    },
+    "d5ba4ba991d4432e": {
+      "label": "allow",
+      "rationale": "atomic attendance fact"
+    },
+    "d874e4aa3f388032": {
+      "label": "reject",
+      "rationale": "joins two facts: developed during Blockade AND output exceeded bronze by Year 6"
+    },
+    "d917fd66c3b2f151": {
+      "label": "allow",
+      "rationale": "atomic: methodology dispute fact"
+    },
+    "db43e2471979ee9c": {
+      "label": "allow",
+      "rationale": "atomic negative-existence claim about the record"
+    },
+    "de84e0ddc449d553": {
+      "label": "reject",
+      "rationale": "evaluative 'clear' + compound protocol recitation"
+    },
+    "e26bbb6c7bd3acc6": {
+      "label": "allow",
+      "rationale": "atomic army-size fact"
+    },
+    "e6f4c4f24a7a44fc": {
+      "label": "allow",
+      "rationale": "atomic intervention event; naming apposition"
+    },
+    "e971b52334d2f535": {
+      "label": "allow",
+      "rationale": "atomic membership count"
+    },
+    "ee9079740214934d": {
+      "label": "allow",
+      "rationale": "atomic event with vote count"
+    },
+    "f18d036796abea97": {
+      "label": "allow",
+      "rationale": "atomic activation rule"
+    },
+    "f533947e5f6ca9b4": {
+      "label": "reject",
+      "rationale": "joins two claims: entirely trade-based AND limited domestic production; near-restates candidate B premise"
+    },
+    "f5e30537ef403341": {
+      "label": "reject",
+      "rationale": "joins two claims + meta-uncertainty; restates candidate A sentence verbatim"
+    },
+    "f6934938f1a419bc": {
+      "label": "reject",
+      "rationale": "joins three facts; restates candidate A sentence"
+    },
+    "f8a516a5fadc559d": {
+      "label": "allow",
+      "rationale": "atomic recovery statistic"
+    },
+    "f978b9dac416eebb": {
+      "label": "allow",
+      "rationale": "atomic granary-percentage fact"
+    },
+    "fa5bc56f16d3c5ab": {
+      "label": "allow",
+      "rationale": "atomic cessation fact"
+    },
+    "fa669790cdcadd1c": {
+      "label": "reject",
+      "rationale": "joins two facts via 'despite': refusal AND penalty payment"
+    },
+    "faf4d3b4992dd4e9": {
+      "label": "reject",
+      "rationale": "joins three claims + causal attribution to the 10-year term"
+    },
+    "fcce598a34d566df": {
+      "label": "reject",
+      "rationale": "evaluative/causal ('has allowed it to navigate complex situations')"
+    },
+    "fee4af4e87380875": {
+      "label": "allow",
+      "rationale": "one succession provision; the fallback is part of the same rule (borderline)"
+    },
+    "7229fdcdeb8bbe61": {
+      "label": "reject",
+      "rationale": "capability inference + causal claim; restates candidate B"
+    },
+    "0cae7c938240bf46": {
+      "label": "allow",
+      "rationale": "one narrated arrangement: fees granted as compensation (candidate B's supporting fact)"
+    },
+    "ce1b06f3cc1472a7": {
+      "label": "allow",
+      "rationale": "same arrangement, declarative form"
+    },
+    "de455e091555e399": {
+      "label": "reject",
+      "rationale": "legal characterization ('legally independent'); restates candidate B's conclusion"
+    },
+    "fc1ed7a5441166b8": {
+      "label": "allow",
+      "rationale": "same single arrangement as siblings"
+    },
+    "52123596e7d0c084": {
+      "label": "allow",
+      "rationale": "atomic only-land-route claim"
+    },
+    "838c0f1fe4c54ea4": {
+      "label": "allow",
+      "rationale": "atomic only-land-route claim"
+    },
+    "4c1c4f4617778acc": {
+      "label": "reject",
+      "rationale": "substantially restates candidate B's answer"
+    },
+    "3c7d5d0e7a4a67ab": {
+      "label": "reject",
+      "rationale": "interpretive ('demonstrate the difficulties of maintaining cooperation')"
+    },
+    "1f7217bc4efd1b5f": {
+      "label": "reject",
+      "rationale": "joins multiple rainfall/farming facts ('while')"
+    },
+    "39b2c8359b44e1ea": {
+      "label": "reject",
+      "rationale": "joins two geographic facts"
+    },
+    "4566d901b5a5e7de": {
+      "label": "reject",
+      "rationale": "joins duration, pasture reduction, and relocation facts"
+    },
+    "526443dfc5b9c2e6": {
+      "label": "reject",
+      "rationale": "two predicates: separate polities AND own governance/law systems"
+    },
+    "753f817bb59146b0": {
+      "label": "reject",
+      "rationale": "evaluative ('mutually beneficial') + compound + 'as evidenced by'"
+    },
+    "9df1c17724a1f259": {
+      "label": "reject",
+      "rationale": "joins two geographic facts"
+    },
+    "d2c789f0ed48832d": {
+      "label": "reject",
+      "rationale": "two predicates: separate polities AND own governance/law systems"
+    },
+    "0196234bd6927dbe": {
+      "label": "allow",
+      "rationale": "atomic quoted geographic fact"
+    },
+    "01a7287621899ab9": {
+      "label": "reject",
+      "rationale": "counterfactual impact claim ('would significantly restrict'); restates candidate A inference"
+    },
+    "01d7a435a8d23da4": {
+      "label": "reject",
+      "rationale": "fact + appended inference ('effectively guaranteeing')"
+    },
+    "02cd01ee6f31f6e7": {
+      "label": "reject",
+      "rationale": "joins duration, reduction, and relocation facts"
+    },
+    "03fac2840121f9f6": {
+      "label": "reject",
+      "rationale": "joins two predicates: agriculture-based AND river-reliant"
+    },
+    "055996e7446ea174": {
+      "label": "reject",
+      "rationale": "counterfactual prediction ('would significantly restrict')"
+    },
+    "085c50d7f641642c": {
+      "label": "reject",
+      "rationale": "evaluative ('significant impact on stability') + compound"
+    },
+    "098b46811c109733": {
+      "label": "reject",
+      "rationale": "evaluative ('significant constraint')"
+    },
+    "00401c01acf1ae96": {
+      "label": "allow",
+      "rationale": "atomic army-size fact"
+    },
+    "0062707833ae8328": {
+      "label": "allow",
+      "rationale": "atomic definition fact (candidate B's supporting fact, not its conclusion)"
+    },
+    "02d00e95d7164f0b": {
+      "label": "allow",
+      "rationale": "atomic no-military fact"
+    },
+    "0362c0fadaa28e3f": {
+      "label": "allow",
+      "rationale": "one rule provision"
+    },
+    "03732233c797cdd3": {
+      "label": "allow",
+      "rationale": "one status claim ('de facto hub despite no formal authority' as stated in text)"
+    },
+    "052c0b86e8efa95b": {
+      "label": "allow",
+      "rationale": "atomic no-military fact"
+    },
+    "05bf8a23678c9c73": {
+      "label": "reject",
+      "rationale": "joins two claims ('but'); restates candidate A sentence verbatim"
+    },
+    "0954822cbb02ac3f": {
+      "label": "allow",
+      "rationale": "atomic party-to-compact fact"
+    },
+    "0d85f33d8cd78577": {
+      "label": "reject",
+      "rationale": "joins two facts: iron-based economy AND food imports"
+    },
+    "7bae645b0b5995bb": {
+      "label": "reject",
+      "rationale": "asks about intent/interpretation of the provision"
+    },
+    "83801012ea1333fd": {
+      "label": "reject",
+      "rationale": "joins need-claim AND escalation inference"
+    },
+    "9a10569c92ed3510": {
+      "label": "reject",
+      "rationale": "joins two facts: iron-based economy AND food imports"
+    },
+    "ac7db54e6085038a": {
+      "label": "reject",
+      "rationale": "asks about intent/interpretation of the provision"
+    },
+    "f9f638910c009cea": {
+      "label": "reject",
+      "rationale": "joins seats/Paramount facts AND grain-rights fact"
+    },
+    "04dc6cbaeb39eafe": {
+      "label": "allow",
+      "rationale": "one comparative output fact (exceeded prior bronze by Year 6)"
+    },
+    "14ed2ced089bdcaf": {
+      "label": "reject",
+      "rationale": "joins two claims: unable to recover AND lands reverted"
+    },
+    "ac6d886b4c66fe26": {
+      "label": "allow",
+      "rationale": "atomic length fact"
+    },
+    "a50de92bcaf61837": {
+      "label": "reject",
+      "rationale": "joins three treaty provisions"
+    },
+    "c577d559eafbd864": {
+      "label": "allow",
+      "rationale": "atomic navigability-window fact"
+    },
+    "bcda92a94429762e": {
+      "label": "reject",
+      "rationale": "joins three governance facts"
+    },
+    "726c995a2b611570": {
+      "label": "allow",
+      "rationale": "atomic elevation fact"
+    },
+    "556d0b53c30fda78": {
+      "label": "reject",
+      "rationale": "joins three compact provisions"
+    },
+    "33144a82ffda5069": {
+      "label": "allow",
+      "rationale": "atomic army-size fact"
+    },
+    "05e4708ce6f9bb8a": {
+      "label": "reject",
+      "rationale": "joins three facts: first woman, challenge heard, 6-3 rejection"
+    },
+    "04a41f8790d9c42c": {
+      "label": "allow",
+      "rationale": "atomic coalition-composition fact"
+    },
+    "47284e041b4eb735": {
+      "label": "reject",
+      "rationale": "joins three facts: defense grounds, breach ruling, disputed jurisdiction"
+    },
+    "70a27421a17ff6fb": {
+      "label": "allow",
+      "rationale": "atomic economy-dependence fact"
+    },
+    "e606ac62bb8ce0f9": {
+      "label": "allow",
+      "rationale": "atomic reported-perception claim ('widely regarded'), checkable if stated"
+    },
+    "b5137c5edbbfa30e": {
+      "label": "allow",
+      "rationale": "atomic seat-count fact"
+    },
+    "57ff5f9e783a5da3": {
+      "label": "allow",
+      "rationale": "atomic reported-perception claim ('seen by most Delta settlements')"
+    },
+    "846a3999880bc9e1": {
+      "label": "allow",
+      "rationale": "atomic system description; 'called the Ledgerman' identifies"
+    },
+    "9d8184ff80791740": {
+      "label": "allow",
+      "rationale": "atomic reported-perception claim ('generally credited')"
+    },
+    "04dafa86c42cd4e3": {
+      "label": "allow",
+      "rationale": "atomic failure-count fact"
+    },
+    "08a785866763e6e3": {
+      "label": "allow",
+      "rationale": "atomic reported-perception claim ('generally taken as proof')"
+    },
+    "941d75bba476cca0": {
+      "label": "allow",
+      "rationale": "atomic renewal-count fact"
+    },
+    "fdd4c7006283e184": {
+      "label": "allow",
+      "rationale": "atomic reported-perception claim ('commonly assumed')"
+    },
+    "b6a3caaaf9a4f114": {
+      "label": "allow",
+      "rationale": "atomic practice fact"
+    },
+    "fa3a45104ce92859": {
+      "label": "reject",
+      "rationale": "substantially restates candidate A's answer (threat + unresolved dispute)"
+    },
+    "ef4c9f6a2217dd04": {
+      "label": "allow",
+      "rationale": "atomic vote-threshold fact (checkable; likely not stated for war)"
+    },
+    "ae0cb27ae2214784": {
+      "label": "reject",
+      "rationale": "substantially restates candidate A's answer (repaid + deposits found)"
+    },
+    "24eb1f1b42f2f1ad": {
+      "label": "allow",
+      "rationale": "atomic comparative rainfall fact"
+    },
+    "af319e72bd065d67": {
+      "label": "reject",
+      "rationale": "substantially restates candidate A's answer"
+    },
+    "90277286e3cec878": {
+      "label": "allow",
+      "rationale": "atomic origin fact"
+    },
+    "d5dc2355b7753c01": {
+      "label": "reject",
+      "rationale": "restates candidate A + appended 'so' inference"
+    },
+    "f27ca232673c3aa6": {
+      "label": "allow",
+      "rationale": "one recurring-event description (frequency + location of the same gathering)"
+    },
+    "9151f7233d533b37": {
+      "label": "reject",
+      "rationale": "substantially restates candidate A's answer (two joined facts)"
+    },
+    "f166dfa7b1c5647f": {
+      "label": "allow",
+      "rationale": "atomic navigability fact"
+    },
+    "ae78dffa94e79dc5": {
+      "label": "reject",
+      "rationale": "references the debate's sides ('the side that gets credit') + joins facts"
+    },
+    "df604ba6c536f9f4": {
+      "label": "allow",
+      "rationale": "atomic inheritance rule"
+    },
+    "bbad32bda5ca0822": {
+      "label": "reject",
+      "rationale": "references the debate ('whichever side is right') + conditional reasoning"
+    },
+    "5b37d7a4cd48b2cd": {
+      "label": "reject",
+      "rationale": "substantially restates candidate A's answer (the disputed claim itself)"
+    },
+    "35db8831b5602560": {
+      "label": "reject",
+      "rationale": "references the debate ('whichever account is right') + meta-reasoning"
+    },
+    "97729029c13aadfe": {
+      "label": "allow",
+      "rationale": "atomic schedule fact"
+    },
+    "5e5c56312f990e16": {
+      "label": "reject",
+      "rationale": "references the debate ('which telling holds up') + evaluative comparison"
+    },
+    "1f2153534e2b274a": {
+      "label": "allow",
+      "rationale": "atomic only-harbor fact"
+    },
+    "4185d33d49ec2c0f": {
+      "label": "reject",
+      "rationale": "references the debate ('whose account holds up') + meta-reasoning"
+    }
+  }
+}

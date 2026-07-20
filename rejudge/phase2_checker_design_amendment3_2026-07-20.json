@@ -1,0 +1,26 @@
+{
+  "schema_version": "phase2_checker_design_amendment_v1",
+  "amendment_id": "checker_labeling_model_proposed_owner_verified_2026-07-20",
+  "status": "approved_pending_oracle_posthoc_review",
+  "amends": {
+    "tracked_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+    "amended_provision": "labeling procedure; supersedes amendment checker_labeling_two_labeler_split_2026-07-19 (the Jack/Joey split is retired unexecuted; no labels were produced under it)"
+  },
+  "amended_to": "Model-proposed, owner-verified labeling. Claude (Fable 5) labeled all 200 primary items from a blinded 4-field view (metadata stripped) under the frozen contract; the full proposal is sealed in rejudge/phase2_checker_claude_labels_2026-07-20.json BEFORE any owner review. The owner (Jack Maiorino) then works through rejudge/checker_verification_jack_2026-07-20.html: a deterministic 30-item BLIND AUDIT block first (Claude labels omitted from the file entirely; the owner labels unaided), then the remaining 170 items shown with Claude's proposed label and rationale for one-click confirm or explicit override. The owner's decisions are the final labels for all 200 items. Blind-audit agreement (owner vs sealed proposal, computed at merge time from the sealed artifact) is reported alongside the labels as the anchoring-risk disclosure.",
+  "integrity_measures": [
+    "proposal sealed and committed before the owner sees any item, so confirms/overrides are auditable against it",
+    "30-item blind block chosen by sha256('audit:'+item_id) ordering; those items carry no model suggestion anywhere in the verification tool",
+    "model labeler was blinded to synthetic/boundary/mechanical metadata and to per-item expected labels (all human_label fields verified null before labeling)",
+    "no composition targets consulted during labeling; the unresolved minimum (>=20) is currently unmet (proposal has 0) and will be handled honestly via the owner's own judgments and, if still short, the frozen reserve-pool top-up rule - never by manufacturing doubt"
+  ],
+  "disclosure": "Final labels for the 170 non-audit items are model-anchored (owner-verified rather than independently human-generated). Under the design's own second_auditor_policy language, the merged set is recorded as an owner-normative label set with a measured blind-audit agreement rate, not as independent human consensus. This disclosure travels with any use of the labels.",
+  "owner_approval": {
+    "approver": "Jack Maiorino",
+    "approved_at_utc": "2026-07-20T00:00:00Z",
+    "approval_channel": "direct chat request ('can you just review it and i verify your labels?')"
+  },
+  "oracle_review": "Codex unavailable until 2026-07-24 (usage limit); post-hoc review of this amendment AND the sealed proposal's convention lines is REQUIRED before the merged labels are consumed by checker-candidate selection",
+  "supersedes_note": "Amendment 2 (Jack/Joey split) and its tools remain in the repo for the record but are non-operative; Joey Marcellino is no longer a labeler. The design's second-human audit slot remains open.",
+  "execution_authorized": false,
+  "note": "Append-only amendment; the original design file is never rewritten."
+}
