@@ -1,0 +1,917 @@
+{
+ "schema_version": "phase2_checker_claude_labels_v1",
+ "labeler_model": "claude-fable-5",
+ "labeled_at_utc": "2026-07-21",
+ "labeled_from": "blinded 5-field view (n, item_id, world, raw_query, candidate_a, candidate_b) of rejudge/phase2_checker_reserve_pool_2026-07-18.json; canonical_sha256 verified b17ccd66fca181c23cb72a6e96f1c4f6fe56b57125ae104d9f9c9f63da3f15c2; all human_label/labeler fields verified null before labeling",
+ "draw_rule": "label_minimums.top_up_rule executed in the reserve pool's frozen order (world_stratified_round_robin); the unresolved minimum (>=20) cannot be met by any prefix of a pool containing no unresolved items, so the entire pool was labeled; unresolved remained 0",
+ "contract": "docs/oracle-query-contract.md as rendered in the frozen labeling-tool header",
+ "conventions": "Claude's blinded labels for the 150-item checker reserve pool (top-up draw).\n\nLabeled 2026-07-21 by Claude (Fable 5) from a blinded 5-field view (n, item_id,\nworld, raw_query, candidate_a, candidate_b) with all synthetic/boundary/mechanical\nmetadata stripped, applying the frozen contract and the same consistency\nconventions recorded in phase2_checker_claude_labels_2026-07-20.json, plus two\nrefinements applied uniformly here (recorded for the oracle's audit):\n\n- Causal relation AS the predicate (\"X was a direct response to Y\", \"X is limited\n  by Y\") = one atomic claim -> allow. Causal/explanatory clause APPENDED to an\n  otherwise complete fact (\"lost 60% of revenue due to Y\", \"ceased measurements\n  due to concerns about Y\", \"citing infrastructure costs\") = joined facts -> reject.\n- Purely temporal markers identifying an event (\"withdrew for 8 years after a\n  population-count dispute\") do not count as a second fact; motive or mechanism\n  attributions (\"as a response to\", \"to secure\") do.\n\nThe draw was executed under the frozen top-up rule (label_minimums.top_up_rule):\nreplacements drawn in the reserve pool's frozen order. Because the unresolved\nminimum can never be met by any prefix of the pool if the pool contains no\nunresolved items, the entire pool was labeled; unresolved remained 0.\n\nDict maps n (1-based frozen-order position) -> (item_id, label, rationale).\nThe build script asserts item_id and order against the frozen pool file.",
+ "counts": {
+  "allow": 94,
+  "reject": 56,
+  "unresolved": 0
+ },
+ "status": "operative under amendment checker_labeling_adopt_model_labels_2026-07-21 together with rejudge/phase2_checker_claude_labels_2026-07-20.json; subject to Codex post-hoc review before feeding checker-candidate selection",
+ "labels": {
+  "0022f9dc786dd77d": {
+   "n": 1,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: college of 30 members + a Factor seat for each guild"
+  },
+  "0056d609e4a057b5": {
+   "n": 2,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Shel control the only deep-water port (at Vethara); supporting fact inside cand-b, not its core answer"
+  },
+  "003b67df5f3c3076": {
+   "n": 3,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "compound with inferential tail: drop figure + 'making upstream navigation impossible'"
+  },
+  "00463720f7b7d0a6": {
+   "n": 4,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound purpose claim: 'to prevent removal on a whim' AND 'to ensure only the most serious cases'"
+  },
+  "00c2aa682b0f7afd": {
+   "n": 5,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "joined facts: created the panel to resolve trade disputes + 'including those related to tariffs' (the contested scope)"
+  },
+  "0045b1514efe111c": {
+   "n": 6,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: measurement system is biannual"
+  },
+  "00cf45c37ff66162": {
+   "n": 7,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "hypothetical/inference: 'would lower the removal threshold back to 80%'"
+  },
+  "00ccf72a268c2f46": {
+   "n": 8,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + appended causal attribution: lost 60% toll revenue + 'due to diverted Shel sea-trade'"
+  },
+  "0073066e984eb9c5": {
+   "n": 9,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "single predicate 'is determined by' with compound object (Massing participation and adherence); reproduces cand-b reasoning but not its verdict"
+  },
+  "00dae0447619536a": {
+   "n": 10,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Director appointed for a 10-year term"
+  },
+  "00e36b4fd24efab3": {
+   "n": 11,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: 9-of-12 Warden vote rule"
+  },
+  "00982ce623580c15": {
+   "n": 12,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Kemari grain loans to the Dominion during the Iron Crisis"
+  },
+  "00db0e7a267c9e0e": {
+   "n": 13,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Sixth Channel Incident in Year 83"
+  },
+  "010601db5f18d0d4": {
+   "n": 14,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Taran dry-crop yields declined 18% over the past decade"
+  },
+  "00bcc3d575b1091f": {
+   "n": 15,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: salt rights allocated by band population counts"
+  },
+  "010753e12491e0d9": {
+   "n": 16,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: reliance on Directorate escorts + the renewable 7-year contract terms"
+  },
+  "0183780a547b8830": {
+   "n": 17,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Shel governance based on assessed wealth"
+  },
+  "0125223168028a30": {
+   "n": 18,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic quantified event: emergency grain loans totaling 8,400 units during the Iron Crisis"
+  },
+  "0167b6e41986a84f": {
+   "n": 19,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Treaty of Morven has held for over a century"
+  },
+  "01a66b86ff808816": {
+   "n": 20,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: 18% dry-crop yield decline"
+  },
+  "012a95ea21d9abe1": {
+   "n": 21,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Archon has not designated a successor after 34 years"
+  },
+  "01dda6a53dcb1722": {
+   "n": 22,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: college of 30 Factors + each representing a registered trade guild"
+  },
+  "01dbd630518706d4": {
+   "n": 23,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic relational claim: preferential fees tied to trade contracts through Vethara"
+  },
+  "016f373b2527004c": {
+   "n": 24,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic generalization about the document: history of partnering with private entities"
+  },
+  "01e7c702fbbbdc0b": {
+   "n": 25,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "evaluative/inferential: Gate Wars 'demonstrate willingness'; also compound (dates + treaty terms)"
+  },
+  "02a32c4e67f02d6f": {
+   "n": 26,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: clans cut off from Confederacy support during winter closures; supporting fact inside cand-a"
+  },
+  "018ebdfe75895e76": {
+   "n": 27,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Compact has no enforcement mechanism beyond mutual agreement"
+  },
+  "01fc788991a6945b": {
+   "n": 28,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "fact + appended causal attribution: threshold is 24-of-29 + 'due to the vacancy'"
+  },
+  "02dbc3326731c913": {
+   "n": 29,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "causal-effectiveness judgment mirroring cand-b: Resolution 'has prevented' crises for 40 years"
+  },
+  "01c11665c6600b48": {
+   "n": 30,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "compound chain: forced to move north + lost autonomy + negotiated residency agreements"
+  },
+  "0212611339849450": {
+   "n": 31,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: loose association with no hereditary leadership + simple-majority decision rule"
+  },
+  "03097ed1bd4dd510": {
+   "n": 32,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Compact disputes the panel's authority; supporting fact inside cand-a"
+  },
+  "023274b882563d91": {
+   "n": 33,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "compound: cause of Iron Crisis + contemporaneous attribution + 40% output drop over 6 years"
+  },
+  "02592e556b4590cd": {
+   "n": 34,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound causal chain: refusal to adjudicate -> vacant seat AND raised threshold"
+  },
+  "0312f2e15612fe9d": {
+   "n": 35,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "joined facts: registration with the Ledgerman + binding-arbitration dispute resolution"
+  },
+  "02864433616fa3ef": {
+   "n": 36,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Redlands sole iron ore location"
+  },
+  "02609669bfe0a006": {
+   "n": 37,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Moot has elected a Paramount Lord in the past"
+  },
+  "031d5a4fc487133e": {
+   "n": 38,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: iron-smelting developed during the Keth Blockade"
+  },
+  "02904cc212799746": {
+   "n": 39,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic rule: Executor removable at any time by simple majority; supporting clause in cand-b, not its verdict"
+  },
+  "02e411a299a35468": {
+   "n": 40,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "evaluative tail: violation fact + 'with minimal consequences'"
+  },
+  "0340ff13f939018d": {
+   "n": 41,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic comparison fact: iron output exceeded prior bronze output after the Blockade"
+  },
+  "02b972c521f4b46b": {
+   "n": 42,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "joined facts: two separately checkable disputes enumerated (Watermill + Mesht salt status)"
+  },
+  "02fa6c81fe45d0ec": {
+   "n": 43,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: 200 weight-unit penalty paid for the Incident"
+  },
+  "036268bc59c7e5d6": {
+   "n": 44,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "causal relation as the predicate: iron production 'a direct response to' the Blockade (stated in text)"
+  },
+  "0333b2abde5ab739": {
+   "n": 45,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "joined facts: 24 seats + allocation by population + 8-year recount"
+  },
+  "02fba1b14df3958d": {
+   "n": 46,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic event: treaty ended 14 years of conflict"
+  },
+  "0393f744a4bc4c5d": {
+   "n": 47,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: whether an explicit grant of tariff jurisdiction is stated"
+  },
+  "03b43321e32141c3": {
+   "n": 48,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: three bands have challenged Mesht's status since Year 82"
+  },
+  "0330c398e43ce7b4": {
+   "n": 49,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic with identifying occasion: Paramount Lord elected once, during the Dry Decade"
+  },
+  "03aac51e1255cdd6": {
+   "n": 50,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic wrapped claim: iron output exceeded bronze output by Year 6"
+  },
+  "03ece916ee8732f8": {
+   "n": 51,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "compound chain: 5-year residency agreement + later permanent residency + 60% sedentary share"
+  },
+  "038631fc06e5b35f": {
+   "n": 52,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: treaty held a century + Caran maintained effective Gate control"
+  },
+  "03f1d81a7bed5cd6": {
+   "n": 53,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic absence claim: no boundary treaty in the foothills; supporting fact inside cand-a"
+  },
+  "040c7ca61c440aa4": {
+   "n": 54,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Redlands only described iron source"
+  },
+  "03d9289e7756f0db": {
+   "n": 55,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Moot's maximum authority was during the Dry Decade"
+  },
+  "03f47578674212f5": {
+   "n": 56,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: wealth reassessed every 6 years"
+  },
+  "044c4a30ba541019": {
+   "n": 57,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic origin fact: Compact established after 30 years of conflict"
+  },
+  "03da35e2450571e1": {
+   "n": 58,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "one climatological fact: eastern-slope aridity characterized by 190-230mm; 'where the Dresh reside' is identifying"
+  },
+  "03fb9825ba4cc3d5": {
+   "n": 59,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "joined facts: Blockade duration + 'led to' iron-output consequence"
+  },
+  "0540ec1e81b4ae91": {
+   "n": 60,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "explicit two-clause 'and': Compact regulates flow + Kemari control upstream flow"
+  },
+  "04100648977b58bb": {
+   "n": 61,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Norn Compact has a separate escort agreement; leading apposition is identifying"
+  },
+  "04057c77f915a923": {
+   "n": 62,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "joined assertions: jurisdiction limited to trade-agreement disputes + tariff exclusion (the contested corollary)"
+  },
+  "0542edfaa74bd0d2": {
+   "n": 63,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Mesht's Speaker still attends the Massing"
+  },
+  "04249b0365af7bce": {
+   "n": 64,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "inferential consequence mirroring cand-b: expiration 'introduced uncertainty' for revenue"
+  },
+  "0408b7f1b99e21e3": {
+   "n": 65,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "normative/evaluative position statement: 'fundamental aspect of its sovereignty... not subject to jurisdiction'"
+  },
+  "0544f0415a63a589": {
+   "n": 66,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: 60% of Mesht members maintain fixed residences"
+  },
+  "049a45e708421ed8": {
+   "n": 67,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: transit tax at each Gate + funds army + army of 4,000 + 'stable' evaluative"
+  },
+  "0445d41ba3cddd61": {
+   "n": 68,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic treaty provision: emergency grain imports negotiable under the Flood Compact"
+  },
+  "056ecd46d403830f": {
+   "n": 69,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "causal relation as the predicate: Year 53 discovery 'contributed to' the recovery (discovery date is identifying)"
+  },
+  "054dfadafc7cbaba": {
+   "n": 70,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "one succession rule with a fallback branch (eldest son, else eldest daughter's husband); supporting fact in cand-a"
+  },
+  "058906f3dac0228b": {
+   "n": 71,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic event, compound subject: Veth and Sorath herds moved into contested lowlands"
+  },
+  "05947413ace92de8": {
+   "n": 72,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "single predicate 'controls' with compound object (upstream flow and Kem lakeside)"
+  },
+  "054ee35d1af67bfb": {
+   "n": 73,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound chain: army size + funded by transit taxes + taxes rely on Delta trade"
+  },
+  "0592e80da0164479": {
+   "n": 74,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + appended causal attribution: 60% toll loss + 'due to diverted Shel sea-trade'"
+  },
+  "0600ebc1b02ea44a": {
+   "n": 75,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic wrapped generalization: deviation from traditional practices used as a basis for status challenges"
+  },
+  "05501065596cc7bf": {
+   "n": 76,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: treaty endured over a century"
+  },
+  "05b10519f22df964": {
+   "n": 77,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "evaluative characterization: 'was a multi-polity problem that required a solution'"
+  },
+  "0606a1eabd8e651a": {
+   "n": 78,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic measurement-trend fact: threshold approached in 3 of last 6 measurements"
+  },
+  "0550f324c0977383": {
+   "n": 79,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound + evaluative: 6-vessel sample + 'was small' + 'was considered a limitation'"
+  },
+  "05e83ffb24404bad": {
+   "n": 80,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + appended motive attribution: revocation threat + 'as a response to the tariff dispute'"
+  },
+  "06b7e600038ddc87": {
+   "n": 81,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: no enforcement mechanism beyond mutual agreement"
+  },
+  "055ef389fbf0d83b": {
+   "n": 82,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic rule: Paramount Lord requires 4+ seats"
+  },
+  "061a9c9fc2f925d8": {
+   "n": 83,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: whether the 20% requirement was in effect at the Year 31 floods (text says unclear -> oracle handles)"
+  },
+  "06cef23d49a5f19a": {
+   "n": 84,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "causal relation as the predicate: accumulation structurally limited by bilateral inheritance (stated in text)"
+  },
+  "059c1c9e302043da": {
+   "n": 85,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: maintains a standing army + funded by transit taxes"
+  },
+  "0621b0110c31c27f": {
+   "n": 86,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: granary system in effect during the Year 31 floods"
+  },
+  "06f4e39d468d5d24": {
+   "n": 87,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Dominion proposed revising the threshold to 45%"
+  },
+  "05be9d653c5095bb": {
+   "n": 88,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "evaluative: actions 'were aggressive and provocative'"
+  },
+  "066c3b62d6d5f8f1": {
+   "n": 89,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: tariff imposed unilaterally; supporting fact inside cand-a"
+  },
+  "070b12e930bcc2f1": {
+   "n": 90,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Dominion located in the southeast of the basin"
+  },
+  "05f11c0c5979b606": {
+   "n": 91,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: whether the Compact recorded the Incident as a violation in assembly minutes (likely NOT-ADDRESSED)"
+  },
+  "06c668f7519a52c9": {
+   "n": 92,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "inferential 'threatens' claim mirroring cand-a's reasoning"
+  },
+  "0735c2876ef5ba63": {
+   "n": 93,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic treaty provision (40% midpoint floor); quotes a supporting fact inside cand-a, not its verdict"
+  },
+  "05fc54017f9acacb": {
+   "n": 94,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic quantified fact: 4,000-strong standing army"
+  },
+  "06cdeb0de66c694a": {
+   "n": 95,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic absence claim: no boundary treaty in the foothills"
+  },
+  "0740e99820595f09": {
+   "n": 96,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: three waterpower points within Kemari territory"
+  },
+  "0606fa88cb977634": {
+   "n": 97,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "fact + appended characterization/cause: formed Year 38 + 'as an act of collective resistance in response to a blockade'"
+  },
+  "06e848fca4b26d69": {
+   "n": 98,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: 20% law in effect at the Year 31 floods (text says unclear -> oracle handles)"
+  },
+  "07498beca8e556ec": {
+   "n": 99,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "compound chain: forced north + lost autonomy + negotiated residency agreements"
+  },
+  "0649dfc20d120e26": {
+   "n": 100,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Dresh have no standing military"
+  },
+  "075b3328ca65b460": {
+   "n": 101,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Compact controls the western agricultural zone; supporting clause in cand-b, not its verdict"
+  },
+  "07aea1edc9a3a71c": {
+   "n": 102,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "evaluative generalization: 'history of successfully managing' dependence"
+  },
+  "064e23ec0df68a44": {
+   "n": 103,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: treaty assigned the three Low Gates to the Caran"
+  },
+  "0773d880fe8096b3": {
+   "n": 104,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Resolution includes a most-favored-trade clause"
+  },
+  "07e87616645bfe61": {
+   "n": 105,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: no successor designated after 34 years"
+  },
+  "065537c764a079fb": {
+   "n": 106,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: army of ~4,000 + funded by transit tax at each Gate (conventions exemplar)"
+  },
+  "07ccad61c4f5bdf8": {
+   "n": 107,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: dispute ongoing 16+ years without resolution"
+  },
+  "082ea3b7fe3dd957": {
+   "n": 108,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic event with identifying temporal marker: 8-year withdrawal after a population-count dispute"
+  },
+  "06bde87c7df90a91": {
+   "n": 109,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: negotiated/agreed terms + 'including the notification requirement'"
+  },
+  "07f1eb2a9deba8c6": {
+   "n": 110,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "necessity judgment 'had to' + joined acts (intervene + broker the panel)"
+  },
+  "083531a5a834ecf8": {
+   "n": 111,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic procedural fact: Compact relies on joint biannual measurements"
+  },
+  "06e39914a35c75e0": {
+   "n": 112,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic recurrence question: similar incidents since (relative clause defines 'similar'; likely NOT-ADDRESSED)"
+  },
+  "082367098adf8b06": {
+   "n": 113,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: passes navigable only months 4-8"
+  },
+  "083b03fb458e06db": {
+   "n": 114,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic characterization: economy heavily reliant on the Kestal for agriculture"
+  },
+  "0769dd6303045aa8": {
+   "n": 115,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic characterization: Low Gates the primary trade route"
+  },
+  "08392d7fedf09dd2": {
+   "n": 116,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "two joined acts: intervened diplomatically AND helped broker a Shel-style panel (attribution separately checkable)"
+  },
+  "084c91f2e11d393a": {
+   "n": 117,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: no successor designated after 34 years"
+  },
+  "076c1d60d3a41271": {
+   "n": 118,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound: economic collapse + three lordships collapsed + Moot briefly held 5 seats"
+  },
+  "085f17c9c6038c18": {
+   "n": 119,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic wrapped absence claim: document explicitly states no boundary treaty"
+  },
+  "0875fa8238da6b92": {
+   "n": 120,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "disjunctive join of two independent facts: Year 30 agreement OR Year 22 dispute"
+  },
+  "07b7e59a858ead4e": {
+   "n": 121,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: no standing military + escort contract under renewable 7-year agreement"
+  },
+  "08aa5549ef5bab64": {
+   "n": 122,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Vek system has a 3-year transition cycle"
+  },
+  "088490d4f1f38376": {
+   "n": 123,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "joined facts: non-sedentary steppe movement + 14 recognized bands (appended count)"
+  },
+  "07d4b6e1b3bb6239": {
+   "n": 124,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "motive attribution 'to secure' + disputed-inheritance join"
+  },
+  "08aeff212178913c": {
+   "n": 125,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + appended causal attribution: 60% toll loss + 'due to diverted Shel sea-trade'"
+  },
+  "089af97559bd5ab7": {
+   "n": 126,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic negative claim: existing waterpower points not privately operated"
+  },
+  "07e46f1f5c53d6ad": {
+   "n": 127,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "hypothetical/inference: restoration 'would lower' the threshold"
+  },
+  "08c8bcda20c79067": {
+   "n": 128,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Vethara the continent's only deep-water harbor"
+  },
+  "08d5c23f313b0025": {
+   "n": 129,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Iron Crisis Years 47-53"
+  },
+  "07ff74ad2b315916": {
+   "n": 130,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic quantified fact: standing army of ~4,000"
+  },
+  "08f16975736e7e42": {
+   "n": 131,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Keth Range serves as a recognized border (single claim; oracle checks 'recognized')"
+  },
+  "08e53c55a6d0107f": {
+   "n": 132,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: ~60% of Mesht members maintain fixed residences in the Kem zone"
+  },
+  "0860d6af258c32ff": {
+   "n": 133,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic absence-of-recurrence claim since the Incident (likely NOT-ADDRESSED)"
+  },
+  "091724b5f8face51": {
+   "n": 134,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: clans occupied the foothills 16+ years"
+  },
+  "08fd2aada06c17c0": {
+   "n": 135,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "joined facts: imports nearly all food from the Kemari + no alternative source described"
+  },
+  "0864bae2da2a99bb": {
+   "n": 136,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: Compact seeking the amendment + Directorate has not accepted"
+  },
+  "093bc65d5e7a006a": {
+   "n": 137,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Compact disputes the occupation as 'territorial encroachment'"
+  },
+  "092bc8e6a047ed6c": {
+   "n": 138,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: Dominion imports nearly all its food"
+  },
+  "0952d13023a50bc9": {
+   "n": 139,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "one schedule fact: Meet held three times a year, months 3/6/9"
+  },
+  "096e19a6082829ec": {
+   "n": 140,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Compact has a 112-year history"
+  },
+  "093f4a69ed10880d": {
+   "n": 141,
+   "world": "vethun_sarak",
+   "label": "reject",
+   "rationale": "fact + appended causal attribution: ceased measurements Years 95-101 + 'due to concerns about the watermill'"
+  },
+  "095ddda1db7db307": {
+   "n": 142,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "compound chain: violated the clause + refused to acknowledge + paid the 200-unit penalty"
+  },
+  "096f71b60001d32d": {
+   "n": 143,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + appended justification: 30% tariff + 'citing infrastructure costs'"
+  },
+  "094a185a53d85f58": {
+   "n": 144,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic: midpoint flow approaching the 40% threshold in recent years"
+  },
+  "0985b21a2afcbb5a": {
+   "n": 145,
+   "world": "carath_norn",
+   "label": "allow",
+   "rationale": "atomic: Dresh have a standing military (oracle will answer against the text)"
+  },
+  "0973718ea4ca6a0f": {
+   "n": 146,
+   "world": "selvarath",
+   "label": "allow",
+   "rationale": "atomic: Warden council 9-of-12 vote requirement"
+  },
+  "096adad61789acef": {
+   "n": 147,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "single predicate 'has' with compound object: hereditary Archon and District Heads"
+  },
+  "098992a9b7c2af00": {
+   "n": 148,
+   "world": "carath_norn",
+   "label": "reject",
+   "rationale": "joined facts: seeking prior-notification amendment + Directorate has refused"
+  },
+  "09897213ae2fb6f8": {
+   "n": 149,
+   "world": "selvarath",
+   "label": "reject",
+   "rationale": "fact + evaluative tail mirroring cand-b: panel creation + 'has provided a stable foundation'"
+  },
+  "09fc8651b5dced74": {
+   "n": 150,
+   "world": "vethun_sarak",
+   "label": "allow",
+   "rationale": "atomic claim about document content: no clear definition of 'band in good standing'"
+  }
+ }
+}

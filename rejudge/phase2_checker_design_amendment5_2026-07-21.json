@@ -1,0 +1,37 @@
+{
+ "schema_version": "phase2_checker_design_amendment_v1",
+ "amendment_id": "checker_labeling_adopt_model_labels_2026-07-21",
+ "status": "approved",
+ "amends": {
+  "tracked_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+  "amended_provision": "retires the fully-human two-labeler split (reinstated by amendment checker_labeling_revert_to_human_split_2026-07-20) with zero human label exports produced under it, and adopts the assistant's sealed blinded label sets as the operative ground-truth labels for checker-candidate validation"
+ },
+ "amended_to": "Operative labels are (1) rejudge/phase2_checker_claude_labels_2026-07-20.json for the 200-item primary set (sha256 a466257366f3b8bc8e322176a163e6b07964040951a2a15765f7ac004d6afa05; counts allow=117 reject=83 unresolved=0, labeled 2026-07-20 from a blinded view before any human labeling began) and (2) rejudge/phase2_checker_reserve_topup_claude_labels_2026-07-21.json for the full 150-item reserve pool (counts allow=94 reject=56 unresolved=0), labeled under the frozen top_up_rule in the pool's frozen order from an equally blinded view. Wherever the frozen design says 'human' labels (gate definitions, zero_false_allow), read 'adopted ground-truth labels'. Per the design's second_auditor_policy language, the merged 350-item set is recorded as a single-labeler model-labeled normative label set, not independent human consensus.",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "approved_at_utc": "2026-07-21T00:00:00Z",
+  "approval_channel": "direct chat request ('Alright it was taking us too long. We both give approval for you to label it')"
+ },
+ "second_labeler_concurrence": {
+  "person": "Joey Marcellino",
+  "basis": "approval relayed by the owner in the same chat message ('We both give approval'); not independently confirmed with Joey"
+ },
+ "labeler_independence": {
+  "labeler_model": "claude-fable-5",
+  "candidate_pool": ["Qwen/Qwen2.5-7B-Instruct-Turbo", "google/gemma-4-31B-it", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "openai/gpt-oss-120b"],
+  "note": "the labeler model is not in the checker-candidate pool, so labels do not self-select a same-model checker; family-level correlation between an LLM labeler and LLM candidates remains a limitation for the oracle review"
+ },
+ "blinding": "both label sets were produced from views containing only item_id, world, raw_query, candidate_a, candidate_b; boundary/synthetic/mechanical_reasons metadata was never read by the labeler; the primary-set proposal was committed (2245e8d) before either human viewed any item",
+ "human_label_status": "no human labels were exported under amendments 2 or 4; the owner had read some of his 110 items and discussed calibration in chat but exported nothing; any partial labels still in either labeler's browser localStorage may be exported later as a non-authoritative agreement check",
+ "quarantine_lift": "the quarantine imposed by amendment 4 on rejudge/phase2_checker_claude_labels_2026-07-20.json and rejudge/checker_verification_jack_2026-07-20.html is lifted; note that a retrospective blind owner audit of the 30-item audit block remains possible only until the owner reads the label files",
+ "unresolved_minimum_shortfall": {
+  "frozen_minimum": 20,
+  "achieved": 0,
+  "top_up_execution": "the frozen top_up_rule was executed to exhaustion: all 150 reserve items labeled in frozen order; unresolved remained 0 across all 350 labeled items",
+  "consequence": "the unresolved_recall gate (>=90% on human-unresolved items) is unmeasurable on this label set; the zero_false_allow and other gates are unaffected",
+  "disposition": "no unresolved labels were manufactured to satisfy the minimum; whether to amend the unresolved minimum/gate or construct synthetic unresolved items is deferred to the Codex post-hoc review (on/after 2026-07-24) with owner sign-off"
+ },
+ "oracle_review": "this amendment, the two label artifacts, the labeling conventions recorded in both, and the unresolved-shortfall disposition are added to the Codex review packet; labels do not feed checker-candidate selection until that review completes and the owner approves the selection run",
+ "execution_authorized": false,
+ "note": "Append-only amendment; no prior artifact is rewritten or deleted. execution_authorized refers to the checker-candidate evaluation run, which remains unauthorized (spend approval and Codex review pending)."
+}
