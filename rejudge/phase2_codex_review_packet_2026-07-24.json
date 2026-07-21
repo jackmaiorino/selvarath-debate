@@ -1,0 +1,50 @@
+{
+ "schema_version": "phase2_codex_review_packet_v1",
+ "prepared_at_utc": "2026-07-21",
+ "purpose": "Consolidated packet for the Codex oracle's post-hoc review (on/after 2026-07-24, when oracle capacity returns) of the checker-labeling amendment chain and the open design questions that gate checker-candidate selection and the canary.",
+ "artifacts_under_review": [
+  "rejudge/phase2_checker_validation_design_2026-07-18.json (frozen base design)",
+  "rejudge/phase2_checker_label_split_2026-07-19.json (amendment 2: two-labeler split)",
+  "rejudge/phase2_checker_design_amendment3_2026-07-20.json (model-proposed/owner-verified scheme, retired unexecuted)",
+  "rejudge/phase2_checker_design_amendment4_2026-07-20.json (revert to human split; anchoring-exposure disclosure)",
+  "rejudge/phase2_checker_design_amendment5_2026-07-21.json (adoption of model labels; top-up execution; quarantine lift)",
+  "rejudge/phase2_checker_claude_labels_2026-07-20.json (primary-set labels, 200 items, 117/83/0, with conventions)",
+  "rejudge/phase2_checker_reserve_topup_claude_labels_2026-07-21.json (reserve-pool labels, 150 items, 94/56/0, with convention refinements)",
+  "rejudge/phase2_checker_selection_cost_estimate_2026-07-21.json (offline estimate: USD 0.25 base / 0.53 conservative for 1400 calls)"
+ ],
+ "chronology_for_reviewer": [
+  "07-18: validation design frozen (gates, label minimums 100/60/20, top-up rule, reserve pool, regression set)",
+  "07-19: amendment 2 split labeling between Jack Maiorino (110) and Joey Marcellino (110) with a 20-item overlap",
+  "07-20: amendment 3 switched to model-proposed/owner-verified labels with a 30-item blind audit; the assistant's full proposal was committed sealed BEFORE the owner viewed anything",
+  "07-20: owner reverted before viewing any per-item label; amendment 4 reinstated the human split and quarantined the sealed proposal; residual exposure (aggregate counts 117/83/0 stated in chat) disclosed",
+  "07-21: with zero human labels exported, owner approved (for himself and, relayed, for the second labeler) adopting the sealed model labels; amendment 5 adopted them, executed the frozen top-up rule to pool exhaustion, and lifted the quarantine",
+  "07-21: owner declined the two residual human checks offered (retrospective 30-item blind audit; export of any partial phone labels), stated in chat: 'we won't review those'"
+ ],
+ "review_questions": [
+  {
+   "id": "chain_integrity",
+   "question": "Is the amendment chain (2 -> 3 -> 4 -> 5) procedurally sound under the pre-registration discipline (append-only, fail-closed), and is the amendment-4 anchoring-exposure disclosure adequately handled given the final adoption of the model labels made human anchoring moot?"
+  },
+  {
+   "id": "single_model_labeler",
+   "question": "Is a single-model (claude-fable-5) normative label set acceptable ground truth for the frozen gates, in particular zero_false_allow, given (a) the labeler is not in the candidate pool, (b) family-level LLM-vs-LLM correlation remains, (c) both label sets were produced blinded to synthetic/boundary metadata, and (d) the owner declined all residual human checks? What caveat language must the results carry?"
+  },
+  {
+   "id": "unresolved_gate_disposition",
+   "question": "All 350 labeled items are allow or reject; the unresolved minimum (>=20) is unmet after exhausting the reserve pool per the frozen top-up rule, leaving the unresolved_recall gate (>=90%) unmeasurable. Choose a disposition: (a) amend the gate out, keeping runtime UNRESOLVED as a halt-only safety valve with parseable/zero-false-allow gates still covering malformed outputs; (b) hand-construct synthetic unresolved items (note: the build no-go list and the 'never manufacture unresolved' rule weigh against); (c) redefine the unresolved boundary and relabel. The labeler's conventions resolved every real item; option (a) is the assistant's recommendation."
+  },
+  {
+   "id": "anchor_parsing_sensitivity",
+   "question": "Pre-existing open item: the anchor-selection parsing-sensitivity disagreement (strict parsing favors Qwen2.5-7B, tolerant parsing favors Llama-3.3-70B) must be resolved before the canary manifest binds the second anchor. Which parsing rule should govern, and should the choice be recorded as a pre-registered tie-break rule rather than a per-case decision?"
+  },
+  {
+   "id": "selection_run_go",
+   "question": "Given dispositions above, does the checker-candidate selection run (frozen prompt, temperature 0, 350 items x 4 candidates, estimate USD 0.25-0.53) have any remaining design defects before the owner is asked for spend approval?"
+  }
+ ],
+ "constraints_reaffirmed": [
+  "labels do not feed checker-candidate selection until this review completes and the owner approves the run",
+  "no unresolved labels may be manufactured to satisfy the minimum",
+  "execution/spend authorization is separate from and subsequent to this review"
+ ]
+}

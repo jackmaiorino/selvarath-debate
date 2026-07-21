@@ -1,0 +1,78 @@
+{
+ "schema_version": "phase2_checker_selection_cost_estimate_v1",
+ "estimated_at_utc": "2026-07-21",
+ "method": "Offline line-item cost estimate for the checker-candidate selection run.\n\nNo provider imports, no network calls. Token counts are estimated from character\nlengths of the exact frozen prompts (system + filled user template) at 3.5 and\n4.0 chars/token; the ask uses the conservative 3.5 figure. Output-side buffers:\n16 tokens/call base (single-token contract answer plus stop overhead) and a\n256-token conservative case for models that may emit reasoning preamble.",
+ "run_shape": {
+  "items": 350,
+  "item_sets": [
+   "rejudge/phase2_checker_primary_set_2026-07-18.json (200)",
+   "rejudge/phase2_checker_reserve_pool_2026-07-18.json (150, labeled under the top-up rule)"
+  ],
+  "models": [
+   "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "google/gemma-4-31B-it",
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "openai/gpt-oss-120b"
+  ],
+  "calls": 1400,
+  "temperature": 0,
+  "prompt": "frozen checker_prompt from rejudge/phase2_checker_validation_design_2026-07-18.json",
+  "regression_set_note": "the 60-item regression set is screened mechanically by rejudge.query_screen, zero API calls"
+ },
+ "total_prompt_chars_per_model": 470848,
+ "per_model_usd": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "base": {
+    "input_tokens": 124712,
+    "output_tokens": 5600,
+    "usd": 0.0391
+   },
+   "conservative": {
+    "input_tokens": 141528,
+    "output_tokens": 89600,
+    "usd": 0.0693
+   }
+  },
+  "google/gemma-4-31B-it": {
+   "base": {
+    "input_tokens": 124712,
+    "output_tokens": 5600,
+    "usd": 0.0541
+   },
+   "conservative": {
+    "input_tokens": 141528,
+    "output_tokens": 89600,
+    "usd": 0.1421
+   }
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "base": {
+    "input_tokens": 124712,
+    "output_tokens": 5600,
+    "usd": 0.1355
+   },
+   "conservative": {
+    "input_tokens": 141528,
+    "output_tokens": 89600,
+    "usd": 0.2404
+   }
+  },
+  "openai/gpt-oss-120b": {
+   "base": {
+    "input_tokens": 124712,
+    "output_tokens": 5600,
+    "usd": 0.0221
+   },
+   "conservative": {
+    "input_tokens": 141528,
+    "output_tokens": 89600,
+    "usd": 0.075
+   }
+  }
+ },
+ "grand_total_usd": {
+  "base": 0.25,
+  "conservative": 0.53
+ },
+ "status": "estimate only; no call is authorized until owner approval and Codex review per amendment 5"
+}
