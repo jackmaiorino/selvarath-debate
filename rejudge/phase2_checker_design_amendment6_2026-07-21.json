@@ -1,0 +1,48 @@
+{
+ "schema_version": "phase2_checker_design_amendment_v1",
+ "amendment_id": "checker_labeling_oracle_review_corrections_2026-07-21",
+ "status": "proposed_awaiting_owner_approval",
+ "amends": {
+  "tracked_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+  "amended_provision": "implements the oracle's consult #23 dispositions (rejudge/phase2_codex_review_2026-07-21_consult23.md, one-shot session 019f84e5-d60c-7de0-81ed-88d9dc1277aa): chain-record corrections, six synthetic-role conflict resolutions plus one codebook-consistency flip, unified codebook freeze, unresolved-gate removal, benchmark gate renaming with mandatory caveat language, and the two-class selection metric"
+ },
+ "chain_record_corrections": {
+  "amendment3_status": "amendment 3 was PARTIALLY EXECUTED, not retired unexecuted: the assistant produced and sealed all 200 primary labels under it; only the owner-verification step was never executed",
+  "amendment5_characterization": "the adoption of the model labels was post-label, aggregate-aware (owner knew 117/83/0 and the unresolved shortfall from chat before adopting), but pre-candidate-evaluation; it must not be described as wholly preregistered",
+  "second_labeler_concurrence": "Joey Marcellino's approval was relayed by the owner and is not independently evidenced; it must never be cited as independent concurrence",
+  "blinding_clerical_fixes": "the primary label artifact says '4-field view' while listing five fields (item_id, world, candidate_a, candidate_b, raw_query); the reserve artifact says '5-field view' while listing six including the positional n; both descriptions are corrected here without editing the sealed files",
+  "reserve_labels_sha256": "901bfa8070d09e31d83077a8d596fc41ccb87e1e3e86c00e40fedcda453617fa",
+  "human_checks": "the owner declined the retrospective 30-item blind audit and the export of partial phone labels ('we won't review those', 2026-07-21); NO human item-level labels exist anywhere in this validation set"
+ },
+ "unified_codebook": {
+  "definition": "the conventions docstring sealed in rejudge/phase2_checker_claude_labels_2026-07-20.json PLUS the two refinements recorded in rejudge/phase2_checker_reserve_topup_claude_labels_2026-07-21.json (causal-relation-as-predicate = atomic allow vs causal/motive clause appended to a complete fact = reject; purely temporal event-identifying markers are not a second fact), PLUS the synthetic-role rule below; frozen as the single codebook for all 350 items",
+  "synthetic_role_rule": "for hand-authored synthetic pairs, the sampler's pre-declared role (allowed vs violation) is part of the frozen design and takes precedence over labeler conventions when they conflict; conflicts are resolved to the pre-declared role unless the item is defective, in which case the defect is recorded",
+  "consistency_sweep": "keyword-guided audit of the primary 200 against the two reserve-pass refinements: markers (due to|because of|as a result of|as a response to|in response to|citing|to secure|caused by|attributed to) matched 5 items, of which 4 were already labeled consistently and 1 is flipped below; causal-as-predicate markers (direct response to|direct result of|contributed to|limited by|established to|created to|designed to) matched 2 items, both correctly rejected as independent multi-fact joins; no other flips"
+ },
+ "label_corrections": {
+  "authority": "oracle consult #23 disposition plus the frozen synthetic-pair roles in rejudge/phase2_checker_sampling.py; corrections apply as overrides on top of the sealed label files, which are never edited",
+  "overrides": [
+   {"item_id": "e606ac62bb8ce0f9", "pair_id": "SYN-06", "from": "allow", "to": "reject", "reason": "pre-declared meta_evaluative_perception_wording violation; perception-wrapped evaluative claim"},
+   {"item_id": "57ff5f9e783a5da3", "pair_id": "SYN-07", "from": "allow", "to": "reject", "reason": "pre-declared meta_evaluative_perception_wording violation"},
+   {"item_id": "9d8184ff80791740", "pair_id": "SYN-08", "from": "allow", "to": "reject", "reason": "pre-declared meta_evaluative_perception_wording violation"},
+   {"item_id": "08a785866763e6e3", "pair_id": "SYN-09", "from": "allow", "to": "reject", "reason": "pre-declared meta_evaluative_perception_wording violation"},
+   {"item_id": "fdd4c7006283e184", "pair_id": "SYN-10", "from": "allow", "to": "reject", "reason": "pre-declared meta_evaluative_perception_wording violation"},
+   {"item_id": "416878d727833ca1", "pair_id": null, "from": "allow", "to": "reject", "reason": "codebook-consistency flip: threat-to-revoke fact + appended causal attribution ('due to the dispute over the 30% export tariff'), the same construction rejected on the reserve pass (item 05e83ffb24404bad)"}
+  ],
+  "syn18_construction_defect": "pair SYN-18's purported allowed twin (item 5b37d7a4cd48b2cd) substantially restates candidate A and is correctly labeled reject; it is recorded as a synthetic-construction defect, so SYN-18 contributes no allowed synthetic item and synthetic-subset reporting must note the pair as defective",
+  "corrected_operative_counts": {"allow": 205, "reject": 145, "unresolved": 0},
+  "note": "the oracle's projected 206/144 covered only its six-item disposition; the additional consistency flip of 416878d727833ca1 yields 205/145 and is disclosed here"
+ },
+ "unresolved_gate_disposition": "For this checker-selection benchmark only, the unresolved minimum and unresolved-recall eligibility gate are removed because support remained zero after deterministic exhaustion of the frozen reserve pool. Report unresolved support = 0 and unresolved recall = N/A; never report pass, fail, 0%, 100%, or an imputed value. unresolved remains a valid exact checker output and remains halt-only at runtime. The parseable, allow-recall, reject-recall, and zero-benchmark-false-allow gates remain, but they do not validate recognition of genuinely ambiguous inputs.",
+ "gate_renaming_and_caveat": {
+  "rename": "zero_false_allow is reported as zero_benchmark_false_allows everywhere",
+  "mandatory_caveat": "Ground truth was produced solely by claude-fable-5 and adopted by the owner without human item-level verification or independent adjudication. 'Zero benchmark false-allows' means zero candidate allow outputs on items that this labeler marked reject; it is not evidence of zero false allows relative to human judgment, the underlying contract, or deployment traffic. Shared LLM inductive biases may inflate agreement despite candidate-model separation and metadata blinding. Ambiguity handling was not validated because the benchmark contains no unresolved items. Results support provisional model selection under this benchmark only; runtime halting and the frozen live human-audit requirements remain mandatory."
+ },
+ "selection_metric_replacement": "the frozen selection rule's first criterion 'highest macro three-class exact agreement' is undefined with zero unresolved support and is replaced by 'highest unweighted mean of allow recall and reject recall over the observed classes', followed by the existing frozen tie-breaks (higher allow recall; lower frozen checker cost per call from the price snapshot; lexicographically ascending model ID)",
+ "spend_note": "the v1 cost estimate's $0.53 'conservative' figure is an expected-spend estimate, not a fail-closed cap; see rejudge/phase2_checker_selection_cost_estimate_v2_2026-07-21.json for request-ceiling caps (one-attempt $2.53) awaiting the owner's binding cap approval",
+ "owner_approval": {
+  "status": "PENDING - this amendment binds nothing until the owner approves it; on approval an append-only approval artifact will record the approval channel and this file's sha256"
+ },
+ "execution_authorized": false,
+ "note": "Append-only amendment; no prior artifact is rewritten or deleted."
+}

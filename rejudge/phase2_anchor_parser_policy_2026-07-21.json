@@ -1,0 +1,17 @@
+{
+ "schema_version": "phase2_anchor_parser_policy_v1",
+ "policy_id": "anchor_parser_policy_2026-07-21",
+ "status": "proposed_awaiting_owner_approval",
+ "resolves": "the parsing-sensitivity escalation recorded in rejudge/phase2_capability_anchor_selection_2026-07-19.json (strict winner Qwen2.5-7B 206/212 vs period-tolerant winner Llama-3.3-70B 209/212)",
+ "oracle_disposition": "consult #23 (rejudge/phase2_codex_review_2026-07-21_consult23.md): for the completed r3 preflight and the canary anchor derived from it, the frozen strict rule governs; this is a parser-policy disposition, not a tie-break, because a tolerant parser would change the primary parser and winner before any tie exists",
+ "policy": {
+  "historical_r3_primary_result": "strict exact parser; Qwen/Qwen2.5-7B-Instruct-Turbo selected as the capability anchor at 206/212",
+  "tolerant_rescore": "the period-tolerant rescore (Llama-3.3-70B 209/212, all 57 INVALIDs being 'ANSWER: X.' trailing-period artifacts) is a post-hoc sensitivity analysis only and must be reported prominently alongside the primary result",
+  "future_rule": "if optional terminal punctuation is preferred going forward, preregister the tolerant pattern 'ANSWER: [AB]\\.?' uniformly BEFORE a fresh capability-selection cycle; never retroactively promote Llama-3.3-70B from already-inspected outputs"
+ },
+ "binds_when_approved": "the canary manifest's second full-document anchor derivation",
+ "owner_approval": {
+  "status": "PENDING - the canary is a next-phase decision; this policy binds nothing until the owner approves it"
+ },
+ "note": "Append-only; no prior artifact is rewritten or deleted."
+}

@@ -43,6 +43,7 @@ PRIMARY_PATH = ROOT / "rejudge" / "phase2_checker_primary_set_2026-07-18.json"
 RESERVE_PATH = ROOT / "rejudge" / "phase2_checker_reserve_pool_2026-07-18.json"
 PRIMARY_LABELS_PATH = ROOT / "rejudge" / "phase2_checker_claude_labels_2026-07-20.json"
 RESERVE_LABELS_PATH = ROOT / "rejudge" / "phase2_checker_reserve_topup_claude_labels_2026-07-21.json"
+AMENDMENT6_PATH = ROOT / "rejudge" / "phase2_checker_design_amendment6_2026-07-21.json"
 AUTHORIZATION_PATH = ROOT / "rejudge" / "phase2_checker_selection_authorization_2026-07-21.json"
 OUTPUT_PATH = ROOT / "rejudge" / "output" / "checker_selection_calls.jsonl"
 REPORT_PATH = ROOT / "rejudge" / "phase2_checker_selection_report_2026-07-21.json"
@@ -61,7 +62,7 @@ def _load(path: Path) -> dict:
 
 
 def load_items_and_labels() -> list[dict]:
-    """Merged frozen-order item list with adopted labels; asserts full coverage."""
+    """Merged frozen-order item list with adopted labels plus amendment-6 overrides."""
     primary = _load(PRIMARY_PATH)["items"]
     reserve = _load(RESERVE_PATH)["items"]
     labels: dict[str, str] = {}
@@ -70,6 +71,20 @@ def load_items_and_labels() -> list[dict]:
             if item_id in labels:
                 raise SystemExit(f"duplicate label for {item_id}")
             labels[item_id] = row["label"]
+    amendment = _load(AMENDMENT6_PATH)
+    for override in amendment["label_corrections"]["overrides"]:
+        item_id = override["item_id"]
+        if labels.get(item_id) != override["from"]:
+            raise SystemExit(
+                f"override {item_id}: sealed label {labels.get(item_id)!r} != "
+                f"declared from={override['from']!r}")
+        labels[item_id] = override["to"]
+    counts = {"allow": 0, "reject": 0, "unresolved": 0}
+    for value in labels.values():
+        counts[value] += 1
+    expected = amendment["label_corrections"]["corrected_operative_counts"]
+    if counts != expected:
+        raise SystemExit(f"corrected counts {counts} != amendment {expected}")
     merged = []
     for source, items in (("primary", primary), ("reserve", reserve)):
         for it in items:
@@ -116,7 +131,7 @@ def tolerant(raw: str) -> str | None:
 def input_hashes() -> dict[str, str]:
     return {str(p.relative_to(ROOT)).replace("\\", "/"): _sha256(p)
             for p in (DESIGN_PATH, PRIMARY_PATH, RESERVE_PATH,
-                      PRIMARY_LABELS_PATH, RESERVE_LABELS_PATH)}
+                      PRIMARY_LABELS_PATH, RESERVE_LABELS_PATH, AMENDMENT6_PATH)}
 
 
 def validate_authorization() -> dict:
@@ -127,6 +142,8 @@ def validate_authorization() -> dict:
         raise SystemExit("authorization artifact does not authorize execution")
     if not auth.get("oracle_clearance", {}).get("cleared"):
         raise SystemExit("oracle clearance not recorded; live run refused")
+    if not auth.get("amendment6_owner_approved"):
+        raise SystemExit("amendment 6 owner approval not recorded; live run refused")
     expected = auth.get("input_sha256", {})
     actual = input_hashes()
     if expected != actual:
@@ -213,8 +230,7 @@ def score() -> None:
     for row in rows:
         by_model.setdefault(row["model"], {})[row["item_id"]] = row
 
-    auth = _load(AUTHORIZATION_PATH) if AUTHORIZATION_PATH.exists() else {}
-    waived = set(auth.get("gates_waived", []))
+    amendment = _load(AMENDMENT6_PATH)
     snapshot = _load(ROOT / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json")
 
     def recall(rows_for, label):
@@ -224,7 +240,11 @@ def score() -> None:
         hit = sum(1 for r in subset if r["strict_token"] == label)
         return hit / len(subset), len(subset)
 
-    report = {"models": {}, "gates_waived": sorted(waived)}
+    report = {
+        "models": {},
+        "unresolved_gate_disposition": amendment["unresolved_gate_disposition"],
+        "mandatory_caveat": amendment["gate_renaming_and_caveat"]["mandatory_caveat"],
+    }
     eligible = []
     for model in pool:
         got = by_model.get(model, {})
@@ -240,15 +260,15 @@ def score() -> None:
         unres_r, unres_n = recall(rows_for, "unresolved")
         false_allows = [r["item_id"] for r in rows_for
                         if r["label"] in ("reject", "unresolved") and r["strict_token"] == "allow"]
+        # Amendment 6: unresolved support is 0, its recall is N/A (never pass/fail/imputed),
+        # and the selection metric is the unweighted mean over the observed classes.
         present = [r for r in (allow_r, reject_r, unres_r) if r is not None]
         macro = sum(present) / len(present)
         gates = {
             "parseable": parseable == 1.0,
             "allow_recall": allow_r is not None and allow_r >= 0.95,
             "reject_recall": reject_r is not None and reject_r >= 0.95,
-            "unresolved_recall": (True if "unresolved_recall" in waived
-                                  else (unres_r is not None and unres_r >= 0.90)),
-            "zero_false_allow": not false_allows,
+            "zero_benchmark_false_allows": not false_allows,
         }
         subsets = {}
         for name, pred in (("real", lambda it: not it["synthetic"]),
@@ -266,9 +286,9 @@ def score() -> None:
             "parseable_rate": parseable,
             "allow_recall": allow_r, "allow_n": allow_n,
             "reject_recall": reject_r, "reject_n": reject_n,
-            "unresolved_recall": unres_r, "unresolved_n": unres_n,
+            "unresolved_recall": "N/A", "unresolved_support": unres_n,
             "false_allow_item_ids": false_allows,
-            "macro_exact_agreement": macro,
+            "two_class_mean_recall": macro,
             "gates": gates,
             "eligible": all(gates.values()),
             "subsets": subsets,
@@ -285,9 +305,10 @@ def score() -> None:
         report["selected_model"] = None
         report["halt"] = "every candidate failed at least one gate; no checker call is authorized"
     report["selection_rule"] = design["selection_rule"]
+    report["selection_metric_replacement"] = amendment["selection_metric_replacement"]
     REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({m: {"eligible": v.get("eligible"),
-                          "macro": v.get("macro_exact_agreement"),
+                          "two_class_mean": v.get("two_class_mean_recall"),
                           "false_allows": len(v.get("false_allow_item_ids", []))}
                       for m, v in report["models"].items()}, indent=1))
     print("selected:", report["selected_model"])

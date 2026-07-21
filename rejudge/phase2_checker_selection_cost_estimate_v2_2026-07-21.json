@@ -1,0 +1,41 @@
+{
+ "schema_version": "phase2_checker_selection_cost_estimate_v2",
+ "estimated_at_utc": "2026-07-21",
+ "supersedes": "rejudge/phase2_checker_selection_cost_estimate_2026-07-21.json (expected-spend figures remain valid AS EXPECTATIONS; its 'conservative' number must not be used as a cap)",
+ "method": "v2 cost estimate: fail-closed request-ceiling caps per oracle consult #23.\n\nThe v1 'conservative' figure assumed 256 output tokens per call; the frozen v5\nrole limits actually permit 4096 output tokens for the reasoning models\n(gemma-4-31B, gpt-oss-120b) and 16 for the plain models. The cap the owner\napproves must cover the request-limit ceiling, not the expected spend.",
+ "expected_spend_usd": {
+  "base": 0.25,
+  "conservative": 0.53
+ },
+ "per_model": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "output_token_request_cap_per_call": 16,
+   "input_tokens_conservative": 141528,
+   "output_tokens_ceiling": 5600,
+   "one_attempt_ceiling_usd": 0.044138
+  },
+  "google/gemma-4-31B-it": {
+   "output_token_request_cap_per_call": 4096,
+   "input_tokens_conservative": 141528,
+   "output_tokens_ceiling": 1433600,
+   "one_attempt_ceiling_usd": 1.445788
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "output_token_request_cap_per_call": 16,
+   "input_tokens_conservative": 141528,
+   "output_tokens_ceiling": 5600,
+   "one_attempt_ceiling_usd": 0.153013
+  },
+  "openai/gpt-oss-120b": {
+   "output_token_request_cap_per_call": 4096,
+   "input_tokens_conservative": 141528,
+   "output_tokens_ceiling": 1433600,
+   "one_attempt_ceiling_usd": 0.881389
+  }
+ },
+ "one_attempt_request_ceiling_usd": 2.524329,
+ "three_attempt_request_ceiling_usd": 7.572986,
+ "proposed_hard_cap_usd": 2.53,
+ "cap_semantics": "the runner's reservation ledger halts (resumably) if accounted plus reserved spend would exceed the cap; a cap at the one-attempt ceiling means pathological retry storms halt for reconciliation instead of spending up to the three-attempt ceiling",
+ "status": "estimate only; the cap binds nothing until the owner approves it"
+}
