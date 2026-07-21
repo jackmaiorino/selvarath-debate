@@ -1,0 +1,13 @@
+{
+ "schema_version": "phase2_owner_approval_v1",
+ "approval_id": "checker_selection_bundle_approval_2026-07-21",
+ "approver": "Jack Maiorino",
+ "approved_at_utc": "2026-07-21",
+ "approval_channel": "direct chat, single word 'approved', in response to the enumerated bundle: amendment 6 (seven label overrides + gate changes), hard cap USD 2.53 (expected 0.25-0.53), anchor parser policy",
+ "approves": {
+  "rejudge/phase2_checker_design_amendment6_2026-07-21.json": "a015e58f3d46c15f034537bae6441dcf68181abc121b766dd862cb6d3bdcb7f6",
+  "rejudge/phase2_anchor_parser_policy_2026-07-21.json": "4a0a7c0d03967c61098096e2c944d8620fd02b8554a9f6ab858cebbed157ba22",
+  "hard_spend_cap_usd": 2.53
+ },
+ "note": "Append-only; upgrades amendment 6 and the parser policy from proposed to approved without editing them."
+}

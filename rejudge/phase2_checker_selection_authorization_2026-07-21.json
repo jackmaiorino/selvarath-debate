@@ -1,0 +1,39 @@
+{
+ "schema_version": "phase2_checker_selection_authorization_v1",
+ "authorization_id": "checker_selection_execution_2026-07-21",
+ "execution_authorized": true,
+ "approved_cap_usd": 2.53,
+ "owner_approval": {
+  "path": "rejudge/phase2_checker_selection_owner_approval_2026-07-21.json",
+  "sha256": "7f64097f642001499ce8fff8b3b4e137c7c71b8df37af43396a78967afe7fd4b"
+ },
+ "amendment6_owner_approved": true,
+ "oracle_clearance": {
+  "cleared": true,
+  "basis": "consult #23 (rejudge/phase2_codex_review_2026-07-21_consult23.md) NO-GO conditions all closed: final amendment owner-approved (see owner_approval), fail-closed runner materialized (rejudge/phase2_checker_selection_runner.py), cap replaced with the one-attempt request ceiling, direct owner approval of the cap obtained"
+ },
+ "runner_sha256": "c57804d8043f7492a055759627bc06807d528237a2a8331a5bfb8e773654bfa6",
+ "input_sha256": {
+  "rejudge/phase2_checker_validation_design_2026-07-18.json": "02039a5d70aa5b233757e9cbfa3156da61bdb24ebaf5f9af1e46af89b14ed62c",
+  "rejudge/phase2_checker_primary_set_2026-07-18.json": "6a5cb80e6811f1c53aba70d3cfc18c942781d2a71e2c813990115d3bf3e45cc5",
+  "rejudge/phase2_checker_reserve_pool_2026-07-18.json": "0683a90701b037d699d075e6bb41be0d2334997a821d04f2df8d59976acb8707",
+  "rejudge/phase2_checker_claude_labels_2026-07-20.json": "a466257366f3b8bc8e322176a163e6b07964040951a2a15765f7ac004d6afa05",
+  "rejudge/phase2_checker_reserve_topup_claude_labels_2026-07-21.json": "901bfa8070d09e31d83077a8d596fc41ccb87e1e3e86c00e40fedcda453617fa",
+  "rejudge/phase2_checker_design_amendment6_2026-07-21.json": "a015e58f3d46c15f034537bae6441dcf68181abc121b766dd862cb6d3bdcb7f6"
+ },
+ "ledger": {
+  "path": "rejudge/output/checker_selection_calls.jsonl.usage.jsonl",
+  "ledger_identity": {
+   "schema_version": 1,
+   "ledger_id": "de90ec8e98d84f1cb420c7e0a724da68",
+   "ledger_path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/rejudge/output/checker_selection_calls.jsonl.usage.jsonl",
+   "state_path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/rejudge/output/checker_selection_calls.jsonl.usage.jsonl.state.json"
+  }
+ },
+ "request_parameters": {
+  "temperature": 0,
+  "seed": 0,
+  "max_tokens": 16,
+  "reasoning_floor_note": "api_client silently floors reasoning models to 4096 per frozen v5 role limits"
+ }
+}
