@@ -155,6 +155,53 @@ def validate_authorization() -> dict:
     return auth
 
 
+ROLE_LIMITS_PATH = ROOT / "rejudge" / "phase2_role_limits_v5_2026-07-19.json"
+
+
+def _create_v5_client(*, cap: float, prices: dict, usage_log, error_log: str,
+                      ledger_identity: dict):
+    """Strict accounted client with the frozen v5 transport hardening.
+
+    run_accounting.create_accounted_client does not expose the v5 transport knobs;
+    the 2026-07-21 gemma timeout crash (52 unknown-charge attempts through the
+    plain non-streaming transport) re-confirmed the r2 lesson that reasoning
+    models must run with the v5 pins: streaming, sdk_internal_max_retries=0,
+    explicit HTTP timeouts, a per-call wall-clock ceiling, and halt-on-unknown-
+    charge so any ambiguous charge stops the run for reconciliation instead of
+    silently retrying.
+    """
+    from rejudge.api_client import (
+        _LIVE_ACCOUNTING_FACTORY_TOKEN, RejudgeClient, load_chained_usage_ledger)
+    limits = _load(ROLE_LIMITS_PATH)
+    settings = limits["request_settings"]
+    transport = settings["transport"]
+    snapshot = load_chained_usage_ledger(str(usage_log), expected_identity=ledger_identity)
+    client = RejudgeClient(
+        approved_cap_usd=cap,
+        dry_run=False,
+        error_log_path=error_log,
+        model_prices=prices,
+        strict_model_pricing=True,
+        initial_spend_usd=float(snapshot.summary["actual_spend_usd"]),
+        initial_uncertain_spend_usd=float(snapshot.summary["uncertain_spend_usd"]),
+        usage_log_path=str(usage_log),
+        _ledger_snapshot=snapshot,
+        _accounting_factory_token=_LIVE_ACCOUNTING_FACTORY_TOKEN,
+        max_retries=int(transport["ledger_max_retries"]),
+        halt_on_unknown_charge=True,
+        model_context_limits={m: v["context_length_tokens"]
+                              for m, v in limits["context_ceilings"].items()},
+        strict_context_mode=True,
+        streaming_pinned_models=frozenset(settings["streaming_pinned_models"]),
+        extra_request_fields=settings["per_model_extra_fields"],
+        http_timeout=transport["http_timeout"],
+        sdk_internal_max_retries=int(transport["sdk_internal_max_retries"]),
+        per_call_wall_clock_ceiling_seconds=float(
+            transport["per_call_wall_clock_ceiling_seconds"]),
+    )
+    return client, snapshot.summary
+
+
 def read_completed() -> set[tuple[str, str]]:
     done = set()
     if OUTPUT_PATH.exists():
@@ -186,10 +233,9 @@ def run(dry_run: bool) -> None:
     schedule = run_accounting.load_price_schedule()
     prices = run_accounting.select_model_prices(schedule, pool)
     usage_log = run_accounting.usage_log_path_for(OUTPUT_PATH)
-    client, summary = run_accounting.create_accounted_client(
-        approved_cap_usd=float(auth["approved_cap_usd"]), dry_run=False,
-        model_prices=prices, usage_log_path=usage_log,
-        error_log_path=str(OUTPUT_PATH) + ".errors.jsonl",
+    client, summary = _create_v5_client(
+        cap=float(auth["approved_cap_usd"]), prices=prices, usage_log=usage_log,
+        error_log=str(OUTPUT_PATH) + ".errors.jsonl",
         ledger_identity=auth["ledger"]["ledger_identity"])
     print(f"ledger resumed: {summary}")
 
