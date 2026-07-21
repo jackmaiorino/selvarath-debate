@@ -213,8 +213,8 @@ def run(dry_run: bool) -> None:
             out.flush()
             completed += 1
             if completed % 100 == 0:
-                print(f"{completed}/{len(todo)} done, spent ${client.spent_usd():.4f}")
-    print(f"run complete: {completed} new calls, accounted spend ${client.spent_usd():.4f}")
+                print(f"{completed}/{len(todo)} done, spent ${client.spent_usd:.4f}")
+    print(f"run complete: {completed} new calls, accounted spend ${client.spent_usd:.4f}")
 
 
 def score() -> None:
