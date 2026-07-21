@@ -221,6 +221,9 @@ def run(dry_run: bool) -> None:
     plan = [(m, it) for m in pool for it in items]
     done = read_completed()
     todo = [(m, it) for m, it in plan if (m, it["item_id"]) not in done]
+    # Operational ordering only (temperature-0 independent calls): push models that
+    # are currently timing out provider-side to the back so healthy blocks finish.
+    todo.sort(key=lambda pair: pair[0] == "google/gemma-4-31B-it")
     print(f"plan {len(plan)} calls; {len(done)} already recorded; {len(todo)} to run")
 
     if dry_run:
