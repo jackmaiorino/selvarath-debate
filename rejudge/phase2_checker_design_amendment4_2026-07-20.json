@@ -1,0 +1,24 @@
+{
+  "schema_version": "phase2_checker_design_amendment_v1",
+  "amendment_id": "checker_labeling_revert_to_human_split_2026-07-20",
+  "status": "approved",
+  "amends": {
+    "tracked_path": "rejudge/phase2_checker_validation_design_2026-07-18.json",
+    "amended_provision": "retires amendment checker_labeling_model_proposed_owner_verified_2026-07-20 UNEXECUTED (zero owner labels were produced under it) and reinstates amendment checker_labeling_two_labeler_split_2026-07-19 as the operative labeling procedure"
+  },
+  "amended_to": "Fully human labeling per the two-labeler split: Jack Maiorino labels rejudge/checker_labeling_jack_2026-07-19.html (110 items), Joey Marcellino labels rejudge/checker_labeling_joey_2026-07-19.html (110 items), 20-item overlap labeled by both, no model suggestions shown to either labeler.",
+  "owner_approval": {
+    "approver": "Jack Maiorino",
+    "approved_at_utc": "2026-07-20T00:30:00Z",
+    "approval_channel": "direct chat request ('Ok fine I haven't looked yet. Unlabel them and give me the fresh set')"
+  },
+  "anchoring_exposure_disclosure": {
+    "per_item_labels_viewed_by_owner": false,
+    "owner_attestation": "owner stated in chat he had not looked at the proposal or the verification tool before requesting the revert",
+    "residual_exposure": "the assistant's chat summary disclosed the sealed proposal's aggregate counts (117 allow / 83 reject / 0 unresolved) and the existence of an unresolved-minimum shortfall before the revert; no item-level label, rationale, or item-to-label mapping was disclosed in chat",
+    "handling": "recorded here for the oracle's post-hoc review; the sealed proposal rejudge/phase2_checker_claude_labels_2026-07-20.json and the verification tool rejudge/checker_verification_jack_2026-07-20.html remain in the repository append-only but are QUARANTINED: neither labeler may open either file until both human label exports are complete, after which the sealed proposal may be used post-hoc as a model-vs-human comparison"
+  },
+  "oracle_review": "Codex post-hoc review (on/after 2026-07-24) still covers the amendment-2 split design per that amendment's own terms; amendment 3 no longer requires review as an approval basis since it was retired unexecuted, but this retirement record and the residual-exposure disclosure are included in the review packet",
+  "execution_authorized": false,
+  "note": "Append-only amendment; no prior artifact is rewritten or deleted."
+}
