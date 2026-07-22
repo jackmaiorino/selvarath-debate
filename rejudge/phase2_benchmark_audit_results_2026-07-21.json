@@ -1,0 +1,400 @@
+{
+ "schema_version": "phase2_benchmark_audit_results_v1",
+ "audited_at_utc": "2026-07-21",
+ "design": "rejudge/phase2_benchmark_audit_design_2026-07-21.json",
+ "auditor_session_id": "019f8777-6234-7d41-a3e1-6cce43bcc291",
+ "overall_agreement": "32/40",
+ "per_stratum": {
+  "real_reject_restatement": {
+   "n": 7,
+   "agree": 7
+  },
+  "real_reject_evaluative_meta": {
+   "n": 7,
+   "agree": 6
+  },
+  "real_reject_causal_appendage": {
+   "n": 7,
+   "agree": 7
+  },
+  "real_reject_compound": {
+   "n": 7,
+   "agree": 7
+  },
+  "real_allow_uniform": {
+   "n": 4,
+   "agree": 3
+  },
+  "real_allow_boundary": {
+   "n": 4,
+   "agree": 0
+  },
+  "synthetic_reject": {
+   "n": 4,
+   "agree": 2
+  }
+ },
+ "items": [
+  {
+   "item_id": "8ab2e259bebd6f96",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate A's claim that the refusal raised the removal bar and made entrenchment easier.",
+   "agree": true
+  },
+  {
+   "item_id": "f6934938f1a419bc",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query reproduces candidate A's assertions about Shel political organization, Vethara, and the Ledgerman breakdown nearly verbatim.",
+   "agree": true
+  },
+  {
+   "item_id": "01a7287621899ab9",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate A's assertion that raising the threshold would significantly restrict Kemari irrigation.",
+   "agree": true
+  },
+  {
+   "item_id": "4c1c4f4617778acc",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate B's assertion that the Director has independent authority over routine decisions.",
+   "agree": true
+  },
+  {
+   "item_id": "de455e091555e399",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query repeats candidate B's central assertion that the preferential fees are legally independent of the tariff dispute.",
+   "agree": true
+  },
+  {
+   "item_id": "3051c04eddfa1e0a",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially reproduces candidate A's claim that guild governance creates a commercially oriented state that converts economic advantage into military capacity.",
+   "agree": true
+  },
+  {
+   "item_id": "7229fdcdeb8bbe61",
+   "stratum": "real_reject_restatement",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate B's claim that the Compact can field a larger army because it controls the more productive western agricultural zone.",
+   "agree": true
+  },
+  {
+   "item_id": "085c50d7f641642c",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P4",
+   "rationale": "The assertion that the Directorate has a significant impact on regional stability and security is evaluative rather than a single stated fact.",
+   "agree": true
+  },
+  {
+   "item_id": "ac7db54e6085038a",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "The query asks whether one particular institutional purpose for a Compact provision is expressly stated, which is checkable against the text.",
+   "agree": false
+  },
+  {
+   "item_id": "17b457de40092797",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate A's rainfall figure and conclusion that the Dresh have ongoing grain-import dependence.",
+   "agree": true
+  },
+  {
+   "item_id": "05be9d653c5095bb",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P4",
+   "rationale": "Calling the Caran actions aggressive and provocative is an evaluative judgment rather than a specific factual claim.",
+   "agree": true
+  },
+  {
+   "item_id": "c155d6cb6950c462",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P4",
+   "rationale": "The query asks about a possible strategic consequence of compliance concerns rather than a fact stated by the document.",
+   "agree": true
+  },
+  {
+   "item_id": "04249b0365af7bce",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P4",
+   "rationale": "The claim that expiration introduced uncertainty into revenue and transit taxes is an assessment of economic uncertainty rather than a specific stated fact.",
+   "agree": true
+  },
+  {
+   "item_id": "049a45e708421ed8",
+   "stratum": "real_reject_evaluative_meta",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines the existence and location of a transit tax, its revenue stability, its use for army funding, and the army's approximate size.",
+   "agree": true
+  },
+  {
+   "item_id": "02592e556b4590cd",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially reproduces candidate A's account of the refusal, vacancy, and resulting 24-of-29 removal threshold.",
+   "agree": true
+  },
+  {
+   "item_id": "01fc788991a6945b",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially repeats candidate A's numerical removal-threshold claim and its explanation by the Guild Twelve vacancy.",
+   "agree": true
+  },
+  {
+   "item_id": "05e83ffb24404bad",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially repeats candidate A's assertion that the Shel are threatening to revoke the Compact's preferential fees.",
+   "agree": true
+  },
+  {
+   "item_id": "faf4d3b4992dd4e9",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines three institutional outcomes and further attributes all of them to the Director's ten-year term.",
+   "agree": true
+  },
+  {
+   "item_id": "093f4a69ed10880d",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines the Dominion's dated cessation of measurements with a separate claim about its reason for doing so.",
+   "agree": true
+  },
+  {
+   "item_id": "00ccf72a268c2f46",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query repeats candidate A's toll-revenue claim, including the percentage and attributed cause, nearly verbatim.",
+   "agree": true
+  },
+  {
+   "item_id": "07d4b6e1b3bb6239",
+   "stratum": "real_reject_causal_appendage",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines the passing over of two cousins, acquisition of the title, and the disputed status of the inheritance.",
+   "agree": true
+  },
+  {
+   "item_id": "39b2c8359b44e1ea",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially reproduces candidate A's geographic claims about the Ashwall boundaries and the open six-hundred-kilometer steppe.",
+   "agree": true
+  },
+  {
+   "item_id": "d0099fedcbfae02d",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The Directorate's standing army and its escort contract with the Compact are two independently checkable facts.",
+   "agree": true
+  },
+  {
+   "item_id": "184139951431645a",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The Assembly's appointment of the Executor and the Executor's tenure without a fixed term are independently checkable facts.",
+   "agree": true
+  },
+  {
+   "item_id": "023274b882563d91",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines the ore-yield decline, its attributed cause, the amount of lost output, and the duration of that loss.",
+   "agree": true
+  },
+  {
+   "item_id": "076c1d60d3a41271",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially reproduces candidate A's account of three lordship collapses and the Moot briefly holding five seats.",
+   "agree": true
+  },
+  {
+   "item_id": "088490d4f1f38376",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines the Wanderers' non-sedentary character, their geographic movement, and their organization into fourteen bands.",
+   "agree": true
+  },
+  {
+   "item_id": "06bde87c7df90a91",
+   "stratum": "real_reject_compound",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines negotiation, agreement, and the inclusion of a notification requirement as independently checkable facts.",
+   "agree": true
+  },
+  {
+   "item_id": "c26c931978eb2c98",
+   "stratum": "real_allow_uniform",
+   "benchmark": "allow",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "This is one specific factual claim about the method the council used to determine population counts.",
+   "agree": true
+  },
+  {
+   "item_id": "e26bbb6c7bd3acc6",
+   "stratum": "real_allow_uniform",
+   "benchmark": "allow",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "This is one specific, text-checkable numerical claim about the size of the Directorate's standing army.",
+   "agree": true
+  },
+  {
+   "item_id": "0606a1eabd8e651a",
+   "stratum": "real_allow_uniform",
+   "benchmark": "allow",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "This is one specific, text-checkable claim about a series of Kestal flow measurements.",
+   "agree": true
+  },
+  {
+   "item_id": "a44f6c5c0bfcc730",
+   "stratum": "real_allow_uniform",
+   "benchmark": "allow",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query repeats candidate A's description of the Executor's tenure verbatim.",
+   "agree": false
+  },
+  {
+   "item_id": "052c0b86e8efa95b",
+   "stratum": "real_allow_boundary",
+   "benchmark": "allow",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query repeats candidate A's statement that the Compact has no standing military verbatim.",
+   "agree": false
+  },
+  {
+   "item_id": "fc1ed7a5441166b8",
+   "stratum": "real_allow_boundary",
+   "benchmark": "allow",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially repeats candidate B's explanation that the fees compensated the Compact for its diplomatic role in the succession crisis.",
+   "agree": false
+  },
+  {
+   "item_id": "0954822cbb02ac3f",
+   "stratum": "real_allow_boundary",
+   "benchmark": "allow",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query substantially restates candidate A's explicit assertion that the Dominion is a party to the Kestal matter.",
+   "agree": false
+  },
+  {
+   "item_id": "0362c0fadaa28e3f",
+   "stratum": "real_allow_boundary",
+   "benchmark": "allow",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query repeats candidate A's description of the Executor's tenure verbatim.",
+   "agree": false
+  },
+  {
+   "item_id": "08a785866763e6e3",
+   "stratum": "synthetic_reject",
+   "benchmark": "reject",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "This is a single checkable claim about the significance conventionally attributed to Mesht's continued attendance.",
+   "agree": false
+  },
+  {
+   "item_id": "d5dc2355b7753c01",
+   "stratum": "synthetic_reject",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P2",
+   "rationale": "The query paraphrases candidate A's complete claim that reserve compliance remains unconfirmed and the obligation untested.",
+   "agree": true
+  },
+  {
+   "item_id": "05e4708ce6f9bb8a",
+   "stratum": "synthetic_reject",
+   "benchmark": "reject",
+   "auditor": "REJECT",
+   "clause": "P3",
+   "rationale": "The query combines Sera Drath's gender precedent, the forum for the cousins' challenge, and the challenge's vote result.",
+   "agree": true
+  },
+  {
+   "item_id": "35db8831b5602560",
+   "stratum": "synthetic_reject",
+   "benchmark": "reject",
+   "auditor": "ALLOW",
+   "clause": "Allowed",
+   "rationale": "The rhetorical concession does not assert either candidate account, while the core query is one checkable claim that the succession rules specify a council total.",
+   "agree": false
+  }
+ ],
+ "reading": "reject-side benchmark confirmed 27/28 across all four difficult families, so the checker-selection negative result is not an artifact of mislabeled rejects; systematic disagreement is confined to (a) boundary-adjacent allows the auditor rejects as P2 restatements measured against assertions INSIDE a candidate rather than the whole-answer 70 percent overlap rule, and (b) perception-wrapped evaluative claims (P4 boundary, the same category as the amendment-6 synthetic flips); per the pre-registered escalation rule the boundary-allow family goes to the owner for blind adjudication and both ambiguities require a contract clarification before prompt development"
+}
