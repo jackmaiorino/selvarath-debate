@@ -1,0 +1,26 @@
+{
+ "schema_version": "phase2_standing_delegation_v1",
+ "delegation_id": "checker_prompt_dev_delegation_2026-07-21",
+ "status": "active",
+ "granted_by": "Jack Maiorino",
+ "granted_at_utc": "2026-07-21",
+ "channel": "direct chat: 'yes, I don't need you to check in so frequently, you are free to make decisions just document them. Check in with me when results land and we can interpret them' (in response to the amendment-7 development plan and its <=USD 8 spend line item)",
+ "scope": {
+  "approves": [
+   "checker prompt development on DEV-350 under amendment 7's pre-declared constraints (<=8 prompt variants, <=10 DEV-350 evaluation runs, few-shot from DEV-350 only, unified codebook frozen)",
+   "spend cap USD 8.00 for the development phase, enforced by the chained ledger",
+   "in-phase operational decisions (transport fixes, resumes, run ordering, which candidate models to spend dev runs on), documented append-only without per-decision check-ins",
+   "drafting (not running) the non-query canary pre-registration per Codex #24"
+  ],
+  "excludes": [
+   "any spend beyond the USD 8 development cap",
+   "the holdout validation run (fresh spend ask + fresh holdout artifacts, presented with development results)",
+   "running any canary condition",
+   "changes to gates, labels, scoring rules, or the amendment-7 constraints themselves",
+   "next-phase or science-changing decisions"
+  ],
+  "check_in_rule": "report when development results land (a variant passes gates on DEV-350, or the variant/run budget is exhausted) for joint interpretation; all interim decisions documented in the variant log"
+ },
+ "execution_note": "development runs use the frozen selection-run infrastructure (strict prices, chained ledger, v5 transport pins) with a fresh ledger scoped to this USD 8 cap",
+ "note": "Append-only record."
+}
