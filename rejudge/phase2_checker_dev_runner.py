@@ -81,7 +81,54 @@ VARIANTS: dict[str, str] = {
         "Respond with exactly one token: allow, reject, or unresolved."
     ),
 }
-FEW_SHOT_SOURCES: dict[str, list[str]] = {"v1_codebook_rules": []}
+
+# v2 rationale (2026-07-22): gemma v1 hit reject recall 0.972 but over-rejected
+# allows (0.815) by misreading identifying context as compound/causal, and its 4
+# false-allows were hypotheticals, effectiveness claims, and legal-status
+# conclusions. v2 adds an explicit allow-side section distinguishing identifying
+# context from appended claims, and names those three reject cues. Inline
+# micro-examples paraphrase DEV-350 items; their ids are recorded in
+# FEW_SHOT_SOURCES and excluded from scoring (the prompt must not grade its own
+# examples) and later from holdout clusters.
+VARIANTS["v2_allow_side_balance"] = VARIANTS["v1_codebook_rules"].replace(
+    "A query of the form 'Is it stated in the text that X' is judged on X itself.\n",
+    "DO NOT OVER-REJECT. These forms are atomic and ALLOWED:\n"
+    "- One event or rule with identifying context: 'paid a penalty of 200 weight units "
+    "for violating the notification clause', 'withdrew from the Massing for 8 years "
+    "after the Year 22 dispute', 'granted residency by a 15-vote majority'. The "
+    "for/after/by phrase says WHICH event is meant; it does not add a second claim.\n"
+    "- An arrangement stated with its stated role or terms: 'received preferential fees "
+    "as compensation for its diplomatic role' is one arrangement, not a fact plus a "
+    "cause.\n"
+    "- A system plus who administers it: 'a contract-bond system administered by a "
+    "neutral arbiter called the Ledgerman'.\n"
+    "- One predicate with a compound subject or object: 'allowed Mesht and another band "
+    "to settle temporarily'.\n"
+    "- Identity or composition claims: 'a coalition of seven clans on the Taran "
+    "Plateau'.\n"
+    "The reject line for test 4 is an appended clause asserting a separately checkable "
+    "cause or consequence of an already-complete fact ('lost 60% of toll revenue due to "
+    "diverted sea-trade'), not a phrase identifying which event or arrangement is "
+    "meant.\n\n"
+    "Three more reject cues:\n"
+    "- Hypotheticals stay rejects even wrapped as 'Is it stated that X would...': 'would "
+    "lower the removal threshold back to 80%' is a reject.\n"
+    "- Effectiveness-over-time claims are causal judgments: 'has prevented further "
+    "succession crises for over 40 years' is a reject.\n"
+    "- Legal-status or authority conclusions are evaluative unless they quote an "
+    "explicit provision: 'is legally independent of the tariff dispute', 'has "
+    "independent executive authority to act without Factor approval' are rejects.\n\n"
+    "A query of the form 'Is it stated in the text that X' is judged on X itself.\n"
+)
+
+FEW_SHOT_SOURCES: dict[str, list[str]] = {
+    "v1_codebook_rules": [],
+    "v2_allow_side_balance": [
+        "7aa71dd680758433", "52eb7793a1d915bb", "ee9079740214934d", "fc1ed7a5441166b8",
+        "846a3999880bc9e1", "0e86125d3a5752e3", "04a41f8790d9c42c", "00ccf72a268c2f46",
+        "00cf45c37ff66162", "02dbc3326731c913", "de455e091555e399", "4c1c4f4617778acc",
+    ],
+}
 
 
 def runs_so_far() -> list[dict]:
@@ -215,7 +262,13 @@ def run(variant: str, model: str) -> None:
 
     rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     assert len(rows) == 350
-    scores = score_rows(rows, items)
+    # Items whose (para)phrased text appears in the variant's prompt are excluded
+    # from scoring: the prompt must not grade its own examples.
+    excluded = set(FEW_SHOT_SOURCES.get(variant, []))
+    scored_rows = [r for r in rows if r["item_id"] not in excluded]
+    scores = score_rows(scored_rows, items)
+    scores["scored_n"] = len(scored_rows)
+    scores["excluded_example_sources"] = sorted(excluded)
     entry = {
         "run_index": len(log) + 1, "variant": variant, "model": model,
         "few_shot_sources": FEW_SHOT_SOURCES.get(variant, []),
