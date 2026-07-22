@@ -156,24 +156,54 @@ def run(variant: str, model: str) -> None:
     schedule = run_accounting.load_price_schedule()
     prices = run_accounting.select_model_prices(schedule, [model])
     usage_log = run_accounting.usage_log_path_for(DEV_LEDGER_BASE)
-    identity = run_accounting.prepare_usage_ledger(usage_log, allow_create=True)
-    client, summary = _create_v5_client(
-        cap=CAP_USD, prices=prices, usage_log=usage_log,
-        error_log=str(DEV_LEDGER_BASE) + ".errors.jsonl", ledger_identity=identity)
-    print(f"dev ledger: {summary}")
+    identity_path = usage_log.with_name(usage_log.name + ".identity.json")
+    if identity_path.exists():
+        identity = json.loads(identity_path.read_text(encoding="utf-8"))
+    else:
+        identity = run_accounting.prepare_usage_ledger(usage_log, allow_create=True)
+        identity_path.write_text(json.dumps(identity, indent=1), encoding="utf-8")
+
+    def fresh_client():
+        client, summary = _create_v5_client(
+            cap=CAP_USD, prices=prices, usage_log=usage_log,
+            error_log=str(DEV_LEDGER_BASE) + ".errors.jsonl", ledger_identity=identity)
+        print(f"dev ledger: {summary}")
+        return client
+
+    from rejudge.api_client import UnknownChargeHalt
+    client = fresh_client()
 
     with path.open("a", encoding="utf-8") as out:
         for i, item in enumerate(todo, 1):
             user = prompt["user_prompt_template"].format(
                 candidate_a=item["candidate_a"], candidate_b=item["candidate_b"],
                 query=item["raw_query"])
-            raw = client.complete(
-                [{"role": "system", "content": system},
-                 {"role": "user", "content": user}],
-                model=model, temperature=0, seed=SEED, max_tokens=MAX_TOKENS,
-                kind="verdict",
-                request_metadata={"run": "checker_dev", "variant": variant,
-                                  "item_id": item["item_id"]})
+            messages = [{"role": "system", "content": system},
+                        {"role": "user", "content": user}]
+            raw = None
+            # Bounded per-item recovery: a 429 carries no charge and a timeout is
+            # conservatively booked by the ledger; either way the halt latches the
+            # client, so rebuild it (which re-reconciles the ledger) and retry with
+            # growing pauses. Six failures on one item abort the run.
+            for attempt in range(6):
+                try:
+                    raw = client.complete(
+                        messages, model=model, temperature=0, seed=SEED,
+                        max_tokens=MAX_TOKENS, kind="verdict",
+                        request_metadata={"run": "checker_dev", "variant": variant,
+                                          "item_id": item["item_id"]})
+                    break
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as exc:  # noqa: BLE001 - overnight autonomy; bounded + logged
+                    wait = min(30 * (2 ** attempt), 480)
+                    print(f"{type(exc).__name__} on {item['item_id']} attempt {attempt}: "
+                          f"{exc}; rebuilding client, pausing {wait}s")
+                    import time as _time
+                    _time.sleep(wait)
+                    client = fresh_client()
+            if raw is None:
+                raise SystemExit(f"item {item['item_id']} failed 6 recovery attempts; aborting")
             out.write(json.dumps({
                 "variant": variant, "model": model, "item_id": item["item_id"],
                 "label": item["label"], "raw": raw,
