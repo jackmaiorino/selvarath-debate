@@ -1,0 +1,185 @@
+{
+ "schema_version": "phase2_benchmark_audit_design_v1",
+ "designed_at_utc": "2026-07-21",
+ "per": "Codex consult #24 (rejudge/phase2_codex_review_2026-07-21_consult24.md), benchmark-audit section",
+ "purpose": "defect-discovery audit of the adopted 350-item label benchmark before any checker prompt iteration or gate discussion; NOT a precise error-rate estimate",
+ "auditor": {
+  "kind": "cross-family LLM (fresh one-shot GPT-5.6 Codex session), shown ONLY the frozen contract text and the 40 items (query + both candidates); never shown the operative labels, the labeler's codebook, family annotations, or model outputs",
+  "human_audit_waiver": "the owner declined to perform the human audit personally ('Im fine have you review them still', 2026-07-21 chat); a self-audit by the labeler model would be circular and was NOT performed; this cross-family audit is recorded as WEAKER than the human audit Codex #24 specified",
+  "escalation_rule": "if any single family shows systematic disagreement (>=3 of 7 items where the auditor confidently assigns the opposite binary label), that family's disputed items go to the owner for blind adjudication before any prompt-iteration amendment; scattered single disagreements are reported but do not auto-trigger relabeling"
+ },
+ "seed": 0,
+ "selection": "random.Random(0).sample over ascending item_id within each stratum, strata drawn in the fixed order listed; presentation order is a seeded shuffle of the union",
+ "family_assignment_rule": {
+  "restatement": [
+   "restat",
+   "mirrors",
+   "reproduces"
+  ],
+  "evaluative_meta": [
+   "evaluat",
+   "judgment",
+   "inferen",
+   "hypothetical",
+   "perception",
+   "'would",
+   "threatens",
+   "demonstrat",
+   "necessity",
+   "normative",
+   "purpose claim",
+   "characterization",
+   "speculation",
+   "intent",
+   "interpretation"
+  ],
+  "causal_appendage": [
+   "causal",
+   "motive",
+   "citing",
+   "due to",
+   "response to"
+  ],
+  "compound": [
+   "joined",
+   "joins",
+   "compound",
+   "chain",
+   "disjunctive",
+   "two-clause",
+   "scope",
+   "including",
+   "'and'",
+   "predicates",
+   "appended"
+  ]
+ },
+ "strata": {
+  "real_reject_restatement": {
+   "pool": 11,
+   "picked": [
+    "8ab2e259bebd6f96",
+    "f6934938f1a419bc",
+    "01a7287621899ab9",
+    "4c1c4f4617778acc",
+    "de455e091555e399",
+    "3051c04eddfa1e0a",
+    "7229fdcdeb8bbe61"
+   ]
+  },
+  "real_reject_evaluative_meta": {
+   "pool": 37,
+   "picked": [
+    "085c50d7f641642c",
+    "ac7db54e6085038a",
+    "17b457de40092797",
+    "05be9d653c5095bb",
+    "c155d6cb6950c462",
+    "04249b0365af7bce",
+    "049a45e708421ed8"
+   ]
+  },
+  "real_reject_causal_appendage": {
+   "pool": 11,
+   "picked": [
+    "02592e556b4590cd",
+    "01fc788991a6945b",
+    "05e83ffb24404bad",
+    "faf4d3b4992dd4e9",
+    "093f4a69ed10880d",
+    "00ccf72a268c2f46",
+    "07d4b6e1b3bb6239"
+   ]
+  },
+  "real_reject_compound": {
+   "pool": 65,
+   "picked": [
+    "39b2c8359b44e1ea",
+    "d0099fedcbfae02d",
+    "184139951431645a",
+    "023274b882563d91",
+    "076c1d60d3a41271",
+    "088490d4f1f38376",
+    "06bde87c7df90a91"
+   ]
+  },
+  "real_allow_uniform": {
+   "pool": 172,
+   "picked": [
+    "c26c931978eb2c98",
+    "e26bbb6c7bd3acc6",
+    "0606a1eabd8e651a",
+    "a44f6c5c0bfcc730"
+   ]
+  },
+  "real_allow_boundary": {
+   "pool": 14,
+   "picked": [
+    "052c0b86e8efa95b",
+    "fc1ed7a5441166b8",
+    "0954822cbb02ac3f",
+    "0362c0fadaa28e3f"
+   ]
+  },
+  "synthetic_reject": {
+   "pool": 21,
+   "picked": [
+    "08a785866763e6e3",
+    "d5dc2355b7753c01",
+    "05e4708ce6f9bb8a",
+    "35db8831b5602560"
+   ]
+  }
+ },
+ "presentation_order": [
+  "f6934938f1a419bc",
+  "7229fdcdeb8bbe61",
+  "049a45e708421ed8",
+  "184139951431645a",
+  "c155d6cb6950c462",
+  "d0099fedcbfae02d",
+  "05e4708ce6f9bb8a",
+  "0606a1eabd8e651a",
+  "c26c931978eb2c98",
+  "052c0b86e8efa95b",
+  "08a785866763e6e3",
+  "0954822cbb02ac3f",
+  "06bde87c7df90a91",
+  "3051c04eddfa1e0a",
+  "ac7db54e6085038a",
+  "00ccf72a268c2f46",
+  "093f4a69ed10880d",
+  "088490d4f1f38376",
+  "17b457de40092797",
+  "4c1c4f4617778acc",
+  "0362c0fadaa28e3f",
+  "05e83ffb24404bad",
+  "05be9d653c5095bb",
+  "023274b882563d91",
+  "01a7287621899ab9",
+  "d5dc2355b7753c01",
+  "faf4d3b4992dd4e9",
+  "e26bbb6c7bd3acc6",
+  "fc1ed7a5441166b8",
+  "35db8831b5602560",
+  "085c50d7f641642c",
+  "02592e556b4590cd",
+  "04249b0365af7bce",
+  "de455e091555e399",
+  "07d4b6e1b3bb6239",
+  "01fc788991a6945b",
+  "39b2c8359b44e1ea",
+  "a44f6c5c0bfcc730",
+  "8ab2e259bebd6f96",
+  "076c1d60d3a41271"
+ ],
+ "benchmark_hashes": {
+  "rejudge/phase2_checker_validation_design_2026-07-18.json": "02039a5d70aa5b233757e9cbfa3156da61bdb24ebaf5f9af1e46af89b14ed62c",
+  "rejudge/phase2_checker_primary_set_2026-07-18.json": "6a5cb80e6811f1c53aba70d3cfc18c942781d2a71e2c813990115d3bf3e45cc5",
+  "rejudge/phase2_checker_reserve_pool_2026-07-18.json": "0683a90701b037d699d075e6bb41be0d2334997a821d04f2df8d59976acb8707",
+  "rejudge/phase2_checker_claude_labels_2026-07-20.json": "a466257366f3b8bc8e322176a163e6b07964040951a2a15765f7ac004d6afa05",
+  "rejudge/phase2_checker_reserve_topup_claude_labels_2026-07-21.json": "901bfa8070d09e31d83077a8d596fc41ccb87e1e3e86c00e40fedcda453617fa",
+  "rejudge/phase2_checker_design_amendment6_2026-07-21.json": "a015e58f3d46c15f034537bae6441dcf68181abc121b766dd862cb6d3bdcb7f6"
+ },
+ "note": "Committed BEFORE the auditor ran; the operative labels for the sampled items are withheld from this artifact so the audit stays blind even via the repo."
+}
