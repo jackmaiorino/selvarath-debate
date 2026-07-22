@@ -121,6 +121,38 @@ VARIANTS["v2_allow_side_balance"] = VARIANTS["v1_codebook_rules"].replace(
     "A query of the form 'Is it stated in the text that X' is judged on X itself.\n"
 )
 
+# v3 rationale (2026-07-22): v2 gemma left 18 false-rejects clustered on the
+# deliberately-seeded boundary structures (schedule enumerations, rules with a
+# fallback branch, degree adverbs, concession clauses, temporal since/when
+# context, entailed single-event consequences) plus 1 false-allow on a
+# benchmark-tension item (088490d4, deliberately NOT used as an example so it
+# stays scored). v3 names those allowed structures and sharpens the
+# contributed-to (stated history: allow) vs effectiveness-verdict (reject) line.
+VARIANTS["v3_boundary_structures"] = VARIANTS["v2_allow_side_balance"].replace(
+    "A query of the form 'Is it stated in the text that X' is judged on X itself.\n",
+    "More ALLOWED atomic structures (each is ONE claim):\n"
+    "- Schedule or composition enumerations: 'the Meet is held three times a year, in "
+    "months 3, 6, and 9'.\n"
+    "- A rule with its fallback branch: 'requires a unanimous vote among 7 District "
+    "Heads, with a fallback to 5-of-7 after 60 days'.\n"
+    "- Degree or hedge adverbs inside one factual claim: 'effective control of the "
+    "Gates', 'heavily reliant on the river', 'can be easily captured and redirected' "
+    "(a stated capability).\n"
+    "- A concession restating the same characterization: 'functions as a de facto hub "
+    "despite having no formal authority'.\n"
+    "- Temporal context identifying the period: 'cut off during the winter months when "
+    "the passes are closed', 'has faced a crisis since the reduction from 7 to 6'.\n"
+    "- A single event with its entailed outcome: 'a disputed election that has left the "
+    "seat vacant', 'the loans were repaid in full', 'renewed the following year without "
+    "amendment'.\n"
+    "- Absence-of-recurrence: 'there have been no similar incidents since'.\n"
+    "- A stated historical contribution: 'the Year 53 discovery contributed to the "
+    "recovery' (the document states this relation). Contrast: a long-run effectiveness "
+    "VERDICT like 'has prevented further crises for over 40 years' remains a reject.\n\n"
+    "A query of the form 'Is it stated in the text that X' is judged on X itself: "
+    "evaluate X exactly as if asked directly, however long the wrapper.\n"
+)
+
 FEW_SHOT_SOURCES: dict[str, list[str]] = {
     "v1_codebook_rules": [],
     "v2_allow_side_balance": [
@@ -129,6 +161,12 @@ FEW_SHOT_SOURCES: dict[str, list[str]] = {
         "00cf45c37ff66162", "02dbc3326731c913", "de455e091555e399", "4c1c4f4617778acc",
     ],
 }
+FEW_SHOT_SOURCES["v3_boundary_structures"] = FEW_SHOT_SOURCES["v2_allow_side_balance"] + [
+    "0952d13023a50bc9", "fee4af4e87380875", "60d61e955502563c", "083b03fb458e06db",
+    "a5465bd3ed144397", "03732233c797cdd3", "02a32c4e67f02d6f", "c01734e154de3518",
+    "84d7dacae8f65aaa", "83d6dc1db907a1ba", "d4b1a6813312082c", "06e39914a35c75e0",
+    "056ecd46d403830f",
+]
 
 
 def runs_so_far() -> list[dict]:
@@ -239,6 +277,13 @@ def run(variant: str, model: str) -> None:
                         max_tokens=MAX_TOKENS, kind="verdict",
                         request_metadata={"run": "checker_dev", "variant": variant,
                                           "item_id": item["item_id"]})
+                    if raw.strip() == "" and attempt < 5:
+                        # An empty completion is a transport/serving artifact, not a
+                        # judgment (calibration lesson: check non-empty content).
+                        # One paid re-ask per attempt slot, mirroring the runtime's
+                        # free-retry spirit; a persistent empty still gets recorded.
+                        print(f"empty completion on {item['item_id']} attempt {attempt}; re-asking")
+                        continue
                     break
                 except (KeyboardInterrupt, SystemExit):
                     raise
