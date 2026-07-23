@@ -256,9 +256,10 @@ def runs_so_far() -> list[dict]:
             if l.strip()]
 
 
-def out_path(variant: str, model: str) -> Path:
+def out_path(variant: str, model: str, replicate: int = 1) -> Path:
     slug = model.replace("/", "_")
-    return OUT_DIR / f"checker_dev_{variant}_{slug}.jsonl"
+    suffix = "" if replicate == 1 else f"_r{replicate}"
+    return OUT_DIR / f"checker_dev_{variant}_{slug}{suffix}.jsonl"
 
 
 def score_rows(rows: list[dict], items: dict[str, dict]) -> dict:
@@ -293,7 +294,7 @@ def score_rows(rows: list[dict], items: dict[str, dict]) -> dict:
     }
 
 
-def run(variant: str, model: str) -> None:
+def run(variant: str, model: str, replicate: int = 1) -> None:
     if variant not in VARIANTS:
         raise SystemExit(f"unknown variant {variant!r}")
     log = runs_so_far()
@@ -310,7 +311,7 @@ def run(variant: str, model: str) -> None:
     prompt = design["candidate_models"]["checker_prompt"]
     system = VARIANTS[variant]
 
-    path = out_path(variant, model)
+    path = out_path(variant, model, replicate)
     done = set()
     if path.exists():
         with path.open(encoding="utf-8") as fh:
@@ -396,6 +397,7 @@ def run(variant: str, model: str) -> None:
     scores["excluded_example_sources"] = sorted(excluded)
     entry = {
         "run_index": len(log) + 1, "variant": variant, "model": model,
+        "replicate": replicate,
         "few_shot_sources": FEW_SHOT_SOURCES.get(variant, []),
         "input_sha256": input_hashes(), "scores": scores,
         "accounted_spend_usd_after_run": client.spent_usd,
@@ -409,8 +411,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", required=True)
     ap.add_argument("--model", required=True)
+    ap.add_argument("--replicate", type=int, default=1)
     args = ap.parse_args()
-    run(args.variant, args.model)
+    run(args.variant, args.model, replicate=args.replicate)
 
 
 if __name__ == "__main__":
