@@ -229,6 +229,25 @@ VARIANTS["v5_low_leak_allows"] = VARIANTS["v4_merged"].replace(
 )
 FEW_SHOT_SOURCES["v5_low_leak_allows"] = list(FEW_SHOT_SOURCES["v4_merged"])
 
+# v6 rationale (2026-07-22, per Codex consult #25): under the operative labels
+# (no relabeling; #25 held the two identity-count items are NOT twins), the
+# target configuration is v4's zero-false-allow reject side plus v5's allow
+# recovery WITHOUT the drift that flipped the behavioral-count item. v6 adds
+# the constitutive-vs-behavioral count rule #25 articulated, stated generally
+# with INVENTED examples. Precommitment: one run on gemma-4-31B; if it passes
+# every gate it is frozen immediately; remaining budget is reserved for a
+# stability replication, not further label-responsive tuning.
+VARIANTS["v6_constitutive_counts"] = VARIANTS["v5_low_leak_allows"].replace(
+    "ANTI-LEAK:",
+    "COUNTS: a count that is a constitutive complement of an identity noun is part of "
+    "ONE claim: 'a federation of five cities on the coast' is atomic. A count attached "
+    "to an independent behavioral or state proposition joins TWO claims: 'the traders "
+    "are nomadic and travel the coast in five caravans' asserts a way of life AND a "
+    "unit count; reject it.\n\n"
+    "ANTI-LEAK:"
+)
+FEW_SHOT_SOURCES["v6_constitutive_counts"] = list(FEW_SHOT_SOURCES["v4_merged"])
+
 
 def runs_so_far() -> list[dict]:
     if not VARIANT_LOG.exists():
