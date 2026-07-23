@@ -1,0 +1,29 @@
+{
+ "schema_version": "phase2_checker_dev_closeout_v1",
+ "closed_at_utc": "2026-07-23",
+ "budget_status": "EXHAUSTED as pre-declared: 10 of 10 runs used (6 of 8 variants), accounted dev spend USD 4.4186 of the 8.00 cap; closure per amendment 7 and the consult #25 precommitment (no label-responsive tuning after v6)",
+ "development_record": "rejudge/phase2_checker_dev_variant_log.jsonl (all 10 runs); fixed-core cross-variant scores in rejudge/phase2_checker_dev_fixed_core_scores_2026-07-22.json",
+ "headline": "prompt development took gemma-4-31B from useless (reject recall 0.63, 54 false-allows under the frozen one-line prompt) to the gate boundary (v4: allow 0.937-0.957 by denominator, reject 0.979-1.000, false-allows 0-3 per run); no configuration met every frozen gate stably",
+ "stability_finding": {
+  "method": "three full v4 replicates at temperature 0, seed 0, identical bytes",
+  "result": "10 of 350 items flip verdicts across replicates (7 labeled allow, 3 labeled reject); per-replicate false-allows 0 / 1 / 3; majority-of-three still leaves 1 false-allow (1792ed27efb65aa2, allowed in 2 of 3 runs)",
+  "interpretation": "the provider endpoint is not deterministic at temperature 0; observed zero-false-allows in any single run is a sample property, not a stable configuration property; the best configuration's residual per-run false-allow rate is roughly 1 in 145 (point ~0.7%, small-sample upper bound a few percent), concentrated in 2-3 boundary structures (jurisdiction-scope joins, causal joins) plus stochastic flips"
+ },
+ "frozen_configuration_proposal": {
+  "status": "PROPOSED - awaiting owner ratification at the close-out check-in",
+  "variant": "v4_merged",
+  "model": "google/gemma-4-31B-it",
+  "prompt_sha256_of_variant_string": "computed at ratification from rejudge/phase2_checker_dev_runner.py VARIANTS['v4_merged']",
+  "runner_git_blob": "e9ae59fa05b74c9177cf9fb3e5e74dc9ca135e62",
+  "parser": "strict exact lower-case single token; empty completion gets one paid re-ask (transport artifact rule)",
+  "transport": "v5 pins (streaming for reasoning models, sdk_internal_max_retries=0, http timeouts, halt_on_unknown_charge)",
+  "selection_basis": "only configuration with zero false-allows on both scoring denominators in its first run and reject recall 0.979-1.000 across all three replicates; v5/v6 traded single false-allows for allow recall"
+ },
+ "owner_decision_menu": {
+  "a_freeze_and_holdout": "ratify the v4 freeze and run the consult #25 holdout (fresh cluster-separated records, ~412 candidates for >=149 rejects at 95% confidence, labels sealed before outputs, one run, retry-inclusive protocol scored; estimated provider cost under USD 1.50, labeling is assistant labor); the holdout verdict then reports observed rates with replicate-aware language rather than claiming deterministic zero",
+  "b_human_gate": "drop the LLM checker for phase 2: mechanical screen plus 100% human approval of every allowed or unresolved query (consult #24's fallback); zero model risk, real Jack/Joey workload per run",
+  "c_gate_amendment": "amend the zero-false-allow gate to an explicit rate bound with mandatory human audit of allows (requires a new oracle consult; #24 warned against relaxation as a rescue and required the operational control to change if the threshold does)",
+  "recommendation": "a, with the runtime protections already in the frozen protocol (mechanical screen first, one free retry, unresolved halts, human audit sampling) stated as the layered defense; b remains the fallback if the holdout fails"
+ },
+ "note": "Append-only. The dev ledger, outputs, and variant log are the complete audit trail; no labels were changed at any point during development."
+}
