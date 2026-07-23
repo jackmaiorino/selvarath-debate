@@ -1,0 +1,37 @@
+{
+ "schema_version": "phase2_canary_manifest_proposal_v1",
+ "proposed_at_utc": "2026-07-23",
+ "status": "proposed_awaiting_owner_scope_selection_and_budget_approval",
+ "basis": {
+  "protocol": "rejudge/phase2_protocol.json (frozen 945-cell canary; launch gates unchanged)",
+  "cells": "rejudge.phase2_plan.enumerate_canary_cells: 50 transcript cells (48 uncapped + 2 capped150), 672 debate judgments, 216 no-debate judgments, 7 special cells (cap-protection, empty-evidence, full-document); decomposition by condition: b0 456, sequential_b2 96, batch_same_qa_b2 96, placebo_b2 168, clean_b2 72, specials 57",
+  "governance": "rejudge/phase2_canary_checker_governance_2026-07-23.json (ratified): dual-key dispatch on query-producing arms; Jack = blind primary reviewer, Joey = adjudicator; frozen checker per rejudge/phase2_checker_frozen_config_2026-07-23.json",
+  "cost_model": "rejudge/phase2_cost_model.json frozen canary band USD 15-35 for 2,203 provider calls, plus ~672 checker calls (gemma, ~USD 1) not in the original band"
+ },
+ "review_volume_correction": "the frozen call model fixes query-generation calls at 672 (sequential 192, clean no-debate 144, placebo 336) plus one free retry per rejected slot; the blind review queue is therefore ~672-850 raw queries, roughly 2.5-3.5 hours of batched labeling, NOT the 'few dozen' earlier estimated in chat; only the 336 clean-mode queries can reach the oracle, but placebo queries must be reviewed identically or the placebo control's turn structure diverges from clean (the comparison the experiment exists to make)",
+ "scope_options": {
+  "A_full_canary": {
+   "cells": 945,
+   "provider_cost_band_usd": {"minimum": 16, "maximum": 36, "proposed_hard_cap": 40},
+   "owner_labor": "~700-850 blind query labels in stage batches (canary pauses at each oracle gate; est. 2.5-3.5 hours total across sittings)",
+   "yields": "all four frozen launch gates evaluable; full dual-key validation data (up to 24 live question clusters toward the autonomy quota); main run unblocked if gates pass",
+   "recommended_if": "the owner can commit the labeling hours within roughly a week of calendar"
+  },
+  "B_gates_first": {
+   "cells": 513,
+   "composition": "transcripts 50 + b0 456 + specials 7; every query-producing arm (sequential/batch/placebo/clean_b2 = 432 cells) deferred to a separately manifested supplement",
+   "provider_cost_band_usd": {"minimum": 8, "maximum": 20, "proposed_hard_cap": 25},
+   "owner_labor": "zero labeling now",
+   "yields": "INVALID and side-bias launch gates evaluable now; the frozen completion gate (all 945) remains unmet until the supplement runs, so the MAIN RUN STAYS BLOCKED; validation data deferred",
+   "recommended_if": "labeling time is the binding constraint; de-risks transcripts/judges early at the cost of a second approval cycle"
+  },
+  "A_prime_split_queue": {
+   "note": "scope A with the review queue split between two named co-reviewers (e.g. Jack + Joey, disjoint random halves, one blind reviewer per query, reviewer identity logged and reported as a stratification); REQUIRES a small governance amendment and an oracle consult sign-off before adoption since #26 specified a single named primary reviewer"
+  }
+ },
+ "runtime_workflow_all_scopes": "stage-sequenced execution: transcripts -> b0/no-debate blocks -> (scope A) query arms run to each oracle gate and HALT; raw queries accumulate into a blind review batch (query + candidates + contract only, order shuffled, no checker verdicts, no arm identity); owner labels via a phone tool; runner resumes applying dual-key dispatch; checker_false_allow_intercepts logged; all raw candidates retained for the sealed validation analysis",
+ "post_submission_review_protocol": "after each batch is sealed: the assistant scores checker-vs-human agreement, flags CLERICAL inconsistencies (label contradicting the reviewer's own rationale) for the reviewer's own re-decision, routes CONTRACT_AMBIGUOUS to the adjudicator, and never overrules substantive calls; disagreements are reported as data (owner-agreed protocol, 2026-07-23 chat)",
+ "spend_note": "Together account balance ~USD 1,589 per the 7/19 reconciliation; canary fits without top-up; all figures use the frozen price schedule; the manifested run will bind exact input hashes, ledger identity, and the selected cap before any call",
+ "owner_decision": "select scope (A / B / A-prime) and approve the corresponding hard cap; execution manifest, dual-key runner integration, review tool, and offline checker fixtures are then built and the run launches only after the usual sealed-manifest checks",
+ "note": "Append-only proposal; binds nothing."
+}
