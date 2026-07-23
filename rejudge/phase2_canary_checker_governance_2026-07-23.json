@@ -1,0 +1,37 @@
+{
+ "schema_version": "phase2_canary_checker_governance_v1",
+ "drafted_at_utc": "2026-07-23",
+ "status": "proposed_awaiting_owner_ratification",
+ "per": "Codex consult #26 (rejudge/phase2_codex_review_2026-07-23_consult26.md), implementing option C of the thin-pool disposition",
+ "core_provision": "Query-producing canary arms are authorized solely as human-gated arms. Every raw query candidate shall receive an independently blinded human contract disposition before oracle access. An oracle call is authorized only when both the frozen checker and the human reviewer return ALLOW. All other dispositions produce a logged no-query outcome; no silent replacement or editing is permitted. All raw candidates remain in the validation population. These arms estimate the human-gated operational policy and do not authorize an autonomous query arm or the main run. Removal of the human gate requires completion of the prospectively frozen canary validation gates. Any change to the checker, prompt, parser, codebook, transport, review protocol, or aggregation rule begins a new validation epoch.",
+ "explicit_statements": [
+  "the original autonomous query arms remain blocked",
+  "human-gated query arms are scientifically different arm versions from the blocked autonomous arms",
+  "blocked slots remain in intent-to-treat analysis",
+  "results cannot tune the checker and simultaneously validate that tuned checker",
+  "this pre-registration does not authorize canary execution or spend",
+  "the owner must ratify this amendment and separately approve the canary budget and the human-review commitment"
+ ],
+ "review_protocol": {
+  "logging": "every raw proposed query durably logged before any disposition, including checker-rejected, unresolved, malformed, missing, and retries",
+  "reviewer": "a named primary reviewer labels EVERY raw query, blind to the checker verdict (the review queue contains all raw candidates so inclusion reveals nothing); labels ALLOW/REJECT/CONTRACT_AMBIGUOUS with controlling clause and one-sentence rationale",
+  "adjudicator": "named before execution; receives human CONTRACT_AMBIGUOUS items while still blinded; checker-human disagreements are observations, never adjudicated away",
+  "dispatch": "dual-key: oracle receives a query only when checker AND human both say ALLOW; a human-rejected checker-allowed query is blocked, logged as checker_false_allow_intercept, and consumes the slot under a frozen no-query transition",
+  "fail_closed": "review-capacity exhaustion, reviewer substitution, or unavailable adjudication halts the arm",
+  "sealing": "canary checker-performance metrics stay sealed from checker development until the frozen stopping rule fires"
+ },
+ "metrics_preregistered": {
+  "independence_unit": "highest shared live question_id cluster; exact and semantic overlap with DEV-350 checked before inference",
+  "rates": ["query-level false-allow rate (checker ALLOW & human REJECT / human REJECT)", "reject recall (checker REJECT / human REJECT; unresolved not correct)", "allow recall (checker ALLOW / human ALLOW)", "human-intervention workload (human REJECT / checker ALLOW)", "cluster escape (any checker-allowed human-rejected query per reject-bearing cluster)"],
+  "aggregation": "equal-cluster macro rates primary; micro rates as workload; cluster bootstrap with frozen seed for intervals; exact one-sided bound for cluster escape; frozen arm mixture weights and per-cluster query caps",
+  "autonomy_quota": "checker autonomy (removing the human gate) requires >=149 independent reject-bearing clusters with zero escapes, >=100 allow-bearing clusters, all frozen parseability/recall gates met, no configuration or label changes within the epoch; below quota the results are diagnostics only",
+  "no_pooling": "canary traffic and any records-based holdout are different sampling frames; report separately unless a weighting rule is frozen in advance"
+ },
+ "reserve": "the 7 pristine record clusters are sealed untouched in rejudge/phase2_holdout_reserve_manifest_2026-07-23.json with a pre-registered use trigger; the approved <=USD 1.50 holdout budget is deliberately NOT spent",
+ "owner_decision_required": [
+  "ratify this governance amendment",
+  "name the primary reviewer and the adjudicator (the reviewer blind-labels every raw canary query; expected volume depends on the canary manifest, roughly tens of short queries)",
+  "approve the canary budget when the full canary manifest is presented (separate line-item ask)"
+ ],
+ "note": "Append-only draft; binds nothing until owner ratification."
+}
