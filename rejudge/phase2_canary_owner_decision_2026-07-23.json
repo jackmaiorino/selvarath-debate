@@ -1,0 +1,20 @@
+{
+ "schema_version": "phase2_owner_decision_record_v1",
+ "decision_id": "canary_review_key_substitution_2026-07-23",
+ "decided_at_utc": "2026-07-23",
+ "owner": "Jack Maiorino",
+ "decision": "scope A (full 945-cell canary, hard cap USD 40) with the assistant (claude-fable-5) substituted for the human blind reviewer on every raw query; the owner declined both the solo and split-queue human staffing options",
+ "owner_statements_verbatim": [
+  "go for it with A. I don't have that much time for hand labeling. I trust your ability to label from what I've seen though",
+  "Theres no way we can label that many queries. Again I trust you to do it.",
+  "You do the labels"
+ ],
+ "context": "the ratified governance amendment (rejudge/phase2_canary_checker_governance_2026-07-23.json) required an independently blinded HUMAN disposition on every raw query; the owner reversed after the blind-review queue was sized at ~672-850 queries (~2.5-3.5 hours); the assistant's earlier informal estimate of 'a few dozen' queries contributed to the ratification and is recorded as an estimation error (the frozen cost model's 672 query-generation calls were checkable at ratification time)",
+ "consequences_disclosed_to_owner_before_decision": [
+  "the checker cannot earn autonomy from this epoch's data (assistant labels validate consistency with the assistant's own codebook, not correctness)",
+  "the defensible claim degrades from 'human-validated checker' to 'assistant-gated checker with a human-audited error bound' contingent on a ~60-query post-hoc owner audit sample",
+  "main-run query arms will face the same gating question at ~20x volume; this decision does not settle it"
+ ],
+ "oracle_review": "consult #27 (in flight at recording time) takes the owner constraint as fixed and rules on operational blindness requirements, audit-sample design, and amendment language; its record will be committed alongside the superseding amendment",
+ "note": "Append-only. This record precedes and does not itself effect the governance amendment; the amendment follows the consult."
+}
