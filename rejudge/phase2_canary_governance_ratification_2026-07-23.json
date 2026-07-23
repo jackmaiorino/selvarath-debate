@@ -1,0 +1,15 @@
+{
+ "schema_version": "phase2_owner_approval_v1",
+ "approval_id": "canary_checker_governance_ratification_2026-07-23",
+ "approver": "Jack Maiorino",
+ "approved_at_utc": "2026-07-23",
+ "approval_channel": "direct chat: 'ratified, roles as recommended' in response to the enumerated recommendation (ratify rejudge/phase2_canary_checker_governance_2026-07-23.json as drafted; Jack = primary blind reviewer; Joey Marcellino = adjudicator)",
+ "ratifies": "rejudge/phase2_canary_checker_governance_2026-07-23.json",
+ "roles": {
+  "primary_reviewer": "Jack Maiorino (blind-labels every raw canary query in batched sittings)",
+  "adjudicator": "Joey Marcellino (receives human CONTRACT_AMBIGUOUS items, blinded)"
+ },
+ "owner_awareness": "the owner asked whether the reviewer role requires hand labeling and ratified after confirmation that it does (a few dozen one-line queries, batched), with the no-labeling fallback (non-query arms only) to remain available as a scope checkbox in the canary manifest",
+ "not_yet_approved": "canary execution and spend; the manifest with line-item costs (query-gated scope and non-query-only scope priced separately) is the next artifact and requires its own approval",
+ "note": "Append-only."
+}
