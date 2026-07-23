@@ -1,0 +1,93 @@
+{
+ "schema_version": "phase2_checker_dev_fixed_core_v1",
+ "generated_at_utc": "2026-07-22",
+ "per": "Codex consult #25 reporting requirements (rejudge/phase2_codex_review_2026-07-22_consult25.md)",
+ "core_n": 325,
+ "excluded_union": [
+  "00ccf72a268c2f46",
+  "00cf45c37ff66162",
+  "02a32c4e67f02d6f",
+  "02dbc3326731c913",
+  "03732233c797cdd3",
+  "04a41f8790d9c42c",
+  "056ecd46d403830f",
+  "06e39914a35c75e0",
+  "083b03fb458e06db",
+  "0952d13023a50bc9",
+  "0e86125d3a5752e3",
+  "4c1c4f4617778acc",
+  "52eb7793a1d915bb",
+  "60d61e955502563c",
+  "7aa71dd680758433",
+  "83d6dc1db907a1ba",
+  "846a3999880bc9e1",
+  "84d7dacae8f65aaa",
+  "a5465bd3ed144397",
+  "c01734e154de3518",
+  "d4b1a6813312082c",
+  "de455e091555e399",
+  "ee9079740214934d",
+  "fc1ed7a5441166b8",
+  "fee4af4e87380875"
+ ],
+ "excluded_composition": {
+  "allow": 20,
+  "reject": 5
+ },
+ "caveat": "development diagnostics on an adaptively used set; difficult allow items were disproportionately used as prompt examples, so allow recall on any subset may be overstated relative to the natural population; nothing here is out-of-sample evidence",
+ "variants": {
+  "v1_codebook_rules": {
+   "n_allow": 185,
+   "n_reject": 140,
+   "allow_hits": 164,
+   "allow_recall": 0.8865,
+   "reject_hits": 140,
+   "reject_recall": 1.0,
+   "false_allows": 0,
+   "unparseable": 0
+  },
+  "v2_allow_side_balance": {
+   "n_allow": 185,
+   "n_reject": 140,
+   "allow_hits": 179,
+   "allow_recall": 0.9676,
+   "reject_hits": 139,
+   "reject_recall": 0.9929,
+   "false_allows": 1,
+   "unparseable": 1
+  },
+  "v3_boundary_structures": {
+   "n_allow": 185,
+   "n_reject": 140,
+   "allow_hits": 180,
+   "allow_recall": 0.973,
+   "reject_hits": 134,
+   "reject_recall": 0.9571,
+   "false_allows": 6,
+   "unparseable": 0
+  },
+  "v4_merged": {
+   "n_allow": 185,
+   "n_reject": 140,
+   "allow_hits": 177,
+   "allow_recall": 0.9568,
+   "reject_hits": 140,
+   "reject_recall": 1.0,
+   "false_allows": 0,
+   "unparseable": 0
+  },
+  "v5_low_leak_allows": {
+   "n_allow": 185,
+   "n_reject": 140,
+   "allow_hits": 181,
+   "allow_recall": 0.9784,
+   "reject_hits": 139,
+   "reject_recall": 0.9929,
+   "false_allows": 1,
+   "unparseable": 0
+  },
+  "v6_constitutive_counts": {
+   "status": "incomplete 3/350"
+  }
+ }
+}
