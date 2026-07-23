@@ -1,0 +1,40 @@
+{
+ "schema_version": "phase2_canary_governance_amendment_v1",
+ "amendment_id": "canary_claude_gate_2026-07-23",
+ "status": "active_per_owner_instruction",
+ "supersedes": "ONLY the every-query blind-human key and the autonomy-earning provisions of rejudge/phase2_canary_checker_governance_2026-07-23.json, for this canary epoch; every other provision (logging, fail-closed, dual-key dispatch mechanics, sealed metrics) carries forward",
+ "owner_instruction": {
+  "record": "rejudge/phase2_canary_owner_decision_2026-07-23.json (verbatim quotes; scope A; USD 40 cap approved)",
+  "constraint": "no human labeling at canary query volume; at most ~60 minutes of post-hoc owner audit"
+ },
+ "oracle_ruling": {
+  "record": "rejudge/phase2_codex_review_2026-07-23_consult27.md (consult #27)",
+  "conditional_assent": "execution of the frozen canary with a metadata-blinded Claude second gate is the best available containment design under the fixed owner constraint",
+  "dissent": "the Claude gate is not an independent blind-human key; checker agreement does not validate either gate, does not satisfy the 149-cluster autonomy requirement, and does not authorize the main run"
+ },
+ "claude_gate": {
+  "identity": "claude-fable-5 acting as the metadata-blinded second policy gate; declared conflict: the reviewer authored the codebook, influenced checker development, knows the three worlds, and has read Stage-1 results",
+  "blindness_controls": [
+   "reviewer context per query batch is FRESH and ISOLATED: no repository access, tools, retrieval, conversation memory, or cross-query discussion; input is exactly the frozen reviewer prompt (contract + unified codebook) and the immutable query payload (raw query + candidate_a + candidate_b)",
+   "excluded from the reviewer's view: checker verdicts/scores/rationales, arm identity, clean vs placebo mode, judge identity, debate outcome, oracle answers, dispatch decisions, stage results, DEV-350 labels/rationales, prior adjudication notes",
+   "clean and placebo queries share one metadata-free queue, shuffled within each causally available stage; no queue boundaries or meaning-bearing IDs exposed",
+   "output: ALLOW / REJECT / CONTRACT_AMBIGUOUS + controlling clause + one-sentence rationale; parse failure, timeout, missing clause, or ambiguity is non-ALLOW; decisions committed immutably (hash-chained) BEFORE the checker/Claude join and before any oracle dispatch",
+   "an exact retry inherits the committed decision by payload hash; a changed payload gets a new blinded decision; identical queries across arms share one committed decision",
+   "the reviewer adjudicates contract compliance only, never truth, usefulness, or anticipated debate effect; any metadata leak is a logged protocol deviation and the affected query fails closed"
+  ],
+  "dispatch": "oracle (or placebo responder) fires only on checker-ALLOW AND claude-ALLOW; every other combination produces the identical blocked-query transition in clean and placebo alike"
+ },
+ "estimand_redefinition": "canary results estimate the debate system WITH THIS FROZEN CLAUDE GATE, not ungated oracle access and not the previously ratified human-gated system; intention-to-treat over all randomized cells; gate pass/intercept/ambiguity/clause distributions reported by arm, stage, question, and judge after unblinding; realized oracle exposure reported as a mediator, never as an exclusion basis; pre-registered sensitivity analyses for arm imbalance in gate rates and for queries overlapping DEV-350 or Stage-1 material; equal allow totals are not proof of non-differential selection",
+ "consistency_only": "checker-vs-Claude agreement is consistency evidence about correlated automated gates; it is never reported as false-allow or recall measurement against ground truth",
+ "autonomy_quota": "the 149-cluster quota text is preserved historically with status SUSPENDED/NOT_EVALUATED; no Claude-reviewed cluster increments it; the eligible increment this epoch is zero; the quota is neither failed nor satisfied",
+ "reserve": "the 7-cluster holdout reserve and all prior artifacts remain sealed, dormant, and unchanged; their autonomy-validation use is marked NOT_EVALUATED_THIS_EPOCH",
+ "owner_audit": {
+  "design": "pre-seeded stratified sentinel audit generated BEFORE the owner sees any canary result; unit = unique immutable query-decision cluster; strata per consult #27 (real-oracle double-ALLOW dispatches; placebo double-ALLOW; checker-ALLOW x claude-REJECT; checker-ALLOW x claude-AMBIGUOUS; checker-REJECT x claude-ALLOW; checker-REJECT x claude-REJECT; checker-REJECT x claude-AMBIGUOUS); 40 seeded SRS from real dispatches, >=2 from every nonempty other stratum, remainder proportional; owner sees no strata, labels, modes, outcomes, or meaning-bearing IDs",
+  "estimator": "stratum-weighted disagreement with conservative stratified 95% intervals (per-stratum exact hypergeometric with Bonferroni, weighted endpoints); exact finite-population one-sided upper bound on dispatched-query violations; owner AMBIGUOUS maps to non-ALLOW operationally while the three-way matrix is retained; NEVER a pooled binomial CI",
+  "honesty": "40 clean dispatched audits with zero violations support roughly a 7% one-sided upper bound, not a 5% claim; the writeup uses consult #27's template verbatim",
+  "status_vocabulary": ["AUDITED", "UNAUDITED_OWNER_DECLINED", "AUDIT_INCOMPLETE", "AUDIT_SAFETY_CONCERN"],
+  "declined_consequence": "the raw run remains preserved and usable as artifacts, but no independently-audited-safety claim and no main-run unlock"
+ },
+ "main_run": "nothing in this amendment or the canary's completion authorizes the ~19,680-query main run; its gating design is a separate future decision with its own consult and owner approval",
+ "note": "Append-only; prospective; canary-specific. Reviewer model/build change mid-canary is a protocol deviation."
+}
