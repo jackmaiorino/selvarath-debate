@@ -209,6 +209,26 @@ FEW_SHOT_SOURCES["v4_merged"] = FEW_SHOT_SOURCES["v2_allow_side_balance"] + [
     "056ecd46d403830f",
 ]
 
+# v5 rationale (2026-07-22): v4 achieved reject recall 1.000 with ZERO
+# false-allows; allow recall 0.9365 missed the 0.95 gate by ~3 items. Its 12
+# false-rejects are dominated by four low-leak structures (invented examples
+# only, so all of them stay scored): plain durative facts, one event with time
+# and place, a stated modal rule, an identifying occasion apposition. Nothing
+# on the reject side changes.
+VARIANTS["v5_low_leak_allows"] = VARIANTS["v4_merged"].replace(
+    "ANTI-LEAK:",
+    "- Plain durative or completed facts: 'the treaty has held for over a century', "
+    "'three of the fourteen springs failed entirely during the drought'.\n"
+    "- One event with its time and place: 'the gathering is held every four years at "
+    "the western shore of the lake'.\n"
+    "- A stated modal rule: 'the officer can be removed at any time by a simple "
+    "majority vote' is one provision.\n"
+    "- An identifying occasion apposition: 'elected a leader only once in recorded "
+    "history, during the great drought'.\n\n"
+    "ANTI-LEAK:"
+)
+FEW_SHOT_SOURCES["v5_low_leak_allows"] = list(FEW_SHOT_SOURCES["v4_merged"])
+
 
 def runs_so_far() -> list[dict]:
     if not VARIANT_LOG.exists():
