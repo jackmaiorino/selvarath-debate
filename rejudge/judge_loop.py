@@ -101,11 +101,14 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
     t_judge = protocol["protocol"]["temperature"]["judge"]
     t_oracle = protocol["protocol"]["temperature"]["oracle"]
 
-    if query_template_override is not None:
-        query_template = query_template_override
-    else:
-        query_template = (judge_cfg["query_phase_prompt"] if arm.composer == "pilot"
-                          else clean_query_phase_prompt(judge_cfg["query_phase_prompt"]))
+    # Resolved lazily: a budget-0 cell runs no query loop, and a phase-2 budget-0 condition
+    # legitimately composes no query template at all, so computing one eagerly would crash on
+    # a cell that never asks a question.
+    def _query_template() -> str:
+        if query_template_override is not None:
+            return query_template_override
+        return (judge_cfg["query_phase_prompt"] if arm.composer == "pilot"
+                else clean_query_phase_prompt(judge_cfg["query_phase_prompt"]))
     is_done = (oracle_channel.is_done_pilot if arm.done_detector == "pilot"
                else oracle_channel.is_done_robust)
     normalize = (oracle_channel.normalize_pilot if arm.oracle_normalizer == "pilot"
@@ -130,7 +133,7 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
             attempt = 1
             while True:
                 if attempt == 1:
-                    messages.append({"role": "user", "content": query_template.format(
+                    messages.append({"role": "user", "content": _query_template().format(
                         remaining_budget=remaining, total_budget=budget,
                         previous_queries=_format_previous(feedback_pairs))})
                 query_seed = seed + query_num

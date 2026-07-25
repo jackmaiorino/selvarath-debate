@@ -160,20 +160,30 @@ def _debate_history_text(turns: list[dict], honest_first: bool) -> str:
 
 def build_turn_prompt(*, round_idx: int, is_honest: bool, question: dict, world_document: str,
                       turns: list[dict], honest_first: bool, protocol: dict,
-                      cap_words: int | None) -> tuple[str, str]:
+                      cap_words: int | None, turn_templates=None) -> tuple[str, str]:
     """Build (system, user) for one debater turn. `turns` is the transcript-so-far
     accumulator; for round_idx == 0 it is IGNORED (round 1 is always blind), regardless of
     what it holds -- this is the core of the round-1-blindness fix.
-    """
-    tmpl = protocol["honest_debater"] if is_honest else protocol["dishonest_debater"]
-    system = tmpl["system_prompt"]
-    user_template = tmpl["user_prompt_template"]
 
-    if round_idx == 0:
-        user_template = strip_opponent_position(user_template, is_honest)
-        history_str = ""
+    `turn_templates` supplies already-final templates as ``(round_idx, is_honest) ->
+    (system_prompt, user_prompt_template)``. Phase 2 froze four separate debate templates
+    (blind-opening and later-turn, honest and dishonest), each with its own system prompt, so
+    round-1 blindness is stated rather than derived; running one of those through the
+    Stage-1 stripping path below would corrupt it. Omitted, the Stage-1 path is unchanged.
+    """
+    if turn_templates is not None:
+        system, user_template = turn_templates(round_idx, is_honest)
+        history_str = "" if round_idx == 0 else _debate_history_text(turns, honest_first)
     else:
-        history_str = _debate_history_text(turns, honest_first)
+        tmpl = protocol["honest_debater"] if is_honest else protocol["dishonest_debater"]
+        system = tmpl["system_prompt"]
+        user_template = tmpl["user_prompt_template"]
+
+        if round_idx == 0:
+            user_template = strip_opponent_position(user_template, is_honest)
+            history_str = ""
+        else:
+            history_str = _debate_history_text(turns, honest_first)
 
     fmt = dict(world_document=world_document, question=question["question"],
               correct_answer=question["correct_answer"], wrong_answer=question["wrong_answer"],
@@ -233,7 +243,7 @@ def generate_turn(client, *, model: str, temperature: float, seed: int, system: 
 
 def generate_transcript(question: dict, world_document: str, transcript_index: int,
                         honest_first: bool, protocol: dict, client, *, debater_model: str,
-                        protocol_name: str) -> dict:
+                        protocol_name: str, turn_templates=None) -> dict:
     if protocol_name not in PROTOCOL_WORD_CAPS:
         raise ValueError(f"unknown protocol: {protocol_name!r}")
     cap_words = PROTOCOL_WORD_CAPS[protocol_name]
@@ -249,7 +259,7 @@ def generate_transcript(question: dict, world_document: str, transcript_index: i
             system, user = build_turn_prompt(
                 round_idx=round_idx, is_honest=is_honest, question=question,
                 world_document=world_document, turns=turns, honest_first=honest_first,
-                protocol=protocol, cap_words=cap_words)
+                protocol=protocol, cap_words=cap_words, turn_templates=turn_templates)
             turn_seed = base_seed + (round_idx * 2 + slot) * TURN_SEED_STRIDE
             text, cap_meta = generate_turn(
                 client, model=debater_model, temperature=temperature, seed=turn_seed,

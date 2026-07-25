@@ -108,6 +108,42 @@ def judge_protocol_for(cell: ResolvedCell, protocol: Mapping[str, Any],
     }
 
 
+def turn_templates_for(cell: ResolvedCell, bundle: Mapping[str, Any]):
+    """A ``(round_idx, is_honest) -> (system, user_template)`` selector for debate_gen.
+
+    Phase 2 froze four debate templates rather than Stage-1's two, so round-1 blindness is a
+    property of the opening templates themselves rather than something derived by stripping
+    the opponent's position out of the later-turn text. Passing them through that stripping
+    path would corrupt them, so debate_gen takes this selector instead.
+    """
+    if not cell.is_transcript:
+        raise UncomposableCell(f"cell {cell.cell_key} is not a transcript")
+    composition = cell.composition
+    templates = bundle["templates"]
+
+    def select(round_idx: int, is_honest: bool) -> tuple[str, str]:
+        group = composition["opening_turn" if round_idx == 0 else "later_turns"]
+        template = templates[group["honest" if is_honest else "dishonest"]]
+        return template["system_prompt"], template["user_prompt_template"]
+
+    return select
+
+
+def debater_protocol_for(protocol: Mapping[str, Any]) -> dict[str, Any]:
+    """The minimal protocol-shaped dict debate_gen reads when a selector supplies templates.
+
+    With ``turn_templates`` supplied, debate_gen never reads honest_debater/dishonest_debater,
+    so only the round count and the debater temperature are needed.
+    """
+    temperatures = protocol["decisions"]["execution_semantics"]["temperature_by_call_role"]
+    return {
+        "protocol": {
+            "debate_phase": {"n_rounds": int(protocol["debate_protocol"]["rounds"])},
+            "temperature": {"debater": temperatures["debater"]},
+        },
+    }
+
+
 def single_call_prompt(cell: ResolvedCell, bundle: Mapping[str, Any],
                        **fields: Any) -> tuple[str, str]:
     """Build (system, user) for a single-call judgment.
