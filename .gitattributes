@@ -12,3 +12,25 @@ rejudge/phase2_prompt_bundle.py text eol=lf
 rejudge/phase2_plan.py text eol=lf
 rejudge/runner.py text eol=lf
 rejudge/run_manifest.py text eol=lf
+
+# The canary code-provenance set, hash-bound into the canary execution manifest. Deliberately
+# a SEPARATE list from the nine above: adding a file to that tuple would change the
+# capability preflight's own code_bundle_sha256 and force its manifest to be rebuilt.
+# Several of these files execute the science but were previously hash-bound nowhere.
+# All were verified LF in index and working tree when pinned, so the pin changes no bytes.
+rejudge/judge_loop.py text eol=lf
+rejudge/debate_gen.py text eol=lf
+rejudge/composer.py text eol=lf
+rejudge/oracle_channel.py text eol=lf
+rejudge/query_screen.py text eol=lf
+rejudge/parsers.py text eol=lf
+rejudge/records.py text eol=lf
+rejudge/config.py text eol=lf
+rejudge/phase2_query_gate.py text eol=lf
+rejudge/phase2_dual_gate.py text eol=lf
+rejudge/phase2_canary_gate.py text eol=lf
+rejudge/phase2_call_cache.py text eol=lf
+rejudge/phase2_caching_client.py text eol=lf
+rejudge/phase2_canary_cells.py text eol=lf
+rejudge/phase2_canary_fixtures.py text eol=lf
+rejudge/phase2_canary_runner.py text eol=lf

@@ -18,6 +18,42 @@ class UncacheableCall(RuntimeError):
     """Raised when a call carries too little metadata to be cached, and so to be resumed."""
 
 
+def _derive_slot(metadata) -> int:
+    """Locate the call within its cell.
+
+    Each call site numbers its calls differently, and none of them agree:
+
+    - the canary gate counts query slots explicitly as ``slot``;
+    - ``judge_loop`` counts them as ``query_index``, for both the query and its oracle call;
+    - ``debate_gen`` identifies a debater turn by ``round_index`` and ``slot_index`` and sets
+      neither of the above, so without this branch every turn of a debate would collide on
+      slot 0;
+    - single-call roles (verdicts) carry none of them and correctly land on 0.
+
+    The round/slot fold matches debate_gen's own turn ordering (``round_idx * 2 + slot``).
+    """
+    if "slot" in metadata:
+        return int(metadata["slot"])
+    if "query_index" in metadata:
+        return int(metadata["query_index"])
+    if "round_index" in metadata and "slot_index" in metadata:
+        return int(metadata["round_index"]) * 2 + int(metadata["slot_index"])
+    return 0
+
+
+def _derive_attempt(metadata) -> int:
+    """Distinguish retries of the same call.
+
+    ``attempt`` is the gated judge-query retry; ``cap_regen_attempt`` is debate_gen's
+    word-cap regeneration. They never co-occur, and each re-asks the same logical call with a
+    different prompt, so both must widen the key rather than overwrite the earlier entry.
+    """
+    for field in ("attempt", "cap_regen_attempt"):
+        if field in metadata:
+            return int(metadata[field])
+    return 1
+
+
 class CachingClient:
     """Memoises provider responses per (cell, role, slot, attempt)."""
 
@@ -41,11 +77,9 @@ class CachingClient:
             raise UncacheableCall(
                 "request_metadata must carry both cell_key and call_role; got "
                 f"cell_key={cell_key!r}, call_role={call_role!r}")
-        # Slot numbering differs by call site: the gate counts slots explicitly, the judge
-        # loop counts query_index, and single-call roles carry neither.
-        slot = request_metadata.get("slot", request_metadata.get("query_index", 0))
-        return CallKey(cell_key=str(cell_key), call_role=str(call_role), slot=int(slot),
-                       attempt=int(request_metadata.get("attempt", 1)))
+        return CallKey(cell_key=str(cell_key), call_role=str(call_role),
+                       slot=_derive_slot(request_metadata),
+                       attempt=_derive_attempt(request_metadata))
 
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
                  request_metadata=None) -> str:

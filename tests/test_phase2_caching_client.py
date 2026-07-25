@@ -66,6 +66,44 @@ def test_a_retry_attempt_is_a_distinct_call(tmp_path):
     assert len(inner.calls) == 2
 
 
+def test_every_debater_turn_in_a_transcript_is_a_distinct_call(tmp_path):
+    # debate_gen identifies a turn by round_index and slot_index and sets neither slot nor
+    # query_index, so a derivation that only knows those two would map all six turns of a
+    # three-round debate onto one cache entry.
+    inner = RecordingClient([f"turn {i}" for i in range(6)])
+    client = CachingClient(inner, CallCache(tmp_path / "calls.jsonl"))
+    meta = {"cell_key": "uncapped3|llama|CN-001|0", "call_role": "debater_turn"}
+    seen = []
+    for round_index in range(3):
+        for slot_index in range(2):
+            seen.append(_complete(client, f"r{round_index}s{slot_index}",
+                                  {**meta, "round_index": round_index,
+                                   "slot_index": slot_index}))
+    assert seen == [f"turn {i}" for i in range(6)]
+    assert len(inner.calls) == 6
+
+
+def test_word_cap_regeneration_attempts_are_distinct_calls(tmp_path):
+    # generate_turn retries an over-length turn with a stronger reminder, marking the attempt
+    # as cap_regen_attempt rather than attempt.
+    inner = RecordingClient(["too long", "still long", "short enough"])
+    client = CachingClient(inner, CallCache(tmp_path / "calls.jsonl"))
+    meta = {"cell_key": "capped3|llama|CN-001|0", "call_role": "debater_turn",
+            "round_index": 0, "slot_index": 0}
+    for attempt in (1, 2, 3):
+        _complete(client, f"attempt {attempt}", {**meta, "cap_regen_attempt": attempt})
+    assert len(inner.calls) == 3
+
+
+def test_an_explicit_slot_takes_precedence_over_the_derived_one(tmp_path):
+    inner = RecordingClient(["a", "b"])
+    client = CachingClient(inner, CallCache(tmp_path / "calls.jsonl"))
+    meta = {"cell_key": "c", "call_role": "query_checker", "round_index": 9, "slot_index": 9}
+    assert _complete(client, "x", {**meta, "slot": 1}) == "a"
+    assert _complete(client, "y", {**meta, "slot": 2}) == "b"
+    assert len(inner.calls) == 2
+
+
 def test_an_edited_prompt_for_a_cached_call_halts(tmp_path):
     inner = RecordingClient(["one"])
     client = CachingClient(inner, CallCache(tmp_path / "calls.jsonl"))
