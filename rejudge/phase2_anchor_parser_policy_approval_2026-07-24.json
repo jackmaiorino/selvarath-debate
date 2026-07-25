@@ -1,0 +1,35 @@
+{
+ "schema_version": "phase2_anchor_parser_policy_approval_v1",
+ "approval_id": "anchor_parser_policy_approval_2026-07-24",
+ "approves": {
+  "tracked_path": "rejudge/phase2_anchor_parser_policy_2026-07-21.json",
+  "policy_id": "anchor_parser_policy_2026-07-21",
+  "canonical_sha256": "20b7e74c0fcfb7ed603a4a7c596fde03e6d341176d939dba8c462031f80f20e7"
+ },
+ "basis": {
+  "tracked_path": "rejudge/phase2_capability_anchor_selection_2026-07-19.json",
+  "canonical_sha256": "1fc8d3ab2867a353fae213750eb92545a11f444d8f090297d08dcb5f68f16a0d",
+  "oracle_disposition": "rejudge/phase2_codex_review_2026-07-21_consult23.md (consult #23): for the completed r3 preflight and the canary anchor derived from it, the frozen strict rule governs; a parser-policy disposition, not a tie-break"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-07-24",
+  "exact_quote": "your call",
+  "quote_context": "reply to an enumerated list of four open decisions, of which this policy was item 2, presented as: 'Anchor parser policy - one line, Codex #23 already ruled, and the manifest cannot seal without it'",
+  "recorded_at_utc": "2026-07-25T00:00:02Z",
+  "authorization_character": "DELEGATED, not specifically affirmed. The owner did not restate the policy's content; he delegated the decision to the assistant. Recorded honestly as such. The delegation is accepted for this policy because the underlying disposition is mechanical (the frozen rule was executed without intervention and the oracle already ruled on the parser question), so the decision carries no residual scientific discretion."
+ },
+ "effect": {
+  "resolves": "the one symbolic cell emitted by rejudge.phase2_plan.enumerate_canary_cells, judge_model 'selector:highest_pre_frozen_solo_qa_roster_judge'",
+  "resolved_anchor_judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "resolution_basis": "strict exact parser, 206/212, strictly highest among the four roster judges; no tie-break required",
+  "sensitivity_reporting_obligation": "the period-tolerant rescore (Llama-3.3-70B 209/212, all 57 strict INVALIDs being the literal 'ANSWER: X.' trailing-period form) remains a post-hoc sensitivity analysis and MUST be reported prominently alongside the primary result wherever the anchor is reported"
+ },
+ "scope_limits": [
+  "approves the parser policy only; authorizes no spend and no execution",
+  "does not authorize the canary run, whose authorization requires its own record bound to a concrete execution identity hash",
+  "the future_rule in the approved policy stands: a tolerant pattern may only be preregistered before a fresh capability-selection cycle, never applied retroactively to already-inspected outputs"
+ ],
+ "execution_authorized": false,
+ "note": "Append-only. The approved policy artifact is not edited; its own owner_approval block is superseded by this record, which is the operative approval."
+}

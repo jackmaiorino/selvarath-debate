@@ -1,0 +1,55 @@
+{
+ "schema_version": "phase2_canary_build_decisions_v1",
+ "record_id": "canary_build_decisions_2026-07-24",
+ "owner_delegation": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-07-24",
+  "exact_quote": "your call",
+  "quote_context": "reply to an enumerated list of four open canary-build decisions: (1) reviewer implementation, (2) anchor parser policy, (3) canary authorization basis, (4) the no-query transition text",
+  "recorded_at_utc": "2026-07-25T00:00:02Z",
+  "interpretation": "the owner delegated the four decisions to the assistant. Three are taken below. One (the canary authorization basis) is NOT taken, for the reason recorded in its entry: a two-word delegation cannot supply what that artifact exists to record."
+ },
+ "decisions": {
+  "reviewer_implementation": {
+   "status": "DECIDED",
+   "choice": "option A, isolated fable subagents, plus a durable per-call response cache that the pause protocol requires to work at all",
+   "rejected_alternative": "option B, synchronous Anthropic API reviewer calls",
+   "reasoning": [
+    "the pause protocol is non-viable without the cache regardless of which option is chosen: phase2_protocol.json sets judge_query temperature to 0.3, so a resumed cell re-emits different query text, producing a fresh unlabelled payload hash and pausing again, with the judge calls re-spent each round",
+    "option B costs an estimated USD 31-60 uncached or 15-41 with prompt caching across 672-850 payloads, at the current Fable 5 rates of USD 10 per million input and 50 per million output; the range is dominated by thinking tokens, which are always on for Fable 5 and cannot be disabled",
+    "that spend sits OUTSIDE the approved USD 40 Together cap, on an Anthropic key the project does not hold, so it would need its own line-item estimate and approval under the spend policy",
+    "option A's token cost is absorbed by the owner's existing Claude subscription, which keeps the canary inside one already-approved budget line and removes an external credential dependency",
+    "the cache is not throwaway work: phase2_execution's execution_call_key and audit_resume already implement the equivalent at call level for the capability preflight, so there is a proven pattern to follow"
+   ],
+   "consequence_disclosed": "option A means the canary cannot run unattended end to end; an assistant session must remain live across the labelling batches interleaved with runner resumes"
+  },
+  "anchor_parser_policy": {
+   "status": "DECIDED",
+   "choice": "approved",
+   "record": "rejudge/phase2_anchor_parser_policy_approval_2026-07-24.json",
+   "reasoning": "the disposition is mechanical: the frozen rule was executed without mid-run or post-hoc intervention, and consult #23 already ruled that the strict parser governs for the completed r3 preflight and the canary anchor derived from it. The delegation carries no residual scientific discretion, so accepting it is safe."
+  },
+  "canary_authorization_basis": {
+   "status": "NOT TAKEN, and cannot be",
+   "reasoning": [
+    "this artifact authorizes real spend. Its entire purpose is to record that a specific, informed owner authorization occurred, bound to a concrete execution identity hash. Manufacturing one from a two-word delegation that names neither the canary, nor the cap, nor any hash would be precisely the authority bypass the control plane exists to prevent, and a prior review of this codebase already caught one such bypass",
+    "it is also premature on its own terms: no canary execution manifest exists yet, so there is no identity hash to bind. The artifact is unwritable until the manifest is built",
+    "the designed sequence resolves this without any judgement call: build the manifest, present its execution identity hash, and obtain an authorization naming that hash"
+   ],
+   "blocking": "sealed launch only; every offline build step proceeds without it"
+  },
+  "no_query_transition_text": {
+   "status": "PROVISIONAL",
+   "proposed_text": "No verification result is available for this query.",
+   "reasoning": [
+    "the frozen prompt bundle specifies REJECTION_PAYLOAD for contract rejections, which grant a free retry, but the governance artifacts require a different transition for a consumed slot with no dispatch and never specify its content",
+    "the text must be identical in clean and placebo mode, must not reveal which gate blocked the query nor that two gates exist, must not imply anything about the truth of the claim, and must appear in the pre-verdict block so turn structure matches a dispatched slot",
+    "it is a new judge-facing string entering a pre-registered experiment, so it warrants oracle review before being frozen"
+   ],
+   "disposition": "build against the proposed text as an injected parameter, never a literal, so that swapping it is a one-line change. Put it to Codex when the oracle's usage limit resets on 2026-07-28 17:22, and freeze before launch. The remaining offline build exceeds that date, so this gates nothing on the critical path.",
+   "waiver_available": "the owner may waive oracle review and freeze the text directly; the delegation recorded above was not read as such a waiver, because the entry was presented to him as needing Codex and he did not address that condition"
+  }
+ },
+ "execution_authorized": false,
+ "note": "Append-only. Records decisions taken under a delegation, and one deliberately declined."
+}
