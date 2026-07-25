@@ -62,6 +62,7 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
                  judge_model: str = JUDGE_MODEL, *,
                  position_override: bool | None = None,
                  query_template_override: str | None = None,
+                 cell_key_override: str | None = None,
                  query_gate=None) -> dict:
     """Run one judgment cell.
 
@@ -80,7 +81,11 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
     parameters omitted the loop is the unchanged Stage-1 path.
     """
     qid, tidx = transcript["question_id"], transcript["transcript_index"]
-    cell_key = f"{arm.name}|{qid}|{tidx}|{budget}|{replicate}"
+    # The Stage-1 key identifies a cell by arm, question, transcript, budget and replicate,
+    # and by neither model. That is unambiguous in Stage 1, where one judge runs at a time,
+    # but in phase 2 the same tuple describes four judges against two debaters, so every one
+    # of them would share an identity. Callers that have a genuinely unique key pass it.
+    cell_key = cell_key_override or f"{arm.name}|{qid}|{tidx}|{budget}|{replicate}"
     usage_base = {
         "stage": "judgment",
         "cell_key": cell_key,

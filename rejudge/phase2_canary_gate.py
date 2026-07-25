@@ -59,11 +59,16 @@ class CanaryCellHalted(RuntimeError):
 
 
 class PendingReviewerDecision(RuntimeError):
-    """Raised when a payload has no committed reviewer decision and the runner must pause."""
+    """Raised when a payload has no committed reviewer decision and the runner must pause.
 
-    def __init__(self, payload_sha256: str) -> None:
+    Carries the blinded payload itself so the runner can queue it for labelling without
+    reaching into the gate: arm, mode, judge and cell identity are deliberately absent.
+    """
+
+    def __init__(self, payload_sha256: str, payload: dict[str, str] | None = None) -> None:
         super().__init__(f"reviewer decision pending for payload {payload_sha256}")
         self.payload_sha256 = payload_sha256
+        self.payload = dict(payload or {"payload_sha256": payload_sha256})
 
 
 def sha256_text(text: str) -> str:
@@ -170,7 +175,7 @@ class CanaryQueryGate:
                        "candidate_a": self._candidate_a, "candidate_b": self._candidate_b}
             if payload not in self.pending:
                 self.pending.append(payload)
-            raise PendingReviewerDecision(sha)
+            raise PendingReviewerDecision(sha, payload)
         return self._dual_gate.review(raw_query, self._candidate_a, self._candidate_b)
 
     def __call__(self, raw_query: str, claim: str, slot: int, attempt: int):

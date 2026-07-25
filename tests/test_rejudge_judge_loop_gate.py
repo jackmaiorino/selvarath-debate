@@ -196,6 +196,25 @@ def test_a_third_attempt_in_one_slot_is_refused_rather_than_spun():
     assert sum(1 for c in client.calls if c["kind"] == "query") == 2
 
 
+def test_two_judges_on_one_transcript_get_distinct_metadata_cell_keys():
+    # The Stage-1 key is arm|question|transcript|budget|replicate and names no model, which is
+    # unambiguous when one judge runs at a time. In phase 2 the same tuple describes four
+    # judges against two debaters, so without an override they would all share an identity and
+    # collide in anything keyed on it, the per-call cache included.
+    def run(judge_model, cell_key_override):
+        client = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES", "verdict": VERDICT})
+        judge_loop.run_judgment(_tr(), "DOC", config.ARMS["clean"], 1, 0, client,
+                                _protocol(), judge_model=judge_model,
+                                cell_key_override=cell_key_override)
+        return {call["request_metadata"]["cell_key"] for call in client.calls}
+
+    without = run("judge-a", None) | run("judge-b", None)
+    assert len(without) == 1, "the Stage-1 key cannot tell two judges apart"
+
+    with_override = run("judge-a", "plan-key-a") | run("judge-b", "plan-key-b")
+    assert with_override == {"plan-key-a", "plan-key-b"}
+
+
 def test_gate_none_leaves_every_recorded_field_unchanged():
     def run(**kwargs):
         client = ScriptedClient({"query": ["CLAIM: x"], "oracle": "YES", "verdict": VERDICT})

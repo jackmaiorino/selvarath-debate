@@ -180,7 +180,7 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
         ARMS[cell.arm_name or "clean"], cell.query_budget, cell.replicate_index or 0,
         context.client, composed, judge_model=str(cell.judge_model),
         query_template_override=composed["judge"]["query_phase_prompt"],
-        query_gate=query_gate)
+        cell_key_override=cell.cell_key, query_gate=query_gate)
     record["cell_key"] = cell.cell_key
     record["condition"] = cell.condition
     if query_gate is not None:
