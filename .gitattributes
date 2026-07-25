@@ -37,3 +37,5 @@ rejudge/phase2_canary_execute.py text eol=lf
 rejudge/phase2_canary_fixtures.py text eol=lf
 rejudge/phase2_canary_order.py text eol=lf
 rejudge/phase2_canary_runner.py text eol=lf
+
+rejudge/phase2_canary_manifest.py text eol=lf
