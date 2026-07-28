@@ -1,0 +1,26 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_v1",
+ "decision_id": "canary_auto_resume_policy_2026-07-28",
+ "recorded_at_utc": "2026-07-28T17:49:42Z",
+ "status": "active_operational_policy",
+ "context": "the strict client halts the run on any billing-ambiguous call; Together's intermittent 5xx failures on openai/gpt-oss-120b (three benign halts manually reconciled on 2026-07-28) make per-halt manual resume impractical for a 945-cell run",
+ "doctrine_override": "README's post-abnormal-termination doctrine requires manual reconciliation before resume; this policy automates EXACTLY the reconciliation performed by hand, gated on a strict signature, and stops for manual review on anything else",
+ "benign_signature_all_required": [
+  "halted_reason is UnknownChargeHalt with a named cell",
+  "newest ledger event is unknown_charge carrying a provider 5xx envelope",
+  "newest error-log entry is a provider 5xx recorded during this attempt",
+  "the halted cell has no result row"
+ ],
+ "bounds": {
+  "max_automatic_resumes": 60,
+  "max_consecutive_same_cell": 3,
+  "uncertain_spend_ceiling_usd": 2.0,
+  "backoff_seconds": 60,
+  "same_cell_extra_backoff_seconds": 240
+ },
+ "accounting_safety": "every auto-resumed halt leaves its unknown_charge reservation permanently counted against the stage cap; the cap itself is enforced by the client, not the supervisor",
+ "implementation": "scripts/canary_supervisor.py; every decision is a logged line",
+ "adjudication": "flagged for the adjudicator alongside the reviewer transport and streaming deviation records",
+ "execution_authorized": false,
+ "note": "Append-only operational policy. Grants no authority and changes no cap."
+}
