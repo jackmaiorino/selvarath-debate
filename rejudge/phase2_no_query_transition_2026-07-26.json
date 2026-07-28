@@ -1,0 +1,46 @@
+{
+  "schema_version": "phase2_no_query_transition_v1",
+  "decision_id": "canary_no_query_transition_2026-07-26",
+  "recorded_at_utc": "2026-07-26T13:47:43Z",
+  "status": "frozen",
+  "supersedes": {
+    "tracked_path": "rejudge/phase2_canary_build_decisions_2026-07-24.json",
+    "entry": "decisions.no_query_transition_text",
+    "prior_status": "PROVISIONAL"
+  },
+  "owner_delegation": {
+    "tracked_path": "rejudge/phase2_canary_build_decisions_2026-07-24.json",
+    "exact_quote": "your call",
+    "scope": "the fourth enumerated canary-build decision: no-query transition text"
+  },
+  "oracle_review": {
+    "tracked_path": "rejudge/phase2_codex_review_2026-07-26_consult28.md",
+    "consult": 28,
+    "disposition": "REPLACE_AND_FREEZE"
+  },
+  "payload": {
+    "text": "No factual verification was performed for this query. This message contains no evidence about the world document. The query slot has been consumed.",
+    "utf8_sha256": "509386e2cc8aa74760fe114ca22363821dfe14eacee1c36ae99d82fde86c95b9"
+  },
+  "semantics": {
+    "dispatch_occurred": false,
+    "contains_world_document_evidence": false,
+    "slot_consumed": true,
+    "free_retry_granted": false
+  },
+  "render_surfaces": [
+    "immediate_block_feedback",
+    "subsequent_query_previous_results",
+    "final_verification_results",
+    "batch_same_qa_replay"
+  ],
+  "invariants": [
+    "byte-identical in clean and placebo mode",
+    "reveals no checker or reviewer verdict",
+    "reveals no gate identity or arm identity",
+    "never substitutes for the first-rejection free-retry payload",
+    "never substitutes for a checker outage, malformed output, or unresolved-output halt"
+  ],
+  "execution_authorized": false,
+  "note": "Append-only protocol-text freeze. Grants no execution authority and changes no spend cap."
+}

@@ -17,21 +17,91 @@ Anything the bundle does not state is refused rather than defaulted.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+from pathlib import Path
 from typing import Any, Mapping
 
 from rejudge.phase2_canary_cells import ResolvedCell
 
-# The frozen no-query transition shown when a slot is consumed without a dispatch. Still
-# provisional pending oracle review, which is why it is composed here and injected into the
-# gate rather than written into the gate's own logic.
-PROVISIONAL_NO_QUERY_PAYLOAD = "No verification result is available for this query."
+ROOT = Path(__file__).resolve().parents[1]
+NO_QUERY_TRANSITION_RELATIVE_PATH = Path(
+    "rejudge/phase2_no_query_transition_2026-07-26.json")
+NO_QUERY_TRANSITION_SCHEMA = "phase2_no_query_transition_v1"
+NO_QUERY_TRANSITION_KEYS = frozenset({
+    "schema_version", "decision_id", "recorded_at_utc", "status", "supersedes",
+    "owner_delegation", "oracle_review", "payload", "semantics", "render_surfaces",
+    "invariants", "execution_authorized", "note",
+})
+NO_QUERY_PAYLOAD_KEYS = frozenset({"text", "utf8_sha256"})
+NO_QUERY_SEMANTICS = {
+    "dispatch_occurred": False,
+    "contains_world_document_evidence": False,
+    "slot_consumed": True,
+    "free_retry_granted": False,
+}
+NO_QUERY_RENDER_SURFACES = [
+    "immediate_block_feedback",
+    "subsequent_query_previous_results",
+    "final_verification_results",
+    "batch_same_qa_replay",
+]
 
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 
 class UncomposableCell(ValueError):
     """Raised when a cell cannot be composed from the frozen bundle."""
+
+
+class FrozenTransitionDrift(UncomposableCell):
+    """Raised when the append-only no-query transition no longer validates."""
+
+
+def load_no_query_transition(project_root: str | Path = ROOT) -> dict[str, Any]:
+    """Load and validate the final Consult-#28 no-query transition.
+
+    The string is scientific input shown to the judge in four places, so code must never
+    silently fall back to an inline literal. The machine-readable append-only decision is the
+    source of truth and its own declared UTF-8 hash is checked before every composition.
+    """
+    path = Path(project_root) / NO_QUERY_TRANSITION_RELATIVE_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise FrozenTransitionDrift(
+            f"could not load the frozen no-query transition {path}: {exc}") from exc
+    if not isinstance(payload, dict) or set(payload) != NO_QUERY_TRANSITION_KEYS:
+        raise FrozenTransitionDrift("frozen no-query transition fields drifted")
+    if payload.get("schema_version") != NO_QUERY_TRANSITION_SCHEMA:
+        raise FrozenTransitionDrift("frozen no-query transition schema_version drifted")
+    if payload.get("status") != "frozen":
+        raise FrozenTransitionDrift("no-query transition status must be exactly 'frozen'")
+    if payload.get("execution_authorized") is not False:
+        raise FrozenTransitionDrift("no-query transition must grant no execution authority")
+
+    declared = payload.get("payload")
+    if not isinstance(declared, dict) or set(declared) != NO_QUERY_PAYLOAD_KEYS:
+        raise FrozenTransitionDrift("frozen no-query transition payload fields drifted")
+    text = declared.get("text")
+    expected_sha = declared.get("utf8_sha256")
+    if not isinstance(text, str) or not text:
+        raise FrozenTransitionDrift("frozen no-query transition text must be non-empty")
+    observed_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if expected_sha != observed_sha:
+        raise FrozenTransitionDrift(
+            f"frozen no-query transition hash drifted: declared {expected_sha!r}, "
+            f"observed {observed_sha}")
+    if payload.get("semantics") != NO_QUERY_SEMANTICS:
+        raise FrozenTransitionDrift("frozen no-query transition semantics drifted")
+    if payload.get("render_surfaces") != NO_QUERY_RENDER_SURFACES:
+        raise FrozenTransitionDrift("frozen no-query transition render surfaces drifted")
+    return payload
+
+
+def load_no_query_payload(project_root: str | Path = ROOT) -> str:
+    return str(load_no_query_transition(project_root)["payload"]["text"])
 
 
 def _require_judgment(cell: ResolvedCell) -> Mapping[str, Any]:
@@ -81,7 +151,7 @@ def judge_protocol_for(cell: ResolvedCell, protocol: Mapping[str, Any],
     gate: dict[str, Any] = {
         "rejection_payload": (templates[composition["rejection"]]["payload"]
                               if "rejection" in composition else None),
-        "no_query_payload": PROVISIONAL_NO_QUERY_PAYLOAD,
+        "no_query_payload": load_no_query_payload(),
         "checker_template": composition.get("checker"),
     }
 

@@ -19,7 +19,13 @@ import pytest
 from rejudge import phase2_canary_cells as cells_mod
 from rejudge import phase2_plan
 from rejudge.phase2_canary_compose import (
-    UncomposableCell, is_single_call, judge_protocol_for, single_call_prompt)
+    NO_QUERY_TRANSITION_RELATIVE_PATH, FrozenTransitionDrift, UncomposableCell,
+    is_single_call, judge_protocol_for, load_no_query_payload, load_no_query_transition,
+    single_call_prompt)
+
+FROZEN_NO_QUERY_TEXT = (
+    "No factual verification was performed for this query. This message contains no "
+    "evidence about the world document. The query slot has been consumed.")
 
 
 ANCHOR = "Qwen/Qwen2.5-7B-Instruct-Turbo"
@@ -122,9 +128,17 @@ def test_the_rejection_and_no_query_payloads_are_carried():
                                   _protocol(), _bundle())
     assert composed["gate"]["rejection_payload"] == (
         "Query rejected: ask a single specific factual claim")
-    # Still provisional pending oracle review, so it is carried rather than hardcoded deep
-    # in the gate.
-    assert composed["gate"]["no_query_payload"]
+    # Frozen by Consult #28; composition must serve the artifact's exact bytes.
+    assert composed["gate"]["no_query_payload"] == FROZEN_NO_QUERY_TEXT
+
+
+def test_the_no_query_payload_is_byte_identical_across_clean_and_placebo():
+    protocol, bundle = _protocol(), _bundle()
+    payloads = {
+        judge_protocol_for(_cell("canary_debate_judgment", condition),
+                           protocol, bundle)["gate"]["no_query_payload"]
+        for condition in ("sequential_b2", "placebo_b2")}
+    assert payloads == {FROZEN_NO_QUERY_TEXT}
 
 
 # --- the single-call shape ---------------------------------------------------------------------
@@ -167,3 +181,77 @@ def test_every_judgment_cell_in_the_frozen_plan_composes():
             assert judge_protocol_for(resolved, protocol, bundle)["judge"]["verdict_prompt"]
         composed += 1
     assert composed == 895
+
+
+# --- the frozen no-query transition (Consult #28) ---------------------------------------------
+
+def _drifted_root(tmp_path, mutate):
+    """A project root whose only content is a mutated copy of the frozen transition."""
+    artifact = json.loads(
+        Path(NO_QUERY_TRANSITION_RELATIVE_PATH).read_text(encoding="utf-8"))
+    mutate(artifact)
+    target = tmp_path / NO_QUERY_TRANSITION_RELATIVE_PATH
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps(artifact), encoding="utf-8")
+    return tmp_path
+
+
+def test_the_tracked_transition_loads_and_is_the_consult_28_ruling():
+    loaded = load_no_query_transition()
+    assert loaded["payload"]["text"] == FROZEN_NO_QUERY_TEXT
+    assert loaded["oracle_review"]["consult"] == 28
+    assert load_no_query_payload() == FROZEN_NO_QUERY_TEXT
+
+
+def test_a_missing_transition_artifact_is_refused(tmp_path):
+    with pytest.raises(FrozenTransitionDrift):
+        load_no_query_transition(tmp_path)
+
+
+def test_a_reworded_payload_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["payload"]["text"] = FROZEN_NO_QUERY_TEXT + " "
+    with pytest.raises(FrozenTransitionDrift, match="hash drifted"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_a_redeclared_hash_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["payload"]["utf8_sha256"] = "0" * 64
+    with pytest.raises(FrozenTransitionDrift, match="hash drifted"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_a_thawed_status_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["status"] = "PROVISIONAL"
+    with pytest.raises(FrozenTransitionDrift, match="frozen"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_an_execution_authorizing_transition_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["execution_authorized"] = True
+    with pytest.raises(FrozenTransitionDrift, match="execution authority"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_field_drift_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["surprise"] = "value"
+    with pytest.raises(FrozenTransitionDrift, match="fields drifted"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_semantics_drift_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["semantics"]["free_retry_granted"] = True
+    with pytest.raises(FrozenTransitionDrift, match="semantics drifted"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))
+
+
+def test_render_surface_drift_is_refused(tmp_path):
+    def mutate(artifact):
+        artifact["render_surfaces"].remove("batch_same_qa_replay")
+    with pytest.raises(FrozenTransitionDrift, match="render surfaces drifted"):
+        load_no_query_transition(_drifted_root(tmp_path, mutate))

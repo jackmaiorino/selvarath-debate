@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from rejudge import phase2_plan
+from rejudge.phase2_canary_compose import load_no_query_transition
 from rejudge.phase2_execution import canonical_sha256
 
 STAGE = "canary"
@@ -102,6 +103,9 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
     reviewer_prompt = _json(root / "rejudge" / "phase2_reviewer_prompt_2026-07-23.json")
     bundle_approval = _json(
         root / "rejudge" / "phase2_prompt_bundle_approval_2026-07-18.json")
+    # Validated load, not _json: the loader re-checks the artifact's declared UTF-8 hash, so a
+    # tampered payload refuses here instead of binding a plausible-looking hash.
+    no_query = load_no_query_transition(root)
 
     return {
         "protocol_sha256": canonical_sha256(protocol),
@@ -114,6 +118,9 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
         "checker_system_prompt_sha256": checker["configuration"]["system_prompt_sha256"],
         "checker_model": checker["configuration"]["model"],
         "checker_frozen_config_sha256": canonical_sha256(checker),
+        # Consult #28: the successor manifest binds both the decision artifact (below, under
+        # governance) and the exact judge-visible payload bytes.
+        "no_query_payload_sha256": no_query["payload"]["utf8_sha256"],
         "role_limits_v5_sha256": canonical_sha256(
             _json(root / "rejudge" / "phase2_role_limits_v5_2026-07-19.json")),
         "price_snapshot_sha256": canonical_sha256(
@@ -129,6 +136,9 @@ def _governance(root: Path) -> dict[str, Any]:
         "owner_decision": "rejudge/phase2_canary_owner_decision_2026-07-23.json",
         "build_decisions": "rejudge/phase2_canary_build_decisions_2026-07-24.json",
         "checker_frozen_config": "rejudge/phase2_checker_frozen_config_2026-07-23.json",
+        # Supersedes the PROVISIONAL no_query_transition_text entry inside build_decisions
+        # (Consult #28); both stay bound because the record is append-only.
+        "no_query_transition": "rejudge/phase2_no_query_transition_2026-07-26.json",
     }
     return {name: {"tracked_path": relative,
                    "canonical_sha256": canonical_sha256(_json(root / relative))}

@@ -53,6 +53,36 @@ def test_the_gate_artifacts_are_bound():
     assert bindings["checker_model"] == "google/gemma-4-31B-it"
 
 
+def test_the_no_query_transition_is_bound_by_artifact_and_payload_hash():
+    # Consult #28's required binding: both the decision artifact's canonical JSON hash and
+    # the exact judge-visible payload bytes. The literals are pins; the artifact is
+    # append-only, so a mismatch here is drift, not staleness.
+    manifest = _manifest()
+    assert manifest["frozen_inputs"]["no_query_payload_sha256"] == (
+        "509386e2cc8aa74760fe114ca22363821dfe14eacee1c36ae99d82fde86c95b9")
+    assert manifest["governance"]["no_query_transition"] == {
+        "tracked_path": "rejudge/phase2_no_query_transition_2026-07-26.json",
+        "canonical_sha256":
+            "1e7138311d0de7e4572bc36f90e21deeea003aea08dc74440fd245ed01413abc",
+    }
+
+
+def test_a_tampered_transition_payload_refuses_manifest_validation(tmp_path):
+    import shutil
+    from rejudge.phase2_canary_compose import (
+        NO_QUERY_TRANSITION_RELATIVE_PATH, FrozenTransitionDrift)
+    root = tmp_path / "repo"
+    shutil.copytree(".", root, ignore=shutil.ignore_patterns(
+        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache"))
+    target = root / NO_QUERY_TRANSITION_RELATIVE_PATH
+    artifact = json.loads(target.read_text(encoding="utf-8"))
+    artifact["payload"]["text"] += " "
+    target.write_text(json.dumps(artifact), encoding="utf-8")
+    # The loader's own hash check refuses before any section comparison can run.
+    with pytest.raises(FrozenTransitionDrift):
+        validate_canary_manifest(_manifest(), project_root=root)
+
+
 def test_the_reviewer_model_is_pinned_to_the_frozen_identity():
     # The amendment, the owner decision record and the frozen reviewer prompt all name
     # claude-fable-5. A reviewer that inherited whatever session model happened to be running
