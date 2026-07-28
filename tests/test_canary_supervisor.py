@@ -73,6 +73,18 @@ def test_an_sdk_timeout_is_benign(tmp_path):
     assert reason is None
 
 
+def test_a_truncated_stream_is_benign(tmp_path):
+    import time as _t
+    ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime(NOW))
+    err = "streaming response ended without usage chunk"
+    reason = _check(
+        tmp_path,
+        usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+                     "error": err}],
+        error_rows=[{"ts": ts, "error": err}])
+    assert reason is None
+
+
 def test_a_stale_error_log_stops(tmp_path):
     old = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW - 3600))
     reason = _check(tmp_path, error_rows=[{"ts": old, "error": "Error code: 500 - x"}])

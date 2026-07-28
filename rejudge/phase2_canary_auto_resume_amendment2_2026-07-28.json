@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment2_2026-07-28",
+ "recorded_at_utc": "2026-07-28T21:24:03Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "'streaming response ended without usage chunk' joins the benign auto-resume signature (third enumerated transport failure, after provider 5xx and SDK timeout)",
+ "trigger": "2026-07-28T21:23Z: a streamed gemma-4-31B judge-verdict ended without a usage chunk after 288 cells; the supervisor stopped as then-specified",
+ "reasoning": "same safety shape as the other two: the reservation is permanently counted as uncertain, the halted cell recorded nothing, and cell-granular retry cannot duplicate a result; the set stays enumerated so novel anomalies still stop for manual review",
+ "bounds_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

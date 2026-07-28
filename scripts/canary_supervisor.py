@@ -41,7 +41,9 @@ SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 # and billed server-side, which is exactly what the permanently-counted uncertain
 # reservation and the supervisor's uncertain ceiling are for; cell-granular retry cannot
 # duplicate a result row.
-_BENIGN_TRANSIENT = re.compile(r"Error code: 5\d\d|Request timed out\.")
+_BENIGN_TRANSIENT = re.compile(
+    r"Error code: 5\d\d|Request timed out\.|"
+    r"streaming response ended without usage chunk")
 
 
 def _tail_json_lines(path: Path, n: int) -> list[dict]:
