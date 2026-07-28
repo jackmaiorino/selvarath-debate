@@ -94,7 +94,8 @@ def test_a_paused_cell_resumes_on_the_very_payload_the_reviewer_labelled(tmp_pat
     assert inner.query_calls == 1
 
     # The reviewer labels that exact payload out of band.
-    store.commit(paused_sha, "ALLOW", "Allowed", "fine", _reviewer_allow(), "parsed")
+    store.commit(paused_sha, "ALLOW", "Allowed", "single atomic claim",
+                 _reviewer_allow(), "parsed")
 
     # Resume in a fresh process: new cache and store objects over the same files.
     resumed_client = CachingClient(
@@ -122,7 +123,7 @@ def test_without_the_cache_the_resumed_cell_pauses_again(tmp_path):
 
     with pytest.raises(gate_mod.PendingReviewerDecision) as first:
         _run(transcript, NondeterministicClient(offset=0), store, pause=True)
-    store.commit(first.value.payload_sha256, "ALLOW", "Allowed", "fine",
+    store.commit(first.value.payload_sha256, "ALLOW", "Allowed", "single atomic claim",
                  _reviewer_allow(), "parsed")
 
     with pytest.raises(gate_mod.PendingReviewerDecision) as second:
@@ -138,7 +139,7 @@ def test_the_resumed_cell_completes_through_the_oracle_and_verdict(tmp_path):
 
     with pytest.raises(gate_mod.PendingReviewerDecision) as excinfo:
         _run(transcript, client, store, pause=True)
-    store.commit(excinfo.value.payload_sha256, "ALLOW", "Allowed", "fine",
+    store.commit(excinfo.value.payload_sha256, "ALLOW", "Allowed", "single atomic claim",
                  _reviewer_allow(), "parsed")
 
     record, _gate = _run(

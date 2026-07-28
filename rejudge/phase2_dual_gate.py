@@ -30,6 +30,12 @@ from typing import Callable
 
 REVIEWER_LABELS = ("ALLOW", "REJECT", "CONTRACT_AMBIGUOUS")
 CLAUSES = ("Allowed", "P1", "P2", "P3", "P4")
+DECISION_STATUSES = ("parsed", "malformed", "reviewer_error")
+DECISION_ROW_KEYS = frozenset({
+    "payload_sha256", "label", "clause", "rationale", "raw_output", "status",
+    "sequence", "prev_event_hash", "event_hash",
+})
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _LINE_RE = re.compile(
     r"^\s*LABEL:\s*(?P<label>ALLOW|REJECT|CONTRACT_AMBIGUOUS)\s*\n"
@@ -46,12 +52,55 @@ def payload_hash(raw_query: str, candidate_a: str, candidate_b: str) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def parse_reviewer_output(raw: str) -> tuple[str | None, str | None, str | None]:
+def parse_reviewer_output(raw: str | None) -> tuple[str | None, str | None, str | None]:
     """Return (label, clause, rationale) or (None, None, None) if malformed."""
     match = _LINE_RE.match(raw.strip()) if raw else None
     if not match:
         return None, None, None
     return match.group("label"), match.group("clause"), match.group("rationale")
+
+
+def _reject_duplicate_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key!r}")
+        result[key] = value
+    return result
+
+
+def _reject_non_finite(value: str):
+    raise ValueError(f"non-finite JSON number is forbidden: {value}")
+
+
+def _strict_json_row(line: str) -> dict:
+    row = json.loads(
+        line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_non_finite)
+    if not isinstance(row, dict):
+        raise ValueError("decision row must be a JSON object")
+    return row
+
+
+def _validate_decision_fields(*, payload_sha: str, label: str | None,
+                              clause: str | None, rationale: str | None,
+                              raw_output: str, status: str) -> None:
+    if not isinstance(payload_sha, str) or _SHA256_RE.fullmatch(payload_sha) is None:
+        raise ValueError("payload_sha256 must be exactly 64 lower-case hexadecimal characters")
+    if status not in DECISION_STATUSES:
+        raise ValueError(f"unknown reviewer decision status: {status!r}")
+    if not isinstance(raw_output, str):
+        raise ValueError("reviewer raw_output must be text")
+    if status == "parsed":
+        parsed = parse_reviewer_output(raw_output)
+        if parsed != (label, clause, rationale):
+            raise ValueError(
+                "parsed reviewer fields do not match the preserved raw three-line output")
+        if label == "ALLOW" and clause != "Allowed":
+            raise ValueError("reviewer ALLOW must cite clause 'Allowed'")
+        if label == "REJECT" and clause not in {"P1", "P2", "P3", "P4"}:
+            raise ValueError("reviewer REJECT must cite one of P1, P2, P3, or P4")
+    elif any(value is not None for value in (label, clause, rationale)):
+        raise ValueError(f"{status} reviewer decisions must carry null parsed fields")
 
 
 @dataclass(frozen=True)
@@ -91,11 +140,31 @@ class DualGateDecisionStore:
             for line in self.path.read_text(encoding="utf-8").splitlines():
                 if not line.strip():
                     continue
-                row = json.loads(line)
+                row = _strict_json_row(line)
+                if set(row) != DECISION_ROW_KEYS:
+                    raise ValueError("decision row fields drifted")
+                if type(row["sequence"]) is not int or row["sequence"] != self._sequence + 1:
+                    raise ValueError(
+                        f"decision sequence is not contiguous: expected {self._sequence + 1}, "
+                        f"found {row['sequence']!r}")
+                if row["prev_event_hash"] != self._last_hash:
+                    raise ValueError(
+                        f"decision chain broken at sequence {row['sequence']}: expected "
+                        f"previous {self._last_hash!r}, found {row['prev_event_hash']!r}")
+                # Integrity before semantics: a row that fails its own event hash was
+                # modified after write, and must be reported as tampering rather than as
+                # whatever field inconsistency the tampering happens to produce.
                 expected = self._row_hash(row)
                 if expected != row["event_hash"]:
                     raise ValueError(
                         f"decision chain corrupt at sequence {row['sequence']}")
+                if row["payload_sha256"] in self._by_payload:
+                    raise ValueError(
+                        f"duplicate reviewer decision for payload {row['payload_sha256']}")
+                _validate_decision_fields(
+                    payload_sha=row["payload_sha256"], label=row["label"],
+                    clause=row["clause"], rationale=row["rationale"],
+                    raw_output=row["raw_output"], status=row["status"])
                 self._last_hash = row["event_hash"]
                 self._sequence = row["sequence"]
                 self._by_payload[row["payload_sha256"]] = ReviewerDecision(
@@ -119,6 +188,9 @@ class DualGateDecisionStore:
                rationale: str | None, raw_output: str, status: str) -> ReviewerDecision:
         if payload_sha in self._by_payload:
             raise ValueError(f"decision already committed for {payload_sha}")
+        _validate_decision_fields(
+            payload_sha=payload_sha, label=label, clause=clause, rationale=rationale,
+            raw_output=raw_output, status=status)
         row = {
             "payload_sha256": payload_sha, "label": label, "clause": clause,
             "rationale": rationale, "raw_output": raw_output, "status": status,

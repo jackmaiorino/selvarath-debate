@@ -157,7 +157,7 @@ def test_a_previously_committed_decision_is_reused_in_pause_mode(tmp_path):
         tmp_path, checker=_allowing_checker, reviewer_call=exploding_reviewer,
         pause_when_unlabeled=True)
     store.commit(payload_hash(GOOD_QUERY, CANDIDATE_A, CANDIDATE_B),
-                 "ALLOW", "Allowed", "fine", _reviewer(), "parsed")
+                 "ALLOW", "Allowed", "single atomic claim", _reviewer(), "parsed")
     assert canary_gate(GOOD_QUERY, "claim", 1, 1) == ("allow", None)
 
 

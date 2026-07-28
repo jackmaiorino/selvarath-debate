@@ -104,11 +104,13 @@ def test_store_resume_and_chain_integrity(tmp_path):
     path = tmp_path / "decisions.jsonl"
     store = DualGateDecisionStore(path)
     sha = payload_hash("q1", "a", "b")
-    store.commit(sha, "ALLOW", "Allowed", "ok", GOOD, "parsed")
+    store.commit(sha, "ALLOW", "Allowed", "One atomic checkable fact.", GOOD,
+                 "parsed")
     resumed = DualGateDecisionStore(path)
     assert resumed.get(sha).effective_allow
     with pytest.raises(ValueError):
-        resumed.commit(sha, "REJECT", "P3", "x", REJ, "parsed")
+        resumed.commit(sha, "REJECT", "P3", "Two independently checkable facts.", REJ,
+                       "parsed")
     tampered = path.read_text(encoding="utf-8").replace('"ALLOW"', '"REJECT"', 1)
     path.write_text(tampered, encoding="utf-8")
     with pytest.raises(ValueError, match="chain corrupt"):
