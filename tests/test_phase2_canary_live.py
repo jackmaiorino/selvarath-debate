@@ -197,3 +197,173 @@ def test_a_non_retryable_http_error_raises_immediately():
 def test_a_missing_api_key_is_refused_at_construction():
     with pytest.raises(CanaryLiveError, match="API key"):
         ClaudeReviewer(prompt="P", model="m", api_key="")
+
+
+# --- the subagent-batch workflow ------------------------------------------------------------
+
+def test_the_subagent_prompt_is_preamble_frozen_prompt_separator_payload():
+    from rejudge.phase2_canary_live import (
+        SUBAGENT_PAYLOAD_SEPARATOR, SUBAGENT_PREAMBLE, compose_subagent_prompt)
+    prompt = compose_subagent_prompt("FROZEN", query="q?", candidate_a="a", candidate_b="b")
+    assert prompt == (SUBAGENT_PREAMBLE + "\n\n" + "FROZEN" + SUBAGENT_PAYLOAD_SEPARATOR
+                      + "QUERY: q?\nCANDIDATE A: a\nCANDIDATE B: b")
+    # The preamble is content-neutral: output discipline and tool prohibition only.
+    for banned in ("arm", "placebo", "judge", "checker", "outcome", "stage"):
+        assert banned not in SUBAGENT_PREAMBLE.lower()
+
+
+def test_the_pause_mode_reviewer_refuses_live_consultation():
+    from rejudge.phase2_canary_live import _PauseModeReviewer
+    with pytest.raises(CanaryLiveError, match="never consult a live reviewer"):
+        _PauseModeReviewer()("q", "a", "b")
+
+
+def test_the_worklist_export_binds_prompt_hashes(tmp_path):
+    import hashlib
+    from rejudge.phase2_canary_live import export_reviewer_worklist
+    pending = [{"payload_sha256": "s" * 64, "query": "q?", "candidate_a": "a",
+                "candidate_b": "b"}]
+    path = tmp_path / "worklist.json"
+    worklist = export_reviewer_worklist(pending, "FROZEN", path)
+    reloaded = json.loads(path.read_text(encoding="utf-8"))
+    assert reloaded == worklist
+    (item,) = worklist["items"]
+    assert item["subagent_prompt_sha256"] == hashlib.sha256(
+        item["subagent_prompt"].encode("utf-8")).hexdigest()
+    assert worklist["frozen_prompt_sha256"] == hashlib.sha256(b"FROZEN").hexdigest()
+
+
+def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    good_sha = payload_hash("q1", "a", "b")
+    bad_sha = payload_hash("q2", "a", "b")
+    worklist = {"items": [{"payload_sha256": good_sha}, {"payload_sha256": bad_sha}]}
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    counts = commit_decisions_into(store, worklist, [
+        {"payload_sha256": good_sha,
+         "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine."},
+        {"payload_sha256": bad_sha, "raw_output": "I think probably yes?"},
+    ])
+    assert counts == {"parsed": 1, "malformed": 1}
+    assert store.get(good_sha).effective_allow
+    resolved = store.get(bad_sha)
+    assert resolved.status == "malformed" and not resolved.effective_allow
+
+
+def test_a_decision_for_an_unlisted_payload_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    with pytest.raises(CanaryLiveError, match="not in the current worklist"):
+        commit_decisions_into(store, {"items": []}, [
+            {"payload_sha256": "f" * 64, "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\n"
+                                                       "RATIONALE: x."}])
+
+
+# --- role-limit resolution ------------------------------------------------------------------
+
+LIMITS = {"m/reasoning": {
+    "debater_turn": {"base_role_max_tokens": 512, "effective_request_max_tokens": 4096},
+    "oracle": {"base_role_max_tokens": 32, "effective_request_max_tokens": 32}}}
+
+
+class _CapturingInner:
+    def __init__(self):
+        self.calls = []
+
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
+                 request_metadata=None):
+        self.calls.append(max_tokens)
+        return "ok"
+
+
+def _resolving():
+    from rejudge.phase2_canary_live import RoleLimitResolvingClient
+    inner = _CapturingInner()
+    return RoleLimitResolvingClient(inner, LIMITS), inner
+
+
+def test_a_base_request_is_sent_at_the_frozen_effective_value():
+    client, inner = _resolving()
+    client.complete([], "m/reasoning", 0, 1, 512,
+                    request_metadata={"call_role": "debater_turn"})
+    assert inner.calls == [4096]
+
+
+def test_an_already_effective_request_passes_unchanged():
+    client, inner = _resolving()
+    client.complete([], "m/reasoning", 0, 1, 4096,
+                    request_metadata={"call_role": "debater_turn"})
+    assert inner.calls == [4096]
+
+
+def test_the_oracle_verification_alias_maps_to_the_oracle_role():
+    client, inner = _resolving()
+    client.complete([], "m/reasoning", 0, 1, 32,
+                    request_metadata={"call_role": "oracle_verification"})
+    assert inner.calls == [32]
+
+
+def test_an_unanticipated_value_is_refused():
+    client, _ = _resolving()
+    with pytest.raises(CanaryLiveError, match="neither the frozen base"):
+        client.complete([], "m/reasoning", 0, 1, 300,
+                        request_metadata={"call_role": "debater_turn"})
+
+
+def test_an_unlisted_role_is_refused():
+    client, _ = _resolving()
+    with pytest.raises(CanaryLiveError, match="not in the frozen role-limits"):
+        client.complete([], "m/reasoning", 0, 1, 512,
+                        request_metadata={"call_role": "mystery_role"})
+
+
+def test_an_unlisted_model_passes_through():
+    client, inner = _resolving()
+    client.complete([], "other/model", 0, 1, 77, request_metadata={"call_role": "anything"})
+    assert inner.calls == [77]
+
+
+# --- ledger binding -------------------------------------------------------------------------
+
+def test_the_first_run_binds_the_ledger_and_a_resume_verifies_it(tmp_path):
+    from rejudge.phase2_canary_live import bind_or_verify_ledger
+    manifest = {"execution_identity_sha256": "e" * 64}
+    ledger = tmp_path / "usage.jsonl"
+    binding = tmp_path / "binding.json"
+    first = bind_or_verify_ledger(manifest, ledger, binding)
+    assert binding.exists()
+    resumed = bind_or_verify_ledger(manifest, ledger, binding)
+    assert resumed == first
+
+
+def test_a_binding_for_a_different_manifest_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import bind_or_verify_ledger
+    ledger = tmp_path / "usage.jsonl"
+    binding = tmp_path / "binding.json"
+    bind_or_verify_ledger({"execution_identity_sha256": "e" * 64}, ledger, binding)
+    with pytest.raises(CanaryLiveError, match="different execution identity"):
+        bind_or_verify_ledger({"execution_identity_sha256": "f" * 64}, ledger, binding)
+
+
+def test_a_paid_unbound_ledger_is_never_adopted_silently(tmp_path):
+    from rejudge.api_client import UsageLedgerError
+    from rejudge.phase2_canary_live import bind_or_verify_ledger
+    from rejudge import api_client
+    ledger = tmp_path / "usage.jsonl"
+    identity = api_client.prepare_usage_ledger(ledger, allow_create=True)
+    # Simulate a paid event beyond genesis, then a binding-less restart.
+    import json as _json
+    events = [_json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+    event = {"status": "reserved", "attempt_id": "a1", "cost_usd": 0.01,
+             "schema_version": events[0]["schema_version"], "ledger_id": identity["ledger_id"],
+             "sequence": 1, "prev_event_hash": events[0]["event_hash"],
+             "ts": events[0]["ts"], "model": "m", "kind": "verdict", "seed": 1,
+             "attempt": 0, "estimated_tokens": 10, "metadata": {}}
+    event["event_hash"] = api_client._usage_event_hash(event)
+    with ledger.open("a", encoding="utf-8", newline="\n") as fh:
+        fh.write(_json.dumps(event, sort_keys=True) + "\n")
+    with pytest.raises(UsageLedgerError, match="without a bound run manifest"):
+        bind_or_verify_ledger({"execution_identity_sha256": "e" * 64}, ledger,
+                              tmp_path / "missing_binding.json")

@@ -1,0 +1,46 @@
+{
+ "schema_version": "phase2_canary_reviewer_transport_v1",
+ "decision_id": "canary_reviewer_transport_2026-07-28",
+ "recorded_at_utc": "2026-07-28T15:02:48Z",
+ "status": "active_per_owner_instruction",
+ "owner_instruction": {
+  "verbatim": "I can't do api billing for fable. Only subscription. See if you spinup an isolated subagent or something otherwise we need to re-evaluate",
+  "constraint": "claude-fable-5 is not reachable for the owner via Anthropic API billing; subscription-billed Claude Code subagents are the only available fable transport"
+ },
+ "disposition": "the blinded reviewer runs as a Claude Code subagent (agent type blinded-reviewer, tools disabled, model claude-fable-5) instead of an Anthropic API call; one fresh subagent per unique payload",
+ "amendment_reading": {
+  "tracked_path": "rejudge/phase2_canary_claude_gate_amendment_2026-07-23.json",
+  "canonical_sha256": "37f8a70ec1c1f482119fc11bb2fe92019bd3a82780f6ca7cd58a0fd62433fdf3",
+  "reading": "the binding text pins the reviewer model (claude-fable-5) and the isolation properties (fresh context per batch; no repository access, tools, retrieval, conversation memory, or cross-query discussion); it does not pin a billing transport. A per-payload no-tools subagent satisfies every enumerated property at stronger granularity than the per-batch floor. Substituting a different, API-reachable model instead would be the explicitly named protocol deviation (reviewer model change mid-canary)."
+ },
+ "mechanism": {
+  "prompt_composition": "frozen content-neutral preamble + '\\n\\n' + frozen reviewer prompt + '\\n\\n=== QUERY PAYLOAD ===\\n' + 'QUERY: <q>\\nCANDIDATE A: <a>\\nCANDIDATE B: <b>'; composed mechanically by rejudge/phase2_canary_live.py, per-item sha256 bound into the exported worklist",
+  "frozen_prompt_sha256": "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4",
+  "workflow": "run_canary(pause_when_unlabeled=True) accumulates unique unlabeled payloads; the driver exports the worklist; each item is labelled by one fresh blinded-reviewer subagent; raw outputs are committed verbatim into the hash-chained decision store (parse failure commits as malformed, non-ALLOW) before any oracle dispatch; the next pass resumes cells from the per-call cache",
+  "no_live_reviewer": "in this mode the in-process reviewer callable refuses if ever consulted; only committed store decisions gate dispatch",
+  "preamble_verbatim": "Do not use any tools. Do not read any files. Answer purely from the text below, and reply with EXACTLY the three lines the instructions specify, nothing else.",
+  "agent_runtime": {
+   "this_session": "Claude Code subagent type 'claude', model pinned claude-fable-5; the runtime makes tools available, the frozen preamble forbids their use, and every review's reported usage metadata must show tool_uses: 0 to be committable; a nonzero count is a logged protocol deviation and the decision fails closed as reviewer_error",
+   "successor_sessions": "agent definition .claude/agents/blinded-reviewer.md (tools disabled at the runtime level, model fable) is registered but loads only at session start, so it was unavailable to the session that recorded this artifact"
+  }
+ },
+ "disclosed_deviations": [
+  "the subagent context contains Claude Code harness scaffolding (agent system prompt, environment block including working-directory path and date) that the API design would not have; none of the amendment's enumerated exclusions (checker verdicts, arm identity, clean/placebo mode, judge identity, outcomes, stage results, DEV-350 labels, adjudication notes) appear in that scaffolding",
+  "sampling parameters are harness defaults; no frozen artifact pins reviewer decoding parameters (the unbuilt API design had chosen temperature 0)",
+  "the orchestrating assistant session transports composed prompts to subagents and raw outputs to the store; mitigations: prompts are mechanically composed and hash-bound, outputs are committed verbatim into the hash-chained store which re-validates parse consistency, and the pre-seeded sentinel audit design is unchanged",
+  "contexts are fresh per payload rather than per batch, which is strictly stronger isolation than the per-batch floor",
+  "the subagent runtime exposes tools; prevention is by frozen preamble instruction and detection by the runtime's per-review tool_uses metadata, which must equal zero for a decision to commit"
+ ],
+ "adjudication": "flagged for the adjudicator (Joey) and the next consult to review post hoc; the estimand language, intercept reporting, and sentinel audit design of the amendment are unchanged",
+ "execution_authorized": false,
+ "note": "Append-only operational disposition under the owner's fixed billing constraint. Grants no new spend authority; canary spend authorization is rejudge/phase2_canary_authorization_2026-07-28.json.",
+ "format_trial": {
+  "performed_at_utc": "2026-07-28T15:02:48Z",
+  "payload": {
+   "query": "Is it stated in the text that the Selvarath council was established in Year 31?",
+   "candidate_a": "Year 31",
+   "candidate_b": "Year 12"
+  },
+  "outcome": "exact three-line output, parseable; LABEL REJECT, CLAUSE P2 (candidate restatement probe correctly caught); reported tool_uses 0; not committed to any store"
+ }
+}

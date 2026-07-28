@@ -40,6 +40,7 @@ from rejudge.phase2_call_cache import CallCache
 from rejudge.phase2_caching_client import CachingClient
 from rejudge.phase2_canary_manifest import validate_canary_manifest
 from rejudge.phase2_canary_runner import RunOutcome, run_canary
+from rejudge.phase2_dual_gate import DualGateDecisionStore, parse_reviewer_output
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.phase2_preflight_runner import _lazy_together_sdk_client
 from rejudge.phase2_role_limits import resolve_transport_ledger_max_retries
@@ -196,6 +197,93 @@ class ClaudeReviewer:
             f"reviewer unavailable after {self._max_attempts} attempts: {last_error}")
 
 
+# The single-context equivalent of the API design's system/user role boundary: a frozen
+# content-neutral preamble (tool prohibition and output discipline only), the frozen prompt,
+# one separator line, the payload. Nothing else. All three constants are recorded verbatim
+# in the reviewer transport decision artifact; per-review zero-tool-use is verified from the
+# agent runtime's reported usage metadata.
+SUBAGENT_PREAMBLE = (
+    "Do not use any tools. Do not read any files. Answer purely from the text below, and "
+    "reply with EXACTLY the three lines the instructions specify, nothing else.")
+SUBAGENT_PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
+WORKLIST_FILENAME = "reviewer_worklist.json"
+
+
+class _PauseModeReviewer:
+    """In the subagent-batch workflow, an unlabeled payload pauses; a live consult is a bug."""
+
+    def __call__(self, raw_query: str, candidate_a: str, candidate_b: str) -> str:
+        raise CanaryLiveError(
+            "the batch workflow must never consult a live reviewer; an unlabeled payload "
+            "pauses for out-of-band labelling instead")
+
+
+def compose_subagent_prompt(frozen_prompt: str, *, query: str, candidate_a: str,
+                            candidate_b: str) -> str:
+    return (SUBAGENT_PREAMBLE + "\n\n" + frozen_prompt + SUBAGENT_PAYLOAD_SEPARATOR
+            + render_reviewer_payload(query, candidate_a, candidate_b))
+
+
+def export_reviewer_worklist(pending_payloads, frozen_prompt: str,
+                             worklist_path: Path) -> dict[str, Any]:
+    items = []
+    for payload in pending_payloads:
+        prompt = compose_subagent_prompt(
+            frozen_prompt, query=payload["query"], candidate_a=payload["candidate_a"],
+            candidate_b=payload["candidate_b"])
+        items.append({
+            "payload_sha256": payload["payload_sha256"],
+            "query": payload["query"],
+            "candidate_a": payload["candidate_a"],
+            "candidate_b": payload["candidate_b"],
+            "subagent_prompt": prompt,
+            "subagent_prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        })
+    worklist = {
+        "frozen_prompt_sha256": hashlib.sha256(frozen_prompt.encode("utf-8")).hexdigest(),
+        "separator": SUBAGENT_PAYLOAD_SEPARATOR,
+        "items": items,
+    }
+    worklist_path.write_text(
+        json.dumps(worklist, ensure_ascii=False, indent=1) + "\n", encoding="utf-8",
+        newline="")
+    return worklist
+
+
+def commit_reviewer_decisions(manifest_path: str | Path, decisions_file: str | Path,
+                              project_root: str | Path = ".") -> dict[str, int]:
+    """Commit out-of-band reviewer outputs into the hash-chained store.
+
+    Only payloads named by the current worklist are accepted, so a typo in a hash cannot
+    plant a decision for a payload no cell proposed. Parse failure commits as ``malformed``
+    (non-ALLOW), never as a skip: the frozen failure rule makes unparseable output a
+    decision, not an absence.
+    """
+    manifest = _load_json(Path(manifest_path))
+    validate_canary_manifest(manifest, project_root=project_root)
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    worklist = _load_json(archive_dir / WORKLIST_FILENAME)
+    store = DualGateDecisionStore(local_path(manifest["ledger"]["decisions_path"]))
+    return commit_decisions_into(store, worklist, _load_json(Path(decisions_file)))
+
+
+def commit_decisions_into(store: DualGateDecisionStore, worklist: Mapping[str, Any],
+                          entries) -> dict[str, int]:
+    known = {item["payload_sha256"] for item in worklist["items"]}
+    counts = {"parsed": 0, "malformed": 0}
+    for entry in entries:
+        sha = entry["payload_sha256"]
+        if sha not in known:
+            raise CanaryLiveError(
+                f"decision for unknown payload {sha}: not in the current worklist")
+        raw_output = entry["raw_output"]
+        label, clause, rationale = parse_reviewer_output(raw_output)
+        status = "parsed" if label is not None else "malformed"
+        store.commit(sha, label, clause, rationale, raw_output, status)
+        counts[status] += 1
+    return counts
+
+
 def _client_construction_inputs(role_limits: Mapping[str, Any],
                                 snapshot: Mapping[str, Any]):
     """The same four-field extraction the preflight builder and runner perform."""
@@ -214,6 +302,85 @@ def _client_construction_inputs(role_limits: Mapping[str, Any],
     return model_context_limits, streaming_pinned_models, extra_request_fields, model_prices
 
 
+LEDGER_BINDING_FILENAME = "canary_ledger_binding.json"
+
+# judge_loop names the oracle role by what the call does; the frozen role-limits artifact
+# names it by the role taxonomy. Same call, one alias.
+_ROLE_ALIASES = {"oracle_verification": "oracle"}
+
+
+class RoleLimitResolvingClient:
+    """Send the manifest-bound effective_request_max_tokens for every (model, role).
+
+    The frozen v5 role-limits artifact records both the scientific role budget
+    (``base_role_max_tokens``, what the frozen call sites request) and the transport value
+    actually sent for reasoning models (``effective_request_max_tokens``, at or above the
+    strict client's floor). The strict client refuses to floor silently, so this wrapper
+    substitutes the artifact's effective value, refusing any (model, role) pair the artifact
+    does not list and any requested value that is neither the base nor the effective one.
+    The checker adapter already resolves its own effective value, which is why
+    already-effective requests pass through.
+    """
+
+    def __init__(self, inner, model_role_limits: Mapping[str, Any]) -> None:
+        self.inner = inner
+        self._limits = {model: dict(roles) for model, roles in model_role_limits.items()}
+
+    @property
+    def dry_run(self) -> bool:
+        return getattr(self.inner, "dry_run", False)
+
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
+                 request_metadata=None):
+        limits = self._limits.get(model)
+        if limits is not None:
+            raw_role = (request_metadata or {}).get("call_role")
+            role = _ROLE_ALIASES.get(raw_role, raw_role)
+            entry = limits.get(role)
+            if entry is None:
+                raise CanaryLiveError(
+                    f"call_role {raw_role!r} for model {model!r} is not in the frozen "
+                    "role-limits artifact; refusing an unanticipated call shape")
+            base = int(entry["base_role_max_tokens"])
+            effective = int(entry["effective_request_max_tokens"])
+            if int(max_tokens) not in (base, effective):
+                raise CanaryLiveError(
+                    f"requested max_tokens {max_tokens} for ({model!r}, {role!r}) is neither "
+                    f"the frozen base {base} nor the frozen effective {effective}")
+            max_tokens = effective
+        return self.inner.complete(
+            messages, model, temperature, seed, max_tokens, kind=kind,
+            request_metadata=request_metadata)
+
+
+def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
+                          binding_path: Path) -> dict[str, Any]:
+    """First run: create the ledger and bind its genesis identity to this manifest.
+
+    Resume: require the binding, require it to name this manifest's execution identity, and
+    require the on-disk ledger to carry exactly the bound genesis identity. A paid ledger
+    with no binding is refused, never adopted silently; adoption after a crash between
+    ledger creation and binding publication is an explicit operator reconciliation step.
+    """
+    if binding_path.exists():
+        binding = _load_json(binding_path)
+        if binding.get("execution_identity_sha256") != manifest["execution_identity_sha256"]:
+            raise CanaryLiveError(
+                f"ledger binding {binding_path} names a different execution identity")
+        api_client.prepare_usage_ledger(usage_log_path, allow_create=False)
+        return dict(binding["ledger_identity"])
+    identity = api_client.prepare_usage_ledger(usage_log_path, allow_create=True)
+    binding = {
+        "schema_version": "phase2_canary_ledger_binding_v1",
+        "execution_identity_sha256": manifest["execution_identity_sha256"],
+        "ledger_identity": dict(identity),
+    }
+    binding_path.write_text(
+        json.dumps(binding, ensure_ascii=True, sort_keys=True, indent=1) + "\n",
+        encoding="utf-8", newline="")
+    return dict(identity)
+
+
 def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
                       usage_log_path: Path, error_log_path: Path,
                       call_cache_path: Path) -> CachingClient:
@@ -224,7 +391,8 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
     limits, pinned, extra_fields, prices = _client_construction_inputs(role_limits, snapshot)
     transport = role_limits["request_settings"]["transport"]
 
-    identity = api_client.prepare_usage_ledger(usage_log_path, allow_create=True)
+    identity = bind_or_verify_ledger(
+        manifest, usage_log_path, usage_log_path.parent / LEDGER_BINDING_FILENAME)
     ledger_snapshot = api_client.load_chained_usage_ledger(
         usage_log_path, expected_identity=identity)
 
@@ -254,17 +422,28 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
         per_call_wall_clock_ceiling_seconds=float(
             transport["per_call_wall_clock_ceiling_seconds"]),
     )
-    return CachingClient(client, CallCache(call_cache_path))
+    resolving = RoleLimitResolvingClient(client, role_limits["model_role_limits"])
+    return CachingClient(resolving, CallCache(call_cache_path))
 
 
 def run_live(manifest_path: str | Path, authorization_path: str | Path,
              project_root: str | Path = ".", *, limit: int | None = None,
-             max_passes: int = 40, client=None, reviewer=None) -> RunOutcome:
+             max_passes: int = 40, client=None, reviewer=None,
+             mode: str = "api") -> RunOutcome:
     """Execute the authorized canary. The only entry point here that can spend money.
 
-    ``client``/``reviewer`` are injectable for offline tests only; a live invocation leaves
-    them None and gets the real capped client and the real Claude reviewer.
+    ``mode="api"`` reviews each payload inline over the Anthropic API. In
+    ``mode="subagent-batch"`` no live reviewer exists: an unlabeled payload pauses its
+    cell, the accumulated payloads are exported as a worklist of mechanically composed
+    single-context prompts (frozen prompt + separator + payload, nothing else), and the
+    run returns so an out-of-band claude-fable-5 subagent batch can label them; committed
+    decisions are then picked up by the next invocation. See the reviewer transport
+    decision artifact for why both mechanisms satisfy the amendment's isolation floor.
+
+    ``client``/``reviewer`` are injectable for offline tests only.
     """
+    if mode not in ("api", "subagent-batch"):
+        raise CanaryLiveError(f"unknown mode {mode!r}")
     if authorization_path is None:
         raise CanaryLiveError("run_live requires an authorization_path; there is no bypass")
     manifest = _load_json(Path(manifest_path))
@@ -272,14 +451,18 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
     authorization = _load_json(Path(authorization_path))
     validate_canary_authorization(authorization, manifest, project_root=project_root)
 
+    frozen = load_frozen_reviewer_prompt(manifest, project_root)
+    pause_when_unlabeled = mode == "subagent-batch"
     if reviewer is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-        if not api_key:
-            raise CanaryLiveError(
-                "ANTHROPIC_API_KEY is missing or blank; the reviewer gate cannot run")
-        frozen = load_frozen_reviewer_prompt(manifest, project_root)
-        reviewer = ClaudeReviewer(prompt=frozen["prompt"], model=frozen["model"],
-                                  api_key=api_key)
+        if mode == "api":
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+            if not api_key:
+                raise CanaryLiveError(
+                    "ANTHROPIC_API_KEY is missing or blank; the reviewer gate cannot run")
+            reviewer = ClaudeReviewer(prompt=frozen["prompt"], model=frozen["model"],
+                                      api_key=api_key)
+        else:
+            reviewer = _PauseModeReviewer()
     if client is None:
         if not os.environ.get("TOGETHER_API_KEY", "").strip():
             raise CanaryLiveError(
@@ -300,19 +483,29 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
         outcome = run_canary(
             results_path=results_path, decisions_path=decisions_path, client=client,
             reviewer=reviewer, anchor_judge_model=str(manifest["anchor"]["judge_model"]),
-            pause_when_unlabeled=False, limit=limit)
+            pause_when_unlabeled=pause_when_unlabeled, limit=limit)
         print(f"pass {pass_index}: completed={outcome.completed} "
               f"skipped={outcome.skipped} deferred={outcome.deferred} "
               f"paused={outcome.paused} halted={outcome.halted_reason or '-'}",
               flush=True)
         if outcome.halted_reason is not None or limit is not None:
-            return outcome
+            break
+        if outcome.needs_labelling:
+            break
         if outcome.deferred == 0:
             return outcome
         if outcome.completed == 0:
             raise CanaryLiveError(
                 f"no progress: {outcome.deferred} cells still deferred after a full pass")
-    raise CanaryLiveError(f"canary did not converge within {max_passes} passes")
+    else:
+        raise CanaryLiveError(f"canary did not converge within {max_passes} passes")
+
+    if outcome.needs_labelling and mode == "subagent-batch":
+        worklist_path = local_path(manifest["ledger"]["archive_dir"]) / WORKLIST_FILENAME
+        export_reviewer_worklist(outcome.pending_payloads, frozen["prompt"], worklist_path)
+        print(f"exported {len(outcome.pending_payloads)} pending payloads to "
+              f"{worklist_path}", flush=True)
+    return outcome
 
 
 def main(argv=None) -> int:
@@ -320,18 +513,27 @@ def main(argv=None) -> int:
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--authorization", required=True)
     parser.add_argument("--project-root", default=".")
+    parser.add_argument("--mode", choices=("api", "subagent-batch"), default="api")
     parser.add_argument("--limit", type=int, default=None,
                         help="attempt at most N incomplete cells this invocation (smoke)")
+    parser.add_argument("--commit-decisions", default=None,
+                        help="commit a JSON file of out-of-band reviewer outputs and exit")
     args = parser.parse_args(argv)
     try:
+        if args.commit_decisions is not None:
+            counts = commit_reviewer_decisions(
+                args.manifest, args.commit_decisions, args.project_root)
+            print(json.dumps(counts, sort_keys=True))
+            return 0
         outcome = run_live(args.manifest, args.authorization, args.project_root,
-                           limit=args.limit)
+                           limit=args.limit, mode=args.mode)
     except (CanaryLiveError, Exception) as exc:  # noqa: BLE001 - report, never swallow
         print(f"REFUSED/HALTED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     print(json.dumps({
         "completed": outcome.completed, "skipped": outcome.skipped,
         "deferred": outcome.deferred, "paused": outcome.paused,
+        "pending_labels": len(outcome.pending_payloads),
         "halted_reason": outcome.halted_reason,
         "halted_cell_key": outcome.halted_cell_key}, sort_keys=True))
     return 0 if outcome.halted_reason is None else 1
