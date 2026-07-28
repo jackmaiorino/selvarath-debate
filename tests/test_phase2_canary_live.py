@@ -325,6 +325,32 @@ def test_an_unlisted_model_passes_through():
     assert inner.calls == [77]
 
 
+# --- the recorded streaming deviation -------------------------------------------------------
+
+def test_the_deviation_unpins_exactly_gpt_oss_when_the_record_exists():
+    from rejudge.phase2_canary_live import _apply_streaming_deviation
+    pinned = frozenset({"openai/gpt-oss-120b", "google/gemma-4-31B-it"})
+    result = _apply_streaming_deviation(pinned, Path("."))
+    assert result == frozenset({"google/gemma-4-31B-it"})
+
+
+def test_no_record_means_no_override(tmp_path):
+    from rejudge.phase2_canary_live import _apply_streaming_deviation
+    pinned = frozenset({"openai/gpt-oss-120b"})
+    assert _apply_streaming_deviation(pinned, tmp_path) == pinned
+
+
+def test_a_record_without_a_matching_pin_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import (
+        STREAMING_DEVIATION_RELATIVE_PATH, _apply_streaming_deviation)
+    target = tmp_path / STREAMING_DEVIATION_RELATIVE_PATH
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps(
+        {"schema_version": "phase2_canary_streaming_deviation_v1"}), encoding="utf-8")
+    with pytest.raises(CanaryLiveError, match="drifted apart"):
+        _apply_streaming_deviation(frozenset({"google/gemma-4-31B-it"}), tmp_path)
+
+
 # --- ledger binding -------------------------------------------------------------------------
 
 def test_the_first_run_binds_the_ledger_and_a_resume_verifies_it(tmp_path):

@@ -1,0 +1,53 @@
+{
+ "schema_version": "phase2_canary_streaming_deviation_v1",
+ "decision_id": "canary_gpt_oss_streaming_deviation_2026-07-28",
+ "recorded_at_utc": "2026-07-28T17:43:27Z",
+ "status": "active_operational_deviation",
+ "problem": "Together returns 5xx (500/503 service_unavailable) for openai/gpt-oss-120b when a request carries BOTH the frozen stream:true transport pin and the frozen reasoning_effort:'medium' extra field; each alone succeeds. The combination worked for 424 calls in the 2026-07-19 r3 capability preflight, so this is a provider-side regression, not a harness change.",
+ "evidence": {
+  "production_errors": [
+   {
+    "ts": "2026-07-28T17:40:24Z",
+    "provider_request_id": "otxMKae-z1gNr-a225ab31db8742b2",
+    "http": 500
+   },
+   {
+    "ts": "2026-07-28T17:41:21Z",
+    "provider_request_id": "otxMcZE-z1gNr-a225ac96bd036459",
+    "http": 500
+   }
+  ],
+  "probes": [
+   {
+    "shape": "plain minimal",
+    "http": 200,
+    "provider_request_id": "otxMuGH-z1gNr-a225adf68a8551aa"
+   },
+   {
+    "shape": "stream+reasoning_effort+max_tokens4096",
+    "http": 503,
+    "provider_request_id": "otxMyHC-fdNmn-a225ae4a287b4f30"
+   },
+   {
+    "shape": "reasoning_effort, no stream",
+    "http": 200,
+    "provider_request_id": "otxMyRR-z1gNr-a225ae4eb98a2263"
+   },
+   {
+    "shape": "stream, no reasoning_effort",
+    "http": 200,
+    "provider_request_id": "otxMycv-z1gNr-a225ae52bd396992"
+   }
+  ],
+  "probe_note": "probes were 1-call operational diagnostics outside the experiment ledger"
+ },
+ "disposition": {
+  "change": "drop the stream:true transport pin for exactly openai/gpt-oss-120b for this canary epoch; every model-visible request field (model, messages, temperature, max_tokens, seed, reasoning_effort) is unchanged; gemma-4-31B and Qwen3.7-Plus keep their streaming pins (neither carries reasoning_effort, both succeed)",
+  "rejected_alternative": "dropping reasoning_effort instead would change the judged model's generation configuration, a model-visible deviation",
+  "applied_by": "rejudge/phase2_canary_live.py applies the override only when this record is present on disk, and refuses if the record names a model without a streaming pin",
+  "frozen_artifact_untouched": "rejudge/phase2_role_limits_v5_2026-07-19.json is not modified"
+ },
+ "adjudication": "flagged for the adjudicator (Joey) and the next consult alongside the reviewer transport record",
+ "execution_authorized": false,
+ "note": "Append-only operational deviation record. Grants no authority and changes no cap."
+}

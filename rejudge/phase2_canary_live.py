@@ -381,6 +381,33 @@ def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
     return dict(identity)
 
 
+STREAMING_DEVIATION_RELATIVE_PATH = Path(
+    "rejudge/phase2_canary_streaming_deviation_2026-07-28.json")
+
+
+def _apply_streaming_deviation(pinned: frozenset[str],
+                               project_root: Path) -> frozenset[str]:
+    """Apply the recorded gpt-oss streaming deviation, only if its record exists.
+
+    Together currently 5xxes the frozen stream+reasoning_effort combination for
+    gpt-oss-120b (see the record for probe evidence). The record is the authority: no
+    record, no override; a record naming an unpinned model refuses, so this can never
+    silently widen.
+    """
+    path = project_root / STREAMING_DEVIATION_RELATIVE_PATH
+    if not path.exists():
+        return pinned
+    record = _load_json(path)
+    if record.get("schema_version") != "phase2_canary_streaming_deviation_v1":
+        raise CanaryLiveError(f"unrecognized streaming deviation record at {path}")
+    model = "openai/gpt-oss-120b"
+    if model not in pinned:
+        raise CanaryLiveError(
+            "streaming deviation record present but its model is not stream-pinned; "
+            "the pins and the record have drifted apart")
+    return frozenset(pinned - {model})
+
+
 def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
                       usage_log_path: Path, error_log_path: Path,
                       call_cache_path: Path) -> CachingClient:
@@ -389,6 +416,7 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
     snapshot = _load_json(
         root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json")
     limits, pinned, extra_fields, prices = _client_construction_inputs(role_limits, snapshot)
+    pinned = _apply_streaming_deviation(pinned, root)
     transport = role_limits["request_settings"]["transport"]
 
     identity = bind_or_verify_ledger(
