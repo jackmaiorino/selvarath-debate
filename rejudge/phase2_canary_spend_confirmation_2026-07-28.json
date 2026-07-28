@@ -1,0 +1,30 @@
+{
+ "schema_version": "phase2_canary_spend_confirmation_v1",
+ "decision_id": "canary_spend_confirmation_2026-07-28",
+ "recorded_at_utc": "2026-07-28T14:05:48Z",
+ "owner": "Jack Maiorino",
+ "owner_statements_verbatim": [
+  "You are approved to continue",
+  "approved for spend too"
+ ],
+ "context": "given in the 2026-07-28 working session, immediately after the assistant reported the successor canary manifest materialized at the recorded USD 40 stage cap and offered to draft the authorization record and prepare the live invocation",
+ "confirms": {
+  "owner_decision_tracked_path": "rejudge/phase2_canary_owner_decision_2026-07-23.json",
+  "owner_decision_canonical_sha256": "e84ef9a0951c34d19000ad033b62097cbb81822e8e45a62ec226b5c85715caae",
+  "amendment_tracked_path": "rejudge/phase2_canary_claude_gate_amendment_2026-07-23.json",
+  "amendment_canonical_sha256": "37f8a70ec1c1f482119fc11bb2fe92019bd3a82780f6ca7cd58a0fd62433fdf3",
+  "scope": "scope A: the full 945-cell canary under the frozen Claude-gate amendment"
+ },
+ "authorizes_reference": {
+  "execution_identity_sha256": "c8ca24380cb14479cff75abade68b0aedcb0dd9c5485096a7870089a98dd248f",
+  "manifest_tracked_path": "rejudge/phase2_canary_manifest_2026-07-28.json",
+  "stage_cap_usd": 40.0,
+  "cumulative_cap_usd": 1709.24
+ },
+ "disclosures": [
+  "reviewer calls (claude-fable-5, sized at ~672-850 queries at the 2026-07-23 decision) are billed to the owner's Anthropic account and are outside the Together stage-cap ledger",
+  "TOGETHER_API_KEY and ANTHROPIC_API_KEY were absent from the execution environment at recording time; the run launches only after the owner supplies them"
+ ],
+ "main_run": "not authorized by this record",
+ "note": "Append-only. This record documents the owner's spend confirmation; the flat authorization record rejudge/phase2_canary_authorization_2026-07-28.json is what the live driver validates."
+}
