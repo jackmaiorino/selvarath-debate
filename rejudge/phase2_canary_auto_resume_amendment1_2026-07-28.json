@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment1_2026-07-28",
+ "recorded_at_utc": "2026-07-28T21:06:52Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "the SDK timeout ('Request timed out.') joins the benign auto-resume signature alongside provider 5xx envelopes",
+ "trigger": "2026-07-28T21:05Z: a gemma-4-31B judge-verdict call timed out after 273 cells; the supervisor stopped for manual review as then-specified",
+ "billing_reasoning": "a timed-out call may have completed and billed server-side, unlike a 5xx; that exposure is exactly what the permanently-counted uncertain reservation and the $2 uncertain ceiling bound, and cell-granular retry cannot duplicate a result row",
+ "bounds_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

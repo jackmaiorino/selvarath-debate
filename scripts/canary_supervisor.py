@@ -37,7 +37,11 @@ UNCERTAIN_CEILING_USD = 2.00
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
-_5XX = re.compile(r"Error code: 5\d\d")
+# Amendment 1: the SDK timeout joins the benign set. A timed-out call may have completed
+# and billed server-side, which is exactly what the permanently-counted uncertain
+# reservation and the supervisor's uncertain ceiling are for; cell-granular retry cannot
+# duplicate a result row.
+_BENIGN_TRANSIENT = re.compile(r"Error code: 5\d\d|Request timed out\.")
 
 
 def _tail_json_lines(path: Path, n: int) -> list[dict]:
@@ -58,11 +62,11 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     events = _tail_json_lines(usage_path, 1)
     if not events or events[0].get("status") != "unknown_charge":
         return "newest ledger event is not an unknown_charge"
-    if not _5XX.search(str(events[0].get("error", ""))):
-        return "newest unknown_charge does not carry a provider 5xx envelope"
+    if not _BENIGN_TRANSIENT.search(str(events[0].get("error", ""))):
+        return "newest unknown_charge is neither a provider 5xx nor an SDK timeout"
     errors = _tail_json_lines(error_log_path, 1)
-    if not errors or not _5XX.search(str(errors[0].get("error", ""))):
-        return "newest error-log entry is not a provider 5xx"
+    if not errors or not _BENIGN_TRANSIENT.search(str(errors[0].get("error", ""))):
+        return "newest error-log entry is neither a provider 5xx nor an SDK timeout"
     error_ts = str(errors[0].get("ts", ""))
     if error_ts and time.mktime(time.strptime(
             error_ts[:19], "%Y-%m-%dT%H:%M:%S")) < attempt_started_at - 120:

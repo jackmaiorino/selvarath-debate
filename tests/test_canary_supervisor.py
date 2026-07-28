@@ -59,7 +59,18 @@ def test_a_non_5xx_envelope_stops(tmp_path):
     reason = _check(tmp_path, usage_rows=[
         {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
          "error": "Error code: 429 - rate limited"}])
-    assert "5xx" in reason
+    assert "neither" in reason
+
+
+def test_an_sdk_timeout_is_benign(tmp_path):
+    import time as _t
+    ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime(NOW))
+    reason = _check(
+        tmp_path,
+        usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+                     "error": "Request timed out."}],
+        error_rows=[{"ts": ts, "error": "Request timed out."}])
+    assert reason is None
 
 
 def test_a_stale_error_log_stops(tmp_path):
