@@ -44,9 +44,13 @@ def test_the_benign_signature_passes(tmp_path):
     assert _check(tmp_path) is None
 
 
-def test_a_non_unknown_charge_halt_stops(tmp_path):
-    reason = _check(tmp_path, outcome=_outcome(halted_reason="CanaryCellHalted"))
-    assert "not UnknownChargeHalt" in reason
+def test_a_non_transient_halt_reason_stops(tmp_path):
+    reason = _check(tmp_path, outcome=_outcome(halted_reason="checker_malformed"))
+    assert "neither UnknownChargeHalt nor checker_outage" in reason
+
+
+def test_a_checker_outage_over_a_transient_is_benign(tmp_path):
+    assert _check(tmp_path, outcome=_outcome(halted_reason="checker_outage")) is None
 
 
 def test_a_ledger_tail_that_is_not_unknown_charge_stops(tmp_path):

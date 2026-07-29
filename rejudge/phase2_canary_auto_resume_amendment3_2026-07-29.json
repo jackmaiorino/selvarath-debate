@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment3_2026-07-29",
+ "recorded_at_utc": "2026-07-29T03:41:07Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "halted_reason 'checker_outage' joins 'UnknownChargeHalt' as auto-resumable, gated on the SAME underlying ledger and error-log transient signature (provider 5xx, SDK timeout, or truncated stream)",
+ "trigger": "2026-07-29T03:37Z: a gemma-4-31B checker call timed out; the query gate wraps every checker-call exception as checker_outage, so the client's transient surfaced under a reason the policy did not yet enumerate",
+ "reasoning": "the runner doctrine stops a checker outage until the cause is understood; the cause here is the same documented provider degradation, and the signature checks verify it per occurrence. Genuine frozen-gate anomalies halt as checker_malformed or checker_unresolved, which remain outside the benign set and always stop for manual review",
+ "bounds_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

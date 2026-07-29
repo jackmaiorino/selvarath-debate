@@ -56,8 +56,13 @@ def _tail_json_lines(path: Path, n: int) -> list[dict]:
 def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_path: Path,
                                results_path: Path, attempt_started_at: float) -> str | None:
     """Return None if the halt matches the benign signature, else the refusal reason."""
-    if outcome.get("halted_reason") != "UnknownChargeHalt":
-        return f"halt reason {outcome.get('halted_reason')!r} is not UnknownChargeHalt"
+    # Amendment 3: checker_outage is the gate's wrapper around ANY checker-call exception,
+    # including the client's transient failures; the ledger/error-log checks below tell the
+    # benign shapes from real checker anomalies (which halt as checker_malformed or
+    # checker_unresolved and never enter this set).
+    if outcome.get("halted_reason") not in ("UnknownChargeHalt", "checker_outage"):
+        return (f"halt reason {outcome.get('halted_reason')!r} is neither UnknownChargeHalt "
+                "nor checker_outage")
     cell = outcome.get("halted_cell_key")
     if not cell:
         return "halt names no cell"
