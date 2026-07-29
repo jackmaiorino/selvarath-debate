@@ -351,6 +351,28 @@ def test_a_record_without_a_matching_pin_is_refused(tmp_path):
         _apply_streaming_deviation(frozenset({"google/gemma-4-31B-it"}), tmp_path)
 
 
+# --- the pass loop exports without a live reviewer ------------------------------------------
+
+def test_a_paused_pass_exports_the_worklist(tmp_path, monkeypatch):
+    import rejudge.phase2_canary_live as live
+    from rejudge.phase2_canary_runner import RunOutcome
+
+    outcome = RunOutcome(paused=1, pending_payloads=[
+        {"payload_sha256": "a" * 64, "query": "q?", "candidate_a": "a",
+         "candidate_b": "b"}])
+    monkeypatch.setattr(live, "run_canary", lambda **kwargs: outcome)
+    manifest = _manifest()
+    manifest["ledger"] = dict(manifest["ledger"])
+    manifest["ledger"]["archive_dir"] = str(tmp_path)
+    result = live._run_passes(
+        manifest, client=object(), reviewer=live._PauseModeReviewer(),
+        results_path=tmp_path / "r.jsonl", decisions_path=tmp_path / "d.jsonl",
+        limit=None, max_passes=3, pause_when_unlabeled=True)
+    assert result.needs_labelling
+    exported = json.loads((tmp_path / live.WORKLIST_FILENAME).read_text(encoding="utf-8"))
+    assert exported["items"][0]["payload_sha256"] == "a" * 64
+
+
 # --- the archive lock and incident migration ------------------------------------------------
 
 def test_the_archive_lock_refuses_a_second_holder(tmp_path):

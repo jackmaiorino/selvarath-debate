@@ -678,7 +678,7 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
     else:
         raise CanaryLiveError(f"canary did not converge within {max_passes} passes")
 
-    if outcome.needs_labelling and mode == "subagent-batch":
+    if outcome.needs_labelling and pause_when_unlabeled:
         worklist_path = local_path(manifest["ledger"]["archive_dir"]) / WORKLIST_FILENAME
         export_reviewer_worklist(outcome.pending_payloads, frozen["prompt"], worklist_path)
         print(f"exported {len(outcome.pending_payloads)} pending payloads to "
