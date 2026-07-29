@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment4_2026-07-29",
+ "recorded_at_utc": "2026-07-29T03:59:22Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "provider 429 rate limits join the benign auto-resume signature, with 120 extra seconds of backoff when the newest error is a rate limit",
+ "trigger": "2026-07-29T03:55Z: gemma-4-31B returned 429 (dynamic rate limits) after 518 cells",
+ "reasoning": "a 429 definitively did not process or bill, making it the safest member of the transient set; the correct response is a longer pause, not a stop; unrecognized error classes still stop for manual review",
+ "bounds_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}
