@@ -351,6 +351,94 @@ def test_a_record_without_a_matching_pin_is_refused(tmp_path):
         _apply_streaming_deviation(frozenset({"google/gemma-4-31B-it"}), tmp_path)
 
 
+# --- the archive lock and incident migration ------------------------------------------------
+
+def test_the_archive_lock_refuses_a_second_holder(tmp_path):
+    from rejudge.phase2_canary_live import AnotherProcessHoldsTheLock, _ArchiveLock
+    lock_path = tmp_path / "canary.lock"
+    with _ArchiveLock(lock_path, "canary"):
+        with pytest.raises(AnotherProcessHoldsTheLock, match="refusing to run concurrently"):
+            _ArchiveLock(lock_path, "canary").__enter__()
+    with _ArchiveLock(lock_path, "canary"):
+        pass
+
+
+def test_carried_forward_defaults_to_zero_for_v1_bindings():
+    from rejudge.phase2_canary_live import carried_forward_spend
+    assert carried_forward_spend({}) == (0.0, 0.0)
+    assert carried_forward_spend({"carried_forward": {
+        "actual_spend_usd": 2.354, "uncertain_spend_usd": 0.171}}) == (2.354, 0.171)
+
+
+def test_conservative_ledger_spend_counts_success_and_unresolved(tmp_path):
+    from rejudge.phase2_canary_live import conservative_ledger_spend
+    ledger = tmp_path / "usage.jsonl"
+    rows = [
+        {"status": "ledger_genesis"},
+        {"status": "reserved", "attempt_id": "a", "cost_usd": 0.5},
+        {"status": "success", "attempt_id": "a", "cost_usd": 0.4},
+        {"status": "reserved", "attempt_id": "b", "cost_usd": 0.2},
+        {"status": "unknown_charge", "attempt_id": "b", "cost_usd": 0.2},
+        {"status": "reserved", "attempt_id": "c", "cost_usd": 0.1},
+    ]
+    ledger.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    actual, uncertain = conservative_ledger_spend(ledger)
+    assert actual == pytest.approx(0.4)
+    assert uncertain == pytest.approx(0.3)
+
+
+def test_the_migration_preserves_rebuilds_and_carries_forward(tmp_path, monkeypatch):
+    import shutil
+    from rejudge import api_client
+    from rejudge.phase2_call_cache import CallCache, CallKey
+    from rejudge.phase2_canary_live import (
+        INCIDENT1_RELATIVE_PATH, LEDGER_BINDING_FILENAME, migrate_interleaved_ledger)
+
+    root = tmp_path / "root"
+    (root / INCIDENT1_RELATIVE_PATH).parent.mkdir(parents=True)
+    shutil.copyfile(INCIDENT1_RELATIVE_PATH, root / INCIDENT1_RELATIVE_PATH)
+    archive = tmp_path / "archive"
+    archive.mkdir()
+
+    usage = archive / "canary_usage.jsonl"
+    identity = api_client.prepare_usage_ledger(usage, allow_create=True)
+    genesis = json.loads(usage.read_text(encoding="utf-8").splitlines()[0])
+    extra = [
+        {"status": "reserved", "attempt_id": "x", "cost_usd": 1.5,
+         "prev_event_hash": genesis["event_hash"], "event_hash": "broken1", "sequence": 1},
+        {"status": "success", "attempt_id": "x", "cost_usd": 1.25,
+         "prev_event_hash": "not-the-previous", "event_hash": "broken2", "sequence": 2},
+    ]
+    with usage.open("a", encoding="utf-8") as fh:
+        for row in extra:
+            fh.write(json.dumps(row) + "\n")
+
+    cache_path = archive / "canary_call_cache.jsonl"
+    cache = CallCache(cache_path)
+    cache.put(CallKey(cell_key="cell1", call_role="oracle", slot=0, attempt=1), "f" * 64, "YES")
+    cache.put(CallKey(cell_key="cell2", call_role="oracle", slot=0, attempt=1), "e" * 64, "NO")
+
+    manifest = {"execution_identity_sha256": "e" * 64,
+                "ledger": {"archive_dir": str(archive),
+                           "usage_log_path": str(usage),
+                           "call_cache_path": str(cache_path)}}
+    summary = migrate_interleaved_ledger(manifest, project_root=root)
+
+    assert summary["cache_rows_rebuilt"] == 2
+    assert summary["carried_forward"]["actual_spend_usd"] == pytest.approx(1.25)
+    preserved = Path(str(usage) + ".incident1-2026-07-28")
+    assert preserved.exists()
+    binding = json.loads((archive / LEDGER_BINDING_FILENAME).read_text(encoding="utf-8"))
+    assert binding["schema_version"] == "phase2_canary_ledger_binding_v2"
+    fresh = api_client.load_chained_usage_ledger(usage)
+    assert fresh.summary["actual_spend_usd"] == 0.0
+    rebuilt = CallCache(cache_path)
+    assert rebuilt.get(CallKey(cell_key="cell1", call_role="oracle", slot=0, attempt=1),
+                       "f" * 64) == "YES"
+    with pytest.raises(Exception, match="already exists; migration already ran"):
+        migrate_interleaved_ledger(manifest, project_root=root)
+
+
 # --- ledger binding -------------------------------------------------------------------------
 
 def test_the_first_run_binds_the_ledger_and_a_resume_verifies_it(tmp_path):

@@ -1,0 +1,52 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "canary_concurrent_writers_2026-07-28",
+ "recorded_at_utc": "2026-07-29T02:50:37Z",
+ "severity": "operational; no cap breach, no result corruption, no decision-store impact",
+ "what_happened": "the operating assistant launched a second auto-resume supervisor while the first was still alive; the first had not exited at worklist export because that pass ALSO halted on a provider transient (export happens on halted passes too), and the operator misread the monitor's export event as clean termination. Two driver processes then appended concurrently to the hash-chained usage ledger and call cache for roughly 40 minutes",
+ "detection": "the surviving first supervisor's next driver invocation refused at load: 'usage ledger chain discontinuity at sequence 1671'; a stale monitor surfaced the refusal",
+ "damage_assessment": {
+  "usage_ledger": {
+   "events": 1816,
+   "chain_breaks": 11,
+   "first_break_sequence": 1671
+  },
+  "call_cache": {
+   "entries": 885,
+   "chain_breaks": 7,
+   "first_break_index": 813,
+   "duplicate_keys": 0
+  },
+  "results": {
+   "rows": 513,
+   "unique_cells": 513,
+   "duplicates": 0,
+   "chain_breaks": 0
+  },
+  "reviewer_decision_store": {
+   "rows": 28,
+   "chain_breaks": 0,
+   "impact": "none"
+  },
+  "conservative_spend_usd": {
+   "actual_success": 2.354,
+   "unknown_charge": 0.159,
+   "open_reservations": 0.012,
+   "worst_case_total": 2.525,
+   "stage_cap": 40.0
+  },
+  "double_executed_cells": 0
+ },
+ "root_cause": "no single-instance enforcement anywhere in the live path; the supervisor's exit contract conflates 'worklist exported cleanly' (rc 0) with 'halted with a partial export' (rc nonzero, keeps running); the operator relaunched without verifying process death",
+ "remediation": [
+  "all canary processes killed before any further writes",
+  "usage ledger and call cache migrated explicitly: originals preserved byte-for-byte as *.incident1-2026-07-28; fresh ledger genesis with the conservative spend carried forward via the ledger binding (carried_forward_actual/uncertain), so the cap counts every cent of the incident window; cache rebuilt deterministically from the preserved rows through a fresh chain (no provider calls, no spend)",
+  "results and decision store untouched (validated clean)",
+  "code: run_live now takes an exclusive non-blocking flock on <archive>/canary.lock for its whole duration and refuses if held; the supervisor takes <archive>/supervisor.lock the same way; both refusals are loud",
+  "migration runs only via an explicit CLI flag that requires this record to exist on disk"
+ ],
+ "scientific_impact": "none identified: no cell executed twice, no result row duplicated or lost, reviewer decisions single-writer throughout; the incident window affected only accounting-integrity metadata, which is why the strict chains caught it",
+ "adjudication": "flagged for the adjudicator alongside the other operational records of this epoch",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

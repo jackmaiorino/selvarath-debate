@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from rejudge import api_client
-from rejudge.phase2_call_cache import CallCache
+from rejudge.phase2_call_cache import CallCache, CallKey
 from rejudge.phase2_caching_client import CachingClient
 from rejudge.phase2_canary_manifest import validate_canary_manifest
 from rejudge.phase2_canary_runner import RunOutcome, run_canary
@@ -303,6 +303,52 @@ def _client_construction_inputs(role_limits: Mapping[str, Any],
 
 
 LEDGER_BINDING_FILENAME = "canary_ledger_binding.json"
+RUN_LOCK_FILENAME = "canary.lock"
+INCIDENT1_RELATIVE_PATH = Path("rejudge/phase2_canary_incident1_2026-07-28.json")
+INCIDENT1_SUFFIX = ".incident1-2026-07-28"
+
+
+class AnotherProcessHoldsTheLock(CanaryLiveError):
+    """Raised when a second live process would otherwise write the same archive."""
+
+
+class _ArchiveLock:
+    """Exclusive, non-blocking flock over an archive-side lockfile.
+
+    Held for the whole life of the run (or supervisor). A second process refuses loudly
+    instead of blocking: silent queueing is how the 2026-07-28 concurrent-writer incident
+    would have re-occurred with extra steps.
+    """
+
+    def __init__(self, path: Path, role: str) -> None:
+        self._path = path
+        self._role = role
+        self._handle = None
+
+    def __enter__(self):
+        import fcntl
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._handle = self._path.open("a+")
+        try:
+            fcntl.flock(self._handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            self._handle.close()
+            self._handle = None
+            raise AnotherProcessHoldsTheLock(
+                f"another {self._role} process holds {self._path}; refusing to run "
+                "concurrently (see the 2026-07-28 incident record)") from exc
+        self._handle.truncate(0)
+        self._handle.write(f"pid={os.getpid()}\n")
+        self._handle.flush()
+        return self
+
+    def __exit__(self, *exc_info):
+        import fcntl
+        if self._handle is not None:
+            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+            self._handle.close()
+            self._handle = None
+        return False
 
 # judge_loop names the oracle role by what the call does; the frozen role-limits artifact
 # names it by the role taxonomy. Same call, one alias.
@@ -353,6 +399,91 @@ class RoleLimitResolvingClient:
             request_metadata=request_metadata)
 
 
+def carried_forward_spend(binding: Mapping[str, Any]) -> tuple[float, float]:
+    """The incident-window spend a migrated ledger carries into the cap arithmetic."""
+    carried = binding.get("carried_forward", {})
+    return (float(carried.get("actual_spend_usd", 0.0)),
+            float(carried.get("uncertain_spend_usd", 0.0)))
+
+
+def conservative_ledger_spend(path: Path) -> tuple[float, float]:
+    """Chain-agnostic conservative read of an interleaved ledger: every success is actual;
+    every unknown_charge and every reservation without a terminal is uncertain."""
+    events = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()
+              if l.strip()]
+    terminal = set()
+    for event in events:
+        if event.get("status") in ("success", "released_no_charge", "charged_malformed",
+                                   "unknown_charge"):
+            terminal.add(str(event.get("attempt_id")))
+    actual = sum(float(e.get("cost_usd", 0)) for e in events if e.get("status") == "success")
+    uncertain = sum(
+        float(e.get("cost_usd", 0)) for e in events
+        if e.get("status") == "unknown_charge"
+        or (e.get("status") == "reserved" and str(e.get("attempt_id")) not in terminal))
+    return actual, uncertain
+
+
+def migrate_interleaved_ledger(manifest: Mapping[str, Any], *,
+                               project_root: str | Path) -> dict:
+    """Explicit recovery from the 2026-07-28 concurrent-writer incident.
+
+    Preserves the interleaved usage ledger and call cache byte-for-byte under the incident
+    suffix, creates a fresh ledger genesis bound to the manifest with the conservative
+    incident-window spend carried forward, and rebuilds the cache deterministically from the
+    preserved rows through a fresh chain (no provider calls). Refuses without the committed
+    incident record: an undocumented migration is exactly the silent adoption the doctrine
+    prohibits.
+    """
+    root = Path(project_root)
+    if not (root / INCIDENT1_RELATIVE_PATH).exists():
+        raise CanaryLiveError(
+            f"migration requires the incident record {INCIDENT1_RELATIVE_PATH} on disk")
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    usage_path = local_path(manifest["ledger"]["usage_log_path"])
+    cache_path = local_path(manifest["ledger"]["call_cache_path"])
+    binding_path = archive_dir / LEDGER_BINDING_FILENAME
+    with _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary"):
+        carried_actual, carried_uncertain = conservative_ledger_spend(usage_path)
+        for path in (usage_path, Path(str(usage_path) + ".state.json"), cache_path):
+            if path.exists():
+                target = Path(str(path) + INCIDENT1_SUFFIX)
+                if target.exists():
+                    raise CanaryLiveError(f"{target} already exists; migration already ran?")
+                path.rename(target)
+
+        identity = api_client.prepare_usage_ledger(usage_path, allow_create=True)
+        binding = {
+            "schema_version": "phase2_canary_ledger_binding_v2",
+            "execution_identity_sha256": manifest["execution_identity_sha256"],
+            "ledger_identity": dict(identity),
+            "carried_forward": {
+                "actual_spend_usd": float(carried_actual),
+                "uncertain_spend_usd": float(carried_uncertain),
+                "from": str(usage_path) + INCIDENT1_SUFFIX,
+                "incident_record": str(INCIDENT1_RELATIVE_PATH),
+            },
+        }
+        binding_path.write_text(
+            json.dumps(binding, ensure_ascii=True, sort_keys=True, indent=1) + "\n",
+            encoding="utf-8", newline="")
+
+        preserved = Path(str(cache_path) + INCIDENT1_SUFFIX)
+        rebuilt = CallCache(cache_path)
+        replayed = 0
+        for line in preserved.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            rebuilt.put(
+                CallKey(cell_key=row["cell_key"], call_role=row["call_role"],
+                        slot=int(row["slot"]), attempt=int(row["attempt"])),
+                row["request_sha256"], row["response"])
+            replayed += 1
+    return {"cache_rows_rebuilt": replayed, "ledger_identity": dict(identity),
+            "carried_forward": binding["carried_forward"]}
+
+
 def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
                           binding_path: Path) -> dict[str, Any]:
     """First run: create the ledger and bind its genesis identity to this manifest.
@@ -369,6 +500,7 @@ def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
                 f"ledger binding {binding_path} names a different execution identity")
         api_client.prepare_usage_ledger(usage_log_path, allow_create=False)
         return dict(binding["ledger_identity"])
+    # (v1 bindings have no carried_forward; carried_forward_spend reads zeros.)
     identity = api_client.prepare_usage_ledger(usage_log_path, allow_create=True)
     binding = {
         "schema_version": "phase2_canary_ledger_binding_v1",
@@ -419,8 +551,10 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
     pinned = _apply_streaming_deviation(pinned, root)
     transport = role_limits["request_settings"]["transport"]
 
-    identity = bind_or_verify_ledger(
-        manifest, usage_log_path, usage_log_path.parent / LEDGER_BINDING_FILENAME)
+    binding_path = usage_log_path.parent / LEDGER_BINDING_FILENAME
+    identity = bind_or_verify_ledger(manifest, usage_log_path, binding_path)
+    carried_actual, carried_uncertain = carried_forward_spend(
+        _load_json(binding_path) if binding_path.exists() else {})
     ledger_snapshot = api_client.load_chained_usage_ledger(
         usage_log_path, expected_identity=identity)
 
@@ -434,8 +568,9 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
             sdk_internal_max_retries=transport["sdk_internal_max_retries"]),
         model_prices=prices,
         strict_model_pricing=True,
-        initial_spend_usd=float(ledger_snapshot.summary["actual_spend_usd"]),
-        initial_uncertain_spend_usd=float(ledger_snapshot.summary["uncertain_spend_usd"]),
+        initial_spend_usd=float(ledger_snapshot.summary["actual_spend_usd"]) + carried_actual,
+        initial_uncertain_spend_usd=(
+            float(ledger_snapshot.summary["uncertain_spend_usd"]) + carried_uncertain),
         usage_log_path=str(usage_log_path),
         _ledger_snapshot=ledger_snapshot,
         _accounting_factory_token=api_client._LIVE_ACCOUNTING_FACTORY_TOKEN,
@@ -491,12 +626,14 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
                                       api_key=api_key)
         else:
             reviewer = _PauseModeReviewer()
+    lock = None
     if client is None:
         if not os.environ.get("TOGETHER_API_KEY", "").strip():
             raise CanaryLiveError(
                 "TOGETHER_API_KEY is missing or blank; refusing before any construction")
         archive_dir = local_path(manifest["ledger"]["archive_dir"])
         archive_dir.mkdir(parents=True, exist_ok=True)
+        lock = _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary").__enter__()
         client = build_live_client(
             manifest, project_root=project_root,
             usage_log_path=local_path(manifest["ledger"]["usage_log_path"]),
@@ -506,6 +643,19 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
     results_path = local_path(manifest["ledger"]["results_path"])
     decisions_path = local_path(manifest["ledger"]["decisions_path"])
 
+    try:
+        return _run_passes(manifest, client=client, reviewer=reviewer,
+                           results_path=results_path, decisions_path=decisions_path,
+                           limit=limit, max_passes=max_passes,
+                           pause_when_unlabeled=pause_when_unlabeled)
+    finally:
+        if lock is not None:
+            lock.__exit__(None, None, None)
+
+
+def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, limit,
+                max_passes, pause_when_unlabeled) -> RunOutcome:
+    frozen = load_frozen_reviewer_prompt(manifest)
     outcome = RunOutcome()
     for pass_index in range(1, max_passes + 1):
         outcome = run_canary(
@@ -546,8 +696,16 @@ def main(argv=None) -> int:
                         help="attempt at most N incomplete cells this invocation (smoke)")
     parser.add_argument("--commit-decisions", default=None,
                         help="commit a JSON file of out-of-band reviewer outputs and exit")
+    parser.add_argument("--migrate-interleaved-ledger", action="store_true",
+                        help="explicit incident recovery; requires the incident record")
     args = parser.parse_args(argv)
     try:
+        if args.migrate_interleaved_ledger:
+            manifest = _load_json(Path(args.manifest))
+            validate_canary_manifest(manifest, project_root=args.project_root)
+            summary = migrate_interleaved_ledger(manifest, project_root=args.project_root)
+            print(json.dumps(summary, sort_keys=True))
+            return 0
         if args.commit_decisions is not None:
             counts = commit_reviewer_decisions(
                 args.manifest, args.commit_decisions, args.project_root)
