@@ -42,8 +42,9 @@ SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 # reservation and the supervisor's uncertain ceiling are for; cell-granular retry cannot
 # duplicate a result row.
 _BENIGN_TRANSIENT = re.compile(
-    r"Error code: 5\d\d|Request timed out\.|"
+    r"Error code: 5\d\d|Error code: 429|Request timed out\.|"
     r"streaming response ended without usage chunk")
+_RATE_LIMIT = re.compile(r"Error code: 429")
 
 
 def _tail_json_lines(path: Path, n: int) -> list[dict]:
@@ -168,6 +169,9 @@ def main(argv=None) -> int:
             return 7
         backoff = RESUME_BACKOFF_SECONDS + (
             SAME_CELL_EXTRA_BACKOFF_SECONDS if same_cell_count > 1 else 0)
+        newest_errors = _tail_json_lines(error_log_path, 1)
+        if newest_errors and _RATE_LIMIT.search(str(newest_errors[0].get("error", ""))):
+            backoff += 120  # a rate limit asks for breathing room, not just a retry
         print(f"supervisor: benign transient on {str(cell)[-16:]} "
               f"(same-cell {same_cell_count}, resume {resumes}/{MAX_RESUMES}, "
               f"uncertain ${uncertain:.3f}); resuming in {backoff}s", flush=True)

@@ -59,10 +59,21 @@ def test_a_ledger_tail_that_is_not_unknown_charge_stops(tmp_path):
     assert "not an unknown_charge" in reason
 
 
-def test_a_non_5xx_envelope_stops(tmp_path):
+def test_a_rate_limit_is_benign(tmp_path):
+    import time as _t
+    ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime(NOW))
+    reason = _check(
+        tmp_path,
+        usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+                     "error": "Error code: 429 - rate limited"}],
+        error_rows=[{"ts": ts, "error": "Error code: 429 - rate limited"}])
+    assert reason is None
+
+
+def test_an_unrecognized_error_still_stops(tmp_path):
     reason = _check(tmp_path, usage_rows=[
         {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
-         "error": "Error code: 429 - rate limited"}])
+         "error": "Error code: 401 - unauthorized"}])
     assert "neither" in reason
 
 
