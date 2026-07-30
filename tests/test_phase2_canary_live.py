@@ -245,7 +245,7 @@ def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
          "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine."},
         {"payload_sha256": bad_sha, "raw_output": "I think probably yes?"},
     ])
-    assert counts == {"parsed": 1, "malformed": 1}
+    assert counts == {"parsed": 1, "malformed": 1, "reviewer_error": 0}
     assert store.get(good_sha).effective_allow
     resolved = store.get(bad_sha)
     assert resolved.status == "malformed" and not resolved.effective_allow
