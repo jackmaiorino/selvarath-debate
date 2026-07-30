@@ -373,6 +373,31 @@ def test_a_paused_pass_exports_the_worklist(tmp_path, monkeypatch):
     assert exported["items"][0]["payload_sha256"] == "a" * 64
 
 
+# --- terminal halts (Consult 28 scope) -------------------------------------------------------
+
+def test_no_terminal_halt_record_means_no_filter(tmp_path):
+    from rejudge.phase2_canary_live import load_terminal_halt_cells
+    assert load_terminal_halt_cells(tmp_path, tmp_path / "r.jsonl") == frozenset()
+
+
+def test_the_real_record_loads_and_names_the_malformed_cell(tmp_path):
+    from rejudge.phase2_canary_live import load_terminal_halt_cells
+    cells = load_terminal_halt_cells(".", tmp_path / "absent_results.jsonl")
+    assert len(cells) == 1
+    (cell,) = cells
+    assert cell.endswith("f67c1db73446400785cedb0e261d6ad3ecfdc8ed978f9d754f8f7650a9d12581")
+
+
+def test_a_completed_terminal_cell_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import load_terminal_halt_cells
+    results = tmp_path / "results.jsonl"
+    cells = load_terminal_halt_cells(".", tmp_path / "absent.jsonl")
+    (cell,) = cells
+    results.write_text(json.dumps({"cell_key": cell}) + "\n", encoding="utf-8")
+    with pytest.raises(CanaryLiveError, match="stale"):
+        load_terminal_halt_cells(".", results)
+
+
 # --- the archive lock and incident migration ------------------------------------------------
 
 def test_the_archive_lock_refuses_a_second_holder(tmp_path):

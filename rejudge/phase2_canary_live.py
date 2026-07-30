@@ -515,6 +515,30 @@ def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
 
 STREAMING_DEVIATION_RELATIVE_PATH = Path(
     "rejudge/phase2_canary_streaming_deviation_2026-07-28.json")
+TERMINAL_HALTS_RELATIVE_PATH = Path(
+    "rejudge/phase2_canary_terminal_halts_2026-07-29.json")
+
+
+def load_terminal_halt_cells(project_root: str | Path, results_path: Path) -> frozenset[str]:
+    """Cells recorded as terminally halted (Consult #28 scope): skipped, never resumed.
+
+    Refuses if a listed cell already has a result row: a completed cell cannot also be
+    terminally halted, so the disposition would be stale.
+    """
+    path = Path(project_root) / TERMINAL_HALTS_RELATIVE_PATH
+    if not path.exists():
+        return frozenset()
+    record = _load_json(path)
+    if record.get("schema_version") != "phase2_canary_terminal_halts_v1":
+        raise CanaryLiveError(f"unrecognized terminal-halts record at {path}")
+    cells = frozenset(str(entry["cell_key"]) for entry in record["cells"])
+    if results_path.exists():
+        for line in results_path.read_text(encoding="utf-8").splitlines():
+            if line.strip() and json.loads(line).get("cell_key") in cells:
+                raise CanaryLiveError(
+                    "a terminally halted cell already has a result row; the disposition "
+                    "record is stale")
+    return cells
 
 
 def _apply_streaming_deviation(pinned: frozenset[str],
@@ -643,25 +667,32 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
     results_path = local_path(manifest["ledger"]["results_path"])
     decisions_path = local_path(manifest["ledger"]["decisions_path"])
 
+    terminal = load_terminal_halt_cells(project_root, results_path)
     try:
         return _run_passes(manifest, client=client, reviewer=reviewer,
                            results_path=results_path, decisions_path=decisions_path,
                            limit=limit, max_passes=max_passes,
-                           pause_when_unlabeled=pause_when_unlabeled)
+                           pause_when_unlabeled=pause_when_unlabeled,
+                           terminal_halt_cells=terminal)
     finally:
         if lock is not None:
             lock.__exit__(None, None, None)
 
 
 def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, limit,
-                max_passes, pause_when_unlabeled) -> RunOutcome:
+                max_passes, pause_when_unlabeled,
+                terminal_halt_cells: frozenset[str] = frozenset()) -> RunOutcome:
     frozen = load_frozen_reviewer_prompt(manifest)
+    cell_filter = None
+    if terminal_halt_cells:
+        cell_filter = lambda cell: cell.cell_key not in terminal_halt_cells  # noqa: E731
     outcome = RunOutcome()
     for pass_index in range(1, max_passes + 1):
         outcome = run_canary(
             results_path=results_path, decisions_path=decisions_path, client=client,
             reviewer=reviewer, anchor_judge_model=str(manifest["anchor"]["judge_model"]),
-            pause_when_unlabeled=pause_when_unlabeled, limit=limit)
+            pause_when_unlabeled=pause_when_unlabeled, limit=limit,
+            cell_filter=cell_filter)
         print(f"pass {pass_index}: completed={outcome.completed} "
               f"skipped={outcome.skipped} deferred={outcome.deferred} "
               f"paused={outcome.paused} halted={outcome.halted_reason or '-'}",
