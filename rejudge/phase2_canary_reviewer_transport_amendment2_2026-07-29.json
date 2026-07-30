@@ -1,0 +1,15 @@
+{
+ "schema_version": "phase2_canary_reviewer_transport_amendment_v1",
+ "decision_id": "canary_reviewer_transport_amendment2_2026-07-29",
+ "recorded_at_utc": "2026-07-30T00:44:37Z",
+ "amends": "rejudge/phase2_canary_reviewer_transport_2026-07-28.json",
+ "change": "for the remaining large review wave, a general-purpose dispatcher subagent reads each worklist item's hash-bound subagent_prompt and passes those exact bytes as the entire prompt of one fresh blinded-reviewer subagent per payload, relaying back (payload_sha256, raw_output, tool_uses) verbatim to a JSONL the operator verifies before committing",
+ "reasoning": "the dispatcher removes the operator's manual prompt transcription as a fidelity variable (the worklist's per-item sha256 already binds the intended bytes) and keeps the operating session's context from degrading mid-wave; the dispatcher sees payloads and rulings, as the operator already did, and adds no information channel INTO any reviewer context",
+ "controls": [
+  "reviewer contexts unchanged: one fresh blinded-reviewer per payload, prompt = worklist subagent_prompt bytes",
+  "operator verifies before commit: every relayed sha is in the worklist, every tool_uses is 0, every raw_output parses or commits as malformed",
+  "the hash-chained store and the sentinel audit remain the integrity backstops"
+ ],
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}
