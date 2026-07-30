@@ -685,7 +685,14 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
     frozen = load_frozen_reviewer_prompt(manifest)
     cell_filter = None
     if terminal_halt_cells:
-        cell_filter = lambda cell: cell.cell_key not in terminal_halt_cells  # noqa: E731
+        # The exclusion cascades: a cell whose dependency is terminally halted can never
+        # complete (its replay consumes exchanges that will never exist), so it is excluded
+        # mechanically and reported as dependency_terminally_halted at close-out.
+        def cell_filter(cell):
+            if cell.cell_key in terminal_halt_cells:
+                return False
+            return not (set(getattr(cell, "dependency_keys", ()) or ())
+                        & terminal_halt_cells)
     outcome = RunOutcome()
     for pass_index in range(1, max_passes + 1):
         outcome = run_canary(

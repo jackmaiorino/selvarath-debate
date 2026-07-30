@@ -1,0 +1,10 @@
+{
+ "schema_version": "phase2_canary_terminal_halts_amendment_v1",
+ "decision_id": "canary_terminal_halts_amendment1_2026-07-29",
+ "recorded_at_utc": "2026-07-30T00:27:10Z",
+ "amends": "rejudge/phase2_canary_terminal_halts_2026-07-29.json",
+ "change": "cells whose dependencies are terminally halted are mechanically excluded from execution alongside the listed cells, and reported as dependency_terminally_halted in the close-out distributions",
+ "trigger": "the fail-closed order resolver refused the batch-replay cell 268645bc..., whose sequential dependency f67c1db7... is the terminally halted cell; a dependent of an unfinishable cell is itself unfinishable",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}
