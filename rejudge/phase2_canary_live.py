@@ -270,13 +270,19 @@ def commit_reviewer_decisions(manifest_path: str | Path, decisions_file: str | P
 def commit_decisions_into(store: DualGateDecisionStore, worklist: Mapping[str, Any],
                           entries) -> dict[str, int]:
     known = {item["payload_sha256"] for item in worklist["items"]}
-    counts = {"parsed": 0, "malformed": 0}
+    counts = {"parsed": 0, "malformed": 0, "reviewer_error": 0}
     for entry in entries:
         sha = entry["payload_sha256"]
         if sha not in known:
             raise CanaryLiveError(
                 f"decision for unknown payload {sha}: not in the current worklist")
         raw_output = entry["raw_output"]
+        if entry.get("status") == "reviewer_error":
+            # The reviewer could not be consulted for this payload (frozen failure rule:
+            # unavailability commits as non-ALLOW); raw_output preserves the evidence.
+            store.commit(sha, None, None, None, raw_output, "reviewer_error")
+            counts["reviewer_error"] += 1
+            continue
         label, clause, rationale = parse_reviewer_output(raw_output)
         status = "parsed" if label is not None else "malformed"
         store.commit(sha, label, clause, rationale, raw_output, status)

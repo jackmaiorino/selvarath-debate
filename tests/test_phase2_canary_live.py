@@ -251,6 +251,19 @@ def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
     assert resolved.status == "malformed" and not resolved.effective_allow
 
 
+def test_an_explicit_reviewer_error_commits_as_non_allow(tmp_path):
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    sha = payload_hash("q9", "a", "b")
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    counts = commit_decisions_into(store, {"items": [{"payload_sha256": sha}]}, [
+        {"payload_sha256": sha, "status": "reviewer_error",
+         "raw_output": "DISPATCH_ERROR: transport could not reproduce prompt bytes"}])
+    assert counts["reviewer_error"] == 1
+    decision = store.get(sha)
+    assert decision.status == "reviewer_error" and not decision.effective_allow
+
+
 def test_a_decision_for_an_unlisted_payload_is_refused(tmp_path):
     from rejudge.phase2_canary_live import commit_decisions_into
     from rejudge.phase2_dual_gate import DualGateDecisionStore
