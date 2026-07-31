@@ -1,0 +1,13 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment5_2026-07-29",
+ "recorded_at_utc": "2026-07-31T13:01:44Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "connection-level transport failures ('Connection reset by peer', 'Connection aborted', 'Server disconnected') join the enumerated benign auto-resume signature, making the full set: provider 5xx, 429 rate limit, SDK timeout, truncated stream, connection reset/abort",
+ "trigger": "2026-07-29T21:3xZ: a gemma-4-31B judge-verdict call died with '[Errno 104] Connection reset by peer' after 554 cells; the supervisor stopped as then-specified and the halted cell was verified to have no result row",
+ "reasoning": "identical safety shape to the other four: the reservation is permanently counted as uncertain, nothing was recorded for the halted cell, and cell-granular retry cannot duplicate a result. The set remains enumerated rather than a catch-all, so a novel or non-transport anomaly still stops for manual review",
+ "also_in_this_commit": "the supervisor's refusal messages and docstring, which still described only the original 5xx signature, now name the enumerated set and quote the observed error on refusal",
+ "bounds_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

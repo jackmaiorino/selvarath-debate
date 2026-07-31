@@ -8,8 +8,11 @@ matches the known-benign transient signature, and stops for manual review otherw
 
 The benign signature (all conditions required):
 - the run exited with halted_reason UnknownChargeHalt and named a halted cell;
-- the newest usage-ledger event is an unknown_charge carrying a provider 5xx envelope;
-- the newest error-log entry is a provider 5xx recorded after this attempt started;
+- the newest usage-ledger event is an unknown_charge whose error matches the enumerated
+  transient set (provider 5xx, 429 rate limit, SDK timeout, truncated stream, or a
+  connection reset/abort);
+- the newest error-log entry matches that same set and was recorded after this attempt
+  started;
 - the halted cell has no row in the results file (nothing was half-recorded).
 
 Bounds, all of which stop the supervisor for manual review when crossed:
@@ -37,13 +40,15 @@ UNCERTAIN_CEILING_USD = 2.00
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
-# Amendment 1: the SDK timeout joins the benign set. A timed-out call may have completed
-# and billed server-side, which is exactly what the permanently-counted uncertain
-# reservation and the supervisor's uncertain ceiling are for; cell-granular retry cannot
-# duplicate a result row.
+# The enumerated transient set, grown by recorded amendments 1-5 as Together produced each
+# new failure shape: 5xx, 429, SDK timeout, truncated stream, connection reset/abort. Each
+# may have billed server-side, which is exactly what the permanently-counted uncertain
+# reservation and the uncertain ceiling bound; cell-granular retry cannot duplicate a
+# result row. The set stays enumerated so a novel anomaly still stops for manual review.
 _BENIGN_TRANSIENT = re.compile(
     r"Error code: 5\d\d|Error code: 429|Request timed out\.|"
-    r"streaming response ended without usage chunk")
+    r"streaming response ended without usage chunk|"
+    r"Connection reset by peer|Connection aborted|Server disconnected")
 _RATE_LIMIT = re.compile(r"Error code: 429")
 
 
@@ -71,10 +76,12 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     if not events or events[0].get("status") != "unknown_charge":
         return "newest ledger event is not an unknown_charge"
     if not _BENIGN_TRANSIENT.search(str(events[0].get("error", ""))):
-        return "newest unknown_charge is neither a provider 5xx nor an SDK timeout"
+        return ("newest unknown_charge error is not in the enumerated transient set "
+                f"(got: {str(events[0].get('error', ''))[:120]!r})")
     errors = _tail_json_lines(error_log_path, 1)
     if not errors or not _BENIGN_TRANSIENT.search(str(errors[0].get("error", ""))):
-        return "newest error-log entry is neither a provider 5xx nor an SDK timeout"
+        return ("newest error-log entry is not in the enumerated transient set "
+                f"(got: {str(errors[0].get('error', ''))[:120] if errors else ''!r})")
     error_ts = str(errors[0].get("ts", ""))
     if error_ts and time.mktime(time.strptime(
             error_ts[:19], "%Y-%m-%dT%H:%M:%S")) < attempt_started_at - 120:

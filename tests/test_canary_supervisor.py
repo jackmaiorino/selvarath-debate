@@ -74,7 +74,7 @@ def test_an_unrecognized_error_still_stops(tmp_path):
     reason = _check(tmp_path, usage_rows=[
         {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
          "error": "Error code: 401 - unauthorized"}])
-    assert "neither" in reason
+    assert "not in the enumerated transient set" in reason
 
 
 def test_an_sdk_timeout_is_benign(tmp_path):
@@ -92,6 +92,18 @@ def test_a_truncated_stream_is_benign(tmp_path):
     import time as _t
     ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime(NOW))
     err = "streaming response ended without usage chunk"
+    reason = _check(
+        tmp_path,
+        usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+                     "error": err}],
+        error_rows=[{"ts": ts, "error": err}])
+    assert reason is None
+
+
+def test_a_connection_reset_is_benign(tmp_path):
+    import time as _t
+    ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime(NOW))
+    err = "[Errno 104] Connection reset by peer"
     reason = _check(
         tmp_path,
         usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
