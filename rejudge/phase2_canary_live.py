@@ -269,7 +269,17 @@ def commit_reviewer_decisions(manifest_path: str | Path, decisions_file: str | P
 
 def commit_decisions_into(store: DualGateDecisionStore, worklist: Mapping[str, Any],
                           entries) -> dict[str, int]:
+    """Commit out-of-band rulings, refusing any whose prompt bytes are unproven.
+
+    Incident canary_reviewer_prompt_contamination_2026-07-29: a ruling is only evidence
+    about the payload the reviewer actually saw. Every entry must therefore carry
+    ``prompt_sha256``, the hash of the exact prompt string dispatched, and it must equal
+    the worklist's ``subagent_prompt_sha256`` for that payload. A ``reviewer_error`` entry
+    is the sole exemption, because no reviewer was consulted at all.
+    """
     known = {item["payload_sha256"] for item in worklist["items"]}
+    expected_prompt = {item["payload_sha256"]: item.get("subagent_prompt_sha256")
+                       for item in worklist["items"]}
     counts = {"parsed": 0, "malformed": 0, "reviewer_error": 0}
     for entry in entries:
         sha = entry["payload_sha256"]
@@ -277,6 +287,16 @@ def commit_decisions_into(store: DualGateDecisionStore, worklist: Mapping[str, A
             raise CanaryLiveError(
                 f"decision for unknown payload {sha}: not in the current worklist")
         raw_output = entry["raw_output"]
+        if entry.get("status") != "reviewer_error":
+            proof = entry.get("prompt_sha256")
+            if not proof:
+                raise CanaryLiveError(
+                    f"decision for {sha} carries no prompt_sha256; a ruling whose prompt "
+                    "bytes are unproven cannot be committed")
+            if proof != expected_prompt.get(sha):
+                raise CanaryLiveError(
+                    f"decision for {sha} was produced from the wrong prompt bytes: "
+                    f"dispatched {proof}, frozen {expected_prompt.get(sha)}")
         if entry.get("status") == "reviewer_error":
             # The reviewer could not be consulted for this payload (frozen failure rule:
             # unavailability commits as non-ALLOW); raw_output preserves the evidence.

@@ -238,12 +238,14 @@ def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
     from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
     good_sha = payload_hash("q1", "a", "b")
     bad_sha = payload_hash("q2", "a", "b")
-    worklist = {"items": [{"payload_sha256": good_sha}, {"payload_sha256": bad_sha}]}
+    worklist = {"items": [{"payload_sha256": good_sha, "subagent_prompt_sha256": "p1"},
+                          {"payload_sha256": bad_sha, "subagent_prompt_sha256": "p2"}]}
     store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
     counts = commit_decisions_into(store, worklist, [
-        {"payload_sha256": good_sha,
+        {"payload_sha256": good_sha, "prompt_sha256": "p1",
          "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine."},
-        {"payload_sha256": bad_sha, "raw_output": "I think probably yes?"},
+        {"payload_sha256": bad_sha, "prompt_sha256": "p2",
+         "raw_output": "I think probably yes?"},
     ])
     assert counts == {"parsed": 1, "malformed": 1, "reviewer_error": 0}
     assert store.get(good_sha).effective_allow
@@ -264,14 +266,38 @@ def test_an_explicit_reviewer_error_commits_as_non_allow(tmp_path):
     assert decision.status == "reviewer_error" and not decision.effective_allow
 
 
+def test_a_ruling_without_prompt_proof_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    sha = payload_hash("q", "a", "b")
+    store = DualGateDecisionStore(tmp_path / "d.jsonl")
+    wl = {"items": [{"payload_sha256": sha, "subagent_prompt_sha256": "correct"}]}
+    with pytest.raises(CanaryLiveError, match="no prompt_sha256"):
+        commit_decisions_into(store, wl, [
+            {"payload_sha256": sha, "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\n"
+                                                  "RATIONALE: x."}])
+
+
+def test_a_ruling_from_the_wrong_prompt_bytes_is_refused(tmp_path):
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    sha = payload_hash("q", "a", "b")
+    store = DualGateDecisionStore(tmp_path / "d.jsonl")
+    wl = {"items": [{"payload_sha256": sha, "subagent_prompt_sha256": "correct"}]}
+    with pytest.raises(CanaryLiveError, match="wrong prompt bytes"):
+        commit_decisions_into(store, wl, [
+            {"payload_sha256": sha, "prompt_sha256": "tampered",
+             "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: x."}])
+
+
 def test_a_decision_for_an_unlisted_payload_is_refused(tmp_path):
     from rejudge.phase2_canary_live import commit_decisions_into
     from rejudge.phase2_dual_gate import DualGateDecisionStore
     store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
     with pytest.raises(CanaryLiveError, match="not in the current worklist"):
         commit_decisions_into(store, {"items": []}, [
-            {"payload_sha256": "f" * 64, "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\n"
-                                                       "RATIONALE: x."}])
+            {"payload_sha256": "f" * 64, "prompt_sha256": "p",
+             "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: x."}])
 
 
 # --- role-limit resolution ------------------------------------------------------------------

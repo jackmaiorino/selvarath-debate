@@ -1,0 +1,72 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "canary_reviewer_prompt_contamination_2026-07-29",
+ "recorded_at_utc": "2026-07-31T13:10:12Z",
+ "severity": "HIGH for scientific integrity; contained. Six committed reviewer decisions were produced from prompts that did not match the frozen payload bytes. Zero executed cells consumed them; no oracle dispatch was affected.",
+ "what_happened": "the operating assistant composed reviewer prompts BY HAND from payload fields it had printed to its own context, several of which had been truncated by display slicing (e.g. candidate_a[:250]). For six payloads the hand-composed CANDIDATE text diverged from the real candidate: the divergent tails are fluent, plausible continuations that the debater never wrote. The reviewer therefore ruled on altered evidence. The worklist has carried a per-item subagent_prompt_sha256 since the dispatcher amendment, but the commit path never checked it.",
+ "detection": "a dispatcher subagent hit the same failure while retrying under quota exhaustion, self-reported that hand-reproducing a ~10.6KB prompt is error-prone, and recommended hashing before dispatch; that prompted a full forensic re-verification of every committed decision",
+ "method": "every reviewer Agent call recorded in the dispatcher transcripts and in the operating session transcript was re-hashed and compared against the worklist's subagent_prompt_sha256, or recomposed via rejudge.phase2_canary_live.compose_subagent_prompt and compared byte-for-byte",
+ "findings": {
+  "committed_decisions": 147,
+  "prompt_verified_byte_exact": 140,
+  "dispatcher_produced_verified": 85,
+  "operator_hand_composed_verified": 55,
+  "reviewer_error_no_prompt_expected": 1,
+  "contaminated_or_unverifiable": 6,
+  "contaminated_payloads": [
+   {
+    "payload_sha256": "b34c80372540970ef6796a184c7f165a92294016f1a4587dd5dd8460388c141a",
+    "sequence": 43,
+    "label": "ALLOW",
+    "diverged_at_char": 10205
+   },
+   {
+    "payload_sha256": "f0abecc6c2f32e9843c50d2670632f9a0cbf9ed6357f94e1b859b2e553126345",
+    "sequence": 47,
+    "label": "ALLOW",
+    "diverged_at_char": 10160
+   },
+   {
+    "payload_sha256": "47a428faa74f2f78fc831e2096aae3c636a21fb289bed190899fa45d073564d1",
+    "sequence": 50,
+    "label": "ALLOW",
+    "diverged_at_char": 10179
+   },
+   {
+    "payload_sha256": "ae208ae472e35d1e0d07fd4ab16492a5192536d7de3839eb39d13783590474be",
+    "sequence": 53,
+    "label": "REJECT",
+    "diverged_at_char": null,
+    "note": "no Agent call in any transcript contains this payload's real opening; unverifiable"
+   },
+   {
+    "payload_sha256": "53c51fca464b18870823cb77051bc56b7987d2e1369d3f45a4842a39e68f6282",
+    "sequence": 56,
+    "label": "REJECT",
+    "diverged_at_char": 10230
+   },
+   {
+    "payload_sha256": "56486b9ffe66ae64c4b00b34fc5ebcd9badbbb330dc71ac363588ea775bee04a",
+    "sequence": 59,
+    "label": "REJECT",
+    "diverged_at_char": 10232
+   }
+  ]
+ },
+ "blast_radius": {
+  "executed_gate_events_consuming_a_contaminated_ruling": 0,
+  "oracle_dispatches_affected": 0,
+  "distinct_payloads_referenced_by_executed_gate_events": 20,
+  "why_contained": "the contaminated rulings were committed at sequences 43-59, after which the supervisor halted on an unrelated transport transient and was deliberately held stopped; the ~300 cells paused on those payloads have not executed their gate events",
+  "forward_risk": "resuming the run WITHOUT remediation would let paused cells consume these six rulings and produce contaminated gate outcomes"
+ },
+ "root_cause": "the operator treated prompt composition as a transcription task instead of a byte-transport task, and the commit-time verification checked only that a payload was in the worklist, that tool_uses was 0, and that the ruling parsed. None of those can detect altered evidence.",
+ "remediation_applied": [
+  "the run remains stopped; the supervisor was NOT restarted",
+  "commit_reviewer_decisions now REQUIRES a prompt_sha256 per entry and refuses unless it equals the worklist's subagent_prompt_sha256 for that payload, so a ruling whose prompt bytes cannot be proven can no longer be committed at all",
+  "the operator will no longer hand-compose reviewer prompts under any circumstances"
+ ],
+ "remediation_pending_owner_decision": "the decision store is append-only and refuses a second commit for the same payload, so the six cannot be corrected in place. The choice among (a) retiring this decision store and rebuilding from the 141 verified rulings, (b) excluding the cells that would consume the six, or (c) accepting them as a documented limitation, is an owner and adjudicator decision, not an operator one.",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}
