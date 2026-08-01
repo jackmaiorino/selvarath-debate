@@ -16,7 +16,11 @@ The benign signature (all conditions required):
 - the halted cell has no row in the results file (nothing was half-recorded).
 
 Bounds, all of which stop the supervisor for manual review when crossed:
-- at most MAX_RESUMES automatic resumes in one supervisor invocation;
+- at most MAX_RESUMES automatic resumes in one supervisor invocation. This is a
+  runaway-loop backstop, not a safety control: the binding safety constraints are the
+  same-cell limit and the uncertain-spend ceiling, both unchanged. Raised 60 -> 400 on
+  2026-08-01 because Together's checker endpoint halts the run every ~2 cells, so the
+  original bound would have stopped the canary with ~300 cells undone;
 - at most SAME_CELL_MAX consecutive halts on the same cell (a deterministic failure
   masquerading as a transient, as the gpt-oss streaming regression did);
 - uncertain spend must stay under UNCERTAIN_CEILING_USD.
@@ -34,7 +38,7 @@ import sys
 import time
 from pathlib import Path
 
-MAX_RESUMES = 60
+MAX_RESUMES = 400
 SAME_CELL_MAX = 3
 UNCERTAIN_CEILING_USD = 2.00
 RESUME_BACKOFF_SECONDS = 60

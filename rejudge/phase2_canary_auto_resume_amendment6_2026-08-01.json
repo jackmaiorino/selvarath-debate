@@ -1,0 +1,13 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment6_2026-08-01",
+ "recorded_at_utc": "2026-08-01T20:33:35Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-08-01.json",
+ "change": "MAX_RESUMES raised from 60 to 400 in scripts/canary_supervisor.py",
+ "measurement": "at 571/937 executable cells, recent passes complete ~2 cells before halting on a Together transient; 23 of the last 40 errors are gemma-4-31B request timeouts. Finishing the remaining 366 cells therefore needs roughly 180 more supervisor attempts, far beyond the original bound.",
+ "why_this_is_not_a_safety_relaxation": "the resume count was documented from the outset as a runaway-loop backstop. The constraints that actually bound risk are unchanged: at most 3 consecutive halts on the same cell (catches a deterministic failure masquerading as a transient), the $2.00 uncertain-spend ceiling, the client's own $40 stage cap, and the enumerated transient signature that stops on anything novel.",
+ "residual_risk_watched": "each halt adds a small permanently-counted uncertain reservation; at the observed ~$0.007 per halt, 180 further halts would add roughly $1.2 against the $2.00 ceiling, which would itself stop the supervisor before the cap is threatened",
+ "bounds_otherwise_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}
