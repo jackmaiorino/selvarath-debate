@@ -310,6 +310,105 @@ def commit_decisions_into(store: DualGateDecisionStore, worklist: Mapping[str, A
     return counts
 
 
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+# Pinned by the owner on 2026-08-01 and recorded in the reviewer-substitution deviation.
+# Reasoning effort is a model-VISIBLE generation setting, so it belongs in the bound record
+# exactly as the frozen roster already pins reasoning_effort for openai/gpt-oss-120b.
+REVIEWER_REASONING_EFFORT = "high"
+
+
+class GPTReviewer:
+    """The blinded second gate, run against an OpenAI reasoning model.
+
+    Structurally identical to :class:`ClaudeReviewer`: one fresh request per payload
+    carrying exactly the frozen prompt and the payload, no conversation state, no tools, no
+    metadata. Bounded retries on transient transport failures; a final failure raises, and
+    the dual gate commits it as ``reviewer_error`` -> non-ALLOW per the frozen failure rule.
+
+    The wire shape is the Responses API with an explicit reasoning effort. Because this
+    model was substituted mid-canary under an owner deviation rather than validated during
+    design, the operator MUST run :meth:`probe` once against the live endpoint and inspect
+    the result before dispatching a batch.
+    """
+
+    def __init__(self, *, prompt: str, model: str, api_key: str,
+                 effort: str = REVIEWER_REASONING_EFFORT,
+                 timeout: float = REVIEWER_TIMEOUT_SECONDS,
+                 max_attempts: int = REVIEWER_MAX_ATTEMPTS,
+                 transport=None, sleep=time.sleep) -> None:
+        if not api_key:
+            raise CanaryLiveError("reviewer requires a non-empty API key")
+        if not model:
+            raise CanaryLiveError("reviewer requires an explicit model identifier")
+        self._prompt = prompt
+        self._model = model
+        self._api_key = api_key
+        self._effort = effort
+        self._timeout = float(timeout)
+        self._max_attempts = int(max_attempts)
+        self._transport = transport if transport is not None else self._http_post
+        self._sleep = sleep
+        self.calls = 0
+
+    def _http_post(self, body: dict) -> dict:
+        request = urllib.request.Request(
+            OPENAI_RESPONSES_URL, method="POST",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"content-type": "application/json",
+                     "authorization": f"Bearer {self._api_key}"})
+        with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def _body(self, raw_query: str, candidate_a: str, candidate_b: str) -> dict:
+        return {
+            "model": self._model,
+            "reasoning": {"effort": self._effort},
+            "input": [
+                {"role": "developer", "content": self._prompt},
+                {"role": "user", "content": render_reviewer_payload(
+                    raw_query, candidate_a, candidate_b)},
+            ],
+        }
+
+    @staticmethod
+    def extract_text(data: Mapping[str, Any]) -> str:
+        """Pull the assistant text out of a Responses payload, tolerating shape variation."""
+        if isinstance(data.get("output_text"), str):
+            return data["output_text"]
+        chunks = []
+        for item in data.get("output") or []:
+            if not isinstance(item, dict) or item.get("type") == "reasoning":
+                continue
+            for part in item.get("content") or []:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    chunks.append(part["text"])
+        if not chunks:
+            raise CanaryLiveError("no assistant text found in the reviewer response")
+        return "".join(chunks)
+
+    def probe(self) -> dict:
+        """One live call whose raw response the operator inspects before any batch."""
+        return self._transport(self._body("CLAIM: probe.", "A", "B"))
+
+    def __call__(self, raw_query: str, candidate_a: str, candidate_b: str) -> str:
+        body = self._body(raw_query, candidate_a, candidate_b)
+        last_error: Exception | None = None
+        for attempt in range(1, self._max_attempts + 1):
+            try:
+                self.calls += 1
+                return str(self.extract_text(self._transport(body)))
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code not in _RETRYABLE_HTTP_STATUSES:
+                    raise
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                last_error = exc
+            if attempt < self._max_attempts:
+                self._sleep(2 * attempt)
+        raise CanaryLiveError(
+            f"reviewer unavailable after {self._max_attempts} attempts: {last_error}")
+
+
 def _client_construction_inputs(role_limits: Mapping[str, Any],
                                 snapshot: Mapping[str, Any]):
     """The same four-field extraction the preflight builder and runner perform."""

@@ -199,6 +199,56 @@ def test_a_missing_api_key_is_refused_at_construction():
         ClaudeReviewer(prompt="P", model="m", api_key="")
 
 
+# --- the substituted GPT reviewer ---------------------------------------------------------
+
+def _gpt(transport, **kw):
+    from rejudge.phase2_canary_live import GPTReviewer
+    return GPTReviewer(prompt="PROMPT", model="test-model", api_key="k",
+                       transport=transport, sleep=lambda s: None, **kw)
+
+
+def test_the_gpt_reviewer_sends_only_the_frozen_prompt_payload_and_pinned_effort():
+    bodies = []
+
+    def transport(body):
+        bodies.append(body)
+        return {"output_text": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine."}
+
+    assert _gpt(transport)("q?", "a", "b").startswith("LABEL: ALLOW")
+    (body,) = bodies
+    assert set(body) == {"model", "reasoning", "input"}
+    assert body["reasoning"] == {"effort": "high"}
+    assert body["input"][0] == {"role": "developer", "content": "PROMPT"}
+    assert body["input"][1] == {
+        "role": "user", "content": "QUERY: q?\nCANDIDATE A: a\nCANDIDATE B: b"}
+
+
+def test_the_gpt_reviewer_extracts_text_from_the_structured_shape():
+    from rejudge.phase2_canary_live import GPTReviewer
+    data = {"output": [{"type": "reasoning", "content": [{"text": "ignore me"}]},
+                       {"type": "message", "content": [{"text": "LABEL: REJECT"}]}]}
+    assert GPTReviewer.extract_text(data) == "LABEL: REJECT"
+
+
+def test_the_gpt_reviewer_refuses_a_response_with_no_text():
+    from rejudge.phase2_canary_live import GPTReviewer
+    with pytest.raises(CanaryLiveError, match="no assistant text"):
+        GPTReviewer.extract_text({"output": [{"type": "reasoning", "content": []}]})
+
+
+def test_the_gpt_reviewer_requires_an_explicit_model():
+    from rejudge.phase2_canary_live import GPTReviewer
+    with pytest.raises(CanaryLiveError, match="explicit model identifier"):
+        GPTReviewer(prompt="P", model="", api_key="k")
+
+
+def test_the_gpt_reviewer_fails_closed_after_retries():
+    def transport(body):
+        raise TimeoutError("slow")
+    with pytest.raises(CanaryLiveError, match="reviewer unavailable"):
+        _gpt(transport)("q", "a", "b")
+
+
 # --- the subagent-batch workflow ------------------------------------------------------------
 
 def test_the_subagent_prompt_is_preamble_frozen_prompt_separator_payload():
