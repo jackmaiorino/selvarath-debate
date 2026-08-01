@@ -83,11 +83,35 @@ def test_a_tampered_transition_payload_refuses_manifest_validation(tmp_path):
         validate_canary_manifest(_manifest(), project_root=root)
 
 
-def test_the_reviewer_model_is_pinned_to_the_frozen_identity():
-    # The amendment, the owner decision record and the frozen reviewer prompt all name
-    # claude-fable-5. A reviewer that inherited whatever session model happened to be running
-    # would be a protocol deviation under consult #27.
-    assert _manifest()["reviewer"]["model"] == "claude-fable-5"
+def test_the_reviewer_identity_is_bound_to_the_substitution_record():
+    # Until 2026-08-01 this asserted the frozen claude-fable-5 pin. The owner then substituted
+    # the reviewer mid-canary because that model's quota was exhausted, which the amendment
+    # names as a protocol deviation. The manifest must now describe the run as it actually is,
+    # so the invariant is stronger than a bare model string: the substitution has to be
+    # recorded, hash-bound, and must still name what it superseded.
+    from rejudge.phase2_canary_manifest import REVIEWER_MODEL, resolve_reviewer
+    reviewer = _manifest()["reviewer"]
+    resolved = resolve_reviewer(Path("."))
+    assert reviewer["model"] == resolved["model"]
+    assert reviewer["substituted"] is True
+    assert reviewer["superseded_model"] == REVIEWER_MODEL == "claude-fable-5"
+    assert reviewer["reasoning_effort"]           # a model-visible setting must be bound
+    assert reviewer["substitution_sha256"]        # and the record itself pinned by hash
+    record = json.loads(Path(reviewer["substitution_tracked_path"]).read_text(encoding="utf-8"))
+    assert record["execution_authorized"] is False
+
+
+def test_a_substitution_record_granting_authority_is_refused(tmp_path):
+    import shutil
+    from rejudge.phase2_canary_manifest import (
+        REVIEWER_SUBSTITUTION_RELATIVE_PATH, ManifestValidationError, resolve_reviewer)
+    root = tmp_path / "repo"
+    (root / REVIEWER_SUBSTITUTION_RELATIVE_PATH).parent.mkdir(parents=True)
+    record = json.loads(REVIEWER_SUBSTITUTION_RELATIVE_PATH.read_text(encoding="utf-8"))
+    record["execution_authorized"] = True
+    (root / REVIEWER_SUBSTITUTION_RELATIVE_PATH).write_text(json.dumps(record), encoding="utf-8")
+    with pytest.raises(ManifestValidationError, match="no execution authority"):
+        resolve_reviewer(root)
 
 
 def test_the_resolved_anchor_and_its_approval_are_bound():

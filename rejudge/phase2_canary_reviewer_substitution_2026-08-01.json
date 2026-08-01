@@ -1,0 +1,62 @@
+{
+ "schema_version": "phase2_canary_reviewer_substitution_v1",
+ "decision_id": "canary_reviewer_substitution_2026-08-01",
+ "recorded_at_utc": "2026-08-01T18:41:33Z",
+ "status": "active_per_owner_instruction",
+ "owner_instruction": {
+  "verbatim": [
+   "quota for fable isn't back till tuesday next week. Lets continue for now with gpt5.6 and can come back with fable later if we need to fork",
+   "probably document effort level you use. High should be fine."
+  ],
+  "context": "claude-fable-5, the model pinned by the 2026-07-23 Claude-gate amendment, is quota-exhausted account-wide until 2026-08-04, with the canary halted at 554/945 cells"
+ },
+ "deviation": "this IS the deviation the frozen amendment names by title: 'Reviewer model/build change mid-canary is a protocol deviation.' It is taken knowingly, on the owner's instruction, and disclosed here rather than absorbed silently.",
+ "reviewer": {
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "effort_rationale": "reasoning effort is a model-VISIBLE generation setting and is bound here for the same reason the frozen roster pins reasoning_effort for openai/gpt-oss-120b",
+  "transport": "codex CLI 0.145.0 `codex exec`, authenticated via the owner's ChatGPT subscription (not API billing); one fresh ephemeral session per payload in an empty working root, with --ignore-user-config and --ignore-rules so no project context is loaded",
+  "prompt_delivery": "the hash-verified packet file is piped as stdin, so the model receives exactly the bytes on disk; their sha256 is recorded per ruling and checked at commit time against the frozen subagent_prompt_sha256"
+ },
+ "scope": {
+  "payloads_reviewed_by_substitute": 80,
+  "of_which_re_reviews_after_incident2": 6,
+  "of_which_never_reviewed": 74,
+  "payloads_retained_from_claude_fable_5": 141,
+  "the_gate_is_therefore_heterogeneous": true
+ },
+ "controls_preserved": [
+  "prompt integrity: 80/80 rulings carry a prompt hash equal to the frozen packet hash",
+  "blindness: 80/80 event streams contained zero command_execution items",
+  "parseability: 80/80 parsed as the frozen three-line format; zero malformed",
+  "failures would have committed as reviewer_error (non-ALLOW); none occurred"
+ ],
+ "disclosed_weaknesses": [
+  "codex's read-only sandbox restricts WRITES, not reads: a probe confirmed the reviewer process CAN read the world documents from disk. Blindness is therefore enforced by detection and refusal (any ruling whose event stream shows a command is discarded), not by prevention. No ruling in this batch triggered it, but the guarantee is empirical rather than structural.",
+  "the substitute reviewer shares a model family with the external Codex consults that adjudicated this protocol (#23-#28), so the adjudicator is no longer fully independent of the gate operator; flagged for the adjudicator to weigh"
+ ],
+ "observed_clause_distributions": {
+  "note": "CONFOUNDED: the two reviewers ruled DISJOINT payload sets (fable slot-1, substitute mostly slot-2), so these differences mix reviewer identity with payload composition and must not be read as a pure inter-reviewer effect",
+  "claude_fable_5_n141": {
+   "ALLOW": 93,
+   "REJECT_P1": 8,
+   "REJECT_P2": 2,
+   "REJECT_P3": 35,
+   "REJECT_P4": 2,
+   "reviewer_error": 1
+  },
+  "gpt_5_6_sol_n80": {
+   "ALLOW": 49,
+   "REJECT_P1": 3,
+   "REJECT_P2": 21,
+   "REJECT_P3": 7
+  },
+  "salient_pattern": "near-identical ALLOW rate (66% vs 61%) but close to inverted reject attribution: fable cites P3 compound for 74% of its rejects, the substitute cites P2 restatement for 68% of its rejects",
+  "how_to_disentangle": "re-review a sample of already-fable-ruled payloads with the substitute (or the reverse once quota returns) to obtain a paired comparison on identical inputs; not yet done"
+ },
+ "estimand_consequence": "the amendment's language 'results estimate the debate system WITH THIS FROZEN CLAUDE GATE' no longer holds as written. Canary results estimate the system with a HETEROGENEOUS gate: 141 payloads ruled by claude-fable-5 and 80 by gpt-5.6-sol. The sentinel audit characterises that mixture, not either gate alone, and must say so.",
+ "adjudication": "flagged for the adjudicator (Joey) and the next consult alongside this epoch's other records",
+ "main_run": "nothing here authorizes the main run or its gating design",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no new spend authority and changes no cap."
+}

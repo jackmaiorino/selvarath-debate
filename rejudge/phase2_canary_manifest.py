@@ -35,6 +35,14 @@ from rejudge.phase2_execution import canonical_sha256
 STAGE = "canary"
 STAGE_CAP_USD = 40.0
 REVIEWER_MODEL = "claude-fable-5"
+# The reviewer was substituted mid-canary on 2026-08-01 under an owner deviation, because the
+# pinned model's quota is unavailable. The manifest must describe the run as it actually is,
+# so the reviewer identity is read from that append-only record when it exists rather than
+# from the constant above. Its presence necessarily changes the execution identity, which is
+# the point: a different gate is a different run.
+REVIEWER_SUBSTITUTION_RELATIVE_PATH = Path(
+    "rejudge/phase2_canary_reviewer_substitution_2026-08-01.json")
+REVIEWER_SUBSTITUTION_SCHEMA = "phase2_canary_reviewer_substitution_v1"
 APPROVED_ANCHOR_JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 
 # Deliberately disjoint from phase2_execution.CODE_PROVENANCE_FROZEN_FILES: adding any of
@@ -128,6 +136,30 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
     }
 
 
+def resolve_reviewer(root: Path) -> dict[str, Any]:
+    """The reviewer identity this run actually used, plus the record that authorises it."""
+    path = root / REVIEWER_SUBSTITUTION_RELATIVE_PATH
+    if not path.exists():
+        return {"model": REVIEWER_MODEL, "substituted": False}
+    record = _json(path)
+    if record.get("schema_version") != REVIEWER_SUBSTITUTION_SCHEMA:
+        raise ManifestValidationError("reviewer substitution record schema drifted")
+    if record.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "a reviewer substitution record must grant no execution authority")
+    reviewer = record["reviewer"]
+    if not reviewer.get("model") or not reviewer.get("reasoning_effort"):
+        raise ManifestValidationError(
+            "reviewer substitution must state both model and reasoning_effort")
+    return {"model": str(reviewer["model"]),
+            "reasoning_effort": str(reviewer["reasoning_effort"]),
+            "substituted": True,
+            "substitution_tracked_path": str(REVIEWER_SUBSTITUTION_RELATIVE_PATH).replace(
+                "\\", "/"),
+            "substitution_sha256": canonical_sha256(record),
+            "superseded_model": REVIEWER_MODEL}
+
+
 def _governance(root: Path) -> dict[str, Any]:
     """The artifacts that make this run the run they describe."""
     paths = {
@@ -163,7 +195,7 @@ def build_canary_manifest(*, project_root: str | Path = ".", recorded_at_utc: st
         },
         "frozen_inputs": _frozen_inputs(root),
         "reviewer": {
-            "model": REVIEWER_MODEL,
+            **resolve_reviewer(root),
             "prompt_tracked_path": "rejudge/phase2_reviewer_prompt_2026-07-23.json",
             "isolation": ("fresh isolated context per batch: no repository, tools, retrieval, "
                           "conversation memory, or cross-query discussion"),

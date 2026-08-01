@@ -627,6 +627,38 @@ def test_the_rebuild_refuses_a_ruling_without_prompt_proof(tmp_path):
         rebuild_decision_store(manifest, project_root=root, verified_path=verified)
 
 
+def test_superseding_a_binding_records_the_prior_identity(tmp_path):
+    import shutil
+    from rejudge.phase2_canary_live import (LEDGER_BINDING_FILENAME, supersede_ledger_binding)
+    root = tmp_path / "root"; (root / "rejudge").mkdir(parents=True)
+    reason = "rejudge/reason.json"
+    (root / reason).write_text("{}", encoding="utf-8")
+    archive = tmp_path / "arch"; archive.mkdir()
+    (archive / LEDGER_BINDING_FILENAME).write_text(json.dumps(
+        {"schema_version": "phase2_canary_ledger_binding_v2",
+         "execution_identity_sha256": "a" * 64, "ledger_identity": {"ledger_id": "x"}}),
+        encoding="utf-8")
+    manifest = {"execution_identity_sha256": "b" * 64,
+                "ledger": {"archive_dir": str(archive)}}
+    out = supersede_ledger_binding(manifest, project_root=root, reason_tracked_path=reason)
+    assert out["previous"] == "a" * 64 and out["now"] == "b" * 64
+    binding = json.loads((archive / LEDGER_BINDING_FILENAME).read_text(encoding="utf-8"))
+    assert binding["superseded_identities"][0]["execution_identity_sha256"] == "a" * 64
+    # idempotent
+    assert supersede_ledger_binding(manifest, project_root=root,
+                                    reason_tracked_path=reason)["unchanged"] is True
+
+
+def test_supersession_refuses_without_the_justifying_record(tmp_path):
+    from rejudge.phase2_canary_live import supersede_ledger_binding
+    archive = tmp_path / "arch"; archive.mkdir()
+    manifest = {"execution_identity_sha256": "b" * 64,
+                "ledger": {"archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="justifying record"):
+        supersede_ledger_binding(manifest, project_root=tmp_path,
+                                 reason_tracked_path="rejudge/missing.json")
+
+
 # --- ledger binding -------------------------------------------------------------------------
 
 def test_the_first_run_binds_the_ledger_and_a_resume_verifies_it(tmp_path):

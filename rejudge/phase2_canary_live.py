@@ -660,6 +660,41 @@ def rebuild_decision_store(manifest: Mapping[str, Any], *, project_root: str | P
             "excluded": sorted(excluded_shas)}
 
 
+def supersede_ledger_binding(manifest: Mapping[str, Any], *, project_root: str | Path,
+                             reason_tracked_path: str) -> dict:
+    """Point an existing ledger binding at an amended manifest, recording the chain.
+
+    A mid-run manifest amendment (the 2026-08-01 reviewer substitution) changes the execution
+    identity while the physical run, its ledger, cache and results continue. Rewriting the
+    binding silently would erase the fact that the run changed shape underneath, so the prior
+    identity is retained in ``superseded_identities`` together with the artifact that
+    justifies the change. Refuses unless that artifact exists.
+    """
+    root = Path(project_root)
+    if not (root / reason_tracked_path).exists():
+        raise CanaryLiveError(
+            f"supersession requires the justifying record {reason_tracked_path} on disk")
+    binding_path = local_path(manifest["ledger"]["archive_dir"]) / LEDGER_BINDING_FILENAME
+    if not binding_path.exists():
+        raise CanaryLiveError(f"no ledger binding to supersede at {binding_path}")
+    binding = _load_json(binding_path)
+    new_identity = manifest["execution_identity_sha256"]
+    current = binding.get("execution_identity_sha256")
+    if current == new_identity:
+        return {"unchanged": True, "execution_identity_sha256": new_identity}
+    chain = list(binding.get("superseded_identities") or [])
+    chain.append({"execution_identity_sha256": current,
+                  "superseded_by_record": reason_tracked_path})
+    binding["superseded_identities"] = chain
+    binding["execution_identity_sha256"] = new_identity
+    binding["schema_version"] = "phase2_canary_ledger_binding_v3"
+    binding_path.write_text(
+        json.dumps(binding, ensure_ascii=True, sort_keys=True, indent=1) + "\n",
+        encoding="utf-8", newline="")
+    return {"unchanged": False, "previous": current, "now": new_identity,
+            "chain_length": len(chain)}
+
+
 def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
                           binding_path: Path) -> dict[str, Any]:
     """First run: create the ledger and bind its genesis identity to this manifest.
