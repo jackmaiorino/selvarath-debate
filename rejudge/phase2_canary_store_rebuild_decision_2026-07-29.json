@@ -1,0 +1,19 @@
+{
+ "schema_version": "phase2_owner_decision_record_v1",
+ "decision_id": "canary_decision_store_rebuild_2026-07-29",
+ "decided_at_utc": "2026-08-01T17:57:02Z",
+ "owner": "Jack Maiorino",
+ "owner_statement_verbatim": "I agree with 1 ruling, continue",
+ "question_put_to_owner": "remediation for the six contaminated reviewer rulings recorded in rejudge/phase2_canary_incident2_2026-07-29.json, given that the decision store is append-only and refuses a second commit per payload; options offered were (a) retire the store and rebuild from the 141 verified rulings then re-review the six, (b) exclude the cells that would consume them, (c) accept as a documented limitation",
+ "decision": "option (a): retire the contaminated decision store and rebuild it containing only rulings whose dispatched prompt bytes were proven byte-exact against the frozen payload; the six excluded payloads carry no decision and will therefore pause their cells for proper re-review",
+ "adjudicator_status": "NOT yet reviewed by the adjudicator (Joey); flagged for post-hoc adjudication alongside this epoch's other operational records",
+ "basis": {
+  "incident_record": "rejudge/phase2_canary_incident2_2026-07-29.json",
+  "verified_rulings": 141,
+  "excluded_rulings": 6,
+  "original_store_preserved_as": "canary_reviewer_decisions.jsonl.incident2-2026-07-29"
+ },
+ "not_decided_here": "the reviewer-model question raised by the Fable quota exhaustion is separate and remains open; nothing in this record authorizes a reviewer model substitution",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no new spend authority and changes no cap."
+}

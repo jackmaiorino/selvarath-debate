@@ -525,6 +525,58 @@ def test_the_migration_preserves_rebuilds_and_carries_forward(tmp_path, monkeypa
         migrate_interleaved_ledger(manifest, project_root=root)
 
 
+def test_the_rebuild_keeps_verified_rulings_and_drops_excluded(tmp_path):
+    import shutil
+    from rejudge.phase2_canary_live import INCIDENT2_RELATIVE_PATH, rebuild_decision_store
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    root = tmp_path / "root"
+    (root / INCIDENT2_RELATIVE_PATH).parent.mkdir(parents=True)
+    shutil.copyfile(INCIDENT2_RELATIVE_PATH, root / INCIDENT2_RELATIVE_PATH)
+    archive = tmp_path / "archive"; archive.mkdir()
+    dpath = archive / "canary_reviewer_decisions.jsonl"
+
+    keep, drop = payload_hash("q1", "a", "b"), payload_hash("q2", "a", "b")
+    seed = DualGateDecisionStore(dpath)
+    good = "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: ok."
+    seed.commit(keep, "ALLOW", "Allowed", "ok.", good, "parsed")
+    seed.commit(drop, "ALLOW", "Allowed", "ok.", good, "parsed")
+
+    verified = tmp_path / "verified.json"
+    verified.write_text(json.dumps({
+        "verified": [{"payload_sha256": keep, "label": "ALLOW", "clause": "Allowed",
+                      "rationale": "ok.", "raw_output": good, "status": "parsed",
+                      "prompt_sha256": "proof"}],
+        "excluded": [{"payload_sha256": drop}]}), encoding="utf-8")
+
+    manifest = {"ledger": {"archive_dir": str(archive), "decisions_path": str(dpath)}}
+    out = rebuild_decision_store(manifest, project_root=root, verified_path=verified)
+    assert out["rebuilt_rulings"] == 1
+    assert Path(out["retired_to"]).exists()
+    rebuilt = DualGateDecisionStore(dpath)
+    assert rebuilt.get(keep) is not None and rebuilt.get(drop) is None
+    with pytest.raises(CanaryLiveError, match="already ran"):
+        rebuild_decision_store(manifest, project_root=root, verified_path=verified)
+
+
+def test_the_rebuild_refuses_a_ruling_without_prompt_proof(tmp_path):
+    import shutil
+    from rejudge.phase2_canary_live import INCIDENT2_RELATIVE_PATH, rebuild_decision_store
+    from rejudge.phase2_dual_gate import payload_hash
+    root = tmp_path / "root"
+    (root / INCIDENT2_RELATIVE_PATH).parent.mkdir(parents=True)
+    shutil.copyfile(INCIDENT2_RELATIVE_PATH, root / INCIDENT2_RELATIVE_PATH)
+    archive = tmp_path / "archive"; archive.mkdir()
+    verified = tmp_path / "verified.json"
+    verified.write_text(json.dumps({
+        "verified": [{"payload_sha256": payload_hash("q", "a", "b"), "label": "ALLOW",
+                      "clause": "Allowed", "rationale": "x", "raw_output": "r",
+                      "status": "parsed"}], "excluded": []}), encoding="utf-8")
+    manifest = {"ledger": {"archive_dir": str(archive),
+                           "decisions_path": str(archive / "d.jsonl")}}
+    with pytest.raises(CanaryLiveError, match="no prompt proof"):
+        rebuild_decision_store(manifest, project_root=root, verified_path=verified)
+
+
 # --- ledger binding -------------------------------------------------------------------------
 
 def test_the_first_run_binds_the_ledger_and_a_resume_verifies_it(tmp_path):

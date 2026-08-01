@@ -510,6 +510,57 @@ def migrate_interleaved_ledger(manifest: Mapping[str, Any], *,
             "carried_forward": binding["carried_forward"]}
 
 
+INCIDENT2_RELATIVE_PATH = Path("rejudge/phase2_canary_incident2_2026-07-29.json")
+INCIDENT2_SUFFIX = ".incident2-2026-07-29"
+
+
+def rebuild_decision_store(manifest: Mapping[str, Any], *, project_root: str | Path,
+                           verified_path: str | Path) -> dict:
+    """Retire a contaminated decision store and rebuild it from verified rulings only.
+
+    Incident canary_reviewer_prompt_contamination_2026-07-29 left six rulings in an
+    append-only store that refuses a second commit per payload, so they cannot be corrected
+    in place. Under owner sign-off this preserves the original store byte-for-byte as
+    evidence and writes a fresh hash-chained store containing only rulings whose dispatched
+    prompt bytes were proven against the frozen payload.
+
+    Refuses without the committed incident record, and refuses if any excluded payload
+    would survive into the successor store.
+    """
+    root = Path(project_root)
+    if not (root / INCIDENT2_RELATIVE_PATH).exists():
+        raise CanaryLiveError(
+            f"rebuild requires the incident record {INCIDENT2_RELATIVE_PATH} on disk")
+    payload = _load_json(Path(verified_path))
+    verified, excluded = payload["verified"], payload["excluded"]
+    excluded_shas = {e["payload_sha256"] for e in excluded}
+    if excluded_shas & {v["payload_sha256"] for v in verified}:
+        raise CanaryLiveError("an excluded payload also appears in the verified set")
+    for v in verified:
+        if v["status"] != "reviewer_error" and not v.get("prompt_sha256"):
+            raise CanaryLiveError(
+                f"verified ruling {v['payload_sha256']} carries no prompt proof")
+
+    decisions_path = local_path(manifest["ledger"]["decisions_path"])
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    with _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary"):
+        retired = Path(str(decisions_path) + INCIDENT2_SUFFIX)
+        if retired.exists():
+            raise CanaryLiveError(f"{retired} already exists; rebuild already ran?")
+        if decisions_path.exists():
+            decisions_path.rename(retired)
+        store = DualGateDecisionStore(decisions_path)
+        for v in verified:
+            store.commit(v["payload_sha256"], v["label"], v["clause"], v["rationale"],
+                         v["raw_output"], v["status"])
+        rebuilt = DualGateDecisionStore(decisions_path)   # re-read: proves the chain loads
+        for sha in excluded_shas:
+            if rebuilt.get(sha) is not None:
+                raise CanaryLiveError(f"excluded payload {sha} survived into the rebuild")
+    return {"retired_to": str(retired), "rebuilt_rulings": len(verified),
+            "excluded": sorted(excluded_shas)}
+
+
 def bind_or_verify_ledger(manifest: Mapping[str, Any], usage_log_path: Path,
                           binding_path: Path) -> dict[str, Any]:
     """First run: create the ledger and bind its genesis identity to this manifest.
