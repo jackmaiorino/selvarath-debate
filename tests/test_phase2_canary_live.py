@@ -773,3 +773,133 @@ def test_the_bound_transport_is_the_one_the_amendment_describes():
     pinned = json.loads(Path(
         manifest["frozen_inputs"]["role_limits_tracked_path"]).read_text(encoding="utf-8"))
     assert pinned["request_settings"]["transport"]["http_timeout"]["read"] == 120
+
+
+# --- incident 3: rebuilding the result store -------------------------------------------------
+
+def test_the_result_rebuild_drops_named_cells_and_keeps_the_rest(tmp_path):
+    # Incident 3 left 141 cells recorded whose gate rulings were never actually reviewed.
+    # The result store refuses to overwrite a cell, by design, so a contaminated cell cannot
+    # be corrected in place: it has to be dropped so the runner will execute it again.
+    from rejudge.phase2_canary_live import INCIDENT3_SUFFIX, rebuild_result_store
+    from rejudge.phase2_canary_order import CellResultStore
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    results = archive / "results.jsonl"
+    store = CellResultStore(results)
+    for n in range(5):
+        store.record(f"cell{n}", {"n": n})
+
+    manifest = {"ledger": {"results_path": str(results), "archive_dir": str(archive)}}
+    out = rebuild_result_store(manifest, project_root=".", drop_cells={"cell1", "cell3"})
+
+    assert out["dropped"] == ["cell1", "cell3"] and out["kept"] == 3
+    rebuilt = CellResultStore(results)          # re-read: proves the fresh chain loads
+    assert [rebuilt.is_complete(f"cell{n}") for n in range(5)] == [
+        True, False, True, False, True]
+    assert rebuilt.get("cell4") == {"n": 4}     # surviving payloads are untouched
+    retired = Path(str(results) + INCIDENT3_SUFFIX)
+    assert retired.exists(), "the contaminated store must be preserved as evidence"
+    assert len(retired.read_text(encoding="utf-8").strip().splitlines()) == 5
+
+
+def test_the_result_rebuild_refuses_to_run_twice(tmp_path):
+    from rejudge.phase2_canary_live import CanaryLiveError, rebuild_result_store
+    from rejudge.phase2_canary_order import CellResultStore
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    results = archive / "results.jsonl"
+    CellResultStore(results).record("cell0", {})
+    manifest = {"ledger": {"results_path": str(results), "archive_dir": str(archive)}}
+    rebuild_result_store(manifest, project_root=".", drop_cells=set())
+    with pytest.raises(CanaryLiveError, match="already"):
+        rebuild_result_store(manifest, project_root=".", drop_cells=set())
+
+
+def test_the_result_rebuild_refuses_without_the_incident_record(tmp_path):
+    # Same precondition the decision-store rebuild enforces: no record, no rebuild.
+    from rejudge.phase2_canary_live import CanaryLiveError, rebuild_result_store
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    manifest = {"ledger": {"results_path": str(archive / "r.jsonl"),
+                           "archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="incident record"):
+        rebuild_result_store(manifest, project_root=tmp_path, drop_cells=set())
+
+
+def test_the_result_rebuild_refuses_to_drop_a_cell_that_is_not_there(tmp_path):
+    # A drop list naming an absent cell means the caller's idea of the contamination and the
+    # store's contents disagree, which is exactly when not to rewrite the store.
+    from rejudge.phase2_canary_live import CanaryLiveError, rebuild_result_store
+    from rejudge.phase2_canary_order import CellResultStore
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    results = archive / "results.jsonl"
+    CellResultStore(results).record("cell0", {})
+    manifest = {"ledger": {"results_path": str(results), "archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="not present"):
+        rebuild_result_store(manifest, project_root=".", drop_cells={"ghost"})
+
+
+def test_the_unreviewed_rebuild_drops_only_self_identifying_rulings(tmp_path):
+    # Incident 3's rule differs from incident 2's on purpose. Incident 2 contaminated the
+    # PROMPTS, so affected rulings were indistinguishable without proof and "keep only what
+    # is provable" was the only safe rule. Incident 3 broke the TRANSPORT: the reviewer never
+    # ran, and every affected ruling carries an explicit marker. Applying incident 2's rule
+    # here would have discarded 220 genuine rulings to remove 160 bad ones, because only 29
+    # of the genuine rulings have recoverable prompt proof.
+    from rejudge.phase2_canary_live import (
+        INCIDENT3_SUFFIX, rebuild_decision_store_dropping_unreviewed)
+    from rejudge.phase2_dual_gate import DualGateDecisionStore
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    decisions = archive / "decisions.jsonl"
+    store = DualGateDecisionStore(decisions)
+    store.commit("a" * 64, "ALLOW", "Allowed", "fine",
+                 "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine", "parsed")
+    store.commit("b" * 64, None, None, None,
+                 "REVIEWER_UNAVAILABLE: exit=127, ruling_empty=True", "reviewer_error")
+    store.commit("c" * 64, "REJECT", "P2", "restates",
+                 "LABEL: REJECT\nCLAUSE: P2\nRATIONALE: restates", "parsed")
+    store.commit("d" * 64, None, None, None,
+                 "DISPATCH_ERROR: prompt contains U+202F characters", "reviewer_error")
+
+    manifest = {"ledger": {"decisions_path": str(decisions), "archive_dir": str(archive)}}
+    out = rebuild_decision_store_dropping_unreviewed(manifest, project_root=".")
+
+    assert out["dropped"] == ["b" * 64] and out["kept"] == 3
+    rebuilt = DualGateDecisionStore(decisions)
+    assert rebuilt.get("b" * 64) is None, "the unreviewed rejection must be gone"
+    # A genuine reviewer_error from a real cause is NOT swept up with it.
+    assert rebuilt.get("d" * 64) is not None
+    assert rebuilt.get("a" * 64).label == "ALLOW"
+    assert rebuilt.get("c" * 64).label == "REJECT"
+    assert Path(str(decisions) + INCIDENT3_SUFFIX).exists()
+
+
+def test_the_unreviewed_rebuild_refuses_when_nothing_is_marked(tmp_path):
+    # If no ruling self-identifies as unreviewed there is nothing to remediate, and
+    # rewriting a hash-chained store for no reason is not a safe no-op.
+    from rejudge.phase2_canary_live import (
+        CanaryLiveError, rebuild_decision_store_dropping_unreviewed)
+    from rejudge.phase2_dual_gate import DualGateDecisionStore
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    decisions = archive / "decisions.jsonl"
+    DualGateDecisionStore(decisions).commit(
+        "a" * 64, "ALLOW", "Allowed", "fine",
+        "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine", "parsed")
+    manifest = {"ledger": {"decisions_path": str(decisions), "archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="nothing to drop"):
+        rebuild_decision_store_dropping_unreviewed(manifest, project_root=".")
+
+
+def test_the_unreviewed_rebuild_refuses_without_the_incident_record(tmp_path):
+    from rejudge.phase2_canary_live import (
+        CanaryLiveError, rebuild_decision_store_dropping_unreviewed)
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    manifest = {"ledger": {"decisions_path": str(archive / "d.jsonl"),
+                           "archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="incident record"):
+        rebuild_decision_store_dropping_unreviewed(manifest, project_root=tmp_path)

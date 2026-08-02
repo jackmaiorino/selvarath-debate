@@ -1,0 +1,41 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "canary_reviewer_unavailable_uncaught_2026-08-02",
+ "recorded_at_utc": "2026-08-02T12:50:00Z",
+ "severity": "contaminates the gate, which is the science",
+ "summary": "160 oracle-query payloads were committed as reviewer_error, which is non-ALLOW under the frozen failure rule, without ever being reviewed. The rejections propagated into 141 recorded cells.",
+ "cause": {
+  "what": "the operator's relaunch script left the reviewer binary to PATH resolution and was invoked through a NON-LOGIN shell",
+  "mechanism": "in a login shell 'codex' resolves to /home/jack/.local/bin/codex, the Linux binary the substitution record pins at 0.145.0. In a non-login shell the WSL interop PATH wins and it resolves to /mnt/c/Users/Jack/AppData/Roaming/npm/codex, a Windows npm shim that cannot execute under Linux. Every dispatch exited 127 with an empty ruling.",
+  "attribution": "operator error, introduced by the assistant when it rebuilt the launcher after the 2026-08-01 transport switchover. The original daemon, launched by an earlier session, had the correct binary on PATH and produced clean rulings.",
+  "not_a_defect_in": "the frozen failure rule, the batch runner, or the dual gate. Every one of those behaved exactly as specified: a reviewer that cannot be reached commits non-ALLOW rather than being dropped, guessed at, or retried into a fabricated ruling. The fail-closed design contained a launcher bug into a recoverable, fully-attributable data error instead of a silent one."
+ },
+ "detection": {
+  "how": "noticed while answering a routine question about the completion estimate, when the ledger showed no provider activity for four hours",
+  "delay": "roughly four hours",
+  "why_the_monitor_missed_it": "the assistant's watcher compared the newest 'supervisor: STOP' log line as TEXT against the previously seen one. This stop's message was byte-identical to the preceding checker_malformed stop, so the watcher treated it as already-seen and stayed silent. A count-based or offset-based comparison would have fired. Second operator error, independent of the first."
+ },
+ "blast_radius": {
+  "reviewer_decisions_total": 410,
+  "genuine_rulings": 249,
+  "unreviewed_rejections": 160,
+  "unrelated_preexisting_reviewer_error": 1,
+  "preexisting_error_detail": "a DISPATCH_ERROR at index 140 for a payload containing U+202F narrow no-break spaces that the dispatcher could not reproduce byte-exactly. Genuine, correctly recorded, and retained.",
+  "contaminated_cells": 141,
+  "contaminated_cells_detail": {"canary_debate_judgment": 60, "canary_no_debate_judgment": 81},
+  "recorded_cells_at_detection": 901,
+  "trustworthy_cells_at_detection": 760,
+  "boundary": "decision-store indices 0-249 are genuine; 250-409 are the bad batch. The boundary is exactly the first relaunch under the faulty script.",
+  "spend_impact": "immaterial. The waste is reviewer work, not provider tokens; Together spend was about $3.9 of the $40 stage cap throughout."
+ },
+ "remediation_authorized_by_owner": {
+  "mechanism": "selected from an options list rather than typed",
+  "selected_option_label": "Rebuild store, re-review, re-run the 141",
+  "selected_option_text": "Fix the launcher to a login shell and prove codex resolves to the Linux binary first. Then rebuild the decision store keeping only the 249 prompt-verified rulings, re-review the 160 payloads properly, and re-run the 141 contaminated cells. Costs re-running ~16% of the work and some extra Together spend; restores full integrity. Follows the incident-2 precedent."
+ },
+ "fix_applied_before_any_remediation": "the launcher now pins the reviewer by absolute path (/home/jack/.local/bin/codex) and refuses to start anything unless that binary exists, is executable, and reports the expected 0.145.0. PATH resolution is no longer trusted for the reviewer.",
+ "why_the_cached_calls_are_still_good": "the contamination is confined to gate rulings. Debater turns, judge queries and verdicts were produced by the provider under unchanged prompts and seeds, and the per-call cache is keyed by request fingerprint, so re-running a contaminated cell replays those responses rather than re-sampling them. Only the gate decision and whatever follows from it is recomputed.",
+ "adjudication": "flagged for the adjudicator alongside this epoch's other records. Two operator errors in one epoch, one causing the contamination and one delaying its detection, are themselves a finding about how this run was supervised.",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap."
+}

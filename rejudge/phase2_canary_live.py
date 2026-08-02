@@ -611,6 +611,126 @@ def migrate_interleaved_ledger(manifest: Mapping[str, Any], *,
 
 INCIDENT2_RELATIVE_PATH = Path("rejudge/phase2_canary_incident2_2026-07-29.json")
 INCIDENT2_SUFFIX = ".incident2-2026-07-29"
+INCIDENT3_RELATIVE_PATH = Path("rejudge/phase2_canary_incident3_2026-08-02.json")
+INCIDENT3_SUFFIX = ".incident3-2026-08-02"
+
+
+# The marker the batch runner writes when the reviewer process could not be run at all.
+# Incident 3's contaminated rulings all carry it, which is what makes them identifiable
+# without prompt proof.
+UNREVIEWED_MARKER = "REVIEWER_UNAVAILABLE"
+
+
+def rebuild_decision_store_dropping_unreviewed(
+        manifest: Mapping[str, Any], *, project_root: str | Path,
+        marker: str = UNREVIEWED_MARKER) -> dict:
+    """Retire a decision store and rebuild it without rulings the reviewer never produced.
+
+    Deliberately a DIFFERENT rule from :func:`rebuild_decision_store`, which keeps only
+    prompt-verified rulings. That rule fits incident 2, where the PROMPTS were contaminated
+    and affected rulings were indistinguishable from sound ones without proof. Incident 3
+    broke the TRANSPORT: the reviewer binary could not execute, so every affected ruling
+    carries an explicit marker, while the sound rulings mostly predate the packet flow and
+    have no recoverable proof. Applying incident 2's rule here would have discarded 220
+    genuine rulings in order to remove 160 bad ones.
+
+    Selection is by marker rather than by a caller-supplied list, so this can only ever
+    remove rulings that self-identify as never-reviewed; it cannot be pointed at a ruling
+    somebody dislikes. A genuine reviewer_error from a real cause, such as a payload the
+    dispatcher could not reproduce byte-exactly, does not carry the marker and survives.
+    """
+    root = Path(project_root)
+    if not (root / INCIDENT3_RELATIVE_PATH).exists():
+        raise CanaryLiveError(
+            f"rebuild requires the incident record {INCIDENT3_RELATIVE_PATH} on disk")
+
+    decisions_path = local_path(manifest["ledger"]["decisions_path"])
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    retired = Path(str(decisions_path) + INCIDENT3_SUFFIX)
+    if retired.exists():
+        raise CanaryLiveError(f"{retired} already exists; rebuild already ran?")
+
+    rows = []
+    if decisions_path.exists():
+        rows = [json.loads(line) for line in
+                decisions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    dropped = [r["payload_sha256"] for r in rows if marker in str(r.get("raw_output", ""))]
+    if not dropped:
+        raise CanaryLiveError(
+            f"nothing to drop: no ruling carries {marker!r}; refusing to rewrite a "
+            "hash-chained store for no reason")
+
+    with _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary"):
+        decisions_path.rename(retired)
+        store = DualGateDecisionStore(decisions_path)
+        kept = 0
+        for row in rows:
+            if marker in str(row.get("raw_output", "")):
+                continue
+            store.commit(row["payload_sha256"], row["label"], row["clause"],
+                         row["rationale"], row["raw_output"], row["status"])
+            kept += 1
+        rebuilt = DualGateDecisionStore(decisions_path)   # re-read: proves the chain loads
+        for sha in dropped:
+            if rebuilt.get(sha) is not None:
+                raise CanaryLiveError(f"dropped ruling {sha} survived into the rebuild")
+    return {"retired_to": str(retired), "kept": kept, "dropped": sorted(dropped)}
+
+
+def rebuild_result_store(manifest: Mapping[str, Any], *, project_root: str | Path,
+                         drop_cells: set) -> dict:
+    """Retire a result store and rebuild it without the named cells, so they run again.
+
+    Incident canary_reviewer_unavailable_uncaught_2026-08-02 recorded 141 cells whose gate
+    rulings were committed as reviewer_error without any review having happened. The result
+    store refuses to overwrite a cell, deliberately, so a contaminated cell cannot be
+    corrected in place: it has to be absent for the runner to execute it again.
+
+    The contaminated store is preserved byte-for-byte as evidence and a fresh hash-chained
+    store is written from the surviving rows, in their original order. Refuses without the
+    committed incident record, refuses to run twice, and refuses a drop list naming a cell
+    the store does not contain -- that last one means the caller's idea of the contamination
+    and the store's contents disagree, which is precisely when not to rewrite it.
+    """
+    from rejudge.phase2_canary_order import CellResultStore
+
+    root = Path(project_root)
+    if not (root / INCIDENT3_RELATIVE_PATH).exists():
+        raise CanaryLiveError(
+            f"rebuild requires the incident record {INCIDENT3_RELATIVE_PATH} on disk")
+
+    results_path = local_path(manifest["ledger"]["results_path"])
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    retired = Path(str(results_path) + INCIDENT3_SUFFIX)
+    if retired.exists():
+        raise CanaryLiveError(f"{retired} already exists; rebuild already ran?")
+
+    rows = []
+    if results_path.exists():
+        rows = [json.loads(line) for line in
+                results_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    present = {row["cell_key"] for row in rows}
+    missing = set(drop_cells) - present
+    if missing:
+        raise CanaryLiveError(
+            f"{len(missing)} cell(s) to drop are not present in the result store, "
+            f"e.g. {sorted(missing)[0]}")
+
+    with _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary"):
+        if results_path.exists():
+            results_path.rename(retired)
+        store = CellResultStore(results_path)
+        kept = 0
+        for row in rows:
+            if row["cell_key"] in drop_cells:
+                continue
+            store.record(row["cell_key"], row["result"])
+            kept += 1
+        rebuilt = CellResultStore(results_path)   # re-read: proves the fresh chain loads
+        for cell_key in drop_cells:
+            if rebuilt.is_complete(cell_key):
+                raise CanaryLiveError(f"dropped cell {cell_key} survived into the rebuild")
+    return {"retired_to": str(retired), "kept": kept, "dropped": sorted(drop_cells)}
 
 
 def rebuild_decision_store(manifest: Mapping[str, Any], *, project_root: str | Path,
