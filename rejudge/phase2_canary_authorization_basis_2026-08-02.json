@@ -1,0 +1,42 @@
+{
+ "authorizes": "the execution identity named below, and nothing else",
+ "decision_id": "canary_authorization_basis_2026-08-02",
+ "execution_authorized": false,
+ "execution_identity_sha256": "9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44",
+ "main_run": "nothing here authorizes the main run",
+ "manifest_tracked_path": "rejudge/phase2_canary_manifest_2026-08-01b.json",
+ "note": "Append-only. This is the BASIS record; the authorization itself is the flat sibling record.",
+ "owner_instruction": {
+  "alternatives_presented": [
+   "Authorize, but switch over later",
+   "Hold: consult Codex first",
+   "Do not authorize"
+  ],
+  "mechanism": "selected from an options list rather than typed; the identity hash was stated in full in the question text, so the selection is specific and informed",
+  "question_verbatim": "Authorize execution identity 9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44 for the canary, binding role-limits v6 (gemma read timeout 600s -> 120s)? Caps are unchanged at $40 stage / $1709.24 cumulative.",
+  "selected_option_label": "Authorize 9a6c2064, switch over now",
+  "selected_option_text": "I write the authorization record naming this identity, merge the branch, stop the supervisor and daemon, let the in-flight driver finish so no reservation is stranded, supersede the ledger binding, and relaunch on the new manifest. Roughly 10 minutes of downtime, then the run resumes about 2.9x faster."
+ },
+ "recorded_at_utc": "2026-08-02T01:15:00Z",
+ "schema_version": "phase2_canary_authorization_basis_v1",
+ "supersedes_identity": "481f2df59d13acde507a21780c23c5fdea03b0d3ba838d00d74f6847ffa2f22e",
+ "transport_amendment": {
+  "canonical_sha256": "eb9cbee9550fcbea2e818689561ccce11372b205b2e23bfceeb0543fe6901abd",
+  "tracked_path": "rejudge/phase2_canary_transport_amendment_2026-08-01.json"
+ },
+ "what_the_owner_was_shown": {
+  "change": "role-limits v6 is v5 with request_settings.transport.http_timeout.read moved 600 -> 120",
+  "corrections_disclosed": [
+   "actual spend is $3.41 of $40, not the $1.33 stated earlier",
+   "remaining time is about 8 days at measured throughput, not 12"
+  ],
+  "evidence": "27 of 85 gemma calls on 2026-08-01 returned nothing for the full 600s timeout; all 58 successes finished under 47s; the other three models had 42 calls and zero failures",
+  "residual_risks_disclosed": [
+   "120s is calibrated on one day of provider behaviour",
+   "inter-chunk gaps are not reconstructible from the ledger",
+   "the gate is heterogeneous and now also carries a mid-run transport change"
+  ],
+  "science_neutrality": "verified by seed stability across transport retries, recorded in the amendment",
+  "verification": "1744 passed / 1 skipped / 0 failed under WSL, against a 1738-pass baseline plus 6 new tests"
+ }
+}
