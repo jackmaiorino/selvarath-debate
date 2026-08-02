@@ -1,0 +1,47 @@
+{
+ "arithmetic_that_decided_it": {
+  "conclusion": "finishing under the degraded provider would have required a looser halt guard AND a third uncertain-ceiling increase, to buy work that is cheaper and cleaner once the endpoint recovers",
+  "expected_halt_guard_stops_at_limit_3": 50,
+  "expected_halt_guard_stops_at_limit_8": 2,
+  "expected_uncertain_spend_usd": 9.0,
+  "gemma_calls_remaining_estimate": 1250,
+  "per_call_failure_rate": 0.45,
+  "same_figures_at_the_earlier_12_percent_rate": {
+   "expected_halt_guard_stops_at_limit_3": 0.3,
+   "expected_uncertain_spend_usd": 1.5
+  },
+  "uncertain_ceiling_usd": 4.0
+ },
+ "decision_id": "canary_pause_2026-08-02",
+ "execution_authorized": false,
+ "known_issue_left_open": "the consecutive-halt guard keys on the cell rather than the failing call, so halts from unrelated calls within one judgment cell pool together. A corrected per-call key is implemented and tested on branch role-limits-v6 but deliberately NOT merged: on its own it would not have prevented the 2026-08-02 stop, because that cell's checker call failed four consecutive times by itself, and merging it would imply the threshold question was settled when it is not.",
+ "note": "Append-only. Grants no authority, changes no cap, and authorizes no resumption on its own.",
+ "owner_instruction": {
+  "alternatives_presented": [
+   "Push through: merge the per-call fix, raise the halt limit to 8",
+   "Merge the per-call fix only, leave limits alone",
+   "Something else / let me think"
+  ],
+  "mechanism": "selected from an options list rather than typed",
+  "selected_option_label": "Pause, resume when gemma recovers",
+  "selected_option_text": "I stop the supervisor and daemon cleanly, letting the in-flight driver finish, and arm a cheap watcher that probes gemma periodically and tells you when the failure rate drops back near 12%. No spend, no further limit changes, ~592 cells preserved. Nothing is lost but time we were mostly wasting anyway."
+ },
+ "recorded_at_utc": "2026-08-02T02:50:00Z",
+ "resumption_criteria": "gemma failure rate back near 12 percent, measured by a short resumption trial rather than a synthetic probe: a throwaway probe would be unmanifested spend, whereas a brief resumption is authorized canary work whose successes are real progress and whose failures cost about $0.009 each.",
+ "resumption_requires_no_new_authorization": "identity 9a6c2064 and its authorization remain valid and unchanged; resuming is restarting the same authorized run.",
+ "schema_version": "phase2_canary_pause_v1",
+ "state_at_pause": {
+  "actual_spend_usd_including_carry_forward": 3.53,
+  "cells_recorded": 595,
+  "cells_total": 945,
+  "execution_identity_sha256": "9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44",
+  "reviewer_decisions": 250,
+  "stage_cap_usd": 40.0,
+  "uncertain_ceiling_usd": 4.0,
+  "uncertain_spend_usd_including_carry_forward": 0.68
+ },
+ "status": "paused_pending_provider_recovery",
+ "stopped_cleanly": "the supervisor was signalled first so it could not relaunch, the in-flight driver was allowed to exit on its own rather than killed, and the review daemon was stopped with an empty worklist. No reservation was stranded by the pause itself.",
+ "what_this_is_not": "not a defect in the 2026-08-01 transport amendment. That change is working as specified and is well calibrated at the current provider quality: every abandoned call now cuts at 120s, and every successful call in the same window returned between 2.2s and 32.0s, so the timeout retains roughly 3.75x headroom. The amendment simply stopped being the binding constraint.",
+ "why": "google/gemma-4-31B-it, which serves both the frozen checker and the judge, degraded for at least five hours: hourly failure rates 67/40/25/71/59/35 percent against roughly 12 percent earlier the same day. The failures are the same shape throughout, a streamed request producing no chunk at all until the read timeout."
+}
