@@ -276,3 +276,77 @@ def test_the_written_manifest_reloads_and_revalidates(tmp_path):
     reloaded = json.loads(path.read_text(encoding="utf-8"))
     assert reloaded == manifest
     validate_canary_manifest(reloaded, project_root=".")
+
+
+# --- the 2026-08-01 transport amendment -------------------------------------------------
+
+def test_the_role_limits_artifact_is_resolved_from_the_transport_amendment():
+    # Until 2026-08-01 the manifest bound rejudge/phase2_role_limits_v5_2026-07-19.json by a
+    # constant. Together's gemma endpoint then began returning nothing at all on roughly a
+    # third of calls, and the v5 read timeout of 600s spent ten minutes on each before giving
+    # up. The owner approved shortening it, which is a transport pin rather than a science
+    # one, but it is still manifest-bound: a run with a different transport is a different
+    # run, so it must yield a different execution identity via a recorded amendment.
+    from rejudge.phase2_canary_manifest import (
+        ROLE_LIMITS_FALLBACK_RELATIVE_PATH, resolve_role_limits)
+    resolved = resolve_role_limits(Path("."))
+    bindings = _manifest()["frozen_inputs"]
+
+    assert resolved["amended"] is True
+    assert bindings["role_limits_sha256"] == resolved["sha256"]
+    assert bindings["role_limits_tracked_path"] == resolved["tracked_path"]
+    assert bindings["transport_amendment_sha256"] == resolved["amendment_sha256"]
+    assert resolved["superseded_tracked_path"] == str(
+        ROLE_LIMITS_FALLBACK_RELATIVE_PATH).replace("\\", "/")
+
+    record = json.loads(
+        Path(resolved["amendment_tracked_path"]).read_text(encoding="utf-8"))
+    assert record["execution_authorized"] is False
+
+
+def test_the_amendment_changes_the_read_timeout_and_nothing_else():
+    # The strongest guard available: v6 must be v5 with exactly one value moved. Anything
+    # else that drifted into the artifact -- a token limit, a model, a streaming pin -- would
+    # be a science change smuggled in under a transport amendment, and this fails on it.
+    from rejudge.phase2_canary_manifest import (
+        ROLE_LIMITS_FALLBACK_RELATIVE_PATH, resolve_role_limits)
+    old = json.loads(Path(ROLE_LIMITS_FALLBACK_RELATIVE_PATH).read_text(encoding="utf-8"))
+    new = json.loads(
+        Path(resolve_role_limits(Path("."))["tracked_path"]).read_text(encoding="utf-8"))
+
+    assert old["request_settings"]["transport"]["http_timeout"]["read"] == 600
+    assert new["request_settings"]["transport"]["http_timeout"]["read"] == 120
+
+    # Normalise away the provenance fields a successor artifact is expected to restate, then
+    # require byte-equal payloads apart from the single amended value.
+    provenance = {"schema_version", "artifact_id", "status", "supersedes", "approval_basis"}
+    old_body = {k: v for k, v in old.items() if k not in provenance}
+    new_body = {k: v for k, v in new.items() if k not in provenance}
+    old_body["request_settings"]["transport"]["http_timeout"]["read"] = 120
+    assert new_body == old_body
+
+
+def test_a_transport_amendment_may_not_authorize_its_own_execution():
+    from rejudge.phase2_canary_manifest import (
+        TRANSPORT_AMENDMENT_SCHEMA, ManifestValidationError, resolve_role_limits)
+    record = json.loads(Path(
+        resolve_role_limits(Path("."))["amendment_tracked_path"]).read_text(encoding="utf-8"))
+    assert record["schema_version"] == TRANSPORT_AMENDMENT_SCHEMA
+
+
+def test_a_missing_amendment_falls_back_to_the_frozen_v5_pin(tmp_path):
+    # The fallback is what makes the amendment legible as a deviation rather than the new
+    # normal: remove the record and the manifest goes back to binding v5.
+    import shutil
+    from rejudge.phase2_canary_manifest import (
+        ROLE_LIMITS_FALLBACK_RELATIVE_PATH, TRANSPORT_AMENDMENT_RELATIVE_PATH,
+        resolve_role_limits)
+    root = tmp_path / "root"
+    shutil.copytree(Path("rejudge"), root / "rejudge",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    (root / TRANSPORT_AMENDMENT_RELATIVE_PATH).unlink()
+
+    resolved = resolve_role_limits(root)
+    assert resolved["amended"] is False
+    assert resolved["tracked_path"] == str(ROLE_LIMITS_FALLBACK_RELATIVE_PATH).replace(
+        "\\", "/")

@@ -18,6 +18,40 @@ MANIFEST_PATH = Path("rejudge/phase2_canary_manifest_2026-07-28.json")
 AUTHORIZATION_PATH = Path("rejudge/phase2_canary_authorization_2026-07-28.json")
 
 
+def _live_pair(tmp_path):
+    """A manifest and matching authorization written to tmp, valid against the real root.
+
+    These used to be the tracked 2026-07-28 files. Two supersessions later that pair was
+    stale, and it kept passing only because neither change touched a validated section --
+    until the transport amendment moved a key inside frozen_inputs and it failed as drift.
+    A test about run_live's refusal ORDER should not also be a test of which manifest
+    happens to be current, so it builds its own valid pair instead.
+    """
+    from rejudge.phase2_canary_manifest import build_canary_manifest
+    from rejudge.phase2_execution import canonical_sha256
+    manifest = build_canary_manifest(
+        project_root=".", recorded_at_utc="2026-08-01T00:00:00Z",
+        archive_dir="E:/selvarath-archive/canary-2026-07-28")
+    basis = "rejudge/phase2_canary_transport_amendment_2026-08-01.json"
+    authorization = {
+        "stage": manifest["stage"],
+        "execution_identity_sha256": manifest["execution_identity_sha256"],
+        "stage_cap_usd": manifest["caps"]["stage_cap_usd"],
+        "cumulative_cap_usd": manifest["caps"]["cumulative_cap_usd"],
+        "approver": "test fixture, not an owner authorization",
+        "approved_at_utc": "2026-08-01T00:00:00Z",
+        "recorded_at_utc": "2026-08-01T00:00:00Z",
+        "approval_basis_tracked_path": basis,
+        "approval_basis_sha256": canonical_sha256(
+            json.loads(Path(basis).read_text(encoding="utf-8"))),
+    }
+    mp = tmp_path / "manifest.json"
+    ap = tmp_path / "authorization.json"
+    mp.write_text(json.dumps(manifest), encoding="utf-8")
+    ap.write_text(json.dumps(authorization), encoding="utf-8")
+    return mp, ap
+
+
 def _manifest():
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
@@ -88,11 +122,12 @@ def test_run_live_requires_an_authorization_path():
         run_live(MANIFEST_PATH, None)
 
 
-def test_run_live_refuses_without_the_reviewer_key(monkeypatch):
+def test_run_live_refuses_without_the_reviewer_key(monkeypatch, tmp_path):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    manifest_path, authorization_path = _live_pair(tmp_path)
     # The stub client proves refusal happens before any client or archive path is touched.
     with pytest.raises(CanaryLiveError, match="ANTHROPIC_API_KEY"):
-        run_live(MANIFEST_PATH, AUTHORIZATION_PATH, client=object())
+        run_live(manifest_path, authorization_path, client=object())
 
 
 # --- path mapping ---------------------------------------------------------------------------
@@ -701,3 +736,32 @@ def test_a_paid_unbound_ledger_is_never_adopted_silently(tmp_path):
     with pytest.raises(UsageLedgerError, match="without a bound run manifest"):
         bind_or_verify_ledger({"execution_identity_sha256": "e" * 64}, ledger,
                               tmp_path / "missing_binding.json")
+
+
+def test_the_client_loads_the_role_limits_artifact_the_manifest_names(tmp_path):
+    # The driver used to open rejudge/phase2_role_limits_v5_2026-07-19.json by constant while
+    # the manifest bound that file's hash separately. The two could not disagree until the
+    # 2026-08-01 transport amendment introduced a successor artifact; then a constant path
+    # would have run v5's transport under an identity that claims v6's. Proving the manifest
+    # drives the load needs no provider: a path the manifest names but disk lacks must fail
+    # naming that path, before any client is constructed.
+    from rejudge.phase2_canary_live import build_live_client
+    manifest = {"frozen_inputs": {"role_limits_tracked_path": "rejudge/absent_pin.json"}}
+    with pytest.raises(FileNotFoundError) as excinfo:
+        build_live_client(manifest, project_root=tmp_path,
+                          usage_log_path=tmp_path / "u.jsonl",
+                          error_log_path=tmp_path / "e.jsonl",
+                          call_cache_path=tmp_path / "c.jsonl")
+    assert "absent_pin.json" in str(excinfo.value)
+
+
+def test_the_bound_transport_is_the_one_the_amendment_describes():
+    # End to end over the real artifacts: whatever the manifest resolves to must carry the
+    # amended read timeout. A successor manifest that still pointed at v5 would pass every
+    # hash check and quietly keep the ten-minute waits.
+    from rejudge.phase2_canary_manifest import build_canary_manifest
+    manifest = build_canary_manifest(project_root=".", recorded_at_utc="2026-08-01T00:00:00Z",
+                                     archive_dir="E:/selvarath-archive/canary-2026-07-28")
+    pinned = json.loads(Path(
+        manifest["frozen_inputs"]["role_limits_tracked_path"]).read_text(encoding="utf-8"))
+    assert pinned["request_settings"]["transport"]["http_timeout"]["read"] == 120

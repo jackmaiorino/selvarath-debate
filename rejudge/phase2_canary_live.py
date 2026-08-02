@@ -779,7 +779,11 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
                       usage_log_path: Path, error_log_path: Path,
                       call_cache_path: Path) -> CachingClient:
     root = Path(project_root)
-    role_limits = _load_json(root / "rejudge" / "phase2_role_limits_v5_2026-07-19.json")
+    # Resolved from the manifest's own binding rather than a constant path. The manifest was
+    # already revalidated against the artifacts on disk before this point, so the path it
+    # names is the one whose hash it binds; reading a different file would silently run a
+    # transport the identity does not describe.
+    role_limits = _load_json(root / manifest["frozen_inputs"]["role_limits_tracked_path"])
     snapshot = _load_json(
         root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json")
     limits, pinned, extra_fields, prices = _client_construction_inputs(role_limits, snapshot)

@@ -1,0 +1,58 @@
+{
+ "adjudication": "flagged for the adjudicator alongside this epoch's other operational records; the reviewer substitution of the same date is the nearer precedent for a mid-canary bound change",
+ "change": {
+  "artifact": "request_settings.transport.http_timeout.read",
+  "from_seconds": 600,
+  "introduces_tracked_path": "rejudge/phase2_role_limits_v6_2026-08-01.json",
+  "nothing_else_changed": "asserted by test, not by assertion: the successor artifact is generated from v5 with one value replaced, and a test re-derives equality of every other field",
+  "supersedes_tracked_path": "rejudge/phase2_role_limits_v5_2026-07-19.json",
+  "to_seconds": 120
+ },
+ "classification": {
+  "kind": "transport",
+  "reasoning": "no model, prompt, seed, sampling parameter or token limit is touched. The only observable difference is how long a call that has returned nothing is waited on before being abandoned and retried, which the ledger already handles as unknown_charge with cell-granular resume.",
+  "science_affected": false,
+  "seed_stability_checked": {
+   "conclusion": "a transport retry re-issues the identical request. More retries therefore cannot change what the model is asked or how it samples.",
+   "observed": "cell ...2066139f6f7e7cf0, judge_query slot 1, judgment attempt 1 was abandoned twice at the 600s timeout and then succeeded. All six ledger events carry seed 2685413950 and estimated_tokens 26538. The same cell's judgment attempt 2 is a different call by construction (the free retry after a gate rejection) and correctly carries its own seed 2686413950 and its own prompt.",
+   "why_it_matters": "the one route by which a pure transport change could reach the science: if an abandoned call were retried under a different seed, then shortening the timeout would raise the retry count and thereby change what was sampled."
+  },
+  "still_manifest_bound": "the v5 artifact's hash is bound into the canary manifest, so this necessarily yields a successor execution identity and a fresh owner authorization. A transport change is not a silent change."
+ },
+ "decision_id": "canary_transport_amendment_2026-08-01",
+ "disclosed_weaknesses": [
+  "the 120s value is calibrated on one day of provider behaviour (58 successful calls). On 2026-07-29 the same endpoint produced successful calls as long as 1005s TOTAL. That is not by itself evidence against 120s: the pinned models stream, so an httpx read timeout bounds the gap between consecutive chunks, not a call's total duration, and a long generation whose chunks keep arriving never trips it. What would trip it is any single inter-chunk gap above 120s. The ledger records only the start and end of each call, so inter-chunk gaps cannot be reconstructed from it after the fact, and the true margin under that earlier regime is therefore unmeasured rather than measured-and-adequate.",
+  "shortening the timeout converts some calls that would eventually have returned into abandoned unknown_charge reservations. Those are permanently counted against the uncertain-spend ceiling and can never be reconciled to a definite outcome.",
+  "the amendment is calibrated on gemma-4-31B, which is the only model failing. It applies to every model because http_timeout is a client-wide pin, so the other three models get a shorter timeout they have not needed."
+ ],
+ "evidence_2026_08_01": {
+  "cost": "measured progress over the amendment-6 window was 4 cells in 3.3 hours, which extrapolates to roughly 12 days for the 362 remaining cells.",
+  "failure_shape": "every failure is 'Request timed out.' at the 600s httpx read timeout; every success completed in under 47s. The distribution is bimodal with nothing in between.",
+  "gemma_calls": 85,
+  "gemma_failure_rate": 0.318,
+  "gemma_failures": 27,
+  "gemma_successful_latency_seconds": {
+   "max": 46.4,
+   "median": 8.6,
+   "n": 58
+  },
+  "headroom": "120s is about 2.6x the slowest successful call observed on this date, and time-to-first-chunk is strictly less than total call duration.",
+  "no_first_chunk": "google/gemma-4-31B-it is streaming-pinned, so the httpx read timeout bounds the wait for the NEXT chunk. A timeout therefore means 600 seconds elapsed without a single chunk arriving: the request produced nothing, rather than being slow.",
+  "not_a_size_effect": "successes and failures have indistinguishable prompt sizes (median estimated tokens 10972 vs 10964, identical 30649 max)",
+  "other_models_calls": 42,
+  "other_models_failures": 0,
+  "window": "provider calls logged on 2026-08-01 in E:/selvarath-archive/canary-2026-07-28/canary_usage.jsonl"
+ },
+ "execution_authorized": false,
+ "main_run": "nothing here authorizes the main run or its transport",
+ "note": "Append-only. Grants no new spend authority and changes no cap.",
+ "owner_instruction": {
+  "context_verbatim": "Continue autonomously until there is a critical decision for me. We've been trying to get through phase 2 for awhile now",
+  "mechanism": "selected from an options list rather than typed, so the label is quoted verbatim and the option's full text is preserved here",
+  "selected_option_label": "Build v6, timeout 120s",
+  "selected_option_text": "I prepare role-limits v6 (read timeout 600 -> 120, nothing else changed), a successor manifest, and present the new execution identity hash for your one-line authorization. The current run keeps going meanwhile. Expect the run to finish in roughly 2.5 days instead of 12."
+ },
+ "recorded_at_utc": "2026-08-01T23:55:00Z",
+ "schema_version": "phase2_canary_transport_amendment_v1",
+ "status": "active_per_owner_instruction"
+}

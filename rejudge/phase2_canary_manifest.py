@@ -43,6 +43,17 @@ REVIEWER_MODEL = "claude-fable-5"
 REVIEWER_SUBSTITUTION_RELATIVE_PATH = Path(
     "rejudge/phase2_canary_reviewer_substitution_2026-08-01.json")
 REVIEWER_SUBSTITUTION_SCHEMA = "phase2_canary_reviewer_substitution_v1"
+# The transport pins were amended the same way on 2026-08-01, and for the same reason that the
+# reviewer identity above is resolved rather than hardcoded. Together's gemma endpoint began
+# returning nothing at all on roughly a third of calls, and v5's 600s read timeout spent ten
+# minutes on each one before abandoning it. Shortening that changes no science, but the v5
+# hash is manifest-bound, so the artifact this run actually used is read from an append-only
+# record: a different transport is a different run, and must show up as a different identity.
+ROLE_LIMITS_FALLBACK_RELATIVE_PATH = Path("rejudge/phase2_role_limits_v5_2026-07-19.json")
+ROLE_LIMITS_AMENDED_RELATIVE_PATH = Path("rejudge/phase2_role_limits_v6_2026-08-01.json")
+TRANSPORT_AMENDMENT_RELATIVE_PATH = Path(
+    "rejudge/phase2_canary_transport_amendment_2026-08-01.json")
+TRANSPORT_AMENDMENT_SCHEMA = "phase2_canary_transport_amendment_v1"
 APPROVED_ANCHOR_JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 
 # Deliberately disjoint from phase2_execution.CODE_PROVENANCE_FROZEN_FILES: adding any of
@@ -114,8 +125,9 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
     # Validated load, not _json: the loader re-checks the artifact's declared UTF-8 hash, so a
     # tampered payload refuses here instead of binding a plausible-looking hash.
     no_query = load_no_query_transition(root)
+    role_limits = resolve_role_limits(root)
 
-    return {
+    bindings: dict[str, Any] = {
         "protocol_sha256": canonical_sha256(protocol),
         "canary_cells_sha256": canonical_sha256(cells),
         "canary_plan_sha256": canonical_sha256(plan),
@@ -129,10 +141,59 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
         # Consult #28: the successor manifest binds both the decision artifact (below, under
         # governance) and the exact judge-visible payload bytes.
         "no_query_payload_sha256": no_query["payload"]["utf8_sha256"],
-        "role_limits_v5_sha256": canonical_sha256(
-            _json(root / "rejudge" / "phase2_role_limits_v5_2026-07-19.json")),
+        # Resolved, not constant: see resolve_role_limits and the 2026-08-01 amendment.
+        "role_limits_sha256": role_limits["sha256"],
+        "role_limits_tracked_path": role_limits["tracked_path"],
         "price_snapshot_sha256": canonical_sha256(
             _json(root / "rejudge" / "phase2_provider_price_snapshot_2026-07-18.json")),
+    }
+    if role_limits["amended"]:
+        bindings["transport_amendment_sha256"] = role_limits["amendment_sha256"]
+    return bindings
+
+
+def resolve_role_limits(root: Path) -> dict[str, Any]:
+    """The role-limits artifact this run actually used, plus the record that amends it.
+
+    The fallback is not a formality. With the amendment record absent this returns the frozen
+    v5 pin, which is what makes the amendment legible as a deviation from a still-existing
+    baseline rather than as the new normal.
+    """
+    fallback = str(ROLE_LIMITS_FALLBACK_RELATIVE_PATH).replace("\\", "/")
+    superseded = canonical_sha256(_json(root / ROLE_LIMITS_FALLBACK_RELATIVE_PATH))
+    record_path = root / TRANSPORT_AMENDMENT_RELATIVE_PATH
+    if not record_path.exists():
+        return {"tracked_path": fallback, "sha256": superseded, "amended": False}
+
+    record = _json(record_path)
+    if record.get("schema_version") != TRANSPORT_AMENDMENT_SCHEMA:
+        raise ManifestValidationError("transport amendment record schema drifted")
+    if record.get("execution_authorized") is not False:
+        raise ManifestValidationError(
+            "a transport amendment record must grant no execution authority")
+    if record.get("classification", {}).get("science_affected") is not False:
+        raise ManifestValidationError(
+            "a transport amendment must declare itself science-neutral; a science change "
+            "belongs in a protocol amendment, not a transport one")
+
+    successor_path = root / ROLE_LIMITS_AMENDED_RELATIVE_PATH
+    if not successor_path.exists():
+        raise ManifestValidationError(
+            "the transport amendment names a successor artifact that is not on disk")
+    successor = _json(successor_path)
+    # Refuse a successor that does not name the exact artifact it claims to replace. Without
+    # this the chain could be re-pointed at any role-limits file that happened to parse.
+    if successor.get("supersedes", {}).get("canonical_sha256") != superseded:
+        raise ManifestValidationError(
+            "the successor role-limits artifact does not name the frozen pin it supersedes")
+    return {
+        "tracked_path": str(ROLE_LIMITS_AMENDED_RELATIVE_PATH).replace("\\", "/"),
+        "sha256": canonical_sha256(successor),
+        "amended": True,
+        "superseded_tracked_path": fallback,
+        "superseded_sha256": superseded,
+        "amendment_tracked_path": str(TRANSPORT_AMENDMENT_RELATIVE_PATH).replace("\\", "/"),
+        "amendment_sha256": canonical_sha256(record),
     }
 
 
@@ -172,6 +233,11 @@ def _governance(root: Path) -> dict[str, Any]:
         # (Consult #28); both stay bound because the record is append-only.
         "no_query_transition": "rejudge/phase2_no_query_transition_2026-07-26.json",
     }
+    # Conditional for the same reason the reviewer block is: with the record absent this run
+    # is the unamended one, and the manifest must not claim a governance artifact it lacks.
+    if (root / TRANSPORT_AMENDMENT_RELATIVE_PATH).exists():
+        paths["transport_amendment"] = str(TRANSPORT_AMENDMENT_RELATIVE_PATH).replace(
+            "\\", "/")
     return {name: {"tracked_path": relative,
                    "canonical_sha256": canonical_sha256(_json(root / relative))}
             for name, relative in sorted(paths.items())}
