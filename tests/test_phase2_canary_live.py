@@ -903,3 +903,42 @@ def test_the_unreviewed_rebuild_refuses_without_the_incident_record(tmp_path):
                            "archive_dir": str(archive)}}
     with pytest.raises(CanaryLiveError, match="incident record"):
         rebuild_decision_store_dropping_unreviewed(manifest, project_root=tmp_path)
+
+
+def test_the_cache_rebuild_drops_a_cells_calls_so_it_can_rerun(tmp_path):
+    # The last piece of incident 3. Dropping a contaminated cell's result row makes the runner
+    # execute it again, but its provider calls are still memoised against the OLD conversation.
+    # With the gate rulings corrected, the judge's prompts differ, so the cache's own guard
+    # fires CallReplayMismatch rather than replaying a response generated for a different
+    # prompt. That guard is right; the fix is to drop those entries, not to weaken it.
+    from rejudge.phase2_canary_live import INCIDENT3_SUFFIX, rebuild_call_cache
+    from rejudge.phase2_call_cache import CallCache, CallKey
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    cache_path = archive / "cache.jsonl"
+    cache = CallCache(cache_path)
+    for cell in ("keep", "drop"):
+        for role in ("judge_query", "query_checker"):
+            cache.put(CallKey(cell_key=cell, call_role=role, slot=0, attempt=1),
+                      f"fp-{cell}-{role}", f"response-{cell}-{role}")
+
+    manifest = {"ledger": {"call_cache_path": str(cache_path), "archive_dir": str(archive)}}
+    out = rebuild_call_cache(manifest, project_root=".", drop_cells={"drop"})
+
+    assert out["dropped_rows"] == 2 and out["kept"] == 2
+    rebuilt = CallCache(cache_path)
+    assert rebuilt.get(CallKey(cell_key="keep", call_role="judge_query", slot=0, attempt=1),
+                       "fp-keep-judge_query") == "response-keep-judge_query"
+    assert rebuilt.get(CallKey(cell_key="drop", call_role="judge_query", slot=0, attempt=1),
+                       "fp-drop-judge_query") is None
+    assert Path(str(cache_path) + INCIDENT3_SUFFIX).exists()
+
+
+def test_the_cache_rebuild_refuses_without_the_incident_record(tmp_path):
+    from rejudge.phase2_canary_live import CanaryLiveError, rebuild_call_cache
+    archive = tmp_path / "arch"
+    archive.mkdir()
+    manifest = {"ledger": {"call_cache_path": str(archive / "c.jsonl"),
+                           "archive_dir": str(archive)}}
+    with pytest.raises(CanaryLiveError, match="incident record"):
+        rebuild_call_cache(manifest, project_root=tmp_path, drop_cells=set())

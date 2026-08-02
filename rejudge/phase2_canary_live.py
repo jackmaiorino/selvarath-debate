@@ -679,6 +679,55 @@ def rebuild_decision_store_dropping_unreviewed(
     return {"retired_to": str(retired), "kept": kept, "dropped": sorted(dropped)}
 
 
+def rebuild_call_cache(manifest: Mapping[str, Any], *, project_root: str | Path,
+                       drop_cells: set, suffix: str = INCIDENT3_SUFFIX) -> dict:
+    """Retire the per-call cache and rebuild it without the named cells' calls.
+
+    The third and last piece of incident 3. Dropping a contaminated cell's result row makes
+    the runner execute it again, but its provider calls are still memoised against the
+    conversation it had under the bad gate rulings. With those rulings corrected an allowed
+    query is now answered where it was previously blocked, so the judge's next prompt
+    differs, and the cache's own guard raises CallReplayMismatch rather than replaying a
+    response generated for a different prompt.
+
+    That guard is exactly right and is not weakened here: the fix is to drop the stale
+    entries so the cell re-derives them. Every other cell's memo is preserved, so the rerun
+    re-spends only on the cells that actually changed.
+    """
+    root = Path(project_root)
+    if not (root / INCIDENT3_RELATIVE_PATH).exists():
+        raise CanaryLiveError(
+            f"rebuild requires the incident record {INCIDENT3_RELATIVE_PATH} on disk")
+
+    cache_path = local_path(manifest["ledger"]["call_cache_path"])
+    archive_dir = local_path(manifest["ledger"]["archive_dir"])
+    retired = Path(str(cache_path) + suffix)
+    if retired.exists():
+        raise CanaryLiveError(f"{retired} already exists; rebuild already ran?")
+
+    rows = []
+    if cache_path.exists():
+        rows = [json.loads(line) for line in
+                cache_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    with _ArchiveLock(archive_dir / RUN_LOCK_FILENAME, "canary"):
+        if cache_path.exists():
+            cache_path.rename(retired)
+        rebuilt = CallCache(cache_path)
+        kept = dropped = 0
+        for row in rows:
+            if row["cell_key"] in drop_cells:
+                dropped += 1
+                continue
+            rebuilt.put(
+                CallKey(cell_key=row["cell_key"], call_role=row["call_role"],
+                        slot=int(row["slot"]), attempt=int(row["attempt"])),
+                row["request_sha256"], row["response"])
+            kept += 1
+        CallCache(cache_path)   # re-read: proves the fresh chain loads
+    return {"retired_to": str(retired), "kept": kept, "dropped_rows": dropped}
+
+
 def rebuild_result_store(manifest: Mapping[str, Any], *, project_root: str | Path,
                          drop_cells: set) -> dict:
     """Retire a result store and rebuild it without the named cells, so they run again.
