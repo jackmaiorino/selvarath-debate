@@ -1,7 +1,8 @@
 {
  "adjudication": "flagged for the adjudicator alongside this epoch's other operational records",
  "appended_at_utc": [
-  "2026-08-02T08:15:00Z"
+  "2026-08-02T08:15:00Z",
+  "2026-08-02T13:40:00Z"
  ],
  "basis": "Consult #28 scope note: checker outage, malformed checker output, and unresolved checker output halt the cell and must never be converted into the no-query transition. The cached response makes the malformed output deterministic on resume, so the cell's terminal state is checker_malformed",
  "cells": [
@@ -17,6 +18,14 @@
    "evidence": "cached frozen-checker response for slot 2 attempt 1 is the empty string, byte-identical in kind to the first listed cell. The cache memoises it, so every resume replays the same unparseable response and the cell can never complete. Second malformed of about 666 successful checker calls this run (0.30%), consistent with, and slightly below, the 0.6% dev-quantified temp-0 nondeterminism of the frozen configuration.",
    "reason": "checker_malformed",
    "recorded_at_utc": "2026-08-02T08:15:00Z",
+   "reporting": "counted as a checker_malformed gate outcome in the close-out distributions; excluded only from execution convergence, never from reporting"
+  },
+  {
+   "appended_under": "the disposition and mechanism recorded here on 2026-07-30",
+   "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_no_debate_judgment:770718cf50f8b6b7ed42c0a8ce9ba55f94c7e8be3eb7add1c7c48082310e5d59",
+   "evidence": "cached frozen-checker response for slot 2 attempt 1 is the empty string, the same signature as the two cells already listed. Third malformed of roughly 670 successful checker calls this run (0.45%), still inside the 0.6% dev-quantified temp-0 nondeterminism of the frozen configuration.",
+   "reason": "checker_malformed",
+   "recorded_at_utc": "2026-08-02T13:40:00Z",
    "reporting": "counted as a checker_malformed gate outcome in the close-out distributions; excluded only from execution convergence, never from reporting"
   }
  ],

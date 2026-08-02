@@ -623,7 +623,7 @@ UNREVIEWED_MARKER = "REVIEWER_UNAVAILABLE"
 
 def rebuild_decision_store_dropping_unreviewed(
         manifest: Mapping[str, Any], *, project_root: str | Path,
-        marker: str = UNREVIEWED_MARKER) -> dict:
+        marker: str = UNREVIEWED_MARKER, suffix: str = INCIDENT3_SUFFIX) -> dict:
     """Retire a decision store and rebuild it without rulings the reviewer never produced.
 
     Deliberately a DIFFERENT rule from :func:`rebuild_decision_store`, which keeps only
@@ -646,7 +646,9 @@ def rebuild_decision_store_dropping_unreviewed(
 
     decisions_path = local_path(manifest["ledger"]["decisions_path"])
     archive_dir = local_path(manifest["ledger"]["archive_dir"])
-    retired = Path(str(decisions_path) + INCIDENT3_SUFFIX)
+    # The suffix is a parameter because a second sweep can be needed: the handover between
+    # a broken daemon and a fixed one can leave a straggler committed under the old binary.
+    retired = Path(str(decisions_path) + suffix)
     if retired.exists():
         raise CanaryLiveError(f"{retired} already exists; rebuild already ran?")
 

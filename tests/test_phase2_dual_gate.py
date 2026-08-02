@@ -107,7 +107,8 @@ def test_store_resume_and_chain_integrity(tmp_path):
     store.commit(sha, "ALLOW", "Allowed", "One atomic checkable fact.", GOOD,
                  "parsed")
     resumed = DualGateDecisionStore(path)
-    assert resumed.get(sha).effective_allow
+    decision = resumed.get(sha)
+    assert decision is not None and decision.effective_allow
     with pytest.raises(ValueError):
         resumed.commit(sha, "REJECT", "P3", "Two independently checkable facts.", REJ,
                        "parsed")

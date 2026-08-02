@@ -144,18 +144,21 @@ def test_the_label_and_resume_cycle_converges(tmp_path):
 
 def test_each_pass_gets_one_query_slot_further(tmp_path):
     cache_path = tmp_path / "calls.jsonl"
-    kwargs = dict(results_path=tmp_path / "results.jsonl",
-                  decisions_path=tmp_path / "decisions.jsonl",
-                  anchor_judge_model=ANCHOR, pause_when_unlabeled=True, limit=520)
-    first = run_canary(client=CachingClient(DeterministicCanaryClient(), CallCache(cache_path)),
-                       reviewer=StubReviewer(), **kwargs)
+
+    def run_pass():
+        return run_canary(
+            results_path=tmp_path / "results.jsonl",
+            decisions_path=tmp_path / "decisions.jsonl",
+            client=CachingClient(DeterministicCanaryClient(), CallCache(cache_path)),
+            reviewer=StubReviewer(), anchor_judge_model=ANCHOR,
+            pause_when_unlabeled=True, limit=520)
+
+    first = run_pass()
     store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
     for payload in first.pending_payloads:
         store.commit(payload["payload_sha256"], "ALLOW", "Allowed", "fine",
                      "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine", "parsed")
-    second = run_canary(
-        client=CachingClient(DeterministicCanaryClient(), CallCache(cache_path)),
-        reviewer=StubReviewer(), **kwargs)
+    second = run_pass()
 
     # Still paused, but on the *second* slot now, and on payloads not seen before.
     assert second.paused > 0

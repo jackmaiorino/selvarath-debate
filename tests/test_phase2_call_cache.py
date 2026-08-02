@@ -106,17 +106,19 @@ def test_a_changed_request_for_a_cached_call_halts(tmp_path):
 
 
 def test_the_fingerprint_covers_every_field_that_changes_the_response():
-    base = dict(messages=[{"role": "user", "content": "x"}], model="m", temperature=0.3,
-                seed=7, max_tokens=256)
+    def fingerprint(text="x", model="m", temperature=0.3, seed=7, max_tokens=256):
+        return request_fingerprint(
+            messages=[{"role": "user", "content": text}], model=model,
+            temperature=temperature, seed=seed, max_tokens=max_tokens)
+
     variants = [
-        {**base, "messages": [{"role": "user", "content": "y"}]},
-        {**base, "model": "other"},
-        {**base, "temperature": 0.0},
-        {**base, "seed": 8},
-        {**base, "max_tokens": 512},
+        fingerprint(text="y"),
+        fingerprint(model="other"),
+        fingerprint(temperature=0.0),
+        fingerprint(seed=8),
+        fingerprint(max_tokens=512),
     ]
-    fingerprints = {request_fingerprint(**base)} | {
-        request_fingerprint(**v) for v in variants}
+    fingerprints = {fingerprint()} | set(variants)
     assert len(fingerprints) == len(variants) + 1
 
 
