@@ -1,0 +1,27 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "canary_auto_resume_amendment7_2026-08-01",
+ "recorded_at_utc": "2026-08-02T00:12:00Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "corrects": "amendment 6 records its 'amends' target as rejudge/phase2_canary_auto_resume_policy_2026-08-01.json, which does not exist. The policy artifact is the 2026-07-28 one named above. Amendments are append-only, so the earlier record stands as written and this note is the correction.",
+ "change": "UNCERTAIN_CEILING_USD raised from 2.00 to 4.00 in scripts/canary_supervisor.py",
+ "owner_instruction": {
+  "mechanism": "selected from an options list rather than typed",
+  "selected_option_label": "Raise to $4.00 now",
+  "presented_alternative": "Leave at $2.00, stop if hit (which this assistant had recommended)",
+  "context": "the owner was shown the projection below and chose to avoid a likely late-run interruption"
+ },
+ "this_is_a_safety_relaxation": "Stated plainly, because the previous six amendments were not. The uncertain-spend ceiling is one of the three constraints that actually bound risk in this supervisor, named as such in the amendment-6 record and in the policy artifact. Raising it genuinely loosens a binding control, on a projection rather than on an observation, and it is the owner's call rather than an operational one. It is recorded here as a deviation, not as housekeeping.",
+ "measurement": "uncertain spend stood at $0.307 across 34 abandoned calls (about $0.008 each) with 362 of 945 cells outstanding. Amendment 6 projected roughly $1.2 further against the $2.00 ceiling; the projection here is a total near $1.7, which clears $2.00 only narrowly and would likely have halted the run near the end.",
+ "what_is_not_changed": [
+  "the $40.00 stage cap enforced by the client against the chained usage ledger",
+  "the $1709.24 cumulative cap",
+  "at most 3 consecutive halts on the same cell",
+  "the enumerated benign-transient signature, which still stops on anything novel"
+ ],
+ "interaction_with_the_transport_amendment": "the same-day transport amendment shortens the read timeout, which does not change how MANY calls are abandoned (the failure rate is a property of the provider, not of how long we wait) but does change how quickly the abandoned ones accumulate in wall-clock terms. The ceiling bounds the total, not the rate, so the two amendments do not compound.",
+ "ceiling_scope_note": "the supervisor computes uncertain spend from the CURRENT usage ledger only. A further $0.171 of uncertain spend is carried forward from the incident-1 ledger and recorded in the archive's ledger binding, so the true cumulative uncertain figure is about $0.478 rather than $0.307. The ceiling has always been scoped to the current ledger; this note records that the two numbers differ rather than changing either.",
+ "bounds_otherwise_unchanged": true,
+ "execution_authorized": false,
+ "note": "Append-only. Grants no new spend authority and changes no cap on actual spend."
+}

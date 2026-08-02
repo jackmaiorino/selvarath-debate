@@ -40,7 +40,10 @@ from pathlib import Path
 
 MAX_RESUMES = 400
 SAME_CELL_MAX = 3
-UNCERTAIN_CEILING_USD = 2.00
+# Raised 2.00 -> 4.00 on 2026-08-01 by owner instruction (amendment 7). Unlike the resume
+# backstop, this IS one of the constraints that bounds real risk, so the amendment records it
+# as a deliberate relaxation rather than as housekeeping.
+UNCERTAIN_CEILING_USD = 4.00
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
