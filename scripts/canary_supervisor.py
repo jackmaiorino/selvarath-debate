@@ -100,6 +100,31 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     return None
 
 
+def repeat_key(cell_key, usage_path: Path) -> str:
+    """What "the same failure again" means, for the consecutive-halt limit.
+
+    The limit exists to catch a deterministic failure masquerading as a transient, and
+    determinism is a property of a CALL, not of a cell: one judgment cell issues a checker
+    call, a judge query per slot, and a verdict, each of which can fail independently.
+    Keying the counter on the cell conflated them. On 2026-08-02, with gemma failing about
+    45% of calls, that tripped the limit on a cell whose calls were all still succeeding on
+    retry -- one had failed three times at 120s and then returned in four seconds.
+
+    So the key is the cell plus the identity of the call that actually halted, read from the
+    newest ledger event. A single call failing repeatedly still collapses to one key and
+    still stops the run, which is the property worth keeping. Falls back to the bare cell
+    when the newest event carries no metadata, restoring the previous behaviour rather than
+    becoming silently un-countable.
+    """
+    events = _tail_json_lines(usage_path, 1)
+    metadata = (events[0].get("metadata") or {}) if events else {}
+    if not metadata.get("call_role"):
+        return str(cell_key)
+    return ":".join(str(part) for part in (
+        cell_key, metadata.get("call_role"), metadata.get("query_index"),
+        metadata.get("attempt")))
+
+
 def _uncertain_spend(usage_path: Path) -> float:
     total = 0.0
     terminal: dict[str, str] = {}
@@ -166,10 +191,11 @@ def main(argv=None) -> int:
             print(f"supervisor: STOP for manual review: {reason}", flush=True)
             return 4
         cell = outcome.get("halted_cell_key")
-        same_cell_count = same_cell_count + 1 if cell == last_cell else 1
-        last_cell = cell
+        key = repeat_key(cell, usage_path)
+        same_cell_count = same_cell_count + 1 if key == last_cell else 1
+        last_cell = key
         if same_cell_count > SAME_CELL_MAX:
-            print(f"supervisor: STOP cell {cell} halted {same_cell_count} consecutive "
+            print(f"supervisor: STOP call {key} halted {same_cell_count} consecutive "
                   "times; looks deterministic", flush=True)
             return 5
         resumes += 1

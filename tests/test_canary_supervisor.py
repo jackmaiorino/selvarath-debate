@@ -121,3 +121,58 @@ def test_a_stale_error_log_stops(tmp_path):
 def test_a_half_recorded_cell_stops(tmp_path):
     reason = _check(tmp_path, result_rows=[{"cell_key": "plan:kind:abc"}])
     assert "already has a result row" in reason
+
+
+# --- which repetition actually indicates a deterministic failure ------------------------
+
+def test_the_repeat_key_distinguishes_calls_within_one_cell(tmp_path):
+    # SAME_CELL_MAX exists to catch "a deterministic failure masquerading as a transient".
+    # Determinism is a property of a CALL, not of a cell: a judgment cell issues a checker
+    # call, one judge query per slot, and a verdict. Counting halts per cell conflated them,
+    # so on 2026-08-02, with gemma failing ~45% of calls, four consecutive halts on one cell
+    # tripped the guard while every individual call was still succeeding on retry -- one had
+    # failed three times at 120s and then returned in four seconds.
+    from scripts.canary_supervisor import repeat_key
+    usage, _, _ = _files(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "Error code: 500 - internal",
+         "metadata": {"cell_key": "plan:kind:abc", "call_role": "query_checker",
+                      "query_index": None, "attempt": 1}}])
+    checker = repeat_key("plan:kind:abc", usage)
+
+    (tmp_path / "b").mkdir()
+    usage2, _, _ = _files(tmp_path / "b", usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a2", "cost_usd": 0.01,
+         "error": "Error code: 500 - internal",
+         "metadata": {"cell_key": "plan:kind:abc", "call_role": "judge_query",
+                      "query_index": 0, "attempt": 1}}])
+    judge = repeat_key("plan:kind:abc", usage2)
+
+    assert checker != judge, "distinct calls in one cell must not accumulate together"
+    assert "plan:kind:abc" in checker and "query_checker" in checker
+
+
+def test_the_same_call_repeating_still_accumulates(tmp_path):
+    # The safety property is preserved exactly: one call failing over and over still yields
+    # one key, so it still trips the limit and still stops the run for manual review.
+    from scripts.canary_supervisor import repeat_key
+    rows = [{"status": "unknown_charge", "attempt_id": f"a{n}", "cost_usd": 0.01,
+             "error": "Error code: 500 - internal",
+             "metadata": {"cell_key": "plan:kind:abc", "call_role": "judge_query",
+                          "query_index": 2, "attempt": 1}} for n in range(3)]
+    keys = set()
+    for n in range(3):
+        (tmp_path / f"r{n}").mkdir()
+        usage, _, _ = _files(tmp_path / f"r{n}", usage_rows=rows[: n + 1])
+        keys.add(repeat_key("plan:kind:abc", usage))
+    assert len(keys) == 1
+
+
+def test_the_repeat_key_falls_back_to_the_cell_without_metadata(tmp_path):
+    # A halt whose newest ledger event carries no metadata must not silently become
+    # un-countable; falling back to the cell restores exactly the old behaviour.
+    from scripts.canary_supervisor import repeat_key
+    usage, _, _ = _files(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "Error code: 500 - internal"}])
+    assert repeat_key("plan:kind:abc", usage) == "plan:kind:abc"
