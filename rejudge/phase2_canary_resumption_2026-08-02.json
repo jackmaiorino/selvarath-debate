@@ -1,0 +1,39 @@
+{
+ "authorization": "unchanged: execution identity 9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44 under rejudge/phase2_canary_authorization_2026-08-02.json. Resuming is the same authorized run continuing, so this record grants nothing and is evidence only.",
+ "criterion_met": "the pause record set resumption at a gemma failure rate back near 12 percent, measured by a short resumption trial rather than a synthetic probe",
+ "decision_id": "canary_resumption_2026-08-02",
+ "execution_authorized": false,
+ "halt_guard_note": "the consecutive-halt threshold question raised by the 2026-08-02 stop is moot while the provider is healthy: at a zero percent failure rate the guard cannot accumulate. It becomes live again only if the provider degrades. The per-call keying correction therefore remains unmerged on branch role-limits-v6 pending the owner's decision, as recorded in the pause artifact.",
+ "note": "Append-only. Evidence of a criterion being met, not a grant of authority.",
+ "observed_recovery": "54 consecutive gemma calls with zero failures, every one returning between 3 and 20 seconds. That is better than the roughly 12 percent baseline the pause record named, and far from the 45 to 60 percent of the degraded window.",
+ "recorded_at_utc": "2026-08-02T06:00:00Z",
+ "resumes": "rejudge/phase2_canary_pause_2026-08-02.json",
+ "schema_version": "phase2_canary_resumption_v1",
+ "status": "running",
+ "throughput": "21 cells in 9.5 minutes, about 133 cells per hour, against 1.85 cells per hour under the degraded provider. The remaining cells are on the order of hours rather than days.",
+ "trials": [
+  {
+   "action": "stopped again",
+   "cells_gained": 1,
+   "cost_usd": 0.03,
+   "failed": 3,
+   "failure_rate": 0.6,
+   "gemma_calls": 5,
+   "started_utc": "2026-08-02T04:16Z",
+   "trial": 1
+  },
+  {
+   "action": "left running",
+   "cells_gained": 21,
+   "failed": 0,
+   "failure_rate": 0.0,
+   "gemma_calls": 54,
+   "started_utc": "2026-08-02T05:47Z",
+   "successful_latency_seconds": {
+    "max": 20,
+    "min": 3
+   },
+   "trial": 2
+  }
+ ]
+}
