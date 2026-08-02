@@ -121,3 +121,27 @@ def test_a_stale_error_log_stops(tmp_path):
 def test_a_half_recorded_cell_stops(tmp_path):
     reason = _check(tmp_path, result_rows=[{"cell_key": "plan:kind:abc"}])
     assert "already has a result row" in reason
+
+
+def test_a_socket_level_read_timeout_is_the_same_benign_condition(tmp_path):
+    # Amendment 8. Together surfaced a read timeout through the socket layer rather than the
+    # SDK's own wording: "The read operation timed out" instead of "Request timed out.". The
+    # 2026-08-02 instance waited 126s against the pinned 120s read timeout, so it is that
+    # timeout firing, not a new failure mode. Enumerating it keeps the set exhaustive without
+    # widening what counts as benign.
+    assert _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "The read operation timed out"}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": "The read operation timed out"}]) is None
+
+
+def test_an_unrecognised_error_still_stops_the_run(tmp_path):
+    # The set stays enumerated precisely so the next genuinely novel shape halts rather than
+    # being absorbed. Guards the amendment against becoming a catch-all.
+    reason = _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "invalid_request_error: context length exceeded"}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": "invalid_request_error: context length exceeded"}])
+    assert reason is not None and "transient set" in reason

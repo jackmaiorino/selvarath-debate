@@ -1,0 +1,14 @@
+{
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "bounds_otherwise_unchanged": true,
+ "change": "the enumerated benign-transient set gains the socket-level read-timeout message 'The read operation timed out' in scripts/canary_supervisor.py",
+ "decision_id": "canary_auto_resume_amendment8_2026-08-02",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no authority and changes no cap.",
+ "precedent": "identical in kind to amendments 1-5, each of which enumerated a further shape (SDK timeout, truncated stream, checker_outage over a verified transient, 429 rate limit, connection reset) as the provider produced it. Taken as in-phase operational work on that basis, unlike amendment 7, which relaxed a real safety control and was escalated to the owner.",
+ "recorded_at_utc": "2026-08-02T07:45:00Z",
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "trigger": "at 843 of 945 cells the supervisor stopped for manual review, correctly, because this message was not in the set. It is the first occurrence in roughly 80 logged errors.",
+ "why_this_is_not_a_widening": "the set stays enumerated rather than becoming a pattern for timeouts generally, and a companion test asserts that an unrecognised error (an invalid-request/context-length failure) still stops the run. The bounds that actually constrain risk are untouched: 3 consecutive halts on the same cell, the $4.00 uncertain-spend ceiling, the $40 stage cap, and the requirement that the halted cell have no result row.",
+ "why_this_is_the_same_condition_already_enumerated": "the halting call waited 126 seconds against the manifest-pinned 120 second httpx read timeout, on google/gemma-4-31B-it in the query_checker role. That is the pinned timeout firing. The set already contains 'Request timed out.', which is the together SDK's own wording for the same event; this is the socket layer's wording for it, reaching the handler by a different path. No new failure mode is being admitted, only a second spelling of one already admitted."
+}

@@ -47,13 +47,17 @@ UNCERTAIN_CEILING_USD = 4.00
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
-# The enumerated transient set, grown by recorded amendments 1-5 as Together produced each
-# new failure shape: 5xx, 429, SDK timeout, truncated stream, connection reset/abort. Each
+# The enumerated transient set, grown by recorded amendments 1-5 and 8 as Together produced
+# each new failure shape: 5xx, 429, SDK timeout, socket-level read timeout (amendment 8: the
+# SAME read timeout firing, surfaced through the socket layer rather than the SDK's own
+# wording -- the 2026-08-02 instance waited 126s against the pinned 120s), truncated stream,
+# connection reset/abort. Each
 # may have billed server-side, which is exactly what the permanently-counted uncertain
 # reservation and the uncertain ceiling bound; cell-granular retry cannot duplicate a
 # result row. The set stays enumerated so a novel anomaly still stops for manual review.
 _BENIGN_TRANSIENT = re.compile(
     r"Error code: 5\d\d|Error code: 429|Request timed out\.|"
+    r"The read operation timed out|"
     r"streaming response ended without usage chunk|"
     r"Connection reset by peer|Connection aborted|Server disconnected")
 _RATE_LIMIT = re.compile(r"Error code: 429")
