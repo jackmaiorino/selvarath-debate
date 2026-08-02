@@ -1,19 +1,30 @@
 {
- "schema_version": "phase2_canary_terminal_halts_v1",
- "decision_id": "canary_terminal_halts_2026-07-29",
- "recorded_at_utc": "2026-07-30T00:25:53Z",
- "status": "active_per_consult_28_scope",
+ "adjudication": "flagged for the adjudicator alongside this epoch's other operational records",
+ "appended_at_utc": [
+  "2026-08-02T08:15:00Z"
+ ],
  "basis": "Consult #28 scope note: checker outage, malformed checker output, and unresolved checker output halt the cell and must never be converted into the no-query transition. The cached response makes the malformed output deterministic on resume, so the cell's terminal state is checker_malformed",
  "cells": [
   {
    "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_debate_judgment:f67c1db73446400785cedb0e261d6ad3ecfdc8ed978f9d754f8f7650a9d12581",
-   "reason": "checker_malformed",
    "evidence": "cached frozen-checker response for slot 1 attempt 1 is the empty string; 1 malformed of 158 checker calls this run (0.6%), consistent with the frozen configuration's dev-quantified temp-0 nondeterminism",
+   "reason": "checker_malformed",
+   "reporting": "counted as a checker_malformed gate outcome in the close-out distributions; excluded only from execution convergence, never from reporting"
+  },
+  {
+   "appended_under": "the disposition and mechanism recorded here on 2026-07-30; this entry applies them to a second instance of the identical condition rather than establishing anything new",
+   "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_no_debate_judgment:62b08e549ef18443d4f627f843c0238a513ea038e039f6f42d75e679c235a447",
+   "evidence": "cached frozen-checker response for slot 2 attempt 1 is the empty string, byte-identical in kind to the first listed cell. The cache memoises it, so every resume replays the same unparseable response and the cell can never complete. Second malformed of about 666 successful checker calls this run (0.30%), consistent with, and slightly below, the 0.6% dev-quantified temp-0 nondeterminism of the frozen configuration.",
+   "reason": "checker_malformed",
+   "recorded_at_utc": "2026-08-02T08:15:00Z",
    "reporting": "counted as a checker_malformed gate outcome in the close-out distributions; excluded only from execution convergence, never from reporting"
   }
  ],
- "mechanism": "rejudge/phase2_canary_live.py loads this artifact when present and filters exactly the listed cells out of execution order; it refuses if a listed cell already has a result row (the disposition would then be stale)",
- "adjudication": "flagged for the adjudicator alongside this epoch's other operational records",
+ "decision_id": "canary_terminal_halts_2026-07-29",
  "execution_authorized": false,
- "note": "Append-only. Grants no authority and changes no cap."
+ "mechanism": "rejudge/phase2_canary_live.py loads this artifact when present and filters exactly the listed cells out of execution order; it refuses if a listed cell already has a result row (the disposition would then be stale)",
+ "note": "Append-only. Grants no authority and changes no cap.",
+ "recorded_at_utc": "2026-07-30T00:25:53Z",
+ "schema_version": "phase2_canary_terminal_halts_v1",
+ "status": "active_per_consult_28_scope"
 }

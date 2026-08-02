@@ -506,17 +506,25 @@ def test_no_terminal_halt_record_means_no_filter(tmp_path):
 
 def test_the_real_record_loads_and_names_the_malformed_cell(tmp_path):
     from rejudge.phase2_canary_live import load_terminal_halt_cells
+    # The list is designed to grow: the frozen checker's temp-0 nondeterminism produces a
+    # malformed response roughly 0.3-0.6% of the time, and each one is unfinishable because
+    # the cache memoises it. So the invariant is that every listed cell is present and
+    # reasoned, not that there is exactly one; a second was appended on 2026-08-02.
     cells = load_terminal_halt_cells(".", tmp_path / "absent_results.jsonl")
-    assert len(cells) == 1
-    (cell,) = cells
-    assert cell.endswith("f67c1db73446400785cedb0e261d6ad3ecfdc8ed978f9d754f8f7650a9d12581")
+    record = json.loads(Path(
+        "rejudge/phase2_canary_terminal_halts_2026-07-29.json").read_text(encoding="utf-8"))
+    assert cells == {str(entry["cell_key"]) for entry in record["cells"]}
+    assert any(c.endswith("f67c1db73446400785cedb0e261d6ad3ecfdc8ed978f9d754f8f7650a9d12581")
+               for c in cells)
+    for entry in record["cells"]:
+        assert entry["reason"] and entry["evidence"] and entry["reporting"]
 
 
 def test_a_completed_terminal_cell_is_refused(tmp_path):
     from rejudge.phase2_canary_live import load_terminal_halt_cells
     results = tmp_path / "results.jsonl"
     cells = load_terminal_halt_cells(".", tmp_path / "absent.jsonl")
-    (cell,) = cells
+    cell = sorted(cells)[0]   # any listed cell; the refusal is per-cell, not per-list
     results.write_text(json.dumps({"cell_key": cell}) + "\n", encoding="utf-8")
     with pytest.raises(CanaryLiveError, match="stale"):
         load_terminal_halt_cells(".", results)
