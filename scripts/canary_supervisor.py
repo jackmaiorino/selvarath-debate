@@ -18,11 +18,15 @@ The benign signature (all conditions required):
 Bounds, all of which stop the supervisor for manual review when crossed:
 - at most MAX_RESUMES automatic resumes in one supervisor invocation. This is a
   runaway-loop backstop, not a safety control: the binding safety constraints are the
-  same-cell limit and the uncertain-spend ceiling, both unchanged. Raised 60 -> 400 on
+  same-call limit and the uncertain-spend ceiling. Both have since been relaxed by
+  recorded owner decision (amendments 7 and 9), each stating plainly that it loosens a
+  real control rather than a backstop; this line said "both unchanged" until then. Raised 60 -> 400 on
   2026-08-01 because Together's checker endpoint halts the run every ~2 cells, so the
   original bound would have stopped the canary with ~300 cells undone;
-- at most SAME_CELL_MAX consecutive halts on the same cell (a deterministic failure
-  masquerading as a transient, as the gpt-oss streaming regression did);
+- at most SAME_CELL_MAX consecutive halts on the same CALL (a deterministic failure
+  masquerading as a transient, as the gpt-oss streaming regression did). Keyed per call
+  rather than per cell since 2026-08-03: a judgment cell issues several independently
+  failing calls, and pooling them tripped the limit on cells that were still healthy;
 - uncertain spend must stay under UNCERTAIN_CEILING_USD.
 
 Every decision is one printed line, so a log monitor can follow along. The policy is
@@ -39,7 +43,12 @@ import time
 from pathlib import Path
 
 MAX_RESUMES = 400
-SAME_CELL_MAX = 3
+# Raised 3 -> 8 on 2026-08-03 by owner instruction (amendment 9), together with the switch to
+# per-CALL keying. Like the uncertain ceiling, this is a real safety control rather than a
+# backstop, so the amendment records it as a deliberate relaxation. The mismatch it fixes:
+# the limit was calibrated when a hung call cost 600s, and the transport amendment cut that
+# to 120s, so a call needing five attempts now trips a limit built for far slower retries.
+SAME_CELL_MAX = 8
 # Raised 2.00 -> 4.00 on 2026-08-01 by owner instruction (amendment 7). Unlike the resume
 # backstop, this IS one of the constraints that bounds real risk, so the amendment records it
 # as a deliberate relaxation rather than as housekeeping.
@@ -102,6 +111,31 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
             if line.strip() and json.loads(line).get("cell_key") == cell:
                 return "halted cell already has a result row"
     return None
+
+
+def repeat_key(cell_key, usage_path: Path) -> str:
+    """What "the same failure again" means, for the consecutive-halt limit.
+
+    The limit exists to catch a deterministic failure masquerading as a transient, and
+    determinism is a property of a CALL, not of a cell: one judgment cell issues a checker
+    call, a judge query per slot, and a verdict, each of which can fail independently.
+    Keying the counter on the cell conflated them. On 2026-08-02, with gemma failing about
+    45% of calls, that tripped the limit on a cell whose calls were all still succeeding on
+    retry -- one had failed three times at 120s and then returned in four seconds.
+
+    So the key is the cell plus the identity of the call that actually halted, read from the
+    newest ledger event. A single call failing repeatedly still collapses to one key and
+    still stops the run, which is the property worth keeping. Falls back to the bare cell
+    when the newest event carries no metadata, restoring the previous behaviour rather than
+    becoming silently un-countable.
+    """
+    events = _tail_json_lines(usage_path, 1)
+    metadata = (events[0].get("metadata") or {}) if events else {}
+    if not metadata.get("call_role"):
+        return str(cell_key)
+    return ":".join(str(part) for part in (
+        cell_key, metadata.get("call_role"), metadata.get("query_index"),
+        metadata.get("attempt")))
 
 
 def _uncertain_spend(usage_path: Path) -> float:
@@ -170,10 +204,11 @@ def main(argv=None) -> int:
             print(f"supervisor: STOP for manual review: {reason}", flush=True)
             return 4
         cell = outcome.get("halted_cell_key")
-        same_cell_count = same_cell_count + 1 if cell == last_cell else 1
-        last_cell = cell
+        key = repeat_key(cell, usage_path)
+        same_cell_count = same_cell_count + 1 if key == last_cell else 1
+        last_cell = key
         if same_cell_count > SAME_CELL_MAX:
-            print(f"supervisor: STOP cell {cell} halted {same_cell_count} consecutive "
+            print(f"supervisor: STOP call {key} halted {same_cell_count} consecutive "
                   "times; looks deterministic", flush=True)
             return 5
         resumes += 1
