@@ -1,0 +1,16 @@
+{
+ "adopts": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json and its amendments 1-9",
+ "bounds_carried_over": {
+  "max_resumes": 400,
+  "same_call_max": 8,
+  "uncertain_ceiling_usd": 4.0
+ },
+ "decision_id": "bridge_canary_auto_resume_adoption_2026-08-04",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "flagged_for_the_owner": "These bounds were authorized for the 2026-07-28 canary, not for this run. Two of them (same_call_max 8 and uncertain_ceiling_usd 4.00) are relaxations of real safety controls granted by owner decision on that run, recorded in amendments 7 and 9. Carrying them forward is an operational judgement, not a fresh authorization, and is recorded here rather than left implicit. The bridge canary's binding spend control remains its own $40 stage cap, against an expected actual of about $7.",
+ "not_carried_over": "nothing about the science, the gate, or the frozen inputs. The supervisor relaunches an already-authorized run and changes no cap.",
+ "note": "Append-only. Records an operational adoption; grants no authority.",
+ "recorded_at_utc": "2026-08-04T17:40:00Z",
+ "schema_version": "phase2_canary_auto_resume_adoption_v1",
+ "why": "The bridge canary halts on UnknownChargeHalt for the same reason the first canary did: the strict client stops the run on any ambiguous billing outcome, which is correct accounting and turns a provider's ordinary noise into dozens of manual relaunches. Two of the first three bridge passes halted this way, both on benign transients already in the enumerated set."
+}
