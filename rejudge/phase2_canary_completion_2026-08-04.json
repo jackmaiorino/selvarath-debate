@@ -1,0 +1,76 @@
+{
+ "adjudication": "the epoch's records should be read together: two operator errors, three incidents, four terminal halts and two owner-approved control relaxations are themselves a finding about how this run was supervised, independent of what the cells say.",
+ "cell_accounting": {
+  "dependent_cell": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_debate_judgment:268645bc19c17f6e909f89b1177076ca26df1d9adce416cfc41abe71ded7067f, a batch_same_qa_b2 replay whose sequential dependency is the first terminally halted cell; named in the terminal-halts amendment 1 record on 2026-07-29",
+  "excluded_as_dependent_of_a_terminal_halt": 1,
+  "planned": 945,
+  "reconciles": "940 + 4 + 1 = 945",
+  "recorded": 940,
+  "reporting_requirement": "all five excluded cells must appear in the close-out distributions as checker_malformed and dependency_terminally_halted outcomes. They are excluded from execution convergence only, never from reporting.",
+  "terminal_halt_rate": "4 malformed of roughly 1500 successful checker calls (0.27%), inside the frozen configuration's 0.6% dev-quantified temp-0 nondeterminism",
+  "terminal_halt_reason": "checker_malformed: the frozen checker returned the empty string, which the per-call cache memoises, so every resume replays the same unparseable response",
+  "terminally_halted": 4
+ },
+ "chain_integrity": "results, reviewer decisions and the call cache each re-read and re-verify their own hash chains after all three incident rebuilds: 940 cells, 520 rulings, 2732 memoised calls",
+ "decision_id": "canary_completion_2026-08-04",
+ "deviations_the_results_carry": [
+  "HETEROGENEOUS REVIEWER GATE: claude-fable-5 was quota-exhausted mid-run, so payloads were ruled partly by fable and partly by gpt-5.6-sol at high reasoning effort via the codex CLI. Results estimate the mixture, not either gate alone.",
+  "MID-RUN TRANSPORT CHANGE: the httpx read timeout was cut 600s -> 120s under owner authorization when a degraded provider made the original value the dominant cost. Science-neutral by construction and verified by seed stability across transport retries, but it is a bound change mid-run.",
+  "INCIDENT 3, OPERATOR ERROR: a relaunch script resolved the reviewer binary through PATH in a non-login shell, so 160 payloads were committed as non-ALLOW without ever being reviewed, contaminating 141 cells. Detected after four hours, remediated by retiring and rebuilding the decision store, the result store and the call cache, then re-reviewing and re-running. All retired stores are preserved byte-for-byte.",
+  "SAFETY CONTROLS RELAXED TWICE BY OWNER DECISION: the uncertain-spend ceiling 2.00 -> 4.00 (amendment 7) and the consecutive-halt limit 3 -> 8 with per-call keying (amendment 9). Both are recorded as deliberate relaxations of binding constraints rather than as housekeeping."
+ ],
+ "execution_authorized": false,
+ "execution_identity_sha256": "9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44",
+ "gate_outcomes": {
+  "ALLOW": 294,
+  "REJECT": 225,
+  "allow_rate": 0.566,
+  "parsed": 519,
+  "reject_clauses": {
+   "P1": 62,
+   "P2": 75,
+   "P3": 78,
+   "P4": 10
+  },
+  "reviewer_error": 1,
+  "reviewer_error_detail": "a single genuine DISPATCH_ERROR for a payload containing U+202F narrow no-break spaces the dispatcher could not reproduce byte-exactly. Correctly recorded, non-ALLOW per the frozen failure rule, and retained.",
+  "rulings": 520
+ },
+ "identity_chain": [
+  "c8ca24380cb14479cff75abade68b0aedcb0dd9c5485096a7870089a98dd248f (launch, 2026-07-28)",
+  "481f2df59d13acde507a21780c23c5fdea03b0d3ba838d00d74f6847ffa2f22e (reviewer substitution, 2026-08-01)",
+  "9a6c2064dfcd6d93e3499aa275e503754a298abc8031a640e37dc7b5063cfa44 (transport amendment, 2026-08-01)"
+ ],
+ "note": "Append-only. Records an outcome; grants no authority and authorizes no further stage.",
+ "provider_calls": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "abandoned": 0,
+   "ok": 439
+  },
+  "google/gemma-4-31B-it": {
+   "abandoned": 189,
+   "ok": 1513
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "abandoned": 3,
+   "ok": 706
+  },
+  "note": "gemma serves both the frozen checker and the judge and carried essentially all the transport failure, 189 abandoned of 1702 attempts (11%), concentrated in two degraded windows rather than spread evenly",
+  "openai/gpt-oss-120b": {
+   "abandoned": 14,
+   "ok": 520
+  }
+ },
+ "recorded_at_utc": "2026-08-04T03:10:00Z",
+ "schema_version": "phase2_canary_completion_v1",
+ "spend": {
+  "carried_forward_usd": 2.35384,
+  "settled_this_ledger_usd": 4.2274,
+  "stage_cap_usd": 40.0,
+  "total_actual_usd": 6.58,
+  "uncertain_ceiling_usd": 4.0,
+  "uncertain_usd": 1.58
+ },
+ "status": "converged",
+ "what_this_does_not_establish": "nothing here authorizes the main run, and the canary was never intended to answer the scientific question. Its purpose was to exercise the full pipeline at scale under the frozen protocol and surface exactly the operational and integrity problems it did surface."
+}
