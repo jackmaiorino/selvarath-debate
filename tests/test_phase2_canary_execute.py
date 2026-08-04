@@ -197,6 +197,98 @@ def test_an_empty_evidence_judgment_is_a_single_call(tmp_path):
     assert record["verdict_strict"]["parse_ok"] is True
 
 
+# --- A/B polarity ----------------------------------------------------------------------------
+#
+# Two defects the canary surfaced, both from the same hardcoded literal. The judgment loop
+# counterbalances via position_for(...); the single-call path and the gate's candidate labels
+# did not, so on every cell whose design polarity is False the correct answer still sat at
+# Position A. Index 0 of each cell type below has design polarity False, which is why the
+# tests above never caught it.
+
+def _design_polarity(raw_cell):
+    from analysis.infra.design import position_a_is_correct
+    return position_a_is_correct(raw_cell["question_id"], raw_cell["transcript_index"])
+
+
+def _position_a_shown(message_content):
+    import re
+    match = re.search(r"POSITION A:\s*(.+?)\n\s*POSITION B:", message_content, re.S)
+    return match.group(1).strip() if match else ""
+
+
+def test_a_single_call_judgment_counterbalances_like_the_judgment_loop(tmp_path):
+    """Defect A: batch, full-document and empty-evidence cells always put the correct
+    answer at Position A, so any judge position bias was confounded with the condition."""
+    context = _context(tmp_path)
+    transcript_cell, transcript = _transcript_for(tmp_path, context=context)
+    context.results[transcript_cell.cell_key] = transcript
+
+    resolved, raw = _cell("canary_empty_evidence_judgment", "empty_evidence_table")
+    assert _design_polarity(raw) is False, "fixture assumption: this cell's polarity is False"
+    resolved = _rebind_dependency(resolved, transcript_cell.cell_key)
+    execute_cell(resolved, context)
+
+    shown = _position_a_shown(context.client.calls[-1]["messages"][-1]["content"])
+    assert shown, "the judge prompt should carry a POSITION A block"
+    assert shown == transcript["wrong_answer"], (
+        "polarity is False, so Position A must be the wrong answer")
+
+
+def test_a_single_call_record_says_which_position_was_correct(tmp_path):
+    """Defect A, second half: these rows omitted position_a_is_correct and
+    transcript_index, so correctness could not be read off the row at all."""
+    context = _context(tmp_path)
+    transcript_cell, transcript = _transcript_for(tmp_path, context=context)
+    context.results[transcript_cell.cell_key] = transcript
+
+    resolved, raw = _cell("canary_empty_evidence_judgment", "empty_evidence_table")
+    resolved = _rebind_dependency(resolved, transcript_cell.cell_key)
+    record = execute_cell(resolved, context)
+
+    assert record["position_a_is_correct"] == _design_polarity(raw)
+    assert record["transcript_index"] == raw["transcript_index"]
+    assert "verdict_correct_strict" in record
+
+
+def test_a_batch_replay_keeps_the_polarity_of_the_sequential_it_replays(tmp_path):
+    """The batch/sequential contrast is only 'same information, different packaging' if
+    both halves put the same answer at Position A."""
+    context = _context(tmp_path)
+    transcript_cell, transcript = _transcript_for(tmp_path, context=context)
+    context.results[transcript_cell.cell_key] = transcript
+
+    sequential, _raw = _cell("canary_debate_judgment", "sequential_b2")
+    sequential = _rebind_dependency(sequential, transcript_cell.cell_key)
+    sequential_record = execute_cell(sequential, context)
+    context.results[sequential.cell_key] = sequential_record
+
+    batch, _raw = _cell("canary_debate_judgment", "batch_same_qa_b2")
+    batch = _rebind_dependency(batch, transcript_cell.cell_key, sequential.cell_key)
+    batch_record = execute_cell(batch, context)
+
+    assert (batch_record["position_a_is_correct"]
+            == sequential_record["position_a_is_correct"])
+
+
+def test_the_gate_is_shown_the_same_candidates_the_judge_reads(tmp_path):
+    """Defect B: the gate's candidate_a/candidate_b came from the hardcoded literal while
+    the judge's prompt came from position_for(...), so on 224 of the canary's 332 gated
+    cells the checker and the reviewer saw the two answers under swapped labels."""
+    context = _context(tmp_path)
+    transcript_cell, transcript = _transcript_for(tmp_path, context=context)
+    context.results[transcript_cell.cell_key] = transcript
+
+    resolved, raw = _cell("canary_debate_judgment", "sequential_b2")
+    assert _design_polarity(raw) is False, "fixture assumption: this cell's polarity is False"
+    resolved = _rebind_dependency(resolved, transcript_cell.cell_key)
+    record = execute_cell(resolved, context)
+
+    judge_prompt = next(m["content"] for m in record["judge_messages"]
+                        if m["role"] == "user" and "POSITION A:" in m["content"])
+    assert record["gate_events"], "a sequential_b2 cell should produce gate events"
+    assert record["gate_events"][0]["candidate_a"] == _position_a_shown(judge_prompt)
+
+
 # --- dependencies --------------------------------------------------------------------------
 
 def test_a_judgment_missing_its_transcript_is_refused(tmp_path):

@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from rejudge import debate_gen, judge_loop, records
-from rejudge.config import ARMS, PLACEBO_TEXT, make_seed
+from rejudge.config import ARMS, PLACEBO_TEXT, make_seed, position_for
 from rejudge.parsers import parse_both
 from rejudge.phase2_canary_cells import ResolvedCell
 from rejudge.phase2_canary_compose import (
@@ -73,6 +73,25 @@ def _dependency(cell: ResolvedCell, context: CellContext, index: int = 0) -> Any
     return context.results[key]
 
 
+class PolarityMismatch(ValueError):
+    """Raised when a batch replay and the sequential it replays disagree on A/B order."""
+
+
+def _polarity(cell: ResolvedCell) -> bool:
+    """Which side of this cell's presentation carries the correct answer.
+
+    The single source of truth for A/B order, computed exactly as judge_loop.run_judgment
+    computes it. It exists because both other call sites used to pass a hardcoded ``True``
+    instead, which the canary showed costs two distinct things: the single-call conditions
+    were never counterbalanced at all, and the query gate was handed the two candidate
+    answers under labels swapped from the ones the judge actually read (224 of 332 gated
+    cells). Deriving both from one function is what stops them drifting apart again.
+    """
+    return position_for(ARMS[cell.arm_name or "clean"], cell.question_id,
+                        cell.transcript_index or 0, str(cell.judge_model),
+                        cell.query_budget)
+
+
 def _transcript_for(cell: ResolvedCell, context: CellContext) -> dict:
     """The debate a judgment is judging.
 
@@ -111,7 +130,9 @@ def _run_transcript(cell: ResolvedCell, context: CellContext) -> dict:
 
 def _run_single_call(cell: ResolvedCell, context: CellContext) -> dict:
     transcript = _transcript_for(cell, context)
-    position_a, position_b, debate_text = judge_loop._format_transcript(transcript, True)
+    pos_a_correct = _polarity(cell)
+    position_a, position_b, debate_text = judge_loop._format_transcript(
+        transcript, pos_a_correct)
 
     fields: dict[str, Any] = {
         "question": transcript["question"], "position_a": position_a,
@@ -121,6 +142,15 @@ def _run_single_call(cell: ResolvedCell, context: CellContext) -> dict:
         fields["world_document"] = context.world_document(cell.question_id)
     if cell.composition["judge"] == "batch_same_qa":
         replayed = _dependency(cell, context, index=1)
+        # A batch replay is only "the same information, differently packaged" if both halves
+        # put the same answer at Position A. Refuse rather than silently produce a cell whose
+        # contrast with its sequential pair is meaningless.
+        replayed_polarity = replayed.get("position_a_is_correct")
+        if replayed_polarity is not None and bool(replayed_polarity) != pos_a_correct:
+            raise PolarityMismatch(
+                f"cell {cell.cell_key} would replay {cell.dependency_keys[1]} at "
+                f"position_a_is_correct={pos_a_correct}, but that cell judged at "
+                f"{bool(replayed_polarity)}")
         fields["verification_results"] = _format_replay(replayed)
 
     system, user = single_call_prompt(cell, context.bundle, **fields)
@@ -133,15 +163,27 @@ def _run_single_call(cell: ResolvedCell, context: CellContext) -> dict:
         seed, 512, kind="verdict",
         request_metadata={"cell_key": cell.cell_key, "call_role": "batch_verdict",
                           "condition": cell.condition})
-    parses = parse_both(raw)
-    return {
-        "cell_key": cell.cell_key, "condition": cell.condition,
-        "question_id": cell.question_id, "judge_model": cell.judge_model,
-        "raw_verdict_text": raw, "verdict_strict": parses["strict"],
-        "verdict_pilot": parses["pilot"], "parser_version": parses["parser_version"],
-        "queries_used": 0, "exchanges": [], "seed": seed,
-        "harness_version": records.get_git_sha(), "created_at": records.utc_now_iso(),
-    }
+    # Built through records.build_record like every other judgment, so a single-call row is
+    # self-describing: it used to omit position_a_is_correct, transcript_index and
+    # verdict_correct_*, which left the batch condition's correctness unreadable from the row.
+    # queries_used stays 0 because this cell issues no query of its own; the plan's budget is
+    # recorded separately and is what the analysis groups on.
+    record = records.build_record(
+        transcript=transcript, arm=ARMS[cell.arm_name or "clean"], budget=cell.query_budget,
+        replicate=cell.replicate_index or 0, position_a_is_correct=pos_a_correct,
+        exchanges=[], raw_verdict_text=raw, parses=parse_both(raw),
+        judge_messages=[{"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                        {"role": "assistant", "content": raw}],
+        seed=seed, judge_model=str(cell.judge_model),
+        oracle_model="none (single call)",
+        dry_run=getattr(context.client, "dry_run", False), queries_used=0)
+    # The plan's identity wins over the transcript's, exactly as it does for the cell key.
+    record["cell_key"] = cell.cell_key
+    record["condition"] = cell.condition
+    record["question_id"] = cell.question_id
+    record["transcript_index"] = cell.transcript_index or 0
+    return record
 
 
 def _format_replay(sequential_record: dict) -> str:
@@ -162,9 +204,12 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
     transcript = _transcript_for(cell, context)
     composed = judge_protocol_for(cell, context.protocol, context.bundle)
 
+    pos_a_correct = _polarity(cell)
+
     query_gate = None
     if cell.produces_queries:
-        position_a, position_b, _text = judge_loop._format_transcript(transcript, True)
+        position_a, position_b, _text = judge_loop._format_transcript(
+            transcript, pos_a_correct)
         query_gate = CanaryQueryGate(
             candidate_a=position_a, candidate_b=position_b, total_slots=cell.query_budget,
             checker=FrozenCheckerAdapter(
@@ -180,7 +225,10 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
         ARMS[cell.arm_name or "clean"], cell.query_budget, cell.replicate_index or 0,
         context.client, composed, judge_model=str(cell.judge_model),
         query_template_override=composed["judge"]["query_phase_prompt"],
-        cell_key_override=cell.cell_key, query_gate=query_gate)
+        cell_key_override=cell.cell_key, query_gate=query_gate,
+        # Passed explicitly rather than recomputed inside run_judgment: the gate above was
+        # built from this same value, and the two must not be able to drift apart.
+        position_override=pos_a_correct)
     record["cell_key"] = cell.cell_key
     record["condition"] = cell.condition
     if query_gate is not None:
