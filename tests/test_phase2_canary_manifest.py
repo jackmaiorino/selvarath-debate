@@ -350,3 +350,49 @@ def test_a_missing_amendment_falls_back_to_the_frozen_v5_pin(tmp_path):
     assert resolved["amended"] is False
     assert resolved["tracked_path"] == str(ROLE_LIMITS_FALLBACK_RELATIVE_PATH).replace(
         "\\", "/")
+
+
+# --- execution parameters and the missing-data policy ---------------------------------------
+#
+# The bridge canary runs concurrently, so the concurrency settings are no longer incidental to
+# what happens: they decide how much load lands on the one model that carries almost all of it,
+# and how conditions are interleaved in time. Anything that shapes the run is hash-bound, so
+# they belong in the manifest rather than on a command line.
+
+def test_the_manifest_binds_its_execution_parameters():
+    execution = _manifest()["execution"]
+    assert execution["max_workers"] >= 1
+    assert execution["block_size"] >= 1
+    assert execution["model_caps"], "per-model caps are the control that matters"
+    assert "google/gemma-4-31B-it" in execution["model_caps"], (
+        "gemma is 95% of call time and serves both the checker and a judge; it must be capped")
+    assert execution["block_scheduling"], "how blocks are formed must be recorded, not implied"
+
+
+def test_the_concurrency_ramp_is_declared_with_a_promotion_and_an_abort_rule():
+    ramp = _manifest()["execution"]["concurrency_ramp"]
+    assert len(ramp["steps"]) >= 2, "a ramp needs at least two rungs to be a ramp"
+    caps = [step["model_caps"]["google/gemma-4-31B-it"] for step in ramp["steps"]]
+    assert caps == sorted(caps), "the ramp must escalate, never jump around"
+    assert caps[0] == 1, "the first rung reproduces the canary's measured concurrency of one"
+    assert ramp["promotion_rule"] and ramp["abort_rule"], (
+        "a ramp with no rule for stopping is not a measurement, it is a warm-up")
+    assert sum(step["cells"] for step in ramp["steps"]) < 945, (
+        "the ramp is a prefix of the run, not the whole of it")
+
+
+def test_the_missing_data_policy_is_bound_before_the_run():
+    """A disposition chosen after the outcomes are visible is not a policy. Binding its hash
+    into the manifest is what makes 'decided in advance' checkable rather than asserted."""
+    governance = _manifest()["governance"]
+    assert "missing_data_policy" in governance
+    entry = governance["missing_data_policy"]
+    assert entry["tracked_path"].endswith(".json")
+    assert len(entry["canonical_sha256"]) == 64
+
+
+def test_a_manifest_without_execution_parameters_is_refused():
+    manifest = _manifest()
+    del manifest["execution"]
+    with pytest.raises(ManifestValidationError):
+        validate_canary_manifest(manifest, project_root=".")

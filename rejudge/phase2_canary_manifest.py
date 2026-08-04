@@ -81,11 +81,35 @@ CANARY_CODE_PROVENANCE_FILES: tuple[str, ...] = (
     "rejudge/phase2_caching_client.py",
 )
 
-MANIFEST_TOP_LEVEL_KEYS = frozenset({
+MANIFEST_TOP_LEVEL_KEYS_V1 = frozenset({
     "schema_version", "stage", "recorded_at_utc", "planning", "frozen_inputs", "reviewer",
     "anchor", "caps", "ledger", "governance", "code_provenance", "resume_granularity",
     "execution_authorized", "execution_identity_sha256",
 })
+# v2 adds the execution block. The canary that ran serially had nothing to say here: one cell
+# at a time is not a choice, it is the absence of one. Concurrency is a choice, it decides how
+# much load lands on the model carrying almost all of it and how conditions are interleaved in
+# time, and everything that shapes the run is hash-bound rather than passed on a command line.
+MANIFEST_TOP_LEVEL_KEYS_V2 = MANIFEST_TOP_LEVEL_KEYS_V1 | {"execution"}
+MANIFEST_TOP_LEVEL_KEYS = MANIFEST_TOP_LEVEL_KEYS_V2
+SCHEMA_V1 = "phase2_canary_execution_manifest_v1"
+SCHEMA_V2 = "phase2_canary_execution_manifest_v2"
+_KEYS_BY_SCHEMA = {SCHEMA_V1: MANIFEST_TOP_LEVEL_KEYS_V1, SCHEMA_V2: MANIFEST_TOP_LEVEL_KEYS_V2}
+
+MISSING_DATA_POLICY_RELATIVE_PATH = Path(
+    "rejudge/phase2_missing_data_policy_proposal_2026-08-04.json")
+
+# The ramp exists because the canary measured gemma at concurrency ONE and nothing above it.
+# It abandoned 189 of 1,702 calls (11%) at that width while carrying 95% of all call time, so
+# every higher width is an extrapolation. Each rung runs a slice of the real plan and is
+# promoted only on measured evidence; there is no separate throwaway probe, which would be
+# unmanifested spend.
+CONCURRENCY_RAMP_STEPS: tuple[dict[str, Any], ...] = (
+    {"cells": 40, "model_caps": {"google/gemma-4-31B-it": 1}},
+    {"cells": 40, "model_caps": {"google/gemma-4-31B-it": 2}},
+    {"cells": 40, "model_caps": {"google/gemma-4-31B-it": 4}},
+    {"cells": 40, "model_caps": {"google/gemma-4-31B-it": 8}},
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -238,9 +262,76 @@ def _governance(root: Path) -> dict[str, Any]:
     if (root / TRANSPORT_AMENDMENT_RELATIVE_PATH).exists():
         paths["transport_amendment"] = str(TRANSPORT_AMENDMENT_RELATIVE_PATH).replace(
             "\\", "/")
+    # Bound here, before the run, for the same reason as everything else in this block: a
+    # disposition for incomplete cells chosen once the outcomes are visible is not a policy,
+    # and binding its hash is what makes "decided in advance" checkable rather than asserted.
+    if (root / MISSING_DATA_POLICY_RELATIVE_PATH).exists():
+        paths["missing_data_policy"] = str(MISSING_DATA_POLICY_RELATIVE_PATH).replace(
+            "\\", "/")
     return {name: {"tracked_path": relative,
                    "canonical_sha256": canonical_sha256(_json(root / relative))}
             for name, relative in sorted(paths.items())}
+
+
+def _validate_execution(execution: Any, *, checker_model: str) -> None:
+    """Refuse an execution block that cannot be acted on as written.
+
+    Every check here is a way the block could look complete while leaving the run's actual
+    width undetermined, which would put the load somewhere the manifest does not record.
+    """
+    if not isinstance(execution, Mapping):
+        raise ManifestValidationError("execution must be a mapping")
+    for field in ("max_workers", "block_size"):
+        value = execution.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ManifestValidationError(f"execution.{field} must be a positive integer")
+    caps = execution.get("model_caps")
+    if not isinstance(caps, Mapping) or not caps:
+        raise ManifestValidationError("execution.model_caps must be a non-empty mapping")
+    if checker_model not in caps:
+        raise ManifestValidationError(
+            f"execution.model_caps must cap {checker_model!r}: it serves the frozen checker "
+            "and a judge role, and carried 95% of the canary's call time")
+    for model, limit in caps.items():
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+            raise ManifestValidationError(f"execution.model_caps[{model!r}] must be >= 1")
+    if not str(execution.get("block_scheduling") or "").strip():
+        raise ManifestValidationError("execution.block_scheduling must be recorded")
+
+    ramp = execution.get("concurrency_ramp")
+    if not isinstance(ramp, Mapping):
+        raise ManifestValidationError("execution.concurrency_ramp must be a mapping")
+    steps = ramp.get("steps")
+    if not isinstance(steps, list) or len(steps) < 2:
+        raise ManifestValidationError("a concurrency ramp needs at least two rungs")
+    widths = []
+    for step in steps:
+        if not isinstance(step, Mapping):
+            raise ManifestValidationError("each ramp step must be a mapping")
+        cells = step.get("cells")
+        if not isinstance(cells, int) or isinstance(cells, bool) or cells < 1:
+            raise ManifestValidationError("each ramp step must run at least one cell")
+        step_caps = step.get("model_caps")
+        if not isinstance(step_caps, Mapping) or checker_model not in step_caps:
+            raise ManifestValidationError(
+                f"each ramp step must set a cap for {checker_model!r}; a ramp that does "
+                "not move the model carrying the load measures nothing")
+        widths.append(step_caps[checker_model])
+    if widths != sorted(widths):
+        raise ManifestValidationError("a ramp must escalate monotonically, never jump around")
+    if widths[0] != 1:
+        raise ManifestValidationError(
+            "the first rung must be concurrency 1, the only width the canary actually measured")
+    if widths[-1] > caps[checker_model]:
+        raise ManifestValidationError(
+            "the ramp must not exceed the settled cap it is choosing among")
+    if sum(step["cells"] for step in steps) >= 945:
+        raise ManifestValidationError("the ramp must be a prefix of the run, not the whole run")
+    for rule in ("promotion_rule", "abort_rule"):
+        if not str(ramp.get(rule) or "").strip():
+            raise ManifestValidationError(
+                f"concurrency_ramp.{rule} must be stated: a ramp with no rule for stopping "
+                "is a warm-up, not a measurement")
 
 
 def build_canary_manifest(*, project_root: str | Path = ".", recorded_at_utc: str,
@@ -251,7 +342,7 @@ def build_canary_manifest(*, project_root: str | Path = ".", recorded_at_utc: st
         "rejudge/phase2_anchor_parser_policy_approval_2026-07-24.json")
 
     manifest: dict[str, Any] = {
-        "schema_version": "phase2_canary_execution_manifest_v1",
+        "schema_version": SCHEMA_V2,
         "stage": STAGE,
         "recorded_at_utc": recorded_at_utc,
         "planning": {
@@ -287,6 +378,49 @@ def build_canary_manifest(*, project_root: str | Path = ".", recorded_at_utc: st
             "files": list(CANARY_CODE_PROVENANCE_FILES),
             "code_bundle_sha256": canary_code_bundle_sha256(root),
         },
+        "execution": {
+            "max_workers": 8,
+            "block_size": 16,
+            # The ceiling each model may reach once the ramp has settled. gemma is listed at
+            # the ramp's top rung and is the only one that gets there by measurement; the rest
+            # were never the constraint (Qwen, Llama and gpt-oss together were 0.89 h of the
+            # canary's 13.69 h of call time) and are capped at the worker count.
+            "model_caps": {
+                "google/gemma-4-31B-it": 8,
+                "meta-llama/Llama-3.3-70B-Instruct-Turbo": 8,
+                "openai/gpt-oss-120b": 8,
+                "Qwen/Qwen2.5-7B-Instruct-Turbo": 8,
+                "Qwen/Qwen3.7-Plus": 8,
+            },
+            "block_scheduling": (
+                "condition-balanced round robin over ready cells, readiness recomputed each "
+                "block, results applied in block order rather than completion order. Batch "
+                "cells depend on their sequential parents and so always run later; a "
+                "work-conserving queue would give batch a systematically later slice of the "
+                "run and land time-varying provider degradation preferentially on one of the "
+                "two co-primary components."),
+            "concurrency_ramp": {
+                "steps": list(CONCURRENCY_RAMP_STEPS),
+                "measured_baseline": (
+                    "gemma abandoned 189 of 1,702 calls (11.1%) at concurrency 1 during the "
+                    "2026-07-28 canary, while carrying 95% of all call time"),
+                "promotion_rule": (
+                    "promote to the next rung only if, over that rung's cells, gemma's "
+                    "abandoned-call rate is at most 15% and no cell halted terminally. The "
+                    "tolerance is the measured 11.1% baseline plus headroom, so a rung is "
+                    "promoted on evidence of no degradation rather than on absence of "
+                    "catastrophe."),
+                "abort_rule": (
+                    "on failing the promotion rule, pin the last rung that passed and run the "
+                    "remaining cells there. Failing the FIRST rung is not a cap question at "
+                    "all: it means the provider is degraded relative to the canary, and the "
+                    "run stops for a human rather than ramping down into a slow bad run."),
+                "spend_note": (
+                    "the ramp is a prefix of the real 945-cell plan, not a synthetic probe. "
+                    "Its cells are recorded and count toward the run, so it adds no "
+                    "unmanifested spend and nothing is paid for twice."),
+            },
+        },
         # Cell-granular, not call-granular: see the module docstring.
         "resume_granularity": "cell",
         "execution_authorized": False,
@@ -301,10 +435,27 @@ def validate_canary_manifest(manifest: Mapping[str, Any], *,
     if not isinstance(manifest, Mapping):
         raise ManifestValidationError("manifest must be a mapping")
     keys = set(manifest)
-    if keys != MANIFEST_TOP_LEVEL_KEYS:
+    # Both schemas are accepted, and deliberately so: the v1 manifests of the completed
+    # 2026-07-28 canary are historical records that must stay loadable and verifiable. Which
+    # key set applies is decided by the manifest's own declared schema, so a v2 manifest cannot
+    # quietly omit the execution block by claiming to be v1 without also failing the stage and
+    # provenance checks below.
+    expected_keys = _KEYS_BY_SCHEMA.get(str(manifest.get("schema_version")))
+    if expected_keys is None:
         raise ManifestValidationError(
-            f"canary manifest fields drifted: unexpected {sorted(keys - MANIFEST_TOP_LEVEL_KEYS)!r}, "
-            f"missing {sorted(MANIFEST_TOP_LEVEL_KEYS - keys)!r}")
+            f"unknown canary manifest schema {manifest.get('schema_version')!r}; "
+            f"expected one of {sorted(_KEYS_BY_SCHEMA)!r}")
+    if keys != expected_keys:
+        raise ManifestValidationError(
+            f"canary manifest fields drifted: unexpected {sorted(keys - expected_keys)!r}, "
+            f"missing {sorted(expected_keys - keys)!r}")
+    if manifest["schema_version"] == SCHEMA_V2:
+        _validate_execution(
+            manifest["execution"],
+            # Checked against the manifest's OWN declared checker rather than a constant,
+            # so a ramp that stops moving the model carrying the load fails loudly instead
+            # of silently measuring a model that was never the constraint.
+            checker_model=str(manifest["frozen_inputs"]["checker_model"]))
     if manifest["stage"] != STAGE:
         raise ManifestValidationError(f"stage must be {STAGE!r}")
     if manifest["execution_authorized"] is not False:
