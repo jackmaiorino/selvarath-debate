@@ -25,6 +25,7 @@ frozen prompt and the payload, which satisfies the amendment's per-batch isolati
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import os
@@ -1059,7 +1060,8 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
                            results_path=results_path, decisions_path=decisions_path,
                            limit=limit, max_passes=max_passes,
                            pause_when_unlabeled=pause_when_unlabeled,
-                           terminal_halt_cells=terminal)
+                           terminal_halt_cells=terminal,
+                           archive_dir=local_path(manifest["ledger"]["archive_dir"]))
     finally:
         if lock is not None:
             lock.__exit__(None, None, None)
@@ -1067,8 +1069,32 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
 
 def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, limit,
                 max_passes, pause_when_unlabeled,
-                terminal_halt_cells: frozenset[str] = frozenset()) -> RunOutcome:
+                terminal_halt_cells: frozenset[str] = frozenset(),
+                archive_dir=None) -> RunOutcome:
     frozen = load_frozen_reviewer_prompt(manifest)
+    # A v1 manifest describes the serial canary and carries no execution block; it keeps the
+    # old behaviour exactly. A v2 manifest decides the run's width, and the ramp decides how
+    # much of that width this particular invocation is allowed to use.
+    execution = manifest.get("execution") or {}
+    max_workers = int(execution.get("max_workers", 1))
+    block_size = execution.get("block_size")
+    model_caps = dict(execution.get("model_caps") or {})
+    ramp = execution.get("concurrency_ramp")
+    checker_model = str(manifest["frozen_inputs"]["checker_model"])
+    usage_path = local_path(manifest["ledger"]["usage_log_path"])
+    step = None
+    if ramp and archive_dir is not None:
+        step = current_ramp_step(ramp, model_caps, archive_dir)
+        model_caps = step.model_caps
+        if step.rung_index is not None and step.cell_limit is not None:
+            # A rung caps how many cells this invocation attempts, so the measurement window
+            # closes before the width goes up again.
+            limit = step.cell_limit if limit is None else min(limit, step.cell_limit)
+            print(f"ramp: rung {step.rung_index} at {checker_model} concurrency "
+                  f"{model_caps.get(checker_model)}, limit {limit} cells", flush=True)
+        else:
+            print(f"ramp: settled at {checker_model} concurrency "
+                  f"{model_caps.get(checker_model)}", flush=True)
     cell_filter = None
     if terminal_halt_cells:
         # The exclusion cascades: a cell whose dependency is terminally halted can never
@@ -1085,7 +1111,8 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
             results_path=results_path, decisions_path=decisions_path, client=client,
             reviewer=reviewer, anchor_judge_model=str(manifest["anchor"]["judge_model"]),
             pause_when_unlabeled=pause_when_unlabeled, limit=limit,
-            cell_filter=cell_filter)
+            cell_filter=cell_filter, max_workers=max_workers, block_size=block_size,
+            model_caps=model_caps or None)
         print(f"pass {pass_index}: completed={outcome.completed} "
               f"skipped={outcome.skipped} deferred={outcome.deferred} "
               f"paused={outcome.paused} halted={outcome.halted_reason or '-'}",
@@ -1101,6 +1128,18 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
                 f"no progress: {outcome.deferred} cells still deferred after a full pass")
     else:
         raise CanaryLiveError(f"canary did not converge within {max_passes} passes")
+
+    if step is not None and step.rung_index is not None:
+        measured = measure_rung(usage_path, since_sequence=step.ledger_sequence,
+                                checker_model=checker_model)
+        halts = 1 if outcome.halted_reason is not None else 0
+        promoted = rung_passes(measured, terminal_halts=halts)
+        record_rung(archive_dir, rung_index=step.rung_index, model_caps=step.model_caps,
+                    measured={**measured, "terminal_halts": halts}, promoted=promoted,
+                    ledger_sequence=_ledger_tail_sequence(usage_path))
+        print(f"ramp: rung {step.rung_index} {'PASSED' if promoted else 'FAILED'} "
+              f"({measured['abandoned']}/{measured['total']} abandoned, "
+              f"{100 * measured['rate']:.1f}%)", flush=True)
 
     if outcome.needs_labelling and pause_when_unlabeled:
         worklist_path = local_path(manifest["ledger"]["archive_dir"]) / WORKLIST_FILENAME
@@ -1151,3 +1190,147 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# --- concurrency ramp -----------------------------------------------------------------------
+#
+# The 2026-07-28 canary measured gemma at concurrency ONE and nothing above it: 189 of 1,702
+# calls abandoned (11.1%) while carrying 95% of all call time. Every wider setting is an
+# extrapolation, so the bridge canary walks up through the manifest's rungs, running real plan
+# cells at each one and promoting only on measured evidence. Nothing here is a synthetic probe:
+# the cells count toward the run, so no call happens outside the manifest and nothing is paid
+# for twice.
+#
+# State lives in the archive, not in memory, because the run does not execute in one process.
+# It pauses at every reviewer batch and resumes, so a rung routinely spans several invocations.
+
+RAMP_STATE_FILENAME = "canary_ramp_state.jsonl"
+RAMP_ABANDONMENT_CEILING = 0.15
+
+
+class RampAborted(CanaryLiveError):
+    """Raised when the ramp cannot continue and no lower rung exists to fall back to."""
+
+
+@dataclasses.dataclass(frozen=True)
+class RampStep:
+    """What the next invocation should run at."""
+
+    rung_index: int | None          # None once the ramp has settled
+    model_caps: dict
+    cell_limit: int | None          # None means the rest of the run
+    ledger_sequence: int            # where this rung's measurement window starts
+
+
+def _ramp_state_path(archive_dir) -> Path:
+    return Path(archive_dir) / RAMP_STATE_FILENAME
+
+
+def ramp_history(archive_dir) -> list[dict]:
+    path = _ramp_state_path(archive_dir)
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+
+
+def record_rung(archive_dir, *, rung_index: int, model_caps: dict, measured: dict,
+                promoted: bool, ledger_sequence: int) -> None:
+    """Append one rung's verdict. Append-only: a rung is never re-decided."""
+    path = _ramp_state_path(archive_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"rung_index": rung_index, "model_caps": model_caps, "measured": measured,
+           "promoted": promoted, "ledger_sequence": ledger_sequence}
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def measure_rung(usage_path, *, since_sequence: int, checker_model: str) -> dict:
+    """Abandonment rate for the checker model over one rung's ledger window.
+
+    Windowed by sequence so an earlier rung's failures are never charged to a later one; a bad
+    first rung would otherwise poison every measurement after it. Only the checker model's own
+    calls count, since it is the model whose width the ramp is choosing.
+    """
+    path = Path(usage_path)
+    if not path.exists():
+        return {"abandoned": 0, "total": 0, "rate": 0.0}
+    abandoned = total = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        if int(event.get("sequence", -1)) < since_sequence:
+            continue
+        if str(event.get("model")) != checker_model:
+            continue
+        if event.get("status") == "success":
+            total += 1
+        elif event.get("status") == "unknown_charge":
+            total += 1
+            abandoned += 1
+    return {"abandoned": abandoned, "total": total,
+            "rate": (abandoned / total) if total else 0.0}
+
+
+def rung_passes(measured: dict, *, terminal_halts: int = 0) -> bool:
+    """Promote on evidence of no degradation, not on absence of catastrophe.
+
+    The ceiling is the canary's measured 11.1% baseline plus headroom. A rung with no calls
+    measured yet cannot pass: absence of evidence is not evidence.
+    """
+    if terminal_halts:
+        return False
+    if not measured.get("total"):
+        return False
+    return float(measured["rate"]) <= RAMP_ABANDONMENT_CEILING
+
+
+def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir) -> RampStep:
+    """What the next invocation runs at, derived entirely from the archive.
+
+    Three outcomes: still climbing (run the next rung under its caps and cell limit), settled
+    (the ramp finished or pinned a lower rung, so run the rest unlimited), or aborted.
+    """
+    history = ramp_history(archive_dir)
+    steps = list(ramp["steps"])
+
+    for entry in history:
+        if entry["promoted"]:
+            continue
+        # A rung failed. Fall back to the last one that passed and stop climbing.
+        passed = [e for e in history if e["promoted"]]
+        if not passed:
+            raise RampAborted(
+                "the first rung failed at concurrency 1, the width the canary already "
+                f"measured at {11.1:.1f}% abandonment. There is no lower rung to fall back "
+                "to, so this is a degraded provider rather than a cap question, and the run "
+                "stops for a human instead of ramping down into a slow bad run. Measured: "
+                f"{entry['measured']}")
+        pinned = passed[-1]
+        return RampStep(rung_index=None, model_caps=dict(pinned["model_caps"]),
+                        cell_limit=None, ledger_sequence=entry["ledger_sequence"])
+
+    if len(history) >= len(steps):
+        last = history[-1] if history else None
+        return RampStep(rung_index=None, model_caps=dict(settled_caps), cell_limit=None,
+                        ledger_sequence=last["ledger_sequence"] if last else 0)
+
+    rung = steps[len(history)]
+    return RampStep(rung_index=len(history), model_caps=dict(rung["model_caps"]),
+                    cell_limit=int(rung["cells"]),
+                    ledger_sequence=history[-1]["ledger_sequence"] if history else 0)
+
+
+def _ledger_tail_sequence(usage_path) -> int:
+    """One past the newest ledger sequence, so the next rung's window starts after this one."""
+    path = Path(usage_path)
+    if not path.exists():
+        return 0
+    highest = -1
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            highest = max(highest, int(json.loads(line).get("sequence", -1)))
+    return highest + 1
