@@ -11,3 +11,6 @@ htmlcov/
 .superpowers/
 data/*.jsonl
 rejudge/output/
+
+# Isolated development worktrees (never committed)
+.worktrees/

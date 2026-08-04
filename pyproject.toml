@@ -21,3 +21,14 @@ dev = [
 ]
 
 # Run commands via: uv run python orchestrate.py <command>
+
+# phase2_canary_gate.py is code-provenance frozen (.gitattributes): its bytes are hash-bound
+# into the canary execution manifest, so ty's two complaints inside it cannot be fixed in
+# place without breaking the manifest binding. Both are false positives against runtime
+# invariants the checker cannot see (a halted QueryGateEvent always carries halt_reason, and
+# a non-halted one always carries final_decision). Scoped here, not silenced globally; when
+# the file is next unfrozen for a manifest rebuild, narrow the Optionals in place and drop
+# this override.
+[[tool.ty.overrides]]
+include = ["rejudge/phase2_canary_gate.py"]
+rules = { invalid-argument-type = "ignore", unresolved-attribute = "ignore" }
