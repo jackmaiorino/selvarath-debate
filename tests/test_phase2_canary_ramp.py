@@ -159,3 +159,43 @@ def test_an_open_rung_is_not_recorded_so_the_next_pass_continues_it(tmp_path):
     assert not (tmp_path / "canary_ramp_state.jsonl").exists()
     step = current_ramp_step(RAMP, SETTLED, tmp_path)
     assert step.rung_index == 0, "still on rung 0, still measuring"
+
+
+# --- owner override -------------------------------------------------------------------------
+
+def test_an_owner_override_pins_the_caps_and_continues(tmp_path):
+    """The abort rule stops the run and asks a human. An override is that human answering.
+
+    It pins the width rather than reinterpreting the evidence: the rung still stands as
+    FAILED on the record, and the run continues at a width already validated elsewhere.
+    """
+    record_rung(tmp_path, rung_index=0, model_caps={CHECKER: 1},
+                measured={"abandoned": 16, "total": 28, "rate": 0.571},
+                promoted=False, ledger_sequence=805)
+    with pytest.raises(RampAborted):
+        current_ramp_step(RAMP, SETTLED, tmp_path)
+
+    step = current_ramp_step(RAMP, SETTLED, tmp_path,
+                             override={"pinned_model_caps": {CHECKER: 1}})
+    assert step.rung_index is None, "an override ends the ramp; it does not resume climbing"
+    assert step.model_caps[CHECKER] == 1
+    assert step.cell_limit is None
+
+
+def test_an_override_cannot_be_used_to_climb_higher_than_it_pins(tmp_path):
+    """An override is permission to continue at a stated width, not a blank cheque. Letting it
+    name a width above the settled caps would turn 'proceed despite degradation' into
+    'proceed faster because of it'."""
+    record_rung(tmp_path, rung_index=0, model_caps={CHECKER: 1},
+                measured={"abandoned": 16, "total": 28, "rate": 0.571},
+                promoted=False, ledger_sequence=805)
+    with pytest.raises(ValueError):
+        current_ramp_step(RAMP, SETTLED, tmp_path,
+                          override={"pinned_model_caps": {CHECKER: 99}})
+
+
+def test_an_override_does_not_apply_to_a_ramp_that_never_failed(tmp_path):
+    """It must not silently short-circuit a healthy ramp into its pinned width."""
+    step = current_ramp_step(RAMP, SETTLED, tmp_path,
+                             override={"pinned_model_caps": {CHECKER: 1}})
+    assert step.rung_index == 0, "still measuring; nothing has failed yet"

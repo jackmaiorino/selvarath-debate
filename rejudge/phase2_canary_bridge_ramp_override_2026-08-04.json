@@ -1,0 +1,27 @@
+{
+ "approver": "Jack Maiorino",
+ "decision_id": "bridge_canary_ramp_override_2026-08-04",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "measured_evidence_that_triggered_it": {
+  "abandoned": 16,
+  "checker_model": "google/gemma-4-31B-it",
+  "concurrency": 1,
+  "july_baseline_at_same_concurrency": 0.111,
+  "other_models": "Llama-3.3-70B 0.6%, Qwen3.7-Plus 0.7%, Qwen2.5-7B 0.0%, gpt-oss-120b 4.3%",
+  "promotion_ceiling": 0.15,
+  "rate": 0.5714285714285714,
+  "rung": 0,
+  "total": 28
+ },
+ "note": "Append-only. Records an owner override; grants no new spend authority and changes no cap. The execution identity is unchanged.",
+ "pinned_model_caps": {
+  "google/gemma-4-31B-it": 1
+ },
+ "recorded_at_utc": "2026-08-04T18:20:00Z",
+ "schema_version": "phase2_canary_ramp_override_v1",
+ "science_impact_assessment": "Degradation is a schedule cost rather than a science one PROVIDED every planned cell eventually completes. Retries are byte-identical and seed-stable under the frozen transport_retry_policy, only transport failures are retried, no endpoint or model changes, and dispatch stays condition-balanced. The thing that would turn this into a science problem is differential incompletion, so the missing-data policy's 0.5pp differential gate between b0, sequential_b2 and batch_same_qa_b2 is now the binding check on this run and must be evaluated at close-out.",
+ "what_it_costs_us": "This run will NOT produce a settled concurrency cap for the main run, which was one of the bridge canary's two purposes. The main run will still need that measured, either from a later ramp when gemma is healthy or as its own decision.",
+ "what_this_overrides": "The concurrency ramp's own abort rule, which I wrote and bound into this manifest before the run. It states that failing the FIRST rung means a degraded provider rather than a cap question, and that the run stops for a human instead of ramping down. This record is that human deciding to continue. It is an override of an ex-ante rule, recorded as such rather than presented as the rule working.",
+ "why_continue_rather_than_pause": "The rule was calibrated on the SERIAL canary, where a degraded gemma stalled everything because it was the only call in flight. Under concurrency the other workers keep going while gemma retries, so the observed cost is much smaller than the rule assumed: 68 cells/hour (better than the July canary's best sustained 40/hour), with only 19% of wall clock lost to abandoned gemma calls. Neither spend control is threatened: projected settled ~$9.72 against a $40 stage cap, projected uncertain ~$1.50 against a $4.00 ceiling. The remaining 812 cells are about 12 hours.",
+ "why_pinned_at_one": "Concurrency 1 is the width the July canary already validated end to end. The override pins it rather than raising the promotion ceiling, because raising a threshold after seeing the data it was written to judge would be using post-hoc reasoning to license MORE risk. Pinning accepts the evidence and makes a different operational choice given it; the rung stays FAILED on the record and the ramp does not resume climbing."
+}

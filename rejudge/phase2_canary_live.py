@@ -1084,7 +1084,8 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
     usage_path = local_path(manifest["ledger"]["usage_log_path"])
     step = None
     if ramp and archive_dir is not None:
-        step = current_ramp_step(ramp, model_caps, archive_dir)
+        step = current_ramp_step(ramp, model_caps, archive_dir,
+                                 override=load_ramp_override(manifest))
         model_caps = step.model_caps
         if step.rung_index is not None and step.cell_limit is not None:
             # A rung caps how many cells this invocation attempts, so the measurement window
@@ -1317,7 +1318,8 @@ def record_rung_if_concluded(archive_dir, *, rung_index: int, model_caps: dict,
     return verdict
 
 
-def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir) -> RampStep:
+def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir,
+                      override: dict | None = None) -> RampStep:
     """What the next invocation runs at, derived entirely from the archive.
 
     Three outcomes: still climbing (run the next rung under its caps and cell limit), settled
@@ -1331,6 +1333,20 @@ def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir) -> RampStep:
             continue
         # A rung failed. Fall back to the last one that passed and stop climbing.
         passed = [e for e in history if e["promoted"]]
+        if not passed and override:
+            # The abort rule stops the run and asks a human; this is that human answering.
+            # It PINS a width rather than reinterpreting the evidence: the rung stays FAILED
+            # on the record, and the ramp does not resume climbing on a failed measurement.
+            pinned = dict(override["pinned_model_caps"])
+            for model, width in pinned.items():
+                ceiling = settled_caps.get(model)
+                if ceiling is not None and width > ceiling:
+                    raise ValueError(
+                        f"ramp override pins {model} at {width}, above the settled cap "
+                        f"{ceiling}. An override is permission to continue at a stated width, "
+                        "not licence to go wider because the provider is degraded.")
+            return RampStep(rung_index=None, model_caps=pinned, cell_limit=None,
+                            ledger_sequence=entry["ledger_sequence"])
         if not passed:
             raise RampAborted(
                 "the first rung failed at concurrency 1, the width the canary already "
@@ -1351,6 +1367,29 @@ def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir) -> RampStep:
     return RampStep(rung_index=len(history), model_caps=dict(rung["model_caps"]),
                     cell_limit=int(rung["cells"]),
                     ledger_sequence=history[-1]["ledger_sequence"] if history else 0)
+
+
+RAMP_OVERRIDE_RELATIVE_PATH = Path(
+    "rejudge/phase2_canary_bridge_ramp_override_2026-08-04.json")
+
+
+def load_ramp_override(manifest, project_root: str | Path = ".") -> dict | None:
+    """The owner's answer to a ramp abort, or None if they have not given one.
+
+    Read from an append-only record rather than a flag, and refused unless it names THIS
+    execution identity: an override is permission for one run in one measured situation, not a
+    setting that quietly outlives the evidence that justified it.
+    """
+    path = Path(project_root) / RAMP_OVERRIDE_RELATIVE_PATH
+    if not path.exists():
+        return None
+    record = _load_json(path)
+    if record.get("execution_identity_sha256") != manifest["execution_identity_sha256"]:
+        raise CanaryLiveError(
+            f"ramp override names identity {record.get('execution_identity_sha256')!r}, but "
+            f"this run is {manifest['execution_identity_sha256']!r}; refusing to inherit an "
+            "override granted for a different run")
+    return record
 
 
 def _ledger_tail_sequence(usage_path) -> int:
