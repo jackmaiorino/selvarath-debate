@@ -215,3 +215,120 @@ def test_a_filter_that_orphans_a_dependency_is_refused(tmp_path):
     from rejudge.phase2_canary_order import MissingDependency
     with pytest.raises(MissingDependency):
         _run(tmp_path, cell_filter=_no_query_cells, limit=10)
+
+
+# --- concurrency ------------------------------------------------------------------------
+#
+# The canary ran one cell at a time, which is a property of the loop rather than of the work:
+# 888 of its 940 cells landed inside 22 active hours at 40 cells/hour. The main run cannot
+# afford that, but going wide must not change what is measured.
+
+def _two_question_subset(cell):
+    """Transcripts plus the budget-0 judgments that depend only on them, for two questions.
+
+    Dependency-closed, so execution_order accepts it, and gate-free, so these tests exercise
+    scheduling, claiming and capping rather than the reviewer (which the dual-gate suite
+    covers directly). Two questions keeps it to a few dozen cells.
+    """
+    if cell.question_id not in ("CN-011", "SV-001"):
+        return False
+    return cell.is_transcript or cell.condition == "b0"
+
+
+def _run_concurrent(tmp_path, **kwargs):
+    return run_canary(
+        results_path=tmp_path / "results.jsonl",
+        decisions_path=tmp_path / "decisions.jsonl",
+        client=kwargs.pop("client", None) or DeterministicCanaryClient(),
+        reviewer=kwargs.pop("reviewer", None) or StubReviewer(),
+        anchor_judge_model=ANCHOR, **kwargs)
+
+
+def test_a_concurrent_run_records_every_cell_exactly_once(tmp_path):
+    outcome = _run_concurrent(tmp_path, max_workers=8, cell_filter=_two_question_subset)
+    rows = [json.loads(line) for line
+            in (tmp_path / "results.jsonl").read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    keys = [r["cell_key"] for r in rows]
+    assert outcome.halted_reason is None
+    assert len(keys) == len(set(keys)), "a cell recorded twice has been paid for twice"
+    assert outcome.completed == len(keys)
+
+
+def test_concurrent_and_serial_runs_agree_cell_for_cell(tmp_path):
+    """The load-bearing claim. Going wide is allowed to change the schedule and nothing else,
+    so the two runs must produce identical results for identical cells."""
+    serial_dir, wide_dir = tmp_path / "serial", tmp_path / "wide"
+    serial_dir.mkdir()
+    wide_dir.mkdir()
+    serial = _run_concurrent(serial_dir, max_workers=1, cell_filter=_two_question_subset)
+    wide = _run_concurrent(wide_dir, max_workers=8, cell_filter=_two_question_subset)
+
+    def scored(directory):
+        out = {}
+        for line in (directory / "results.jsonl").read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            result = row["result"]
+            out[row["cell_key"]] = (
+                result.get("verdict_correct_strict"),
+                result.get("position_a_is_correct"),
+                (result.get("verdict_strict") or {}).get("verdict"),
+                result.get("queries_used"))
+        return out
+
+    assert serial.completed == wide.completed
+    assert scored(serial_dir) == scored(wide_dir)
+
+
+def _peak_in_flight(tmp_path, *, model_caps, delay=0.02):
+    """Highest simultaneous call count per model over one run.
+
+    The delay matters: the fixture client returns instantly, so without it no two calls ever
+    overlap, every model peaks at 1, and a cap assertion passes while proving nothing.
+    """
+    import threading
+    import time
+
+    live: dict[str, int] = {}
+    peak: dict[str, int] = {}
+    lock = threading.Lock()
+    base = DeterministicCanaryClient()
+
+    class Watched:
+        def __init__(self):
+            self.calls = base.calls
+
+        def complete(self, messages, model, temperature, seed, max_tokens, **kwargs):
+            with lock:
+                live[model] = live.get(model, 0) + 1
+                peak[model] = max(peak.get(model, 0), live[model])
+            try:
+                time.sleep(delay)
+                return base.complete(messages, model, temperature, seed, max_tokens, **kwargs)
+            finally:
+                with lock:
+                    live[model] -= 1
+
+    _run_concurrent(tmp_path, max_workers=8, client=Watched(), model_caps=model_caps,
+                    cell_filter=_two_question_subset)
+    return peak
+
+
+GEMMA = "google/gemma-4-31B-it"
+
+
+def test_per_model_caps_bound_how_many_calls_are_in_flight(tmp_path):
+    """gemma is 95% of the canary's call time and serves both the frozen checker and a judge
+    role, and it abandoned 189 of 1702 calls at concurrency ONE. A global worker count would
+    put most of the fleet on the one model already failing, so the cap has to be per model."""
+    uncapped = _peak_in_flight(tmp_path / "uncapped", model_caps=None)
+    assert uncapped.get(GEMMA, 0) > 2, (
+        "the test is vacuous unless gemma would otherwise exceed the cap it is about to be "
+        f"given; peak was {uncapped.get(GEMMA)}")
+
+    capped = _peak_in_flight(tmp_path / "capped", model_caps={GEMMA: 2})
+    assert capped.get(GEMMA, 0) <= 2, f"gemma exceeded its cap: peak {capped.get(GEMMA)}"
+    assert max(v for m, v in capped.items() if m != GEMMA) > 2, (
+        "the cap must bind gemma alone, not throttle the whole run")

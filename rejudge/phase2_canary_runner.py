@@ -17,6 +17,8 @@ understood.
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -54,16 +56,81 @@ def _load(path: str | Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+class ModelCappedClient:
+    """Bounds how many calls may be in flight against each model at once.
+
+    A single global worker count is the wrong instrument here. Measured over the 2026-07-28
+    canary, gemma-4-31B was 95% of all call time (12.80 h of 13.69 h successful, and 9.06 h of
+    the 9.09 h burned on abandoned calls), because it serves both the frozen checker and one
+    judge role. It abandoned 189 of 1,702 calls at concurrency ONE. Eight workers would
+    therefore put roughly eight calls on the one model already failing, while the other three
+    sit idle. Caps belong per provider quota domain, chosen by measurement.
+    """
+
+    def __init__(self, inner: Any, caps: dict[str, int]) -> None:
+        self._inner = inner
+        self._semaphores = {model: threading.Semaphore(limit)
+                            for model, limit in caps.items() if limit > 0}
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def complete(self, messages, model, *args, **kwargs):
+        semaphore = self._semaphores.get(str(model))
+        if semaphore is None:
+            return self._inner.complete(messages, model, *args, **kwargs)
+        with semaphore:
+            return self._inner.complete(messages, model, *args, **kwargs)
+
+
+def _balanced_block(ready: list, size: int) -> list:
+    """Take the next block of cells, round-robin across conditions.
+
+    Batch cells depend on their sequential parents, so batch necessarily executes later. A
+    work-conserving queue would drain each condition in turn and hand every batch cell a
+    systematically later slice of the run than its sequential counterpart, which correlates
+    time with condition. Any time-varying provider degradation would then land preferentially
+    on one of the two co-primary components (P and R), turning an operational nuisance into a
+    confound. Round-robin keeps every block's condition mix similar, and recomputing readiness
+    each block keeps a batch cell within one block of its parent.
+
+    Deterministic: ``ready`` arrives in the frozen execution order and conditions are taken in
+    sorted order, so the same inputs always produce the same block.
+    """
+    by_condition: dict[str, list] = {}
+    for cell in ready:
+        by_condition.setdefault(str(cell.condition), []).append(cell)
+    block: list = []
+    while len(block) < size and any(by_condition.values()):
+        for condition in sorted(by_condition):
+            if len(block) >= size:
+                break
+            queue = by_condition[condition]
+            if queue:
+                block.append(queue.pop(0))
+    return block
+
+
 def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                reviewer, anchor_judge_model: str,
                protocol: dict | None = None, bundle: dict | None = None,
                pause_when_unlabeled: bool = False,
                limit: int | None = None,
-               cell_filter: Callable[[Any], bool] | None = None) -> RunOutcome:
+               cell_filter: Callable[[Any], bool] | None = None,
+               max_workers: int = 1,
+               block_size: int | None = None,
+               model_caps: dict[str, int] | None = None) -> RunOutcome:
     """Run one pass over the frozen canary plan, resuming from whatever is already recorded.
 
     Returns rather than raises on a halt: the caller needs the partial outcome, and everything
     completed before the halt is already durable.
+
+    ``max_workers`` above 1 runs cells concurrently in deterministic condition-balanced blocks
+    (see :func:`_balanced_block`). Going wide may change the schedule and nothing else: seeds
+    are derived per cell, results are recorded in block order rather than completion order, and
+    the shared stores enforce one ruling per payload and one record per cell. ``model_caps``
+    bounds in-flight calls per model, which is the control that actually matters given one
+    model carries almost all the load.
     """
     protocol = protocol if protocol is not None else _load(
         REPO_ROOT / "rejudge" / "phase2_protocol.json")
@@ -78,6 +145,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     ordered = execution_order(resolved)
 
     results = CellResultStore(results_path)
+    if model_caps:
+        client = ModelCappedClient(client, model_caps)
     context = CellContext(
         client=client, protocol=protocol, bundle=bundle,
         decision_store=DualGateDecisionStore(decisions_path), reviewer=reviewer,
@@ -86,6 +155,12 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
 
     outcome = RunOutcome()
     seen_payloads: set[str] = set()
+    if max_workers > 1:
+        return _run_concurrent(
+            ordered=ordered, results=results, context=context, outcome=outcome,
+            seen_payloads=seen_payloads, limit=limit, max_workers=max_workers,
+            block_size=block_size or max_workers * 2)
+
     attempted = 0
     for cell in ordered:
         if results.is_complete(cell.cell_key):
@@ -135,3 +210,82 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     return outcome
 
 
+
+def _attempt(cell, context) -> tuple[str, Any]:
+    """Run one cell and classify the outcome, never raising into the worker pool.
+
+    Same taxonomy as the serial loop: a pause is not a failure, a missing dependency is not a
+    halt, and anything unmodelled halts rather than being swallowed. Classifying here rather
+    than in the pool keeps the halt decision on the main thread, where it can stop dispatching.
+    """
+    try:
+        return "ok", execute_cell(cell, context)
+    except PendingReviewerDecision as pending:
+        return "paused", pending
+    except MissingTranscript:
+        return "deferred", None
+    except CanaryCellHalted as halt:
+        return "halt", halt.reason
+    except CapExceededError:
+        return "halt", "cap_exceeded"
+    except Exception as exc:  # noqa: BLE001 - halt on anything unmodelled, never swallow
+        return "halt", type(exc).__name__
+
+
+def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
+                    max_workers: int, block_size: int) -> RunOutcome:
+    """Blocked concurrent execution of one pass.
+
+    Two properties are load bearing and neither is about speed.
+
+    Readiness is recomputed before every block, so a cell enters the very next block after its
+    dependencies land. That is what bounds the parent-to-batch lag.
+
+    Results are applied in BLOCK order, not completion order, once the whole block has
+    finished. A cell's seed is derived from its own key, so completion order cannot change what
+    a cell produces, but it would otherwise decide the order rows land in the hash-chained
+    store, and any analysis that reads row position would then see a scheduler artifact.
+    """
+    attempted: set[str] = set()
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        while True:
+            ready = [cell for cell in ordered
+                     if cell.cell_key not in attempted
+                     and not results.is_complete(cell.cell_key)
+                     and all(key in context.results for key in cell.dependency_keys)]
+            if limit is not None:
+                ready = ready[:max(0, limit - len(attempted))]
+            if not ready:
+                break
+            block = _balanced_block(ready, block_size)
+            attempted.update(cell.cell_key for cell in block)
+
+            futures = [pool.submit(_attempt, cell, context) for cell in block]
+            settled = [future.result() for future in futures]
+
+            halted = False
+            for cell, (kind, payload) in zip(block, settled):
+                if kind == "ok":
+                    results.record(cell.cell_key, payload)
+                    context.results[cell.cell_key] = payload
+                    outcome.completed += 1
+                elif kind == "paused":
+                    outcome.paused += 1
+                    outcome.paused_cell_keys.append(cell.cell_key)
+                    if payload.payload_sha256 not in seen_payloads:
+                        seen_payloads.add(payload.payload_sha256)
+                        outcome.pending_payloads.append(dict(payload.payload))
+                elif kind == "deferred":
+                    outcome.deferred += 1
+                elif not halted:
+                    # First halt in block order wins, so the reported cause is deterministic
+                    # rather than whichever worker happened to finish first.
+                    halted = True
+                    outcome.halted_reason = payload
+                    outcome.halted_cell_key = cell.cell_key
+            if halted:
+                break
+
+    outcome.skipped = sum(1 for cell in ordered if cell.cell_key not in attempted
+                          and results.is_complete(cell.cell_key))
+    return outcome
