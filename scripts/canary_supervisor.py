@@ -8,9 +8,12 @@ matches the known-benign transient signature, and stops for manual review otherw
 
 The benign signature (all conditions required):
 - the run exited with halted_reason UnknownChargeHalt and named a halted cell;
-- the newest usage-ledger event is an unknown_charge whose error matches the enumerated
-  transient set (provider 5xx, 429 rate limit, SDK timeout, truncated stream, or a
-  connection reset/abort);
+- the recent usage-ledger window contains at least one abandoned call, and EVERY abandoned
+  call in it matches the enumerated transient set (provider 5xx, 429 rate limit, SDK
+  timeout, truncated stream, or a connection reset/abort). A window rather than the newest
+  event since 2026-08-04: under concurrency the calls in flight alongside the one that
+  halted finish and append after it, so the newest event is routinely another worker's
+  success;
 - the newest error-log entry matches that same set and was recorded after this attempt
   started;
 - the halted cell has no row in the results file (nothing was half-recorded).
@@ -53,6 +56,10 @@ SAME_CELL_MAX = 8
 # backstop, this IS one of the constraints that bounds real risk, so the amendment records it
 # as a deliberate relaxation rather than as housekeeping.
 UNCERTAIN_CEILING_USD = 4.00
+# How far back the halt signature looks. Sized to comfortably span the calls that can be
+# in flight alongside the one that halted (max_workers is 8), without reaching so far back
+# that it inherits a previous attempt's failures.
+_HALT_WINDOW_EVENTS = 40
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
@@ -92,12 +99,24 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     cell = outcome.get("halted_cell_key")
     if not cell:
         return "halt names no cell"
-    events = _tail_json_lines(usage_path, 1)
-    if not events or events[0].get("status") != "unknown_charge":
-        return "newest ledger event is not an unknown_charge"
-    if not _BENIGN_TRANSIENT.search(str(events[0].get("error", ""))):
-        return ("newest unknown_charge error is not in the enumerated transient set "
-                f"(got: {str(events[0].get('error', ''))[:120]!r})")
+    # Scanned over a window rather than read off the newest event. That shortcut was sound
+    # while the canary ran one cell at a time, because the call that halted the run was
+    # necessarily the last thing written. Under concurrency the calls already in flight when
+    # one halted go on to finish and append after it, so the newest event is routinely another
+    # worker's success and reading it as the halt's own outcome stops a healthy run for manual
+    # review. The window still has to CONTAIN a benign abandonment, and any abandonment in it
+    # whose shape is unenumerated still stops: this loosens which event is inspected, never
+    # whether one is required.
+    events = _tail_json_lines(usage_path, _HALT_WINDOW_EVENTS)
+    abandoned = [event for event in events if event.get("status") == "unknown_charge"]
+    if not abandoned:
+        return (f"no abandoned call among the last {_HALT_WINDOW_EVENTS} ledger events; the "
+                "halt is unexplained")
+    unenumerated = [event for event in abandoned
+                    if not _BENIGN_TRANSIENT.search(str(event.get("error", "")))]
+    if unenumerated:
+        return ("an abandoned call in the halt window is not in the enumerated transient set "
+                f"(got: {str(unenumerated[-1].get('error', ''))[:120]!r})")
     errors = _tail_json_lines(error_log_path, 1)
     if not errors or not _BENIGN_TRANSIENT.search(str(errors[0].get("error", ""))):
         return ("newest error-log entry is not in the enumerated transient set "

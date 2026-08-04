@@ -53,10 +53,13 @@ def test_a_checker_outage_over_a_transient_is_benign(tmp_path):
     assert _check(tmp_path, outcome=_outcome(halted_reason="checker_outage")) is None
 
 
-def test_a_ledger_tail_that_is_not_unknown_charge_stops(tmp_path):
+def test_a_ledger_window_with_no_abandoned_call_stops(tmp_path):
+    """A halt claiming an ambiguous billing outcome, with nothing abandoned anywhere in the
+    window, is unexplained. Was phrased against the newest event alone until concurrency made
+    the newest event routinely somebody else's success; the requirement is unchanged."""
     reason = _check(tmp_path, usage_rows=[
         {"status": "success", "attempt_id": "a1", "cost_usd": 0.01}])
-    assert "not an unknown_charge" in reason
+    assert "no abandoned call" in reason
 
 
 def test_a_rate_limit_is_benign(tmp_path):
@@ -198,3 +201,66 @@ def test_the_repeat_key_falls_back_to_the_cell_without_metadata(tmp_path):
         {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
          "error": "Error code: 500 - internal"}])
     assert repeat_key("plan:kind:abc", usage) == "plan:kind:abc"
+
+
+def test_a_straggler_success_after_the_halt_is_not_a_manual_review(tmp_path):
+    """Concurrency broke an assumption the serial canary made for free.
+
+    The signature check read the NEWEST ledger event, because with one call in flight the
+    halting call was necessarily the last one written. With eight workers, the calls that were
+    already in flight when one halted go on to finish and append after it, so the newest event
+    is routinely somebody else's success. Reading it as the halt's own outcome stops the run
+    for manual review on a completely healthy transient.
+    """
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(
+        json.dumps({"status": "unknown_charge", "error": "Error code: 503 - upstream",
+                    "metadata": {"call_role": "query_checker"}, "cost_usd": 0.001}) + "\n"
+        + json.dumps({"status": "success", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                      "cost_usd": 0.002}) + "\n", encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text(json.dumps(
+        {"ts": "2026-08-04T17:00:00", "error": "Error code: 503 - upstream"}) + "\n",
+        encoding="utf-8")
+
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "UnknownChargeHalt", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=time.time())
+    assert reason is None, f"should have resumed, refused with: {reason}"
+
+
+def test_a_halt_with_no_benign_abandonment_at_all_still_stops(tmp_path):
+    """Loosening 'newest event' to 'any recent event' must not loosen it to 'never check'."""
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(
+        json.dumps({"status": "success", "model": "m", "cost_usd": 0.002}) + "\n",
+        encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text(json.dumps(
+        {"ts": "2026-08-04T17:00:00", "error": "Error code: 503"}) + "\n", encoding="utf-8")
+
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "UnknownChargeHalt", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=time.time())
+    assert reason is not None, "no abandoned call at all means the halt is unexplained"
+
+
+def test_a_novel_error_shape_among_recent_events_still_stops(tmp_path):
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(
+        json.dumps({"status": "unknown_charge", "error": "SomethingCompletelyNew",
+                    "cost_usd": 0.001}) + "\n"
+        + json.dumps({"status": "success", "model": "m", "cost_usd": 0.002}) + "\n",
+        encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text(json.dumps(
+        {"ts": "2026-08-04T17:00:00", "error": "SomethingCompletelyNew"}) + "\n",
+        encoding="utf-8")
+
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "UnknownChargeHalt", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=time.time())
+    assert reason is not None, "an unenumerated failure must always stop for a human"
