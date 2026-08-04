@@ -126,3 +126,90 @@ def test_store_is_metadata_free(tmp_path):
     row = json.loads(text.splitlines()[0])
     assert set(row) == {"payload_sha256", "label", "clause", "rationale", "raw_output",
                         "status", "sequence", "prev_event_hash", "event_hash"}
+
+
+# --- concurrency ------------------------------------------------------------------------
+#
+# The canary ran strictly serially, so these paths were unreachable. The main run runs
+# concurrently, and a payload hash is shared across cells by design: inheritance is the
+# whole point of keying decisions by payload. So two workers proposing identical query text
+# is the common case, not the corner case.
+
+def test_two_workers_on_one_payload_ask_the_reviewer_exactly_once(tmp_path):
+    """Without singleflight both workers miss the store, both call the reviewer, and the
+    second commit raises because the store admits one ruling per payload."""
+    import threading
+
+    calls = []
+    started = threading.Barrier(8)
+    gate_lock = threading.Lock()
+
+    def reviewer(q, a, b):
+        with gate_lock:
+            calls.append(q)
+        return GOOD
+
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    gate = DualGate(store, reviewer)
+    results, errors = [], []
+
+    def worker():
+        started.wait(timeout=10)
+        try:
+            results.append(gate.review("The threshold is 24 votes.", "A text", "B text"))
+        except Exception as exc:  # noqa: BLE001 - the test is what exceptions escape
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, f"no worker should fail: {errors}"
+    assert len(calls) == 1, "the reviewer must be asked exactly once per payload"
+    assert len({d.event_hash for d in results}) == 1, "all workers inherit one ruling"
+    assert len(results) == 8
+
+
+def test_concurrent_commits_leave_a_contiguous_verifiable_chain(tmp_path):
+    """Each commit reads the tail hash and appends; interleaving two of those corrupts the
+    chain, and the store refuses to reload."""
+    import threading
+
+    path = tmp_path / "decisions.jsonl"
+    store = DualGateDecisionStore(path)
+    gate = DualGate(store, lambda q, a, b: GOOD)
+    started = threading.Barrier(12)
+    errors = []
+
+    def worker(index):
+        started.wait(timeout=10)
+        try:
+            gate.review(f"Fact number {index} is stated.", "A text", "B text")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, f"no worker should fail: {errors}"
+    reloaded = DualGateDecisionStore(path)  # re-verifies sequence, chain and row hashes
+    assert len(reloaded._by_payload) == 12
+
+
+def test_an_abandoned_reservation_does_not_strand_the_payload(tmp_path):
+    """If the worker holding a reservation dies without committing, the payload must not be
+    permanently unreviewable: fail closed on the run, never silently skip the gate."""
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    sha = payload_hash("A claim.", "A text", "B text")
+
+    decision, owned = store.get_or_reserve(sha)
+    assert decision is None and owned is True
+    store.release(sha)
+
+    decision, owned = store.get_or_reserve(sha)
+    assert decision is None and owned is True, "the released payload is claimable again"

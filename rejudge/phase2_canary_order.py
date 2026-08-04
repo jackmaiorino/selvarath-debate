@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -90,6 +91,12 @@ class CellResultStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._results: dict[str, Any] = {}
+        # This store is both the durability record and the completion CLAIM, so the lock
+        # carries two jobs. It keeps the hash chain intact against interleaved appends, and
+        # it makes "has this cell already been recorded?" atomic with recording it, which is
+        # what stops two workers executing and billing the same cell. Excluding a second
+        # process remains the archive lease's job.
+        self._lock = threading.Lock()
         self._last_hash = "genesis"
         self._sequence = -1
         if self.path.exists():
@@ -128,17 +135,18 @@ class CellResultStore:
 
     def record(self, cell_key: str, result: Any) -> None:
         """Durably record one completed cell. Refuses to overwrite: re-running re-spends."""
-        if cell_key in self._results:
-            raise ValueError(f"cell already recorded: {cell_key}")
-        row = {
-            "cell_key": cell_key, "result": result, "sequence": self._sequence + 1,
-            "prev_event_hash": self._last_hash,
-        }
-        row["event_hash"] = self._row_hash(row)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        self._sequence = row["sequence"]
-        self._last_hash = row["event_hash"]
-        self._results[cell_key] = result
+        with self._lock:
+            if cell_key in self._results:
+                raise ValueError(f"cell already recorded: {cell_key}")
+            row = {
+                "cell_key": cell_key, "result": result, "sequence": self._sequence + 1,
+                "prev_event_hash": self._last_hash,
+            }
+            row["event_hash"] = self._row_hash(row)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            self._sequence = row["sequence"]
+            self._last_hash = row["event_hash"]
+            self._results[cell_key] = result

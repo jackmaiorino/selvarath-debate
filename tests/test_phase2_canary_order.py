@@ -155,3 +155,42 @@ def test_pending_cells_are_the_ones_not_yet_recorded(tmp_path):
     assert ordered[0].cell_key not in {c.cell_key for c in remaining}
     # Order is preserved, so a resumed run continues where it left off.
     assert [c.cell_key for c in remaining] == [c.cell_key for c in ordered[1:]]
+
+
+def test_concurrent_records_leave_a_verifiable_chain_and_claim_each_cell_once(tmp_path):
+    """The result store is both the durability record and the completion claim.
+
+    Chain integrity: every record reads the tail hash and appends against it, so two
+    interleaved writes produce a file that will not reload. Claim integrity: a cell must be
+    executable by exactly one worker, and the store refusing a second record is what makes
+    the claim atomic rather than advisory.
+    """
+    import threading
+
+    path = tmp_path / "results.jsonl"
+    store = CellResultStore(path)
+    started = threading.Barrier(12)
+    errors, duplicate_claims = [], []
+
+    def worker(index):
+        started.wait(timeout=10)
+        try:
+            store.record(f"cell-{index}", {"index": index})
+        except Exception as exc:  # noqa: BLE001 - the test is what escapes
+            errors.append(exc)
+        # Every worker also races for one shared cell; exactly one may win.
+        try:
+            store.record("contended-cell", {"winner": index})
+        except ValueError:
+            duplicate_claims.append(index)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, f"distinct cells should all record: {errors}"
+    assert len(duplicate_claims) == 11, "exactly one worker may claim the contended cell"
+    reloaded = CellResultStore(path)  # re-verifies sequence, chain and row hashes
+    assert len(reloaded._results) == 13

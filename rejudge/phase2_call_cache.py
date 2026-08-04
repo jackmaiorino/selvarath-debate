@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -72,6 +73,11 @@ class CallCache:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.execution_identity = execution_identity
         self._entries: dict[tuple, dict] = {}
+        # Guards the chain tail and the entry table. Every put reads the tail hash, builds a
+        # row committing to it, and appends; two of those interleaved produce a file that no
+        # longer verifies, which makes every response already in it unreplayable. Excluding a
+        # second PROCESS is the archive lease's job, not this lock's.
+        self._lock = threading.Lock()
         # Seeding the chain with the identity is what makes a foreign cache unopenable: its
         # first row commits to a different predecessor and cannot be re-derived.
         self._seed = f"identity:{execution_identity}" if execution_identity else "genesis"
@@ -99,7 +105,10 @@ class CallCache:
                 continue
             row = json.loads(line)
             if row["prev_event_hash"] != self._last_hash:
-                if row["sequence"] == 0:
+                # Only the genuine first row can be an identity mismatch. A later row that
+                # claims sequence 0 is a corrupt or interleaved chain, and reporting that as
+                # "belongs to another run" sends the reader somewhere useless.
+                if row["sequence"] == 0 and self._sequence == -1:
                     raise CacheIdentityMismatch(
                         f"call cache {self.path} does not belong to this run: its first row "
                         f"chains from {row['prev_event_hash']!r}, but this run expects "
@@ -129,10 +138,11 @@ class CallCache:
         Raises :class:`CallReplayMismatch` when the call was made before under a different
         request: replaying that response would silently corrupt the run.
         """
-        row = self._entries.get(self._identity(key))
-        if row is None:
-            self.missed += 1
-            return None
+        with self._lock:
+            row = self._entries.get(self._identity(key))
+            if row is None:
+                self.missed += 1
+                return None
         if row["request_sha256"] != fingerprint:
             raise CallReplayMismatch(
                 f"cached call {key.call_role} slot {key.slot} attempt {key.attempt} in cell "
@@ -145,17 +155,18 @@ class CallCache:
     def put(self, key: CallKey, fingerprint: str, response: str) -> None:
         """Memoise one response. Refuses to overwrite: the log is append-only."""
         identity = self._identity(key)
-        if identity in self._entries:
-            raise ValueError(f"call already cached: {asdict(key)}")
-        row = {
-            **asdict(key), "request_sha256": fingerprint, "response": response,
-            "sequence": self._sequence + 1, "prev_event_hash": self._last_hash,
-        }
-        row["event_hash"] = self._row_hash(row)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        self._sequence = row["sequence"]
-        self._last_hash = row["event_hash"]
-        self._entries[identity] = row
+        with self._lock:
+            if identity in self._entries:
+                raise ValueError(f"call already cached: {asdict(key)}")
+            row = {
+                **asdict(key), "request_sha256": fingerprint, "response": response,
+                "sequence": self._sequence + 1, "prev_event_hash": self._last_hash,
+            }
+            row["event_hash"] = self._row_hash(row)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            self._sequence = row["sequence"]
+            self._last_hash = row["event_hash"]
+            self._entries[identity] = row

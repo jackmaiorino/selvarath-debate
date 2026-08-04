@@ -24,9 +24,20 @@ import hashlib
 import json
 import os
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+# How long a worker waits to inherit a decision another worker is currently obtaining. It
+# bounds a wait, it does not bound the review itself: exceeding it means the owner has
+# neither committed nor released, which is a stuck run rather than a slow reviewer, and the
+# waiter raises instead of proceeding ungated.
+INHERIT_WAIT_SECONDS = 900.0
+
+
+class ReservationAbandoned(RuntimeError):
+    """Raised when the worker that reserved a payload neither committed nor released it."""
 
 REVIEWER_LABELS = ("ALLOW", "REJECT", "CONTRACT_AMBIGUOUS")
 CLAUSES = ("Allowed", "P1", "P2", "P3", "P4")
@@ -134,6 +145,12 @@ class DualGateDecisionStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._by_payload: dict[str, ReviewerDecision] = {}
+        # Guards the chain tail and the reservation table together: a commit that read the
+        # tail hash outside this lock could be appended after another commit had already
+        # moved it, producing a file that no longer verifies. Process-level exclusion is a
+        # separate concern and remains the archive lease's job.
+        self._lock = threading.Lock()
+        self._inflight: dict[str, threading.Event] = {}
         self._last_hash = "genesis"
         self._sequence = -1
         if self.path.exists():
@@ -182,32 +199,86 @@ class DualGateDecisionStore:
         return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
     def get(self, payload_sha: str) -> ReviewerDecision | None:
-        return self._by_payload.get(payload_sha)
+        with self._lock:
+            return self._by_payload.get(payload_sha)
+
+    def get_or_reserve(self, payload_sha: str) -> tuple[ReviewerDecision | None, bool]:
+        """Claim the right to review a payload, or learn that someone else has it.
+
+        Returns ``(decision, owned)``. A non-null decision is already committed and should be
+        inherited. ``owned`` true means this caller must go on to commit or release. Both
+        null and not owned means another worker is mid-review: wait on
+        :meth:`await_decision`.
+
+        This exists because keying decisions by payload hash makes concurrent duplicates the
+        normal case rather than a corner case. Two workers that both miss the store would both
+        ask the reviewer, and the store admits exactly one ruling per payload, so the loser's
+        commit would raise and its cell would die on a question that was answered correctly.
+        """
+        with self._lock:
+            existing = self._by_payload.get(payload_sha)
+            if existing is not None:
+                return existing, False
+            if payload_sha in self._inflight:
+                return None, False
+            self._inflight[payload_sha] = threading.Event()
+            return None, True
+
+    def await_decision(self, payload_sha: str,
+                       timeout: float = INHERIT_WAIT_SECONDS) -> ReviewerDecision | None:
+        """Block until the owning worker commits or releases this payload.
+
+        Returns the committed decision, or None if the owner released without committing (the
+        caller should then try to claim it itself). Raises rather than returning ungated when
+        the owner does neither: a silent fall-through here would dispatch a query no reviewer
+        ever ruled on, which is the exact failure the dual gate exists to prevent.
+        """
+        with self._lock:
+            event = self._inflight.get(payload_sha)
+            if event is None:
+                return self._by_payload.get(payload_sha)
+        if not event.wait(timeout):
+            raise ReservationAbandoned(
+                f"no reviewer decision for payload {payload_sha} after {timeout:.0f}s; the "
+                "worker holding its reservation neither committed nor released it")
+        with self._lock:
+            return self._by_payload.get(payload_sha)
+
+    def release(self, payload_sha: str) -> None:
+        """Give up a reservation without committing, waking anyone waiting on it."""
+        with self._lock:
+            event = self._inflight.pop(payload_sha, None)
+        if event is not None:
+            event.set()
 
     def commit(self, payload_sha: str, label: str | None, clause: str | None,
                rationale: str | None, raw_output: str, status: str) -> ReviewerDecision:
-        if payload_sha in self._by_payload:
-            raise ValueError(f"decision already committed for {payload_sha}")
         _validate_decision_fields(
             payload_sha=payload_sha, label=label, clause=clause, rationale=rationale,
             raw_output=raw_output, status=status)
-        row = {
-            "payload_sha256": payload_sha, "label": label, "clause": clause,
-            "rationale": rationale, "raw_output": raw_output, "status": status,
-            "sequence": self._sequence + 1, "prev_event_hash": self._last_hash,
-        }
-        row["event_hash"] = self._row_hash(row)
-        with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-            fh.flush()
-            os.fsync(fh.fileno())
-        self._sequence = row["sequence"]
-        self._last_hash = row["event_hash"]
-        decision = ReviewerDecision(
-            payload_sha256=payload_sha, label=label, clause=clause,
-            rationale=rationale, raw_output=raw_output, status=status,
-            sequence=row["sequence"], event_hash=row["event_hash"])
-        self._by_payload[payload_sha] = decision
+        with self._lock:
+            if payload_sha in self._by_payload:
+                raise ValueError(f"decision already committed for {payload_sha}")
+            row = {
+                "payload_sha256": payload_sha, "label": label, "clause": clause,
+                "rationale": rationale, "raw_output": raw_output, "status": status,
+                "sequence": self._sequence + 1, "prev_event_hash": self._last_hash,
+            }
+            row["event_hash"] = self._row_hash(row)
+            with self.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+            self._sequence = row["sequence"]
+            self._last_hash = row["event_hash"]
+            decision = ReviewerDecision(
+                payload_sha256=payload_sha, label=label, clause=clause,
+                rationale=rationale, raw_output=raw_output, status=status,
+                sequence=row["sequence"], event_hash=row["event_hash"])
+            self._by_payload[payload_sha] = decision
+            event = self._inflight.pop(payload_sha, None)
+        if event is not None:
+            event.set()
         return decision
 
 
@@ -228,18 +299,41 @@ class DualGate:
 
     def review(self, raw_query: str, candidate_a: str, candidate_b: str) -> ReviewerDecision:
         sha = payload_hash(raw_query, candidate_a, candidate_b)
-        existing = self.store.get(sha)
-        if existing is not None:
-            return existing
+        while True:
+            existing, owned = self.store.get_or_reserve(sha)
+            if existing is not None:
+                return existing
+            if owned:
+                break
+            # Another worker is asking the reviewer about this exact payload. Wait for its
+            # answer rather than asking a second time: the store admits one ruling per
+            # payload precisely so a query gets no second chance to flip.
+            inherited = self.store.await_decision(sha)
+            if inherited is not None:
+                return inherited
+            # The owner released without committing, so the payload is claimable again.
+
+        committed = False
         try:
-            raw = self.reviewer_call(raw_query, candidate_a, candidate_b)
-        except Exception as exc:  # noqa: BLE001 - fail closed, never crash dispatch
-            return self.store.commit(sha, None, None, None,
-                                     f"<reviewer_error: {type(exc).__name__}: {exc}>",
-                                     "reviewer_error")
-        label, clause, rationale = parse_reviewer_output(raw)
-        status = "parsed" if label is not None else "malformed"
-        return self.store.commit(sha, label, clause, rationale, raw or "", status)
+            try:
+                raw = self.reviewer_call(raw_query, candidate_a, candidate_b)
+            except Exception as exc:  # noqa: BLE001 - fail closed, never crash dispatch
+                decision = self.store.commit(
+                    sha, None, None, None,
+                    f"<reviewer_error: {type(exc).__name__}: {exc}>", "reviewer_error")
+                committed = True
+                return decision
+            label, clause, rationale = parse_reviewer_output(raw)
+            status = "parsed" if label is not None else "malformed"
+            decision = self.store.commit(sha, label, clause, rationale, raw or "", status)
+            committed = True
+            return decision
+        finally:
+            # Anything that escapes without a commit (a cancelled worker, a validation error
+            # inside commit) must hand the payload back rather than strand every other cell
+            # that proposes the same query text.
+            if not committed:
+                self.store.release(sha)
 
     def decide(self, *, checker_decision: str, raw_query: str,
                candidate_a: str, candidate_b: str) -> GateOutcome:

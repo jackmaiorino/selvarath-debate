@@ -183,3 +183,38 @@ def test_the_cache_reports_what_it_replayed(tmp_path):
     cache.get(_key(slot=2), _fp("b"))
     assert cache.replayed == 2
     assert cache.missed == 1
+
+
+def test_concurrent_puts_from_different_cells_leave_a_verifiable_chain(tmp_path):
+    """Each put reads the tail hash, builds a row against it and appends. Interleaving two
+    of those writes a file whose chain no longer verifies, and every cached response in it
+    becomes unreplayable. Keys carry the cell, so concurrent cells never collide on a key:
+    the only thing at risk here is the chain itself.
+    """
+    import threading
+
+    path = tmp_path / "cache.jsonl"
+    cache = CallCache(path)
+    started = threading.Barrier(12)
+    errors = []
+
+    def worker(index):
+        key = CallKey(cell_key=f"cell-{index}", call_role="judge_verdict", slot=0, attempt=0)
+        fingerprint = request_fingerprint(
+            messages=[{"role": "user", "content": f"q{index}"}], model="m",
+            temperature=0.0, seed=index, max_tokens=8)
+        started.wait(timeout=10)
+        try:
+            cache.put(key, fingerprint, f"response {index}")
+        except Exception as exc:  # noqa: BLE001 - the test is what escapes
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, f"no worker should fail: {errors}"
+    reloaded = CallCache(path)  # re-verifies sequence, chain and row hashes on load
+    assert len(reloaded._entries) == 12
