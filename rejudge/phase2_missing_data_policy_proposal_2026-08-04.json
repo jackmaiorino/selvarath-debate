@@ -1,0 +1,67 @@
+{
+ "schema_version": "phase2_missing_data_policy_v1",
+ "decision_id": "missing_data_policy_2026-08-04",
+ "status": "PROPOSAL, awaiting owner approval",
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-04T00:00:00Z",
+ "note": "Append-only. Grants no authority and authorizes no stage. Must be approved and hash-bound into the bridge-canary and main-run manifests BEFORE either runs: a disposition chosen after the outcomes are visible is not a policy.",
+
+ "why_this_exists": "The frozen protocol already settles what happens to a cell that produces a bad verdict, and the canary confirmed those paths work. What it does not settle is a cell that produces NO row at all. The 2026-07-28 canary had five such cells (four terminal checker halts and one dependent), against a completion_policy of '100% exact provider-cell completion'. Deciding their disposition after the fact would make exclusions depend on which cells happened to fail, and cells fail non-uniformly across conditions and models, so post-hoc dropping is a condition-dependent filter wearing the costume of housekeeping.",
+
+ "already_frozen_bind_do_not_restate": {
+  "invalid_verdict": {
+   "rule": "strict INVALID counts wrong; valid-only sensitivity",
+   "source": "decisions.primary_tests.invalid_policy",
+   "canary_evidence": "10 of 792 comparable rows (1.3%) failed the strict parser; 9 were b0 cells where the judge emitted an oracle query or an empty string instead of a verdict, from gpt-oss-120b or gemma."
+  },
+  "never_regenerate_a_bad_verdict": {
+   "rule": "query-screen retry only; never regenerate an invalid verdict",
+   "source": "decisions.execution_semantics.semantic_retry_policy",
+   "consequence": "an unparseable verdict is a permanent property of the cell, not a transient to be retried away. This is what stops retries selecting for parseable answers."
+  },
+  "transport_retry": {
+   "rule": "repeat identical request and seed; conservatively charge until provider reconciliation",
+   "source": "decisions.execution_semantics.transport_retry_policy",
+   "consequence": "transport failures are retried byte-identically and cannot change what is sampled; semantic outputs are never retried. The two must not be conflated."
+  },
+  "matched_side_assignment": {
+   "rule": "K2 mirrored; labels fixed across matched conditions",
+   "source": "decisions.execution_semantics.side_assignment_policy",
+   "consequence": "a batch replay must present the same answer at Position A as the sequential cell it replays. The executor now refuses a mismatch rather than producing an incomparable pair."
+  },
+  "blocked_and_exhausted_queries_are_not_missing_data": {
+   "rule": "a rejected query and an exhausted budget are the gate working as frozen, not failures",
+   "canary_evidence": "of 813 gate events, 134 blocked and 319 exhausted; 57 were rejected mechanically before reaching the checker, which the contract prescribes for patterns P1 and P2."
+  }
+ },
+
+ "the_gap_this_closes": {
+  "case": "a planned cell that produces no result row after the frozen allowances are exhausted",
+  "observed_causes": [
+   "checker_malformed: the frozen checker returns a response the frozen parser cannot read. The per-call cache memoises it, so every resume replays the same unparseable response and the cell can never complete. Four occurrences in roughly 1,500 canary checker calls (0.27%).",
+   "dependency_terminally_halted: a cell whose parent terminally halted. One occurrence.",
+   "reviewer unreachable at the frozen failure rule, which commits non-ALLOW rather than leaving a cell incomplete, so this does NOT produce a missing row and is listed only to be excluded from this category."
+  ]
+ },
+
+ "proposed_rule": {
+  "1_no_silent_exclusion": "Every planned cell appears in the reported distributions. A cell with no result row is reported under its terminal outcome (checker_malformed, dependency_terminally_halted), never omitted from denominators.",
+  "2_incomplete_counts_as_invalid": "For the primary estimands, a cell that cannot produce a verdict after the frozen allowances counts INVALID, and INVALID counts wrong. This is the same direction as the already-frozen invalid_policy, applies identically in every condition, and is conservative: it can only attenuate an effect, never manufacture one.",
+  "3_the_sensitivity_is_pre-declared": "The valid-only sensitivity already required by invalid_policy is computed on the same support, dropping incomplete cells from every arm at once rather than per-arm.",
+  "4_identity_preserved_on_common_support": "H, P and R are computed on identical weighting and identical cell support inside every bootstrap replicate, so H = P + R holds exactly. A batch parent that fails must remove its whole matched set from all three estimands, never give P a different population from R.",
+  "5_differential_incompletion_is_a_reported_gate": "Incompletion is tabulated per condition, per judge and per world, and reported whether or not it crosses any threshold."
+ },
+
+ "proposed_ex_ante_gates": {
+  "note": "THESE NUMBERS ARE THE PROPOSAL AND NEED OWNER SIGN-OFF. They are calibrated on the canary's observed 0.27% terminal-halt rate and are otherwise a judgement call, which is exactly why they must be fixed before the run rather than after.",
+  "overall_incompletion_ceiling": "1.0% of planned cells. Above this the run is reported as incomplete and the primary is not treated as answering the pre-registered question.",
+  "differential_incompletion_ceiling": "0.5 percentage points between the highest and lowest of the three primary conditions (b0, sequential_b2, batch_same_qa_b2). Above this the primary is flagged compromised and the valid-only sensitivity becomes the headline, because differential missingness across exactly the conditions being differenced is the failure mode that would masquerade as an effect.",
+  "batch_parent_loss_ceiling": "1.0% of batch_same_qa_b2 cells losing their sequential parent. This is called out separately because it is the one loss that attacks P and R together while leaving H untouched."
+ },
+
+ "what_this_does_not_decide": [
+  "the retry allowances themselves, which are frozen in decisions.execution_semantics and unchanged here",
+  "whether the main run proceeds at all",
+  "anything about the 2026-07-28 canary's own five excluded cells, whose disposition is recorded in its close-out"
+ ]
+}
