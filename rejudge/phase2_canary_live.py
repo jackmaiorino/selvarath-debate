@@ -1132,14 +1132,13 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
     if step is not None and step.rung_index is not None:
         measured = measure_rung(usage_path, since_sequence=step.ledger_sequence,
                                 checker_model=checker_model)
-        halts = 1 if outcome.halted_reason is not None else 0
-        promoted = rung_passes(measured, terminal_halts=halts)
-        record_rung(archive_dir, rung_index=step.rung_index, model_caps=step.model_caps,
-                    measured={**measured, "terminal_halts": halts}, promoted=promoted,
-                    ledger_sequence=_ledger_tail_sequence(usage_path))
-        print(f"ramp: rung {step.rung_index} {'PASSED' if promoted else 'FAILED'} "
-              f"({measured['abandoned']}/{measured['total']} abandoned, "
-              f"{100 * measured['rate']:.1f}%)", flush=True)
+        verdict = record_rung_if_concluded(
+            archive_dir, rung_index=step.rung_index, model_caps=step.model_caps,
+            measured=measured, halted_reason=outcome.halted_reason,
+            ledger_sequence=_ledger_tail_sequence(usage_path))
+        print(f"ramp: rung {step.rung_index} {verdict.upper()} "
+              f"({measured['abandoned']}/{measured['total']} {checker_model} calls "
+              f"abandoned, {100 * measured['rate']:.1f}%)", flush=True)
 
     if outcome.needs_labelling and pause_when_unlabeled:
         worklist_path = local_path(manifest["ledger"]["archive_dir"]) / WORKLIST_FILENAME
@@ -1188,8 +1187,6 @@ def main(argv=None) -> int:
     return 0 if outcome.halted_reason is None else 1
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
 
 
 # --- concurrency ramp -----------------------------------------------------------------------
@@ -1275,17 +1272,49 @@ def measure_rung(usage_path, *, since_sequence: int, checker_model: str) -> dict
             "rate": (abandoned / total) if total else 0.0}
 
 
-def rung_passes(measured: dict, *, terminal_halts: int = 0) -> bool:
-    """Promote on evidence of no degradation, not on absence of catastrophe.
+# A rung must see enough checker traffic to estimate a rate near the 11.1% baseline before it
+# concludes anything. Set against the plan's shape: transcript cells touch no checker at all,
+# so an early window can legitimately contain zero.
+RAMP_MIN_CHECKER_CALLS = 25
 
-    The ceiling is the canary's measured 11.1% baseline plus headroom. A rung with no calls
-    measured yet cannot pass: absence of evidence is not evidence.
+# Only these mean the FROZEN GATE is misbehaving, which is what a rung exists to detect.
+# UnknownChargeHalt is the run's normal response to an ambiguous billing outcome and happens
+# constantly by design; the auto-resume policy exists for it. checker_outage is deliberately
+# absent: it wraps ANY checker-call exception including ordinary transients.
+RAMP_TERMINAL_HALT_REASONS = frozenset({"checker_malformed", "checker_unresolved"})
+
+
+def rung_verdict(measured: dict, *, halted_reason: str | None = None) -> str:
+    """"open", "pass" or "fail" for one rung's evidence.
+
+    Three-valued rather than boolean, and that is the whole point. The first bridge-canary
+    pass judged rung 0 FAILED on a window holding zero checker calls, because every cell it
+    ran was transcript generation and the checker model was never called. A rung is a
+    measurement: an empty window measures nothing, so it must conclude nothing, and least of
+    all a failure that would abort the ramp before the model under test had made one call.
     """
-    if terminal_halts:
-        return False
-    if not measured.get("total"):
-        return False
-    return float(measured["rate"]) <= RAMP_ABANDONMENT_CEILING
+    if str(halted_reason or "") in RAMP_TERMINAL_HALT_REASONS:
+        return "fail"
+    if int(measured.get("total") or 0) < RAMP_MIN_CHECKER_CALLS:
+        return "open"
+    return "pass" if float(measured["rate"]) <= RAMP_ABANDONMENT_CEILING else "fail"
+
+
+def record_rung_if_concluded(archive_dir, *, rung_index: int, model_caps: dict,
+                             measured: dict, halted_reason: str | None,
+                             ledger_sequence: int) -> str:
+    """Record a rung's verdict only once it has one. Returns the verdict.
+
+    An open rung leaves no row behind, so the next pass continues measuring it rather than
+    reading a conclusion nobody reached. The run pauses and resumes constantly, so a rung
+    spanning several passes is the normal case, not the exception.
+    """
+    verdict = rung_verdict(measured, halted_reason=halted_reason)
+    if verdict != "open":
+        record_rung(archive_dir, rung_index=rung_index, model_caps=model_caps,
+                    measured={**measured, "halted_reason": halted_reason},
+                    promoted=verdict == "pass", ledger_sequence=ledger_sequence)
+    return verdict
 
 
 def current_ramp_step(ramp: dict, settled_caps: dict, archive_dir) -> RampStep:
@@ -1334,3 +1363,7 @@ def _ledger_tail_sequence(usage_path) -> int:
         if line.strip():
             highest = max(highest, int(json.loads(line).get("sequence", -1)))
     return highest + 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -14,7 +14,8 @@ import json
 import pytest
 
 from rejudge.phase2_canary_live import (
-    RampAborted, current_ramp_step, measure_rung, record_rung)
+    RAMP_MIN_CHECKER_CALLS, RampAborted, current_ramp_step, measure_rung, record_rung,
+    record_rung_if_concluded, rung_verdict)
 
 CHECKER = "google/gemma-4-31B-it"
 RAMP = {
@@ -106,3 +107,55 @@ def test_only_the_checker_models_calls_count_toward_its_own_rate(tmp_path):
                   + [("success", CHECKER)] * 10)
     measured = measure_rung(path, since_sequence=0, checker_model=CHECKER)
     assert measured["total"] == 10 and measured["abandoned"] == 0
+
+
+# --- what a rung may conclude ---------------------------------------------------------------
+#
+# Both of these were live failures on the first bridge-canary pass, at $0.48 of spend. The
+# ramp judged rung 0 FAILED on a window containing zero checker calls (every cell so far was
+# transcript generation, which never touches the checker model), and it counted a benign
+# transient as a terminal halt. Together they would have aborted the ramp on ordinary provider
+# noise before gemma made a single call.
+
+def test_a_rung_with_too_few_checker_calls_stays_open(tmp_path):
+    """A rung is a measurement. An empty window measures nothing, so it must not conclude
+    anything: not a pass, and emphatically not a failure."""
+    assert rung_verdict({"abandoned": 0, "total": 0, "rate": 0.0},
+                        halted_reason=None) == "open"
+    assert rung_verdict({"abandoned": 0, "total": 3, "rate": 0.0},
+                        halted_reason=None) == "open"
+
+
+def test_a_rung_with_enough_evidence_concludes(tmp_path):
+    plenty = RAMP_MIN_CHECKER_CALLS
+    assert rung_verdict({"abandoned": 2, "total": plenty, "rate": 2 / plenty},
+                        halted_reason=None) == "pass"
+    assert rung_verdict({"abandoned": plenty // 2, "total": plenty, "rate": 0.5},
+                        halted_reason=None) == "fail"
+
+
+def test_a_benign_transient_halt_does_not_fail_a_rung(tmp_path):
+    """UnknownChargeHalt is the run's normal response to an ambiguous billing outcome, and the
+    auto-resume policy exists precisely because it happens constantly. It says nothing about
+    whether the checker tolerates this concurrency."""
+    measured = {"abandoned": 1, "total": RAMP_MIN_CHECKER_CALLS, "rate": 0.02}
+    assert rung_verdict(measured, halted_reason="UnknownChargeHalt") == "pass"
+
+
+def test_a_frozen_checker_halt_does_fail_a_rung(tmp_path):
+    """checker_malformed means the frozen gate is not behaving as frozen. That is exactly the
+    evidence a rung exists to catch, so it fails regardless of the abandonment rate."""
+    measured = {"abandoned": 0, "total": RAMP_MIN_CHECKER_CALLS, "rate": 0.0}
+    assert rung_verdict(measured, halted_reason="checker_malformed") == "fail"
+    assert rung_verdict(measured, halted_reason="checker_unresolved") == "fail"
+
+
+def test_an_open_rung_is_not_recorded_so_the_next_pass_continues_it(tmp_path):
+    """The run pauses and resumes constantly, so a rung routinely spans passes. An open rung
+    must leave no verdict behind, or the next pass would read a conclusion nobody reached."""
+    record_rung_if_concluded(tmp_path, rung_index=0, model_caps={CHECKER: 1},
+                             measured={"abandoned": 0, "total": 0, "rate": 0.0},
+                             halted_reason=None, ledger_sequence=471)
+    assert not (tmp_path / "canary_ramp_state.jsonl").exists()
+    step = current_ramp_step(RAMP, SETTLED, tmp_path)
+    assert step.rung_index == 0, "still on rung 0, still measuring"

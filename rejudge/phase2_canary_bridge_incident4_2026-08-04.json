@@ -1,0 +1,19 @@
+{
+ "cause": "operator error in the ramp logic, authored 2026-08-04. Both defects are in rejudge/phase2_canary_live.py, which is deliberately outside the code-provenance bundle, so neither changes the execution identity.",
+ "decision_id": "bridge_canary_incident4_2026-08-04",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "note": "Append-only. Records an incident; grants no authority.",
+ "recorded_at_utc": "2026-08-04T17:30:00Z",
+ "remediation": [
+  "rung_verdict is now three-valued: open / pass / fail. A window with fewer than RAMP_MIN_CHECKER_CALLS (25) checker calls concludes nothing and leaves no row, so the rung continues across passes.",
+  "Only checker_malformed and checker_unresolved count as terminal halts. checker_outage is deliberately excluded because it wraps any checker-call exception including transients.",
+  "canary_ramp_state.jsonl retired byte-for-byte to canary_ramp_state.jsonl.incident4-2026-08-04; a fresh one is built on the next pass.",
+  "Five tests added covering the empty window, the benign transient, the frozen-checker halt, and the requirement that an open rung leaves no verdict behind."
+ ],
+ "schema_version": "phase2_canary_incident_v1",
+ "second_defect_in_the_same_code": "The same call also counted the pass's UnknownChargeHalt as a terminal halt. That halt was 'Qwen/Qwen3.7-Plus streaming response ended without usage chunk', which is in the auto-resume policy's own enumerated benign-transient set. Terminal halts are the frozen gate misbehaving (checker_malformed, checker_unresolved), not ordinary provider noise, so the ramp would have failed rungs on transients unrelated to concurrency.",
+ "severity": "no data contamination; ramp control state only",
+ "spend_at_detection_usd": 0.48,
+ "what_happened": "The first bridge-canary pass recorded rung 0 of the concurrency ramp as FAILED on a measurement window containing ZERO checker-model calls. All 39 cells it ran were transcript generation, which uses the debater models and never touches the frozen checker, so gemma's abandonment rate was computed over an empty window. Because current_ramp_step aborts when the first rung fails with no lower rung to fall back to, the ramp would have refused to continue on the next invocation.",
+ "why_no_science_impact": "The ramp is a control-plane mechanism for choosing concurrency. It does not touch cell execution, seeds, prompts, the gate, or any store the results depend on. The 39 cells recorded during the affected pass are valid and are kept: they were executed at concurrency 1 under the authorized manifest, exactly as the rung intended."
+}
