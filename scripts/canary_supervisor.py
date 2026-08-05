@@ -43,6 +43,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 MAX_RESUMES = 400
@@ -56,10 +57,17 @@ SAME_CELL_MAX = 8
 # backstop, this IS one of the constraints that bounds real risk, so the amendment records it
 # as a deliberate relaxation rather than as housekeeping.
 UNCERTAIN_CEILING_USD = 4.00
-# How far back the halt signature looks. Sized to comfortably span the calls that can be
-# in flight alongside the one that halted (max_workers is 8), without reaching so far back
-# that it inherits a previous attempt's failures.
-_HALT_WINDOW_EVENTS = 40
+# The halt window is bounded by THIS ATTEMPT, not by a count of events. A fixed lookback
+# cannot be sized correctly: when one cell halts, the driver still finishes the rest of its
+# block, so with eight workers over a sixteen-cell block a hundred or more events can append
+# after the halt and scroll its own abandoned call out of view. That stopped a healthy run on
+# 2026-08-05. Timestamps make the bound exact and need no guess about block shape. The event
+# count below is only a read cap so the whole ledger is not parsed each time.
+_LEDGER_SCAN_EVENTS = 4000
+# Ledger timestamps and the attempt clock can disagree by a little; the grace keeps that from
+# discarding the halt's own evidence, and is far shorter than a resume backoff so it cannot
+# reach into the previous attempt.
+_CLOCK_GRACE_SECONDS = 30
 RESUME_BACKOFF_SECONDS = 60
 SAME_CELL_EXTRA_BACKOFF_SECONDS = 240
 
@@ -77,6 +85,17 @@ _BENIGN_TRANSIENT = re.compile(
     r"streaming response ended without usage chunk|"
     r"Connection reset by peer|Connection aborted|Server disconnected")
 _RATE_LIMIT = re.compile(r"Error code: 429")
+
+
+def _event_epoch(event: dict) -> float:
+    """Ledger timestamp as epoch seconds; events without one never count as this attempt's."""
+    raw = str(event.get("ts") or "")
+    if not raw:
+        return float("-inf")
+    try:
+        return datetime.fromisoformat(raw).timestamp()
+    except ValueError:
+        return float("-inf")
 
 
 def _tail_json_lines(path: Path, n: int) -> list[dict]:
@@ -107,11 +126,12 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     # review. The window still has to CONTAIN a benign abandonment, and any abandonment in it
     # whose shape is unenumerated still stops: this loosens which event is inspected, never
     # whether one is required.
-    events = _tail_json_lines(usage_path, _HALT_WINDOW_EVENTS)
-    abandoned = [event for event in events if event.get("status") == "unknown_charge"]
+    events = _tail_json_lines(usage_path, _LEDGER_SCAN_EVENTS)
+    abandoned = [event for event in events
+                 if event.get("status") == "unknown_charge"
+                 and _event_epoch(event) >= attempt_started_at - _CLOCK_GRACE_SECONDS]
     if not abandoned:
-        return (f"no abandoned call among the last {_HALT_WINDOW_EVENTS} ledger events; the "
-                "halt is unexplained")
+        return ("no abandoned call in this attempt's ledger events; the halt is unexplained")
     unenumerated = [event for event in abandoned
                     if not _BENIGN_TRANSIENT.search(str(event.get("error", "")))]
     if unenumerated:

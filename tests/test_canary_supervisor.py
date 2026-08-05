@@ -5,6 +5,11 @@ from pathlib import Path
 
 from scripts.canary_supervisor import benign_transient_signature
 
+
+def _epoch(iso: str) -> float:
+    from datetime import datetime
+    return datetime.fromisoformat(iso).timestamp()
+
 NOW = time.time()
 
 
@@ -23,9 +28,16 @@ def _files(tmp_path, *, usage_rows=None, error_rows=None, result_rows=None):
     errors = tmp_path / "errors.jsonl"
     results = tmp_path / "results.jsonl"
     ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW))
-    _write(usage, usage_rows if usage_rows is not None else [
+    rows = usage_rows if usage_rows is not None else [
         {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
-         "error": "Error code: 500 - internal"}])
+         "error": "Error code: 500 - internal"}]
+    # Real ledger events always carry a timestamp, and the halt window is bounded by this
+    # attempt's start, so a fixture without one is not a smaller test but a different and
+    # impossible one. Rows that set their own ts (deliberately stale ones) keep it.
+    from datetime import datetime as _dt
+    default_ts = _dt.fromtimestamp(NOW).astimezone().isoformat()
+    rows = [{**row, "ts": row.get("ts", default_ts)} for row in rows]
+    _write(usage, rows)
     _write(errors, error_rows if error_rows is not None else [
         {"ts": ts, "error": "Error code: 500 - internal"}])
     if result_rows is not None:
@@ -212,21 +224,24 @@ def test_a_straggler_success_after_the_halt_is_not_a_manual_review(tmp_path):
     is routinely somebody else's success. Reading it as the halt's own outcome stops the run
     for manual review on a completely healthy transient.
     """
+    from datetime import datetime as _dt
+    ts = _dt.fromtimestamp(NOW).astimezone().isoformat()
     usage = tmp_path / "usage.jsonl"
     usage.write_text(
         json.dumps({"status": "unknown_charge", "error": "Error code: 503 - upstream",
-                    "metadata": {"call_role": "query_checker"}, "cost_usd": 0.001}) + "\n"
+                    "metadata": {"call_role": "query_checker"}, "cost_usd": 0.001,
+                    "ts": ts}) + "\n"
         + json.dumps({"status": "success", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                      "cost_usd": 0.002}) + "\n", encoding="utf-8")
+                      "cost_usd": 0.002, "ts": ts}) + "\n", encoding="utf-8")
     errors = tmp_path / "errors.jsonl"
     errors.write_text(json.dumps(
-        {"ts": "2026-08-04T17:00:00", "error": "Error code: 503 - upstream"}) + "\n",
-        encoding="utf-8")
+        {"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+         "error": "Error code: 503 - upstream"}) + "\n", encoding="utf-8")
 
     reason = benign_transient_signature(
         outcome={"halted_reason": "UnknownChargeHalt", "halted_cell_key": "cell-1"},
         usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
-        attempt_started_at=time.time())
+        attempt_started_at=NOW - 30)
     assert reason is None, f"should have resumed, refused with: {reason}"
 
 
@@ -264,3 +279,53 @@ def test_a_novel_error_shape_among_recent_events_still_stops(tmp_path):
         usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
         attempt_started_at=time.time())
     assert reason is not None, "an unenumerated failure must always stop for a human"
+
+
+def test_the_halt_window_is_this_attempt_not_a_fixed_event_count(tmp_path):
+    """A fixed lookback cannot be sized correctly, so it should not be used.
+
+    When one cell halts, the driver still finishes the rest of its block, and every one of
+    those calls appends after the halt. With eight workers over a sixteen-cell block that is
+    easily a hundred events, so a 40-event window scrolled the halt's own abandoned call out
+    of view and stopped a healthy run. Bounding by this attempt's start is exact and needs no
+    guess about block size.
+    """
+    old = json.dumps({"status": "unknown_charge", "error": "Error code: 503",
+                      "ts": "2020-01-01T00:00:00+00:00", "cost_usd": 0.001})
+    recent = json.dumps({"status": "unknown_charge", "error": "Error code: 503",
+                         "ts": "2026-08-05T14:48:43+00:00", "cost_usd": 0.001})
+    later = "\n".join(json.dumps(
+        {"status": "success", "model": "m", "ts": "2026-08-05T14:49:00+00:00",
+         "cost_usd": 0.002}) for _ in range(60))
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(old + "\n" + recent + "\n" + later + "\n", encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text(json.dumps(
+        {"ts": "2026-08-05T14:48:43", "error": "Error code: 503"}) + "\n", encoding="utf-8")
+
+    started = _epoch("2026-08-05T14:40:00+00:00")
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "checker_outage", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=started)
+    assert reason is None, f"should have resumed, refused with: {reason}"
+
+
+def test_an_abandonment_from_a_previous_attempt_does_not_excuse_this_halt(tmp_path):
+    """The mirror of the above. Widening the window must not let a stale failure vouch for a
+    halt that this attempt cannot otherwise explain."""
+    stale = json.dumps({"status": "unknown_charge", "error": "Error code: 503",
+                        "ts": "2026-08-05T10:00:00+00:00", "cost_usd": 0.001})
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(stale + "\n" + json.dumps(
+        {"status": "success", "model": "m", "ts": "2026-08-05T14:49:00+00:00",
+         "cost_usd": 0.002}) + "\n", encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text(json.dumps(
+        {"ts": "2026-08-05T14:48:43", "error": "Error code: 503"}) + "\n", encoding="utf-8")
+
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "checker_outage", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=_epoch("2026-08-05T14:40:00+00:00"))
+    assert reason is not None, "a stale abandonment must not explain this attempt's halt"
