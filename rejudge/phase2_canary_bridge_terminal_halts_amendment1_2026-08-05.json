@@ -1,0 +1,30 @@
+{
+ "amends": "rejudge/phase2_canary_bridge_terminal_halts_2026-08-05.json",
+ "cells": [
+  {
+   "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_debate_judgment:1f96fca4315932a93ce94642405748a58c485e0b4bb7d3081caa57bc6023a631",
+   "condition": "sequential_b2",
+   "evidence": "cached query_checker call at slot 1 attempt 1 has a zero-length response",
+   "judge_model": "google/gemma-4-31B-it",
+   "kind": "canary_debate_judgment",
+   "outcome": "checker_malformed",
+   "question_id": "SEL-010"
+  },
+  {
+   "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_debate_judgment:c3ecfd2ca105635c2cd6e39d424ca863aced52bb89b1fd8f8287dac714edd331",
+   "condition": "batch_same_qa_b2",
+   "evidence": "resolved from the frozen plan as the sole cell whose dependency_keys contain the halted sequential cell",
+   "judge_model": "google/gemma-4-31B-it",
+   "kind": "canary_debate_judgment",
+   "outcome": "dependency_terminally_halted",
+   "question_id": "SEL-010"
+  }
+ ],
+ "decision_id": "bridge_canary_terminal_halts_amendment1_2026-08-05",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "note": "Append-only. Excludes from execution convergence only, never from reporting.",
+ "recorded_at_utc": "2026-08-05T00:00:00Z",
+ "schema_version": "phase2_canary_terminal_halts_v1",
+ "signature": "checker_malformed: the frozen checker returned the empty string, memoised by the per-call cache, so every resume replays it.",
+ "why_this_one_matters_more": "Unlike the first terminal halt (placebo_b2, no dependents), this is a sequential_b2 cell with a batch_same_qa_b2 dependent. Both are conditions the primary estimands difference, and losing a matched pair removes support from P and R together. The missing-data policy requires the whole matched set to leave all three estimands rather than each arm dropping independently, so H = P + R still holds on common support."
+}
