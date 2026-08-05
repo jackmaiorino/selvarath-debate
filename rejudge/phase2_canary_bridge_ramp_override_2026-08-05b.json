@@ -1,0 +1,16 @@
+{
+ "approver": "Jack Maiorino",
+ "decision_id": "bridge_canary_ramp_override_2026-08-05_identity_b5cf274d",
+ "execution_identity_sha256": "b5cf274dbf65f1a89dca1302fdb34f58da40a840783ad8480d06650add095180",
+ "how_the_cap_gets_measured_anyway": "The remaining ~347 cells all run at gemma concurrency 8, which is a larger sample than any single ramp rung would have provided. gemma's abandonment rate across them is the evidence for whether 8 is safe for the main run. This is a weaker design than a controlled ramp because it confounds concurrency with whatever else changed today, but it is real measurement at no schedule cost rather than an assumption.",
+ "note": "Append-only. Grants no new spend authority and changes no cap; 8 remains the settled cap the manifest already binds.",
+ "pinned_model_caps": {
+  "google/gemma-4-31B-it": 8
+ },
+ "recorded_at_utc": "2026-08-05T19:00:00Z",
+ "reissued_from": "rejudge/phase2_canary_bridge_ramp_override_amendment1_2026-08-05.json",
+ "schema_version": "phase2_canary_ramp_override_v1",
+ "what_would_falsify_it": "gemma abandonment materially above the ~19% cumulative baseline it showed at concurrency 1, or a fall in cells/hour despite the higher width. Either reverts the pin by a further amendment.",
+ "why_a_reissue_was_needed": "Overrides are scoped to the execution identity that they were granted against, deliberately, so permission cannot outlive the evidence that justified it. The identity changed when empty checker responses stopped being cached, so the previous override correctly stopped applying and the ramp aborted on its own recorded rung-0 failure. This re-issues it under the owner's standing instruction to raise concurrency.",
+ "why_not_re-run_the_ramp_properly": "Honest trade-off, recorded rather than glossed. Re-measuring from rung 0 would be better science: the recorded rung-0 failure was measured under the OLD code during a degraded gemma window (57.1% abandonment), and conditions have changed materially since, with gemma back to about 19% cumulative and the checker fix in place. But the four rungs would run 160 of the 347 remaining cells at concurrency 1, 2 and 4 before reaching 8, and the owner's instruction is to get completion time down."
+}
