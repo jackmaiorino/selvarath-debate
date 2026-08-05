@@ -916,7 +916,7 @@ def load_terminal_halt_cells(project_root: str | Path, results_path: Path, *,
     completed cell cannot also be terminally halted, so the disposition would be stale.
     """
     directory = Path(project_root) / "rejudge"
-    cells: set[str] = set()
+    collected: set[str] = set()
     for path in sorted(directory.glob("*.json")) if directory.is_dir() else ():
         try:
             record = _load_json(path)
@@ -929,8 +929,8 @@ def load_terminal_halt_cells(project_root: str | Path, results_path: Path, *,
         recorded = record.get("execution_identity_sha256")
         if recorded != execution_identity:
             continue
-        cells.update(str(entry["cell_key"]) for entry in record.get("cells", []))
-    cells = frozenset(cells)
+        collected.update(str(entry["cell_key"]) for entry in record.get("cells", []))
+    cells = frozenset(collected)
     if not cells:
         return cells
     if results_path.exists():
