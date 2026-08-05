@@ -902,19 +902,37 @@ TERMINAL_HALTS_RELATIVE_PATH = Path(
     "rejudge/phase2_canary_terminal_halts_2026-07-29.json")
 
 
-def load_terminal_halt_cells(project_root: str | Path, results_path: Path) -> frozenset[str]:
+def load_terminal_halt_cells(project_root: str | Path, results_path: Path, *,
+                             execution_identity: str | None = None) -> frozenset[str]:
     """Cells recorded as terminally halted (Consult #28 scope): skipped, never resumed.
 
-    Refuses if a listed cell already has a result row: a completed cell cannot also be
-    terminally halted, so the disposition would be stale.
+    Scoped to the run that recorded them. Exclusions are evidence about ONE run's cells, not a
+    standing list: the bridge canary reruns the very same 945 cell keys the July canary ran, so
+    inheriting July's four exclusions would silently skip cells this run has never attempted,
+    and a skipped cell is indistinguishable in the results from one that could not complete.
+
+    A record carrying no identity is the pre-scoping format (July's), so it applies only when
+    the caller states no identity either. Refuses if a listed cell already has a result row: a
+    completed cell cannot also be terminally halted, so the disposition would be stale.
     """
-    path = Path(project_root) / TERMINAL_HALTS_RELATIVE_PATH
-    if not path.exists():
-        return frozenset()
-    record = _load_json(path)
-    if record.get("schema_version") != "phase2_canary_terminal_halts_v1":
-        raise CanaryLiveError(f"unrecognized terminal-halts record at {path}")
-    cells = frozenset(str(entry["cell_key"]) for entry in record["cells"])
+    directory = Path(project_root) / "rejudge"
+    cells: set[str] = set()
+    for path in sorted(directory.glob("*.json")) if directory.is_dir() else ():
+        try:
+            record = _load_json(path)
+        except (ValueError, OSError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        if record.get("schema_version") != "phase2_canary_terminal_halts_v1":
+            continue
+        recorded = record.get("execution_identity_sha256")
+        if recorded != execution_identity:
+            continue
+        cells.update(str(entry["cell_key"]) for entry in record.get("cells", []))
+    cells = frozenset(cells)
+    if not cells:
+        return cells
     if results_path.exists():
         for line in results_path.read_text(encoding="utf-8").splitlines():
             if line.strip() and json.loads(line).get("cell_key") in cells:
@@ -1054,7 +1072,9 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
     results_path = local_path(manifest["ledger"]["results_path"])
     decisions_path = local_path(manifest["ledger"]["decisions_path"])
 
-    terminal = load_terminal_halt_cells(project_root, results_path)
+    terminal = load_terminal_halt_cells(
+        project_root, results_path,
+        execution_identity=str(manifest["execution_identity_sha256"]))
     try:
         return _run_passes(manifest, client=client, reviewer=reviewer,
                            results_path=results_path, decisions_path=decisions_path,

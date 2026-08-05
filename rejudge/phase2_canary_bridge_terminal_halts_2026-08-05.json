@@ -1,0 +1,24 @@
+{
+ "cells": [
+  {
+   "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:canary_debate_judgment:1bf81a9380d49b60452f1b44fe7e3c31f6d673facfc9ba796fb0cdaf63fafb39",
+   "condition": "placebo_b2",
+   "dependents_excluded": 0,
+   "evidence": "cached query_checker call at slot 1 attempt 1 has a zero-length response",
+   "judge_model": "openai/gpt-oss-120b",
+   "kind": "canary_debate_judgment",
+   "outcome": "checker_malformed",
+   "question_id": "SEL-030"
+  }
+ ],
+ "decision_id": "bridge_canary_terminal_halts_2026-08-05",
+ "dependents": "none. This cell is a placebo_b2 judgment, which nothing replays.",
+ "differential_watch": "This one lands in placebo_b2, which is NOT one of the three conditions the primary estimands difference (b0, sequential_b2, batch_same_qa_b2), so it does not move the 0.5pp differential-incompletion gate. That gate remains the binding check and is evaluated at close-out, not here.",
+ "disposition_authority": "Not a fresh judgement call. The missing-data policy bound into this manifest already decides this case: a cell that cannot produce a verdict after the frozen allowances is excluded from execution convergence, counts INVALID (which counts wrong) in the primary, and MUST appear in the close-out distributions under its terminal outcome. This record names the cells so that reporting requirement is checkable.",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "note": "Append-only. Records exclusions from execution convergence only, never from reporting. Grants no authority.",
+ "rate_so_far": "1 malformed checker response in roughly 250 successful checker calls (0.4%), against the frozen configuration's 0.6% dev-quantified temp-0 nondeterminism and the July canary's observed 0.27%.",
+ "recorded_at_utc": "2026-08-05T00:00:00Z",
+ "schema_version": "phase2_canary_terminal_halts_v1",
+ "signature": "checker_malformed: the frozen checker returned the empty string. The per-call cache memoises it by design, so every resume replays the same unparseable response and the cell can never complete. Identical to the four terminal halts of the 2026-07-28 canary."
+}

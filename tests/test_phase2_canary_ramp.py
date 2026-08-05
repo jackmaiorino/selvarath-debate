@@ -199,3 +199,51 @@ def test_an_override_does_not_apply_to_a_ramp_that_never_failed(tmp_path):
     step = current_ramp_step(RAMP, SETTLED, tmp_path,
                              override={"pinned_model_caps": {CHECKER: 1}})
     assert step.rung_index == 0, "still measuring; nothing has failed yet"
+
+
+# --- terminal-halt exclusions are per run ----------------------------------------------------
+
+def test_terminal_halts_are_scoped_to_the_run_that_recorded_them(tmp_path, monkeypatch):
+    """Exclusions are evidence about ONE run's cells, not a standing list.
+
+    The bridge canary reruns the same 945 cell keys the July canary ran, so inheriting July's
+    exclusions would silently skip four cells this run has never attempted, and skipping a
+    cell is indistinguishable in the results from a cell that could not complete.
+    """
+    import json as _json
+
+    from rejudge import phase2_canary_live as live
+
+    root = tmp_path / "repo"
+    (root / "rejudge").mkdir(parents=True)
+    (root / "rejudge" / "halts_other.json").write_text(_json.dumps({
+        "schema_version": "phase2_canary_terminal_halts_v1",
+        "execution_identity_sha256": "a" * 64,
+        "cells": [{"cell_key": "cell-from-another-run"}]}), encoding="utf-8")
+    (root / "rejudge" / "halts_mine.json").write_text(_json.dumps({
+        "schema_version": "phase2_canary_terminal_halts_v1",
+        "execution_identity_sha256": "b" * 64,
+        "cells": [{"cell_key": "cell-from-this-run"}]}), encoding="utf-8")
+
+    excluded = live.load_terminal_halt_cells(
+        root, tmp_path / "results.jsonl", execution_identity="b" * 64)
+    assert excluded == frozenset({"cell-from-this-run"})
+
+
+def test_an_identity_less_record_is_only_used_when_no_identity_is_given(tmp_path):
+    """July's records predate identity scoping. They must keep working for that run and must
+    not leak into a run that states which identity it is."""
+    import json as _json
+
+    from rejudge import phase2_canary_live as live
+
+    root = tmp_path / "repo"
+    (root / "rejudge").mkdir(parents=True)
+    (root / "rejudge" / "halts_legacy.json").write_text(_json.dumps({
+        "schema_version": "phase2_canary_terminal_halts_v1",
+        "cells": [{"cell_key": "legacy-cell"}]}), encoding="utf-8")
+
+    assert live.load_terminal_halt_cells(
+        root, tmp_path / "r.jsonl", execution_identity=None) == frozenset({"legacy-cell"})
+    assert live.load_terminal_halt_cells(
+        root, tmp_path / "r.jsonl", execution_identity="b" * 64) == frozenset()
