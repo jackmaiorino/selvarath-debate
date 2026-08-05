@@ -1,0 +1,15 @@
+{
+ "carried_forward_from_the_old_identity": "nothing. The superseded records name execution identity 1184b7c4..., and terminal-halt records are scoped to the run that wrote them, so they already stopped applying. This record makes that explicit instead of leaving it to be inferred.",
+ "cells": [],
+ "decision_id": "bridge_canary_terminal_halts_superseded_2026-08-05",
+ "execution_identity_sha256": "b5cf274dbf65f1a89dca1302fdb34f58da40a840783ad8480d06650add095180",
+ "if_they_halt_again": "a cell that halts on checker_malformed AGAIN under the new identity is evidence the checker deterministically returns nothing for that specific call, which the unchanged same-call limit catches and escalates. It would then be a genuine terminal halt and recorded as one.",
+ "note": "Append-only. Supersedes earlier exclusions; grants no authority.",
+ "recorded_at_utc": "2026-08-05T00:00:00Z",
+ "schema_version": "phase2_canary_terminal_halts_v1",
+ "supersedes": [
+  "rejudge/phase2_canary_bridge_terminal_halts_2026-08-05.json",
+  "rejudge/phase2_canary_bridge_terminal_halts_amendment1_2026-08-05.json"
+ ],
+ "why_empty": "Those records excluded three cells whose ONLY defect was an empty checker response that the cache had memoised. With empties no longer cached, and the four stale entries evicted, those cells are ordinary unfinished work again rather than permanently unreachable. An exclusion is a statement that a cell CANNOT complete; that is no longer true of them, so carrying it forward would silently drop three completable cells and misreport them as terminal in the close-out."
+}

@@ -1,0 +1,11 @@
+{
+ "approval_basis_sha256": "0b948e7bf9d72aa7598003aa7495abc1c7be83633859217b5b305855d2aeca1b",
+ "approval_basis_tracked_path": "rejudge/phase2_canary_bridge_authorization_basis_2026-08-05.json",
+ "approved_at_utc": "2026-08-05T00:00:00Z",
+ "approver": "Jack Maiorino",
+ "cumulative_cap_usd": 1709.24,
+ "execution_identity_sha256": "b5cf274dbf65f1a89dca1302fdb34f58da40a840783ad8480d06650add095180",
+ "recorded_at_utc": "2026-08-05T00:00:00Z",
+ "stage": "canary",
+ "stage_cap_usd": 40.0
+}
