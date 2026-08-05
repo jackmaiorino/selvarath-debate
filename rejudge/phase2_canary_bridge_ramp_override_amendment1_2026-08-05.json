@@ -1,0 +1,18 @@
+{
+ "amends": "rejudge/phase2_canary_bridge_ramp_override_2026-08-04.json",
+ "approver": "Jack Maiorino",
+ "ceiling_respected": "8 is the settled cap the manifest already binds, so this stays inside the authorized execution parameters and needs no new execution identity. Going above 8 would require a new manifest and a fresh owner authorization.",
+ "change": "pinned google/gemma-4-31B-it from concurrency 1 to 8",
+ "decision_id": "bridge_canary_ramp_override_amendment1_2026-08-05",
+ "execution_identity_sha256": "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0",
+ "how_it_will_be_checked": "gemma's abandonment rate and the cells/hour rate are compared over a window after this change against the same measures before it. If abandonment rises materially without a throughput gain, the pin is reverted by a further amendment rather than left in place. This is a measurement, not a setting.",
+ "note": "Append-only. Amends an earlier override; grants no new spend authority and changes no cap. The execution identity is unchanged.",
+ "pinned_model_caps": {
+  "google/gemma-4-31B-it": 8
+ },
+ "recorded_at_utc": "2026-08-05T18:00:00Z",
+ "schema_version": "phase2_canary_ramp_override_v1",
+ "the_risk_this_takes": "This may be SLOWER rather than faster. gemma is already returning 429 rate limits at concurrency 1, and 8x the request rate against a rate-limited endpoint can cost more in retries and backoff than parallelism gains. The measured gemma abandonment rate before this change is the comparison point: 57.1% during the degraded window, about 20% cumulative once it recovered.",
+ "what_it_still_does_not_settle": "the main run's cap. That needs its own measurement under its own manifest; a width that works for 945 canary cells is evidence, not authorization.",
+ "why": "Schedule. At gemma concurrency 1 the main run projects to 14.2 days of continuous running, because gemma carries about 95% of all call time and pinning it makes that share effectively serial. At concurrency 8 the same grid is 2.4 days. The owner's instruction is to go as fast as the provider allows."
+}

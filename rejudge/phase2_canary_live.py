@@ -1400,16 +1400,29 @@ def load_ramp_override(manifest, project_root: str | Path = ".") -> dict | None:
     execution identity: an override is permission for one run in one measured situation, not a
     setting that quietly outlives the evidence that justified it.
     """
-    path = Path(project_root) / RAMP_OVERRIDE_RELATIVE_PATH
-    if not path.exists():
+    directory = Path(project_root) / "rejudge"
+    if not directory.is_dir():
         return None
-    record = _load_json(path)
-    if record.get("execution_identity_sha256") != manifest["execution_identity_sha256"]:
-        raise CanaryLiveError(
-            f"ramp override names identity {record.get('execution_identity_sha256')!r}, but "
-            f"this run is {manifest['execution_identity_sha256']!r}; refusing to inherit an "
-            "override granted for a different run")
-    return record
+    matching = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            record = _load_json(path)
+        except (ValueError, OSError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        if record.get("schema_version") != "phase2_canary_ramp_override_v1":
+            continue
+        # Silently ignored rather than refused: an override naming another run is simply not
+        # about this one, and this repository holds records for several runs.
+        if record.get("execution_identity_sha256") != manifest["execution_identity_sha256"]:
+            continue
+        matching.append(record)
+    if not matching:
+        return None
+    # Newest wins. Overrides are append-only, so revising a pinned width adds a record rather
+    # than editing one, and taking the first would make every amendment a no-op.
+    return max(matching, key=lambda r: str(r.get("recorded_at_utc", "")))
 
 
 def _ledger_tail_sequence(usage_path) -> int:

@@ -247,3 +247,37 @@ def test_an_identity_less_record_is_only_used_when_no_identity_is_given(tmp_path
         root, tmp_path / "r.jsonl", execution_identity=None) == frozenset({"legacy-cell"})
     assert live.load_terminal_halt_cells(
         root, tmp_path / "r.jsonl", execution_identity="b" * 64) == frozenset()
+
+
+def test_the_newest_override_amendment_wins(tmp_path):
+    """Overrides are append-only, so raising a pinned width adds a record rather than editing
+    one. The loader must take the newest, or an amendment silently does nothing."""
+    from rejudge import phase2_canary_live as live
+
+    root = tmp_path / "repo"
+    (root / "rejudge").mkdir(parents=True)
+    ident = "c" * 64
+    (root / "rejudge" / "ov_a_2026-08-04.json").write_text(json.dumps({
+        "schema_version": "phase2_canary_ramp_override_v1", "recorded_at_utc":
+        "2026-08-04T00:00:00Z", "execution_identity_sha256": ident,
+        "pinned_model_caps": {"google/gemma-4-31B-it": 1}}), encoding="utf-8")
+    (root / "rejudge" / "ov_b_2026-08-05.json").write_text(json.dumps({
+        "schema_version": "phase2_canary_ramp_override_v1", "recorded_at_utc":
+        "2026-08-05T00:00:00Z", "execution_identity_sha256": ident,
+        "pinned_model_caps": {"google/gemma-4-31B-it": 8}}), encoding="utf-8")
+
+    got = live.load_ramp_override({"execution_identity_sha256": ident}, root)
+    assert got["pinned_model_caps"]["google/gemma-4-31B-it"] == 8
+
+
+def test_an_override_for_another_run_is_ignored_not_inherited(tmp_path):
+    from rejudge import phase2_canary_live as live
+
+    root = tmp_path / "repo"
+    (root / "rejudge").mkdir(parents=True)
+    (root / "rejudge" / "ov_other.json").write_text(json.dumps({
+        "schema_version": "phase2_canary_ramp_override_v1", "recorded_at_utc":
+        "2026-08-05T00:00:00Z", "execution_identity_sha256": "d" * 64,
+        "pinned_model_caps": {"google/gemma-4-31B-it": 8}}), encoding="utf-8")
+
+    assert live.load_ramp_override({"execution_identity_sha256": "c" * 64}, root) is None
