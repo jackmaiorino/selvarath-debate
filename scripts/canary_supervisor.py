@@ -86,6 +86,22 @@ _BENIGN_TRANSIENT = re.compile(
     r"Connection reset by peer|Connection aborted|Server disconnected")
 _RATE_LIMIT = re.compile(r"Error code: 429")
 
+# Halt reasons a resume can actually fix.
+#
+# checker_malformed joined this set on 2026-08-05, together with the change that stops the
+# per-call cache memoising an empty response. It was terminal only BECAUSE of that caching:
+# every resume replayed the same unreadable response, so the cell could never complete, and
+# both canaries lost cells to it at roughly one per 199. With empties no longer cached the
+# next attempt re-calls the checker, and at temperature 0 a successful call returns the
+# decision the failed one should have. The bound against this becoming retry-until-favourable
+# is the unchanged same-call limit: a checker that keeps returning nothing for one specific
+# call is a deterministic failure and still reaches a human.
+#
+# checker_unresolved is deliberately NOT here. That is the checker answering in a way the
+# frozen parser reads but cannot act on, which at temperature 0 is exactly what it will answer
+# again. Retrying it would be retrying for a different answer to the same question.
+_RESUMABLE_HALTS = frozenset({"UnknownChargeHalt", "checker_outage", "checker_malformed"})
+
 
 def _event_epoch(event: dict) -> float:
     """Ledger timestamp as epoch seconds; events without one never count as this attempt's."""
@@ -112,9 +128,9 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     # including the client's transient failures; the ledger/error-log checks below tell the
     # benign shapes from real checker anomalies (which halt as checker_malformed or
     # checker_unresolved and never enter this set).
-    if outcome.get("halted_reason") not in ("UnknownChargeHalt", "checker_outage"):
-        return (f"halt reason {outcome.get('halted_reason')!r} is neither UnknownChargeHalt "
-                "nor checker_outage")
+    if outcome.get("halted_reason") not in _RESUMABLE_HALTS:
+        return (f"halt reason {outcome.get('halted_reason')!r} is not one of "
+                f"{sorted(_RESUMABLE_HALTS)}")
     cell = outcome.get("halted_cell_key")
     if not cell:
         return "halt names no cell"

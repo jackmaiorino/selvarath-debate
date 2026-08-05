@@ -57,8 +57,12 @@ def test_the_benign_signature_passes(tmp_path):
 
 
 def test_a_non_transient_halt_reason_stops(tmp_path):
-    reason = _check(tmp_path, outcome=_outcome(halted_reason="checker_malformed"))
-    assert "neither UnknownChargeHalt nor checker_outage" in reason
+    # checker_unresolved, not checker_malformed. Malformed became resumable on 2026-08-05
+    # once empty responses stopped being cached. Unresolved did not: it is the checker
+    # answering in a way the parser reads but cannot act on, and at temperature 0 that is
+    # exactly what it answers again.
+    reason = _check(tmp_path, outcome=_outcome(halted_reason="checker_unresolved"))
+    assert "is not one of" in reason
 
 
 def test_a_checker_outage_over_a_transient_is_benign(tmp_path):
@@ -329,3 +333,33 @@ def test_an_abandonment_from_a_previous_attempt_does_not_excuse_this_halt(tmp_pa
         usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
         attempt_started_at=_epoch("2026-08-05T14:40:00+00:00"))
     assert reason is not None, "a stale abandonment must not explain this attempt's halt"
+
+
+# --- checker_malformed is recoverable once empties are no longer cached --------------------
+
+def test_a_malformed_checker_halt_now_resumes_when_nothing_was_cached(tmp_path):
+    """It was terminal only because the cache memoised the empty response.
+
+    With empties no longer cached the next attempt re-calls the checker, and at temperature 0
+    a successful call returns the decision the failed one should have. So this halt is a
+    transient like any other, and stopping the run ~116 times over the main run to hand-record
+    it is pure cost.
+    """
+    reason = _check(tmp_path, outcome=_outcome(halted_reason="checker_malformed"))
+    assert reason is None, f"should resume, refused with: {reason}"
+
+
+def test_a_malformed_checker_halt_repeating_on_one_call_still_stops(tmp_path):
+    """The bound that keeps this from becoming retry-until-favourable is the existing
+    same-call limit, which is unchanged: a checker that keeps returning nothing for one
+    specific call is a deterministic failure and must reach a human."""
+    from scripts.canary_supervisor import SAME_CELL_MAX
+    assert SAME_CELL_MAX >= 1
+    # The signature gate says "resumable"; the consecutive-call counter is what stops it.
+    usage, errors, results = _files(tmp_path)
+    seen = []
+    for _ in range(SAME_CELL_MAX + 2):
+        seen.append(benign_transient_signature(
+            outcome=_outcome(halted_reason="checker_malformed"), usage_path=usage,
+            error_log_path=errors, results_path=results, attempt_started_at=NOW - 30))
+    assert all(r is None for r in seen), "the gate itself does not count repeats"

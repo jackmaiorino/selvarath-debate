@@ -95,5 +95,19 @@ class CachingClient:
         response = self.inner.complete(
             messages, model, temperature, seed, max_tokens, kind=kind,
             request_metadata=request_metadata)
-        self.cache.put(key, fingerprint, response)
+        # An empty response is not a slow or unusual answer, it is the absence of one, and the
+        # cache exists to replay answers. Memoising it converts a transient into a permanent:
+        # the 2026-07-28 canary lost four cells this way and the bridge canary three more, one
+        # per ~199 cells, because every resume replayed the same unreadable response and the
+        # cell could never complete. The same rate over the main run is ~116 unrecoverable
+        # cells.
+        #
+        # Re-calling is sound rather than a retry-until-favourable loop, and specifically
+        # because of what is NOT cached here. The frozen checker runs at temperature 0, so a
+        # successful call is deterministic: a retry recovers the decision the failed call
+        # should have returned rather than drawing a fresh sample. The frozen
+        # "never regenerate an invalid verdict" rule guards sampled outputs against exactly
+        # that selection pressure, and an empty string is not a sampled output.
+        if response.strip():
+            self.cache.put(key, fingerprint, response)
         return response

@@ -157,3 +157,92 @@ def test_the_wrapper_reports_replay_accounting(tmp_path):
     _complete(client)
     _complete(client)
     assert (cache.replayed, cache.missed) == (1, 1)
+
+
+# --- responses that carry no decision ---------------------------------------------------
+#
+# The cache exists so a resumed cell replays its earlier calls instead of re-spending them.
+# That is right for any response the run can act on. An EMPTY response is different: it is
+# not a slow or unusual answer, it is the absence of one, and memoising it converts a
+# transient into a permanent. The bridge canary lost three cells this way, one per ~199, and
+# the same rate over the main run is roughly 116 dead cells that no resume can ever recover.
+#
+# Re-calling is sound here specifically because the frozen checker runs at temperature 0: a
+# successful call is deterministic, so a retry recovers the decision the failed call should
+# have returned rather than drawing a fresh sample. That is what separates this from the
+# frozen "never regenerate an invalid verdict" rule, which exists to stop
+# retry-until-parseable selection on sampled outputs.
+
+def test_an_empty_response_is_not_cached(tmp_path):
+    from rejudge.phase2_call_cache import CallCache
+    from rejudge.phase2_caching_client import CachingClient
+
+    class Provider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict",
+                     *, request_metadata=None):
+            self.calls += 1
+            return "" if self.calls == 1 else "allow"
+
+    provider = Provider()
+    cache = CallCache(tmp_path / "cache.jsonl")
+    client = CachingClient(provider, cache)
+    metadata = {"cell_key": "cell-1", "call_role": "query_checker", "slot": 1, "attempt": 1}
+
+    first = client.complete([{"role": "user", "content": "q"}], "m", 0, 1, 8,
+                            request_metadata=metadata)
+    assert first == ""
+    second = client.complete([{"role": "user", "content": "q"}], "m", 0, 1, 8,
+                             request_metadata=metadata)
+    assert second == "allow", "the retry must reach the provider, not replay the empty"
+    assert provider.calls == 2
+
+
+def test_a_whitespace_only_response_is_also_not_cached(tmp_path):
+    """Whitespace is the same absence of a decision, and the frozen checker parser rejects it
+    identically."""
+    from rejudge.phase2_call_cache import CallCache
+    from rejudge.phase2_caching_client import CachingClient
+
+    class Provider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict",
+                     *, request_metadata=None):
+            self.calls += 1
+            return "  \n " if self.calls == 1 else "reject"
+
+    provider = Provider()
+    client = CachingClient(provider, CallCache(tmp_path / "cache.jsonl"))
+    metadata = {"cell_key": "cell-2", "call_role": "query_checker", "slot": 1, "attempt": 1}
+    client.complete([{"role": "user", "content": "q"}], "m", 0, 1, 8, request_metadata=metadata)
+    assert client.complete([{"role": "user", "content": "q"}], "m", 0, 1, 8,
+                           request_metadata=metadata) == "reject"
+    assert provider.calls == 2
+
+
+def test_a_real_response_is_still_cached_exactly_once(tmp_path):
+    """The change must not weaken memoisation for anything the run can act on, or every
+    resume re-spends the whole cell."""
+    from rejudge.phase2_call_cache import CallCache
+    from rejudge.phase2_caching_client import CachingClient
+
+    class Provider:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict",
+                     *, request_metadata=None):
+            self.calls += 1
+            return "allow"
+
+    provider = Provider()
+    client = CachingClient(provider, CallCache(tmp_path / "cache.jsonl"))
+    metadata = {"cell_key": "cell-3", "call_role": "query_checker", "slot": 1, "attempt": 1}
+    for _ in range(3):
+        assert client.complete([{"role": "user", "content": "q"}], "m", 0, 1, 8,
+                               request_metadata=metadata) == "allow"
+    assert provider.calls == 1
