@@ -332,3 +332,141 @@ def test_per_model_caps_bound_how_many_calls_are_in_flight(tmp_path):
     assert capped.get(GEMMA, 0) <= 2, f"gemma exceeded its cap: peak {capped.get(GEMMA)}"
     assert max(v for m, v in capped.items() if m != GEMMA) > 2, (
         "the cap must bind gemma alone, not throttle the whole run")
+
+
+def test_a_slow_cell_does_not_stall_the_others(tmp_path):
+    """The block barrier made throughput the MAXIMUM over a block, not the mean.
+
+    _run_concurrent collected every future in a block before recording anything or
+    dispatching the next, so one straggler idled the other seven workers. Measured on the
+    bridge canary that cost 8x: 3.5 calls per cell at a 15.4s mean predicts 534 cells/hour
+    with eight workers, and it delivered 67.
+
+    The test pins the property rather than the implementation: with one very slow cell among
+    many fast ones, the run must finish in about the slow cell's own time, not that plus
+    everything queued behind it.
+    """
+    import threading
+    import time
+
+    slow_seen = threading.Event()
+    fast_after_slow = []
+    base = DeterministicCanaryClient()
+
+    class Staggered:
+        def __init__(self):
+            self.calls = base.calls
+
+        def complete(self, messages, model, temperature, seed, max_tokens, **kwargs):
+            role = (kwargs.get("request_metadata") or {}).get("call_role")
+            if role == "debater_turn" and not slow_seen.is_set():
+                slow_seen.set()
+                time.sleep(1.0)          # one straggler
+            elif slow_seen.is_set():
+                fast_after_slow.append(1)  # progress made WHILE the straggler is blocked
+            return base.complete(messages, model, temperature, seed, max_tokens, **kwargs)
+
+    started = time.time()
+    _run_concurrent(tmp_path, max_workers=8, client=Staggered(),
+                    cell_filter=_two_question_subset)
+    elapsed = time.time() - started
+
+    assert fast_after_slow, "other workers must keep working while one cell is slow"
+    assert elapsed < 20, (
+        f"took {elapsed:.1f}s; a barrier would serialise the straggler against every block")
+
+
+def test_dispatch_stays_condition_balanced_without_the_barrier(tmp_path):
+    """Removing the barrier must not remove the confound protection it was carrying.
+
+    Batch cells depend on their sequential parents and so always run later; the balance is
+    what stops that becoming 'all of one condition, then all of another' and handing
+    time-varying provider degradation to one co-primary.
+    """
+    import json as _json
+
+    _run_concurrent(tmp_path, max_workers=8, cell_filter=_two_question_subset)
+    rows = [_json.loads(line) for line
+            in (tmp_path / "results.jsonl").read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    order = [r["result"].get("condition") or "transcript" for r in rows]
+    judgments = [c for c in order if c == "b0"]
+    if len(judgments) >= 8:
+        # b0 cells must not all be bunched at one end of the run.
+        first_half = order[:len(order) // 2].count("b0")
+        second_half = order[len(order) // 2:].count("b0")
+        assert first_half and second_half, (
+            f"b0 cells clustered: {first_half} in the first half, {second_half} in the second")
+
+
+# --- one ambiguous charge should not stop everything -----------------------------------------
+#
+# Measured on the bridge canary: 124 driver attempts, median 4 cells each, 4.77 hours of pure
+# backoff. One abandoned call raised UnknownChargeHalt, which halted the whole run, and the
+# supervisor then paid a backoff plus a full restart before completing another handful of
+# cells. With gemma abandoning 16.8% of ~3,300 calls that is hundreds of full-run halts.
+#
+# The exception exists to stop THAT CALL being retried into a possible second unknown charge.
+# It says nothing about unrelated cells, and the uncertain-spend ceiling is the control that
+# actually bounds total exposure.
+
+def test_an_abandoned_call_fails_its_cell_not_the_run(tmp_path):
+    from rejudge.api_client import UnknownChargeHalt
+
+    state = {"n": 0}
+    base = DeterministicCanaryClient()
+
+    class Flaky:
+        def __init__(self):
+            self.calls = base.calls
+
+        def complete(self, messages, model, temperature, seed, max_tokens, **kwargs):
+            state["n"] += 1
+            if state["n"] == 3:
+                raise UnknownChargeHalt("billing status unknown for this attempt")
+            return base.complete(messages, model, temperature, seed, max_tokens, **kwargs)
+
+    outcome = _run_concurrent(tmp_path, max_workers=4, client=Flaky(),
+                              cell_filter=_two_question_subset)
+    assert outcome.halted_reason is None, (
+        f"one ambiguous charge halted the whole run: {outcome.halted_reason}")
+    assert outcome.abandoned >= 1, "the affected cell should be reported as abandoned"
+    assert outcome.completed > 5, "every other cell should still have run"
+
+
+def test_the_abandoned_cell_is_left_unrecorded_so_a_later_pass_retries_it(tmp_path):
+    from rejudge.api_client import UnknownChargeHalt
+
+    state = {"n": 0}
+    base = DeterministicCanaryClient()
+
+    class Flaky:
+        def __init__(self):
+            self.calls = base.calls
+
+        def complete(self, messages, model, temperature, seed, max_tokens, **kwargs):
+            state["n"] += 1
+            if state["n"] == 3:
+                raise UnknownChargeHalt("billing status unknown")
+            return base.complete(messages, model, temperature, seed, max_tokens, **kwargs)
+
+    first = _run_concurrent(tmp_path, max_workers=4, client=Flaky(),
+                            cell_filter=_two_question_subset)
+    assert first.abandoned >= 1
+    second = _run_concurrent(tmp_path, max_workers=4, cell_filter=_two_question_subset)
+    assert second.completed >= first.abandoned, "the abandoned cells run on the next pass"
+
+
+def test_a_provider_abandoning_everything_still_halts(tmp_path):
+    """Tolerating an abandoned cell must not become tolerating a dead provider."""
+    from rejudge.api_client import UnknownChargeHalt
+
+    class Dead:
+        calls = []
+
+        def complete(self, *a, **k):
+            raise UnknownChargeHalt("billing status unknown")
+
+    outcome = _run_concurrent(tmp_path, max_workers=4, client=Dead(),
+                              cell_filter=_two_question_subset)
+    assert outcome.halted_reason is not None, "a wholly failing provider must stop the run"

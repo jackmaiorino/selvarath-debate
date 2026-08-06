@@ -25,7 +25,7 @@ from typing import Any, Callable
 
 from rejudge import phase2_canary_cells as cells_mod
 from rejudge import phase2_plan
-from rejudge.api_client import CapExceededError
+from rejudge.api_client import CapExceededError, UnknownChargeHalt
 from rejudge.phase2_canary_execute import CellContext, MissingTranscript, execute_cell
 from rejudge.phase2_canary_gate import CanaryCellHalted, PendingReviewerDecision
 from rejudge.phase2_canary_order import CellResultStore, execution_order
@@ -42,6 +42,9 @@ class RunOutcome:
     skipped: int = 0
     paused: int = 0
     deferred: int = 0
+    # Cells whose call had an ambiguous billing outcome. Left unrecorded so a later pass
+    # retries them, exactly like a paused cell, rather than stopping the whole run.
+    abandoned: int = 0
     halted_reason: str | None = None
     halted_cell_key: str | None = None
     pending_payloads: list[dict[str, str]] = field(default_factory=list)
@@ -191,6 +194,13 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
             # dependency completes.
             outcome.deferred += 1
             continue
+        except UnknownChargeHalt:
+            outcome.abandoned += 1
+            if _too_many_abandoned(outcome, attempted):
+                outcome.halted_reason = "abandoned_cell_rate"
+                outcome.halted_cell_key = cell.cell_key
+                break
+            continue
         except CanaryCellHalted as halt:
             outcome.halted_reason = halt.reason
             outcome.halted_cell_key = cell.cell_key
@@ -211,6 +221,32 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
 
 
 
+# Calibrated against what a DEGRADED provider actually looks like, not against intuition.
+# gemma abandons about 16.8% of calls and a cell makes ~3.5 of them, so roughly 47% of cells
+# abandon on their first attempt even when the run is healthy and converging. A threshold
+# anywhere near that would halt every pass. These two catch the different thing: a provider
+# that is failing essentially everything, and a pass that has run away regardless of rate.
+ABANDONED_FRACTION = 0.90
+ABANDONED_FRACTION_FLOOR = 10
+# Also bounds uncertain spend within a single pass. At the observed ~$0.008 of uncertain
+# reservation per abandoned call, 100 abandoned cells is roughly $1, and the supervisor
+# re-checks the uncertain ceiling between passes.
+ABANDONED_ABSOLUTE = 100
+
+
+def _too_many_abandoned(outcome, attempted: int) -> bool:
+    """Tolerating an abandoned cell must not become tolerating a dead provider.
+
+    A runaway guard, not a safety control: the uncertain-spend ceiling bounds real financial
+    exposure, and this only catches abandoning ceasing to be the exception.
+    """
+    if outcome.abandoned >= ABANDONED_ABSOLUTE:
+        return True
+    if attempted < ABANDONED_FRACTION_FLOOR:
+        return False
+    return outcome.abandoned >= max(1, attempted) * ABANDONED_FRACTION
+
+
 def _attempt(cell, context) -> tuple[str, Any]:
     """Run one cell and classify the outcome, never raising into the worker pool.
 
@@ -224,6 +260,12 @@ def _attempt(cell, context) -> tuple[str, Any]:
         return "paused", pending
     except MissingTranscript:
         return "deferred", None
+    except UnknownChargeHalt as unknown:
+        # Raised so the ambiguous call is not retried into a possible second unknown charge.
+        # That is a statement about ONE call, not about the run: no other cell's billing is
+        # implicated, and total exposure is bounded by the uncertain-spend ceiling. Halting
+        # everything cost 124 driver restarts and 4.77h of backoff on the bridge canary.
+        return "abandoned", unknown
     except CanaryCellHalted as halt:
         return "halt", halt.reason
     except CapExceededError:
@@ -277,6 +319,12 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                         outcome.pending_payloads.append(dict(payload.payload))
                 elif kind == "deferred":
                     outcome.deferred += 1
+                elif kind == "abandoned":
+                    outcome.abandoned += 1
+                    if not halted and _too_many_abandoned(outcome, len(attempted)):
+                        halted = True
+                        outcome.halted_reason = "abandoned_cell_rate"
+                        outcome.halted_cell_key = cell.cell_key
                 elif not halted:
                     # First halt in block order wins, so the reported cause is deterministic
                     # rather than whichever worker happened to finish first.
