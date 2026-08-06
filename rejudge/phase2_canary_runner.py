@@ -120,6 +120,7 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                pause_when_unlabeled: bool = False,
                limit: int | None = None,
                cell_filter: Callable[[Any], bool] | None = None,
+               cells: list | None = None,
                max_workers: int = 1,
                block_size: int | None = None,
                model_caps: dict[str, int] | None = None) -> RunOutcome:
@@ -140,9 +141,15 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     bundle = bundle if bundle is not None else _load(
         REPO_ROOT / "rejudge" / "phase2_prompt_bundle.json")
 
+    # The plan is injectable, and defaults to the canary's. It was enumerated unconditionally
+    # here, so the main grid had no execution path at all: its manifest validated cleanly
+    # while nothing could run it. Both plans describe the same cell shapes, and resolve_cell
+    # normalises the namespace prefix, so one executor serves both rather than a second copy
+    # that would drift from this one.
+    plan = list(cells) if cells is not None else phase2_plan.enumerate_canary_cells(protocol)
     resolved = [cells_mod.resolve_cell(cell, protocol, bundle,
                                        anchor_judge_model=anchor_judge_model)
-                for cell in phase2_plan.enumerate_canary_cells(protocol)]
+                for cell in plan]
     if cell_filter is not None:
         resolved = [cell for cell in resolved if cell_filter(cell)]
     ordered = execution_order(resolved)

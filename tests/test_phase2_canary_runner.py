@@ -470,3 +470,32 @@ def test_a_provider_abandoning_everything_still_halts(tmp_path):
     outcome = _run_concurrent(tmp_path, max_workers=4, client=Dead(),
                               cell_filter=_two_question_subset)
     assert outcome.halted_reason is not None, "a wholly failing provider must stop the run"
+
+
+def test_the_runner_can_be_pointed_at_the_main_plan(tmp_path):
+    """run_canary enumerated the canary plan unconditionally, so the main grid had no
+    execution path at all: its manifest validated while nothing could run it."""
+    from rejudge.phase2_main_manifest import enumerate_main_cells
+
+    main = [c for c in enumerate_main_cells(".")
+            if c["kind"] != "capability_qa" and c["question_id"] == "CN-001"
+            and (c["kind"] == "debate_transcript" or c["condition"] == "b0")]
+    assert main, "fixture assumption: the main plan has transcript and b0 cells for CN-001"
+
+    outcome = run_canary(
+        results_path=tmp_path / "results.jsonl",
+        decisions_path=tmp_path / "decisions.jsonl",
+        client=DeterministicCanaryClient(), reviewer=StubReviewer(),
+        anchor_judge_model=ANCHOR, cells=main, max_workers=4)
+    assert outcome.completed == len(main)
+    assert outcome.halted_reason is None
+    recorded = {json.loads(line)["cell_key"] for line
+                in (tmp_path / "results.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()}
+    assert recorded == {c["cell_key"] for c in main}
+
+
+def test_the_canary_plan_is_still_the_default(tmp_path):
+    """Two completed runs and every existing caller depend on the default."""
+    outcome = _run(tmp_path, limit=3)
+    assert outcome.completed == 3

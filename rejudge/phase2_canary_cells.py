@@ -19,7 +19,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-TRANSCRIPT_KINDS = frozenset({"canary_debate_transcript", "canary_capped_debate_transcript"})
+# Keyed on the UNPREFIXED kind. The canary plan prefixes every kind and transcript condition
+# with "canary_" and the main plan does not, so keying on the prefixed names made all 23,200
+# main cells unresolvable while the canary's 945 worked. Both plans describe the same cell
+# shapes; the prefix is a namespace, not a difference in kind.
+TRANSCRIPT_KINDS = frozenset({"debate_transcript", "capped_debate_transcript"})
 
 # The canary prefixes its transcript conditions; the prompt bundle does not. Strip the prefix
 # to reach the bundle entry, then map to the protocol name debate_gen actually accepts.
@@ -31,20 +35,20 @@ TRANSCRIPT_PROTOCOL_NAMES = {
 
 # Which section of the bundle's condition_composition map governs each cell kind.
 _COMPOSITION_SECTION = {
-    "canary_debate_transcript": "transcript_generation",
-    "canary_capped_debate_transcript": "transcript_generation",
-    "canary_debate_judgment": "debate_grid",
-    "canary_no_debate_judgment": "no_debate_references",
-    "canary_cap_protection_judgment": "cap_protection_secondary",
-    "canary_empty_evidence_judgment": "diagnostics",
-    "canary_full_document_judgment": "diagnostics",
+    "debate_transcript": "transcript_generation",
+    "capped_debate_transcript": "transcript_generation",
+    "debate_judgment": "debate_grid",
+    "no_debate_judgment": "no_debate_references",
+    "cap_protection_judgment": "cap_protection_secondary",
+    "empty_evidence_judgment": "diagnostics",
+    "full_document_judgment": "diagnostics",
 }
 
 # Which protocol section states the condition's query budget and oracle mode. The specials
 # carry no such entry: they are budget-0 by construction.
 _CONDITION_SECTION = {
-    "canary_debate_judgment": ("debate_grid", "conditions"),
-    "canary_no_debate_judgment": ("no_debate_references", "conditions"),
+    "debate_judgment": ("debate_grid", "conditions"),
+    "no_debate_judgment": ("no_debate_references", "conditions"),
 }
 
 _ARM_BY_ORACLE_MODE = {"clean": "clean", "placebo": "placebo"}
@@ -79,7 +83,7 @@ class ResolvedCell:
 
     @property
     def is_transcript(self) -> bool:
-        return self.kind in TRANSCRIPT_KINDS
+        return base_kind(self.kind) in TRANSCRIPT_KINDS
 
     @property
     def produces_queries(self) -> bool:
@@ -91,13 +95,25 @@ class ResolvedCell:
         return self.query_budget > 0 and self.oracle_mode in _ARM_BY_ORACLE_MODE
 
 
+def base_kind(cell_kind: str) -> str:
+    """The cell shape, with the plan's namespace prefix removed.
+
+    ``canary_debate_judgment`` and ``debate_judgment`` are the same shape executed over
+    different question sets. Normalising here keeps one executor for both rather than a
+    second copy that would drift.
+    """
+    return (cell_kind[len(CANARY_CONDITION_PREFIX):]
+            if cell_kind.startswith(CANARY_CONDITION_PREFIX) else cell_kind)
+
+
 def _composition(cell_kind: str, condition: str, bundle: Mapping[str, Any]) -> Mapping[str, Any]:
-    section_name = _COMPOSITION_SECTION.get(cell_kind)
+    section_name = _COMPOSITION_SECTION.get(base_kind(cell_kind))
     if section_name is None:
-        raise UnresolvableCell(f"unknown canary cell kind: {cell_kind!r}")
+        raise UnresolvableCell(f"unknown cell kind: {cell_kind!r}")
     section = bundle["condition_composition"][section_name]
     key = (condition[len(CANARY_CONDITION_PREFIX):]
-           if cell_kind in TRANSCRIPT_KINDS and condition.startswith(CANARY_CONDITION_PREFIX)
+           if base_kind(cell_kind) in TRANSCRIPT_KINDS
+           and condition.startswith(CANARY_CONDITION_PREFIX)
            else condition)
     if key not in section:
         raise UnresolvableCell(
@@ -107,7 +123,7 @@ def _composition(cell_kind: str, condition: str, bundle: Mapping[str, Any]) -> M
 
 def _budget_and_oracle_mode(cell: Mapping[str, Any],
                             protocol: Mapping[str, Any]) -> tuple[int, str]:
-    kind, condition = cell["kind"], cell["condition"]
+    kind, condition = base_kind(str(cell["kind"])), cell["condition"]
     if kind in TRANSCRIPT_KINDS:
         return 0, "none"
     location = _CONDITION_SECTION.get(kind)
@@ -131,7 +147,7 @@ def resolve_cell(cell: Mapping[str, Any], protocol: Mapping[str, Any],
     composition = _composition(kind, condition, bundle)
 
     transcript_protocol_name = None
-    if kind in TRANSCRIPT_KINDS:
+    if base_kind(kind) in TRANSCRIPT_KINDS:
         stripped = condition[len(CANARY_CONDITION_PREFIX):] if condition.startswith(
             CANARY_CONDITION_PREFIX) else condition
         if stripped not in TRANSCRIPT_PROTOCOL_NAMES:

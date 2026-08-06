@@ -23,7 +23,7 @@ from typing import Any
 from rejudge import debate_gen, judge_loop, records
 from rejudge.config import ARMS, PLACEBO_TEXT, make_seed, position_for
 from rejudge.parsers import parse_both
-from rejudge.phase2_canary_cells import ResolvedCell
+from rejudge.phase2_canary_cells import ResolvedCell, base_kind
 from rejudge.phase2_canary_compose import (
     debater_protocol_for, is_single_call, judge_protocol_for, single_call_prompt,
     turn_templates_for)
@@ -100,7 +100,7 @@ def _transcript_for(cell: ResolvedCell, context: CellContext) -> dict:
     debate_transcript placeholder, so the empty text is never rendered; it exists only
     because judge_loop reads the candidates off this structure.
     """
-    if cell.kind == "canary_no_debate_judgment":
+    if base_kind(cell.kind) == "no_debate_judgment":
         question = context.question(cell.question_id)
         return {
             "question_id": cell.question_id, "transcript_index": 0,

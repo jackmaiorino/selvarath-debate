@@ -192,3 +192,62 @@ def test_the_frozen_query_generation_call_count_is_reproduced():
     total = sum(r.query_budget for r in
                 (_resolve(cell) for cell in _plan_cells()) if r.produces_queries)
     assert total == 672
+
+
+# --- main-run cells ---------------------------------------------------------------------
+#
+# The canary plan prefixes every kind and transcript condition with "canary_"; the main plan
+# does not. The resolver was keyed on the prefixed names, so every one of the 23,200 main
+# cells raised UnresolvableCell. The manifest for the main run validated cleanly while nothing
+# could execute it, which is the sort of gap a manifest check cannot catch.
+
+def _main_cells():
+    from rejudge.phase2_main_manifest import enumerate_main_cells
+    return enumerate_main_cells(".")
+
+
+def test_a_main_run_judgment_cell_resolves():
+    from rejudge import phase2_canary_cells as cells_mod
+
+    protocol, bundle = _protocol(), _bundle()
+    cell = next(c for c in _main_cells()
+                if c["kind"] == "debate_judgment" and c["condition"] == "sequential_b2")
+    resolved = cells_mod.resolve_cell(cell, protocol, bundle,
+                                      anchor_judge_model=ANCHOR)
+    assert resolved.kind == "debate_judgment"
+    assert resolved.query_budget == 2
+    assert resolved.produces_queries
+
+
+def test_a_main_run_transcript_cell_resolves_to_a_debate_gen_protocol():
+    from rejudge import phase2_canary_cells as cells_mod
+
+    protocol, bundle = _protocol(), _bundle()
+    cell = next(c for c in _main_cells() if c["kind"] == "debate_transcript")
+    resolved = cells_mod.resolve_cell(cell, protocol, bundle, anchor_judge_model=ANCHOR)
+    assert resolved.is_transcript
+    assert resolved.transcript_protocol_name == "uncapped3"
+
+
+def test_every_main_run_cell_kind_resolves():
+    """All 23,200, not a sample: an unresolvable kind discovered mid-run is a stopped run."""
+    from rejudge import phase2_canary_cells as cells_mod
+
+    protocol, bundle = _protocol(), _bundle()
+    kinds = {}
+    for cell in _main_cells():
+        if cell["kind"] == "capability_qa":
+            continue  # ran under the capability preflight, not this executor
+        kinds.setdefault((cell["kind"], cell["condition"]), cell)
+    for (kind, condition), cell in sorted(kinds.items()):
+        cells_mod.resolve_cell(cell, protocol, bundle, anchor_judge_model=ANCHOR)
+
+
+def test_the_canary_kinds_still_resolve():
+    """Two completed runs depend on the prefixed names continuing to work."""
+    from rejudge import phase2_canary_cells as cells_mod
+    from rejudge.phase2_plan import enumerate_canary_cells
+
+    protocol, bundle = _protocol(), _bundle()
+    for cell in enumerate_canary_cells(protocol)[:40]:
+        cells_mod.resolve_cell(cell, protocol, bundle, anchor_judge_model=ANCHOR)
