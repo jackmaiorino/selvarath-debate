@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Protocol, TypeAlias
 
+from rejudge.api_client import UnknownChargeHalt
 from rejudge.query_screen import screen_query
 
 
@@ -329,6 +330,17 @@ class Phase2QueryGate:
         )
         try:
             raw_result = self._checker(request)
+        except UnknownChargeHalt:
+            # Deliberately NOT wrapped. This is the client's accounting guard firing because a
+            # call's billing outcome is ambiguous; it says nothing about the checker's
+            # behaviour. Reporting it as checker_outage conflated an accounting event with
+            # evidence that the frozen gate is misbehaving, which cost twice over: the
+            # runner's per-cell handling for ambiguous charges never fired on the dominant
+            # path (gemma serves the checker and abandons ~16.8% of calls), and the supervisor
+            # had to treat checker_outage as broadly resumable to compensate, blunting a
+            # signal that should be rare and serious. The caller decides what an ambiguous
+            # charge means for its cell.
+            raise
         except Exception as exc:
             return self._halt(
                 raw_query=raw_query,

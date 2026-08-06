@@ -201,3 +201,41 @@ def test_no_checker_calls_or_events_after_exhaustion():
     assert len(checker.requests) == 1
     assert len(gate.events) == 1
 
+
+
+def test_an_ambiguous_charge_is_not_relabelled_as_a_checker_outage():
+    """UnknownChargeHalt is the client's accounting guard, not checker behaviour.
+
+    The gate caught every exception from the checker and reported checker_outage, so an
+    ambiguous billing outcome on a checker call arrived at the runner wearing the costume of a
+    gate anomaly. Two consequences, both measured: the runner's per-cell handling for
+    ambiguous charges never fired on the dominant path (gemma serves the checker and abandons
+    16.8% of calls), and the supervisor had to treat checker_outage as broadly resumable to
+    compensate, which blunted a signal that should mean the frozen gate is misbehaving.
+    """
+    import pytest
+
+    from rejudge.api_client import UnknownChargeHalt
+    from rejudge.phase2_query_gate import Phase2QueryGate
+
+    def checker(_request):
+        raise UnknownChargeHalt("billing status unknown for this attempt")
+
+    gate = Phase2QueryGate(candidate_a="A text", candidate_b="B text", total_slots=2,
+                           checker=checker)
+    with pytest.raises(UnknownChargeHalt):
+        gate.submit("CLAIM: the threshold is 24 votes")
+
+
+def test_a_genuine_checker_failure_still_halts_as_an_outage():
+    """The narrowing must not swallow real gate anomalies."""
+    from rejudge.phase2_query_gate import Phase2QueryGate
+
+    def checker(_request):
+        raise RuntimeError("the checker endpoint returned garbage")
+
+    gate = Phase2QueryGate(candidate_a="A text", candidate_b="B text", total_slots=2,
+                           checker=checker)
+    event = gate.submit("CLAIM: the threshold is 24 votes")
+    assert event.halted
+    assert event.halt_reason == "checker_outage"
