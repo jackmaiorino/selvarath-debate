@@ -26,7 +26,7 @@ def _canary_manifest():
 def _main_manifest():
     from pathlib import Path
     return json.loads(Path(
-        "rejudge/phase2_main_manifest_2026-08-06.json").read_text(encoding="utf-8"))
+        "rejudge/phase2_main_manifest_2026-08-06c.json").read_text(encoding="utf-8"))
 
 
 def test_validation_dispatches_on_the_manifests_own_schema():
@@ -70,3 +70,19 @@ def test_the_resolved_main_plan_is_dependency_closed():
                 for c in cells]
     ordered = execution_order(resolved)
     assert len(ordered) == len(resolved)
+
+
+def test_the_driver_accepts_the_main_manifests_frozen_inputs(tmp_path):
+    """The gap that stopped the first launch: the manifest bound the reviewer prompt with a
+    canonical JSON hash while the driver checks the artifact's declared hash of the prompt
+    TEXT. Every frozen input has its own correct hash KIND, so this asserts the driver's own
+    loaders accept what the manifest binds, rather than that the manifest is self-consistent.
+    """
+    from rejudge.phase2_canary_live import load_frozen_reviewer_prompt
+
+    m = _main_manifest()
+    frozen = load_frozen_reviewer_prompt(m, ".")
+    assert frozen["prompt"]
+    for key in ("reviewer_prompt_sha256", "checker_system_prompt_sha256",
+                "no_query_payload_sha256", "price_snapshot_sha256", "checker_model"):
+        assert key in m["frozen_inputs"], f"{key} missing; the driver or gate reads it"

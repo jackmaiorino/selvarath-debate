@@ -32,7 +32,8 @@ from typing import Any, Mapping
 
 from rejudge import phase2_plan
 from rejudge.phase2_canary_manifest import (CANARY_CODE_PROVENANCE_FILES,
-                                            canary_code_bundle_sha256, resolve_role_limits)
+                                            canary_code_bundle_sha256)
+from rejudge.phase2_canary_manifest import _frozen_inputs as _shared_frozen_inputs
 from rejudge.phase2_execution import canonical_sha256
 
 STAGE = "main"
@@ -95,10 +96,17 @@ def build_main_manifest(*, project_root: str | Path = ".", recorded_at_utc: str,
     root = Path(project_root)
     cells = enumerate_main_cells(root)
     billable = billable_cells(cells)
+    # REUSED, not reimplemented. Hand-rolling this set bound the reviewer prompt with a
+    # canonical JSON hash where the driver checks the artifact's declared hash of the prompt
+    # TEXT, and silently omitted the checker system prompt, the no-query payload and the price
+    # snapshot. Each frozen input has its own correct hash KIND, and the canary builder is
+    # where that knowledge lives; only the plan bindings differ between stages.
+    frozen = dict(_shared_frozen_inputs(root))
+    del frozen["canary_cells_sha256"]
+    del frozen["canary_plan_sha256"]
     anchor_approval = "rejudge/phase2_anchor_parser_policy_approval_2026-07-24.json"
     canary_completion = "rejudge/phase2_canary_bridge_completion_2026-08-06.json"
     missing_data = "rejudge/phase2_missing_data_policy_proposal_2026-08-04.json"
-    role_limits = resolve_role_limits(root)
 
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA,
@@ -118,19 +126,7 @@ def build_main_manifest(*, project_root: str | Path = ".", recorded_at_utc: str,
             # different experiment, and a count cannot detect that.
             "cells_sha256": canonical_sha256(cells),
         },
-        "frozen_inputs": {
-            "protocol_sha256": canonical_sha256(
-                _json(root / "rejudge" / "phase2_protocol.json")),
-            "prompt_bundle_sha256": canonical_sha256(
-                _json(root / "rejudge" / "phase2_prompt_bundle.json")),
-            "checker_frozen_config_sha256": canonical_sha256(
-                _json(root / "rejudge" / "phase2_checker_frozen_config_2026-07-23.json")),
-            "reviewer_prompt_sha256": canonical_sha256(
-                _json(root / "rejudge" / "phase2_reviewer_prompt_2026-07-23.json")),
-            "role_limits_sha256": role_limits["sha256"],
-            "role_limits_tracked_path": role_limits["tracked_path"],
-            "role_limits_amended": role_limits["amended"],
-        },
+        "frozen_inputs": frozen,
         "reviewer": {
             "model": "gpt-5.6-sol",
             "reasoning_effort": "high",
