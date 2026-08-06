@@ -1,0 +1,28 @@
+{
+ "adopted_by_binding": "the missing-data policy, whose differential-incompletion gate of 0.5pp across b0, sequential_b2 and batch_same_qa_b2 is the binding check on whether this run's primary is usable, and is evaluated at close-out rather than asserted.",
+ "execution_identity_sha256": "8fde9f83ea84ceeeb038e41b9935292ee643308baf86f350c844a6fa861afc1a",
+ "known_deviations_carried_forward": [
+  "reviewer is gpt-5.6-sol at high effort, not the originally pinned claude-fable-5, under the 2026-08-01 substitution record; homogeneous throughout this run",
+  "role limits v6 (120s read timeout) under the 2026-08-01 transport amendment",
+  "no settled concurrency cap exists, because the bridge canary's ramp was overridden rather than climbed"
+ ],
+ "note": "Append-only. Records the basis for an authorization.",
+ "recorded_at_utc": "2026-08-06T12:00:00Z",
+ "schema_version": "phase2_main_authorization_basis_v1",
+ "spend": {
+  "already_paid": "1,060 capability-QA cells ran under the capability preflight's own manifest and authorization and are excluded from execution and forecast.",
+  "basis": "measured per-cell cost of the bridge canary ($0.00572 settled + $0.00213 uncertain), which ran the same pipeline over the 24 HELD-OUT questions. Main questions may differ in length and query behaviour.",
+  "projected_total_usd": 173.8,
+  "stage_cap_usd": 400.0
+ },
+ "stage": "main",
+ "subject": "the pre-registered phase-2 main run: 23,200 cells over the 82 main questions",
+ "supersedes_unauthorized": "8c8c423ea3dc3dbc80466180dd4f4cfe958d20267c5f061f868fd558fe4f3565",
+ "the_open_risk_stated_plainly": "max_workers 16 has NO live evidence. The bridge canary ran 8. gemma at concurrency 8 does have evidence (1,179 ok / 238 abandoned, 16.8%, no worse than at concurrency 1), but the doubling of worker count is a hypothesis. Three throughput estimates were wrong in the optimistic direction before one was measured properly, so the manifest carries a 500-cell validation window and a revert to max_workers 8 if gemma abandonment exceeds 25% or throughput falls below the canary's 67 cells/hour.",
+ "what_this_answers": "The primary estimands H = error(sequential_b2) - error(b0), P = error(sequential_b2) - error(batch_same_qa_b2), and R = error(batch_same_qa_b2) - error(b0), with H = P + R, two-sided under Holm, over all 82 main questions x 4 judges x 2 debaters. Whether limited verification harms judges, and whether the harm is packaging or content.",
+ "why_it_is_ready": {
+  "bridge_canary": "converged 945 of 945 with nothing excluded, chains verified, under rejudge/phase2_canary_bridge_completion_2026-08-06.json",
+  "defects_fixed_and_verified_live": "single-call counterbalancing (99/99 cells now carry scoring metadata, polarity 67 False / 32 True) and gate candidate alignment (336/336 aligned, was 224 swapped of 332)",
+  "executability_demonstrated": "a 540-cell slice spanning all ten main-run conditions ran through the real driver path to completion offline: zero paused, deferred, abandoned or halted. The previous manifest validated cleanly and could not be executed at all, which is why this is stated as demonstrated rather than assumed."
+ }
+}
