@@ -1018,6 +1018,45 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
     return CachingClient(resolving, CallCache(call_cache_path))
 
 
+# --- stage dispatch -------------------------------------------------------------------------
+#
+# This driver was written for the canary and validated only canary manifests, while _run_passes
+# only ever ran the canary plan. A main-run manifest could therefore be built, validated and
+# hash-bound with nothing able to execute it, which is precisely the gap a manifest check
+# cannot catch. Both stages share the executor: the cell shapes are the same and resolve_cell
+# normalises the plan's namespace prefix, so what differs is only which plan and which
+# validator, and both are read from the manifest itself rather than passed alongside it.
+
+def validate_manifest(manifest, *, project_root: str | Path = ".") -> dict:
+    """Validate against the schema the manifest declares. Refuses an unknown one."""
+    schema = str(manifest.get("schema_version") or "")
+    if schema.startswith("phase2_canary_execution_manifest"):
+        return validate_canary_manifest(manifest, project_root=project_root)
+    if schema.startswith("phase2_main_execution_manifest"):
+        from rejudge.phase2_main_manifest import validate_main_manifest
+        return validate_main_manifest(manifest, project_root=project_root)
+    raise CanaryLiveError(
+        f"unknown execution manifest schema {schema!r}; refusing to guess which stage this is")
+
+
+def plan_for(manifest, *, project_root: str | Path = ".") -> list:
+    """The cells this manifest's stage executes.
+
+    The main plan excludes capability_qa: those 1,060 cells ran under the capability
+    preflight's own manifest and authorization, and re-running them here would re-spend work
+    already paid for and already analysed.
+    """
+    stage = str(manifest.get("stage") or "")
+    if stage == "canary":
+        protocol = _load_json(Path(project_root) / "rejudge" / "phase2_protocol.json")
+        from rejudge import phase2_plan
+        return phase2_plan.enumerate_canary_cells(protocol)
+    if stage == "main":
+        from rejudge.phase2_main_manifest import billable_cells, enumerate_main_cells
+        return billable_cells(enumerate_main_cells(project_root))
+    raise CanaryLiveError(f"unknown stage {stage!r}")
+
+
 def run_live(manifest_path: str | Path, authorization_path: str | Path,
              project_root: str | Path = ".", *, limit: int | None = None,
              max_passes: int = 40, client=None, reviewer=None,
@@ -1039,7 +1078,7 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
     if authorization_path is None:
         raise CanaryLiveError("run_live requires an authorization_path; there is no bypass")
     manifest = _load_json(Path(manifest_path))
-    validate_canary_manifest(manifest, project_root=project_root)
+    validate_manifest(manifest, project_root=project_root)
     authorization = _load_json(Path(authorization_path))
     validate_canary_authorization(authorization, manifest, project_root=project_root)
 
@@ -1081,7 +1120,8 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
                            limit=limit, max_passes=max_passes,
                            pause_when_unlabeled=pause_when_unlabeled,
                            terminal_halt_cells=terminal,
-                           archive_dir=local_path(manifest["ledger"]["archive_dir"]))
+                           archive_dir=local_path(manifest["ledger"]["archive_dir"]),
+                           cells=plan_for(manifest, project_root=project_root))
     finally:
         if lock is not None:
             lock.__exit__(None, None, None)
@@ -1090,7 +1130,7 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
 def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, limit,
                 max_passes, pause_when_unlabeled,
                 terminal_halt_cells: frozenset[str] = frozenset(),
-                archive_dir=None) -> RunOutcome:
+                archive_dir=None, cells=None) -> RunOutcome:
     frozen = load_frozen_reviewer_prompt(manifest)
     # A v1 manifest describes the serial canary and carries no execution block; it keeps the
     # old behaviour exactly. A v2 manifest decides the run's width, and the ramp decides how
@@ -1132,8 +1172,8 @@ def _run_passes(manifest, *, client, reviewer, results_path, decisions_path, lim
             results_path=results_path, decisions_path=decisions_path, client=client,
             reviewer=reviewer, anchor_judge_model=str(manifest["anchor"]["judge_model"]),
             pause_when_unlabeled=pause_when_unlabeled, limit=limit,
-            cell_filter=cell_filter, max_workers=max_workers, block_size=block_size,
-            model_caps=model_caps or None)
+            cell_filter=cell_filter, cells=cells, max_workers=max_workers,
+            block_size=block_size, model_caps=model_caps or None)
         print(f"pass {pass_index}: completed={outcome.completed} "
               f"skipped={outcome.skipped} deferred={outcome.deferred} "
               f"paused={outcome.paused} halted={outcome.halted_reason or '-'}",
