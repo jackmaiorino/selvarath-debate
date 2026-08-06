@@ -1,0 +1,107 @@
+{
+ "cell_accounting": {
+  "contrast_with_july": "the 2026-07-28 canary finished 940 + 4 terminally halted + 1 dependent. This run excluded nothing.",
+  "excluded": 0,
+  "planned": 945,
+  "reconciles": "945 + 0 = 945, exactly",
+  "recorded": 945
+ },
+ "chain_integrity": "results, reviewer decisions and the call cache each re-read and re-verify their own hash chains: 945 cells, 451 rulings, 3050 memoised calls.",
+ "checker_empty_response_finding": {
+  "fix": "empty and whitespace-only responses are no longer cached. Sound rather than retry-until-favourable because the frozen checker runs at temperature 0, so a successful call is deterministic and a retry recovers the decision the failed call should have returned.",
+  "measured": "4 empty checker responses in 205 calls (1.95%) against a 0.6% frozen tolerance and July's 0.27%",
+  "mechanism": "the per-call cache memoised the empty response, so every resume replayed it and the cell could never complete: a transient converted into a permanent, at one terminal halt per ~199 cells",
+  "outcome": "the three cells previously excluded completed normally, and no terminal halt occurred after the fix."
+ },
+ "decision_id": "bridge_canary_completion_2026-08-06",
+ "defects_verified_fixed_on_live_data": {
+  "defect_A_counterbalancing": {
+   "after": "99 of 99 carry all three; polarity 67 False / 32 True, counterbalanced",
+   "before": "0 of 98 single-call cells carried position_a_is_correct, transcript_index or verdict_correct_strict; polarity was uniformly True (correct answer always at Position A)",
+   "consequence": "batch_same_qa_b2 accuracy moved 69.5% -> 86.5% once the confound with judge position bias was removed. The condition was previously uninterpretable."
+  },
+  "defect_B_gate_candidates": {
+   "after": "336 of 336 aligned, zero swapped",
+   "before": "224 of 332 gated cells had the gate's candidate_a/candidate_b swapped relative to what the judge read"
+  }
+ },
+ "descriptive_results_not_the_estimand": {
+  "H_total_harm_pp": 1.2,
+  "P_packaging_pp": 1.0,
+  "R_content_pp": 0.2,
+  "error_rates": {
+   "b0": 0.134,
+   "batch_same_qa_b2": 0.135,
+   "sequential_b2": 0.146
+  },
+  "identity": "P + R = H exactly",
+  "warning": "the 24 canary questions are disjoint from the 82 main-run questions, and n is about 96 per condition. This is a hint, not a result, and is recorded because it is the first time the decomposition has been computable at all."
+ },
+ "deviations_the_results_carry": [
+  "OWNER OVERRIDE OF AN EX-ANTE RULE: the concurrency ramp's abort rule fired when rung 0 failed at 57.1% gemma abandonment against a 15% ceiling. The owner elected to continue pinned at concurrency 1, then later at 8. Recorded as an override, not as the rule working.",
+  "NO SETTLED CONCURRENCY CAP: because the ramp was overridden rather than climbed, this run does not establish a measured cap for the main run. gemma ran at 8 for the later portion with 16.8% abandonment overall, which is evidence but not a controlled measurement.",
+  "MID-RUN IDENTITY CHANGE: the caching fix moved the code bundle, so the run continued under a superseded identity with the chain recorded in the archive's ledger binding.",
+  "OPERATOR ERRORS: four in this run's control plane (a ramp judging an empty window, a ramp counting a benign transient as terminal, a supervisor halt window sized by event count rather than by attempt, and a hand-edited ledger binding). None touched cell execution, and all were caught by fail-closed refusals before any spend."
+ ],
+ "execution_authorized": false,
+ "execution_identity_sha256": "b5cf274dbf65f1a89dca1302fdb34f58da40a840783ad8480d06650add095180",
+ "gate_outcomes": {
+  "ALLOW": 289,
+  "REJECT": 162,
+  "allow_rate": 0.641,
+  "july_allow_rate_for_comparison": 0.566,
+  "parsed": 451,
+  "reject_clauses": {
+   "P1": 45,
+   "P2": 47,
+   "P3": 63,
+   "P4": 7
+  },
+  "reviewer_error": 0,
+  "rulings": 451
+ },
+ "identity_chain": [
+  "1184b7c495bbcf3b7664e40165be4d1d11b307cc120706cd500068b6efff6cc0 (launch, 2026-08-04)",
+  "b5cf274dbf65f1a89dca1302fdb34f58da40a840783ad8480d06650add095180 (empty checker responses no longer cached, 2026-08-05)"
+ ],
+ "missing_data_gates": {
+  "correction_worth_recording": "an earlier close-out pass of mine reported this gate as FAILING at 1.10pp. That was measuring PARSE FAILURES (invalid verdicts), not incompletion. The frozen invalid_policy already governs those: strict INVALID counts wrong, uniformly, in every arm. Six invalid verdicts occurred across the three primary conditions.",
+  "differential_incompletion": "0.00pp spread against the 0.5pp ceiling -> PASS",
+  "incompletion": "0.00% in every condition; 945 of 945 cells produced a result row and nothing was excluded"
+ },
+ "note": "Append-only. Records an outcome; grants no authority and authorizes no stage.",
+ "provider_health": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "abandoned": 0,
+   "ok": 420
+  },
+  "Qwen/Qwen3.7-Plus": {
+   "abandoned": 1,
+   "ok": 150
+  },
+  "google/gemma-4-31B-it": {
+   "abandoned": 238,
+   "ok": 1179,
+   "rate": 0.168
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "abandoned": 2,
+   "ok": 840
+  },
+  "openai/gpt-oss-120b": {
+   "abandoned": 6,
+   "ok": 467
+  }
+ },
+ "purpose": "Validate the CORRECTED, CONCURRENT pipeline before the main run. The 2026-07-28 canary validated a defective serial one, so two of the three things the main run would exercise had never run live.",
+ "recorded_at_utc": "2026-08-06T00:00:00Z",
+ "schema_version": "phase2_canary_completion_v1",
+ "spend": {
+  "settled_usd": 5.41,
+  "stage_cap_usd": 40.0,
+  "uncertain_ceiling_usd": 4.0,
+  "uncertain_usd": 2.013
+ },
+ "status": "converged",
+ "what_this_does_not_establish": "nothing here authorizes the main run, and the canary was never intended to answer the scientific question. Its purpose was to prove the corrected concurrent pipeline runs clean at scale, which it did: 945 of 945 with nothing excluded."
+}
