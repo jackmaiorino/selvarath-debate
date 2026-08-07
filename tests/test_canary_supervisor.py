@@ -363,3 +363,27 @@ def test_a_malformed_checker_halt_repeating_on_one_call_still_stops(tmp_path):
             outcome=_outcome(halted_reason="checker_malformed"), usage_path=usage,
             error_log_path=errors, results_path=results, attempt_started_at=NOW - 30))
     assert all(r is None for r in seen), "the gate itself does not count repeats"
+
+
+def test_the_sdk_generic_connection_error_is_the_same_benign_condition(tmp_path):
+    # Amendment 10. "Connection error." is the SDK's generic wrapper for a transport-layer
+    # failure with no HTTP response: the same class as "Connection reset by peer" and
+    # "Connection aborted", which were already enumerated, just without a specific errno.
+    # Seen 4 times on the 2026-08-07 main run across Qwen2.5 and Llama batch_verdict calls,
+    # while 503s and resets were occurring on the same endpoints.
+    ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW))
+    assert _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "Connection error."}],
+        error_rows=[{"ts": ts, "error": "Connection error."}]) is None
+
+
+def test_enumerating_it_does_not_admit_every_error_mentioning_connection(tmp_path):
+    """The set stays enumerated so the NEXT novel shape still halts. A pattern loose enough
+    to match anything with 'connection' in it would quietly absorb real anomalies."""
+    ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW))
+    reason = _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "connection refused: authentication failed"}],
+        error_rows=[{"ts": ts, "error": "connection refused: authentication failed"}])
+    assert reason is not None and "transient set" in reason

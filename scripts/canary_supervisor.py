@@ -83,7 +83,12 @@ _BENIGN_TRANSIENT = re.compile(
     r"Error code: 5\d\d|Error code: 429|Request timed out\.|"
     r"The read operation timed out|"
     r"streaming response ended without usage chunk|"
-    r"Connection reset by peer|Connection aborted|Server disconnected")
+    r"Connection reset by peer|Connection aborted|Server disconnected|"
+    # Amendment 10 (2026-08-07): the SDK's generic wrapper for a transport failure with
+    # no HTTP response. Same class as the two resets above, without a specific errno.
+    # Anchored to the exact SDK string so it cannot become a catch-all for anything
+    # mentioning a connection.
+    r"^Connection error\.$")
 _RATE_LIMIT = re.compile(r"Error code: 429")
 
 # Halt reasons a resume can actually fix.

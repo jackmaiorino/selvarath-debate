@@ -1,0 +1,13 @@
+{
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "adds the exact string 'Connection error.' to the enumerated benign-transient set",
+ "decision_id": "main_auto_resume_amendment10_2026-08-07",
+ "evidence": "4 occurrences on the 2026-08-07 main run, across Qwen2.5-7B and Llama-3.3-70B batch_verdict calls, while 503s and [Errno 104] connection resets were occurring on the same endpoints in the same window.",
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "note": "Append-only. Grants no authority and changes no cap.",
+ "recorded_at_utc": "2026-08-07T00:00:00Z",
+ "schema_version": "phase2_canary_auto_resume_amendment_v1",
+ "what_it_does_not_relax": "nothing. The same-call limit, the uncertain-spend ceiling and the resume backstop are unchanged. This amendment only names one more shape of the condition the policy already treats as benign.",
+ "why_benign": "It is the SDK's generic wrapper for a transport-layer failure with no HTTP response: the same class as 'Connection reset by peer' and 'Connection aborted', already enumerated, just without a specific errno. Like every member of the set it may have billed server-side, which is exactly what the permanently-counted uncertain reservation and the uncertain ceiling bound.",
+ "why_this_is_not_a_widening": "Anchored to the exact SDK string with ^...$ rather than matched loosely. A pattern that absorbed anything mentioning a connection would quietly swallow real anomalies, and a test asserts that 'connection refused: authentication failed' still stops the run."
+}
