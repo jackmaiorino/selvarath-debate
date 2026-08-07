@@ -1255,7 +1255,21 @@ class RejudgeClient:
                  request_metadata: dict | None = None) -> str:
         max_tokens = self._resolve_max_tokens(model, max_tokens)
         estimated_prompt, estimated_completion = _estimate_usage(messages, max_tokens)
+        # Two different questions, deliberately kept apart.
+        #
+        # estimated_tokens answers "does this fit the context ceiling", so it uses the TRUE
+        # completion bound. reserved_tokens answers "how much might this cost", so it carries
+        # the reasoning allowance. Conflating them breaks one or the other: inflating the
+        # context estimate refuses calls that fit, and reserving the context estimate
+        # under-reserves reasoning models, which is what halted the run at 2,573 cells.
         estimated_tokens = estimated_prompt + estimated_completion
+        reserved_completion = (
+            reserved_completion_tokens(estimated_completion)
+            if model in self.reasoning_models else estimated_completion)
+        # ONE value for the whole attempt. The ledger pins estimated_tokens as a stable field
+        # across a reservation and its terminal event, so computing it differently in the two
+        # places made every reasoning-model call disagree with its own reservation.
+        reserved_tokens = estimated_prompt + reserved_completion
         context_ceiling = self._resolve_context_ceiling(model)
         if estimated_tokens > context_ceiling:
             raise ContextGuardError(
@@ -1278,9 +1292,7 @@ class RejudgeClient:
                 # check above and must stay the true max_tokens; inflating it there would
                 # refuse calls that fit, trading an accounting halt for a spurious guard halt.
                 # Only the RESERVATION carries the reasoning allowance.
-                completion_tokens=(
-                    reserved_completion_tokens(estimated_completion)
-                    if model in self.reasoning_models else estimated_completion),
+                completion_tokens=reserved_completion,
                 kind=kind, seed=seed,
                 attempt=attempt, request_metadata=request_metadata)
             attempt_started_monotonic = time.monotonic()
@@ -1317,7 +1329,7 @@ class RejudgeClient:
                     continue
                 last = exc
                 self._mark_unknown(
-                    estimated_cost=estimated_cost, estimated_tokens=estimated_tokens,
+                    estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
@@ -1350,7 +1362,7 @@ class RejudgeClient:
             except Exception as exc:          # usage itself unreadable -- unknown charge
                 last = exc
                 self._mark_unknown(
-                    estimated_cost=estimated_cost, estimated_tokens=estimated_tokens,
+                    estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
@@ -1367,7 +1379,7 @@ class RejudgeClient:
                 content = resp.choices[0].message.content
             except Exception as exc:
                 self._reconcile_success(
-                    estimated_cost=estimated_cost, estimated_tokens=estimated_tokens,
+                    estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                     prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                     input_price=input_price, output_price=output_price, model=model,
                     kind=kind, seed=seed, attempt=attempt, status="charged_malformed",
@@ -1376,7 +1388,7 @@ class RejudgeClient:
                 raise RuntimeError(
                     f"malformed API response after successful charge: {exc}") from exc
             self._reconcile_success(
-                estimated_cost=estimated_cost, estimated_tokens=estimated_tokens,
+                estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                 prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                 input_price=input_price, output_price=output_price, model=model,
                 kind=kind, seed=seed, attempt=attempt, status="success",

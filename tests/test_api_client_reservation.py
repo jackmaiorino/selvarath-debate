@@ -32,3 +32,30 @@ def test_the_context_guard_estimate_is_unaffected():
     _prompt, completion = _estimate_usage(messages, 4096)
     assert completion == 4096, "the context estimate must stay the true max_tokens"
     assert reserved_completion_tokens(completion) > completion
+
+
+def test_the_reservation_and_its_terminal_event_agree_on_estimated_tokens():
+    """The ledger pins estimated_tokens as a STABLE field across a reservation and its
+    terminal event: they must describe the same attempt. Raising the reservation's completion
+    allowance without raising the terminal event's made every reasoning-model call disagree
+    with its own reservation, and the ledger refused at event 40.
+
+    One value, computed once, used for both. The context-ceiling check keeps the true
+    estimate, since that is a question about what fits, not about what to reserve.
+    """
+    import inspect
+
+    from rejudge import api_client
+
+    src = inspect.getsource(api_client.RejudgeClient.complete)
+    assert "reserved_tokens" in src, (
+        "the reserved total must be a named value used for both the reservation and the "
+        "terminal events, not recomputed differently in each place")
+
+
+def test_reserved_tokens_exceed_the_context_estimate_for_reasoning_models():
+    from rejudge.api_client import reserved_completion_tokens
+    prompt, completion = 1000, 4096
+    context_total = prompt + completion
+    reserved_total = prompt + reserved_completion_tokens(completion)
+    assert reserved_total > context_total
