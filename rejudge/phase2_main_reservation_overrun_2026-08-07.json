@@ -1,0 +1,18 @@
+{
+ "disproportionate_response_noted": "Halting a 22,140-cell run over $0.00012 is the wrong reaction to the right signal. The detection value is in the alarm, not the stop. Softening this to a loud warning with a bounded tolerance is worth doing, and is NOT done here: it is a change to accounting semantics and belongs to its own decision rather than to an unblocking step.",
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "incident_id": "main_reservation_overrun_2026-08-07",
+ "note": "Append-only. Grants no authority and changes no cap.",
+ "recorded_at_utc": "2026-08-07T00:00:00Z",
+ "remediation": [
+  "code fixed first: reservations for models the frozen role-limits artifact declares as reasoning models now allow 3x max_tokens of completion, sized from the observed maximum of 6,753 against a 4,096 allowance",
+  "ledger retired byte-for-byte to main_usage.jsonl.reservation-overrun-2026-08-07",
+  "settled and uncertain totals carried forward in the archive's ledger binding, exactly as the 2026-07-28 canary's incident 1 did",
+  "the reserve-bounds-actual invariant is left completely untouched"
+ ],
+ "root_cause": "The reservation assumed completion <= max_tokens. Reasoning models bill reasoning tokens as completion and are NOT bounded by max_tokens: this call returned 5,666 completion tokens against a 4,096 allowance with finish_reason 'stop', not 'length'. 72 of 2,772 Qwen3.7-Plus calls had already exceeded the allowance, the largest at 6,753; most stayed inside their reservation only because the byte-based prompt estimate over-reserves heavily, and this call had a short prompt so that padding was absent.",
+ "schema_version": "phase2_canary_incident_v1",
+ "severity": "accounting metadata only; no cap breach, no result corruption, no decision-store impact. The overrun is $0.00012.",
+ "what_happened": "One call of 8,513 cost more than its pre-call reservation: $0.00775680 against $0.00763520. The ledger's reserve-bounds-actual invariant refused to load, halting the run at 2,573 cells.",
+ "why_the_check_earned_its_keep": "The amount is trivial and was never the point. This invariant is the only thing in the system that detects the cost MODEL being wrong, as opposed to the cost being high. It is how the reasoning-token behaviour was found at all; without it the under-reservation would have surfaced later as a cap breach, or not at all."
+}
