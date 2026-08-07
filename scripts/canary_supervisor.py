@@ -114,6 +114,27 @@ def _event_epoch(event: dict) -> float:
         return float("-inf")
 
 
+def ledger_paths_for(manifest_path: str, archive_dir: Path) -> dict:
+    """The ledger, results and error-log paths THIS run writes.
+
+    Read from the manifest rather than assumed. They were hardcoded to the canary's names, so
+    against a main-run archive the halt signature read a usage ledger that does not exist,
+    found no abandoned call, and would have stopped for manual review on every ordinary
+    transient. The "halted cell already has a result row" guard read a missing results file
+    and silently passed, which is worse: a real check that cannot fail is not a check.
+    """
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    ledger = manifest["ledger"]
+    usage = Path(ledger["usage_log_path"]).name
+    results = Path(ledger["results_path"]).name
+    # Not in the ledger block for canary manifests; derived from the usage name's prefix so it
+    # cannot drift from whatever the driver writes.
+    prefix = usage.split("_usage", 1)[0]
+    return {"usage": archive_dir / usage,
+            "results": archive_dir / results,
+            "errors": archive_dir / f"{prefix}_error_log.jsonl"}
+
+
 def _tail_json_lines(path: Path, n: int) -> list[dict]:
     if not path.exists():
         return []
@@ -222,9 +243,10 @@ def main(argv=None) -> int:
     python, manifest, authorization, archive = args[:4]
     extra = args[4:]
     archive_dir = Path(archive)
-    usage_path = archive_dir / "canary_usage.jsonl"
-    error_log_path = archive_dir / "canary_error_log.jsonl"
-    results_path = archive_dir / "canary_results.jsonl"
+    _paths = ledger_paths_for(manifest, archive_dir)
+    usage_path = _paths["usage"]
+    error_log_path = _paths["errors"]
+    results_path = _paths["results"]
 
     resumes = 0
     last_cell = None

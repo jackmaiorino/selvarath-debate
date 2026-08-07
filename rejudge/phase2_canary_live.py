@@ -261,7 +261,7 @@ def commit_reviewer_decisions(manifest_path: str | Path, decisions_file: str | P
     decision, not an absence.
     """
     manifest = _load_json(Path(manifest_path))
-    validate_canary_manifest(manifest, project_root=project_root)
+    validate_manifest(manifest, project_root=project_root)
     archive_dir = local_path(manifest["ledger"]["archive_dir"])
     worklist = _load_json(archive_dir / WORKLIST_FILENAME)
     store = DualGateDecisionStore(local_path(manifest["ledger"]["decisions_path"]))
@@ -1007,6 +1007,11 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
         model_context_limits=limits,
         strict_context_mode=True,
         streaming_pinned_models=pinned,
+        # From the frozen role-limits artifact's own declaration, not a list invented here.
+        # These bill reasoning tokens as completion and are not bounded by max_tokens, which
+        # is what halted the main run at 2,573 cells.
+        reasoning_models=frozenset(
+            (role_limits.get("reasoning_models") or {}).get("model_ids") or ()),
         extra_request_fields=extra_fields,
         halt_on_unknown_charge=True,
         http_timeout=dict(transport["http_timeout"]),
@@ -1026,6 +1031,18 @@ def build_live_client(manifest: Mapping[str, Any], *, project_root: str | Path,
 # cannot catch. Both stages share the executor: the cell shapes are the same and resolve_cell
 # normalises the plan's namespace prefix, so what differs is only which plan and which
 # validator, and both are read from the manifest itself rather than passed alongside it.
+
+def error_log_path_for(manifest, archive_dir) -> Path:
+    """Where THIS run's transport errors are written.
+
+    Derived from the usage ledger's own name rather than hardcoded, which put
+    canary_error_log.jsonl into the main run's archive and matched what the supervisor read
+    only by coincidence.
+    """
+    usage = Path(str(manifest["ledger"]["usage_log_path"])).name
+    prefix = usage.split("_usage", 1)[0]
+    return Path(archive_dir) / f"{prefix}_error_log.jsonl"
+
 
 def validate_manifest(manifest, *, project_root: str | Path = ".") -> dict:
     """Validate against the schema the manifest declares. Refuses an unknown one."""
@@ -1105,7 +1122,7 @@ def run_live(manifest_path: str | Path, authorization_path: str | Path,
         client = build_live_client(
             manifest, project_root=project_root,
             usage_log_path=local_path(manifest["ledger"]["usage_log_path"]),
-            error_log_path=archive_dir / "canary_error_log.jsonl",
+            error_log_path=error_log_path_for(manifest, archive_dir),
             call_cache_path=local_path(manifest["ledger"]["call_cache_path"]))
 
     results_path = local_path(manifest["ledger"]["results_path"])
@@ -1225,7 +1242,7 @@ def main(argv=None) -> int:
     try:
         if args.migrate_interleaved_ledger:
             manifest = _load_json(Path(args.manifest))
-            validate_canary_manifest(manifest, project_root=args.project_root)
+            validate_manifest(manifest, project_root=args.project_root)
             summary = migrate_interleaved_ledger(manifest, project_root=args.project_root)
             print(json.dumps(summary, sort_keys=True))
             return 0

@@ -24,13 +24,21 @@ import time
 from pathlib import Path
 
 
-def undecided(archive: Path) -> list[dict]:
+def undecided(archive: Path, *,
+              decisions_filename: str = "canary_reviewer_decisions.jsonl") -> list[dict]:
+    """Worklist payloads with no committed ruling yet.
+
+    The decisions filename comes from the run's manifest rather than a constant. It was
+    hardcoded to the canary's, and the main run's manifest names a different one, so the
+    daemon found no decisions at all, treated every payload as undecided, and would have
+    re-reviewed the whole worklist on every wave.
+    """
     wl = archive / "reviewer_worklist.json"
     if not wl.exists():
         return []
     items = json.loads(wl.read_text(encoding="utf-8"))["items"]
     decided = set()
-    dp = archive / "canary_reviewer_decisions.jsonl"
+    dp = archive / decisions_filename
     if dp.exists():
         for line in dp.read_text(encoding="utf-8").splitlines():
             if line.strip():
@@ -92,6 +100,12 @@ def review_and_commit(todo: list[dict], archive: Path, args) -> str:
     return f"committed {len(commit)} (clean={clean} reviewer_error={errs})"
 
 
+def decisions_filename_for(manifest_path: str) -> str:
+    """Read it off the manifest, so the daemon and the driver cannot disagree."""
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    return Path(str(manifest["ledger"]["decisions_path"])).name
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="review_daemon")
     ap.add_argument("--manifest", required=True)
@@ -102,11 +116,12 @@ def main(argv=None) -> int:
     ap.add_argument("--poll-seconds", type=int, default=60)
     ap.add_argument("--max-waves", type=int, default=200)
     args = ap.parse_args(argv)
+    decisions_name = decisions_filename_for(args.manifest)
     archive = Path(args.archive)
 
     waves = 0
     while waves < args.max_waves:
-        todo = undecided(archive)
+        todo = undecided(archive, decisions_filename=decisions_name)
         if todo:
             waves += 1
             print(f"[wave {waves}] {len(todo)} undecided payload(s)", flush=True)

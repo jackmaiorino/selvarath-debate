@@ -175,6 +175,33 @@ def _estimate_usage(messages, max_tokens) -> tuple[int, int]:
     return prompt_bound, max_tokens
 
 
+# How much completion to RESERVE, as a multiple of max_tokens.
+#
+# The reservation assumed completion <= max_tokens, which is false for reasoning models: the
+# provider bills reasoning as completion and does not bound it by max_tokens. finish_reason
+# comes back "stop", not "length", so nothing was truncated and nothing was wrong with the
+# call. The 2026-08-06 main run halted on it after 2,573 cells.
+#
+# Sized from the live distribution rather than chosen: 72 of 2,772 Qwen3.7-Plus calls exceeded
+# a 4,096 allowance, the largest reaching 6,753 (1.65x). Three covers that with room for a
+# heavier tail over a run with roughly ten times as many such calls. Over-reserving is the
+# documented intent of the estimator above -- the approved cap is a safety boundary, not a
+# cost forecast -- and a reservation is replaced by provider-reported usage the moment the
+# call returns, so this inflates a bound and never a charge.
+COMPLETION_RESERVE_MULTIPLIER = 3
+
+
+def reserved_completion_tokens(max_tokens: int) -> int:
+    """Completion tokens to reserve for a REASONING model permitted ``max_tokens`` of output.
+
+    Applied only to models the frozen role-limits artifact declares as reasoning models. Every
+    other model in the roster stayed comfortably inside max_tokens over 8,467 live calls
+    (largest: Llama 512, Qwen2.5 215), so widening their reservations would consume cap
+    headroom to guard against something that does not happen.
+    """
+    return int(max_tokens) * COMPLETION_RESERVE_MULTIPLIER
+
+
 def _estimate_tokens(messages, max_tokens):
     prompt, completion = _estimate_usage(messages, max_tokens)
     return prompt + completion
@@ -659,6 +686,7 @@ class RejudgeClient:
                  model_context_limits: dict[str, int] | None = None,
                  strict_context_mode: bool = False,
                  streaming_pinned_models: frozenset[str] = frozenset(),
+                 reasoning_models: frozenset[str] = frozenset(),
                  extra_request_fields: dict[str, dict] | None = None,
                  halt_on_unknown_charge: bool = False,
                  http_timeout: Mapping[str, float] | None = None,
@@ -733,6 +761,10 @@ class RejudgeClient:
         self.model_context_limits: dict[str, int] = dict(model_context_limits or {})
         self.strict_context_mode = bool(strict_context_mode)
         self.streaming_pinned_models: frozenset[str] = frozenset(streaming_pinned_models)
+        # Which models bill reasoning tokens as completion. Read from the frozen
+        # role-limits artifact's own reasoning_models.model_ids rather than a list
+        # invented here, so it cannot drift from what the protocol declares.
+        self.reasoning_models: frozenset[str] = frozenset(reasoning_models)
         self.extra_request_fields: dict[str, dict] = {
             model: dict(fields) for model, fields in (extra_request_fields or {}).items()
         }
@@ -1242,7 +1274,14 @@ class RejudgeClient:
                 _canonical_json(request_kwargs).encode("utf-8")).hexdigest()
             input_price, output_price, estimated_cost, attempt_id = self._reserve_attempt(
                 model=model, prompt_tokens=estimated_prompt,
-                completion_tokens=estimated_completion, kind=kind, seed=seed,
+                # Deliberately NOT estimated_completion. That value feeds the context-ceiling
+                # check above and must stay the true max_tokens; inflating it there would
+                # refuse calls that fit, trading an accounting halt for a spurious guard halt.
+                # Only the RESERVATION carries the reasoning allowance.
+                completion_tokens=(
+                    reserved_completion_tokens(estimated_completion)
+                    if model in self.reasoning_models else estimated_completion),
+                kind=kind, seed=seed,
                 attempt=attempt, request_metadata=request_metadata)
             attempt_started_monotonic = time.monotonic()
             try:
