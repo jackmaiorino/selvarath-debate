@@ -72,6 +72,41 @@ def run_one(packet: Path, model: str, effort: str, codex: str) -> dict:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
+
+class ReviewerUnavailable(RuntimeError):
+    """The reviewer was never reached. Abort the wave; do not rule on its queue.
+
+    The distinction this draws is the one that cost 329 payloads on 2026-08-07. A reviewer
+    that RULED and produced something unusable (unparseable output, or tool use that breaks
+    blindness) has told us something about THAT PAYLOAD, and the frozen failure rule rightly
+    commits it as non-ALLOW. A reviewer that was never reached has told us something about the
+    REVIEWER, and committing it writes a permanent verdict, in an append-only store, from
+    nothing at all.
+
+    Failing closed means refusing to proceed. It does not mean manufacturing a refusal for
+    every payload in the queue.
+    """
+
+
+def classify_result(meta: dict, result: dict, *, packet_ok: bool) -> dict:
+    """One dispatched packet's outcome as a decision row, or raise if the reviewer was down."""
+    if not packet_ok:
+        return {"payload_sha256": meta["payload_sha256"], "status": "reviewer_error",
+                "raw_output": "PACKET_DRIFT: packet bytes no longer match the frozen "
+                              "prompt hash; not dispatched as evidence"}
+    if not result.get("ok"):
+        raise ReviewerUnavailable(str(result.get("error")))
+    if result.get("commands"):
+        # Blindness cannot be assumed after the fact; refuse the ruling outright.
+        return {"payload_sha256": meta["payload_sha256"], "status": "reviewer_error",
+                "raw_output": "TOOL_USE_DETECTED: reviewer issued "
+                              f"{len(result['commands'])} command(s); ruling discarded "
+                              f"as non-blind. first={result['commands'][0]!r}"}
+    return {"payload_sha256": meta["payload_sha256"],
+            "raw_output": result.get("raw_output"),
+            "prompt_sha256": result.get("prompt_sha256"), "tool_uses": 0}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="codex_reviewer_batch")
     ap.add_argument("--packets", required=True, help="directory holding INDEX.json + packets")
@@ -107,27 +142,23 @@ def main(argv=None) -> int:
             meta = futures[fut]
             result = fut.result()
             # The packet's bytes must still hash to what the frozen index recorded.
-            if result["prompt_sha256"] != meta["prompt_sha256"]:
-                row = {"payload_sha256": meta["payload_sha256"], "status": "reviewer_error",
-                       "raw_output": "PACKET_DRIFT: packet bytes no longer match the frozen "
-                                     "prompt hash; not dispatched as evidence"}
-                failed += 1
-            elif not result["ok"]:
-                row = {"payload_sha256": meta["payload_sha256"], "status": "reviewer_error",
-                       "raw_output": f"REVIEWER_UNAVAILABLE: {result['error']}"}
-                failed += 1
-            elif result["commands"]:
-                # Blindness cannot be assumed after the fact; refuse the ruling outright.
-                row = {"payload_sha256": meta["payload_sha256"], "status": "reviewer_error",
-                       "raw_output": "TOOL_USE_DETECTED: reviewer issued "
-                                     f"{len(result['commands'])} command(s); ruling discarded "
-                                     f"as non-blind. first={result['commands'][0]!r}"}
+            try:
+                row = classify_result(
+                    meta, result,
+                    packet_ok=result["prompt_sha256"] == meta["prompt_sha256"])
+            except ReviewerUnavailable as down:
+                print(f"ABORT: reviewer unreachable ({down}); {written} ruling(s) written, "
+                      f"the rest of this wave is NOT ruled on. Nothing is committed from a "
+                      f"reviewer that was never reached.", flush=True)
+                for pending in futures:
+                    pending.cancel()
+                return 3
+            if "tool_uses" in row:
+                clean += 1
+            elif "TOOL_USE_DETECTED" in row["raw_output"]:
                 refused += 1
             else:
-                row = {"payload_sha256": meta["payload_sha256"],
-                       "raw_output": result["raw_output"],
-                       "prompt_sha256": result["prompt_sha256"], "tool_uses": 0}
-                clean += 1
+                failed += 1
             with out_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
             written += 1
