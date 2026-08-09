@@ -1,0 +1,13 @@
+{
+ "disposition": "Committed as status 'malformed' with NULL parsed fields and the reviewer's raw output preserved verbatim. That is the frozen failure rule's own treatment for output that does not conform to the three-line protocol, and it is non-ALLOW, so the query is not dispatched. Applying the rule by hand where the code raised instead of applying it; no decision was invented and the reviewer's words remain in the record.",
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "for_the_write_up": "The contract gap is a genuine finding about the frozen gate and belongs in the methods section: an empty query is neither allowed nor covered by any prohibition, so the contract is not exhaustive over the space of things a judge can propose. It is also mild evidence that judges sometimes emit empty queries at all, which is worth reporting.",
+ "incident_id": "main_contract_gap_empty_query_2026-08-09",
+ "note": "Append-only. Grants no authority and changes no cap.",
+ "recorded_at_utc": "2026-08-09T00:00:00Z",
+ "schema_version": "phase2_canary_incident_v1",
+ "severity": "2 payloads of 9,773 rulings (0.02%); no cap impact, no result corruption",
+ "the_finding_underneath": "This is a GAP IN THE FROZEN CONTRACT, not a misbehaving reviewer. The judge proposed an EMPTY query. The reviewer rejected it correctly and had no valid clause to cite: P1 covers answer-label queries, P2 candidate restatements, P3 compound claims, P4 meta and evaluative queries. None covers 'the query is empty and asserts nothing'. The reviewer picked the only remaining clause and produced a self-contradictory ruling. Its rationale says so in plain words: 'The empty query contains no atomic factual claim checkable against the world document.'",
+ "what_happened": "Three reviewer rulings came back LABEL: REJECT with CLAUSE: Allowed. The frozen parser accepts that combination but the decision store's field validation refuses it, so the commit path raised ValueError and aborted the whole review wave rather than committing the ruling.",
+ "why_not_a_code_change_now": "The correct fix is for parse_reviewer_output to treat a contradictory label/clause pair as unparseable, so the frozen rule applies automatically. That file is in the code provenance bundle, so changing it mid-run supersedes the execution identity and needs fresh owner authorization. At 3 occurrences in 9,773 rulings (0.03%) the remaining run expects roughly one more, so the fix is recorded as OWED rather than taken under time pressure at 76% complete."
+}
