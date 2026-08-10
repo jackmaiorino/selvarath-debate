@@ -267,6 +267,7 @@ def test_the_newest_override_amendment_wins(tmp_path):
         "pinned_model_caps": {"google/gemma-4-31B-it": 8}}), encoding="utf-8")
 
     got = live.load_ramp_override({"execution_identity_sha256": ident}, root)
+    assert got is not None
     assert got["pinned_model_caps"]["google/gemma-4-31B-it"] == 8
 
 

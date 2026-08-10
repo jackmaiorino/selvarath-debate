@@ -120,7 +120,7 @@ def test_a_tampered_approval_basis_is_refused(tmp_path):
 
 def test_run_live_requires_an_authorization_path():
     with pytest.raises(CanaryLiveError, match="no bypass"):
-        run_live(MANIFEST_PATH, None)
+        run_live(MANIFEST_PATH, None)  # ty: ignore[invalid-argument-type]
 
 
 def test_run_live_refuses_without_the_reviewer_key(monkeypatch, tmp_path):
@@ -232,7 +232,7 @@ def test_a_non_retryable_http_error_raises_immediately():
 
     def transport(body):
         attempts.append(1)
-        raise urllib.error.HTTPError("url", 401, "unauthorized", None, None)
+        raise urllib.error.HTTPError("url", 401, "unauthorized", None, None)  # ty: ignore[invalid-argument-type]
 
     with pytest.raises(urllib.error.HTTPError):
         _reviewer(transport)("q", "a", "b")
@@ -343,8 +343,10 @@ def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
          "raw_output": "I think probably yes?"},
     ])
     assert counts == {"parsed": 1, "malformed": 1, "reviewer_error": 0}
-    assert store.get(good_sha).effective_allow
+    good = store.get(good_sha)
+    assert good is not None and good.effective_allow
     resolved = store.get(bad_sha)
+    assert resolved is not None
     assert resolved.status == "malformed" and not resolved.effective_allow
 
 
@@ -358,6 +360,7 @@ def test_an_explicit_reviewer_error_commits_as_non_allow(tmp_path):
          "raw_output": "DISPATCH_ERROR: transport could not reproduce prompt bytes"}])
     assert counts["reviewer_error"] == 1
     decision = store.get(sha)
+    assert decision is not None
     assert decision.status == "reviewer_error" and not decision.effective_allow
 
 
@@ -888,8 +891,10 @@ def test_the_unreviewed_rebuild_drops_only_self_identifying_rulings(tmp_path):
     assert rebuilt.get("b" * 64) is None, "the unreviewed rejection must be gone"
     # A genuine reviewer_error from a real cause is NOT swept up with it.
     assert rebuilt.get("d" * 64) is not None
-    assert rebuilt.get("a" * 64).label == "ALLOW"
-    assert rebuilt.get("c" * 64).label == "REJECT"
+    kept_a = rebuilt.get("a" * 64)
+    kept_c = rebuilt.get("c" * 64)
+    assert kept_a is not None and kept_a.label == "ALLOW"
+    assert kept_c is not None and kept_c.label == "REJECT"
     assert Path(str(decisions) + INCIDENT3_SUFFIX).exists()
 
 

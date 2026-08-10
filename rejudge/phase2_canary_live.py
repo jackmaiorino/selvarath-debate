@@ -507,7 +507,7 @@ class RoleLimitResolvingClient:
         limits = self._limits.get(model)
         if limits is not None:
             raw_role = (request_metadata or {}).get("call_role")
-            role = _ROLE_ALIASES.get(raw_role, raw_role)
+            role = _ROLE_ALIASES.get(raw_role, raw_role) if isinstance(raw_role, str) else raw_role
             entry = limits.get(role)
             if entry is None:
                 raise CanaryLiveError(

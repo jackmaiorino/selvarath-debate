@@ -87,7 +87,7 @@ def scan_decision_store(decisions_path: Path, marker: str) -> dict[str, Any]:
             if line.strip():
                 rows.append(json.loads(line))
 
-    status_counts: Counter[str] = Counter(row.get("status") for row in rows)
+    status_counts: Counter[str] = Counter(str(row.get("status")) for row in rows)
 
     marked_rulings = []
     for row in rows:
