@@ -1,0 +1,23 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "main_auto_resume_amendment13_2026-08-10",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "UNCERTAIN_CEILING_USD raised from 10.00 to 25.00 in scripts/canary_supervisor.py",
+ "owner_instruction": {
+  "mechanism": "chat instruction from the owner while the ceiling's projected trip was being reported",
+  "owner_words": "We have a lot of money to spend. Like 7k total in the grant don't worry about these small amounts",
+  "context": "The orchestrator had just reported that sustained provider degradation would push uncertain spend past the $10.00 ceiling before convergence (at $6.39 and rising roughly $0.20 per hour in the degraded regime), and that the resulting stop would need an owner decision. This instruction is that decision, recorded verbatim."
+ },
+ "this_is_a_safety_relaxation": "Stated plainly, as amendments 7 and 11 required. The ceiling bounds the gap between tracked and actual spend; raising it loosens a binding control. The owner has re-denominated the tolerance: against a roughly $7,000 grant and a $400 stage cap, a $25.00 bound on billing ambiguity is still two orders of magnitude below the funds at risk.",
+ "measurement": "uncertain spend $6.392 at 19,219 of 22,140 cells during a Together-wide degradation window (gemma chunked-read failures plus gpt-oss 503s). Worst-case projection to convergence under sustained degradation is roughly $15; $25.00 cannot trip before convergence while remaining a live tripwire against genuine accounting anomalies.",
+ "what_is_not_changed": [
+  "the $400.00 stage cap and $1709.24 cumulative cap",
+  "SAME_CELL_MAX at 8 and MAX_RESUMES at 400",
+  "the enumerated benign-transient signature",
+  "the ceiling remains a hard stop when crossed"
+ ],
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "recorded_at_utc": "2026-08-10T20:30:00Z",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no new spend authority and changes no cap on actual spend."
+}

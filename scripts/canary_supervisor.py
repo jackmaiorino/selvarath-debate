@@ -59,7 +59,10 @@ SAME_CELL_MAX = 8
 # Raised 4.00 -> 10.00 on 2026-08-09 under owner delegation (amendment 11): the 4.00 value
 # was calibrated on the 945-cell canary and tripped on the main run's scale alone, at a
 # projected convergence total near 6.00. Still a hard stop when crossed.
-UNCERTAIN_CEILING_USD = 10.00
+# Raised 10.00 -> 25.00 on 2026-08-10 by owner instruction (amendment 13), given during a
+# Together-wide degradation window whose abandoned-call rate projected a mid-run trip. The
+# owner re-denominated the tolerance against the grant; still a hard stop when crossed.
+UNCERTAIN_CEILING_USD = 25.00
 # The halt window is bounded by THIS ATTEMPT, not by a count of events. A fixed lookback
 # cannot be sized correctly: when one cell halts, the driver still finishes the rest of its
 # block, so with eight workers over a sixteen-cell block a hundred or more events can append
