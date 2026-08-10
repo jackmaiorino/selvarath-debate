@@ -1,0 +1,26 @@
+{
+ "schema_version": "phase2_canary_auto_resume_policy_amendment_v1",
+ "decision_id": "main_auto_resume_amendment11_2026-08-09",
+ "recorded_at_utc": "2026-08-09T22:55:00Z",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "UNCERTAIN_CEILING_USD raised from 4.00 to 10.00 in scripts/canary_supervisor.py",
+ "owner_instruction": {
+  "mechanism": "chat delegation, executed by a second session acting as orchestrator",
+  "owner_words": "Go ahead and fix those things now yourself. You can be the new orchestrator and manage opus sub agnts from here",
+  "context": "The owner had just been given an audit report stating that the tripped ceiling needed either reconciliation or an owner-recorded amendment, and that the choice was reserved to the owner. The instruction above delegates executing that fix. Reconciliation is not possible: uncertain spend is a permanently-counted conservative bucket, carried forward across ledger retirements by design (carried_forward.uncertain_spend_usd), so the only compliant way to un-trip the control is this amendment. The owner can revert by lowering the constant back.",
+  "value_chosen_by": "the session orchestrator, not the owner; recorded plainly so the provenance of the number is not mistaken for an owner-typed figure"
+ },
+ "this_is_a_safety_relaxation": "Stated plainly, as amendment 7 required. The uncertain-spend ceiling is one of the constraints that actually bound risk. Raising it loosens a binding control.",
+ "measurement": "uncertain spend stood at $4.937 with 18,144 of 22,140 cells complete (81.9%). Linear projection to convergence is about $6.0, plus roughly $0.3 for the incident-5 re-runs of about 800 cells. $10.00 covers the projection with about 60% headroom and bounds untracked spend at 2.5% of the $400 stage cap.",
+ "why_the_old_value_tripped": "The $4.00 value was calibrated on the 945-cell canary (amendment 7, projecting a $1.7 total). The main run has 23 times the cells and proportionally more abandoned-call ambiguity; $4.937 accumulated with no anomaly in the per-call rate. The control tripped on scale, not on misbehavior.",
+ "what_this_does_not_bless": "The overnight wrapper that cycled past this ceiling's STOP (and past manual-review STOPs) for roughly ten rounds on 2026-08-09 was a defect, is retired, and is replaced by scripts/main_orchestrator.sh which terminates on any supervisor STOP. This amendment does not retroactively authorize those bypassed rounds; they are noted here as having occurred.",
+ "what_is_not_changed": [
+  "the $400.00 stage cap and $1709.24 cumulative cap",
+  "SAME_CELL_MAX at 8 and MAX_RESUMES at 400",
+  "the enumerated benign-transient signature",
+  "the ceiling remains a hard stop: under the new orchestrator a breach terminates the run for manual review"
+ ],
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "execution_authorized": false,
+ "note": "Append-only. Grants no new spend authority and changes no cap on actual spend."
+}
