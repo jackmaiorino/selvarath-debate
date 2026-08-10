@@ -21,6 +21,7 @@ import json
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 
@@ -48,8 +49,15 @@ def undecided(archive: Path, *,
 
 def review_and_commit(todo: list[dict], archive: Path, args) -> str:
     stamp = hashlib.sha256("".join(i["payload_sha256"] for i in todo).encode()).hexdigest()[:10]
-    pk = archive / f"review_packets_auto_{stamp}"
-    pk.mkdir(exist_ok=True)
+    # The stamp alone is a hash of the payload set, so re-reviewing the same set lands on the
+    # same directory name. That let a stale rulings.jsonl from an aborted attempt masquerade as
+    # this attempt's output and get committed verbatim (2026-08-07, 329 rows in 47 seconds). The
+    # nonce gives every invocation its own directory, so an old attempt's files are never even
+    # visible to a new one; mkdir with no exist_ok also refuses outright if that guarantee is
+    # ever violated instead of silently writing into whatever is already there.
+    nonce = uuid.uuid4().hex[:8]
+    pk = archive / f"review_packets_auto_{stamp}_{nonce}"
+    pk.mkdir()
     index = []
     for n, it in enumerate(todo, 1):
         prompt = it["subagent_prompt"]
@@ -72,12 +80,17 @@ def review_and_commit(todo: list[dict], archive: Path, args) -> str:
     if rc.returncode != 0:
         return f"ABORT: reviewer batch exit {rc.returncode}: {rc.stderr[-300:]}"
 
+    # Every dispatched payload_sha256, and nothing else: a row for anything else means
+    # rulings.jsonl holds output this dispatch never produced, and it must not be committed.
     expected = {i["payload_sha256"]: i["prompt_sha256"] for i in index}
     commit, clean, errs = [], 0, 0
     for line in (pk / "rulings.jsonl").read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         r = json.loads(line)
+        if r["payload_sha256"] not in expected:
+            return (f"ABORT: rulings.jsonl has a ruling for {r['payload_sha256']}, which this "
+                     f"dispatch never sent out; refusing to commit output from another attempt")
         if "tool_uses" in r:
             if r["prompt_sha256"] != expected[r["payload_sha256"]]:
                 return f"ABORT: prompt proof mismatch on {r['payload_sha256']}"
