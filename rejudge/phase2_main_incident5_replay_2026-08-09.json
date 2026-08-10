@@ -1,0 +1,16 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "main_reviewer_unavailable_replay_2026-08-09",
+ "recorded_at_utc": "2026-08-09T22:55:00Z",
+ "recorded_by": "session orchestrator (Claude Fable 5, audit session), under owner instruction of 2026-08-09 to fix the audited defects",
+ "what_happened": "During the 2026-08-07 reviewer outage the batch runner committed 329 REVIEWER_UNAVAILABLE rulings (incident-3 class). The 2026-08-08 remediation dropped them, but the review daemon names packet directories by hashing the payload set and the batch runner skips payloads already present in that directory's rulings.jsonl, so the next wave regenerated the same payload set, found the stale rulings.jsonl from the failed attempt, dispatched nothing, and committed all 329 stale rows back verbatim in 47 seconds. The retired-file guard in the overnight script then made a second remediation impossible.",
+ "contamination_measured": "All 329 marked payload hashes were consumed by completed cells. At audit time (18,144 result rows) 780 result rows referenced at least one marked ruling, 39 of them among the most recent 2,000 rows, so inheritance-by-hash was still spreading the exposure when the run was contained.",
+ "disposition_predeclared": "Before any replacement ruling was inspected, the remediation was fixed as: quarantine stale packet-directory rulings files, retire and rebuild the decision store dropping the 329 marker rows, re-review all 329 under the frozen gpt-5.6-sol reviewer via the repaired daemon, then invalidate and re-run EVERY directly exposed cell plus dependent cells from the computed closure, regardless of whether the replacement ruling matches the fabricated denial. This forfeits the narrow salvage case deliberately: proving execution equivalence per cell costs more than re-running cells that cost under a cent each.",
+ "code_changes": "scripts/review_daemon.py and scripts/codex_reviewer_batch.py repaired so an attempt can never consume another attempt's rulings (packet directories are attempt-unique and the daemon refuses rulings it did not dispatch). The frozen rejudge/ science bundle (code_bundle_sha256 a3ad2117957033490f3b79db86638d3dc722464326d0bc7d766669dc1c586621) is untouched; the execution identity ba017fe3 is not superseded.",
+ "store_actions": "decision store retired with suffix .reviewer-unavailable-replay-2026-08-09; result store and call cache retired with the machinery and suffix of rejudge/phase2_canary_live.py (.incident3-2026-08-02, the incident class this replay belongs to); pre-remediation snapshot preserved at audit-snapshot-2026-08-09T2245Z in the archive.",
+ "related": [
+  "rejudge/phase2_canary_incident3_2026-08-02.json",
+  "main_reviewer_decisions.jsonl.reviewer-unavailable-2026-08-07 (first remediation, defeated by the replay)"
+ ],
+ "note": "Append-only. Grants no authority and changes no cap."
+}
