@@ -682,6 +682,8 @@ def rebuild_decision_store_dropping_unreviewed(
 
 def rebuild_call_cache(manifest: Mapping[str, Any], *, project_root: str | Path,
                        drop_cells: set, suffix: str = INCIDENT3_SUFFIX) -> dict:
+    # suffix is a parameter for the same reason as the decision-store rebuild's: a second
+    # sweep can be needed, and the retired-file refusal below must not conflate sweeps.
     """Retire the per-call cache and rebuild it without the named cells' calls.
 
     The third and last piece of incident 3. Dropping a contaminated cell's result row makes

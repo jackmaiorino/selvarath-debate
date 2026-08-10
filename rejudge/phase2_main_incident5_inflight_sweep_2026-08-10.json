@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "main_inflight_replay_sweep_2026-08-10",
+ "extends": "rejudge/phase2_main_incident5_replay_2026-08-09.json",
+ "recorded_at_utc": "2026-08-10T06:20:00Z",
+ "recorded_by": "session orchestrator (Claude Fable 5), continuing the incident-5 remediation",
+ "what_happened": "The incident-5 closure could only see cells with result rows. Cells in flight at surgery time (paused, no result row) kept cached provider calls made under the since-dropped rulings. When such a cell resumed against the corrected decision store its conversation diverged from its memoised calls, and the cache's CallReplayMismatch guard halted the run rather than replaying a response generated for a different prompt. First surfaced on cell ...814e1b35 at 2026-08-10T05:57Z; the guard behaved exactly as its own documentation predicts after a store rebuild.",
+ "why_material": "Of the first 149 re-reviewed payloads, 112 came back ALLOW and 37 REJECT. The fabricated rulings had denied all of them, so roughly three quarters of the blocked queries were wrongly blocked, and any in-flight conversation consuming one of those denials is now inconsistent with the corrected world.",
+ "disposition": "One proactive sweep instead of a halt-review-relaunch cycle per cell: cached calls dropped for all 1,346 gate-capable in-flight cells (1,308 debate_judgment, 38 no_debate_judgment) so each re-derives cleanly. Pipe-delimited keys from the older calibration namespace sharing the cache file are untouched, as are the cached calls of every completed cell. Estimated re-derivation cost is a few dollars of provider calls, bounded by the stage cap.",
+ "store_actions": "call cache retired with suffix .inflight-replay-2026-08-10 via rebuild_call_cache, whose suffix parameter exists for exactly this second-sweep case.",
+ "note": "Append-only. Grants no authority and changes no cap."
+}
