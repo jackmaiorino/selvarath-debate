@@ -91,7 +91,13 @@ _BENIGN_TRANSIENT = re.compile(
     # no HTTP response. Same class as the two resets above, without a specific errno.
     # Anchored to the exact SDK string so it cannot become a catch-all for anything
     # mentioning a connection.
-    r"^Connection error\.$")
+    r"^Connection error\.$|"
+    # Amendment 12 (2026-08-10): httpx's wording for a connection the peer closed mid-body,
+    # the visible sibling of the silent open-connection hang killed the same day. Same class
+    # as Server disconnected. Prefix-anchored because httpx varies the parenthetical
+    # ("incomplete chunked read" vs a byte count); the prefix is the full invariant clause of
+    # that one httpx message, not a substring that anything else produces.
+    r"^peer closed connection without sending complete message body")
 _RATE_LIMIT = re.compile(r"Error code: 429")
 
 # Halt reasons a resume can actually fix.

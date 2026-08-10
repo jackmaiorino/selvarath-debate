@@ -1,0 +1,14 @@
+{
+ "schema_version": "phase2_canary_auto_resume_amendment_v1",
+ "decision_id": "main_auto_resume_amendment12_2026-08-10",
+ "amends": "rejudge/phase2_canary_auto_resume_policy_2026-07-28.json",
+ "change": "adds httpx's 'peer closed connection without sending complete message body' to the enumerated benign-transient set, prefix-anchored",
+ "evidence": "3 occurrences on the 2026-08-10 main run, all google/gemma-4-31B-it, within 92 minutes (16:40, 17:11, 17:12 UTC), two inside one minute, during the same degradation window as the silent open-connection hang killed at 15:11 UTC. Each occurrence stopped the run for manual review; each review reached the identical conclusion.",
+ "why_benign": "It is httpx's wording for a connection the provider closed before finishing the response body: the visible sibling of the silent hang (same provider misbehavior, surfaced instead of hanging), and the same class as 'Server disconnected', already enumerated. Like every member of the set it may have billed server-side, which the permanently-counted uncertain reservation and ceiling bound.",
+ "why_this_is_not_a_widening": "Prefix-anchored with ^ because httpx varies only the trailing parenthetical (incomplete chunked read, or a byte count); the anchored prefix is the complete invariant clause of that one httpx message. A test asserts the clause appearing inside any other message still stops the run.",
+ "recorded_by": "session orchestrator (Claude Fable 5) under the owner's standing operational delegation and the 2026-08-09 fix-it delegation, following the amendment-10 pattern",
+ "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+ "recorded_at_utc": "2026-08-10T17:40:00Z",
+ "what_it_does_not_relax": "nothing else. The same-call limit, the uncertain-spend ceiling, the resume backstop, and every other member of the enumerated set are unchanged.",
+ "note": "Append-only. Grants no authority and changes no cap."
+}

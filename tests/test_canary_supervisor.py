@@ -155,6 +155,42 @@ def test_a_socket_level_read_timeout_is_the_same_benign_condition(tmp_path):
                      "error": "The read operation timed out"}]) is None
 
 
+def test_a_peer_closed_mid_body_is_the_same_benign_condition(tmp_path):
+    # Amendment 12. httpx's wording for a connection the provider closed before finishing the
+    # body: the visible sibling of the silent open-connection hang of 2026-08-10, and the same
+    # class as "Server disconnected". Three occurrences on gemma within 92 minutes, two of them
+    # in one minute, during the same degradation window.
+    assert _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "peer closed connection without sending complete message body "
+                  "(incomplete chunked read)"}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": "peer closed connection without sending complete message body "
+                              "(incomplete chunked read)"}]) is None
+
+
+def test_a_peer_closed_variant_byte_count_is_also_benign(tmp_path):
+    # The parenthetical varies by read state; the invariant clause is what is enumerated.
+    assert _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "peer closed connection without sending complete message body "
+                  "(3 bytes read, 10 more expected)"}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": "peer closed connection without sending complete message body "
+                              "(3 bytes read, 10 more expected)"}]) is None
+
+
+def test_a_mid_sentence_peer_closed_mention_still_stops_the_run(tmp_path):
+    # Prefix anchoring means the clause must BE the error, not appear inside a novel one.
+    reason = _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+         "error": "billing hold: peer closed connection without sending complete message body"}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": "billing hold: peer closed connection without sending complete "
+                              "message body"}])
+    assert reason is not None and "transient set" in reason
+
+
 def test_an_unrecognised_error_still_stops_the_run(tmp_path):
     # The set stays enumerated precisely so the next genuinely novel shape halts rather than
     # being absorbed. Guards the amendment against becoming a catch-all.
