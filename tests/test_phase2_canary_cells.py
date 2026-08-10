@@ -15,6 +15,7 @@ protocol stays the single source of truth for oracle mode and query budget.
 import json
 
 import pytest
+from pathlib import Path
 
 from rejudge import phase2_canary_cells as cells_mod
 from rejudge import phase2_plan
@@ -51,6 +52,12 @@ def _resolve(cell, anchor_judge_model=ANCHOR):
 
 
 # --- transcripts -------------------------------------------------------------------------
+
+# The pilot transcript corpus is untracked by design (data/*.jsonl is gitignored so the
+# fictional eval worlds stay out of public training corpora). These tests bind the real
+# corpus and can only run where it exists; skipping elsewhere is the honest outcome.
+needs_corpus = pytest.mark.skipif(not Path("data/transcripts.jsonl").exists(),
+                                  reason="pilot transcript corpus is untracked by design")
 
 def test_the_uncapped_transcript_condition_maps_to_a_real_debate_gen_protocol():
     resolved = _resolve(_by("canary_debate_transcript", "canary_blind_uncapped_3_round"))
@@ -206,6 +213,7 @@ def _main_cells():
     return enumerate_main_cells(".")
 
 
+@needs_corpus
 def test_a_main_run_judgment_cell_resolves():
     from rejudge import phase2_canary_cells as cells_mod
 
@@ -219,6 +227,7 @@ def test_a_main_run_judgment_cell_resolves():
     assert resolved.produces_queries
 
 
+@needs_corpus
 def test_a_main_run_transcript_cell_resolves_to_a_debate_gen_protocol():
     from rejudge import phase2_canary_cells as cells_mod
 
@@ -229,6 +238,7 @@ def test_a_main_run_transcript_cell_resolves_to_a_debate_gen_protocol():
     assert resolved.transcript_protocol_name == "uncapped3"
 
 
+@needs_corpus
 def test_every_main_run_cell_kind_resolves():
     """All 23,200, not a sample: an unresolvable kind discovered mid-run is a stopped run."""
     from rejudge import phase2_canary_cells as cells_mod

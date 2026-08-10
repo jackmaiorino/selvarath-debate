@@ -42,6 +42,12 @@ def _no_query_cells(cell):
 
 # --- the happy path over a slice of the plan ------------------------------------------------
 
+# The pilot transcript corpus is untracked by design (data/*.jsonl is gitignored so the
+# fictional eval worlds stay out of public training corpora). These tests bind the real
+# corpus and can only run where it exists; skipping elsewhere is the honest outcome.
+needs_corpus = pytest.mark.skipif(not Path("data/transcripts.jsonl").exists(),
+                                  reason="pilot transcript corpus is untracked by design")
+
 def test_a_short_run_completes_and_records_every_cell(tmp_path):
     outcome = _run(tmp_path, limit=3)
     assert isinstance(outcome, RunOutcome)
@@ -472,6 +478,7 @@ def test_a_provider_abandoning_everything_still_halts(tmp_path):
     assert outcome.halted_reason is not None, "a wholly failing provider must stop the run"
 
 
+@needs_corpus
 def test_the_runner_can_be_pointed_at_the_main_plan(tmp_path):
     """run_canary enumerated the canary plan unconditionally, so the main grid had no
     execution path at all: its manifest validated while nothing could run it."""

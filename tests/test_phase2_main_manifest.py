@@ -4,6 +4,7 @@ A sibling of the canary manifest rather than an extension, because widening the 
 validator would retroactively change what two completed runs' manifests must contain.
 """
 import pytest
+from pathlib import Path
 
 from rejudge.phase2_main_manifest import (MainManifestError, billable_cells,
                                           build_main_manifest, enumerate_main_cells,
@@ -25,6 +26,12 @@ def _manifest(**overrides):
     m.update(overrides)
     return m
 
+
+# The pilot transcript corpus is untracked by design (data/*.jsonl is gitignored so the
+# fictional eval worlds stay out of public training corpora). These tests bind the real
+# corpus and can only run where it exists; skipping elsewhere is the honest outcome.
+pytestmark = pytest.mark.skipif(not Path("data/transcripts.jsonl").exists(),
+                                  reason="pilot transcript corpus is untracked by design")
 
 def test_the_grid_is_the_pre_registered_one():
     assert len(main_question_ids(".")) == 82

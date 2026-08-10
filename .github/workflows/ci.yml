@@ -13,6 +13,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the code-provenance tests read blobs at pinned commits and walk
+          # the log past those pins, which a shallow checkout cannot serve.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

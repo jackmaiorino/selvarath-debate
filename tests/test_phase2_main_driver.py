@@ -4,6 +4,7 @@ run_live validated only canary manifests and _run_passes only ever ran the canar
 main-run manifest could be built, validated and hash-bound while nothing could execute it.
 """
 import json
+from pathlib import Path
 
 import pytest
 
@@ -29,6 +30,12 @@ def _main_manifest():
         "rejudge/phase2_main_manifest_2026-08-06c.json").read_text(encoding="utf-8"))
 
 
+# The pilot transcript corpus is untracked by design (data/*.jsonl is gitignored so the
+# fictional eval worlds stay out of public training corpora). These tests bind the real
+# corpus and can only run where it exists; skipping elsewhere is the honest outcome.
+needs_corpus = pytest.mark.skipif(not Path("data/transcripts.jsonl").exists(),
+                                  reason="pilot transcript corpus is untracked by design")
+
 def test_validation_dispatches_on_the_manifests_own_schema():
     out = validate_manifest(_canary_manifest(), project_root=".")
     assert out["stage"] == "canary"
@@ -47,6 +54,7 @@ def test_the_canary_plan_is_resolved_for_a_canary_manifest():
     assert all(c["kind"].startswith("canary_") for c in cells)
 
 
+@needs_corpus
 def test_the_main_plan_is_resolved_for_a_main_manifest():
     cells = plan_for(_main_manifest(), project_root=".")
     # capability_qa ran under the preflight's own authorization and must not be re-run here.
@@ -55,6 +63,7 @@ def test_the_main_plan_is_resolved_for_a_main_manifest():
     assert not any(c["kind"].startswith("canary_") for c in cells)
 
 
+@needs_corpus
 def test_the_resolved_main_plan_is_dependency_closed():
     """execution_order refuses an orphaned dependency, so dropping capability_qa must not
     strand anything that depends on it."""
