@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "main_contract_gap_open_question_2026-08-10",
+ "extends": "rejudge/phase2_main_contract_gap_2026-08-09.json",
+ "recorded_at_utc": "2026-08-10T00:15:00Z",
+ "recorded_by": "session orchestrator (Claude Fable 5), applying the disposition rule recorded in the extended incident",
+ "what_happened": "Third occurrence of the frozen-contract gap: the reviewer returned LABEL REJECT with CLAUSE Allowed for payload 4fa1fcd96195... because the judge's query asked the oracle to supply a toll rate, an open question rather than an atomic claim, and P1 to P4 have no clause for that shape. The commit path raised and the wave aborted; the new orchestrator terminated for review as designed, rather than cycling past.",
+ "disposition": "Committed as status malformed with null parsed fields and raw output preserved verbatim, the frozen failure rule's treatment for non-conforming reviewer output, identical to the two 2026-08-09 dispositions. Non-ALLOW, so nothing is dispatched. The other 22 rulings of the wave had already committed cleanly.",
+ "code_change": "None. parse_reviewer_output remains frozen in the code-provenance bundle; its fix stays owed under a new execution identity at close-out, as recorded on 2026-08-09.",
+ "gap_taxonomy_note": "The gap now has two observed shapes: an empty query (asserts nothing) and an open question (requests information instead of asserting a claim). Both belong in the methods section and in any contract revision at close-out.",
+ "note": "Append-only. Grants no authority and changes no cap."
+}
