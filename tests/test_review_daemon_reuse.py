@@ -157,3 +157,22 @@ def test_a_foreign_ruling_is_refused_rather_than_committed(tmp_path, monkeypatch
     new_dirs = list(archive.glob("review_packets_auto_*"))
     assert len(new_dirs) == 1
     assert not (new_dirs[0] / "commit.json").exists()
+
+
+def test_exit_when_empty_ends_instead_of_polling(tmp_path):
+    """A fully-decided worklist must end a one-shot invocation, not poll forever.
+
+    Observed 2026-08-10: the orchestrator's sequential wave/run-pass loop deadlocked for 103
+    minutes because max-waves counts waves EXECUTED, so zero undecided payloads left the
+    daemon polling for items only the blocked run pass could have exported.
+    """
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps(
+        {"ledger": {"decisions_path": "E:/anywhere/decisions.jsonl"}}), encoding="utf-8")
+    archive = tmp_path / "archive"
+    archive.mkdir()
+    rc = review_daemon.main([
+        "--manifest", str(manifest), "--authorization", "unused.json",
+        "--archive", str(archive), "--poll-seconds", "1", "--max-waves", "1",
+        "--exit-when-empty"])
+    assert rc == 0

@@ -128,6 +128,11 @@ def main(argv=None) -> int:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--poll-seconds", type=int, default=60)
     ap.add_argument("--max-waves", type=int, default=200)
+    # For one-shot orchestration, where the worklist is fixed before the daemon starts.
+    # Without this, a fully-decided worklist deadlocks the sequential wave/run-pass loop:
+    # max-waves counts waves executed, so zero undecided means polling forever for items
+    # only the blocked run pass could export (observed 2026-08-10, 103 minutes hung).
+    ap.add_argument("--exit-when-empty", action="store_true")
     args = ap.parse_args(argv)
     decisions_name = decisions_filename_for(args.manifest)
     archive = Path(args.archive)
@@ -142,6 +147,9 @@ def main(argv=None) -> int:
             print(f"[wave {waves}] {msg}", flush=True)
             if msg.startswith("ABORT"):
                 return 4
+        elif args.exit_when_empty:
+            print("no undecided payloads; nothing to review", flush=True)
+            return 0
         time.sleep(args.poll_seconds)
     print(f"max-waves {args.max_waves} reached", flush=True)
     return 0

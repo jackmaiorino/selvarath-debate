@@ -77,7 +77,8 @@ for round in $(seq 1 "$ROUND_CAP"); do
 
   say "round $round: review wave"
   "$VENV" "$REVIEW_DAEMON" --manifest "$MANIFEST" --authorization "$AUTH" \
-    --archive "$ARCHIVE" --codex "$CODEX" --concurrency 8 --max-waves 1 2>&1 | tee -a "$LOG"
+    --archive "$ARCHIVE" --codex "$CODEX" --concurrency 8 --max-waves 1 \
+    --exit-when-empty 2>&1 | tee -a "$LOG"
   review_rc=${PIPESTATUS[0]}
   if [ "$review_rc" != "0" ]; then
     say "round $round: review wave failed (exit $review_rc); stopping for review before any relaunch"
