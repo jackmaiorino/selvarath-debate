@@ -5,6 +5,7 @@ trigger before any client construction, and the real tracked artifacts are only 
 executed. The runner's own behaviour is covered by test_phase2_canary_runner.py.
 """
 import json
+import os
 import urllib.error
 from pathlib import Path
 
@@ -132,6 +133,15 @@ def test_run_live_refuses_without_the_reviewer_key(monkeypatch, tmp_path):
 
 # --- path mapping ---------------------------------------------------------------------------
 
+
+# The archive lock is fcntl and local_path translates drive paths only on a POSIX host, both
+# by design (the run executes under WSL). These tests exercise that machinery and are
+# meaningless on Windows, where the suite otherwise passes in full.
+needs_posix = pytest.mark.skipif(os.name != "posix",
+                                 reason="archive lock and WSL path mapping are POSIX-only")
+
+
+@needs_posix
 def test_a_drive_path_maps_onto_the_wsl_mount():
     assert local_path("E:/selvarath-archive/canary-2026-07-28/canary_usage.jsonl") == Path(
         "/mnt/e/selvarath-archive/canary-2026-07-28/canary_usage.jsonl")
@@ -532,6 +542,7 @@ def test_a_completed_terminal_cell_is_refused(tmp_path):
 
 # --- the archive lock and incident migration ------------------------------------------------
 
+@needs_posix
 def test_the_archive_lock_refuses_a_second_holder(tmp_path):
     from rejudge.phase2_canary_live import AnotherProcessHoldsTheLock, _ArchiveLock
     lock_path = tmp_path / "canary.lock"
@@ -566,6 +577,7 @@ def test_conservative_ledger_spend_counts_success_and_unresolved(tmp_path):
     assert uncertain == pytest.approx(0.3)
 
 
+@needs_posix
 def test_the_migration_preserves_rebuilds_and_carries_forward(tmp_path, monkeypatch):
     import shutil
     from rejudge import api_client
@@ -618,6 +630,7 @@ def test_the_migration_preserves_rebuilds_and_carries_forward(tmp_path, monkeypa
         migrate_interleaved_ledger(manifest, project_root=root)
 
 
+@needs_posix
 def test_the_rebuild_keeps_verified_rulings_and_drops_excluded(tmp_path):
     import shutil
     from rejudge.phase2_canary_live import INCIDENT2_RELATIVE_PATH, rebuild_decision_store
@@ -777,6 +790,7 @@ def test_the_bound_transport_is_the_one_the_amendment_describes():
 
 # --- incident 3: rebuilding the result store -------------------------------------------------
 
+@needs_posix
 def test_the_result_rebuild_drops_named_cells_and_keeps_the_rest(tmp_path):
     # Incident 3 left 141 cells recorded whose gate rulings were never actually reviewed.
     # The result store refuses to overwrite a cell, by design, so a contaminated cell cannot
@@ -803,6 +817,7 @@ def test_the_result_rebuild_drops_named_cells_and_keeps_the_rest(tmp_path):
     assert len(retired.read_text(encoding="utf-8").strip().splitlines()) == 5
 
 
+@needs_posix
 def test_the_result_rebuild_refuses_to_run_twice(tmp_path):
     from rejudge.phase2_canary_live import CanaryLiveError, rebuild_result_store
     from rejudge.phase2_canary_order import CellResultStore
@@ -841,6 +856,7 @@ def test_the_result_rebuild_refuses_to_drop_a_cell_that_is_not_there(tmp_path):
         rebuild_result_store(manifest, project_root=".", drop_cells={"ghost"})
 
 
+@needs_posix
 def test_the_unreviewed_rebuild_drops_only_self_identifying_rulings(tmp_path):
     # Incident 3's rule differs from incident 2's on purpose. Incident 2 contaminated the
     # PROMPTS, so affected rulings were indistinguishable without proof and "keep only what
@@ -905,6 +921,7 @@ def test_the_unreviewed_rebuild_refuses_without_the_incident_record(tmp_path):
         rebuild_decision_store_dropping_unreviewed(manifest, project_root=tmp_path)
 
 
+@needs_posix
 def test_the_cache_rebuild_drops_a_cells_calls_so_it_can_rerun(tmp_path):
     # The last piece of incident 3. Dropping a contaminated cell's result row makes the runner
     # execute it again, but its provider calls are still memoised against the OLD conversation.

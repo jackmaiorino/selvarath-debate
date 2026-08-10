@@ -9,7 +9,16 @@ experiments.
 Funded by a [Manifund grant](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s).
 Pilot write-up: [Limited verification can hurt debate oversight](https://www.lesswrong.com/posts/2a3vce7WooJ4XkDqw/limited-verification-can-hurt-debate-oversight) (LessWrong).
 
-## Status (2026-07-16)
+## Status (2026-08-10)
+
+- **Phase-2 main run in progress** (22,140 cells, owner-authorized, $400 cap): bridge canary
+  converged clean (945/945), main run past 83% with convergence expected 2026-08-10. A reviewer
+  outage plus a packet-cache bug fabricated 329 gate rulings mid-run; the contamination closure
+  (1,070 cells) was dropped and is re-running under corrected rulings. Re-review so far: about
+  three quarters of the fabricated denials were wrongly blocked queries. Incident and amendment
+  records live in `rejudge/`.
+
+### Earlier milestones (2026-07-16)
 
 - Pilot re-analysis complete: headline effect quantified at Delta_few = +7.2pp, 95% CI [4.6, 10.2].
 - A code audit found two data-corrupting bugs in the pilot's oracle channel (NOT-ADDRESSED replies
