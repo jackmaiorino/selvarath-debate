@@ -350,6 +350,46 @@ def test_out_of_band_decisions_commit_parsed_and_malformed(tmp_path):
     assert resolved.status == "malformed" and not resolved.effective_allow
 
 
+def test_contract_violating_rulings_commit_as_malformed_without_aborting_the_wave(tmp_path):
+    # The 2026-08-09/10/11 contract-gap incidents: LABEL REJECT paired with CLAUSE Allowed
+    # because the frozen clause taxonomy (P1-P4) has no entry for an empty query (asserts
+    # nothing) or an open question (requests information rather than asserting a claim).
+    # Before the fix, parse_reviewer_output called this combination 'parsed', and the store's
+    # field validation then raised ValueError on commit, aborting the rest of the wave -- one
+    # occurrence left 158 of 216 rulings committed and the other 58 undone. commit_decisions_
+    # into must now get all the way through a wave containing both observed shapes, committing
+    # each as malformed, while a normal ALLOW in the same wave is unaffected.
+    from rejudge.phase2_canary_live import commit_decisions_into
+    from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
+    empty_query_sha = payload_hash("", "a", "b")
+    open_question_sha = payload_hash("What is the toll rate?", "a", "b")
+    good_sha = payload_hash("q3", "a", "b")
+    worklist = {"items": [
+        {"payload_sha256": empty_query_sha, "subagent_prompt_sha256": "p1"},
+        {"payload_sha256": open_question_sha, "subagent_prompt_sha256": "p2"},
+        {"payload_sha256": good_sha, "subagent_prompt_sha256": "p3"},
+    ]}
+    store = DualGateDecisionStore(tmp_path / "decisions.jsonl")
+    counts = commit_decisions_into(store, worklist, [
+        {"payload_sha256": empty_query_sha, "prompt_sha256": "p1",
+         "raw_output": "LABEL: REJECT\nCLAUSE: Allowed\nRATIONALE: The empty query contains "
+                       "no atomic factual claim checkable against the world document."},
+        {"payload_sha256": open_question_sha, "prompt_sha256": "p2",
+         "raw_output": "LABEL: REJECT\nCLAUSE: Allowed\nRATIONALE: The query asks the oracle "
+                       "to supply a toll rate, an open question rather than an atomic claim."},
+        {"payload_sha256": good_sha, "prompt_sha256": "p3",
+         "raw_output": "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: fine."},
+    ])
+    assert counts == {"parsed": 1, "malformed": 2, "reviewer_error": 0}
+    for sha in (empty_query_sha, open_question_sha):
+        decision = store.get(sha)
+        assert decision is not None
+        assert decision.status == "malformed" and not decision.effective_allow
+        assert decision.label is None and decision.clause is None
+    good = store.get(good_sha)
+    assert good is not None and good.effective_allow
+
+
 def test_an_explicit_reviewer_error_commits_as_non_allow(tmp_path):
     from rejudge.phase2_canary_live import commit_decisions_into
     from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash

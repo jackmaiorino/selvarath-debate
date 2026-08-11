@@ -36,6 +36,36 @@ def test_parse_good_and_malformed():
         assert parse_reviewer_output(bad) == (None, None, None)
 
 
+def test_a_valid_reject_or_allow_still_parses():
+    # Guards the contract-gap fix below from ever widening past the two forbidden pairings:
+    # every VALID label/clause combination must keep parsing exactly as before.
+    assert parse_reviewer_output(REJ) == ("REJECT", "P3", "Two independently checkable facts.")
+    assert parse_reviewer_output(GOOD) == ("ALLOW", "Allowed", "One atomic checkable fact.")
+
+
+def test_parse_treats_contract_violating_label_clause_pairs_as_malformed():
+    # The 2026-08-09/10/11 contract-gap shapes (rejudge/phase2_main_contract_gap_2026-08-09.json
+    # and its occurrence3/occurrence4 successors): a structurally valid three-line reply whose
+    # LABEL/CLAUSE pairing the frozen contract forbids. All four real occurrences took this
+    # exact shape -- REJECT paired with CLAUSE Allowed -- because the frozen taxonomy (P1
+    # answer-label queries, P2 candidate restatements, P3 compound claims, P4 meta/evaluative
+    # queries) has no clause for an EMPTY query (asserts nothing, 2026-08-09 x2) or an OPEN
+    # QUESTION (requests information rather than asserting a claim, 2026-08-10 and 2026-08-11).
+    # Before the fix this parsed as 'parsed' and the store's own field validation then refused
+    # to commit it, raising an uncaught ValueError that aborted the rest of the commit wave.
+    empty_query_shape = (
+        "LABEL: REJECT\nCLAUSE: Allowed\nRATIONALE: The empty query contains no atomic "
+        "factual claim checkable against the world document.")
+    open_question_shape = (
+        "LABEL: REJECT\nCLAUSE: Allowed\nRATIONALE: The query asks the oracle to supply a "
+        "toll rate, an open question rather than an atomic claim.")
+    for shape in (empty_query_shape, open_question_shape):
+        assert parse_reviewer_output(shape) == (None, None, None)
+    # The mirror-image pairing (ALLOW citing anything but 'Allowed') is equally forbidden by
+    # the contract, though never observed live; the parser must reject it the same way.
+    assert parse_reviewer_output("LABEL: ALLOW\nCLAUSE: P1\nRATIONALE: x") == (None, None, None)
+
+
 def test_double_allow_dispatches(tmp_path):
     gate, _ = make_gate(tmp_path, [GOOD])
     outcome = gate.decide(checker_decision="allow", raw_query="q1",
@@ -67,6 +97,25 @@ def test_ambiguous_fails_closed(tmp_path):
     assert not outcome.dispatch_allowed
     assert outcome.checker_false_allow_intercept
     assert outcome.reviewer.label == "CONTRACT_AMBIGUOUS"
+
+
+def test_a_contract_violating_reject_commits_as_malformed_not_a_crash(tmp_path):
+    # Before the fix, REJECT paired with CLAUSE Allowed parsed as 'parsed', and the store's
+    # own field validation then refused to commit it, raising an uncaught ValueError instead
+    # of the fail-closed disposition every other malformed shape gets. That aborted a live
+    # review wave four times (2026-08-09 x2, 2026-08-10, 2026-08-11); see
+    # rejudge/phase2_main_contract_gap_2026-08-09.json. Now it must commit cleanly as
+    # malformed, non-ALLOW, raw preserved -- the same disposition the operator applied by hand
+    # each time.
+    contract_gap = "LABEL: REJECT\nCLAUSE: Allowed\nRATIONALE: The query is empty."
+    gate, _ = make_gate(tmp_path, [contract_gap])
+    outcome = gate.decide(checker_decision="allow", raw_query="q1",
+                          candidate_a="a", candidate_b="b")
+    assert not outcome.dispatch_allowed
+    assert outcome.checker_false_allow_intercept
+    assert outcome.reviewer.status == "malformed"
+    assert outcome.reviewer.label is None and outcome.reviewer.clause is None
+    assert outcome.reviewer.raw_output == contract_gap
 
 
 def test_malformed_and_outage_fail_closed(tmp_path):

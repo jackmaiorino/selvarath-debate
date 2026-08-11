@@ -63,12 +63,62 @@ def payload_hash(raw_query: str, candidate_a: str, candidate_b: str) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _label_clause_contract_violated(label: str, clause: str) -> bool:
+    """The same two rules ``_validate_decision_fields`` enforces on a committed 'parsed' row.
+
+    Kept here, not just there, so a violation is caught at PARSE time and never reaches a
+    commit call as a self-contradictory 'parsed' ruling in the first place (see
+    ``parse_reviewer_output``'s docstring for why that distinction matters).
+    """
+    if label == "ALLOW" and clause != "Allowed":
+        return True
+    if label == "REJECT" and clause not in {"P1", "P2", "P3", "P4"}:
+        return True
+    return False
+
+
 def parse_reviewer_output(raw: str | None) -> tuple[str | None, str | None, str | None]:
-    """Return (label, clause, rationale) or (None, None, None) if malformed."""
+    """Return (label, clause, rationale) or (None, None, None) if malformed.
+
+    Malformed covers two different failure shapes, both committed identically by the frozen
+    failure rule: text that never matches the LABEL/CLAUSE/RATIONALE three-line protocol at
+    all (garbage, truncation, a refusal), and text that matches the three-line shape but pairs
+    a label with a clause the contract forbids for it (ALLOW with anything but 'Allowed';
+    REJECT with anything but P1-P4). The second shape is a real gap in the frozen clause
+    taxonomy rather than a misbehaving reviewer: the four frozen clauses (P1 answer-label
+    queries, P2 candidate restatements, P3 compound claims, P4 meta/evaluative queries) have
+    no entry for an EMPTY query, which asserts nothing, or an OPEN QUESTION, which requests
+    information rather than asserting a claim. Facing one of those two shapes, a reviewer that
+    correctly rejects the query has no valid clause left to cite and picks the only remaining
+    one, 'Allowed', producing LABEL: REJECT / CLAUSE: Allowed -- a combination the line regex
+    accepts (both are individually valid tokens) but the contract forbids.
+
+    That happened four times across roughly 22,000 canary/main gate reviews (two empty-query
+    occurrences on 2026-08-09, two open-question occurrences on 2026-08-10 and 2026-08-11; see
+    rejudge/phase2_main_contract_gap_2026-08-09.json and its occurrence3/occurrence4
+    successors). Every
+    time, parsing had called the ruling 'parsed' while ``_validate_decision_fields`` refused it
+    as self-contradictory, so ``DualGateDecisionStore.commit`` raised an uncaught ValueError
+    and aborted the rest of the in-flight commit wave -- one abort mid-wave left 158 of 216
+    rulings committed and the other 58 undone. The operator applied the frozen failure rule by
+    hand each time (commit as 'malformed', null parsed fields, raw output preserved verbatim,
+    non-ALLOW so nothing dispatches) rather than let the abort stand. Folding the same
+    contract check in here means that disposition now happens automatically: a label/clause
+    pair the contract forbids is malformed, exactly like text with no parseable lines at all,
+    so the wave keeps committing past it instead of raising.
+
+    A REJECT citing a valid P1-P4 clause, or an ALLOW citing 'Allowed', is unaffected: only
+    the two contract-forbidden pairings are reclassified. Text that never matches the
+    three-line shape in the first place was already malformed and stays that way.
+    """
     match = _LINE_RE.match(raw.strip()) if raw else None
     if not match:
         return None, None, None
-    return match.group("label"), match.group("clause"), match.group("rationale")
+    label, clause, rationale = (
+        match.group("label"), match.group("clause"), match.group("rationale"))
+    if _label_clause_contract_violated(label, clause):
+        return None, None, None
+    return label, clause, rationale
 
 
 def _reject_duplicate_keys(pairs):

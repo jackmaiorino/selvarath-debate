@@ -9,14 +9,16 @@ experiments.
 Funded by a [Manifund grant](https://manifund.org/projects/testing-failure-modes-of-debate-style-ai-control-schemes-tewkbpvy1s).
 Pilot write-up: [Limited verification can hurt debate oversight](https://www.lesswrong.com/posts/2a3vce7WooJ4XkDqw/limited-verification-can-hurt-debate-oversight) (LessWrong).
 
-## Status (2026-08-10)
+## Status (2026-08-11)
 
-- **Phase-2 main run in progress** (22,140 cells, owner-authorized, $400 cap): bridge canary
-  converged clean (945/945), main run past 83% with convergence expected 2026-08-10. A reviewer
-  outage plus a packet-cache bug fabricated 329 gate rulings mid-run; the contamination closure
-  (1,070 cells) was dropped and is re-running under corrected rulings. Re-review so far: about
-  three quarters of the fabricated denials were wrongly blocked queries. Incident and amendment
-  records live in `rejudge/`.
+- **Phase-2 main run COMPLETE with pre-registered results** (22,140/22,140 cells, $172.86 of the
+  $400 cap): the sequential two-call oracle protocol increased judge error by +3.9pp (CI [2.2, 5.7],
+  Holm p = 0.0006), robust to the valid-only sensitivity; content component robust, packaging
+  component fragile; caps protect the Llama judge against Qwen3.7-Plus self-play (interaction
+  +16.5pp); debate underperformed matched evidence-only presentation by 9.7pp. Exploratory: harm
+  concentrates in the weaker judges. Full report: `reports/2026-08-11-phase2-main-results.md`.
+  A mid-run contamination incident (329 fabricated gate rulings) was remediated with all 1,070
+  affected cells re-run and verified; incident and amendment records live in `rejudge/`.
 
 ### Earlier milestones (2026-07-16)
 
@@ -100,8 +102,9 @@ After any abnormal live termination, do not resume automatically: reconcile char
 and their cell metadata against durable output rows and provider billing first. A crash between the
 ledger fsync and result fsync can otherwise cause a paid missing cell to be requested twice.
 
-There is currently no executable Phase-2 main runner. Do not infer spend authorization from the
-presence of the offline plan.
+The Phase-2 main run executed 2026-08-06 to 2026-08-11 under `rejudge/phase2_main_manifest_2026-08-06c.json`
+and is complete; see `reports/2026-08-11-phase2-main-results.md`. Any future run requires a fresh
+owner-authorized manifest and execution identity. Do not infer spend authorization from tracked plans.
 
 ## Contributors
 

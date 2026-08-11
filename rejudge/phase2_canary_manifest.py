@@ -31,6 +31,7 @@ from typing import Any, Mapping
 from rejudge import phase2_plan
 from rejudge.phase2_canary_compose import load_no_query_transition
 from rejudge.phase2_execution import canonical_sha256
+from rejudge.phase2_role_limits import HTTP_TIMEOUT_KEYS, TRANSPORT_KEYS_V5
 
 STAGE = "canary"
 STAGE_CAP_USD = 40.0
@@ -176,6 +177,44 @@ def _frozen_inputs(root: Path) -> dict[str, Any]:
     return bindings
 
 
+def _require_transport_pins(role_limits_payload: Mapping[str, Any], *, tracked_path: str) -> None:
+    """Refuse a role-limits artifact whose ``request_settings.transport`` omits the v5 pins.
+
+    Both the canary and the main manifest bind whichever role-limits artifact
+    ``resolve_role_limits`` resolves into ``frozen_inputs.role_limits_sha256`` -- but until
+    now that binding only hashed the file; it never checked that the file actually CARRIES a
+    transport section shaped the way v5 defined it (``sdk_internal_max_retries`` and the
+    four-part ``http_timeout`` of ``connect``/``read``/``write``/``pool``, alongside the
+    ledger-retry and wall-clock-ceiling fields). The capability preflight's own manifest
+    builder (``phase2_execution.py``) re-validates its bound role-limits artifact through
+    ``phase2_role_limits.validate_role_limits_v5`` before binding its hash; this path never
+    did, for either stage, because the transport amendment can legitimately supersede v5's own
+    pinned VALUES (the 2026-08-01 amendment shortened the read timeout from 600s to 120s) in a
+    way ``validate_role_limits_v5``'s exact-value check would itself refuse. This check is
+    deliberately narrower than that validator: it only proves the transport SECTION is present
+    and complete-shaped, not that its values match v5 exactly, so a value-only amendment like
+    2026-08-01's still passes while an artifact that dropped the section outright -- leaving a
+    live run to construct its SDK client with no explicit timeout at all, i.e. whatever the
+    installed SDK defaults to -- is refused before its hash is ever bound into a manifest.
+    That gap is exactly the class of failure behind the 2026-08-10 main-run incident: a
+    provider connection that stopped sending bytes without closing produced a silent hang an
+    operator eventually had to kill by hand, precisely the shape the pinned, bounded
+    ``http_timeout``/``sdk_internal_max_retries``/``per_call_wall_clock_ceiling_seconds`` trio
+    exists to prevent.
+    """
+    transport = (role_limits_payload.get("request_settings") or {}).get("transport")
+    if not isinstance(transport, Mapping) or set(transport) != TRANSPORT_KEYS_V5:
+        raise ManifestValidationError(
+            f"{tracked_path} does not carry the v5-shape request_settings.transport section "
+            f"(expected exactly {sorted(TRANSPORT_KEYS_V5)!r}); refusing to bind a role-limits "
+            "artifact that would leave a live run with no explicit transport pins")
+    http_timeout = transport.get("http_timeout")
+    if not isinstance(http_timeout, Mapping) or set(http_timeout) != HTTP_TIMEOUT_KEYS:
+        raise ManifestValidationError(
+            f"{tracked_path}'s request_settings.transport.http_timeout does not carry exactly "
+            f"{sorted(HTTP_TIMEOUT_KEYS)!r}; refusing to bind an incomplete timeout pin")
+
+
 def resolve_role_limits(root: Path) -> dict[str, Any]:
     """The role-limits artifact this run actually used, plus the record that amends it.
 
@@ -184,7 +223,9 @@ def resolve_role_limits(root: Path) -> dict[str, Any]:
     baseline rather than as the new normal.
     """
     fallback = str(ROLE_LIMITS_FALLBACK_RELATIVE_PATH).replace("\\", "/")
-    superseded = canonical_sha256(_json(root / ROLE_LIMITS_FALLBACK_RELATIVE_PATH))
+    fallback_payload = _json(root / ROLE_LIMITS_FALLBACK_RELATIVE_PATH)
+    _require_transport_pins(fallback_payload, tracked_path=fallback)
+    superseded = canonical_sha256(fallback_payload)
     record_path = root / TRANSPORT_AMENDMENT_RELATIVE_PATH
     if not record_path.exists():
         return {"tracked_path": fallback, "sha256": superseded, "amended": False}
@@ -210,6 +251,8 @@ def resolve_role_limits(root: Path) -> dict[str, Any]:
     if successor.get("supersedes", {}).get("canonical_sha256") != superseded:
         raise ManifestValidationError(
             "the successor role-limits artifact does not name the frozen pin it supersedes")
+    _require_transport_pins(
+        successor, tracked_path=str(ROLE_LIMITS_AMENDED_RELATIVE_PATH).replace("\\", "/"))
     return {
         "tracked_path": str(ROLE_LIMITS_AMENDED_RELATIVE_PATH).replace("\\", "/"),
         "sha256": canonical_sha256(successor),

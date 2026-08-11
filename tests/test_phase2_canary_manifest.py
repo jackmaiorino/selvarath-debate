@@ -352,6 +352,53 @@ def test_a_missing_amendment_falls_back_to_the_frozen_v5_pin(tmp_path):
         "\\", "/")
 
 
+def test_a_role_limits_artifact_missing_its_transport_section_is_refused(tmp_path):
+    # The 2026-08-10 main-run incident: a dead streaming connection hung silently until an
+    # operator killed it by hand, the class of failure the pinned http_timeout/
+    # sdk_internal_max_retries exist to bound. resolve_role_limits used to hash whatever JSON
+    # sat at the resolved path without checking it actually carried a transport section, so a
+    # role-limits artifact with the section dropped (leaving a live run's SDK client built with
+    # no explicit timeout at all) would have bound cleanly into both the canary and the main
+    # manifest. It must now refuse before any hash is bound.
+    import shutil
+    from rejudge.phase2_canary_manifest import (
+        ROLE_LIMITS_FALLBACK_RELATIVE_PATH, TRANSPORT_AMENDMENT_RELATIVE_PATH,
+        resolve_role_limits)
+    root = tmp_path / "root"
+    shutil.copytree(Path("rejudge"), root / "rejudge",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    (root / TRANSPORT_AMENDMENT_RELATIVE_PATH).unlink()
+
+    fallback_path = root / ROLE_LIMITS_FALLBACK_RELATIVE_PATH
+    payload = json.loads(fallback_path.read_text(encoding="utf-8"))
+    del payload["request_settings"]["transport"]
+    fallback_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ManifestValidationError, match="v5-shape request_settings.transport"):
+        resolve_role_limits(root)
+
+
+def test_a_successor_role_limits_artifact_with_an_incomplete_http_timeout_is_refused(tmp_path):
+    # Mirrors the fallback-file check above, but on the AMENDED (successor) artifact the
+    # transport-amendment path resolves to. A successor that supersedes the right hash but
+    # drops one of connect/read/write/pool would otherwise bind just as cleanly as a complete
+    # one, since only the supersedes-hash chain was checked before this fix.
+    import shutil
+    from rejudge.phase2_canary_manifest import (
+        ROLE_LIMITS_AMENDED_RELATIVE_PATH, resolve_role_limits)
+    root = tmp_path / "root"
+    shutil.copytree(Path("rejudge"), root / "rejudge",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+
+    successor_path = root / ROLE_LIMITS_AMENDED_RELATIVE_PATH
+    payload = json.loads(successor_path.read_text(encoding="utf-8"))
+    del payload["request_settings"]["transport"]["http_timeout"]["pool"]
+    successor_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ManifestValidationError, match="http_timeout does not carry exactly"):
+        resolve_role_limits(root)
+
+
 # --- execution parameters and the missing-data policy ---------------------------------------
 #
 # The bridge canary runs concurrently, so the concurrency settings are no longer incidental to

@@ -3,6 +3,8 @@
 A sibling of the canary manifest rather than an extension, because widening the canary
 validator would retroactively change what two completed runs' manifests must contain.
 """
+import json
+
 import pytest
 from pathlib import Path
 
@@ -82,3 +84,29 @@ def test_the_bridge_canary_close_out_is_bound():
     gov = _manifest()["governance"]
     assert "bridge_canary_completion" in gov
     assert "missing_data_policy" in gov
+
+
+def test_a_freshly_built_main_manifest_carries_the_canary_validated_transport_pins():
+    # The main manifest built on 2026-08-06 resolved and bound the same role-limits artifact
+    # the canary used (rejudge.phase2_canary_manifest.resolve_role_limits is shared code, not
+    # duplicated per stage), which includes the v5-restructured request_settings.transport
+    # section as amended on 2026-08-01 (read timeout 600s -> 120s; every other v5 transport
+    # value, and sdk_internal_max_retries, unchanged). Until now nothing asserted that this
+    # binding actually resolves to a role-limits artifact carrying the pins at all -- only that
+    # whatever it resolved to got hashed -- so a role-limits artifact that silently dropped its
+    # transport section, leaving a live run's SDK client built with no explicit timeout (the
+    # class of gap behind the 2026-08-10 main-run silent-hang incident, where a dead streaming
+    # connection went unnoticed until an operator killed it by hand), would have bound cleanly.
+    # This test locks the main path to the exact values the canary actually validated live.
+    from rejudge.phase2_canary_manifest import resolve_role_limits
+    resolved = resolve_role_limits(Path("."))
+    bindings = _manifest()["frozen_inputs"]
+    assert bindings["role_limits_sha256"] == resolved["sha256"]
+    assert bindings["role_limits_tracked_path"] == resolved["tracked_path"]
+
+    transport = json.loads(
+        Path(resolved["tracked_path"]).read_text(encoding="utf-8")
+    )["request_settings"]["transport"]
+    assert transport["http_timeout"] == {"connect": 10, "read": 120, "write": 60, "pool": 60}
+    assert transport["sdk_internal_max_retries"] == 0
+    assert transport["per_call_wall_clock_ceiling_seconds"] == 1200
