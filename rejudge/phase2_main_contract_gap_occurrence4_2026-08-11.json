@@ -1,0 +1,11 @@
+{
+ "schema_version": "phase2_canary_incident_v1",
+ "incident_id": "main_contract_gap_open_question_occurrence4_2026-08-11",
+ "extends": "rejudge/phase2_main_contract_gap_occurrence3_2026-08-10.json",
+ "recorded_at_utc": "2026-08-11T06:00:00Z",
+ "recorded_by": "session orchestrator (Claude Fable 5), applying the recorded disposition rule",
+ "what_happened": "Fourth occurrence, second of the open-question shape: payload 346e412b5a41..., reviewer REJECT with CLAUSE Allowed for a query that asks an open-ended question rather than presenting a claim. 158 of the wave's 216 rulings had committed cleanly before the abort; the orchestrator terminated for review as designed.",
+ "disposition": "Committed by hand as status malformed, null parsed fields, raw preserved, identical to the three prior dispositions. Non-ALLOW, so nothing is dispatched.",
+ "running_tally": "Four occurrences in roughly 22,000 gate reviews: two empty-query (2026-08-09), two open-question (2026-08-10 and this). Rate holding near 0.02 percent; the close-out contract revision should add clauses for both shapes.",
+ "note": "Append-only. Grants no authority and changes no cap."
+}
