@@ -1,0 +1,41 @@
+{
+ "schema_version": "phase2_analysis_pins_v1",
+ "decision_id": "main_analysis_pins_2026-08-11",
+ "recorded_at_utc": "2026-08-11T18:30:00Z",
+ "recorded_by": "session orchestrator (Claude Fable 5), owner-authorized to run the frozen analysis; pins reviewed by a one-shot Codex consult (gpt-5.6-luna, xhigh) before any outcome aggregation",
+ "purpose": "The frozen protocol (rejudge/phase2_protocol.json decisions.primary_tests and decisions.secondary_analyses) specifies estimands, weighting, sidedness, Holm, and 'common world-stratified question-bootstrap draws' but no B, seed, stratification mechanics, CI type, or p-value construction. These pins fix every such degree of freedom BEFORE unblinding. Implemented by scripts/phase2_main_analysis.py.",
+ "pins": {
+  "alpha_familywise": 0.05,
+  "bootstrap": {
+   "mechanics": "resample question ids with replacement independently within each world, preserving each world's question count (27/28/27); a draw is a question multiset; per-cell error rates are fixed across replicates and question multiplicity enters as a question weight in condition means; rows are never resampled",
+   "B": 10000,
+   "seed": 20260811,
+   "prng": "CPython random.Random (Mersenne Twister), randrange over the sorted question list of each world, worlds iterated in sorted order; Python version recorded in the output artifact",
+   "draw_matrix": "one immutable draw sequence generated once and shared by the primary family (H, P, R) and reused for the secondary family (C, D_clean); the ordered question list and a sha256 of the serialized draw matrix are recorded in the output artifact",
+   "ci": "percentile bootstrap, 2.5th and 97.5th percentiles, linear interpolation between order statistics; intervals are MARGINAL, not familywise-adjusted",
+   "p_value": "uncentered percentile-bootstrap tail p-value: p = min(1, 2*min[(1+#{T<=0})/(B+1), (1+#{T>=0})/(B+1)]), exact zeros counted inclusively in both tails; this naming per the pre-unblinding consult; no switch to centered or studentized bootstrap for any reason after unblinding",
+   "holm": "step-down with monotonicity enforcement; deterministic ordering with ties broken by estimand id sorted lexicographically"
+  },
+  "aggregation": {
+   "primary_point": "per (question, judge, debater, condition): mean wrong-rate over its 6 slots (K2 x 3 transcripts); condition error = equal-weight grand mean over the 82 x 4 x 2 cells; balanced design makes this identical to nested equal weights",
+   "invalid_primary": "a row counts wrong unless strict correctness is True: both a validly wrong verdict and a strict-INVALID verdict count wrong",
+   "valid_only_sensitivity_primary": "slot-level common support within each (question, judge, debater): a slot INVALID in ANY of the three primary conditions is dropped from ALL three; a cell with zero surviving slots drops from all three arms at once; surviving slots renormalize within the cell; recorded as an operationalization of the adopted missing-data policy's common-support rule, chosen ex ante over whole-cell deletion",
+   "secondary_invalid": "same primary rule (INVALID counts wrong) for C and D_clean; their valid-only sensitivity uses per-arm valid-row means inside each aggregate, because no slot correspondence exists between debate and no-debate structures; recorded ex ante",
+   "zero_support": "any aggregate with an empty denominator drops from every arm of its estimand at once",
+   "sign_conventions": "H = err(sequential_b2) - err(b0); P = err(sequential_b2) - err(batch_same_qa_b2); R = err(batch_same_qa_b2) - err(b0); C = (err(Qwen3.7-Plus uncapped b0) - err(Qwen3.7-Plus capped150)) - (err(Llama-3.3-70B uncapped b0) - err(Llama-3.3-70B capped150)) at the Llama-3.3-70B judge only; D_clean = err(debate sequential_b2) - err(no_debate clean_b2); positive values mean MORE error in the first-named condition"
+  },
+  "reporting": {
+   "decimals": "estimates and CI bounds to 4 decimals; percentage points to 1 decimal in prose",
+   "descriptive_outputs": "judge x debater, resolvability, matched b0 D, matched placebo D, placebo_b2 error, empty-evidence and full-document anchors carry NO hypothesis tests and NO confidence intervals",
+   "limitation": "the three-worlds conditionality statement is reproduced verbatim in the results artifact"
+  },
+  "integrity": {
+   "code_lock": "scripts/phase2_main_analysis.py at the commit recorded in the output artifact; stdlib-only, no third-party numerical dependencies",
+   "input_lock": "sha256 of main_results.jsonl and the manifest's execution identity recorded in the output artifact",
+   "dry_run": "before the real run, a full-size blinded dry run builds synthetic outcomes over the real plan structure at known per-condition rates and must recover the implied estimands, hold H = P + R exactly in the point estimate and in every replicate, preserve world counts in every draw, and satisfy weight-sum checks",
+   "prohibition": "after unblinding, no change to B, seed, quantile method, p-value method, exclusions, sensitivity definitions, or promotion of any descriptive analysis into a confirmatory one"
+  }
+ },
+ "consult_disposition": "pins 1, 2, 3, 5, 7, 8 confirmed; pin 4 relabeled as recorded above; pin 6 confirmed with the qualification that slot-level support is an ex-ante operationalization choice, recorded as such; all additional requirements adopted",
+ "note": "Append-only. Grants no authority and changes no cap."
+}
