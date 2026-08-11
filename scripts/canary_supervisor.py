@@ -100,7 +100,13 @@ _BENIGN_TRANSIENT = re.compile(
     # as Server disconnected. Prefix-anchored because httpx varies the parenthetical
     # ("incomplete chunked read" vs a byte count); the prefix is the full invariant clause of
     # that one httpx message, not a substring that anything else produces.
-    r"^peer closed connection without sending complete message body")
+    r"^peer closed connection without sending complete message body|"
+    # Amendment 14 (2026-08-11): our own client's wall-clock ceiling abort, the designed
+    # conversion of an overlong streamed call into a safely-retryable unknown_charge. The
+    # message is application-generated, so anchoring on its shape cannot absorb any provider
+    # anomaly; only the attempt number, model, and measured duration vary.
+    r"^attempt \d+ for model '[^']+' took \d+(\.\d+)?s, "
+    r"exceeding the 1200s application-level wall-clock ceiling")
 _RATE_LIMIT = re.compile(r"Error code: 429")
 
 # Halt reasons a resume can actually fix.

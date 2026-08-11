@@ -191,6 +191,31 @@ def test_a_mid_sentence_peer_closed_mention_still_stops_the_run(tmp_path):
     assert reason is not None and "transient set" in reason
 
 
+def test_our_own_wall_clock_ceiling_abort_is_benign(tmp_path):
+    # Amendment 14. The client's per-attempt wall-clock ceiling converts an overlong streamed
+    # call into unknown_charge by design; ten firings on gemma during the 2026-08-10 degradation
+    # window, durations 1282s to 1638s. Application-generated wording, so the anchor can never
+    # match a novel provider anomaly.
+    msg = ("attempt 0 for model 'google/gemma-4-31B-it' took 1370.7s, exceeding the 1200s "
+           "application-level wall-clock ceiling; treating as unknown_charge rather than "
+           "trusting a response this stale")
+    assert _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01, "error": msg}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": msg}]) is None
+
+
+def test_a_different_ceiling_wording_still_stops_the_run(tmp_path):
+    # A changed ceiling value or rephrased message is a code change that must re-earn its
+    # enumeration, not ride the old one.
+    msg = "attempt 0 for model 'x' took 99s, exceeding the 60s hard ceiling"
+    reason = _check(tmp_path, usage_rows=[
+        {"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01, "error": msg}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": msg}])
+    assert reason is not None and "transient set" in reason
+
+
 def test_an_unrecognised_error_still_stops_the_run(tmp_path):
     # The set stays enumerated precisely so the next genuinely novel shape halts rather than
     # being absorbed. Guards the amendment against becoming a catch-all.
