@@ -1,0 +1,253 @@
+{
+ "spec": "rejudge/phase2_protocol.json decisions.primary_tests, frozen 2026-07-16",
+ "pins": "rejudge/phase2_analysis_pins_2026-08-11.json",
+ "selftest": true,
+ "B": 10000,
+ "seed": 20260811,
+ "alpha_familywise": 0.05,
+ "integrity": {
+  "engine_commit": "bbfa04308b3a586895dc621ea016bb2ae6602a07",
+  "python": "3.13.5",
+  "input_sha256": "c523eed92533ebc056334a9ee2b2efc3d59afb9fe82bfdfe743e96df06bc6b66",
+  "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+  "draw_matrix_sha256": "8fa4eb0e1b8ce9faba02c2cbba8ac6e89d32d4edea1c185e172b945480072362",
+  "question_strata": {
+   "carath_norn": [
+    "CN-001",
+    "CN-002",
+    "CN-003",
+    "CN-005",
+    "CN-006",
+    "CN-007",
+    "CN-008",
+    "CN-010",
+    "CN-012",
+    "CN-013",
+    "CN-014",
+    "CN-015",
+    "CN-016",
+    "CN-017",
+    "CN-018",
+    "CN-019",
+    "CN-020",
+    "CN-022",
+    "CN-024",
+    "CN-025",
+    "CN-026",
+    "CN-028",
+    "CN-029",
+    "CN-031",
+    "CN-033",
+    "CN-034",
+    "CN-035"
+   ],
+   "selvarath": [
+    "SEL-001",
+    "SEL-003",
+    "SEL-004",
+    "SEL-005",
+    "SEL-006",
+    "SEL-007",
+    "SEL-008",
+    "SEL-009",
+    "SEL-011",
+    "SEL-012",
+    "SEL-013",
+    "SEL-014",
+    "SEL-015",
+    "SEL-016",
+    "SEL-018",
+    "SEL-019",
+    "SEL-020",
+    "SEL-021",
+    "SEL-022",
+    "SEL-023",
+    "SEL-024",
+    "SEL-025",
+    "SEL-026",
+    "SEL-031",
+    "SEL-032",
+    "SEL-035",
+    "SEL-036",
+    "SEL-039"
+   ],
+   "vethun_sarak": [
+    "VS-002",
+    "VS-003",
+    "VS-005",
+    "VS-007",
+    "VS-008",
+    "VS-009",
+    "VS-010",
+    "VS-011",
+    "VS-012",
+    "VS-013",
+    "VS-015",
+    "VS-016",
+    "VS-017",
+    "VS-018",
+    "VS-020",
+    "VS-021",
+    "VS-022",
+    "VS-024",
+    "VS-025",
+    "VS-026",
+    "VS-027",
+    "VS-028",
+    "VS-029",
+    "VS-031",
+    "VS-032",
+    "VS-034",
+    "VS-035"
+   ]
+  }
+ },
+ "population": {
+  "questions": 82,
+  "judges": 4,
+  "debaters": 2,
+  "judgment_rows": 15744
+ },
+ "condition_error_rates": {
+  "b0": 0.30868902439024387,
+  "sequential_b2": 0.40853658536585374,
+  "batch_same_qa_b2": 0.3366361788617884
+ },
+ "primary": {
+  "H": {
+   "estimate": 0.09984756097560987,
+   "ci95": [
+    0.07876016260162655,
+    0.12042682926829285
+   ],
+   "p_two_sided": 0.00019998000199980003,
+   "p_holm": 0.0005999400059994001
+  },
+  "P": {
+   "estimate": 0.07190040650406532,
+   "ci95": [
+    0.04903455284552877,
+    0.09400406504065023
+   ],
+   "p_two_sided": 0.00019998000199980003,
+   "p_holm": 0.0005999400059994001
+  },
+  "R": {
+   "estimate": 0.027947154471544555,
+   "ci95": [
+    0.005589430894308962,
+    0.05132113821138201
+   ],
+   "p_two_sided": 0.0115988401159884,
+   "p_holm": 0.0115988401159884
+  }
+ },
+ "identity_max_abs_gap_across_replicates": 0.0,
+ "valid_only_sensitivity": {
+  "H": {
+   "estimate": 0.10154979674796777,
+   "ci95": [
+    0.07995299796747947,
+    0.12301829268292686
+   ]
+  },
+  "P": {
+   "estimate": 0.07416158536585399,
+   "ci95": [
+    0.05154916158536572,
+    0.09654471544715437
+   ]
+  },
+  "R": {
+   "estimate": 0.02738821138211378,
+   "ci95": [
+    0.004876778455284122,
+    0.05086509146341497
+   ]
+  }
+ },
+ "invalid_counts": {
+  "strict_invalid_rows": 91,
+  "total_rows": 15744
+ },
+ "secondary": {
+  "C": {
+   "estimate": -0.06504065040650407,
+   "ci95": [
+    -0.15248983739837405,
+    0.026422764227642274
+   ],
+   "p_two_sided": 0.15878412158784122,
+   "p_holm": 0.15878412158784122
+  },
+  "D_clean": {
+   "estimate": 0.16666666666666663,
+   "ci95": [
+    0.13541666666666663,
+    0.1974085365853658
+   ],
+   "p_two_sided": 0.00019998000199980003,
+   "p_holm": 0.00039996000399960006
+  }
+ },
+ "secondary_valid_only_sensitivity": {
+  "C": -0.06463414634146342,
+  "D_clean": 0.16882621951219504
+ },
+ "descriptive_sensitivities": {
+  "matched_b0_D": -0.0002540650406504088,
+  "matched_placebo_D": -0.0012703252032520314,
+  "placebo_b2_debate_error": 0.3198678861788621
+ },
+ "heterogeneity_judge_x_debater_descriptive": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo|Qwen/Qwen3.7-Plus": {
+   "n_questions": 82,
+   "H": 0.07317073170731714,
+   "P": 0.0325203252032521,
+   "R": 0.04065040650406504
+  },
+  "Qwen/Qwen2.5-7B-Instruct-Turbo|meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "n_questions": 82,
+   "H": 0.11178861788617883,
+   "P": 0.0853658536585366,
+   "R": 0.026422764227642226
+  },
+  "google/gemma-4-31B-it|Qwen/Qwen3.7-Plus": {
+   "n_questions": 82,
+   "H": 0.0955284552845529,
+   "P": 0.07520325203252037,
+   "R": 0.02032520325203252
+  },
+  "google/gemma-4-31B-it|meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "n_questions": 82,
+   "H": 0.10975609756097565,
+   "P": 0.09552845528455284,
+   "R": 0.014227642276422814
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo|Qwen/Qwen3.7-Plus": {
+   "n_questions": 82,
+   "H": 0.1321138211382114,
+   "P": 0.09552845528455284,
+   "R": 0.03658536585365857
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo|meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "n_questions": 82,
+   "H": 0.08130081300813008,
+   "P": 0.10365853658536583,
+   "R": -0.022357723577235755
+  },
+  "openai/gpt-oss-120b|Qwen/Qwen3.7-Plus": {
+   "n_questions": 82,
+   "H": 0.0853658536585366,
+   "P": 0.05691056910569109,
+   "R": 0.028455284552845517
+  },
+  "openai/gpt-oss-120b|meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "n_questions": 82,
+   "H": 0.10975609756097565,
+   "P": 0.030487804878048808,
+   "R": 0.07926829268292684
+  }
+ },
+ "limitation": "82 questions sit across only three worlds (27/28/27); the question bootstrap cannot express world-level dependence, so claims stay conditional on these three worlds."
+}
