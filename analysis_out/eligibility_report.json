@@ -1,0 +1,444 @@
+{
+ "schema_version": "phase2_main_eligibility_report_v1",
+ "generated_at_utc": "2026-08-11",
+ "manifest": "rejudge/phase2_main_manifest_2026-08-06c.json",
+ "archive_dir": "E:\\selvarath-archive\\main-2026-08-06",
+ "blinding_note": "This report never reads, prints, or aggregates outcome/verdict fields. Only cell_key, condition/kind, judge/debater/oracle model fields, gate DECISION metadata (action/label/clause/status/payload hash/halted), completion status, sequence numbers, and cost fields were read, via an explicit field whitelist.",
+ "task1_spend_reconciliation": {
+  "method": "rejudge.api_client.load_chained_usage_ledger(main_usage.jsonl) for the live-run ledger, bound with rejudge.phase2_canary_live.carried_forward_spend(canary_ledger_binding.json) for the retired-predecessor carry-forward -- the exact composition rejudge/phase2_canary_live.py's _live_caching_client uses to seed initial_spend_usd/initial_uncertain_spend_usd on the live RejudgeClient.",
+  "live_ledger": {
+   "path": "/mnt/e/selvarath-archive/main-2026-08-06/main_usage.jsonl",
+   "events": 165818,
+   "actual_spend_usd": 137.11995286,
+   "uncertain_spend_usd": 7.70976665,
+   "unmatched_reservations": 12
+  },
+  "carried_forward": {
+   "actual_spend_usd": 27.3835006,
+   "uncertain_spend_usd": 0.64635727,
+   "source": [
+    "E:/selvarath-archive/main-2026-08-06/main_usage.jsonl.reservation-overrun-2026-08-07",
+    "/mnt/e/selvarath-archive/main-2026-08-06/main_usage.jsonl.estimated-tokens-mismatch-2026-08-07"
+   ],
+   "incident_record": "rejudge/phase2_main_reservation_overrun_2026-08-07.json"
+  },
+  "settled_spend_usd": 164.5,
+  "uncertain_spend_usd": 8.36,
+  "total_accounted_spend_usd": 172.86,
+  "settled_spend_usd_exact": 164.50345345999963,
+  "uncertain_spend_usd_exact": 8.356123920000002,
+  "total_accounted_spend_usd_exact": 172.85957737999962,
+  "cross_check_conservative_ledger_spend": {
+   "note": "rejudge.phase2_canary_live.conservative_ledger_spend applied to the same live ledger (chain-agnostic re-derivation); does not include carried-forward and is expected to closely match live_ledger above.",
+   "actual_spend_usd": 137.11995286,
+   "uncertain_spend_usd": 7.70976665,
+   "matches_strict_summary": true
+  },
+  "cross_check_supervisor_last_printed_uncertain": {
+   "note": "scripts/canary_supervisor.py's own _uncertain_spend logic replayed over the final live ledger (live-run only, excludes carried-forward -- this is the same quantity the supervisor printed at each benign-transient resume).",
+   "recomputed_final_value_usd": 7.71,
+   "last_printed_value_usd": 7.637,
+   "matches_last_printed": false,
+   "interpretation": "the last printed value was captured mid-run at the final benign-transient retry recorded in orchestrator.log; if the recomputed final value differs, later attempts changed which reservations were still unterminated without triggering another benign-transient print (e.g. the run converged cleanly after that point)."
+  },
+  "vs_stage_cap_usd": {
+   "stage_cap_usd": 400.0,
+   "total_accounted_spend_usd": 172.86,
+   "headroom_usd": 227.14,
+   "within_cap": true
+  },
+  "vs_projected_total_usd": {
+   "projected_total_usd": 173.8,
+   "total_accounted_spend_usd": 172.86,
+   "delta_usd": -0.94,
+   "delta_pct_of_projection": -0.5
+  }
+ },
+ "task2_completion_census": {
+  "total_billable_planned": 22140,
+  "total_completed_rows": 22140,
+  "distinct_completed_cell_keys": 22140,
+  "duplicate_cell_key_rows": [],
+  "all_planned_cells_present": true,
+  "missing_planned_cell_keys": [],
+  "unexpected_cell_keys_not_in_plan": [],
+  "by_kind": [
+   {
+    "kind": "cap_protection_judgment",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "capped_debate_transcript",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "debate_judgment",
+    "planned": 15744,
+    "completed": 15744,
+    "complete": true
+   },
+   {
+    "kind": "debate_transcript",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "empty_evidence_judgment",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "full_document_judgment",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "no_debate_judgment",
+    "planned": 2952,
+    "completed": 2952,
+    "complete": true
+   }
+  ],
+  "by_kind_and_condition": [
+   {
+    "kind": "cap_protection_judgment",
+    "condition": "capped150_b0",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "capped_debate_transcript",
+    "condition": "blind_capped150_3_round",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "debate_judgment",
+    "condition": "b0",
+    "planned": 3936,
+    "completed": 3936,
+    "complete": true
+   },
+   {
+    "kind": "debate_judgment",
+    "condition": "batch_same_qa_b2",
+    "planned": 3936,
+    "completed": 3936,
+    "complete": true
+   },
+   {
+    "kind": "debate_judgment",
+    "condition": "placebo_b2",
+    "planned": 3936,
+    "completed": 3936,
+    "complete": true
+   },
+   {
+    "kind": "debate_judgment",
+    "condition": "sequential_b2",
+    "planned": 3936,
+    "completed": 3936,
+    "complete": true
+   },
+   {
+    "kind": "debate_transcript",
+    "condition": "blind_uncapped_3_round",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "empty_evidence_judgment",
+    "condition": "empty_evidence_table",
+    "planned": 492,
+    "completed": 492,
+    "complete": true
+   },
+   {
+    "kind": "full_document_judgment",
+    "condition": "full_document_ceiling",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "no_debate_judgment",
+    "condition": "b0",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "no_debate_judgment",
+    "condition": "clean_b2",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   },
+   {
+    "kind": "no_debate_judgment",
+    "condition": "placebo_b2",
+    "planned": 984,
+    "completed": 984,
+    "complete": true
+   }
+  ],
+  "plan_summary_for_reference": {
+   "all_cells": 23200,
+   "capability_preflight_cells": 1060,
+   "post_canary_main_cells": 22140,
+   "judgment_cells": 22216,
+   "debate_transcript_cells": 984,
+   "base_debate_transcript_cells": 492,
+   "capped_debate_transcript_cells": 492,
+   "debate_judgment_cells": 18204,
+   "base_debate_judgment_cells": 15744,
+   "cap_protection_judgment_cells": 984,
+   "empty_evidence_judgment_cells": 492,
+   "full_document_judgment_cells": 984,
+   "no_debate_judgment_cells": 2952,
+   "capability_qa_cells": 1060,
+   "by_kind": {
+    "cap_protection_judgment": 984,
+    "capability_qa": 1060,
+    "capped_debate_transcript": 492,
+    "debate_judgment": 15744,
+    "debate_transcript": 492,
+    "empty_evidence_judgment": 492,
+    "full_document_judgment": 984,
+    "no_debate_judgment": 2952
+   },
+   "debate_judgments_by_condition": {
+    "b0": 3936,
+    "batch_same_qa_b2": 3936,
+    "placebo_b2": 3936,
+    "sequential_b2": 3936
+   },
+   "no_debate_judgments_by_condition": {
+    "b0": 984,
+    "clean_b2": 984,
+    "placebo_b2": 984
+   },
+   "batch_to_sequential_dependency_edges": 3936,
+   "dependency_edges_total": 22140
+  }
+ },
+ "task3_differential_incompletion_gate": {
+  "gate_source": "rejudge/phase2_missing_data_policy_proposal_2026-08-04.json (proposed_ex_ante_gates.differential_incompletion_ceiling)",
+  "ceiling_pp": 0.5,
+  "arms": [
+   {
+    "arm": "b0",
+    "planned": 3936,
+    "completed": 3936,
+    "completion_rate_pct": 100.0
+   },
+   {
+    "arm": "sequential_b2",
+    "planned": 3936,
+    "completed": 3936,
+    "completion_rate_pct": 100.0
+   },
+   {
+    "arm": "batch_same_qa_b2",
+    "planned": 3936,
+    "completed": 3936,
+    "completion_rate_pct": 100.0
+   }
+  ],
+  "max_pairwise_completion_rate_diff_pp": 0.0,
+  "gate_passes": true,
+  "trivial_pass": true
+ },
+ "task4_edge_case_ledger": {
+  "malformed_dispositions": {
+   "note": "The malformed disposition (reviewer LABEL REJECT with CLAUSE Allowed, a self-contradictory ruling the frozen parser cannot resolve) is committed as status 'malformed' with null parsed fields; effective_allow is False, so the gate treats it as non-ALLOW (query blocked, not dispatched). This is a valid in-protocol outcome under the frozen failure rule, not a missing-data exclusion. See rejudge/phase2_main_contract_gap_2026-08-09.json and its occurrence3/occurrence4 extensions.",
+   "target_payload_prefixes": [
+    "e2a1dbc57b5b",
+    "4ef8b152aa71",
+    "4fa1fcd96195",
+    "346e412b5a41"
+   ],
+   "prefixes_found_in_results": [
+    "346e412b5a41",
+    "4fa1fcd96195"
+   ],
+   "prefixes_missing_from_results": [
+    "4ef8b152aa71",
+    "e2a1dbc57b5b"
+   ],
+   "all_four_found": false,
+   "consuming_cells": [
+    {
+     "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:debate_judgment:cb88a2b6493f67905639c144c7c5b53855a6072f146e3c6d51571a4e9f2ebfed",
+     "kind": "debate_judgment",
+     "condition": "placebo_b2",
+     "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+     "question_id": "SEL-026",
+     "payload_sha256": "4fa1fcd96195b6b300e8084d9e23a603c9587ab8930af06b35944a227afb4f0c",
+     "matched_prefix": "4fa1fcd96195",
+     "gate_event_sequence": 3,
+     "slot": 2,
+     "attempt": 1,
+     "action": "block",
+     "reviewer_status": "malformed",
+     "reviewer_label": null,
+     "reviewer_clause": null,
+     "final_decision": "allow",
+     "halted": false
+    },
+    {
+     "cell_key": "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:debate_judgment:eeed95761d38c383774d2028ca755f33510f38e70f109ca5066f3223c2776bc6",
+     "kind": "debate_judgment",
+     "condition": "sequential_b2",
+     "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+     "question_id": "SEL-026",
+     "payload_sha256": "346e412b5a419e5d3d37d0cf2e2336119104f48b30e90cc1154b0731461f40a8",
+     "matched_prefix": "346e412b5a41",
+     "gate_event_sequence": 4,
+     "slot": 2,
+     "attempt": 2,
+     "action": "block",
+     "reviewer_status": "malformed",
+     "reviewer_label": null,
+     "reviewer_clause": null,
+     "final_decision": "allow",
+     "halted": false
+    }
+   ],
+   "distinct_consuming_cell_keys": [
+    "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:debate_judgment:cb88a2b6493f67905639c144c7c5b53855a6072f146e3c6d51571a4e9f2ebfed",
+    "phase2-pooled-hpr-2026-07-16-v1.qb-d9e52c3339ab:debate_judgment:eeed95761d38c383774d2028ca755f33510f38e70f109ca5066f3223c2776bc6"
+   ],
+   "decision_store_cross_check": {
+    "e2a1dbc57b5b": {
+     "payload_sha256": "e2a1dbc57b5b7dbc6bbc1b7998fd57f292177808243f7d95839864ba76a2651f",
+     "decision_store_sequence": 9442,
+     "status": "malformed",
+     "label": null,
+     "clause": null,
+     "substring_occurrences_in_results": 0
+    },
+    "4ef8b152aa71": {
+     "payload_sha256": "4ef8b152aa710c8cda925c47d4e1e9a7e57c37f6fe96e4cdeac06a3422a1a1e9",
+     "decision_store_sequence": 9443,
+     "status": "malformed",
+     "label": null,
+     "clause": null,
+     "substring_occurrences_in_results": 0
+    },
+    "4fa1fcd96195": {
+     "payload_sha256": "4fa1fcd96195b6b300e8084d9e23a603c9587ab8930af06b35944a227afb4f0c",
+     "decision_store_sequence": 10420,
+     "status": "malformed",
+     "label": null,
+     "clause": null,
+     "substring_occurrences_in_results": 1
+    },
+    "346e412b5a41": {
+     "payload_sha256": "346e412b5a419e5d3d37d0cf2e2336119104f48b30e90cc1154b0731461f40a8",
+     "decision_store_sequence": 12490,
+     "status": "malformed",
+     "label": null,
+     "clause": null,
+     "substring_occurrences_in_results": 1
+    }
+   },
+   "unreferenced_hash_explanation": "e2a1dbc57b5b and 4ef8b152aa71 (the two 2026-08-09 empty-query dispositions, decision-store sequence 9442-9443, committed BEFORE both the incident-5 decision-store rebuild at 2026-08-09T22:55 and the 2026-08-10 in-flight cache-drop sweep of 1,346 gate-capable cells) are confirmed absent from every row of the converged 22,140-row result store by both the structural gate_events scan and an independent full-line substring scan of the whole file -- not a parsing gap. The most likely explanation, inferred from the timeline and the frozen retry semantics (transport retries repeat a query byte-identically, but a cache-drop forces a genuinely fresh judge sample): whichever cell(s) originally raised these two payloads for review had their cached judge calls dropped by one of the two later remediations and, on re-derivation, the judge did not resample the same empty query, so the completing cell's gate_events never reference these hashes again. The decision store (append-only, no cell linkage by design -- see analysis_out/contamination_closure.json's own linkage_note) retains both rulings permanently regardless. This is stated as the best-supported inference, not a directly observed causal chain: no data structure ties a decision-store payload to the specific cell/attempt that first raised it. 4fa1fcd96195 and 346e412b5a41 (sequence 10420 and 12490, both committed AFTER those two remediations) are each referenced by exactly one completed cell, consistent with this account."
+  },
+  "incident5_rerun_cells": {
+   "available": true,
+   "source": "analysis_out/contamination_closure.json (generated_at_utc=2026-08-09T22:44:32Z, at 18425 result rows, pre-convergence)",
+   "declared_total_drop_set": 1070,
+   "directly_exposed_cells": 783,
+   "dependent_cells": 287,
+   "drop_set_size": 1070,
+   "present_in_converged_results": 1070,
+   "missing_from_converged_results": 0,
+   "missing_cell_keys": [],
+   "all_present_and_re_run": true,
+   "disposition": "Per rejudge/phase2_main_incident5_replay_2026-08-09.json: these cells were invalidated (contaminated by fabricated REVIEWER_UNAVAILABLE rulings), their cached calls were dropped, and they were re-run against the corrected, re-reviewed decision store. They are ordinary eligible cells in the converged run, not an exclusion category."
+  },
+  "anomalous_status_fields": {
+   "fields_relied_on": [
+    "action",
+    "arm",
+    "attempt",
+    "budget",
+    "cell_key",
+    "checker_decision",
+    "checker_false_allow_intercepts",
+    "condition",
+    "created_at",
+    "debater_model",
+    "decision_source",
+    "dry_run",
+    "exhausted",
+    "final_decision",
+    "halt_reason",
+    "halted",
+    "harness_version",
+    "judge_model",
+    "oracle_eligible",
+    "oracle_model",
+    "parser_version",
+    "queries_used",
+    "question_id",
+    "replicate",
+    "reviewer_clause",
+    "reviewer_label",
+    "reviewer_payload_sha256",
+    "reviewer_status",
+    "seed",
+    "sequence",
+    "slot",
+    "slot_consumed",
+    "temperature",
+    "transcript_index",
+    "world"
+   ],
+   "dry_run_true_cells": [],
+   "duplicate_cell_key_rows": [],
+   "gate_events_with_halted_true": [],
+   "gate_events_with_unknown_reviewer_status": [],
+   "gate_events_with_unknown_action": [],
+   "observed_reviewer_status_values": {
+    "parsed": 25179,
+    "malformed": 2
+   },
+   "observed_gate_action_values": {
+    "block": 4026,
+    "allow": 15220,
+    "retry": 5935
+   },
+   "observed_harness_versions": [
+    "21685ae",
+    "35da47f",
+    "4faa1b0",
+    "5f321ac",
+    "6123005",
+    "8bf5139",
+    "b5b41a1",
+    "bbfa043",
+    "cfc6843",
+    "dffa7fc",
+    "eedd4e3",
+    "f20d895",
+    "f840595"
+   ],
+   "observed_parser_versions": [
+    "2.0.0"
+   ],
+   "any_anomaly_found": true
+  }
+ }
+}
