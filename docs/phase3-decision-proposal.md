@@ -121,3 +121,33 @@ Design frozen and posted before launch; owner-authorized manifest and execution 
 hash-chained stores; spend caps with the amended supervisor controls; analysis pins fixed and
 independently reviewed before unblinding; the analysis runs once; every deviation recorded as
 an append-only amendment.
+
+## Appendix: blinded power simulation (2026-08-14, pre-freeze gate satisfied)
+
+Simulation on the real phase-2 per-cell error structure (de-noised treatment heterogeneity
+sd 0.091), the proposed 7-judge roster with clone assumptions for new judges, 400 simulated
+datasets per scenario, the actual contrast estimator with stratified bootstrap and Holm-4.
+Null calibration verified: 0.7 to 2.2 percent familywise false-positive rate against the
+5 percent bound. Full grid in `analysis_out/phase3_power_sim.json` (seed 20260814).
+
+| Scenario (true Delta at b=1/2/4/8) | Power at b1 | b2 | b4 | b8 |
+|---|---|---|---|---|
+| Flat harm (+4/+4/+4/+4) | 1.00 | 1.00 | 1.00 | 0.99 |
+| Monotone worsening (+2/+4/+6/+8) | 0.74 | 0.99 | 1.00 | 1.00 |
+| U-recovery (+3/+4/+1/-2) | 0.93 | 0.99 | 0.17 | 0.27 |
+| Small effects (+1/+2/+2/+1) | 0.19 | 0.57 | 0.59 | 0.21 |
+| Null (0/0/0/0) | 0.02 | 0.02 | 0.02 | 0.01 |
+
+Honest readings: effects at phase-2 magnitude (3pp and up) are detected essentially always,
+at every budget. The minimal individually-detectable effect under Holm-4 is roughly 2.5 to
+3pp per contrast. The consequential weakness is the U-recovery scenario: if the curve turns
+mildly beneficial at high budgets (-2pp at b8), the design would certainly establish the
+low-budget harm but would likely report the recovery as a CI straddling zero rather than a
+confirmed benefit. The curve with simultaneous intervals still shows the shape either way.
+
+**Option D for sign-off:** double the judgment replicates at b4 and b8 only (6 to 12 slots
+per cell in those arms), shrinking their standard errors by roughly 1.4x and raising
+U-recovery power at the tail arms to an estimated 40 to 60 percent, for about +$50-70 and
+proportionally more gate reviews. Recommended if the recovery question matters to the
+narrative more than the added review-throughput risk; the base grid is recommended
+otherwise, with the recovery stated as estimable but not confirmable at small magnitudes.

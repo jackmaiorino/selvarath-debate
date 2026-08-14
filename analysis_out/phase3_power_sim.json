@@ -1,0 +1,75 @@
+{
+ "sims": 400,
+ "inner_bootstrap": 800,
+ "seed": 20260814,
+ "heterogeneity_sd": 0.0909,
+ "clone_assumption": {
+  "llama8b_lite": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "gemma3n_e4b": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "qwen37_max": "openai/gpt-oss-120b"
+ },
+ "scenarios": {
+  "flat_harm": {
+   "1": 0.04,
+   "2": 0.04,
+   "4": 0.04,
+   "8": 0.04
+  },
+  "monotone_worse": {
+   "1": 0.02,
+   "2": 0.04,
+   "4": 0.06,
+   "8": 0.08
+  },
+  "u_recovery": {
+   "1": 0.03,
+   "2": 0.04,
+   "4": 0.01,
+   "8": -0.02
+  },
+  "small_effects": {
+   "1": 0.01,
+   "2": 0.02,
+   "4": 0.02,
+   "8": 0.01
+  },
+  "null": {
+   "1": 0.0,
+   "2": 0.0,
+   "4": 0.0,
+   "8": 0.0
+  }
+ },
+ "power_holm4_alpha05": {
+  "flat_harm": {
+   "delta_1": 0.995,
+   "delta_2": 0.995,
+   "delta_4": 0.995,
+   "delta_8": 0.993
+  },
+  "monotone_worse": {
+   "delta_1": 0.735,
+   "delta_2": 0.993,
+   "delta_4": 1.0,
+   "delta_8": 1.0
+  },
+  "u_recovery": {
+   "delta_1": 0.93,
+   "delta_2": 0.99,
+   "delta_4": 0.172,
+   "delta_8": 0.265
+  },
+  "small_effects": {
+   "delta_1": 0.193,
+   "delta_2": 0.565,
+   "delta_4": 0.588,
+   "delta_8": 0.21
+  },
+  "null": {
+   "delta_1": 0.02,
+   "delta_2": 0.022,
+   "delta_4": 0.02,
+   "delta_8": 0.007
+  }
+ }
+}
