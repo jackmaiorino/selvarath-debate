@@ -109,6 +109,14 @@ def load_and_validate_manifest(manifest_path: str | Path, *,
     """
     manifest = _load_json(manifest_path)
     protocol_path = Path(project_root) / str(manifest.get("protocol_tracked_path") or "")
+    if transcript_bundle_dir is None:
+        # The manifest itself records where its bundles were resolved at build time (the
+        # archive, for a real manifest; a fixture root, in tests). Honor that binding rather
+        # than falling back to the repo-relative default, translating drive-letter paths for
+        # whichever host (Windows or WSL) is validating.
+        recorded = manifest.get("frozen_inputs", {}).get("main_transcript_bundle_path")
+        if recorded:
+            transcript_bundle_dir = local_path(str(Path(recorded).parent))
     return phase3_manifest.validate_manifest(
         manifest, protocol_path=protocol_path, project_root=project_root,
         transcript_bundle_dir=transcript_bundle_dir)
