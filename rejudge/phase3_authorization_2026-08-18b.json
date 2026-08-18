@@ -1,0 +1,36 @@
+{
+ "schema_version": "phase3_design_authorization_v1",
+ "authorization_id": "phase3_redecision_and_ratifications_2026-08-18b",
+ "supersedes_in_part": "rejudge/phase3_authorization_2026-08-18.json (its reopened_items_2026-08-18: the ceiling number and Option D)",
+ "authorizes": "final phase-3 design configuration and limits; NOT execution and NOT spend. Canary and main-run spend each require their own authorization records bound to concrete execution identity hashes.",
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18, enumerated-choice prompts in the session UI",
+  "selection_mechanism_note": "the assistant presented labeled options with corrected numbers (the five-lens review findings, the Codex freeze consult, and the v2 per-debater power simulation) and the owner clicked selections; selection labels are verbatim below; no free-text owner quote exists for these choices"
+ },
+ "decisions": {
+  "grid_configuration": {
+   "decision": "configuration A: no tail replicate doubling; every condition at 6 slots per cell (3 transcripts x K2 x 1 replicate); 34,440 judgment slots at the 7-judge roster",
+   "selection_label": "A: no doubling (Recommended)",
+   "basis": "the v2 simulation (analysis_out/phase3_power_sim_v2.json): doubling adds roughly 1pp of mild-recovery power at b8 (0.107 vs 0.115-0.120) for 50-80k extra rulings and $50-70; this REVERSES the owner's earlier Option D selection, which rested on an unverified 40-60% estimate",
+   "spend_consequence": "stage estimate returns to the base-grid 220-380 USD; the 450 USD stage cap stands unchanged as approved headroom"
+  },
+  "review_limits": {
+   "decision": "D_max = 45 quota-days; R_max = 135,000 unique-payload gate rulings (mechanically D_max x the 3,000/day planning pace); the manifest enforces both; the canary-measured pace replaces the planning pace inside D_U at evaluation time",
+   "selection_label": "45 quota-days (Recommended)",
+   "context": "configuration A projects 90-96k rulings (30-32 quota-days) at the corrected workload model, leaving roughly 40% headroom before the lexicographic ladder sheds anything"
+  },
+  "ratifications": {
+   "selection_label": "Ratify all three (Recommended)",
+   "items": [
+    "no-replacement rule: new judges failing canary calibration gates for semantic reasons are dropped, never replaced; temporary endpoint unavailability is not a calibration failure",
+    "tolerant anchor parse: preregistered fresh as a phase-3 rule (optional single trailing period after 'ANSWER: A/B'); strict parse reported as a sensitivity and propagated through the capability slope",
+    "S1 downturn secondary: error(sequential_b8) - error(sequential_b2), two-sided alpha 0.05, family of one, confirmatory; exists because the primary family cannot formally certify a downturn relative to b2"
+   ]
+  }
+ },
+ "consult_basis": "rejudge/phase3_codex_freeze_consult_2026-08-18.md: all four freeze blockers (power simulation correction, workload model repair, lexicographic configuration ordering, shared-weight bootstrap and p-value pinning) implemented in the frozen protocol before these decisions were presented",
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T13:05:00Z",
+ "note": "Append-only companion to the 2026-08-18 sign-off record; recorded by the orchestrating assistant."
+}

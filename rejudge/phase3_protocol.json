@@ -8,13 +8,11 @@
   "namespace_hash_prefix_length": 12,
   "execution_key_requirement": "external execution manifests must bind this frozen design protocol, the question banks, the reused phase-2 prompt bundle, extended role limits, provider request fields, the side/seed policy, and the frozen transcript bundles"
  },
- "status": "draft_pending_owner_redecision_and_freeze",
- "open_items_before_freeze": [
-  "owner re-decision with corrected numbers: (a) target grid configuration (tail replicates), informed by the v2 paired power simulation; (b) the review calendar tolerance D_max from which the ruling ceiling is mechanically derived",
-  "owner ratifications: the no-replacement rule for failed new judges; the preregistered tolerant anchor parse as a NEW phase-3 rule; the S1 downturn secondary contrast",
-  "consult record: the 2026-08-18 freeze consult (four blockers) is implemented in this draft; the consult brief and opinion are tracked at rejudge/phase3_codex_freeze_consult_2026-08-18.md",
-  "restamp source_bindings entries marked stamped_at_freeze after the final pre-freeze edit"
- ],
+ "status": "approved_design_pending_materialization",
+ "freeze_record": {
+  "frozen_at_utc": "2026-08-18T13:05:00Z",
+  "resolution": "all pre-freeze open items closed: the owner selected configuration A (no tail doubling, reversing the earlier Option D pick on the corrected v2 simulation), set D_max 45 quota-days with R_max 135,000 derived, and ratified the no-replacement rule, the tolerant anchor parse, and the S1 downturn secondary (rejudge/phase3_authorization_2026-08-18b.json); the 2026-08-18 Codex freeze consult's four blockers are implemented in this document; source bindings restamped below"
+ },
  "offline_planning_only": true,
  "execution_authorized": false,
  "authorization": {
@@ -22,7 +20,7 @@
   "approval_record": "rejudge/phase3_authorization_2026-08-18.json",
   "approver": "Jack Maiorino (owner), lead sign-off owner-relayed",
   "approved_at_utc": "2026-08-18T11:37:40Z",
-  "redecision_record": null,
+  "redecision_record": "rejudge/phase3_authorization_2026-08-18b.json",
   "canary_spend_authorized": false,
   "main_run_spend_authorized": false
  },
@@ -54,10 +52,11 @@
    "scripts/phase3_fallback_subset.py": "1edb9f66770c50ba69fae1e19e16edee70e3cce69e89615019784158dd7de48f"
   },
   "stamped_at_freeze": {
-   "docs/phase3-decision-proposal.md": null,
-   "rejudge/phase3_authorization_2026-08-18.json": null,
-   "analysis_out/phase3_power_sim_v2.json": null,
-   "rejudge/phase3_codex_freeze_consult_2026-08-18.md": null
+   "docs/phase3-decision-proposal.md": "raw:24b0ca132ee79b5599793757f077392530fe7ffc7497bbbbf807dd54fa9bfd23",
+   "rejudge/phase3_authorization_2026-08-18.json": "canonical:cc06635124695c4f3bb5144c783991f50167e39bdcfe1d933092a62d832f16de",
+   "rejudge/phase3_authorization_2026-08-18b.json": "canonical:10020b321a56e5a8cd2fd733e259906b7ee42eb286556605f5ec88dfad23d3e4",
+   "analysis_out/phase3_power_sim_v2.json": "canonical:ac1f9ef7408dd4292d40f04376bd2fe30313cf641dab985eda545871815b6e1c",
+   "rejudge/phase3_codex_freeze_consult_2026-08-18.md": "raw:e8195847557fe2d977137a4c9c5ae47c258562482b277a85d2e088d225fee7aa"
   },
   "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8"
  },
@@ -137,7 +136,7 @@
   "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
   "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)",
   "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload",
-  "new_judge_failure_rule": "a NEW judge that fails a canary calibration gate for SEMANTIC reasons (parseability, side bias) is DROPPED, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check; no-replacement also prevents post-hoc model fishing and is submitted for explicit owner ratification). TEMPORARY endpoint unavailability or transport failure is NOT a calibration failure: those cells retry/defer under the transport policy and only an owner-recorded decision can convert persistent unavailability into a drop. A dropped new judge dissolves its within-family descriptive pair; the roster proceeds with survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists.",
+  "new_judge_failure_rule": "a NEW judge that fails a canary calibration gate for SEMANTIC reasons (parseability, side bias) is DROPPED, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check; no-replacement also prevents post-hoc model fishing; owner-ratified 2026-08-18, rejudge/phase3_authorization_2026-08-18b.json). TEMPORARY endpoint unavailability or transport failure is NOT a calibration failure: those cells retry/defer under the transport policy and only an owner-recorded decision can convert persistent unavailability into a drop. A dropped new judge dissolves its within-family descriptive pair; the roster proceeds with survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists.",
   "roster_freeze_timing": "the final roster (post-gates, post-configuration-selection) freezes before any capability anchor is scored and before any main-run outcome exists"
  },
  "debate_grid": {
@@ -147,13 +146,14 @@
    {"id": "b0", "query_budget": 0, "oracle_mode": "none", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
    {"id": "sequential_b1", "query_budget": 1, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
    {"id": "sequential_b2", "query_budget": 2, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
-   {"id": "sequential_b4", "query_budget": 4, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": "CONFIG"},
-   {"id": "sequential_b8", "query_budget": 8, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": "CONFIG"}
+   {"id": "sequential_b4", "query_budget": 4, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
+   {"id": "sequential_b8", "query_budget": 8, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1}
   ],
   "tail_replicate_configurations": {
    "A_no_d": {"b4": 1, "b8": 1}, "B_b4_only": {"b4": 2, "b8": 1},
    "C_b8_only": {"b4": 1, "b8": 2}, "D_full": {"b4": 2, "b8": 2},
-   "note": "the owner selects the TARGET configuration at re-decision, informed by the v2 paired power simulation; the configuration-selection procedure may shed replicates mechanically (see decisions.configuration_selection). Replicate indices enter the seed derivation, so doubled slots are independent judge samples at temperature 0.3."
+   "selected": "A_no_d",
+   "note": "the owner selected configuration A at the 2026-08-18 re-decision (rejudge/phase3_authorization_2026-08-18b.json), reversing the earlier Option D pick on the corrected v2 simulation; the condition list above reflects it. With A as the target, the configuration-selection ladder's replicate-shedding step is a no-op."
   },
   "slot_arithmetic_by_roster": {
    "formula": "slots = 82 x N_judges x 2 debaters x 3 transcripts x K2 x replicates(condition, config); per-judge per-condition slots are 984 at replicates 1 and 1,968 at replicates 2",
@@ -162,7 +162,8 @@
     "B_b4_only": {"N7": 41328, "N6": 35424, "N5": 29520, "N4": 23616},
     "C_b8_only": {"N7": 41328, "N6": 35424, "N5": 29520, "N4": 23616},
     "D_full": {"N7": 48216, "N6": 41328, "N5": 34440, "N4": 27552}
-   }
+   },
+   "selected": "A_no_d at the 7-judge candidate roster: 34,440 main judgment slots"
   },
   "dropped_from_phase2": "batch_same_qa, placebo, capped debates, no-debate references, empty-evidence control, full-document anchors, AND with them the phase-2 secondary estimands C (cap-protection interaction) and D_clean (debate vs no-debate): all are settled phase-2 results, and phase 3 has no debater-side variation. Phase 3 is the sequential clean-oracle dose-response only."
  },
@@ -198,12 +199,12 @@
    "sidedness": "two_sided"
   },
   "secondary_analyses": {
-   "status": "approved_design_s1_pending_owner_ratification",
+   "status": "approved_design_s1_ratified_2026-08-18b",
    "S1_downturn_contrast": {
     "estimand": "error(sequential_b8) - error(sequential_b2)",
     "role": "the single CONFIRMATORY secondary, two-sided at alpha 0.05 (family of one); it exists because the primary family cannot formally certify a downturn from b2, which is the pilot's retracted U-shape claim",
     "inference": "same common draws, same p-value formula; if subsampling is active, BOTH arms restrict to the 41-question domain (paired), stated wherever S1 is reported",
-    "ratification": "added by the assistant on the freeze consult's finding; requires explicit owner ratification at re-decision"
+    "ratification": "owner-ratified 2026-08-18 (rejudge/phase3_authorization_2026-08-18b.json)"
    },
    "capability_slope": {
     "role": "NOMINAL, NON-CONFIRMATORY: a finite-roster observed-score association. Its p-value is reported as nominal and no confirmatory capability claim is made from it.",
@@ -218,7 +219,7 @@
    "trend_test_disposition": "the proposal's optional trend-test secondary is NOT exercised; any trend or shape statistic beyond S1 is descriptive only. Recorded in the authorization record as an assistant-resolved design detail, flagged for owner review."
   },
   "capability_anchor": {
-   "status": "approved_design_parser_pending_owner_ratification",
+   "status": "approved_design_parser_ratified_2026-08-18b",
    "question_set": "the 24 held-out calibration-excluded questions ONLY; anchor items never overlap the 82 outcome questions",
    "cells": "24 questions x K2 mirrored sides per judge, temperature 0, capability_qa prompt from the reused phase-2 prompt bundle",
    "population": "ALL rostered judges are re-measured under the phase-3 manifest, continuing judges included; phase-2 anchor scores are never pooled or substituted",
@@ -227,7 +228,7 @@
    "role": "the continuous covariate of the nominal capability slope; also descriptive context. Parameter count is never a capability measure. Within-family pairs and any tier split are descriptive only."
   },
   "configuration_selection": {
-   "status": "structure_approved_limits_pending_owner_redecision",
+   "status": "approved",
    "purpose": "ONE frozen lexicographic procedure jointly governs review-throughput feasibility, the spend cap, and Qwen3.7-Max retention, removing the circularity between the inclusion rule and the fallback",
    "review_volume_evidence": {
     "measured_phase2": "13,753 unique-payload gate rulings (hash-chained store count) against 15,744 theoretical query slots in phase 2's two query-producing arms: 0.874 rulings per theoretical query slot, ALREADY NET of early DONE, retries, exhaustion, and dedup (never multiply it by a separate exhaustion factor; the earlier draft's [0.65, 0.94] bracket double-discounted and is retracted). Observed sustained pace: roughly 3,000 rulings per quota-day.",
@@ -237,9 +238,9 @@
    "trigger_metrics": "blinded operational metrics only, measured in the canary: per-arm-per-judge unique-payload rulings per slot, and realized rulings per quota-day; never any efficacy quantity",
    "projection_rule": "R_U = accrued canary and anchor rulings + sum over (arm, judge) of [main-run slot count x U90(unique rulings per slot for that arm and judge)], where U90 is the upper bound of a 90% confidence interval over canary per-question means (question is the cluster); D_U = ceil(R_U / L90(rulings per quota-day)), where L90 is the lower bound of a 90% interval over observed canary quota-days",
    "limits": {
-    "R_max": null,
-    "D_max": null,
-    "note": "the owner selects D_max (calendar tolerance in quota-days) at re-decision; R_max is then mechanically derived as D_max x the planning pace (3,000/day) and both are frozen; the manifest enforces both R_U <= R_max and D_U <= D_max"
+    "R_max": 135000,
+    "D_max": 45,
+    "note": "owner-selected 2026-08-18 (D_max 45 quota-days; R_max derived as 45 x 3,000/day planning pace); the manifest enforces both R_U <= R_max and D_U <= D_max; the canary-measured pace replaces the planning pace inside D_U at evaluation time"
    },
    "lexicographic_priority": "what the design keeps, in order: (1) full 82-question coverage in every arm; (2) Qwen3.7-Max retention; (3) extra tail replicates beyond the A_no_d configuration",
    "selection_procedure": [
@@ -286,7 +287,7 @@
    "canary_question_set": "all 24 held-out questions, reused canary transcripts (zero transcript-generation cells; phase 2's canary generated transcripts, phase 3's does not)",
    "canary_slot_inventory": {
     "per_judge_formula": "core b0 gates: 24 x 2 debaters x 1 transcript x K2 = 96; budget smoke: 6 x 2 x 1 x K2 x (replicate multiplier of the target config: A=4, B=5, C=5, D=6) = 96/120/120/144; capability anchor: 24 x 2 = 48",
-    "totals_by_config_and_roster": "total = N_judges x (96 + smoke + 48); at N7: A 1,680; B/C 1,848; D 2,016. Candidate judges that later fail gates or are shed still have their canary slots counted and their spend accrued.",
+    "totals_by_config_and_roster": "total = N_judges x (96 + smoke + 48); at N7: A 1,680; B/C 1,848; D 2,016. SELECTED (config A, 7 candidate judges): 1,680 canary slots. Candidate judges that later fail gates or are shed still have their canary slots counted and their spend accrued.",
     "pinned_denominator_rule": "the manifest pins the exact number from this formula for the selected config and candidate roster; the completion gate uses that number"
    },
    "calibration_gates_per_judge": {
@@ -304,7 +305,8 @@
   "spend": {
    "status": "stage_cap_set_no_spend_authorized",
    "stage_cap_usd": 450,
-   "estimate_usd": {"minimum": 270, "maximum": 450},
+   "estimate_usd": {"minimum": 220, "maximum": 380},
+   "estimate_note": "configuration A returns the estimate to the proposal's base-grid range; the 450 cap stands unchanged as approved headroom",
    "estimate_honesty": "this prose range has no computed backing yet and two large opposite-direction corrections are unmodeled: phase 3 pays ZERO debater-generation cost (which dominated phase 2's blended per-cell average), while b4/b8 slots carry up to 8 sequential oracle turns with a growing judge context re-sent each turn (super-linear per-slot token cost). A computed phase3_cost_model.json replaces this range before canary authorization; if its upper estimate exceeds 80% of the stage cap, the owner revisits the cap before canary authorization rather than discovering the squeeze mid-run.",
    "forecast_method": {
     "formula": "projected stage spend = accrued actual spend to date + sum over (model, call role, arm) of [main-run slot count x U90(tokens-in per slot) x verified input price + main-run slot count x U90(tokens-out per slot) x verified output price] x 1.15 transport-retry multiplier",

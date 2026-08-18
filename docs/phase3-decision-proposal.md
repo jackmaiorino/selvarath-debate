@@ -1,13 +1,12 @@
 # Phase-3 decision proposal: the budget knob
 
-**Status: APPROVED 2026-08-18 with two items reopened same day
-(`rejudge/phase3_authorization_2026-08-18.json`). Standing decisions: Option A (re-run
-b0/b2), 7-judge roster, fallback structure (subsample b4/b8, b1 never dropped), paid review
-NOT pre-authorized, stage cap $450. REOPENED by the pre-freeze review: the 20,000-ruling
-ceiling (derived from a flawed projection; honest volume is 4-6x higher) and Option D
-(verified tail-power gain is well below the estimate that justified it). Both return to the
-owner with corrected numbers. Execution and spend remain separately gated. Draft protocol:
-`rejudge/phase3_protocol.json`.**
+**Status: APPROVED AND FINALIZED 2026-08-18 (`rejudge/phase3_authorization_2026-08-18.json`
++ `...2026-08-18b.json`). Final decisions: Option A (re-run b0/b2), 7-judge roster,
+configuration A (NO tail replicate doubling; the earlier Option D pick was reversed on the
+corrected v2 simulation), review limits D_max 45 quota-days / R_max 135,000 rulings with a
+lexicographic shed ladder, stage cap $450, paid review NOT pre-authorized, plus three
+ratifications (no-replacement, tolerant anchor parse, S1 downturn secondary). Frozen
+protocol: `rejudge/phase3_protocol.json`. Execution and spend remain separately gated.**
 Prepared 2026-08-14. Companion to `docs/phase2-decision-proposal.md`; assumes phase-2 results
 (`reports/2026-08-11-phase2-main-results.md`) as given.
 
