@@ -1,7 +1,7 @@
 {
  "schema_version": "phase3_execution_manifest_v1",
  "stage": "phase3",
- "recorded_at_utc": "2026-08-18T19:11:00Z",
+ "recorded_at_utc": "2026-08-18T21:06:01Z",
  "protocol_tracked_path": "rejudge/phase3_protocol.json",
  "planning": {
   "question_counts": {
@@ -96,6 +96,9 @@
   "files": [
    "rejudge/phase3_plan.py",
    "rejudge/phase3_manifest.py",
+   "rejudge/phase3_runner.py",
+   "rejudge/phase2_canary_runner.py",
+   "rejudge/phase2_canary_live.py",
    "rejudge/phase2_canary_cells.py",
    "rejudge/phase2_canary_compose.py",
    "rejudge/phase2_canary_gate.py",
@@ -117,10 +120,10 @@
    "rejudge/run_accounting.py",
    "scripts/phase3_preseed_transcripts.py"
   ],
-  "code_bundle_sha256": "b341f66831c74791030caba75b4f09f2ea2122880ea45120f9a08e60ec053ee4"
+  "code_bundle_sha256": "84a2c15686885a910ada600f7382ced2f4eb3e16814cb2ed166f2983d62396a1"
  },
  "resume_granularity": "cell",
  "transcript_generation_forbidden": true,
  "execution_authorized": false,
- "execution_identity_sha256": "518fffd913c9ea4219fe42bcef2762b2b904c05f7e1ec0382317d1c5ab555755"
+ "execution_identity_sha256": "dd513047de586663b93c56fd8669b431170cc3a6a435d504525018af171488de"
 }

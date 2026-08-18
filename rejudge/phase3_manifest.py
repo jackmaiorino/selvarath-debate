@@ -94,6 +94,9 @@ CANARY_TRANSCRIPT_BUNDLE_RELATIVE_PATH = Path(
 PHASE3_CODE_PROVENANCE_FILES: tuple[str, ...] = (
     "rejudge/phase3_plan.py",
     "rejudge/phase3_manifest.py",
+    "rejudge/phase3_runner.py",
+    "rejudge/phase2_canary_runner.py",
+    "rejudge/phase2_canary_live.py",
     "rejudge/phase2_canary_cells.py",
     "rejudge/phase2_canary_compose.py",
     "rejudge/phase2_canary_gate.py",

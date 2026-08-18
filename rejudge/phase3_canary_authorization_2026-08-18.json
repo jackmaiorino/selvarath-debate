@@ -4,9 +4,9 @@
  "authorizes": "provider spend for the phase-3 canary stage ONLY, under the manifest and identity below. Main-run spend requires its own record, gated on the canary launch gates, the configuration-selection evaluation, the frozen forecast, and amendment 2's deferred items.",
  "binds": {
   "manifest_tracked_path": "rejudge/phase3_manifest_2026-08-18.json",
-  "execution_identity_sha256": "518fffd913c9ea4219fe42bcef2762b2b904c05f7e1ec0382317d1c5ab555755",
-  "code_bundle_sha256": "b341f66831c74791030caba75b4f09f2ea2122880ea45120f9a08e60ec053ee4",
-  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z, then 4ce6c714/cacfa86d after the driver build, then 28bb1819/b341f668 after the host-translation fix (the identity that executed the first 464 cells and the abandoned_cell_rate STOP), now rebound for the 6-judge roster per amendment 3; the code bundle is unchanged from the executing identity, only the roster changed",
+  "execution_identity_sha256": "dd513047de586663b93c56fd8669b431170cc3a6a435d504525018af171488de",
+  "code_bundle_sha256": "84a2c15686885a910ada600f7382ced2f4eb3e16814cb2ed166f2983d62396a1",
+  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z; 4ce6c714/cacfa86d after the driver build; 28bb1819/b341f668 after the host-translation fix (executed the first 464 cells and the abandoned_cell_rate STOP); 518fffd9/b341f668 for the 6-judge roster per amendment 3 (executed 100 more cells and the 2026-08-18 watchdog STOP); now rebound after the stall fix (pending-payload bound + capability ungating) AND a provenance-gap fix that added phase3_runner.py, phase2_canary_runner.py, and phase2_canary_live.py to the hash-bound code bundle, which the earlier bundles silently omitted",
   "amendment_3": "rejudge/phase3_amendment3_roster_2026-08-18.json",
   "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
   "amendment_1": "rejudge/phase3_amendment1_roster_2026-08-18.json (a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3)",
