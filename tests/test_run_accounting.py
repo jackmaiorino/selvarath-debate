@@ -175,3 +175,36 @@ def test_usage_ledger_generated_paths_names_ledger_state_and_lock(tmp_path):
         tmp_path / "usage.jsonl.state.json",
         tmp_path / "usage.jsonl.lock",
     )
+
+
+def test_legacy_call_leaves_the_v5_transport_pins_unset(tmp_path):
+    """The 2026-08-10 forensic gap, pinned as a regression: ``rejudge/runner.py`` (and every
+    other caller predating this parameter) never passed the v5 transport pins, so its live
+    client fell back to the Together SDK's own unpinned default timeout regardless of what
+    role-limits pins were hash-bound in the manifest. This must stay true for the unchanged
+    legacy call shape."""
+    ledger = tmp_path / "usage.jsonl"
+    identity = run_accounting.prepare_usage_ledger(ledger, allow_create=True)
+    client, _ = run_accounting.create_accounted_client(
+        approved_cap_usd=1.0, dry_run=False,
+        model_prices={"model-a": {"in": 0.2, "out": 0.8}},
+        usage_log_path=ledger, error_log_path=tmp_path / "errors.jsonl",
+        ledger_identity=identity)
+    assert client.http_timeout is None
+    assert client.sdk_internal_max_retries is None
+    assert client.per_call_wall_clock_ceiling_seconds is None
+
+
+def test_v5_transport_pins_thread_through_when_supplied(tmp_path):
+    ledger = tmp_path / "usage.jsonl"
+    identity = run_accounting.prepare_usage_ledger(ledger, allow_create=True)
+    pins = {"connect": 10.0, "read": 120.0, "write": 60.0, "pool": 60.0}
+    client, _ = run_accounting.create_accounted_client(
+        approved_cap_usd=1.0, dry_run=False,
+        model_prices={"model-a": {"in": 0.2, "out": 0.8}},
+        usage_log_path=ledger, error_log_path=tmp_path / "errors.jsonl",
+        ledger_identity=identity, http_timeout=pins, sdk_internal_max_retries=0,
+        per_call_wall_clock_ceiling_seconds=1200)
+    assert client.http_timeout == pins
+    assert client.sdk_internal_max_retries == 0
+    assert client.per_call_wall_clock_ceiling_seconds == 1200.0

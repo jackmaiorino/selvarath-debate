@@ -1,0 +1,378 @@
+{
+  "continuing_judges_and_oracle": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "context_length_tokens": 32768,
+      "deprecation_flags": null,
+      "frozen_protocol_price_usd_per_million_tokens": {
+        "input": 0.3,
+        "output": 0.3
+      },
+      "matches_frozen_price": true,
+      "present_in_catalog": true,
+      "pricing_usd_per_million_tokens": {
+        "input": 0.3,
+        "output": 0.3
+      },
+      "role": "continuing_judge",
+      "type": "chat"
+    },
+    "google/gemma-4-31B-it": {
+      "context_length_tokens": 262144,
+      "deprecation_flags": null,
+      "frozen_protocol_price_usd_per_million_tokens": {
+        "input": 0.39,
+        "output": 0.97
+      },
+      "matches_frozen_price": true,
+      "present_in_catalog": true,
+      "pricing_usd_per_million_tokens": {
+        "input": 0.39,
+        "output": 0.97
+      },
+      "role": "continuing_judge",
+      "type": "chat"
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "context_length_tokens": 131072,
+      "deprecation_flags": null,
+      "frozen_protocol_price_usd_per_million_tokens": {
+        "input": 1.04,
+        "output": 1.04
+      },
+      "matches_frozen_price": true,
+      "present_in_catalog": true,
+      "pricing_usd_per_million_tokens": {
+        "input": 1.04,
+        "output": 1.04
+      },
+      "role": "continuing_judge_and_oracle",
+      "type": "chat"
+    },
+    "openai/gpt-oss-120b": {
+      "context_length_tokens": 131072,
+      "context_note": "provider reports 131072 vs the phase-2 frozen snapshot's conservative operative ceiling 128000 (rejudge/phase2_provider_price_snapshot_2026-07-18.json); identical discrepancy to the one phase-2 recorded in rejudge/phase2_provider_refresh_2026-07-19.json, unchanged",
+      "deprecation_flags": null,
+      "frozen_protocol_price_usd_per_million_tokens": {
+        "input": 0.15,
+        "output": 0.6
+      },
+      "matches_frozen_price": true,
+      "present_in_catalog": true,
+      "pricing_usd_per_million_tokens": {
+        "input": 0.15,
+        "output": 0.6
+      },
+      "role": "continuing_judge",
+      "type": "chat"
+    }
+  },
+  "credential_check": {
+    "env_var": "TOGETHER_API_KEY",
+    "present_and_non_blank": true,
+    "value_recorded": false
+  },
+  "deprecation_flag_methodology": "the /v1/models catalog schema exposes no deprecation-related field on any of the 281 returned entries (union of keys observed across the full catalog: ['config', 'context_length', 'created', 'display_name', 'id', 'license', 'link', 'object', 'organization', 'pricing', 'running', 'type', 'uuid']); deprecation_flags is therefore always null throughout this snapshot, a checked absence rather than an unset field",
+  "does_not_establish": [
+    "account-specific access or capacity",
+    "successful completion behavior",
+    "provider backend stability",
+    "account usage or credit reconciliation",
+    "authorization to make a provider call"
+  ],
+  "execution_authorized": false,
+  "method": "authenticated zero-cost GET https://api.together.xyz/v1/models (HTTP 200, 281 models returned); read-only catalog listing only, no chat/completions call of any kind was issued",
+  "new_judges_pending_verification": {
+    "Qwen/Qwen3.7-Max": {
+      "catalog_id_as_served": "Qwen/Qwen3.7-Max",
+      "closest_catalog_ids": null,
+      "context_length_tokens": 1000000,
+      "deprecation_flags": null,
+      "display_name": "Qwen3.7-Max",
+      "id_correction": "none needed: exact match with the protocol's candidate_model_id",
+      "pricing_usd_per_million_tokens": {
+        "input": 1.25,
+        "output": 3.75
+      },
+      "protocol_candidate_id": "Qwen/Qwen3.7-Max",
+      "serverless_availability": true,
+      "status": "present_exact_id"
+    },
+    "google/gemma-3n-E4B-it": {
+      "catalog_id_as_served": "google/gemma-3n-E4B-it",
+      "closest_catalog_ids": null,
+      "context_length_tokens": 32768,
+      "deprecation_flags": null,
+      "display_name": "Gemma-3n-E4B",
+      "id_correction": "none needed: exact match with the protocol's candidate_model_id",
+      "pricing_usd_per_million_tokens": {
+        "input": 0.06,
+        "output": 0.12
+      },
+      "protocol_candidate_id": "google/gemma-3n-E4B-it",
+      "serverless_availability": true,
+      "status": "present_exact_id"
+    },
+    "meta-llama/Meta-Llama-3-8B-Instruct-Lite": {
+      "catalog_id_as_served": null,
+      "closest_catalog_ids": [
+        {
+          "context_length_tokens": 8192,
+          "display_name": "Meta Llama 3 8B Instruct",
+          "id": "meta-llama/Meta-Llama-3-8B-Instruct",
+          "pricing_usd_per_million_tokens": {
+            "input": 0.2,
+            "output": 0.2
+          }
+        },
+        {
+          "context_length_tokens": 8192,
+          "display_name": "Meta Llama 3 8B Instruct Reference",
+          "id": "meta-llama/Llama-3-8b-chat-hf",
+          "pricing_usd_per_million_tokens": {
+            "input": 0.2,
+            "output": 0.2
+          }
+        },
+        {
+          "context_length_tokens": 131072,
+          "display_name": "Meta Llama 3.1 8B Instruct Turbo",
+          "id": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+          "pricing_usd_per_million_tokens": {
+            "input": 0.18,
+            "output": 0.18
+          }
+        },
+        {
+          "context_length_tokens": 16384,
+          "display_name": "Meta Llama 3.1 8B",
+          "id": "meta-llama/Meta-Llama-3.1-8B",
+          "pricing_usd_per_million_tokens": {
+            "input": 0.2,
+            "output": 0.2
+          }
+        }
+      ],
+      "context_length_tokens": null,
+      "deprecation_flags": null,
+      "display_name": "Llama-3-8B-Lite",
+      "id_correction": "none possible: no catalog id under this or any close spelling exists",
+      "note": "no '-Lite' or equivalent low-capability 8B Llama-3 variant is served by Together as of this snapshot; the four closest catalog ids by name are listed verbatim with their own context/pricing for the owner to choose a replacement or drop the within-family pair. This is a roster-affecting absence, not a spelling drift: none of the four alternatives share the candidate's exact id or display name.",
+      "pricing_usd_per_million_tokens": {
+        "input": null,
+        "output": null
+      },
+      "protocol_candidate_id": "meta-llama/Meta-Llama-3-8B-Instruct-Lite",
+      "serverless_availability": false,
+      "status": "absent_from_catalog"
+    }
+  },
+  "price_normalization_methodology": "pricing_usd_per_million_tokens fields in this artifact (outside raw_rows) round the provider's raw float to 6 decimal places to strip IEEE-754 representation tails the provider's own JSON carries (e.g. 0.9700000000000001 for google/gemma-4-31B-it's output price); rejudge/phase2_provider_refresh_2026-07-19.json normalized the same way before its own frozen-price comparison. raw_rows below is a verbatim, unmodified pass-through of every field the provider returned, tails included.",
+  "protocol_binding": {
+    "protocol_id": "phase3_budget_knob_2026_08_18_v1",
+    "tracked_path": "rejudge/phase3_protocol.json"
+  },
+  "provider": "Together AI",
+  "raw_response": {
+    "file_sha256": "11115d1e79f78fd52557ee8d902a2fcd1734cae31a78e02783af2cda5bcadbe5",
+    "model_count": 281,
+    "tracked_path": "rejudge/phase3_provider_models_raw_2026-08-18.json"
+  },
+  "raw_rows": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "config": {
+        "bos_token": "<|endoftext|>",
+        "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+        "eos_token": "<|im_end|>",
+        "stop": [
+          "<|im_end|>"
+        ]
+      },
+      "context_length": 32768,
+      "created": 1728671048,
+      "display_name": "Qwen2.5 7B Instruct Turbo",
+      "id": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+      "license": "Qwen",
+      "link": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct",
+      "object": "model",
+      "organization": "Qwen",
+      "pricing": {
+        "base": 0,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 0.3,
+        "output": 0.3,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat",
+      "uuid": "endpoint-117e51c5-eec1-48b8-be1c-fe6f8ae0a5be"
+    },
+    "Qwen/Qwen3.7-Max": {
+      "config": {
+        "bos_token": null,
+        "chat_template": null,
+        "eos_token": null,
+        "stop": []
+      },
+      "context_length": 1000000,
+      "created": 1779386434,
+      "display_name": "Qwen3.7 Max",
+      "id": "Qwen/Qwen3.7-Max",
+      "object": "model",
+      "organization": "Qwen",
+      "pricing": {
+        "base": 0,
+        "cached_input": 0.125,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 1.25,
+        "output": 3.75,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat",
+      "uuid": "endpoint-ba47b6c3-f84c-435c-9d86-d8142b17031b"
+    },
+    "google/gemma-3n-E4B-it": {
+      "config": {
+        "bos_token": "<bos>",
+        "chat_template": null,
+        "eos_token": "<eos>",
+        "stop": [
+          "<eos>"
+        ]
+      },
+      "context_length": 32768,
+      "created": 1750955040,
+      "display_name": "Gemma 3N E4B Instruct",
+      "id": "google/gemma-3n-E4B-it",
+      "license": "gemma",
+      "link": "https://huggingface.co/google/gemma-3n-E4B-it",
+      "object": "model",
+      "organization": "Google",
+      "pricing": {
+        "base": 0,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 0.060000000000000005,
+        "output": 0.12000000000000001,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat",
+      "uuid": "endpoint-290b90f1-cdb9-46c1-a919-9a73822375c3"
+    },
+    "google/gemma-4-31B-it": {
+      "config": {
+        "bos_token": "<bos>",
+        "chat_template": null,
+        "eos_token": "<eos>",
+        "stop": [
+          "<eos>"
+        ]
+      },
+      "context_length": 262144,
+      "created": 0,
+      "display_name": "Gemma 4 31B-it FP8",
+      "id": "google/gemma-4-31B-it",
+      "license": "apache-2.0",
+      "link": "https://huggingface.co/api/models/google/gemma-4-31B-it",
+      "object": "model",
+      "organization": "Google",
+      "pricing": {
+        "base": 0,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 0.39,
+        "output": 0.9700000000000001,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat",
+      "uuid": "endpoint-155df9cc-8c2f-4a04-8840-728681211a34"
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "config": {
+        "bos_token": "<|begin_of_text|>",
+        "chat_template": "{{- bos_token }}\n{%- if custom_tools is defined %}\n    {%- set tools = custom_tools %}\n{%- endif %}\n{%- if not tools_in_user_message is defined %}\n    {%- set tools_in_user_message = true %}\n{%- endif %}\n{%- if not date_string is defined %}\n    {%- set date_string = \"26 Jul 2024\" %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n\n{#- This block extracts the system message, so we can slot it into the right place. #}\n{%- if messages[0]['role'] == 'system' %}\n    {%- set system_message = messages[0]['content']|trim %}\n    {%- set messages = messages[1:] %}\n{%- else %}\n    {%- set system_message = \"\" %}\n{%- endif %}\n\n{#- System message + builtin tools #}\n{{- \"<|start_header_id|>system<|end_header_id|>\\n\\n\" }}\n{%- if builtin_tools is defined or tools is not none %}\n    {{- \"Environment: ipython\\n\" }}\n{%- endif %}\n{%- if builtin_tools is defined %}\n    {{- \"Tools: \" + builtin_tools | reject('equalto', 'code_interpreter') | join(\", \") + \"\\n\\n\"}}\n{%- endif %}\n{{- \"Cutting Knowledge Date: December 2023\\n\" }}\n{{- \"Today Date: \" + date_string + \"\\n\\n\" }}\n{%- if tools is not none and not tools_in_user_message %}\n    {{- \"You have access to the following functions. To call a function, please respond with JSON for a function call.\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n{%- endif %}\n{{- system_message }}\n{{- \"<|eot_id|>\" }}\n\n{#- Custom tools are passed in a user message with some extra guidance #}\n{%- if tools_in_user_message and not tools is none %}\n    {#- Extract the first user message so we can plug it in here #}\n    {%- if messages | length != 0 %}\n        {%- set first_user_message = messages[0]['content']|trim %}\n        {%- set messages = messages[1:] %}\n    {%- else %}\n        {{- raise_exception(\"Cannot put tools in the first user message when there's no first user message!\") }}\n{%- endif %}\n    {{- '<|start_header_id|>user<|end_header_id|>\\n\\n' -}}\n    {{- \"Given the following functions, please respond with a JSON for a function call \" }}\n    {{- \"with its proper arguments that best answers the given prompt.\\n\\n\" }}\n    {{- 'Respond in the format {\"name\": function name, \"parameters\": dictionary of argument name and its value}.' }}\n    {{- \"Do not use variables.\\n\\n\" }}\n    {%- for t in tools %}\n        {{- t | tojson(indent=4) }}\n        {{- \"\\n\\n\" }}\n    {%- endfor %}\n    {{- first_user_message + \"<|eot_id|>\"}}\n{%- endif %}\n\n{%- for message in messages %}\n    {%- if not (message.role == 'ipython' or message.role == 'tool' or 'tool_calls' in message) %}\n        {{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n\\n'+ message['content'] | trim + '<|eot_id|>' }}\n    {%- elif 'tool_calls' in message %}\n        {%- if not message.tool_calls|length == 1 %}\n            {{- raise_exception(\"This model only supports single tool-calls at once!\") }}\n        {%- endif %}\n        {%- set tool_call = message.tool_calls[0].function %}\n        {%- if builtin_tools is defined and tool_call.name in builtin_tools %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- \"<|python_tag|>\" + tool_call.name + \".call(\" }}\n            {%- for arg_name, arg_val in tool_call.arguments | items %}\n                {{- arg_name + '=\"' + arg_val + '\"' }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- endif %}\n                {%- endfor %}\n            {{- \")\" }}\n        {%- else  %}\n            {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' -}}\n            {{- '{\"name\": \"' + tool_call.name + '\", ' }}\n            {{- '\"parameters\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- \"}\" }}\n        {%- endif %}\n        {%- if builtin_tools is defined %}\n            {#- This means we're in ipython mode #}\n            {{- \"<|eom_id|>\" }}\n        {%- else %}\n            {{- \"<|eot_id|>\" }}\n        {%- endif %}\n    {%- elif message.role == \"tool\" or message.role == \"ipython\" %}\n        {{- \"<|start_header_id|>ipython<|end_header_id|>\\n\\n\" }}\n        {%- if message.content is mapping or message.content is iterable %}\n            {{- message.content | tojson }}\n        {%- else %}\n            {{- message.content }}\n        {%- endif %}\n        {{- \"<|eot_id|>\" }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|start_header_id|>assistant<|end_header_id|>\\n\\n' }}\n{%- endif %}\n",
+        "eos_token": "<|eot_id|>",
+        "stop": [
+          "<|eot_id|>",
+          "<|eom_id|>"
+        ]
+      },
+      "context_length": 131072,
+      "created": 1733466629,
+      "display_name": "Meta Llama 3.3 70B Instruct Turbo",
+      "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "license": "Llama-3.3 (Other)",
+      "link": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
+      "object": "model",
+      "organization": "Meta",
+      "pricing": {
+        "base": 0,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 1.0399999999999998,
+        "output": 1.0399999999999998,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat"
+    },
+    "meta-llama/Meta-Llama-3-8B-Instruct-Lite": null,
+    "openai/gpt-oss-120b": {
+      "config": {
+        "bos_token": "<|startoftext|>",
+        "chat_template": null,
+        "eos_token": "<|return|>",
+        "stop": [
+          "<|return|>"
+        ]
+      },
+      "context_length": 131072,
+      "created": 1754414557,
+      "display_name": "OpenAI GPT-OSS 120B",
+      "id": "openai/gpt-oss-120b",
+      "license": "other",
+      "link": "https://huggingface.co/openai/gpt-oss-120b",
+      "object": "model",
+      "organization": "OpenAI",
+      "pricing": {
+        "base": 0,
+        "finetune": 0,
+        "hourly": 0,
+        "image": 0,
+        "image_pixel": 0,
+        "input": 0.15,
+        "output": 0.6,
+        "transcribe": 0,
+        "video": 0
+      },
+      "running": false,
+      "type": "chat",
+      "uuid": "endpoint-cf361a3e-47d0-4dfc-851a-97098881e6a2"
+    }
+  },
+  "raw_rows_note": "seven unique model ids: the four continuing judges (one of which, meta-llama/Llama-3.3-70B-Instruct-Turbo, is also the protocol oracle -- same row, single entry, no duplication), plus the three new judge candidates. meta-llama/Meta-Llama-3-8B-Instruct-Lite has a null row: it is absent from the catalog under its protocol id and under every close spelling checked.",
+  "schema_version": "phase3_provider_snapshot_v1",
+  "serverless_availability_methodology": "inferred from catalog presence with type=='chat' and strictly positive input/output serverless pricing; the catalog's own 'running' field is false for every one of the four frozen phase-2 roster judges in this same response despite all four being confirmed live across phase 2, so it is not used as a signal. Public-catalog evidence only: does not establish account-specific access, capacity, or completion behavior.",
+  "status": "public_catalog_verified_pending_account_reconciliation",
+  "verdict": "all four continuing judges and the oracle remain present under their exact frozen ids with prices matching rejudge/phase3_protocol.json's model_registry.continuing exactly; of the three new judge candidates, google/gemma-3n-E4B-it and Qwen/Qwen3.7-Max are present under their exact protocol ids with serverless pricing, but meta-llama/Meta-Llama-3-8B-Instruct-Lite is absent from the catalog entirely -- a roster-affecting gap flagged for owner decision, not resolved here",
+  "verified_at_utc": "2026-08-18T13:03:58Z"
+}

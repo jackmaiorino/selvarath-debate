@@ -1,0 +1,332 @@
+{
+ "approval_basis": {
+  "sha256": "eb9cbee9550fcbea2e818689561ccce11372b205b2e23bfceeb0543fe6901abd",
+  "tracked_path": "rejudge/phase2_canary_transport_amendment_2026-08-01.json"
+ },
+ "artifact_id": "phase3_role_limits_request_settings_2026-08-18_v1",
+ "base_role_max_tokens": {
+  "batch_verdict": 512,
+  "capability_qa": 32,
+  "debater_turn": 512,
+  "judge_query": 256,
+  "judge_verdict": 512,
+  "oracle": 32,
+  "query_checker": 16
+ },
+ "context_ceilings": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "context_length_tokens": 32768,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+  },
+  "Qwen/Qwen3.7-Max": {
+   "context_length_tokens": 1000000,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase3_provider_snapshot_2026-08-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase3_provider_snapshot_2026-08-18.json"
+  },
+  "Qwen/Qwen3.7-Plus": {
+   "context_length_tokens": 1000000,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+  },
+  "google/gemma-3n-E4B-it": {
+   "context_length_tokens": 32768,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase3_provider_snapshot_2026-08-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase3_provider_snapshot_2026-08-18.json"
+  },
+  "google/gemma-4-31B-it": {
+   "context_length_tokens": 262144,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "context_length_tokens": 131072,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+  },
+  "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+   "context_length_tokens": 131072,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase3_provider_snapshot_2026-08-18.json (recorded under new_judges_pending_verification[\"meta-llama/Meta-Llama-3-8B-Instruct-Lite\"].closest_catalog_ids for this exact id); that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase3_provider_snapshot_2026-08-18.json"
+  },
+  "openai/gpt-oss-120b": {
+   "context_length_tokens": 128000,
+   "note": "Context ceiling copied from and cross-checked against rejudge/phase2_provider_price_snapshot_2026-07-18.json; that snapshot is the single source of truth for this value.",
+   "source": "rejudge/phase2_provider_price_snapshot_2026-07-18.json"
+  }
+ },
+ "execution_authorized": false,
+ "flagged_for_owner_review": [
+  "Qwen/Qwen3.7-Max's reasoning-model classification (and therefore its 4096-token floor and streaming pin) is an assistant-authored context-length-threshold heuristic, not a verified provider fact -- see reasoning_model_classification_note. No inference call was made to confirm actual reasoning-token behavior.",
+  "meta-llama/Meta-Llama-3-8B-Instruct-Lite was absent from the Together catalog; the owner substituted meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo (amendment 1, 2026-08-18), classified non-reasoning by the same heuristic that reproduces the v6 split; its entry here awaits the same manifest-binding review as every other draft entry."
+ ],
+ "model_role_limits": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 256
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 16
+   }
+  },
+  "Qwen/Qwen3.7-Max": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 4096
+   }
+  },
+  "Qwen/Qwen3.7-Plus": {
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 4096
+   },
+   "debater_turn": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   }
+  },
+  "google/gemma-3n-E4B-it": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 256
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 16
+   }
+  },
+  "google/gemma-4-31B-it": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 4096
+   }
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "debater_turn": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 256
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "oracle": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 16
+   }
+  },
+  "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 256
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 16
+   }
+  },
+  "openai/gpt-oss-120b": {
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 4096
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 4096
+   }
+  }
+ },
+ "protocol_id": "phase3_budget_knob_2026_08_18_v1",
+ "provenance": "extends rejudge/phase2_role_limits_v6_2026-08-01.json (bound above by supersedes) for the phase-3 roster: the four v6 continuing judges plus the debater Qwen/Qwen3.7-Plus (metadata-only in phase 3 -- transcripts are reused byte-identical and no debater call is ever made -- kept here unchanged so nothing in the v6 lineage is dropped) are copied byte-identical from v6; two of the three phase-3 candidate judges verified present in rejudge/phase3_provider_snapshot_2026-08-18.json get new derived entries; the third (meta-llama/Meta-Llama-3-8B-Instruct-Lite) is absent from the provider catalog and is recorded under unavailable_candidates instead of model_role_limits, with no guessed substitute. Amended in-draft 2026-08-18 per rejudge/phase3_amendment1_roster_2026-08-18.json: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo added as the owner-selected substitute for the catalog-absent Meta-Llama-3-8B-Instruct-Lite (non-reasoning, judge-role entry matching the other new non-reasoning judge; 131072-token context ceiling).",
+ "reasoning_model_classification_note": "ASSISTANT-AUTHORED HEURISTIC, not a verified provider fact and not inherited from any v1-v6 formula (none exists: v6's reasoning_models.model_ids is a fixed hand-picked set, never derived from context length). Context-length threshold pattern observed in v6's own roster: every frozen reasoning judge serves >=128K context (gemma-4-31B 262144, gpt-oss-120b 128000/131072), the one frozen non-reasoning judge (Qwen2.5-7B-Instruct-Turbo) serves exactly 32768. Applied forward: google/gemma-3n-E4B-it also serves exactly 32768 (same tier, and the protocol names it the 'low-capability' within-family pair) -> classified NOT reasoning; Qwen/Qwen3.7-Max serves 1,000,000 (the protocol's 'high-capability point', same tier as the frozen reasoning debater Qwen3.7-Plus) -> classified reasoning. No inference call was made to observe actual reasoning-token emission for either model; this is a placement choice for the draft, flagged in flagged_for_owner_review below.",
+ "reasoning_models": {
+  "floor_max_tokens": 4096,
+  "model_ids": [
+   "google/gemma-4-31B-it",
+   "openai/gpt-oss-120b",
+   "Qwen/Qwen3.7-Plus",
+   "Qwen/Qwen3.7-Max"
+  ]
+ },
+ "request_settings": {
+  "base_fields": [
+   "model",
+   "messages",
+   "temperature",
+   "max_tokens",
+   "seed"
+  ],
+  "per_model_extra_fields": {
+   "openai/gpt-oss-120b": {
+    "reasoning_effort": "medium"
+   }
+  },
+  "reasoning_control_note": "Reasoning-effort/thinking-control request fields are DELIBERATELY OMITTED for google/gemma-4-31B-it and Qwen/Qwen3.7-Plus: exact provider support for a reasoning-control field on these two endpoints is unverified at freeze time. This is a deliberate choice under uncertainty, not a claim that no such field exists.",
+  "response_metadata_to_persist": [
+   "request_fields_sha256",
+   "returned_model_id",
+   "response_id",
+   "finish_reason",
+   "system_fingerprint_if_present",
+   "prompt_tokens",
+   "completion_tokens",
+   "reasoning_tokens_if_returned"
+  ],
+  "streaming_pinned_models": {
+   "Qwen/Qwen3.7-Max": {
+    "stream": true
+   },
+   "Qwen/Qwen3.7-Plus": {
+    "stream": true
+   },
+   "google/gemma-4-31B-it": {
+    "stream": true
+   },
+   "openai/gpt-oss-120b": {
+    "stream": true
+   }
+  },
+  "transport": {
+   "http_timeout": {
+    "connect": 10,
+    "pool": 60,
+    "read": 120,
+    "write": 60
+   },
+   "ledger_max_attempts": 3,
+   "ledger_max_retries": 2,
+   "per_call_wall_clock_ceiling_seconds": 1200,
+   "sdk_internal_max_retries": 0
+  }
+ },
+ "role_taxonomy": {
+  "batch_verdict": "judge_verdict",
+  "capability_qa": "capability_qa",
+  "debater_turn": "debater",
+  "judge_query": "judge_query",
+  "judge_verdict": "judge_verdict",
+  "oracle": "oracle",
+  "query_checker": "query_checker"
+ },
+ "schema_version": "phase3_role_limits_v1",
+ "sdk_compatibility_basis": {
+  "note": "request_settings.streaming_pinned_models no longer sends stream_options: the installed together==2.7.0 CompletionsResource.create signature (captured verbatim in this bound abort-closure artifact's sdk_evidence.completions_resource_create_signature) has no stream_options parameter, so passing it raised TypeError before any transport call was ever reached (see the same artifact's trap_test). stream: true is retained unchanged; Together includes usage in the final stream chunk regardless, matching historical commit 8ab0461 ('Drop unsupported stream_options; Together includes usage in final chunk'), whose fix this restores after a later artifact freeze (v2) silently reintroduced stream_options.",
+  "sha256": "1f1494e331d151514ae7d1d953f6508aeda8492b1fcd5dfccb9726a13a79b1bd",
+  "tracked_path": "rejudge/phase2_preflight_abort_closure_2026-07-19.json"
+ },
+ "status": "draft_pending_manifest_binding",
+ "supersedes": {
+  "canonical_sha256": "f3d2a336dedf63a2561de8244b542c715b0d82adcf379c6c5fbdb37f373340a6",
+  "tracked_path": "rejudge/phase2_role_limits_v6_2026-08-01.json"
+ },
+ "unavailable_candidates": {
+  "meta-llama/Meta-Llama-3-8B-Instruct-Lite": {
+   "context_ceiling_tokens": null,
+   "display_name": "Llama-3-8B-Lite",
+   "model_role_limits": null,
+   "note": "no role limits are derived for an unverified model id. See rejudge/phase3_provider_snapshot_2026-08-18.json.new_judges_pending_verification for the closest catalog ids; the roster decision (substitute, or drop this within-family pair per the protocol's new_judge_failure_rule) is the owner's, not resolved here.",
+   "provider_snapshot_binding": "rejudge/phase3_provider_snapshot_2026-08-18.json",
+   "reason": "absent from the Together catalog under its protocol id or any close spelling",
+   "status": "resolved_by_amendment",
+   "resolution": "owner substituted meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo on 2026-08-18 (rejudge/phase3_amendment1_roster_2026-08-18.json); the substitute has its own model_role_limits and context_ceilings entries in this file, derived non-reasoning per the v6 mechanism"
+  }
+ }
+}

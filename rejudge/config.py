@@ -72,8 +72,23 @@ def make_seed(*parts) -> int:
     return int(hashlib.md5(key.encode()).hexdigest()[:8], 16)
 
 
-def judgment_seed(question_id, transcript_index, judge_model, budget, arm_name, replicate) -> int:
-    return make_seed(question_id, transcript_index, judge_model, budget, arm_name, replicate)
+def judgment_seed(question_id, transcript_index, judge_model, budget, arm_name, replicate, *,
+                  debater_model=None, namespace=None) -> int:
+    """Phase-2 six-part seed, extended additively for phase 3.
+
+    ``debater_model`` and ``namespace`` are optional and keyword-only. Left at their
+    ``None`` default, the derivation is byte-for-byte identical to the phase-2 six-part
+    ``make_seed`` call (required so every phase-2 seed, already baked into frozen results,
+    stays reproducible). When phase 3 supplies them, they extend the hashed key in the
+    same "|".join(str(part)) style ``make_seed`` already uses, in the order the frozen
+    protocol's seed_policy states: ... replicate index, debater model, protocol namespace.
+    """
+    parts = [question_id, transcript_index, judge_model, budget, arm_name, replicate]
+    if debater_model is not None:
+        parts.append(debater_model)
+    if namespace is not None:
+        parts.append(namespace)
+    return make_seed(*parts)
 
 
 def position_for(arm: ArmSpec, question_id, transcript_index, judge_model, budget) -> bool:

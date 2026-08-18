@@ -46,6 +46,36 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# The role-limits artifact this supervisor's subprocess timeout is derived from (gate 6:
+# "canary_supervisor subprocess.run calls carry explicit timeouts"). Read at call time, not
+# import time, so a missing/misplaced file cannot break importing this module.
+ROLE_LIMITS_PATH = Path(__file__).resolve().parent.parent / "rejudge" / \
+    "phase2_role_limits_v6_2026-08-01.json"
+# Frozen v6 value, used only if ROLE_LIMITS_PATH cannot be read: the supervisor must never
+# become un-runnable just because its own timeout could not be derived, and must never fall
+# back to no timeout at all -- the same defect class as the 2026-08-10 ssl.read hang, one
+# level up the stack (an un-timed-out subprocess.run blocks the supervisor's own STOP/retry
+# logic exactly as an un-timed-out socket read blocked the driver).
+_FALLBACK_PER_CALL_CEILING_SECONDS = 1200.0
+# How many worst-case single-call durations (the pinned per_call_wall_clock_ceiling_seconds)
+# one driver subprocess invocation is allowed before the supervisor treats it as wedged
+# rather than merely slow. A canary block issues many cells, each several calls, over
+# potentially hours of healthy operation, so this must clear a legitimately long block; it
+# exists only so subprocess.run can never block the supervisor's own retry/STOP logic
+# forever.
+SUBPROCESS_TIMEOUT_MULTIPLIER = 24
+
+
+def subprocess_timeout_seconds(role_limits_path: Path = ROLE_LIMITS_PATH) -> float:
+    """The explicit ``subprocess.run`` timeout, derived from the pinned per-call ceiling."""
+    try:
+        payload = json.loads(Path(role_limits_path).read_text(encoding="utf-8"))
+        ceiling = float(payload["transport"]["per_call_wall_clock_ceiling_seconds"])
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        ceiling = _FALLBACK_PER_CALL_CEILING_SECONDS
+    return ceiling * SUBPROCESS_TIMEOUT_MULTIPLIER
+
+
 MAX_RESUMES = 400
 # Raised 3 -> 8 on 2026-08-03 by owner instruction (amendment 9), together with the switch to
 # per-CALL keying. Like the uncertain ceiling, this is a real safety control rather than a
@@ -274,14 +304,23 @@ def main(argv=None) -> int:
     resumes = 0
     last_cell = None
     same_cell_count = 0
+    driver_timeout = subprocess_timeout_seconds()
     while True:
         started = time.time()
         print(f"supervisor: attempt {resumes + 1} starting", flush=True)
-        proc = subprocess.run(
-            [python, "-m", "rejudge.phase2_canary_live", "--manifest", manifest,
-             "--authorization", authorization, "--project-root", ".",
-             "--mode", "subagent-batch", *extra],
-            capture_output=True, text=True)
+        try:
+            proc = subprocess.run(
+                [python, "-m", "rejudge.phase2_canary_live", "--manifest", manifest,
+                 "--authorization", authorization, "--project-root", ".",
+                 "--mode", "subagent-batch", *extra],
+                capture_output=True, text=True, timeout=driver_timeout)
+        except subprocess.TimeoutExpired:
+            # The same defect class one level up the stack: the driver subprocess itself is
+            # wedged, so subprocess.run must not block the supervisor's own STOP/retry logic
+            # forever. subprocess.run(timeout=...) already terminates the child on this path.
+            print(f"supervisor: STOP driver subprocess exceeded its {driver_timeout:.0f}s "
+                  "timeout; treating as wedged", flush=True)
+            return 8
         stdout = proc.stdout.strip().splitlines()
         for line in stdout[-3:]:
             print(f"driver: {line}", flush=True)

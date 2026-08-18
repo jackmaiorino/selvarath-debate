@@ -63,8 +63,15 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
                  position_override: bool | None = None,
                  query_template_override: str | None = None,
                  cell_key_override: str | None = None,
-                 query_gate=None) -> dict:
+                 query_gate=None,
+                 debater_model=None,
+                 namespace=None) -> dict:
     """Run one judgment cell.
+
+    ``debater_model`` and ``namespace`` are optional and keyword-only, forwarded to
+    :func:`rejudge.config.judgment_seed` unchanged. Left at their ``None`` default (every
+    phase-2 call site), the computed seed is byte-for-byte identical to phase-2 behavior.
+    Phase 3 supplies them per ``decisions.execution_semantics.seed_policy``.
 
     ``query_template_override`` supplies an already-final query-phase template, bypassing the
     Stage-1 rewrite of the pilot phrasing line. Phase-2 templates come from the frozen prompt
@@ -98,7 +105,8 @@ def run_judgment(transcript: dict, world_document: str, arm: ArmSpec, budget: in
     }
     pos_a_correct = (position_for(arm, qid, tidx, judge_model, budget)
                      if position_override is None else position_override)
-    seed = judgment_seed(qid, tidx, judge_model, budget, arm.name, replicate)
+    seed = judgment_seed(qid, tidx, judge_model, budget, arm.name, replicate,
+                        debater_model=debater_model, namespace=namespace)
 
     judge_cfg = protocol["judge"]
     oracle_cfg = protocol["oracle"]

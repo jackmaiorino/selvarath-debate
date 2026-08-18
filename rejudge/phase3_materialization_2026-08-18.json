@@ -1,0 +1,68 @@
+{
+ "schema_version": "phase3_materialization_record_v1",
+ "record_id": "phase3_materialization_stage1_2026-08-18",
+ "purpose": "append-only binding of build-stage artifacts against the frozen protocol's materialization_requirements; the protocol itself stays immutable and its null placeholders are satisfied here",
+ "protocol": {
+  "tracked_path": "rejudge/phase3_protocol.json",
+  "canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee"
+ },
+ "transcript_bundles": {
+  "storage_note": "the bundles contain full eval-world debate text and are ARCHIVE-RESIDENT, never committed to the public repository (standing phase-2 decision); only the hashes-only verification report is repo-tracked",
+  "main_bundle": {
+   "archive_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+   "canonical_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+   "count": 492,
+   "source": "E:/selvarath-archive/main-2026-08-06/main_results.jsonl, 22,140 rows chain-verified, extraction byte-identical and deterministic"
+  },
+  "canary_bundle": {
+   "archive_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+   "canonical_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
+   "count": 48,
+   "source": "E:/selvarath-archive/canary-bridge-2026-08-04/canary_results.jsonl, 945 rows chain-verified, zero missing pairs",
+   "identity_note": "the bridge-canary store was written under the final identity of its completion record's identity chain (b5cf274d..., post caching-fix 2026-08-05), not the launch identity (1184b7c4...); recorded for owner notice since the protocol prose names only the main-run identity explicitly"
+  },
+  "verification_report": {
+   "tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json",
+   "coverage": "540/540 transcripts verified, 100%, both chains intact"
+  }
+ },
+ "provider_verification": {
+  "snapshot": {
+   "tracked_path": "rejudge/phase3_provider_snapshot_2026-08-18.json",
+   "canonical_sha256": "58022b53e294df1dcedb3ba700142e5d94c72ef57438e6a5265db6b1bd3849a9",
+   "raw_catalog": "rejudge/phase3_provider_models_raw_2026-08-18.json (raw sha256 11115d1e79f78fd52557ee8d902a2fcd1734cae31a78e02783af2cda5bcadbe5)"
+  },
+  "findings": {
+   "continuing_judges": "all four present, prices match the frozen registry exactly; gpt-oss-120b context 131072 vs phase-2's conservative 128000 ceiling, same known discrepancy as phase 2",
+   "google/gemma-3n-E4B-it": "present, exact ID, serverless, 0.06/0.12 USD per million",
+   "Qwen/Qwen3.7-Max": "present, exact ID, serverless, 1.25/3.75 USD per million, 1M context",
+   "meta-llama/Meta-Llama-3-8B-Instruct-Lite": "ABSENT from the catalog under any close spelling; roster-affecting gap escalated to the owner with four closest alternatives recorded verbatim in the snapshot"
+  }
+ },
+ "role_limits": {
+  "tracked_path": "rejudge/phase3_role_limits_v1_2026-08-18.json",
+  "canonical_sha256_as_first_built": "75fbbaea3a0d2e51afc4551aa11c2b54e23925f5067c82d0fb4250642487dbac",
+  "canonical_sha256_after_amendment1": "dd71bdc029a2eaba748b40456348e578449137f35b8bfbcd4b58d52fca6e4562",
+  "amendment1_note": "the draft gained meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo (owner-selected substitute, rejudge/phase3_amendment1_roster_2026-08-18.json) and retired the unavailable-candidate placeholder; the manifest binds the amended hash",
+  "status": "draft_pending_manifest_binding; continuing-model sections byte-identical to v6; transport pins present for every model and accepted by _require_transport_pins",
+  "flagged": "reasoning-model classification for the new judges is an assistant-authored context-length heuristic reproducing v6's split exactly; submitted for review at canary authorization"
+ },
+ "engineering_gates": {
+  "phase3_plan": "rejudge/phase3_plan.py + tests/test_phase3_plan.py (19 tests): protocol-driven enumeration, slot counts verified for rosters N=4..7 against the frozen tables, canary inventory 1,680 at N7, whole-document hash pin",
+  "transport_forensics": "CLOSED: the 2026-08-10 five-hour hang is explained. Fault injection (tests/test_phase3_transport_watchdog.py, real stalled-socket server) proves the read timeout fires on every path (non-streaming, streaming, reused connection); the main run's driver built its client via create_accounted_client, which accepted NO timeout pins, so role-limits v6's hash-bound pins were silently dropped and the client ran on SDK defaults. The pins were correct; the wiring never armed them. Residual: even SDK defaults should bound an attempt near 60s, so the exact 5-hour figure may involve a version-specific edge (slow trickle); flagged, not certified.",
+  "transport_fixes": "create_accounted_client now threads http_timeout/sdk_internal_max_retries/per_call_wall_clock_ceiling_seconds (additive, legacy shape unchanged); RejudgeClient gains a thread-based per-call deadline (pins + 30s margin) raising TransportDeadlineExceeded, abandons conservatively charged; canary_supervisor subprocess.run calls carry derived timeouts (pins x24 with fallback) and a wedged subprocess becomes a supervisor STOP; scripts/phase3_stall_watchdog.py implements the 30-minute store-staleness watchdog with process-tree kill",
+  "flagged_constants": "TRANSPORT_DEADLINE_MARGIN_SECONDS=30 and SUBPROCESS_TIMEOUT_MULTIPLIER=24 are assistant judgment calls, submitted for review at canary authorization",
+  "phase3_driver_requirement": "rejudge/runner.py still does not pass pins (left untouched as audited phase-2 code); the phase-3 driver MUST pass them explicitly or the 8/10 gap recurs"
+ },
+ "pending": [
+  "owner decision on the Llama-8B roster gap",
+  "stage-2 build: judgment_seed extension, phase3_manifest module, transcript pre-seeding (in flight)",
+  "credential rotation (owner action)",
+  "provider reconciliation figures (owner dashboard read)",
+  "phase3_cost_model.json (needs canary data)",
+  "fresh execution identity (at manifest time)"
+ ],
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T15:10:00Z",
+ "note": "Append-only. Recorded by the orchestrating assistant under the standing delegation."
+}

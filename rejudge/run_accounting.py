@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from rejudge.api_client import (
     _LIVE_ACCOUNTING_FACTORY_TOKEN,
@@ -101,12 +101,30 @@ def create_accounted_client(
     usage_log_path: str | Path,
     error_log_path: str | Path,
     ledger_identity: dict[str, object] | None = None,
+    http_timeout: Mapping[str, float] | None = None,
+    sdk_internal_max_retries: int | None = None,
+    per_call_wall_clock_ceiling_seconds: float | None = None,
 ) -> tuple[RejudgeClient, dict[str, float | int]]:
     """Create a strict client whose cap includes every prior ledger event.
 
     An unmatched pre-call reservation is treated as an uncertain charge after a crash.
     Live callers must pass the prepared identity already frozen into their run manifest;
     dry runs never create or read a spend ledger.
+
+    ``http_timeout``/``sdk_internal_max_retries``/``per_call_wall_clock_ceiling_seconds`` are
+    the v5 transport pins, threaded straight through to :class:`RejudgeClient` and otherwise
+    unvalidated here (``RejudgeClient.__init__`` is the single source of truth for their
+    shape). All three default to ``None`` (legacy behavior, unchanged): before this parameter
+    existed, this was the ONLY live-client factory that never threaded them at all, unlike
+    ``phase2_preflight_runner.build_production_client_factory`` -- the legacy ``rejudge/runner.py``
+    main-run driver calls this function without passing them, so the role-limits v6 transport
+    pins (read=120s, per_call_wall_clock_ceiling_seconds=1200s) were never applied to that
+    driver's live client at all, regardless of being correctly hash-bound in the role-limits
+    artifact itself; the 2026-08-10 five-hour ssl.read hang's client fell back to the Together
+    SDK's own unpinned default (``httpx.Timeout(timeout=60, connect=5.0)``). A phase-3 caller
+    that wants the pins actually enforced (and the ``TransportDeadlineExceeded`` watchdog they
+    now gate, see ``api_client.RejudgeClient._transport_deadline_seconds``) must pass them
+    explicitly; this function does not do so on the caller's behalf.
     """
     snapshot = None
     if dry_run:
@@ -137,6 +155,9 @@ def create_accounted_client(
         usage_log_path=ledger,
         _ledger_snapshot=(snapshot if not dry_run else None),
         _accounting_factory_token=_LIVE_ACCOUNTING_FACTORY_TOKEN,
+        http_timeout=(dict(http_timeout) if http_timeout is not None else None),
+        sdk_internal_max_retries=sdk_internal_max_retries,
+        per_call_wall_clock_ceiling_seconds=per_call_wall_clock_ceiling_seconds,
     )
     return client, summary
 

@@ -93,6 +93,39 @@ class WallClockCeilingExceededError(RuntimeError):
     https://www.python-httpx.org/advanced/timeouts/); this is a separate, application-level,
     defense-in-depth ceiling around the whole attempt. Only active when
     ``per_call_wall_clock_ceiling_seconds`` is configured (additive, default-off).
+
+    This check is PASSIVE: it can only run once the underlying transport call has already
+    returned control to Python. See :class:`TransportDeadlineExceeded` for the proactive
+    sibling that also covers a call that never returns at all.
+    """
+
+
+class TransportDeadlineExceeded(RuntimeError):
+    """A provider attempt exceeded the proactive per-call transport deadline.
+
+    ``WallClockCeilingExceededError`` above is a PASSIVE check: the elapsed time is measured
+    only after the underlying SDK call has already returned. The 2026-08-10 five-hour
+    ``ssl.read`` hang blocked inside a single ``chat.completions.create()`` call that never
+    returned at all, so a passive check could never have rescued it -- confirmed by the
+    fault-injection tests in ``tests/test_phase3_transport_watchdog.py``, which also show the
+    httpx/httpcore read-timeout pin itself fires correctly at the socket level once it is
+    actually threaded into the live client. (The 2026-08-10 hang's client was built by
+    ``rejudge.run_accounting.create_accounted_client``, which never threads ``http_timeout``
+    through to :class:`RejudgeClient` at all, so no read pin -- and no wall-clock ceiling --
+    was ever active for that call; see that module's docstring.)
+
+    This is therefore additive defense-in-depth, not a fix for a broken read-timeout
+    mechanism. :meth:`RejudgeClient._call_with_deadline` races the blocking provider call on a
+    background thread and raises this from the CALLING thread the moment the deadline elapses,
+    independent of whether the call itself ever returns. The background thread cannot be
+    forcibly killed (Python has no API to terminate a thread blocked in a C-level socket read)
+    and is simply abandoned as a daemon thread; its eventual result or exception, if any, is
+    discarded. Always raised from the exact spot the transport call itself would have raised,
+    so it is caught by the SAME generic ``except Exception`` handler every other transport
+    failure flows through and is therefore ALWAYS recorded ``unknown_charge`` -- conservatively,
+    exactly like a genuine read-timeout abandon, never trusted as a success and never assumed
+    free. Active only when ``http_timeout`` is configured (the deadline is derived from its own
+    connect+read pins), matching every other v5 transport knob's additive, default-off shape.
     """
 
 
@@ -1251,6 +1284,61 @@ class RejudgeClient:
                                 "google/gemma-4", "openai/gpt-oss")
     REASONING_MAX_TOKENS_FLOOR = 4096
 
+    # Margin added on top of the http_timeout connect+read pins for the proactive deadline
+    # watchdog below: slack for OS/thread scheduling jitter and for a legitimately slow attempt
+    # to finish its own connect-then-first-chunk cycle before the watchdog abandons it.
+    TRANSPORT_DEADLINE_MARGIN_SECONDS = 30.0
+
+    def _transport_deadline_seconds(self) -> float | None:
+        """The proactive per-call deadline in seconds, or ``None`` when unpinned.
+
+        ``connect + read`` bounds a single connect-then-first-chunk cycle; a genuinely healthy
+        multi-chunk streaming response can legitimately take longer than that alone (that is
+        exactly what ``per_call_wall_clock_ceiling_seconds`` exists to tolerate), so this never
+        goes tighter than an explicitly configured ceiling -- the watchdog must never abandon an
+        attempt the passive ceiling check would have accepted.
+        """
+        if self.http_timeout is None:
+            return None
+        deadline = (self.http_timeout["connect"] + self.http_timeout["read"]
+                    + self.TRANSPORT_DEADLINE_MARGIN_SECONDS)
+        if self.per_call_wall_clock_ceiling_seconds is not None:
+            deadline = max(deadline, self.per_call_wall_clock_ceiling_seconds)
+        return deadline
+
+    @staticmethod
+    def _call_with_deadline(fn, deadline_seconds: float):
+        """Run ``fn()`` on a background thread, raising :class:`TransportDeadlineExceeded` if it
+        has not finished within ``deadline_seconds``.
+
+        The background thread is never joined or killed on timeout: it is abandoned (daemon, so
+        it never blocks process exit) and its eventual outcome discarded, exactly as
+        :class:`TransportDeadlineExceeded` documents. When ``fn`` finishes in time, its return
+        value or raised exception is passed through unchanged.
+        """
+        outcome: list[tuple[bool, object]] = []
+        done = threading.Event()
+
+        def _worker():
+            try:
+                value = fn()
+            except BaseException as exc:      # re-raised on the caller's thread below
+                outcome.append((False, exc))
+            else:
+                outcome.append((True, value))
+            finally:
+                done.set()
+
+        threading.Thread(target=_worker, daemon=True).start()
+        if not done.wait(timeout=deadline_seconds):
+            raise TransportDeadlineExceeded(
+                f"provider attempt exceeded the {deadline_seconds:.1f}s transport deadline; "
+                "abandoning the call (the underlying attempt may still be in flight)")
+        ok, value = outcome[0]
+        if not ok:
+            raise value
+        return value
+
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
                  request_metadata: dict | None = None) -> str:
         max_tokens = self._resolve_max_tokens(model, max_tokens)
@@ -1295,12 +1383,17 @@ class RejudgeClient:
                 completion_tokens=reserved_completion,
                 kind=kind, seed=seed,
                 attempt=attempt, request_metadata=request_metadata)
-            attempt_started_monotonic = time.monotonic()
-            try:
+
+            def _invoke():
                 if streaming:
-                    resp = self._streamed_create(**request_kwargs)
-                else:
-                    resp = self._client().chat.completions.create(**request_kwargs)
+                    return self._streamed_create(**request_kwargs)
+                return self._client().chat.completions.create(**request_kwargs)
+
+            attempt_started_monotonic = time.monotonic()
+            deadline = self._transport_deadline_seconds()
+            try:
+                resp = (self._call_with_deadline(_invoke, deadline)
+                        if deadline is not None else _invoke())
                 if self.per_call_wall_clock_ceiling_seconds is not None:
                     elapsed = time.monotonic() - attempt_started_monotonic
                     if elapsed > self.per_call_wall_clock_ceiling_seconds:

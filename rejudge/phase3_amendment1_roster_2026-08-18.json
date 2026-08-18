@@ -1,0 +1,29 @@
+{
+ "schema_version": "phase3_amendment_v1",
+ "amendment_id": "phase3_amendment1_llama_candidate_substitution_2026-08-18",
+ "amends": {
+  "tracked_path": "rejudge/phase3_protocol.json",
+  "canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "section": "roster.judges_new[0] (candidate_model_id meta-llama/Meta-Llama-3-8B-Instruct-Lite)"
+ },
+ "what_changed": {
+  "from": "meta-llama/Meta-Llama-3-8B-Instruct-Lite (display Llama-3-8B-Lite)",
+  "to": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo (display Llama-3.1-8B-Turbo)",
+  "rationale_unchanged": "within-family low-capability pair for Llama-3.3-70B"
+ },
+ "why": "the 2026-08-18 provider verification (rejudge/phase3_provider_snapshot_2026-08-18.json) found the protocol's candidate ID absent from Together's catalog under any close spelling. The substitute is serverless, 0.18/0.18 USD per million tokens, 131,072-token context (the 8k-context base Llama-3-8B alternative was rejected as too tight for uncapped transcripts plus b8 query history). This is a PRE-OUTCOME availability substitution made before the roster freezes at canary; it is not a post-gate-failure replacement and does not touch the ratified no-replacement rule, which continues to govern calibration failures.",
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18, enumerated-choice prompt in the session UI",
+  "selection_label": "Llama-3.1-8B-Turbo (Recommended)",
+  "alternatives_presented": ["meta-llama/Meta-Llama-3-8B-Instruct (8k context)", "drop to 6 judges"]
+ },
+ "consequences": [
+  "the substitute enters as a CANDIDATE under the same canary calibration gates and configuration-selection procedure as every new judge; nothing about its inclusion is guaranteed",
+  "rejudge/phase3_role_limits_v1_2026-08-18.json must gain the substitute's entry (per-role limits from its 131k context via the v6 derivation, transport pins) before the manifest binds; the unavailable-candidate placeholder entry is retired",
+  "slot arithmetic is unchanged (still a 7-candidate roster)"
+ ],
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T15:20:00Z",
+ "note": "Append-only."
+}

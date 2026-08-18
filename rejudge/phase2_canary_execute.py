@@ -14,6 +14,17 @@ Which pattern a cell takes is decided by the frozen bundle via
 Every dependency this module needs must already be present in ``CellContext.results``. A
 missing one is refused rather than worked around: a judgment without its transcript, or a
 batch replay without the sequential exchanges it replays, is not the cell the plan describes.
+
+**Phase-3 transcript-generation guard, additive.** Phase 3 reuses phase-2 transcripts
+byte-identically and makes ZERO debater calls
+(``rejudge/phase3_protocol.json`` ``decisions.transcript_reuse.ingestion_mechanics``): a
+phase-3 manifest carries ``transcript_generation_forbidden: true``, and a caller building a
+:class:`CellContext` for a phase-3 run sets ``CellContext.transcript_generation_forbidden``
+from that flag. :func:`execute_cell` checks it before dispatching to any of the three call
+patterns above, so a transcript cell that somehow reaches this module unseeded halts with
+:class:`GenerationForbiddenError` before any provider call rather than silently generating a
+transcript. The field defaults to ``False`` and every phase-2 call site constructs
+``CellContext`` without it, so phase-2 behavior is unchanged.
 """
 from __future__ import annotations
 
@@ -35,6 +46,16 @@ class MissingTranscript(KeyError):
     """Raised when a cell's dependency has not been executed yet."""
 
 
+class GenerationForbiddenError(RuntimeError):
+    """Raised when a transcript-generation cell would run under a manifest that forbids it.
+
+    Phase 3 pre-seeds every transcript-reference cell key into the result store
+    (``scripts/phase3_preseed_transcripts.py``) before a run ever starts, so a cell reaching
+    this error means the pre-seeding did not cover it -- a bug in the seeding, not a case to
+    silently fall back to live generation for. Always raised before any provider call.
+    """
+
+
 @dataclass
 class CellContext:
     """Everything a cell needs beyond its own resolution."""
@@ -47,6 +68,9 @@ class CellContext:
     anchor_judge_model: str
     results: dict[str, Any] = field(default_factory=dict)
     pause_when_unlabeled: bool = False
+    # Additive, default-off: see the module docstring's "Phase-3 transcript-generation guard"
+    # section. Phase-2 call sites never pass this, so phase-2 behavior is unchanged.
+    transcript_generation_forbidden: bool = False
     _questions: dict | None = None
     _worlds: dict | None = None
 
@@ -200,7 +224,12 @@ def _format_replay(sequential_record: dict) -> str:
     return "\n\n".join(lines) if lines else "No verification results."
 
 
-def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
+def _run_judgment_loop(cell: ResolvedCell, context: CellContext, *,
+                       debater_model=None, namespace=None) -> dict:
+    """``debater_model``/``namespace`` are optional, keyword-only, and forwarded to
+    ``judge_loop.run_judgment`` unchanged; left at ``None`` (every phase-2 call site) the
+    computed seed is unchanged from phase-2 behavior. See judgment_seed's docstring.
+    """
     transcript = _transcript_for(cell, context)
     composed = judge_protocol_for(cell, context.protocol, context.bundle)
 
@@ -228,7 +257,8 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
         cell_key_override=cell.cell_key, query_gate=query_gate,
         # Passed explicitly rather than recomputed inside run_judgment: the gate above was
         # built from this same value, and the two must not be able to drift apart.
-        position_override=pos_a_correct)
+        position_override=pos_a_correct,
+        debater_model=debater_model, namespace=namespace)
     record["cell_key"] = cell.cell_key
     record["condition"] = cell.condition
     if query_gate is not None:
@@ -237,10 +267,27 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext) -> dict:
     return record
 
 
-def execute_cell(cell: ResolvedCell, context: CellContext) -> dict:
-    """Run one cell and return its result record."""
+def execute_cell(cell: ResolvedCell, context: CellContext, *,
+                 debater_model=None, namespace=None) -> dict:
+    """Run one cell and return its result record.
+
+    ``debater_model``/``namespace`` are optional, keyword-only, and reach the judgment path
+    only (the loop-shaped judgment case): they thread through to
+    ``judge_loop.run_judgment``'s seed derivation. Left at ``None`` (every phase-2 call
+    site), behavior is unchanged. Transcript and single-call cells do not use them; a
+    single-call cell already derives its seed from ``cell.cell_key`` alone.
+
+    ``context.transcript_generation_forbidden`` is checked first, before any other dispatch:
+    see the module docstring's "Phase-3 transcript-generation guard" section.
+    """
+    if cell.is_transcript and context.transcript_generation_forbidden:
+        raise GenerationForbiddenError(
+            f"cell {cell.cell_key} would generate a transcript, but this run's manifest sets "
+            "transcript_generation_forbidden=True; phase-3 reuses phase-2 transcripts "
+            "byte-identically and must never make a debater call. Pre-seed this cell key via "
+            "scripts/phase3_preseed_transcripts.py before running.")
     if cell.is_transcript:
         return _run_transcript(cell, context)
     if is_single_call(cell):
         return _run_single_call(cell, context)
-    return _run_judgment_loop(cell, context)
+    return _run_judgment_loop(cell, context, debater_model=debater_model, namespace=namespace)

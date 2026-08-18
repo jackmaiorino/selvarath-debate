@@ -1,7 +1,10 @@
 """The auto-resume supervisor's signature gate: benign transients only, else stop."""
 import json
+import subprocess
 import time
 from pathlib import Path
+
+import pytest
 
 from scripts.canary_supervisor import benign_transient_signature
 
@@ -448,3 +451,75 @@ def test_enumerating_it_does_not_admit_every_error_mentioning_connection(tmp_pat
          "error": "connection refused: authentication failed"}],
         error_rows=[{"ts": ts, "error": "connection refused: authentication failed"}])
     assert reason is not None and "transient set" in reason
+
+
+# --- Gate 6: canary_supervisor's subprocess.run must carry an explicit timeout --------------
+#
+# A driver subprocess that never returns at all is the same defect class as the 2026-08-10
+# ssl.read hang, one level up the stack: an un-timed-out subprocess.run blocks the
+# supervisor's own STOP/retry logic exactly as an un-timed-out socket read blocked the
+# driver. Injecting a genuine hang here would mean actually launching and killing a stuck
+# child process; a static check that the call site names an explicit ``timeout=`` is the
+# accepted alternative (task instructions), paired with a semantic test of the value's own
+# derivation, which needs no subprocess at all.
+
+def test_subprocess_run_call_site_carries_an_explicit_timeout():
+    import inspect
+
+    import scripts.canary_supervisor as sup
+
+    src = inspect.getsource(sup.main)
+    call = src[src.index("subprocess.run("):]
+    call = call[:call.index(")\n") + 1]
+    assert "timeout=" in call, (
+        "the driver subprocess.run call must carry an explicit timeout, never inherit "
+        "subprocess's own default of blocking forever")
+
+
+def test_subprocess_timeout_is_derived_from_the_pinned_per_call_ceiling():
+    from scripts.canary_supervisor import (SUBPROCESS_TIMEOUT_MULTIPLIER,
+                                            subprocess_timeout_seconds)
+    # rejudge/phase2_role_limits_v6_2026-08-01.json's real, frozen pin.
+    assert subprocess_timeout_seconds() == pytest.approx(1200.0 * SUBPROCESS_TIMEOUT_MULTIPLIER)
+
+
+def test_subprocess_timeout_falls_back_when_the_pins_file_is_unreadable(tmp_path):
+    from scripts.canary_supervisor import (SUBPROCESS_TIMEOUT_MULTIPLIER,
+                                            _FALLBACK_PER_CALL_CEILING_SECONDS,
+                                            subprocess_timeout_seconds)
+    missing = tmp_path / "no-such-role-limits.json"
+    assert subprocess_timeout_seconds(missing) == pytest.approx(
+        _FALLBACK_PER_CALL_CEILING_SECONDS * SUBPROCESS_TIMEOUT_MULTIPLIER)
+
+
+def test_subprocess_timeout_falls_back_on_a_malformed_pins_file(tmp_path):
+    from scripts.canary_supervisor import (SUBPROCESS_TIMEOUT_MULTIPLIER,
+                                            _FALLBACK_PER_CALL_CEILING_SECONDS,
+                                            subprocess_timeout_seconds)
+    bad = tmp_path / "role_limits.json"
+    bad.write_text(json.dumps({"transport": {}}), encoding="utf-8")
+    assert subprocess_timeout_seconds(bad) == pytest.approx(
+        _FALLBACK_PER_CALL_CEILING_SECONDS * SUBPROCESS_TIMEOUT_MULTIPLIER)
+
+
+def test_a_wedged_driver_subprocess_stops_the_supervisor_instead_of_hanging_forever(
+        tmp_path, monkeypatch):
+    """The behavioral half, without launching a real hung process: monkeypatch
+    subprocess.run to raise TimeoutExpired (exactly what it does when the real timeout=
+    kwarg fires) and prove main() reports a STOP and returns, rather than propagating an
+    unhandled exception or looping forever."""
+    import scripts.canary_supervisor as sup
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"ledger": {
+        "usage_log_path": "usage.jsonl", "results_path": "results.jsonl"}}), encoding="utf-8")
+    archive = tmp_path / "archive"
+    archive.mkdir()
+
+    def _hangs_forever(*args, **kwargs):
+        assert "timeout" in kwargs and kwargs["timeout"] is not None
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(sup.subprocess, "run", _hangs_forever)
+    rc = sup.main(["python", str(manifest), "auth.json", str(archive)])
+    assert rc == 8
