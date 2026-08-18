@@ -34,7 +34,7 @@
 set -uo pipefail
 
 : "${REPO:=/mnt/c/Users/Jack/Dev/FailureModeExperiment/selvarath-debate}"
-: "${VENV:=/home/jack/.venvs/selvarath-phase2/bin/python}"
+: "${VENV:=/home/jack/phase3-venv/bin/python}"
 : "${CODEX:=/home/jack/.local/bin/codex}"
 : "${MANIFEST:=rejudge/phase3_manifest_2026-08-18.json}"
 : "${AUTH:=rejudge/phase3_canary_authorization_2026-08-18.json}"

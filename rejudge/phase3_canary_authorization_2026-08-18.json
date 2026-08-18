@@ -4,8 +4,9 @@
  "authorizes": "provider spend for the phase-3 canary stage ONLY, under the manifest and identity below. Main-run spend requires its own record, gated on the canary launch gates, the configuration-selection evaluation, the frozen forecast, and amendment 2's deferred items.",
  "binds": {
   "manifest_tracked_path": "rejudge/phase3_manifest_2026-08-18.json",
-  "execution_identity_sha256": "f7e9a50c7e6b6e0766c17b1f6b84def7d7949b942b0333292fd27f8f82b0b26d",
-  "code_bundle_sha256": "e5acbb0f587536f6e2e27b16bf913e46d160a6e23efdad1126c08a88f2ecf1f2",
+  "execution_identity_sha256": "28bb18190c674babab1652ee959a14db9e157ec45a184ae0549bca8857980de8",
+  "code_bundle_sha256": "b341f66831c74791030caba75b4f09f2ea2122880ea45120f9a08e60ec053ee4",
+  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z, then 4ce6c714/cacfa86d after the driver build, then the current pair after the host-translation fix; each predecessor manifest was rebuilt in place before ever executing; the owner's 40 USD approval is unchanged",
   "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
   "amendment_1": "rejudge/phase3_amendment1_roster_2026-08-18.json (a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3)",
   "amendment_2": "rejudge/phase3_amendment2_deferral_2026-08-18.json"
