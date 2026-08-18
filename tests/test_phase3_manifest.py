@@ -317,15 +317,27 @@ def test_a_roster_model_outside_the_protocol_candidates_is_refused():
 
 
 def test_an_unavailable_new_candidate_in_the_roster_is_refused():
-    # meta-llama/Meta-Llama-3-8B-Instruct-Lite IS a legitimate protocol candidate
+    # meta-llama/Meta-Llama-3-8B-Instruct-Lite was a legitimate protocol candidate
     # (roster.judges_new), but the 2026-08-18 provider snapshot found it absent from the
-    # catalog, so phase3_role_limits_v1 carries no model_role_limits entry for it -- only an
-    # unavailable_candidates one. Binding it into a manifest must still fail closed.
+    # catalog and amendment 1 RETIRED it in favor of Meta-Llama-3.1-8B-Instruct-Turbo, so
+    # the roster validation itself refuses it, before role limits are even consulted.
     with pytest.raises(phase3_manifest.ManifestValidationError,
-                       match="no model_role_limits entry"):
+                       match="not among the frozen protocol's"):
         phase3_manifest.build_manifest(
             PROTOCOL_PATH, project_root=ROOT, recorded_at_utc="t", archive_dir="a",
             roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3-8B-Instruct-Lite"])
+
+
+def test_the_amendment_admitted_substitute_is_accepted_and_bound(manifest_root):
+    manifest = phase3_manifest.build_manifest(
+        PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="t", archive_dir="a",
+        roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"])
+    bindings = manifest["roster"]["amendments"]
+    assert len(bindings) == 1
+    assert bindings[0]["retired_candidate"] == "meta-llama/Meta-Llama-3-8B-Instruct-Lite"
+    assert bindings[0]["admitted_candidate"] == (
+        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+    assert len(bindings[0]["canonical_sha256"]) == 64
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+{
+ "schema_version": "phase3_amendment_v1",
+ "amendment_id": "phase3_amendment2_credential_and_reconciliation_deferral_2026-08-18",
+ "amends": {
+  "tracked_path": "rejudge/phase3_protocol.json",
+  "canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "sections": ["materialization_requirements.credential_rotation", "materialization_requirements.provider_reconciliation"]
+ },
+ "what_changed": "both gates move from before-canary-authorization to before-MAIN-run-authorization, where they become HARD blockers: no main-run authorization record may be written until the provider API key is rotated (non-secret evidence recorded) and the dashboard spend/credit figures are verified into a reconciliation record",
+ "why": "the owner is without dashboard access today and authorized the canary on the current key. The current key is functional (not compromised or expired); rotation is hygiene. Residual risk is bounded by the 40 USD canary cap, the supervisor's uncertain-spend ceiling, the fail-closed cumulative ledger, and the account's prepaid credit.",
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18",
+  "context_quote": "I don't have access to this stuff rn, can we get started and I get it to you later?",
+  "selection_label": "Launch now, defer items (Recommended)",
+  "selection_mechanism": "enumerated-choice prompt in the session UI following the owner's request; the deferral-to-main condition was stated in the option text the owner selected"
+ },
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T16:20:00Z",
+ "note": "Append-only."
+}

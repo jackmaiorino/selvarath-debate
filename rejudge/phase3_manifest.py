@@ -61,6 +61,14 @@ CHECKER_FROZEN_CONFIG_SHA256 = (
 REVIEWER_PROMPT_SHA256 = (
     "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4")
 
+# Owner-authorized roster-candidate substitutions, applied on top of the immutable frozen
+# protocol's candidate list: (tracked_path, canonical_sha256). Append-only, like the records
+# they bind.
+ROSTER_AMENDMENTS: tuple[tuple[str, str], ...] = (
+    ("rejudge/phase3_amendment1_roster_2026-08-18.json",
+     "a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3"),
+)
+
 PHASE2_PROMPT_BUNDLE_RELATIVE_PATH = Path("rejudge/phase2_prompt_bundle.json")
 PHASE2_PROMPT_BUNDLE_APPROVAL_RELATIVE_PATH = Path(
     "rejudge/phase2_prompt_bundle_approval_2026-07-18.json")
@@ -190,8 +198,34 @@ def _require_roster_role_limits(role_limits_payload: Mapping[str, Any],
             "before it can be dispatched")
 
 
+def _apply_roster_amendments(root: Path, allowed: set[str]) -> list[dict[str, Any]]:
+    """Apply owner-authorized candidate substitutions to the allowed-judge set.
+
+    The frozen protocol is immutable, so an availability-driven candidate substitution lives
+    in an append-only amendment record instead. Each entry here is re-read and hash-verified
+    from disk, its ``from`` candidate is retired from the allowed set and its ``to`` candidate
+    admitted, and the binding (path + hash + mapping) is returned for the manifest to record.
+    """
+    bindings = []
+    for relative, expected_sha in ROSTER_AMENDMENTS:
+        payload = _json(root / relative)
+        observed = canonical_sha256(payload)
+        if observed != expected_sha:
+            raise ManifestValidationError(
+                f"{relative} does not match its pinned hash: observed {observed}, "
+                f"expected {expected_sha}")
+        retired = str(payload["what_changed"]["from"]).split(" (")[0]
+        admitted = str(payload["what_changed"]["to"]).split(" (")[0]
+        allowed.discard(retired)
+        allowed.add(admitted)
+        bindings.append({"tracked_path": relative, "canonical_sha256": observed,
+                         "retired_candidate": retired, "admitted_candidate": admitted})
+    return bindings
+
+
 def _validate_roster_against_protocol(protocol: Mapping[str, Any],
-                                      roster_judges: Sequence[str]) -> None:
+                                      roster_judges: Sequence[str],
+                                      root: Path) -> list[dict[str, Any]]:
     if not roster_judges:
         raise ManifestValidationError("roster_judges must be non-empty")
     if len(roster_judges) != len(set(roster_judges)):
@@ -200,11 +234,13 @@ def _validate_roster_against_protocol(protocol: Mapping[str, Any],
     continuing = set(roster["judges_continuing"])
     new_candidates = {str(candidate["candidate_model_id"]) for candidate in roster["judges_new"]}
     allowed = continuing | new_candidates
+    amendment_bindings = _apply_roster_amendments(root, allowed)
     unknown = sorted(model for model in roster_judges if model not in allowed)
     if unknown:
         raise ManifestValidationError(
             f"roster judge(s) {unknown!r} are not among the frozen protocol's "
-            "roster.judges_continuing or roster.judges_new candidates")
+            "roster.judges_continuing or roster.judges_new candidates as amended")
+    return amendment_bindings
 
 
 def _load_phase2_protocol_verified(root: Path, protocol: Mapping[str, Any]) -> dict[str, Any]:
@@ -382,7 +418,7 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
             f"{observed_protocol_sha}, expected {phase3_plan.FROZEN_PROTOCOL_CANONICAL_SHA256}")
 
     roster_judges = list(roster_judges)
-    _validate_roster_against_protocol(protocol, roster_judges)
+    amendment_bindings = _validate_roster_against_protocol(protocol, roster_judges, root)
 
     main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, root)
     main_cells = phase3_plan.enumerate_cells(protocol, roster_judges, main_ids)
@@ -406,6 +442,7 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
         "frozen_inputs": frozen,
         "roster": {
             "judges": roster_judges,
+            "amendments": amendment_bindings,
             "debaters": list(protocol["roster"]["debaters"]),
             "oracle": protocol["roster"]["oracle"],
             "query_checker": protocol["roster"]["query_checker"],

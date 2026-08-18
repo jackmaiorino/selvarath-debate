@@ -1,0 +1,36 @@
+{
+ "schema_version": "phase3_canary_authorization_v1",
+ "authorization_id": "phase3_canary_authorization_2026-08-18",
+ "authorizes": "provider spend for the phase-3 canary stage ONLY, under the manifest and identity below. Main-run spend requires its own record, gated on the canary launch gates, the configuration-selection evaluation, the frozen forecast, and amendment 2's deferred items.",
+ "binds": {
+  "manifest_tracked_path": "rejudge/phase3_manifest_2026-08-18.json",
+  "execution_identity_sha256": "f7e9a50c7e6b6e0766c17b1f6b84def7d7949b942b0333292fd27f8f82b0b26d",
+  "code_bundle_sha256": "e5acbb0f587536f6e2e27b16bf913e46d160a6e23efdad1126c08a88f2ecf1f2",
+  "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "amendment_1": "rejudge/phase3_amendment1_roster_2026-08-18.json (a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3)",
+  "amendment_2": "rejudge/phase3_amendment2_deferral_2026-08-18.json"
+ },
+ "scope": {
+  "canary_slots": 1680,
+  "composition": "672 core b0 calibration-gate judgments (7 candidate judges) + 1,008 budget-smoke judgments (6-question subset through sequential_b1/b2/b4/b8) + 336 capability-anchor cells; 48 transcript-reference cells pre-seeded from the frozen canary bundle; ZERO transcript generation (manifest flag transcript_generation_forbidden enforced at runtime)",
+  "canary_cap_usd": 40,
+  "estimate_usd": "15-30",
+  "expected_reviewer_volume": "roughly 2,200-2,500 unique-payload gate rulings, about one quota-day",
+  "store": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl, pre-seeded with 540 transcript rows (492 main rows are inert for the canary plan and pre-satisfy the later main-stage dependency), idempotency verified"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18",
+  "selection_label": "Launch now, defer items (Recommended)",
+  "selection_mechanism": "enumerated-choice prompt in the session UI; the option text stated the 40 USD cap and the amendment-2 deferral condition"
+ },
+ "launch_preconditions_status": {
+  "offline_checker_fixtures": "pending re-run immediately before launch (green in the 2026-08-18 build-stage test batches)",
+  "phase3_driver": "REQUIRED BEFORE LAUNCH: a driver that loads this manifest, threads the role-limits transport pins into the accounted client (the closed 2026-08-10 gap), enforces transcript_generation_forbidden, and runs under the supervisor with the stall watchdog; not yet built at recording time",
+  "spend_controls": "supervisor uncertain-spend ceiling, same-cell cap, STOP-terminating orchestration, fail-closed cumulative ledger"
+ },
+ "execution_authorized": true,
+ "execution_authorization_scope": "canary stage only, 40 USD cap",
+ "recorded_at_utc": "2026-08-18T16:20:00Z",
+ "note": "Append-only. Recorded by the orchestrating assistant."
+}
