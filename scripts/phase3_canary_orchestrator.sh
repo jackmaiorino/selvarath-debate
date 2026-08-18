@@ -42,8 +42,9 @@ set -uo pipefail
 : "${LOG:=$ARCHIVE/orchestrator.log}"
 # 540 pre-seeded transcript rows (492 main + 48 canary; the 492 are inert for the canary plan,
 # pre-satisfying the later main-stage dependency -- see the canary authorization record's
-# scope.store note) + 1,680 canary judgment/capability slots this stage actually executes.
-: "${TOTAL_CELLS:=2220}"
+# scope.store note) + 1,440 canary judgment/capability slots at the 6-judge roster
+# (amendment 3 dropped the weak-Llama slot; was 1,680 at the original 7-candidate roster).
+: "${TOTAL_CELLS:=1980}"
 
 # Script paths, overridable so a test can point them at stubs without touching VENV (VENV
 # stays a real interpreter; only the script it runs changes).
