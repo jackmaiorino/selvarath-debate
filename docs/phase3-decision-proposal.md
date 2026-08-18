@@ -1,6 +1,13 @@
 # Phase-3 decision proposal: the budget knob
 
-**Status: DRAFT for owner and lead review. Not execution authorization. No spend approved.**
+**Status: APPROVED 2026-08-18 with two items reopened same day
+(`rejudge/phase3_authorization_2026-08-18.json`). Standing decisions: Option A (re-run
+b0/b2), 7-judge roster, fallback structure (subsample b4/b8, b1 never dropped), paid review
+NOT pre-authorized, stage cap $450. REOPENED by the pre-freeze review: the 20,000-ruling
+ceiling (derived from a flawed projection; honest volume is 4-6x higher) and Option D
+(verified tail-power gain is well below the estimate that justified it). Both return to the
+owner with corrected numbers. Execution and spend remain separately gated. Draft protocol:
+`rejudge/phase3_protocol.json`.**
 Prepared 2026-08-14. Companion to `docs/phase2-decision-proposal.md`; assumes phase-2 results
 (`reports/2026-08-11-phase2-main-results.md`) as given.
 
@@ -41,11 +48,11 @@ under a pre-declared inclusion rule (it joins if and only if it passes the calib
 and its per-cell cost projection keeps total spend under the stage cap; "optional" is not
 left open past roster freeze). New judges pass the same pre-declared calibration gates
 (parseability, side bias) before roster freeze; any that fail are replaced or dropped,
-recorded before outcomes. Every judge gets the frozen solo-QA capability anchor (all 106 questions, K2,
-scored before any phase-3 outcome exists). Capability enters the confirmatory analysis as a
-pre-frozen binary tier split on the anchor median, never as parameter count: phase-2
+recorded before outcomes. Every judge gets the frozen solo-QA capability anchor,
+scored before any phase-3 outcome exists. Capability enters the confirmatory analysis as the
+CONTINUOUS anchor score (see the secondary family below), never as parameter count: phase-2
 calibration showed judging skill does not track size (gpt-oss-120b judged far worse than
-Llama-70B). Within-family pairs and the continuous anchor score stay exploratory.
+Llama-70B). Within-family pairs and any tier split stay descriptive.
 
 **Primary family (consult-reviewed 2026-08-14):** the four budget contrasts
 Delta(b) = error(sequential_b) - error(b0) for b in {1, 2, 4, 8}, two-sided, Holm over four,
@@ -146,8 +153,14 @@ low-budget harm but would likely report the recovery as a CI straddling zero rat
 confirmed benefit. The curve with simultaneous intervals still shows the shape either way.
 
 **Option D for sign-off:** double the judgment replicates at b4 and b8 only (6 to 12 slots
-per cell in those arms), shrinking their standard errors by roughly 1.4x and raising
-U-recovery power at the tail arms to an estimated 40 to 60 percent, for about +$50-70 and
-proportionally more gate reviews. Recommended if the recovery question matters to the
-narrative more than the added review-throughput risk; the base grid is recommended
-otherwise, with the recovery stated as estimable but not confirmable at small magnitudes.
+per cell in those arms), for about +$50-70 and proportionally more gate reviews.
+
+**Option D verification (2026-08-18, `analysis_out/phase3_power_sim_optiond.json`):** the
+original "estimated 40 to 60 percent" tail power was a back-of-envelope figure. The
+simulation re-run with the actual 6-vs-12 slot structure gives U-recovery power b4
+0.17 to 0.29 and b8 0.27 to 0.36. The gain is real but modest, because question-level
+heterogeneity, not within-cell replicate noise, dominates the bootstrap variance, and
+doubling replicates only shrinks the latter. Since Option D also doubles b4/b8 gate-review
+volume, which the corrected throughput projections (see the protocol's
+review_volume_evidence) identify as the binding constraint, the trade is materially worse
+than presented at sign-off and goes back to the owner for re-decision.

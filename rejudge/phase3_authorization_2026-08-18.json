@@ -1,0 +1,48 @@
+{
+ "schema_version": "phase3_design_authorization_v1",
+ "authorization_id": "phase3_design_signoff_2026-08-18",
+ "authorizes": "phase-3 design scope per docs/phase3-decision-proposal.md, resolving its open options; NOT execution and NOT spend. Canary and main-run spend each require their own authorization records bound to concrete execution identity hashes, as in phase 2.",
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18",
+  "exact_quote": "Ok, we got the go ahead to continue with phase 3",
+  "lead_signoff": "reported by the owner in the same message ('we got the go ahead'); the lead's approval is recorded here as owner-relayed, not directly witnessed"
+ },
+ "option_decisions": {
+  "option_A_manifest_scope": {
+   "decision": "re-run b0 and b2 under the phase-3 manifest; no pooling with phase-2 rows",
+   "basis": "recommended default in the proposal, accepted by the blanket go-ahead"
+  },
+  "option_B_roster_size": {
+   "decision": "7 judges as sketched (4 phase-2 judges + Llama-3-8B-Lite + gemma-3n-E4B + Qwen3.7-Max under the pre-declared inclusion rule)",
+   "basis": "recommended default in the proposal, accepted by the blanket go-ahead"
+  },
+  "option_C_reviewer_fallback": {
+   "decision": "fallback STRUCTURE stands: on trigger, subsample the b4 and b8 arms to the frozen 41-question subset with paired b0 analysis on the same subset; b1 is never dropped. Paid reviewing is NOT pre-authorized: if even the fallback projection exceeds the ceiling, halt and return to the owner with numbers. The CEILING NUMBER is VOID (see reopened_items).",
+   "basis": "owner selected the option labeled '20k / half, ask before paid (Recommended)' from an enumerated-choice prompt presented in the session UI, 2026-08-18; the selection label is verbatim, no free-text owner quote exists for this choice",
+   "selection_mechanism_note": "the assistant presented 2-3 labeled options per question via the session's structured question UI and the owner clicked selections; recorded as owner selections of assistant-framed options, a weaker evidentiary form than a free-text owner statement"
+  },
+  "option_D_tail_replicates": {
+   "decision": "ADOPTED at sign-off, REOPENED same day (see reopened_items): double the judgment replicates at b4 and b8 only (12 slots per cell in those arms, 6 elsewhere)",
+   "basis": "owner selected the option labeled 'Option D (Recommended)' from the same enumerated-choice prompt, 2026-08-18; selection label verbatim, no free-text quote",
+   "consequence": "stage spend estimate rises to 270-450 USD and the stage cap is set at 450 USD"
+ },
+  "stage_cap_usd": 450
+ },
+ "reopened_items_2026-08-18": {
+  "reason": "the pre-freeze adversarial review (five-lens, same day) found that the assistant's projection behind the 20,000-ruling ceiling under-counted honest review volume by roughly 4-6x (measured phase-2 yield 0.874 rulings per theoretical query slot implies 106,000-153,000 rulings for the full Option-D grid), and that Option D's claimed 40-60% tail power was an unverified estimate (the verified simulation gives 29%/36% at b4/b8 versus 17%/27% without it). Both selections rested on assistant-supplied numbers now known to be wrong or unverified, so both return to the owner for re-decision with corrected figures before the protocol freezes.",
+  "items": ["reviewer-throughput ceiling number", "Option D adoption"],
+  "unaffected": "Option A, roster size, fallback structure, ask-before-paid, and the 450 USD stage cap stand"
+ },
+ "assistant_resolved_details": {
+  "note": "resolved by the assistant under the standing delegation while drafting the protocol, not owner-selected; flagged for owner review at protocol sign-off",
+  "items": [
+   "the proposal's optional trend-test secondary is not exercised (descriptive only), keeping the confirmatory surface minimal",
+   "new judges failing calibration gates are dropped, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check)"
+  ]
+ },
+ "spend_policy_note": "under the owner's 2026-08-10 recalibration, small operational amounts are pre-cleared; the 450 USD stage cap is the phase-3 family ceiling and is not itself spend authorization for any stage",
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T11:37:40Z",
+ "note": "Append-only. Recorded by the orchestrating assistant under the standing delegation; the quoted owner decisions are verbatim from the session transcript."
+}
