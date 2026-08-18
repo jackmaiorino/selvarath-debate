@@ -171,7 +171,14 @@ def judge_protocol_for(cell: ResolvedCell, protocol: Mapping[str, Any],
             "temperature": {
                 "judge": temperatures["judge_verdict"],
                 "oracle": temperatures["oracle"],
-                "debater": temperatures["debater"],
+                # .get(), not []: judge_loop.run_judgment never reads this key for a judgment
+                # cell (only debater_protocol_for's OWN "debater" entry, for TRANSCRIPT
+                # generation, is ever read downstream) -- carried here only for structural
+                # symmetry with debater_protocol_for's dict shape. Phase 3's frozen protocol
+                # deliberately omits temperature_by_call_role.debater (it makes ZERO debater
+                # calls, ever), so requiring the key here would make every phase-3 judgment
+                # cell KeyError on genuinely dead data.
+                "debater": temperatures.get("debater"),
             },
         },
         "gate": gate,

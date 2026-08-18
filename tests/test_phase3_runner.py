@@ -1,0 +1,630 @@
+"""Launch-gate evidence for rejudge.phase3_runner: the phase-3 canary driver.
+
+Fully hermetic: every client is either ``rejudge.phase2_canary_fixtures.DeterministicCanaryClient``
+(a pure offline stub answering every canary call role deterministically, at zero cost) or a real
+``rejudge.api_client.RejudgeClient`` pointed at an injected fake SDK object -- never a real
+``together``/network client. Nothing here reads or writes ``E:/``.
+
+The big dry run (``test_full_canary_dry_run_completes_all_1680_slots``) drives the REAL frozen
+protocol, 7-judge roster (including the amendment-1 substitute), reused phase-2 prompt bundle,
+and role-limits artifact -- all tracked, in-repo files -- against SYNTHETIC transcript bundles,
+mirroring ``tests/test_phase3_manifest.py``'s own ``_copied_repo`` pattern (a tmp copy of the
+repo, with only the two transcript bundles and the verification report overwritten) but extended
+to cover the real 24 held-out question IDs so judgment cells execute against real question/world
+content rather than placeholder text.
+"""
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from pathlib import Path
+
+import pytest
+
+from rejudge import api_client, phase3_manifest, phase3_plan, phase3_runner, run_accounting
+from rejudge.api_client import CapExceededError
+from rejudge.debate_gen import _load_question_bank
+from rejudge.phase2_canary_execute import GenerationForbiddenError
+from rejudge.phase2_canary_fixtures import DeterministicCanaryClient, StubReviewer
+from rejudge.phase2_canary_live import local_path
+from rejudge.phase2_canary_order import CellResultStore
+from rejudge.phase2_execution import canonical_sha256
+from scripts.phase3_preseed_transcripts import preseed
+
+ROOT = Path(__file__).resolve().parents[1]
+PROTOCOL_PATH = ROOT / "rejudge" / "phase3_protocol.json"
+
+# The 6 protocol-native candidates plus the amendment-1 substitute for the one catalog-absent
+# candidate (meta-llama/Meta-Llama-3-8B-Instruct-Lite) -- the frozen 7 the real manifest binds,
+# matching decisions.launch_gates.canary_slot_inventory's N7 = 1,680 canary judgment slots.
+FULL_ROSTER = [
+    "Qwen/Qwen2.5-7B-Instruct-Turbo", "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo", "openai/gpt-oss-120b",
+    "google/gemma-3n-E4B-it", "Qwen/Qwen3.7-Max",
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+]
+# The 4 continuing judges only, for tests that need SOME valid roster but not the full slot
+# count (faster to build/execute against).
+GUARD_ROSTER = [
+    "Qwen/Qwen2.5-7B-Instruct-Turbo", "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo", "openai/gpt-oss-120b",
+]
+
+_IGNORE = shutil.ignore_patterns(".git", "data", "rejudge/output", "__pycache__", ".venv",
+                                 ".pytest_cache")
+_DEBATERS = ("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Qwen/Qwen3.7-Plus")
+
+
+# --- repo/bundle fixtures ------------------------------------------------------------------
+
+
+def _reference_question_ids() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    protocol = phase3_plan.load_protocol(PROTOCOL_PATH)
+    return phase3_plan.load_reference_question_ids(protocol, ROOT)
+
+
+def _real_transcript_payload(question: dict, debater: str, transcript_index: int = 0) -> dict:
+    return {
+        "question_id": question["id"], "transcript_index": transcript_index,
+        "world": question["world"], "question": question["question"],
+        "correct_answer": question["correct_answer"], "wrong_answer": question["wrong_answer"],
+        "honest_first": True,
+        "debate_transcript": [
+            {"speaker": "honest", "text": f"{debater} opens honestly.", "round": 1},
+            {"speaker": "dishonest", "text": f"{debater} opens dishonestly.", "round": 1},
+            {"speaker": "honest", "text": f"{debater} closes honestly.", "round": 2},
+            {"speaker": "dishonest", "text": f"{debater} closes dishonestly.", "round": 2},
+        ],
+    }
+
+
+def _bundle_row(name: str, question_id: str, world: str, debater: str, transcript_index: int,
+                payload: dict) -> dict:
+    return {
+        "question_id": question_id, "world": world, "debater_model": debater,
+        "transcript_index": transcript_index,
+        "source_cell_key": f"synthetic:{name}:{question_id}:{debater}:{transcript_index}",
+        "source_event_hash": "0" * 64, "transcript_sha256": canonical_sha256(payload),
+        "transcript_payload": payload,
+    }
+
+
+def _real_canary_transcript_bundle(question_ids: tuple[str, ...]) -> dict:
+    """One real-question-content transcript per (debater, held-out question) -- exactly the 48
+    the frozen canary bundle carries -- so judgment cells execute against real question/world
+    text rather than placeholders."""
+    bank = _load_question_bank()
+    records = [
+        _bundle_row("canary", question_id, bank[question_id]["world"], debater, 0,
+                   _real_transcript_payload(bank[question_id], debater))
+        for debater in _DEBATERS for question_id in question_ids
+    ]
+    return {"schema_version": "phase3_transcript_bundle_v1", "bundle": "canary",
+            "expected_transcript_count": len(records), "actual_transcript_count": len(records),
+            "transcripts": records}
+
+
+def _real_main_transcript_bundle(main_ids: tuple[str, ...]) -> dict:
+    """All 492 (82 real main questions x 2 debaters x 3 transcripts) main-stage transcript
+    rows, with real question content. No test in this module exercises the phase-3 MAIN stage,
+    but ``scripts.phase3_preseed_transcripts.preseed`` refuses a bundle that does not cover
+    EVERY enumerated main transcript cell, so a placeholder subset does not satisfy it -- this
+    has to be the real, full main question-id set."""
+    bank = _load_question_bank()
+    records = [
+        _bundle_row("main", question_id, bank[question_id]["world"], debater, index,
+                   _real_transcript_payload(bank[question_id], debater, index))
+        for debater in _DEBATERS for question_id in main_ids for index in range(3)
+    ]
+    return {"schema_version": "phase3_transcript_bundle_v1", "bundle": "main",
+            "expected_transcript_count": len(records), "actual_transcript_count": len(records),
+            "transcripts": records}
+
+
+def _write_transcript_bundles(root: Path, *, main_bundle: dict, canary_bundle: dict) -> None:
+    main_path = root / phase3_manifest.MAIN_TRANSCRIPT_BUNDLE_RELATIVE_PATH
+    canary_path = root / phase3_manifest.CANARY_TRANSCRIPT_BUNDLE_RELATIVE_PATH
+    main_path.write_text(json.dumps(main_bundle), encoding="utf-8")
+    canary_path.write_text(json.dumps(canary_bundle), encoding="utf-8")
+    report_path = root / phase3_manifest.TRANSCRIPT_VERIFICATION_RELATIVE_PATH
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["bundle_canonical_sha256"] = {
+        "main_bundle": canonical_sha256(main_bundle),
+        "canary_bundle": canonical_sha256(canary_bundle),
+    }
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def reference_question_ids() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    return _reference_question_ids()
+
+
+@pytest.fixture(scope="module")
+def held_out_ids(reference_question_ids) -> tuple[str, ...]:
+    return reference_question_ids[1]
+
+
+@pytest.fixture(scope="module")
+def repo_root(tmp_path_factory, reference_question_ids) -> Path:
+    """A module-scoped copied repo (see the docstring) so every test below shares one
+    (relatively expensive) repo copy + synthetic-bundle write."""
+    main_ids, held_out_ids = reference_question_ids
+    root = tmp_path_factory.mktemp("phase3_runner") / "repo"
+    shutil.copytree(ROOT, root, ignore=_IGNORE)
+    _write_transcript_bundles(
+        root, main_bundle=_real_main_transcript_bundle(main_ids),
+        canary_bundle=_real_canary_transcript_bundle(held_out_ids))
+    return root
+
+
+def _build_manifest(root: Path, roster: list[str], archive_dir: Path) -> dict:
+    return phase3_manifest.build_manifest(
+        root / "rejudge" / "phase3_protocol.json", project_root=root,
+        recorded_at_utc="2026-08-18T00:00:00Z",
+        archive_dir=str(archive_dir).replace("\\", "/"), roster_judges=roster)
+
+
+def _authorization_for(manifest: dict, *, cap_usd: float = 40.0) -> dict:
+    return {
+        "schema_version": "phase3_canary_authorization_v1",
+        "binds": {"execution_identity_sha256": manifest["execution_identity_sha256"]},
+        "scope": {"canary_cap_usd": cap_usd},
+        "execution_authorized": True,
+    }
+
+
+def _write_manifest_and_authorization(tmp_path: Path, manifest: dict,
+                                      authorization: dict) -> tuple[Path, Path]:
+    manifest_path = tmp_path / "manifest.json"
+    authorization_path = tmp_path / "authorization.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    authorization_path.write_text(json.dumps(authorization), encoding="utf-8")
+    return manifest_path, authorization_path
+
+
+def _preseed(root: Path, manifest: dict) -> dict:
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    return preseed(
+        protocol_path=root / "rejudge" / "phase3_protocol.json", project_root=root,
+        main_bundle_path=root / phase3_manifest.MAIN_TRANSCRIPT_BUNDLE_RELATIVE_PATH,
+        canary_bundle_path=root / phase3_manifest.CANARY_TRANSCRIPT_BUNDLE_RELATIVE_PATH,
+        verification_report_path=root / phase3_manifest.TRANSCRIPT_VERIFICATION_RELATIVE_PATH,
+        target_store_path=results_path)
+
+
+# ---------------------------------------------------------------------------
+# THE DRY RUN: the full canary plan, all 1,728 cells
+# ---------------------------------------------------------------------------
+
+
+def test_full_canary_dry_run_completes_all_1680_slots(tmp_path, repo_root, held_out_ids):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, FULL_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+
+    seed_summary = _preseed(repo_root, manifest)
+    assert seed_summary["written"]["canary"] == 48
+    assert seed_summary["skipped"]["canary"] == 0
+
+    client = DeterministicCanaryClient()
+    reviewer = StubReviewer()
+
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=reviewer, mode="api")
+
+    assert outcome.halted_reason is None
+    assert outcome.paused == 0
+    assert outcome.deferred == 0
+    assert outcome.abandoned == 0
+    assert outcome.skipped == 48
+    assert outcome.completed == 1680
+
+    # Zero transcript-generation attempts: every debater_turn call would mean live generation.
+    assert not any(call.get("call_role") == "debater_turn" for call in client.calls)
+
+    # capability_qa cells used the capability prompt.
+    capability_calls = [c for c in client.calls if c.get("call_role") == "capability_qa"]
+    assert len(capability_calls) == 336
+    bundle = json.loads(
+        (repo_root / "rejudge" / "phase2_prompt_bundle.json").read_text(encoding="utf-8"))
+    expected_system = bundle["templates"]["capability_qa"]["system_prompt"]
+    assert all(call["messages"][0]["content"] == expected_system for call in capability_calls)
+    assert all(call["messages"][0]["role"] == "system" for call in capability_calls)
+
+    # Budgets flow through generically: every sequential_b1/b2/b4/b8 judgment saw the correct
+    # total_budget in its rendered query prompt -- not hard-coded to phase 2's budget-2 grid.
+    for budget in (1, 2, 4, 8):
+        query_calls = [c for c in client.calls
+                       if c.get("call_role") == "judge_query" and c.get("budget") == budget]
+        assert query_calls, f"no judge_query calls captured for budget {budget}"
+        assert any(
+            f"out of {budget}." in message["content"]
+            for call in query_calls for message in call["messages"]
+            if message["role"] == "user"
+        ), f"no judge_query prompt rendered 'out of {budget}.' for budget {budget}"
+
+    # The store chain verifies at the end: reopening it re-walks the whole hash chain without
+    # raising. It holds 2,220 rows in total -- preseed() seeds BOTH bundles into this one store
+    # (492 main + 48 canary transcript rows), plus the 1,680 cells this run just executed.
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    reopened = CellResultStore(results_path)
+    assert len(reopened._results) == 492 + 48 + 1680
+
+    protocol_for_count = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol_for_count, FULL_ROSTER, held_out_ids)
+    canary_cell_keys = {str(cell["cell_key"]) for cell in canary_cells}
+    assert len(canary_cell_keys) == 1728
+    assert canary_cell_keys <= set(reopened._results)
+
+
+# ---------------------------------------------------------------------------
+# model pricing: split across two snapshot files, one candidate priced only inside
+# a DIFFERENT candidate's closest_catalog_ids
+# ---------------------------------------------------------------------------
+
+
+def test_roster_model_prices_resolve_for_the_full_7_judge_roster(repo_root):
+    """Exercises all three price sources ``resolve_roster_model_prices`` searches: the 4
+    continuing judges (from ``phase2_provider_price_snapshot``), the 2 new candidates with a
+    direct ``new_judges_pending_verification`` entry, and the one admitted-by-substitution
+    candidate (``meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo``) whose price is recorded only
+    inside a DIFFERENT (catalog-absent) candidate's ``closest_catalog_ids`` list."""
+    prices = phase3_runner.resolve_roster_model_prices(FULL_ROSTER, project_root=repo_root)
+    assert set(prices) == set(FULL_ROSTER)
+    for model, pair in prices.items():
+        assert pair["in"] > 0, model
+        assert pair["out"] > 0, model
+    # The substitute's price, cross-checked against the real snapshot's nested record.
+    assert prices["meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"] == {"in": 0.18, "out": 0.18}
+
+
+def test_an_unpriceable_roster_judge_refuses(repo_root):
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="no price could be resolved"):
+        phase3_runner.resolve_roster_model_prices(
+            [*GUARD_ROSTER, "not-a-real-model-id"], project_root=repo_root)
+
+
+# ---------------------------------------------------------------------------
+# pins-threading: the constructed client actually carries the v5 transport pins
+# ---------------------------------------------------------------------------
+
+
+def test_transport_pins_are_threaded_into_the_constructed_client(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    role_limits = json.loads(
+        (repo_root / str(manifest["frozen_inputs"]["role_limits_tracked_path"]))
+        .read_text(encoding="utf-8"))
+    transport = role_limits["request_settings"]["transport"]
+
+    client = phase3_runner.build_phase3_client(
+        manifest, project_root=repo_root, canary_cap_usd=40.0,
+        usage_log_path=archive_dir / "usage.jsonl", error_log_path=archive_dir / "err.jsonl",
+        call_cache_path=archive_dir / "cache.jsonl")
+    raw = phase3_runner.underlying_rejudge_client(client)
+
+    assert raw.http_timeout is not None
+    assert raw.http_timeout["read"] == float(transport["http_timeout"]["read"])
+    assert raw.http_timeout["connect"] == float(transport["http_timeout"]["connect"])
+    assert raw.sdk_internal_max_retries == int(transport["sdk_internal_max_retries"])
+    assert raw.per_call_wall_clock_ceiling_seconds == float(
+        transport["per_call_wall_clock_ceiling_seconds"])
+    # The other phase-2 hardening knobs create_accounted_client does not expose (see
+    # phase3_runner._apply_role_limit_hardening's docstring) are also carried.
+    assert raw.strict_context_mode is True
+    assert raw.halt_on_unknown_charge is True
+    assert raw.require_explicit_reasoning_max_tokens is True
+    assert "openai/gpt-oss-120b" in raw.reasoning_models
+
+
+def test_building_the_client_the_old_way_carries_none_regression(tmp_path):
+    """Regression for the exact 2026-08-10 gap: create_accounted_client called WITHOUT the v5
+    pin kwargs (the shape every call site used before this change) must still carry None, so
+    the finding that motivated threading them stays falsifiable."""
+    ledger = tmp_path / "usage.jsonl"
+    identity = run_accounting.prepare_usage_ledger(ledger, allow_create=True)
+    client, _summary = run_accounting.create_accounted_client(
+        approved_cap_usd=1.0, dry_run=False, model_prices={"m": {"in": 1.0, "out": 1.0}},
+        usage_log_path=ledger, error_log_path=tmp_path / "errors.jsonl",
+        ledger_identity=identity)
+    assert client.http_timeout is None
+    assert client.sdk_internal_max_retries is None
+    assert client.per_call_wall_clock_ceiling_seconds is None
+
+
+# ---------------------------------------------------------------------------
+# generation guard: a missing transcript row crashes, never a provider call
+# ---------------------------------------------------------------------------
+
+
+def test_a_missing_transcript_row_crashes_with_generation_forbidden_error(tmp_path, repo_root,
+                                                                          held_out_ids):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+
+    _preseed(repo_root, manifest)
+
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
+    dropped_key = next(
+        str(cell["cell_key"]) for cell in canary_cells
+        if cell["kind"] == phase3_plan.CANARY_TRANSCRIPT_KIND)
+
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    rows = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()
+           if line.strip()]
+    kept = [row for row in rows if row["cell_key"] != dropped_key]
+    assert len(kept) == len(rows) - 1
+    results_path.unlink()
+    store = CellResultStore(results_path)
+    for row in kept:
+        store.record(row["cell_key"], row["result"])
+
+    client = DeterministicCanaryClient()
+    with pytest.raises(GenerationForbiddenError, match=re.escape(dropped_key)):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root, client=client,
+            reviewer=StubReviewer(), mode="api")
+    assert client.calls == [], "the guard must fire before any provider call"
+
+
+# ---------------------------------------------------------------------------
+# spend cap: refuses to start, and stops mid-run
+# ---------------------------------------------------------------------------
+
+
+class _FixedResponseSDK:
+    """A minimal fake `together` SDK client: one fixed, instant, non-network response."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        outer = self
+
+        class _Usage:
+            # Small and well under any max_tokens this test requests: the reservation the
+            # client made before the call is sized from the REQUEST (max_tokens, estimated
+            # prompt tokens), and an actual cost that exceeds it trips
+            # RejudgeClient's AccountingInvariantError.
+            prompt_tokens = 20
+            completion_tokens = 16
+
+        class _Message:
+            content = "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: fixture"
+
+        class _Choice:
+            message = _Message()
+
+        class _Resp:
+            usage = _Usage()
+            choices = [_Choice()]
+
+        class _Completions:
+            def create(self, **kwargs):
+                outer.calls += 1
+                return _Resp()
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+def test_cap_already_reached_refuses_to_start(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    usage_log_path = archive_dir / "usage.jsonl"
+
+    prices = phase3_runner.resolve_roster_model_prices(GUARD_ROSTER, project_root=repo_root)
+    model = GUARD_ROSTER[0]
+    identity = run_accounting.prepare_usage_ledger(usage_log_path, allow_create=True)
+    snapshot = api_client.load_chained_usage_ledger(
+        str(usage_log_path), expected_identity=identity)
+    seed_client = api_client.RejudgeClient(
+        approved_cap_usd=1000.0, dry_run=False, error_log_path=str(archive_dir / "seed_err.jsonl"),
+        model_prices=prices, strict_model_pricing=True, initial_spend_usd=0.0,
+        initial_uncertain_spend_usd=0.0, usage_log_path=str(usage_log_path),
+        _ledger_snapshot=snapshot, _accounting_factory_token=api_client._LIVE_ACCOUNTING_FACTORY_TOKEN,
+        _sdk_client=_FixedResponseSDK())
+    seed_client.complete(
+        [{"role": "user", "content": "seed spend"}], model, 0.0, 1, 64, kind="verdict",
+        request_metadata={"cell_key": "seed", "call_role": "judge_verdict"})
+    spent = seed_client.actual_spent_usd
+    assert spent > 0, "the seed call must have accounted some real spend"
+
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="reached the canary cap"):
+        phase3_runner.build_phase3_client(
+            manifest, project_root=repo_root, canary_cap_usd=spent,
+            usage_log_path=usage_log_path, error_log_path=archive_dir / "err.jsonl",
+            call_cache_path=archive_dir / "cache.jsonl")
+
+
+class _CapExceededAfterNCalls:
+    """Wraps a client and raises CapExceededError from the (N+1)th call on -- simulating a real
+    spend cap being crossed mid-run without needing real ledger accounting."""
+
+    def __init__(self, inner, limit: int) -> None:
+        self._inner = inner
+        self._limit = limit
+        self.calls = 0
+
+    @property
+    def dry_run(self) -> bool:
+        return getattr(self._inner, "dry_run", False)
+
+    def complete(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls > self._limit:
+            raise CapExceededError("synthetic cap breach")
+        return self._inner.complete(*args, **kwargs)
+
+
+def test_cap_exceeded_stops_mid_run(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    client = _CapExceededAfterNCalls(DeterministicCanaryClient(), limit=5)
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=StubReviewer(), mode="api")
+
+    assert outcome.halted_reason == "cap_exceeded"
+    assert outcome.halted_cell_key is not None
+    # Only a handful of cells could have completed before the synthetic breach.
+    assert outcome.completed < 50
+
+
+def test_resumes_correctly_after_a_mid_run_halt(tmp_path, repo_root):
+    """Resumable at cell granularity: cells the store already carries a result for are never
+    re-attempted (and so never re-billed) on the next invocation, exactly phase 2's own
+    resume contract via CellResultStore.is_complete."""
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    first_client = _CapExceededAfterNCalls(DeterministicCanaryClient(), limit=5)
+    first_outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=first_client,
+        reviewer=StubReviewer(), mode="api")
+    assert first_outcome.halted_reason == "cap_exceeded"
+    assert first_outcome.completed > 0
+
+    second_outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root,
+        client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api")
+
+    assert second_outcome.halted_reason is None
+    # Everything the second pass skips is exactly what the first pass had already preseeded
+    # or completed -- nothing more, nothing less. (The capability phase only starts once the
+    # judgment/transcript pass is clean, so it contributed zero skips in the first, halted run.)
+    assert second_outcome.skipped == first_outcome.skipped + first_outcome.completed
+
+
+# ---------------------------------------------------------------------------
+# condition-balanced block scheduling (phase2_canary_runner.run_canary's concurrent path)
+# is reused, not reimplemented -- prove the parameters actually reach it
+# ---------------------------------------------------------------------------
+
+
+def test_max_workers_and_block_size_thread_through_to_a_concurrent_pass(tmp_path, repo_root,
+                                                                        held_out_ids):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    expected_canary_cells = len(
+        phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids))
+
+    client = DeterministicCanaryClient()
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=StubReviewer(), mode="api", max_workers=4, block_size=8)
+
+    assert outcome.halted_reason is None
+    assert outcome.paused == 0
+
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    reopened = CellResultStore(results_path)  # re-walks the hash chain; raises if broken
+    canary_cell_keys = {str(cell["cell_key"]) for cell in
+                        phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)}
+    assert len(canary_cell_keys) == expected_canary_cells
+    assert canary_cell_keys <= set(reopened._results)
+
+
+# ---------------------------------------------------------------------------
+# gate reviews: subagent-batch mode pauses and exports a worklist, exactly phase 2's mechanism
+# ---------------------------------------------------------------------------
+
+
+def test_subagent_batch_mode_pauses_and_exports_a_worklist(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    client = DeterministicCanaryClient()
+    # reviewer omitted: mode="subagent-batch" defaults to _PauseModeReviewer, which must never
+    # be consulted -- an unlabelled payload pauses its cell instead.
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        mode="subagent-batch")
+
+    assert outcome.halted_reason is None
+    assert outcome.needs_labelling
+    assert outcome.pending_payloads
+    # b0 cells never touch the gate at all, so some judgment cells still complete this pass.
+    assert outcome.completed > 0
+
+    archive_dir_local = local_path(manifest["ledger"]["archive_dir"])
+    worklist_path = archive_dir_local / phase3_runner.WORKLIST_FILENAME
+    assert worklist_path.exists()
+    worklist = json.loads(worklist_path.read_text(encoding="utf-8"))
+    assert len(worklist["items"]) == len(outcome.pending_payloads)
+    for item in worklist["items"]:
+        assert item["subagent_prompt"]
+        assert item["subagent_prompt_sha256"]
+
+
+# ---------------------------------------------------------------------------
+# authorization: absent / mismatched identity / not authorized all refuse to start
+# ---------------------------------------------------------------------------
+
+
+def test_authorization_absent_refuses(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    manifest_path, _ = _write_manifest_and_authorization(
+        tmp_path, manifest, _authorization_for(manifest))
+    missing_path = tmp_path / "does_not_exist.json"
+    with pytest.raises(phase3_runner.Phase3RunnerError,
+                       match="no phase-3 canary authorization"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, missing_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api")
+
+
+def test_authorization_mismatched_identity_refuses(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    authorization["binds"]["execution_identity_sha256"] = "0" * 64
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    with pytest.raises(phase3_runner.Phase3RunnerError,
+                       match="different execution_identity_sha256"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api")
+
+
+def test_authorization_not_authorized_refuses(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    authorization["execution_authorized"] = False
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="execution_authorized == true"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api")

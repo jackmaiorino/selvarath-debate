@@ -167,7 +167,8 @@ def _event_epoch(event: dict) -> float:
         return float("-inf")
 
 
-def ledger_paths_for(manifest_path: str, archive_dir: Path) -> dict:
+def ledger_paths_for(manifest_path: str, archive_dir: Path, *,
+                     results_key: str = "results_path") -> dict:
     """The ledger, results and error-log paths THIS run writes.
 
     Read from the manifest rather than assumed. They were hardcoded to the canary's names, so
@@ -175,11 +176,17 @@ def ledger_paths_for(manifest_path: str, archive_dir: Path) -> dict:
     found no abandoned call, and would have stopped for manual review on every ordinary
     transient. The "halted cell already has a result row" guard read a missing results file
     and silently passed, which is worse: a real check that cannot fail is not a check.
+
+    ``results_key`` is additive, default-unchanged: phase-2 canary/main manifests carry a flat
+    ``ledger.results_path``, but the phase-3 manifest's ledger block splits it into
+    ``canary_results_path``/``main_results_path`` (one manifest, two sub-stages -- see
+    ``rejudge.phase3_manifest``). A phase-3 caller passes ``results_key="canary_results_path"``;
+    every phase-2 call site omits it and reads exactly the same field as before.
     """
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     ledger = manifest["ledger"]
     usage = Path(ledger["usage_log_path"]).name
-    results = Path(ledger["results_path"]).name
+    results = Path(ledger[results_key]).name
     # Not in the ledger block for canary manifests; derived from the usage name's prefix so it
     # cannot drift from whatever the driver writes.
     prefix = usage.split("_usage", 1)[0]
@@ -287,16 +294,33 @@ def _uncertain_spend(usage_path: Path) -> float:
     return total
 
 
+_LEADING_FLAGS = {
+    # Additive, phase-2-unchanged: consumed only when literally the first tokens on the
+    # command line, so every existing phase-2 invocation (4 positional args, nothing else)
+    # takes the defaults below and behaves exactly as before. A phase-3 orchestrator passes
+    # --driver-module rejudge.phase3_runner --results-key canary_results_path explicitly.
+    "--driver-module": "driver_module",
+    "--driver-mode": "driver_mode",
+    "--results-key": "results_key",
+}
+
+
 def main(argv=None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    options = {"driver_module": "rejudge.phase2_canary_live", "driver_mode": "subagent-batch",
+              "results_key": "results_path"}
+    while len(args) >= 2 and args[0] in _LEADING_FLAGS:
+        flag = args.pop(0)
+        options[_LEADING_FLAGS[flag]] = args.pop(0)
     if len(args) < 4:
-        print("usage: canary_supervisor.py PYTHON MANIFEST AUTHORIZATION ARCHIVE_DIR "
+        print("usage: canary_supervisor.py [--driver-module MOD] [--driver-mode MODE] "
+              "[--results-key KEY] PYTHON MANIFEST AUTHORIZATION ARCHIVE_DIR "
               "[extra driver args...]", file=sys.stderr)
         return 2
     python, manifest, authorization, archive = args[:4]
     extra = args[4:]
     archive_dir = Path(archive)
-    _paths = ledger_paths_for(manifest, archive_dir)
+    _paths = ledger_paths_for(manifest, archive_dir, results_key=options["results_key"])
     usage_path = _paths["usage"]
     error_log_path = _paths["errors"]
     results_path = _paths["results"]
@@ -310,9 +334,9 @@ def main(argv=None) -> int:
         print(f"supervisor: attempt {resumes + 1} starting", flush=True)
         try:
             proc = subprocess.run(
-                [python, "-m", "rejudge.phase2_canary_live", "--manifest", manifest,
+                [python, "-m", options["driver_module"], "--manifest", manifest,
                  "--authorization", authorization, "--project-root", ".",
-                 "--mode", "subagent-batch", *extra],
+                 "--mode", options["driver_mode"], *extra],
                 capture_output=True, text=True, timeout=driver_timeout)
         except subprocess.TimeoutExpired:
             # The same defect class one level up the stack: the driver subprocess itself is

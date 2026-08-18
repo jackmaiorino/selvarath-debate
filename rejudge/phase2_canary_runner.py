@@ -123,7 +123,9 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                cells: list | None = None,
                max_workers: int = 1,
                block_size: int | None = None,
-               model_caps: dict[str, int] | None = None) -> RunOutcome:
+               model_caps: dict[str, int] | None = None,
+               transcript_generation_forbidden: bool = False,
+               namespace: str | None = None) -> RunOutcome:
     """Run one pass over the frozen canary plan, resuming from whatever is already recorded.
 
     Returns rather than raises on a halt: the caller needs the partial outcome, and everything
@@ -135,6 +137,16 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     the shared stores enforce one ruling per payload and one record per cell. ``model_caps``
     bounds in-flight calls per model, which is the control that actually matters given one
     model carries almost all the load.
+
+    ``transcript_generation_forbidden``/``namespace`` are additive, default-off phase-3 hooks;
+    every phase-2 call site omits both, so phase-2 behavior (and its byte-for-byte seed
+    identity) is unchanged. Set ``transcript_generation_forbidden=True`` to thread the
+    manifest's own flag onto the :class:`~rejudge.phase2_canary_execute.CellContext` this
+    function builds (see that module's ``GenerationForbiddenError``). ``namespace`` (left
+    ``None``, the phase-2 default) is forwarded to :func:`~rejudge.phase2_canary_execute.
+    execute_cell` as ``debater_model=cell.debater_model, namespace=namespace`` -- the phase-3
+    ``decisions.execution_semantics.seed_policy`` extension -- ONLY when non-``None``; a
+    phase-2 caller that never passes it gets ``execute_cell(cell, context)`` exactly as before.
     """
     protocol = protocol if protocol is not None else _load(
         REPO_ROOT / "rejudge" / "phase2_protocol.json")
@@ -146,10 +158,18 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     # while nothing could run it. Both plans describe the same cell shapes, and resolve_cell
     # normalises the namespace prefix, so one executor serves both rather than a second copy
     # that would drift from this one.
+    #
+    # An injected cell that is ALREADY a ResolvedCell passes through unresolved. Additive:
+    # every phase-2 call site injects raw plan-cell dicts (or nothing), which still go through
+    # cells_mod.resolve_cell exactly as before. Phase 3 (rejudge.phase3_runner) resolves its
+    # own cell kinds -- a vocabulary cells_mod.resolve_cell does not know at all -- and hands
+    # ResolvedCell instances straight to this function to reuse the shared execution/ordering
+    # machinery below without forcing them back through a resolver that would reject them.
     plan = list(cells) if cells is not None else phase2_plan.enumerate_canary_cells(protocol)
-    resolved = [cells_mod.resolve_cell(cell, protocol, bundle,
-                                       anchor_judge_model=anchor_judge_model)
-                for cell in plan]
+    resolved = [cell if isinstance(cell, cells_mod.ResolvedCell)
+               else cells_mod.resolve_cell(cell, protocol, bundle,
+                                           anchor_judge_model=anchor_judge_model)
+               for cell in plan]
     if cell_filter is not None:
         resolved = [cell for cell in resolved if cell_filter(cell)]
     ordered = execution_order(resolved)
@@ -161,7 +181,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         client=client, protocol=protocol, bundle=bundle,
         decision_store=DualGateDecisionStore(decisions_path), reviewer=reviewer,
         anchor_judge_model=anchor_judge_model,
-        results=dict(results._results), pause_when_unlabeled=pause_when_unlabeled)
+        results=dict(results._results), pause_when_unlabeled=pause_when_unlabeled,
+        transcript_generation_forbidden=transcript_generation_forbidden)
 
     outcome = RunOutcome()
     seen_payloads: set[str] = set()
@@ -169,7 +190,7 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         return _run_concurrent(
             ordered=ordered, results=results, context=context, outcome=outcome,
             seen_payloads=seen_payloads, limit=limit, max_workers=max_workers,
-            block_size=block_size or max_workers * 2)
+            block_size=block_size or max_workers * 2, namespace=namespace)
 
     attempted = 0
     for cell in ordered:
@@ -180,7 +201,9 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
             break
         attempted += 1
         try:
-            record = execute_cell(cell, context)
+            execute_kwargs = ({"debater_model": cell.debater_model, "namespace": namespace}
+                              if namespace is not None else {})
+            record = execute_cell(cell, context, **execute_kwargs)
         except PendingReviewerDecision as pending:
             # Not a failure. The cell is left unrecorded so a later pass re-runs it, replaying
             # its earlier calls from the cache rather than re-spending them.
@@ -254,15 +277,20 @@ def _too_many_abandoned(outcome, attempted: int) -> bool:
     return outcome.abandoned >= max(1, attempted) * ABANDONED_FRACTION
 
 
-def _attempt(cell, context) -> tuple[str, Any]:
+def _attempt(cell, context, *, namespace: str | None = None) -> tuple[str, Any]:
     """Run one cell and classify the outcome, never raising into the worker pool.
 
     Same taxonomy as the serial loop: a pause is not a failure, a missing dependency is not a
     halt, and anything unmodelled halts rather than being swallowed. Classifying here rather
     than in the pool keeps the halt decision on the main thread, where it can stop dispatching.
+
+    ``namespace`` mirrors :func:`run_canary`'s own additive, default-``None`` hook: left at
+    ``None`` (every phase-2 call site), ``execute_cell`` is invoked with no extra kwargs.
     """
     try:
-        return "ok", execute_cell(cell, context)
+        execute_kwargs = ({"debater_model": cell.debater_model, "namespace": namespace}
+                          if namespace is not None else {})
+        return "ok", execute_cell(cell, context, **execute_kwargs)
     except PendingReviewerDecision as pending:
         return "paused", pending
     except MissingTranscript:
@@ -282,7 +310,8 @@ def _attempt(cell, context) -> tuple[str, Any]:
 
 
 def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
-                    max_workers: int, block_size: int) -> RunOutcome:
+                    max_workers: int, block_size: int,
+                    namespace: str | None = None) -> RunOutcome:
     """Blocked concurrent execution of one pass.
 
     Two properties are load bearing and neither is about speed.
@@ -309,7 +338,8 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
             block = _balanced_block(ready, block_size)
             attempted.update(cell.cell_key for cell in block)
 
-            futures = [pool.submit(_attempt, cell, context) for cell in block]
+            futures = [pool.submit(_attempt, cell, context, namespace=namespace)
+                      for cell in block]
             settled = [future.result() for future in futures]
 
             halted = False

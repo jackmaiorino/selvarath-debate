@@ -104,7 +104,11 @@ def review_and_commit(todo: list[dict], archive: Path, args) -> str:
             errs += 1
     cf = pk / "commit.json"
     cf.write_text(json.dumps(commit, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    rc = subprocess.run([sys.executable, "-m", "rejudge.phase2_canary_live",
+    # getattr, not args.driver_module: additive, so a caller building args by hand (e.g. a
+    # SimpleNamespace, as some tests do) rather than through this module's own argparse still
+    # gets phase-2's unchanged default rather than an AttributeError.
+    driver_module = getattr(args, "driver_module", "rejudge.phase2_canary_live")
+    rc = subprocess.run([sys.executable, "-m", driver_module,
                          "--manifest", args.manifest, "--authorization", args.authorization,
                          "--project-root", ".", "--commit-decisions", str(cf)],
                         capture_output=True, text=True)
@@ -124,6 +128,10 @@ def main(argv=None) -> int:
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--authorization", required=True)
     ap.add_argument("--archive", required=True)
+    ap.add_argument("--driver-module", default="rejudge.phase2_canary_live",
+                    help="module invoked for --commit-decisions (additive; unchanged default "
+                         "keeps phase-2 behaviour -- a phase-3 orchestrator passes "
+                         "rejudge.phase3_runner)")
     ap.add_argument("--codex", default="codex")
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--poll-seconds", type=int, default=60)

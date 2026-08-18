@@ -47,8 +47,12 @@ class DeterministicCanaryClient:
     """
 
     def __init__(self, *, debater_turn=None, judge_query=None, oracle_verification=None,
-                 query_checker=None, judge_verdict=None, verdict_side: str = "A") -> None:
+                 query_checker=None, judge_verdict=None, verdict_side: str = "A",
+                 capability_qa=None, capability_side: str = "A") -> None:
         self.verdict_side = verdict_side
+        # Additive: capability_qa is a phase-3-only call role (no phase-2 cell ever carries
+        # it), so a phase-2 fixture user is unaffected by this default.
+        self.capability_side = capability_side
         self.calls: list[dict[str, Any]] = []
         self._overrides = {
             "debater_turn": debater_turn,
@@ -57,6 +61,7 @@ class DeterministicCanaryClient:
             "query_checker": query_checker,
             "judge_verdict": judge_verdict,
             "batch_verdict": judge_verdict,
+            "capability_qa": capability_qa,
         }
 
     @property
@@ -81,6 +86,11 @@ class DeterministicCanaryClient:
         if call_role in ("judge_verdict", "batch_verdict"):
             return (f"VERDICT: Position {self.verdict_side}\nCONFIDENCE: 4\n"
                     "REASONING: deterministic fixture verdict")
+        if call_role == "capability_qa":
+            # Phase-3's tolerant parser (strip whitespace, allow one optional trailing
+            # period): a bare period exercises that tolerance rather than only ever
+            # producing the period-free form.
+            return f"ANSWER: {self.capability_side}."
         raise UnknownCallRole(
             f"no fixture behaviour for call_role {call_role!r}; add one rather than letting a "
             "rehearsal pass over an unmodelled path")
