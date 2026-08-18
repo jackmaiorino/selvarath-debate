@@ -8,11 +8,11 @@
   "namespace_hash_prefix_length": 12,
   "execution_key_requirement": "external execution manifests must bind this frozen design protocol, the question banks, the reused phase-2 prompt bundle, extended role limits, provider request fields, the side/seed policy, and the frozen transcript bundles"
  },
- "status": "draft_pending_consult_and_freeze",
+ "status": "draft_pending_owner_redecision_and_freeze",
  "open_items_before_freeze": [
-  "owner re-decision on the reviewer-throughput ceiling: the 20,000 figure the owner selected on 2026-08-18 was derived from a flawed assistant projection (see decisions.reviewer_throughput_fallback.review_volume_evidence); corrected projections and a contingency ladder go back to the owner before freeze",
-  "owner confirmation of Option D against the verified (not estimated) tail-power gain from scripts/phase3_power_sim_optiond.py",
-  "external design consult (Codex) on the corrected draft",
+  "owner re-decision with corrected numbers: (a) target grid configuration (tail replicates), informed by the v2 paired power simulation; (b) the review calendar tolerance D_max from which the ruling ceiling is mechanically derived",
+  "owner ratifications: the no-replacement rule for failed new judges; the preregistered tolerant anchor parse as a NEW phase-3 rule; the S1 downturn secondary contrast",
+  "consult record: the 2026-08-18 freeze consult (four blockers) is implemented in this draft; the consult brief and opinion are tracked at rejudge/phase3_codex_freeze_consult_2026-08-18.md",
   "restamp source_bindings entries marked stamped_at_freeze after the final pre-freeze edit"
  ],
  "offline_planning_only": true,
@@ -22,18 +22,20 @@
   "approval_record": "rejudge/phase3_authorization_2026-08-18.json",
   "approver": "Jack Maiorino (owner), lead sign-off owner-relayed",
   "approved_at_utc": "2026-08-18T11:37:40Z",
+  "redecision_record": null,
   "canary_spend_authorized": false,
   "main_run_spend_authorized": false
  },
  "sources": {
   "decision_proposal": "docs/phase3-decision-proposal.md",
-  "power_simulation": "analysis_out/phase3_power_sim.json",
-  "power_simulation_option_d": "analysis_out/phase3_power_sim_optiond.json",
+  "power_simulation_v2": "analysis_out/phase3_power_sim_v2.json",
+  "superseded_power_simulations": ["analysis_out/phase3_power_sim.json", "analysis_out/phase3_power_sim_optiond.json"],
+  "freeze_consult": "rejudge/phase3_codex_freeze_consult_2026-08-18.md",
   "phase2_protocol": "rejudge/phase2_protocol.json",
   "phase2_results": "reports/2026-08-11-phase2-main-results.md",
   "phase2_analysis_pins": "rejudge/phase2_analysis_pins_2026-08-11.json",
   "phase2_main_manifest": "rejudge/phase2_main_manifest_2026-08-06c.json",
-  "anchor_parser_policy": "rejudge/phase2_anchor_parser_policy_2026-07-21.json",
+  "anchor_parser_policy_reference": "rejudge/phase2_anchor_parser_policy_2026-07-21.json",
   "resolvability_classes": "rejudge/phase2_resolvability_ai_review.json",
   "fallback_subset_derivation": "scripts/phase3_fallback_subset.py",
   "authorization_record": "rejudge/phase3_authorization_2026-08-18.json"
@@ -41,7 +43,6 @@
  "source_bindings": {
   "hash_convention": "canonical_sha256 (rejudge.phase2_execution.canonical_sha256) for JSON artifacts; raw-bytes sha256 for non-JSON files",
   "canonical_json_sha256": {
-   "analysis_out/phase3_power_sim.json": "fdece01aa397cffffa3c9cb5b8b3041af8a6aaa8ec621b47654187eb1dea5e85",
    "rejudge/phase2_protocol.json": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
    "rejudge/phase2_analysis_pins_2026-08-11.json": "ec7d34179585b82b51fbd4e1e66ca25c1dccead810e723fa734f77f9d19e589d",
    "rejudge/phase2_main_manifest_2026-08-06c.json": "883ba87110ca194883347289087dae45a810f569cb36fb488af70d952529cdb3",
@@ -55,14 +56,15 @@
   "stamped_at_freeze": {
    "docs/phase3-decision-proposal.md": null,
    "rejudge/phase3_authorization_2026-08-18.json": null,
-   "analysis_out/phase3_power_sim_optiond.json": null
+   "analysis_out/phase3_power_sim_v2.json": null,
+   "rejudge/phase3_codex_freeze_consult_2026-08-18.md": null
   },
   "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8"
  },
  "unit_definitions": {
   "cell": "one (question, judge, debater, condition) combination BEFORE transcript/side/replicate expansion; used only for grid bookkeeping in this document",
   "slot": "one fully-expanded judgment unit (question, judge, debater, condition, transcript, side, replicate); the provider-billed unit",
-  "completion_rule": "every completion policy and completion gate in this protocol is defined at the SLOT level: 48,216 main-run judgment slots for the full roster, 2,016 canary slots (both derived below); never at the cell level"
+  "completion_rule": "every completion policy and completion gate in this protocol is defined at the SLOT level, using the slot totals for the selected configuration and final roster size (see debate_grid.slot_arithmetic_by_roster); never at the cell level"
  },
  "question_set": {
   "identical_to": "phase2_protocol.json question_set (same three banks, same hashes, same 24 calibration exclusions, same 82 main questions)",
@@ -75,7 +77,7 @@
    "content": "the 492 uncapped blind debate transcripts (82 questions x 2 self-play debaters x 3 transcripts) generated under phase-2 execution identity ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
    "source_archive": "E:/selvarath-archive/main-2026-08-06",
    "materialization": "extract into a canonical transcript bundle with sha256; verify EVERY transcript (100% coverage, never sampled) against the phase-2 hash-chained result store before the bundle freezes; the manifest binds the bundle hash",
-   "verifier": "the orchestrating assistant performs the 100% verification; the verification report (per-transcript hashes, source store event hashes) is a tracked artifact the owner can spot-check"
+   "verifier": "internal QA by the orchestrating assistant (not an independent audit); the verification report (per-transcript hashes, source store event hashes) is a tracked artifact the owner can spot-check"
   },
   "canary_bundle": {
    "content": "the phase-2 bridge-canary uncapped transcripts for the 24 held-out questions (one per question per debater)",
@@ -96,7 +98,8 @@
    "meta-llama/Meta-Llama-3-8B-Instruct-Lite": {"display_name": "Llama-3-8B-Lite", "input": null, "output": null},
    "google/gemma-3n-E4B-it": {"display_name": "Gemma-3n-E4B", "input": null, "output": null},
    "Qwen/Qwen3.7-Max": {"display_name": "Qwen3.7-Max", "input": null, "output": null}
-  }
+  },
+  "provider_revision_policy": "record provider model-revision/alias metadata on every call where the API exposes it; if a pinned model id starts resolving to a new revision mid-run, halt new calls in the affected arms, record an amendment, and the owner decides continuation or exclusion; no silent alias drift"
  },
  "roster": {
   "judges_continuing": [
@@ -123,8 +126,7 @@
     "display_name": "Qwen3.7-Max",
     "rationale": "high-capability point",
     "id_and_price_status": "pending_provider_verification_at_materialization",
-    "inclusion_rule": "joins if and only if (a) it passes the canary calibration gates AND (b) the spend forecast method defined in decisions.spend.forecast_method, applied to its measured canary per-cell costs, projects total phase-3 stage spend within the stage cap with it included. The inclusion decision is recorded before main-run authorization and is not revisited afterward.",
-    "cost_only_failure_rule": "if it passes gates but fails the cost clause, it is excluded by mechanical application of the forecast method (recorded with the forecast's inputs and arithmetic), and the grid proceeds with 6 judges: 984 cells per condition, 41,328 total judgment slots (984 x 42)"
+    "inclusion_rule": "joins if and only if it passes the canary calibration gates AND the configuration-selection procedure (decisions.configuration_selection) retains it; its retention priority in that procedure is fixed there, resolving the circularity between inclusion and fallback that the freeze consult flagged. Canary spend on a candidate that is later shed stays accrued and counted."
    }
   ],
   "debaters": [
@@ -135,8 +137,8 @@
   "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
   "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)",
   "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload",
-  "new_judge_failure_rule": "a NEW judge that fails any canary calibration gate is DROPPED (not replaced; the 2026-08-14 availability check found no serverless same-family substitutes), its within-family descriptive pair is dissolved, and the roster proceeds with the survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists. The no-replacement disposition resolves the proposal's 'replaced or dropped' language and is recorded in the authorization record as an assistant-resolved design detail under the standing delegation, flagged for owner review at protocol sign-off.",
-  "roster_freeze_timing": "the final roster (post-gates, post-inclusion-rule) freezes before any capability anchor is scored and before any main-run outcome exists"
+  "new_judge_failure_rule": "a NEW judge that fails a canary calibration gate for SEMANTIC reasons (parseability, side bias) is DROPPED, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check; no-replacement also prevents post-hoc model fishing and is submitted for explicit owner ratification). TEMPORARY endpoint unavailability or transport failure is NOT a calibration failure: those cells retry/defer under the transport policy and only an owner-recorded decision can convert persistent unavailability into a drop. A dropped new judge dissolves its within-family descriptive pair; the roster proceeds with survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists.",
+  "roster_freeze_timing": "the final roster (post-gates, post-configuration-selection) freezes before any capability anchor is scored and before any main-run outcome exists"
  },
  "debate_grid": {
   "k": 2,
@@ -145,16 +147,22 @@
    {"id": "b0", "query_budget": 0, "oracle_mode": "none", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
    {"id": "sequential_b1", "query_budget": 1, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
    {"id": "sequential_b2", "query_budget": 2, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 1},
-   {"id": "sequential_b4", "query_budget": 4, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 2},
-   {"id": "sequential_b8", "query_budget": 8, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": 2}
+   {"id": "sequential_b4", "query_budget": 4, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": "CONFIG"},
+   {"id": "sequential_b8", "query_budget": 8, "oracle_mode": "clean", "presentation": "sequential", "judgment_replicates_per_transcript_side": "CONFIG"}
   ],
-  "option_d_note": "the doubled replicates at b4/b8 implement the owner-adopted Option D; the replicate index enters the seed derivation so the two replicates of a (transcript, side) slot are independent judge samples at temperature 0.3. Option D was adopted on an estimated tail-power gain; the verified gain from scripts/phase3_power_sim_optiond.py is an open_items_before_freeze input to the owner's confirmation.",
-  "slot_arithmetic": {
-   "cells_per_condition_full_roster": 1148,
-   "slots_per_cell_b0_b1_b2": 6,
-   "slots_per_cell_b4_b8": 12,
-   "total_judgment_slots_full_roster": 48216,
-   "six_judge_variant_totals": {"cells_per_condition": 984, "total_judgment_slots": 41328}
+  "tail_replicate_configurations": {
+   "A_no_d": {"b4": 1, "b8": 1}, "B_b4_only": {"b4": 2, "b8": 1},
+   "C_b8_only": {"b4": 1, "b8": 2}, "D_full": {"b4": 2, "b8": 2},
+   "note": "the owner selects the TARGET configuration at re-decision, informed by the v2 paired power simulation; the configuration-selection procedure may shed replicates mechanically (see decisions.configuration_selection). Replicate indices enter the seed derivation, so doubled slots are independent judge samples at temperature 0.3."
+  },
+  "slot_arithmetic_by_roster": {
+   "formula": "slots = 82 x N_judges x 2 debaters x 3 transcripts x K2 x replicates(condition, config); per-judge per-condition slots are 984 at replicates 1 and 1,968 at replicates 2",
+   "total_judgment_slots": {
+    "A_no_d": {"N7": 34440, "N6": 29520, "N5": 24600, "N4": 19680},
+    "B_b4_only": {"N7": 41328, "N6": 35424, "N5": 29520, "N4": 23616},
+    "C_b8_only": {"N7": 41328, "N6": 35424, "N5": 29520, "N4": 23616},
+    "D_full": {"N7": 48216, "N6": 41328, "N5": 34440, "N4": 27552}
+   }
   },
   "dropped_from_phase2": "batch_same_qa, placebo, capped debates, no-debate references, empty-evidence control, full-document anchors, AND with them the phase-2 secondary estimands C (cap-protection interaction) and D_clean (debate vs no-debate): all are settled phase-2 results, and phase 3 has no debater-side variation. Phase 3 is the sequential clean-oracle dose-response only."
  },
@@ -167,60 +175,81 @@
     {"id": "D4", "estimand": "error(sequential_b4) - error(b0)"},
     {"id": "D8", "estimand": "error(sequential_b8) - error(b0)"}
    ],
-   "confirmatory_criterion": "Holm-adjusted two-sided p < 0.05 per contrast, over the family of four, is the SOLE confirmatory significance criterion. The simultaneous band is descriptive context and is never itself used to declare or deny significance.",
+   "confirmatory_criterion": "Holm-adjusted two-sided p < 0.05 per contrast, over the family of four, is the SOLE confirmatory significance criterion for the primary family. The simultaneous band is descriptive context and is never itself used to declare or deny significance.",
+   "p_value_formula": "per contrast j with bootstrap draw values T_j(r), r = 1..B: p_j = min(1, 2 x min[(1 + #{r: T_j(r) <= 0}) / (B + 1), (1 + #{r: T_j(r) >= 0}) / (B + 1)]) (uncentered percentile convention, identical to phase 2); Holm step-down over the four p_j with ties broken by estimand id",
    "reporting": "the full four-contrast vector with per-contrast 95% percentile CIs, Holm-adjusted p-values, and a descriptive simultaneous 95% sup-t band",
-   "sup_t_band_construction": "studentized maximum-modulus on the common draws: per bootstrap draw r compute m_r = max over contrasts j of |Delta_j(r) - Delta_j_hat| / se_j, where se_j is the bootstrap standard deviation of Delta_j over all draws; the 95th percentile of {m_r} is the critical value c; the band is Delta_j_hat +/- c * se_j for each j. Only B, the PRNG seed, and rounding remain for the analysis-pins artifact.",
-   "estimand_framing": "intention-to-treat: the effect of GRANTING a budget under the frozen adaptive stopping policy (the judge may answer DONE early); queries_used is post-treatment and exploratory",
-   "population": "all 82 main questions x all rostered judges x 2 debaters, subject to the D4/D8 population override in decisions.reviewer_throughput_fallback if the fallback triggers",
-   "weighting": "within each (question, judge, debater, condition) cell, average all slots (6 or 12); then equal question, judge, and debater weights; the unequal slot counts across arms are a precision choice and never a weighting choice",
-   "inference": "world-stratified question bootstrap resampling whole question clusters from the FULL 82-question population, with common draws across all contrasts. If the fallback triggers, the SAME draws are used for every contrast: each draw's D4/D8 statistic is computed by restricting that draw's resampled clusters to the frozen 41-question subset (per-draw subset counts vary, as in any cluster bootstrap; the subset is a fixed, pre-registered restriction, so this is a measurable function of the resampled data and preserves the cross-contrast correlation the sup-t band needs). No separate subset bootstrap is run.",
-   "invalid_policy": "strict INVALID counts wrong (primary). Valid-only sensitivity with slot-level common support: a (transcript, side) unit counts as INVALID in an arm if ANY of its replicates in that arm is INVALID; a (transcript, side) unit INVALID in either arm of a contrast is dropped from both arms of that contrast, including all replicates; applied per contrast pair, uniformly across 1-replicate and 2-replicate arms",
+   "sup_t_band_construction": "studentized maximum-modulus on the common draws: per draw r compute m_r = max over contrasts j of |Delta_j(r) - Delta_j_hat| / se_j, where se_j is the bootstrap standard deviation of Delta_j over all draws; the 95th percentile of {m_r} is the critical value c; the band is Delta_j_hat +/- c * se_j for each j. Only B, the PRNG seed, and rounding remain for the analysis-pins artifact.",
+   "estimand_framing": "intention-to-treat: the effect of ASSIGNMENT to up to b screened query opportunities under the frozen stopping and retry policy (the judge may answer DONE early; rejected queries consume slots per the retry rule); queries_used is post-treatment and exploratory. Public wording follows this framing.",
+   "downturn_scope_note": "this family certifies each budget against b0 only; a downturn RELATIVE TO b2 (the pilot's U-claim) is certifiable only by the S1 secondary contrast below, never by informally comparing D8 to D2",
+   "population": "all 82 main questions x all rostered judges x 2 debaters, subject to the D4/D8 domain override in decisions.configuration_selection if question-subsampling is reached",
+   "weighting": "within each (question, judge, debater, condition) cell, average all slots; then equal question, judge, and debater weights; unequal slot counts across arms are a precision choice and never a weighting choice",
+   "inference": {
+    "scheme": "world-stratified question-cluster bootstrap with COMMON DRAWS shared by every contrast, secondary, and band: per draw r and world w, resample that world's questions with replacement (equivalently, exchangeable mean-one multinomial question weights within world); the SAME per-question weights serve every contrast in draw r",
+    "domain_normalization": "each contrast normalizes the weighted per-question values over ITS OWN domain with frozen domain-specific world weights: for the full domain, each world's weight is its question share of the 82; if subsampling is active for D4/D8, their domain is the frozen 41-question subset and each world's weight is its question share of the 41. The per-draw weights are shared; only the normalization domain differs. This keeps the subset's world mixture fixed across draws (random retained counts never re-randomize it) and preserves the cross-contrast covariance the sup-t band and Holm family rely on. No separate subset bootstrap is ever run.",
+    "pins_remaining": "B, PRNG seed, and rounding are fixed in the phase-3 analysis-pins artifact before unblinding"
+   },
+   "invalid_policy": {
+    "primary": "strict INVALID counts wrong (ITT; unaffected by replicate structure)",
+    "principal_valid_only_sensitivity": "computed on ONE FROZEN replicate index per (transcript, side) in EVERY arm (replicate index 1), so attrition is symmetric across 1-replicate and 2-replicate arms; within that single-replicate frame, slot-level common support per contrast pair: a (transcript, side) unit INVALID in either arm is dropped from both arms of that contrast",
+    "descriptive_reports": "an all-valid-replicates estimate (any-replicate-INVALID drops the unit) reported descriptively; INVALID counts by budget x judge x replicate block; all-INVALID-correct and all-INVALID-wrong bounds"
+   },
    "completion_policy": "100% exact slot-level completion (unit_definitions.completion_rule)",
    "multiplicity_adjustment": "Holm over the four contrasts",
    "sidedness": "two_sided"
   },
-  "secondary_analysis": {
-   "status": "approved_design",
-   "single_test": "the least-squares slope of per-judge D8 on the judge's centered continuous capability anchor score, across the final rostered judges",
-   "inference": "same common question-bootstrap draws: per draw, recompute every per-judge D8 and refit the slope; the anchor score is a FIXED covariate, never resampled. Two-sided percentile-bootstrap p; no multiplicity adjustment (family of one).",
-   "scope_of_inference": "the CI is conditional on the fixed roster of judges actually run; it quantifies question-sampling uncertainty only and does NOT extend to the population of possible judge models",
-   "leverage_sensitivity": "pre-registered leave-one-judge-out jackknife: the slope is refit excluding each judge in turn and the full set of refit slopes is reported alongside the primary secondary result, so single-judge leverage in a roughly-7-point regression is visible",
-   "attenuation_disclosure": "the anchor is a 48-cell binomial score (24 questions x 2 mirrored sides), carrying roughly 6-8pp standard error per judge; classical errors-in-variables attenuation biases the slope toward zero. NO correction (e.g. SIMEX) is applied; the slope is reported as-is with this caveat.",
-   "power_honesty": "with roughly 7 judges this moderation test is at best weakly powered, and anchor measurement noise attenuates it further; the confirmatory weight of phase 3 is the dose-response vector",
-   "trend_test_disposition": "the proposal's optional trend-test secondary is NOT exercised; any trend or shape statistic is descriptive only, to keep the confirmatory surface minimal. Recorded in the authorization record as an assistant-resolved design detail under the standing delegation, flagged for owner review at protocol sign-off."
+  "secondary_analyses": {
+   "status": "approved_design_s1_pending_owner_ratification",
+   "S1_downturn_contrast": {
+    "estimand": "error(sequential_b8) - error(sequential_b2)",
+    "role": "the single CONFIRMATORY secondary, two-sided at alpha 0.05 (family of one); it exists because the primary family cannot formally certify a downturn from b2, which is the pilot's retracted U-shape claim",
+    "inference": "same common draws, same p-value formula; if subsampling is active, BOTH arms restrict to the 41-question domain (paired), stated wherever S1 is reported",
+    "ratification": "added by the assistant on the freeze consult's finding; requires explicit owner ratification at re-decision"
+   },
+   "capability_slope": {
+    "role": "NOMINAL, NON-CONFIRMATORY: a finite-roster observed-score association. Its p-value is reported as nominal and no confirmatory capability claim is made from it.",
+    "test": "the least-squares slope of per-judge D8 on the judge's centered continuous capability anchor score, across the final rostered judges",
+    "inference": "same common question-bootstrap draws: per draw, recompute every per-judge D8 and refit the slope; the anchor score is a FIXED covariate, never resampled; two-sided percentile-bootstrap p reported as nominal",
+    "non_estimable_rule": "with fewer than 6 rostered judges, or zero anchor-score spread, the slope is estimate-and-plot only: no p-value is reported",
+    "scope_of_inference": "the CI is conditional on the fixed roster of judges actually run; it quantifies question-sampling uncertainty only and does NOT extend to the population of possible judge models",
+    "leverage_diagnostic": "leave-one-judge-out refits reported as an influence diagnostic (never as a jackknife CI)",
+    "attenuation_disclosure": "the anchor is a 48-cell binomial score (roughly 6-8pp SE per judge); classical independent measurement error TENDS TO ATTENUATE the slope IN EXPECTATION (no claim about the realized direction); no errors-in-variables correction is applied; the observed score itself is the covariate",
+    "parser_sensitivity_propagation": "the strict-parse anchor scores are propagated through the slope: the slope is recomputed under strict-parse anchors and reported as a sensitivity"
+   },
+   "trend_test_disposition": "the proposal's optional trend-test secondary is NOT exercised; any trend or shape statistic beyond S1 is descriptive only. Recorded in the authorization record as an assistant-resolved design detail, flagged for owner review."
   },
   "capability_anchor": {
-   "status": "approved_design",
+   "status": "approved_design_parser_pending_owner_ratification",
    "question_set": "the 24 held-out calibration-excluded questions ONLY; anchor items never overlap the 82 outcome questions",
    "cells": "24 questions x K2 mirrored sides per judge, temperature 0, capability_qa prompt from the reused phase-2 prompt bundle",
    "population": "ALL rostered judges are re-measured under the phase-3 manifest, continuing judges included; phase-2 anchor scores are never pooled or substituted",
-   "parser_rule": "PREREGISTERED TOLERANT PARSE per the phase-2 parser policy's future_rule: after stripping leading/trailing whitespace, exactly 'ANSWER: A' or 'ANSWER: B' with at most one optional trailing period; anything else is INVALID and counts wrong. The strict no-period parse is reported as a sensitivity.",
+   "parser_rule": "PREREGISTERED TOLERANT PARSE, ratified as a NEW phase-3 rule (not inherited authority; the phase-2 parser-policy artifact is cited as precedent only): after stripping leading/trailing whitespace, exactly 'ANSWER: A' or 'ANSWER: B' with at most one optional trailing period; anything else is INVALID and counts wrong. The strict no-period parse is reported as a sensitivity and propagated per secondary_analyses.capability_slope.",
    "timing": "scored and frozen after roster freeze and before any phase-3 judgment outcome exists; runs inside the canary stage under canary authorization",
-   "role": "the continuous moderator in the single secondary test; also descriptive context. Parameter count is never a capability measure. Within-family pairs and any tier split are descriptive only."
+   "role": "the continuous covariate of the nominal capability slope; also descriptive context. Parameter count is never a capability measure. Within-family pairs and any tier split are descriptive only."
   },
-  "reviewer_throughput_fallback": {
-   "status": "structure_approved_ceiling_pending_owner_redecision",
+  "configuration_selection": {
+   "status": "structure_approved_limits_pending_owner_redecision",
+   "purpose": "ONE frozen lexicographic procedure jointly governs review-throughput feasibility, the spend cap, and Qwen3.7-Max retention, removing the circularity between the inclusion rule and the fallback",
    "review_volume_evidence": {
-    "measured_phase2": "13,753 unique-payload gate rulings (E:/selvarath-archive/main-2026-08-06/main_reviewer_decisions.jsonl, hash-chained count) against 15,744 theoretical query slots in phase 2's two query-producing arms (2 conditions x 3,936 slots x 2 queries): observed yield 0.874 rulings per theoretical query slot, net of retries, early DONE, and dedup. Observed sustained review pace: 13,753 rulings between main-run start 2026-08-06T22:40Z and convergence 2026-08-11, roughly 3,000 per day through the nightly-refreshing reviewer quota.",
-    "phase3_projection_method": "theoretical query slots per judge per arm x 0.874 yield x an exhaustion factor bracket [0.65, 0.94] for b4/b8 (b2's measured exhaustion was 0.94; high-budget exhaustion is unknown and is a canary measurement), x judges",
-    "projections_at_7_judges": {
-     "full_grid_option_d": "106,000-153,000 rulings, roughly 35-51 review-days at the observed pace",
-     "option_d_with_b4_b8_on_41_subset": "59,000-85,000 rulings, roughly 20-28 review-days",
-     "no_option_d_full_82": "59,000-85,000 rulings (identical query-slot totals to the previous row by coincidence of the arithmetic)",
-     "no_option_d_and_b4_b8_on_41_subset": "35,000-51,000 rulings, roughly 12-17 review-days"
-    },
-    "dedup_unknowns": "cross-arm and cross-judge payload overlap, and Option D replicate-pair overlap (two temperature-0.3 samples of the same slot may often produce identical query text), could reduce all projections materially; the canary measures replicate-pair and cross-arm dedup rates explicitly",
-    "correction_note": "the 20,000-ruling ceiling the owner selected on 2026-08-18 came from a flawed assistant projection that under-counted by roughly 4-6x; budgets 1 and 2 alone at the full grid consume about 14,000 rulings. The ceiling number is therefore VOID pending owner re-decision with these corrected figures; the fallback STRUCTURE below stands as decided owner intent."
+    "measured_phase2": "13,753 unique-payload gate rulings (hash-chained store count) against 15,744 theoretical query slots in phase 2's two query-producing arms: 0.874 rulings per theoretical query slot, ALREADY NET of early DONE, retries, exhaustion, and dedup (never multiply it by a separate exhaustion factor; the earlier draft's [0.65, 0.94] bracket double-discounted and is retracted). Observed sustained pace: roughly 3,000 rulings per quota-day.",
+    "planning_projections_7_judges": "query-weight units per config (b1+b2+b4+b8 budgets x replicates): A=15, B=19, C=23, D=27. At the 0.874 ratio and full utilization: A roughly 90-96k rulings (30-32 quota-days), B 114-122k (38-41), C 138-147k (46-49), D 162-173k (54-58). Excludes accrued canary/anchor rulings. High-budget utilization can reach 1.00; these are planning figures, replaced by canary measurement.",
+    "no_dedup_credit": "NO credit is taken for cross-arm, cross-judge, or replicate-pair dedup in any projection or threshold decision; estimated dedup never rescues a threshold case. (If dedup materially reduces realized volume, the run simply finishes early.)"
    },
-   "trigger_metric": "blinded operational metric only: mean unique-payload gate rulings per slot per arm, measured in the canary; never any efficacy quantity",
-   "projection_rule": "projected total = sum over arms of (canary mean unique rulings per slot in that arm x main-run slot count in that arm) + the measured canary and anchor ruling counts themselves; audit-sampling reviews are human/owner-side and do NOT count against the reviewer quota or this ceiling",
-   "ceiling_unique_rulings": null,
-   "ceiling_note": "set by owner re-decision before freeze; the decision input is the corrected projections above plus the owner's calendar tolerance at the observed 3,000/day pace",
-   "contingency_ladder_on_trigger": [
-    "step 1: restrict the b4 and b8 arms to the frozen 41-question subset below; D4 and D8 are then analyzed with their b0 comparator restricted to the SAME subset (paired), while D1 and D2 remain on the full 82; per-contrast populations are stated wherever the vector is reported. b1 is never dropped.",
-    "step 2 (if the projection still exceeds the ceiling): additionally drop Option D's second replicate at b8 only (b8 falls to 6 slots per cell; b4 keeps 12)",
-    "step 3 (if still exceeding): halt before main authorization and return to the owner; paid reviewing is NOT pre-authorized"
+   "trigger_metrics": "blinded operational metrics only, measured in the canary: per-arm-per-judge unique-payload rulings per slot, and realized rulings per quota-day; never any efficacy quantity",
+   "projection_rule": "R_U = accrued canary and anchor rulings + sum over (arm, judge) of [main-run slot count x U90(unique rulings per slot for that arm and judge)], where U90 is the upper bound of a 90% confidence interval over canary per-question means (question is the cluster); D_U = ceil(R_U / L90(rulings per quota-day)), where L90 is the lower bound of a 90% interval over observed canary quota-days",
+   "limits": {
+    "R_max": null,
+    "D_max": null,
+    "note": "the owner selects D_max (calendar tolerance in quota-days) at re-decision; R_max is then mechanically derived as D_max x the planning pace (3,000/day) and both are frozen; the manifest enforces both R_U <= R_max and D_U <= D_max"
+   },
+   "lexicographic_priority": "what the design keeps, in order: (1) full 82-question coverage in every arm; (2) Qwen3.7-Max retention; (3) extra tail replicates beyond the A_no_d configuration",
+   "selection_procedure": [
+    "step 0: start from the owner's target configuration and the post-gate roster; evaluate R_U, D_U, and the spend forecast",
+    "step 1: while limits are exceeded and extra tail replicates remain, shed them (b4's second replicate first, then b8's) and re-evaluate",
+    "step 2: if limits are still exceeded, shed Qwen3.7-Max (recorded with the projection arithmetic) and re-evaluate",
+    "step 3: if limits are still exceeded, restrict the b4 and b8 arms to the frozen 41-question subset (D4/D8 and S1 then use the subset domain with paired comparators per the inference pins; a descriptive curve with b0/b1/b2 ALSO restricted to the 41 is reported at no extra cost so the four points remain readable as one curve); b1 is never dropped and b1/b2/b0 never subsample",
+    "step 4: if limits are still exceeded, halt before main authorization and return to the owner; paid reviewing is NOT pre-authorized"
    ],
+   "spend_cap_compliance": "the same procedure and order govern the 450 USD stage cap using decisions.spend.forecast_method; whichever constraint binds first drives the same lexicographic degradation",
    "subset_derivation": {
     "script": "scripts/phase3_fallback_subset.py",
     "seed": 20260818,
@@ -240,7 +269,7 @@
    "retry_and_slot_policy": "one free retry per attempted budget slot; a second rejection consumes the slot",
    "checker_failure_policy": "outage, malformed output, or unresolved ambiguity halts the cell",
    "gate_review": "the phase-2 dual-gate blinded review discipline, byte-identical reviewer prompt, unique-payload dedup documented",
-   "audit_sampling_policy": "human-review every rejection/retry and a deterministic world/resolvability-stratified 1% sample of accepted queries, blind to outcomes, unchanged from phase 2 and applied to the full phase-3 query volume; performed by the accepted_query_auditor named in external_assignments; audit reviews are outside the gate-reviewer quota and outside the throughput ceiling"
+   "audit_sampling_policy": "human-review every rejection/retry and a deterministic world/resolvability-stratified 1% sample of accepted queries, blind to outcomes, unchanged from phase 2 and applied to the full phase-3 query volume; performed by the accepted_query_auditor named in external_assignments (internal QA, not an independent audit); audit reviews are outside the gate-reviewer quota and outside the throughput limits"
   },
   "execution_semantics": {
    "status": "inherited_from_phase2_with_additions",
@@ -256,11 +285,9 @@
    "status": "approved_design_pending_manifest",
    "canary_question_set": "all 24 held-out questions, reused canary transcripts (zero transcript-generation cells; phase 2's canary generated transcripts, phase 3's does not)",
    "canary_slot_inventory": {
-    "core_b0_gates": "24 questions x 2 debaters x 1 transcript x K2 x 7 judges = 672 slots",
-    "budget_smoke": "6-question subset x 2 debaters x 1 transcript x K2 x (1+1+2+2 replicates over b1/b2/b4/b8) x 7 judges = 1,008 slots",
-    "capability_anchor": "24 questions x 2 mirrored sides x 7 judges = 336 slots",
-    "total": 2016,
-    "note": "totals scale down proportionally if the roster lands at 6 judges (1,728 slots)"
+    "per_judge_formula": "core b0 gates: 24 x 2 debaters x 1 transcript x K2 = 96; budget smoke: 6 x 2 x 1 x K2 x (replicate multiplier of the target config: A=4, B=5, C=5, D=6) = 96/120/120/144; capability anchor: 24 x 2 = 48",
+    "totals_by_config_and_roster": "total = N_judges x (96 + smoke + 48); at N7: A 1,680; B/C 1,848; D 2,016. Candidate judges that later fail gates or are shed still have their canary slots counted and their spend accrued.",
+    "pinned_denominator_rule": "the manifest pins the exact number from this formula for the selected config and candidate roster; the completion gate uses that number"
    },
    "calibration_gates_per_judge": {
     "population": "the 96 core b0 judgments per judge",
@@ -268,9 +295,9 @@
     "side_bias_gate": "absolute strict-error difference between the 48 A-correct and 48 B-correct mirrored judgments <= 10 percentage points per judge"
    },
    "budget_smoke_subset": ["CN-011", "CN-021", "SEL-010", "SEL-030", "VS-019", "VS-023"],
-   "review_volume_measurement": "unique-payload rulings per slot per arm recorded across the canary for the fallback projection, including the Option D replicate-pair dedup rate and cross-arm dedup rate; blinded to outcomes; the projection uses the upper bound of a 90% CI over the canary per-slot means, not the point estimate, so a close call is not decided by 6-question sampling noise",
+   "review_volume_measurement": "per-arm-per-judge unique-payload rulings per slot and realized rulings per quota-day recorded across the canary for the configuration-selection projections; Option-replicate-pair and cross-arm dedup rates recorded for information only (never credited); blinded to outcomes",
    "offline_checker_fixtures": "the phase-2 deterministic fixture outcomes replay green before any provider call",
-   "completion_gate": "100% exact completion of all 2,016 manifested canary slots (slot-level per unit_definitions)",
+   "completion_gate": "100% exact completion of the manifest-pinned canary slot count (slot-level per unit_definitions)",
    "zero_tolerance_gates": ["prompt truncation", "query-screen bypass", "malformed oracle normalization", "dependency mismatch", "unexplained ledger/provider discrepancy", "any transcript byte-mismatch against the frozen bundle", "any live debater/transcript-generation call"],
    "failure_action": "halt before main spend; a semantic repair requires a new protocol ID/hash and a complete canary rerun"
   },
@@ -278,8 +305,14 @@
    "status": "stage_cap_set_no_spend_authorized",
    "stage_cap_usd": 450,
    "estimate_usd": {"minimum": 270, "maximum": 450},
-   "estimate_honesty": "this prose range has no computed backing yet and two large opposite-direction corrections are unmodeled: phase 3 pays ZERO debater-generation cost (which dominated phase 2's blended per-cell average), while b4/b8 slots carry up to 8 sequential oracle turns with a growing judge context re-sent each turn (super-linear per-slot token cost) times Option D's doubled replicates. A computed phase3_cost_model.json against verified prices replaces this range before canary authorization; if its upper estimate exceeds 80% of the stage cap, the owner revisits the cap before canary authorization rather than discovering the squeeze mid-run.",
-   "forecast_method": "FROZEN FORMULA for every projection this protocol requires (Qwen3.7-Max inclusion, cap compliance): projected stage spend = sum over (model, call role, arm) of measured canary mean tokens-in/out per slot x verified per-token price x main-run slot count, evaluated at the upper bound of a 90% CI over canary per-slot token means, plus actual accumulated canary/anchor spend, plus a fixed 1.15 transport-retry multiplier on provider-billed calls (phase 2's observed retry overhead was below this). The method's inputs and arithmetic are recorded in the inclusion/authorization records that apply it. The method itself freezes with this protocol, before any judge-specific canary cost data exists.",
+   "estimate_honesty": "this prose range has no computed backing yet and two large opposite-direction corrections are unmodeled: phase 3 pays ZERO debater-generation cost (which dominated phase 2's blended per-cell average), while b4/b8 slots carry up to 8 sequential oracle turns with a growing judge context re-sent each turn (super-linear per-slot token cost). A computed phase3_cost_model.json replaces this range before canary authorization; if its upper estimate exceeds 80% of the stage cap, the owner revisits the cap before canary authorization rather than discovering the squeeze mid-run.",
+   "forecast_method": {
+    "formula": "projected stage spend = accrued actual spend to date + sum over (model, call role, arm) of [main-run slot count x U90(tokens-in per slot) x verified input price + main-run slot count x U90(tokens-out per slot) x verified output price] x 1.15 transport-retry multiplier",
+    "estimator_pins": "U90 = upper bound of a 90% t-interval over canary PER-QUESTION mean tokens per slot (question is the cluster; df = n_questions - 1), computed separately per (model, role, arm); zero-query and early-DONE slots enter as their actual (possibly zero) token counts, never excluded; failed and retried calls enter at their actual charged tokens; unknown or unreconciled charges count in full until provider evidence resolves them; line items ceil to whole cents",
+    "base_context_rule": "judge-context input tokens are NOT extrapolated from the 6 smoke questions: the transcript component of every arm's input is computed exactly from the frozen main transcript bundle's per-transcript token lengths, with the canary contributing only the per-turn template and oracle-block overhead measured around those exact lengths",
+    "price_drift_rule": "prices re-snapshot immediately before main authorization; any change from the materialization snapshot recomputes the forecast and is recorded; the method itself froze with this protocol, before any judge-specific canary cost data exists",
+    "executability": "every input above is measurable offline or from canary artifacts, so the forecast is executable the moment the canary completes, with no free parameters"
+   },
    "controls": "the amended phase-2 supervisor controls (benign-transient enumeration, uncertain-spend ceiling, same-cell cap, STOP-terminating orchestrator) carry forward; ledger, locking, reconciliation, and abnormal-resume policies inherited unchanged from phase2_protocol.json decisions.cumulative_spend"
   }
  },
@@ -289,12 +322,12 @@
   "fresh_execution_identity": "REQUIRED: the phase-2 identity ba017fe3... is retired by the post-phase-2 code changes; every phase-3 stage binds a new identity hash over the current frozen code bundle",
   "transcript_bundles": {"main_bundle_sha256": null, "canary_bundle_sha256": null, "verification_report": null},
   "provider_verification": {"new_judge_model_ids_verified": false, "price_snapshot_sha256": null, "serverless_endpoint_confirmed": false},
-  "provider_reconciliation": {"verified_starting_spend_usd": null, "verified_prepaid_credit_usd": null, "evidence_reference": null, "requirement": "verified against the provider dashboard before canary authorization; phase-2 closed reconciled (account-level CLOSED at the capability-preflight record) but the CURRENT figures must be re-verified, not assumed"},
+  "provider_reconciliation": {"verified_starting_spend_usd": null, "verified_prepaid_credit_usd": null, "evidence_reference": null, "requirement": "verified against the provider dashboard before canary authorization; phase-2 closed reconciled but the CURRENT figures must be re-verified, not assumed"},
   "credential_rotation": {"complete": false, "requirement": "rotate the provider API key before canary authorization (the phase-2 key has since been used across many sessions); non-secret evidence recorded"},
   "role_limits": {"tracked_path": null, "sha256": null, "requirement": "extend phase-2 v6 limits with per-model role limits and transport pins for the three new judges; transport pins are load-bearing and MUST be present for every model (rejudge/phase2_canary_manifest.py:_require_transport_pins enforces this)"},
-  "cost_model": {"tracked_path": null, "requirement": "phase3_cost_model.json computed per decisions.spend.forecast_method from canary measurements; replaces the prose estimate before main authorization"},
+  "cost_model": {"tracked_path": null, "requirement": "phase3_cost_model.json computed per decisions.spend.forecast_method from canary measurements plus the exact frozen transcript lengths; replaces the prose estimate before main authorization"},
   "engineering_gates_before_canary": [
-   "phase3_plan.py module set: its own validate_protocol for schema_version phase3_plan_v1; enumerate_cells reading debate_grid.conditions GENERICALLY (phase 2's enumerate_canary_cells hard-codes a literal condition tuple and its validate_protocol hard-rejects any non-phase-2 protocol, so none of the phase-2 planning stack is reusable as-is); per-condition judgment_replicates_per_transcript_side multiplied into the replicate range (no code reads this field today); a self-test asserting per-condition slot counts against debate_grid.slot_arithmetic before any plan is accepted",
+   "phase3_plan.py module set: its own validate_protocol for schema_version phase3_plan_v1; enumerate_cells reading debate_grid.conditions GENERICALLY (phase 2's enumerate_canary_cells hard-codes a literal condition tuple and its validate_protocol hard-rejects any non-phase-2 protocol, so none of the phase-2 planning stack is reusable as-is); per-condition judgment replicates from the selected configuration multiplied into the replicate range (no code reads this field today); a self-test asserting per-condition slot counts against debate_grid.slot_arithmetic_by_roster before any plan is accepted",
    "phase3 manifest modules accepting an injected protocol path (phase-2's manifest code hard-codes rejudge/phase2_protocol.json in three places)",
    "transcript ingestion script per transcript_reuse.ingestion_mechanics, with the hard runtime assertion against live generation and the byte-mismatch zero-tolerance gate actually implemented (no code computes such a comparison today)",
    "judgment_seed extended to include debater model and protocol namespace per decisions.execution_semantics.seed_policy, with a regression test",
@@ -302,14 +335,14 @@
    "canary_supervisor subprocess.run calls carry explicit timeouts",
    "the 30-minute stall watchdog is part of the orchestrator from the first canary block"
   ],
-  "analysis_pins": {"tracked_path": null, "requirement": "a phase-3 analysis-pins artifact fixing B, PRNG seed, rounding, and reporting decimals (the estimator, sup-t construction, INVALID mechanics, and secondary details are already pinned IN THIS PROTOCOL), frozen and independently reviewed before unblinding; the engine extends scripts/phase2_main_analysis.py and must pass a synthetic selftest with known curve values"},
+  "analysis_pins": {"tracked_path": null, "requirement": "a phase-3 analysis-pins artifact fixing B, PRNG seed, rounding, and reporting decimals (the estimators, p-value formula, sup-t construction, domain normalization, INVALID mechanics, and secondary details are already pinned IN THIS PROTOCOL), frozen and independently reviewed before unblinding; the engine extends scripts/phase2_main_analysis.py and must pass a synthetic selftest with known curve values"},
   "artifact_storage": {"versioned_destination": null, "retrieval_policy": "inherit the phase-2 archive discipline"}
  },
- "process_commitments": "design frozen and posted before launch; owner-authorized manifests and execution identities; hash-chained stores; spend caps under the amended supervisor controls; analysis pins fixed and independently reviewed before unblinding; the analysis runs once; every deviation recorded as an append-only amendment; claims stay conditional on the three worlds, the frozen transcript set, and this judge roster",
+ "process_commitments": "design frozen and posted before launch; owner-authorized manifests and execution identities; hash-chained stores; spend caps under the amended supervisor controls; analysis pins fixed and independently reviewed before unblinding; the analysis runs once; every deviation recorded as an append-only amendment; claims stay conditional on the three worlds, the frozen transcript set, and this judge roster; the fresh b0/b2 arms are described publicly as a within-corpus retest under the phase-3 harness, never as an independent replication",
  "external_assignments": {
   "public_update_poster": "Jack Maiorino",
-  "accepted_query_auditor": "the orchestrating assistant under the owner's standing delegation; audit records tracked and owner-spot-checkable",
-  "transcript_bundle_verifier": "the orchestrating assistant (100% sha256 coverage per transcript_reuse); verification report owner-spot-checkable",
+  "accepted_query_auditor": "internal QA: the orchestrating assistant under the owner's standing delegation; audit records tracked and owner-spot-checkable; not an independent audit",
+  "transcript_bundle_verifier": "internal QA: the orchestrating assistant (100% sha256 coverage per transcript_reuse); verification report owner-spot-checkable",
   "artifact_backup_owner": null
  }
 }

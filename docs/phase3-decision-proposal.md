@@ -155,12 +155,18 @@ confirmed benefit. The curve with simultaneous intervals still shows the shape e
 **Option D for sign-off:** double the judgment replicates at b4 and b8 only (6 to 12 slots
 per cell in those arms), for about +$50-70 and proportionally more gate reviews.
 
-**Option D verification (2026-08-18, `analysis_out/phase3_power_sim_optiond.json`):** the
-original "estimated 40 to 60 percent" tail power was a back-of-envelope figure. The
-simulation re-run with the actual 6-vs-12 slot structure gives U-recovery power b4
-0.17 to 0.29 and b8 0.27 to 0.36. The gain is real but modest, because question-level
-heterogeneity, not within-cell replicate noise, dominates the bootstrap variance, and
-doubling replicates only shrinks the latter. Since Option D also doubles b4/b8 gate-review
-volume, which the corrected throughput projections (see the protocol's
-review_volume_evidence) identify as the binding constraint, the trade is materially worse
-than presented at sign-off and goes back to the owner for re-decision.
+**Option D verification (2026-08-18, final: `analysis_out/phase3_power_sim_v2.json`,
+superseding the 08-14 and first Option-D runs):** the original "estimated 40 to 60
+percent" tail power was a back-of-envelope figure, and the first two simulations pooled
+the two debater cells and overstated replication's value (freeze-consult finding). The
+corrected simulation (per-debater cells, all four tail-slot configurations under common
+random numbers) gives U-recovery power at b8 of 0.107 with no doubling and 0.115-0.120
+with any doubling: tail replicates are nearly worthless for the recovery question,
+because question-level heterogeneity dominates the cluster bootstrap. b1/b2 power at
+phase-2-like magnitudes is ~1.0 in every configuration. Option D's trade (roughly
++50-80k gate rulings, weeks of review, +$50-70, for ~1pp of recovery power) is therefore
+recommended AGAINST; the honest statement is that a mild (-2pp) high-budget recovery is
+not confirmably detectable at any affordable configuration, and the curve with
+simultaneous intervals shows the shape either way. A large recovery would still be
+detected. The b8-vs-b2 downturn now has its own pre-registered secondary contrast (S1)
+so the U-claim is formally testable rather than informally read off the curve.

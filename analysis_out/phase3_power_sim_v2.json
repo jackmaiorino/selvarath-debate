@@ -1,0 +1,134 @@
+{
+ "sims": 400,
+ "inner_bootstrap": 800,
+ "seed": 20260818,
+ "heterogeneity_sd": 0.1399,
+ "cell_structure": "per (question, judge, debater); 6 slots at b0/b1/b2; tail arms drawn at 12 with each config reading its first k (common random numbers)",
+ "configs": {
+  "A_no_d": [
+   6,
+   6
+  ],
+  "B_b4_only": [
+   12,
+   6
+  ],
+  "C_b8_only": [
+   6,
+   12
+  ],
+  "D_full": [
+   12,
+   12
+  ]
+ },
+ "clone_assumption": {
+  "llama8b_lite": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "gemma3n_e4b": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "qwen37_max": "openai/gpt-oss-120b"
+ },
+ "scenarios": {
+  "u_recovery": {
+   "1": 0.03,
+   "2": 0.04,
+   "4": 0.01,
+   "8": -0.02
+  },
+  "small_effects": {
+   "1": 0.01,
+   "2": 0.02,
+   "4": 0.02,
+   "8": 0.01
+  },
+  "null": {
+   "1": 0.0,
+   "2": 0.0,
+   "4": 0.0,
+   "8": 0.0
+  }
+ },
+ "supersedes": [
+  "analysis_out/phase3_power_sim.json",
+  "analysis_out/phase3_power_sim_optiond.json"
+ ],
+ "power_holm4_alpha05": {
+  "u_recovery": {
+   "A_no_d": {
+    "delta_1": 1.0,
+    "delta_2": 1.0,
+    "delta_4": 0.512,
+    "delta_8": 0.107
+   },
+   "B_b4_only": {
+    "delta_1": 1.0,
+    "delta_2": 1.0,
+    "delta_4": 0.66,
+    "delta_8": 0.115
+   },
+   "C_b8_only": {
+    "delta_1": 1.0,
+    "delta_2": 1.0,
+    "delta_4": 0.515,
+    "delta_8": 0.115
+   },
+   "D_full": {
+    "delta_1": 1.0,
+    "delta_2": 1.0,
+    "delta_4": 0.665,
+    "delta_8": 0.12
+   }
+  },
+  "small_effects": {
+   "A_no_d": {
+    "delta_1": 0.583,
+    "delta_2": 0.978,
+    "delta_4": 0.98,
+    "delta_8": 0.568
+   },
+   "B_b4_only": {
+    "delta_1": 0.583,
+    "delta_2": 0.978,
+    "delta_4": 0.995,
+    "delta_8": 0.568
+   },
+   "C_b8_only": {
+    "delta_1": 0.605,
+    "delta_2": 0.978,
+    "delta_4": 0.98,
+    "delta_8": 0.693
+   },
+   "D_full": {
+    "delta_1": 0.605,
+    "delta_2": 0.978,
+    "delta_4": 0.995,
+    "delta_8": 0.693
+   }
+  },
+  "null": {
+   "A_no_d": {
+    "delta_1": 0.04,
+    "delta_2": 0.028,
+    "delta_4": 0.018,
+    "delta_8": 0.018
+   },
+   "B_b4_only": {
+    "delta_1": 0.04,
+    "delta_2": 0.025,
+    "delta_4": 0.02,
+    "delta_8": 0.02
+   },
+   "C_b8_only": {
+    "delta_1": 0.04,
+    "delta_2": 0.028,
+    "delta_4": 0.018,
+    "delta_8": 0.02
+   },
+   "D_full": {
+    "delta_1": 0.04,
+    "delta_2": 0.025,
+    "delta_4": 0.02,
+    "delta_8": 0.02
+   }
+  }
+ }
+}
