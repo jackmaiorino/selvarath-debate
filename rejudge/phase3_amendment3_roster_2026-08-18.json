@@ -1,0 +1,26 @@
+{
+ "schema_version": "phase3_amendment_v1",
+ "amendment_id": "phase3_amendment3_llama_slot_dropped_2026-08-18",
+ "amends": {
+  "tracked_path": "rejudge/phase3_protocol.json",
+  "canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "section": "roster (the weak-Llama judge slot, previously substituted by amendment 1)"
+ },
+ "what_changed": "the weak-Llama judge slot is DROPPED entirely; the roster proceeds at 6 judges (4 continuing + google/gemma-3n-E4B-it + Qwen/Qwen3.7-Max under its inclusion rule) on the frozen protocol's pre-registered 6-judge grid (29,520 main judgment slots at configuration A)",
+ "why": "persistent provider-side unavailability, converted to a drop by owner decision per roster.new_judge_failure_rule. Amendment 1's substitute meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo is catalog-listed but NOT serverless-accessible on this account: the live canary abandoned all 83 attempted calls with 'Unable to access non-serverless model' (E:/selvarath-archive/phase3-2026-08-18/phase3_canary_error_log.jsonl), and direct one-token probes of both remaining catalog Llama-3-8B variants (meta-llama/Meta-Llama-3-8B-Instruct, meta-llama/Llama-3-8b-chat-hf) were refused with the same error. No serverless weak-Llama exists on the provider.",
+ "consequences": [
+  "the Llama within-family descriptive pair dissolves; the gemma pair (gemma-3n-E4B vs gemma-4-31B) and the continuous capability anchor carry the capability axis",
+  "the capability-slope secondary remains estimable with a p-value (6 rostered judges meets the protocol's >= 6 non-estimability threshold exactly; if any further judge drops, the slope becomes estimate-and-plot only per the frozen rule)",
+  "the manifest is rebuilt for the 6-judge roster under a fresh execution identity; the 464 canary cells completed before the STOP keep their store rows and are skipped on resume (cell keys are roster-independent)",
+  "canary and main slot totals move to the frozen 6-judge tables: canary 1,440, main 29,520"
+ ],
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-18, enumerated-choice prompt in the session UI",
+  "selection_label": "Drop to 6 judges (Recommended)",
+  "companion_decision": "canary cap raised 40 -> 60 USD in the same exchange (selection label 'Raise to $60 (Recommended)'); spend context presented: 12.25 USD accounted at 464/1,680 slots"
+ },
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-18T19:45:00Z",
+ "note": "Append-only. The abandoned-cell-rate STOP that surfaced this was the supervisor discipline working as designed: a non-benign halt reason came to the orchestrating session for review within minutes."
+}

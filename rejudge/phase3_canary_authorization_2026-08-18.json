@@ -4,17 +4,19 @@
  "authorizes": "provider spend for the phase-3 canary stage ONLY, under the manifest and identity below. Main-run spend requires its own record, gated on the canary launch gates, the configuration-selection evaluation, the frozen forecast, and amendment 2's deferred items.",
  "binds": {
   "manifest_tracked_path": "rejudge/phase3_manifest_2026-08-18.json",
-  "execution_identity_sha256": "28bb18190c674babab1652ee959a14db9e157ec45a184ae0549bca8857980de8",
+  "execution_identity_sha256": "518fffd913c9ea4219fe42bcef2762b2b904c05f7e1ec0382317d1c5ab555755",
   "code_bundle_sha256": "b341f66831c74791030caba75b4f09f2ea2122880ea45120f9a08e60ec053ee4",
-  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z, then 4ce6c714/cacfa86d after the driver build, then the current pair after the host-translation fix; each predecessor manifest was rebuilt in place before ever executing; the owner's 40 USD approval is unchanged",
+  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z, then 4ce6c714/cacfa86d after the driver build, then 28bb1819/b341f668 after the host-translation fix (the identity that executed the first 464 cells and the abandoned_cell_rate STOP), now rebound for the 6-judge roster per amendment 3; the code bundle is unchanged from the executing identity, only the roster changed",
+  "amendment_3": "rejudge/phase3_amendment3_roster_2026-08-18.json",
   "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
   "amendment_1": "rejudge/phase3_amendment1_roster_2026-08-18.json (a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3)",
   "amendment_2": "rejudge/phase3_amendment2_deferral_2026-08-18.json"
  },
  "scope": {
-  "canary_slots": 1680,
-  "composition": "672 core b0 calibration-gate judgments (7 candidate judges) + 1,008 budget-smoke judgments (6-question subset through sequential_b1/b2/b4/b8) + 336 capability-anchor cells; 48 transcript-reference cells pre-seeded from the frozen canary bundle; ZERO transcript generation (manifest flag transcript_generation_forbidden enforced at runtime)",
-  "canary_cap_usd": 40,
+  "canary_slots": 1440,
+  "composition": "6-judge roster per amendment 3: 576 core b0 calibration-gate judgments + 576 budget-smoke judgments (6-question subset through sequential_b1/b2/b4/b8) + 288 capability-anchor cells; 48 transcript-reference cells pre-seeded from the frozen canary bundle; ZERO transcript generation (manifest flag transcript_generation_forbidden enforced at runtime). The 464 cells completed under identity 28bb1819 before the 2026-08-18 STOP keep their rows and are skipped on resume.",
+  "canary_cap_usd": 60,
+  "cap_history": "40 USD at first authorization; raised to 60 by owner selection 2026-08-18 ('Raise to $60 (Recommended)') with 12.25 USD accounted at the STOP",
   "estimate_usd": "15-30",
   "expected_reviewer_volume": "roughly 2,200-2,500 unique-payload gate rulings, about one quota-day",
   "store": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl, pre-seeded with 540 transcript rows (492 main rows are inert for the canary plan and pre-satisfy the later main-stage dependency), idempotency verified"
