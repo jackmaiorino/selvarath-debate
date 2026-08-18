@@ -125,7 +125,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                block_size: int | None = None,
                model_caps: dict[str, int] | None = None,
                transcript_generation_forbidden: bool = False,
-               namespace: str | None = None) -> RunOutcome:
+               namespace: str | None = None,
+               pending_payload_limit: int | None = None) -> RunOutcome:
     """Run one pass over the frozen canary plan, resuming from whatever is already recorded.
 
     Returns rather than raises on a halt: the caller needs the partial outcome, and everything
@@ -137,6 +138,20 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     the shared stores enforce one ruling per payload and one record per cell. ``model_caps``
     bounds in-flight calls per model, which is the control that actually matters given one
     model carries almost all the load.
+
+    ``pending_payload_limit`` (additive, default ``None`` = unbounded, unchanged phase-2
+    behavior) bounds how many NEW pending payloads (never-before-seen queries this pass must
+    make one real, uncached judge call to even discover) one pass will accumulate before it
+    stops attempting further not-yet-complete judgment/transcript cells and returns with
+    whatever it has. Pausing produces no result row, so a pass that reaches a long run of
+    cells that have never been attempted before -- all destined to pause on their first query
+    once no committed decision exists yet -- otherwise has no bound on how much real,
+    provider-latency-exposed wall-clock time it can spend before returning, and every one of
+    those calls is spent with nothing durable to show for it if the pass is killed mid-way
+    (the 2026-08-18 canary stall: the watchdog fired at 1,808s of silence while a serial pass
+    was working through hundreds of never-before-attempted budget-smoke cells). A phase-2
+    caller that never passes it is completely unaffected: the check below is skipped entirely
+    when the limit is ``None``.
 
     ``transcript_generation_forbidden``/``namespace`` are additive, default-off phase-3 hooks;
     every phase-2 call site omits both, so phase-2 behavior (and its byte-for-byte seed
@@ -190,7 +205,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         return _run_concurrent(
             ordered=ordered, results=results, context=context, outcome=outcome,
             seen_payloads=seen_payloads, limit=limit, max_workers=max_workers,
-            block_size=block_size or max_workers * 2, namespace=namespace)
+            block_size=block_size or max_workers * 2, namespace=namespace,
+            pending_payload_limit=pending_payload_limit)
 
     attempted = 0
     for cell in ordered:
@@ -198,6 +214,9 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
             outcome.skipped += 1
             continue
         if limit is not None and attempted >= limit:
+            break
+        if (pending_payload_limit is not None
+                and len(outcome.pending_payloads) >= pending_payload_limit):
             break
         attempted += 1
         try:
@@ -311,7 +330,8 @@ def _attempt(cell, context, *, namespace: str | None = None) -> tuple[str, Any]:
 
 def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                     max_workers: int, block_size: int,
-                    namespace: str | None = None) -> RunOutcome:
+                    namespace: str | None = None,
+                    pending_payload_limit: int | None = None) -> RunOutcome:
     """Blocked concurrent execution of one pass.
 
     Two properties are load bearing and neither is about speed.
@@ -323,10 +343,18 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
     finished. A cell's seed is derived from its own key, so completion order cannot change what
     a cell produces, but it would otherwise decide the order rows land in the hash-chained
     store, and any analysis that reads row position would then see a scheduler artifact.
+
+    ``pending_payload_limit`` mirrors the serial loop's own additive, default-``None`` bound
+    (see :func:`run_canary`'s docstring): checked once per block boundary, so a pass stops
+    starting NEW blocks once it has accumulated enough new pending payloads, rather than
+    draining the entire ready set regardless of how much of it is bound for a first-time pause.
     """
     attempted: set[str] = set()
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         while True:
+            if (pending_payload_limit is not None
+                    and len(outcome.pending_payloads) >= pending_payload_limit):
+                break
             ready = [cell for cell in ordered
                      if cell.cell_key not in attempted
                      and not results.is_complete(cell.cell_key)

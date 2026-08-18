@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -583,6 +584,107 @@ def test_subagent_batch_mode_pauses_and_exports_a_worklist(tmp_path, repo_root):
     for item in worklist["items"]:
         assert item["subagent_prompt"]
         assert item["subagent_prompt_sha256"]
+
+
+# ---------------------------------------------------------------------------
+# 2026-08-18 canary stall regressions: a reviewer that withholds every label must never
+# stall the driver -- it must return promptly, with schedulable non-gated work done and
+# pending payloads exported, exactly the orchestrator's intended contract.
+# ---------------------------------------------------------------------------
+
+
+def test_withheld_labels_still_return_promptly_with_all_non_query_cells_complete(
+        tmp_path, repo_root, held_out_ids):
+    """Direct regression for the 2026-08-18 stall: with a completely fresh decisions store
+    (every label withheld) and the FULL 7-judge roster (all 1,680 canary slots, matching the
+    live incident's scale), the driver must still return within a generous but bounded wall
+    clock, with every b0 and capability_qa cell (neither ever touches the gate) complete and
+    every query-producing cell either paused-with-a-payload or -- for cells the
+    pending_payload_limit stopped short of even reaching -- simply not yet attempted."""
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, FULL_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, FULL_ROSTER, held_out_ids)
+    expected_b0 = sum(1 for c in canary_cells
+                      if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND and c["condition"] == "b0")
+    expected_capability = sum(
+        1 for c in canary_cells if c["kind"] == phase3_plan.CAPABILITY_ANCHOR_KIND)
+
+    client = DeterministicCanaryClient()
+    started = time.monotonic()
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        mode="subagent-batch")
+    elapsed = time.monotonic() - started
+
+    # Bounded wall clock: this is an in-memory stub client with zero real network latency, so a
+    # driver that is genuinely returning promptly (rather than draining the entire 1,344-cell
+    # judgment set) finishes in well under a minute. The 2026-08-18 incident was a 30-MINUTE
+    # silence against real providers; this bound only needs to be generous enough to catch a
+    # reintroduced unbounded pass, not to model real latency.
+    assert elapsed < 60, f"driver took {elapsed:.1f}s against an all-stub client; expected < 60s"
+
+    assert outcome.halted_reason is None
+    assert outcome.needs_labelling
+    assert outcome.pending_payloads
+
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    reopened = CellResultStore(results_path)
+    completed_b0 = sum(
+        1 for c in canary_cells
+        if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND and c["condition"] == "b0"
+        and c["cell_key"] in reopened._results)
+    completed_capability = sum(
+        1 for c in canary_cells if c["kind"] == phase3_plan.CAPABILITY_ANCHOR_KIND
+        and c["cell_key"] in reopened._results)
+    # The bug this regresses: capability_qa cells used to be skipped OUTRIGHT whenever any
+    # judgment cell paused. They share no gate, no dependency, no reviewer with the judgment
+    # pass -- every one of them must complete.
+    assert completed_capability == expected_capability
+    # b0 cells never touch the gate either and sort before every query-producing cell, so
+    # every one of them completes in this same pass regardless of how many smoke cells paused.
+    assert completed_b0 == expected_b0
+
+
+def test_pending_payload_limit_bounds_a_pass_instead_of_draining_the_whole_smoke_set(
+        tmp_path, repo_root):
+    """The other half of the fix: a pass stops accumulating NEW pending payloads once it hits
+    the limit, leaving the rest of the query-producing cells genuinely untouched for the next
+    invocation -- rather than making a real (uncached) judge_query call for every one of them
+    in a single unbounded pass."""
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    client = DeterministicCanaryClient()
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        mode="subagent-batch", pending_payload_limit=3)
+
+    assert outcome.halted_reason is None
+    assert len(outcome.pending_payloads) == 3
+    # judge_query is the FIRST real call a query-producing cell makes before it can even be
+    # classified as paused; capping pending payloads to 3 must cap how many of those calls a
+    # pass makes, proving the limit is enforced BEFORE the cell is attempted, not after.
+    query_calls = [c for c in client.calls if c.get("call_role") == "judge_query"]
+    assert len(query_calls) == 3
+
+    # A second pass, unbounded, must still be able to pick up and finish the rest -- the limit
+    # only shapes ONE pass's exposure, it does not lose or corrupt any cell.
+    second_outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root,
+        client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api")
+    assert second_outcome.halted_reason is None
+    assert second_outcome.paused == 0
+    assert not second_outcome.pending_payloads
 
 
 # ---------------------------------------------------------------------------

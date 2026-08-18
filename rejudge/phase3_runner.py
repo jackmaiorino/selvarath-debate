@@ -85,6 +85,16 @@ PHASE2_PROVIDER_PRICE_SNAPSHOT_RELATIVE_PATH = Path(
 CAPABILITY_QA_ROLE = "capability_qa"
 CAPABILITY_QA_TEMPERATURE = 0.0
 
+# The 2026-08-18 canary stall bound (see run_phase3_canary's docstring): how many NEW pending
+# payloads one judgment pass will accumulate before it stops attempting further not-yet-complete
+# cells and returns. Deliberately a "meaningful review-wave batch" size, not a tiny number: too
+# small wastes round trips (a review wave has real fixed overhead -- packaging, dispatch,
+# commit); too large re-exposes the exact unbounded-pass risk this constant exists to bound.
+# Overridable per call (run_phase3_canary's own pending_payload_limit parameter); explicitly
+# None disables the bound entirely, matching rejudge.phase2_canary_runner.run_canary's own
+# unbounded default.
+DEFAULT_PENDING_PAYLOAD_LIMIT = 64
+
 
 class Phase3RunnerError(ValueError):
     """Raised when the phase-3 driver refuses to proceed. Always fails closed."""
@@ -640,7 +650,9 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
                       client: Any = None, reviewer: Any = None, mode: str = "subagent-batch",
                       max_workers: int = 1, block_size: int | None = None,
                       model_caps: dict[str, int] | None = None,
-                      transcript_bundle_dir: str | Path | None = None) -> RunOutcome:
+                      transcript_bundle_dir: str | Path | None = None,
+                      pending_payload_limit: int | None = DEFAULT_PENDING_PAYLOAD_LIMIT,
+                      ) -> RunOutcome:
     """Execute the authorized phase-3 canary. The only entry point here that can spend money.
 
     Fail-closed launch gates, all checked before a single cell runs: the manifest validates
@@ -660,6 +672,32 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     transcript-reference cell reached the executor unseeded, which pre-seeding
     (``scripts/phase3_preseed_transcripts.py``) should have made impossible, so this function
     re-raises it as a hard crash rather than letting a caller mistake it for a resumable halt.
+
+    **The 2026-08-18 canary stall, and the two fixes for it.** The stall watchdog killed a live
+    invocation after 1,808s of total silence (zero new result rows, no errors, no exit) while
+    ~12 b0 cells, all 576 budget-smoke cells, and all 288 capability_qa cells still remained.
+    Root cause, confirmed by reading ``rejudge.phase2_canary_gate``/``phase2_dual_gate`` in
+    full: NOT an in-process wait for labels (``CanaryQueryGate._ensure_reviewer_decision``
+    raises ``PendingReviewerDecision`` immediately when unlabeled, no retry loop exists) and
+    NOT the block scheduler (this module's CLI has no ``--max-workers`` flag, so the live run
+    was necessarily the serial ``max_workers=1`` path, never
+    ``rejudge.phase2_canary_runner._run_concurrent``). Two real, separate problems instead:
+    (1) THIS function used to gate the capability-cell phase on ``not outcome.needs_labelling``
+    -- so the moment even ONE judgment cell paused, all 288 gate-independent capability_qa
+    cells were skipped outright, every single invocation, regardless of how much schedulable
+    work remained. Fixed below: the capability phase now runs whenever the judgment pass did
+    not fatally halt, full stop.
+    (2) the serial pass has no bound on how much real wall-clock time it spends before
+    returning: a query-producing cell that pauses still needs ONE real, uncached judge_query
+    call first (pausing records nothing), so a pass reaching a long run of never-before-attempted
+    smoke cells burns provider time with zero rows to show for any of them, and if even a
+    handful land on a degraded model (as gemma-4-31B was, per the one logged timeout) the whole
+    pass's wall-clock exposure balloons with no interim checkpoint. Fixed via
+    ``pending_payload_limit``, threaded into ``run_canary``: once a pass accumulates that many
+    NEW pending payloads it stops attempting further not-yet-complete judgment/transcript
+    cells and returns -- bounding worst-case exposure to a fixed batch instead of the entire
+    remaining query-producing set, and letting the orchestrator relaunch after a smaller,
+    faster review wave.
     """
     if mode not in ("api", "subagent-batch"):
         raise Phase3RunnerError(f"unknown mode {mode!r}")
@@ -705,7 +743,8 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
         reviewer=reviewer, anchor_judge_model="", protocol=protocol, bundle=bundle,
         pause_when_unlabeled=(mode == "subagent-batch"), limit=limit, cells=judgment_cells,
         max_workers=max_workers, block_size=block_size, model_caps=model_caps,
-        transcript_generation_forbidden=True, namespace=namespace)
+        transcript_generation_forbidden=True, namespace=namespace,
+        pending_payload_limit=pending_payload_limit)
 
     if outcome.halted_reason == "GenerationForbiddenError":
         raise GenerationForbiddenError(
@@ -714,7 +753,12 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
             "dependency was never recorded. Run scripts/phase3_preseed_transcripts.py before "
             "starting a real run. This is a crash, not a resumable halt.")
 
-    if outcome.halted_reason is None and not outcome.needs_labelling:
+    # Schedulable, gate-independent work (capability_qa) must run whenever the judgment pass
+    # did not fatally halt -- REGARDLESS of outcome.needs_labelling. Gating this on "no pending
+    # labels" (the pre-2026-08-18-fix behavior) meant a single paused judgment cell silently
+    # blocked all 288 capability cells, every invocation, even though they share no gate, no
+    # dependency, and no reviewer with the judgment pass at all.
+    if outcome.halted_reason is None:
         # A FRESH store, opened only now: run_canary above owns (and has already closed) its
         # own independent CellResultStore instance over the same file, appending every
         # judgment/transcript row to the on-disk hash chain. A store instance opened any
@@ -755,6 +799,11 @@ def main(argv: list[str] | None = None) -> int:
                              "(smoke)")
     parser.add_argument("--commit-decisions", default=None,
                         help="commit a JSON file of out-of-band reviewer outputs and exit")
+    parser.add_argument("--pending-payload-limit", type=int,
+                        default=DEFAULT_PENDING_PAYLOAD_LIMIT,
+                        help="stop attempting further not-yet-complete cells once this many "
+                             "NEW pending payloads have accumulated this pass (bounds "
+                             "worst-case wall-clock exposure); 0 or negative disables the bound")
     args = parser.parse_args(argv)
     try:
         if args.commit_decisions is not None:
@@ -762,9 +811,12 @@ def main(argv: list[str] | None = None) -> int:
                 args.manifest, args.commit_decisions, args.project_root)
             print(json.dumps(counts, sort_keys=True))
             return 0
+        pending_payload_limit = (args.pending_payload_limit
+                                 if args.pending_payload_limit and args.pending_payload_limit > 0
+                                 else None)
         outcome = run_phase3_canary(
             args.manifest, args.authorization, args.project_root, limit=args.limit,
-            mode=args.mode)
+            mode=args.mode, pending_payload_limit=pending_payload_limit)
     except Exception as exc:  # noqa: BLE001 - report, never swallow
         print(f"REFUSED/HALTED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
