@@ -187,9 +187,14 @@ def ledger_paths_for(manifest_path: str, archive_dir: Path, *,
     ledger = manifest["ledger"]
     usage = Path(ledger["usage_log_path"]).name
     results = Path(ledger[results_key]).name
-    # Not in the ledger block for canary manifests; derived from the usage name's prefix so it
-    # cannot drift from whatever the driver writes.
-    prefix = usage.split("_usage", 1)[0]
+    # Not in the ledger block for canary manifests; derived from the RESULTS name's prefix so
+    # it cannot drift from whatever the driver writes. (Derived from the usage name until
+    # 2026-08-18, which broke against the phase-3 manifest: usage is phase3_usage.jsonl but
+    # the driver's error log is phase3_canary_error_log.jsonl, keyed like its results file;
+    # the supervisor then tailed a nonexistent error log and refused every benign
+    # auto-resume. For phase-2 manifests the two derivations are identical: canary_results ->
+    # canary, main_results -> main.)
+    prefix = results.split("_results", 1)[0]
     return {"usage": archive_dir / usage,
             "results": archive_dir / results,
             "errors": archive_dir / f"{prefix}_error_log.jsonl"}
