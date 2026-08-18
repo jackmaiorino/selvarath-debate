@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from rejudge import phase3_plan
+from rejudge.phase2_canary_live import local_path
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.phase2_role_limits import HTTP_TIMEOUT_KEYS, TRANSPORT_KEYS_V5
 
@@ -337,7 +338,10 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
 
     main_bundle_path = _resolve_transcript_bundle_path(
         root, MAIN_TRANSCRIPT_BUNDLE_RELATIVE_PATH, transcript_bundle_dir)
-    main_bundle = _json(main_bundle_path)
+    # The resolved path string is the authoritative recorded binding; only filesystem access
+    # is host-translated (E:/ vs /mnt/e), so a manifest built on Windows validates under WSL
+    # with an identical frozen_inputs dict.
+    main_bundle = _json(local_path(str(main_bundle_path)))
     main_bundle_sha = canonical_sha256(main_bundle)
     if main_bundle_sha != expected_bundle_hashes["main_bundle"]:
         raise ManifestValidationError(
@@ -347,7 +351,7 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
 
     canary_bundle_path = _resolve_transcript_bundle_path(
         root, CANARY_TRANSCRIPT_BUNDLE_RELATIVE_PATH, transcript_bundle_dir)
-    canary_bundle = _json(canary_bundle_path)
+    canary_bundle = _json(local_path(str(canary_bundle_path)))
     canary_bundle_sha = canonical_sha256(canary_bundle)
     if canary_bundle_sha != expected_bundle_hashes["canary_bundle"]:
         raise ManifestValidationError(
