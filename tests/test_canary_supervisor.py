@@ -523,3 +523,24 @@ def test_a_wedged_driver_subprocess_stops_the_supervisor_instead_of_hanging_fore
     monkeypatch.setattr(sup.subprocess, "run", _hangs_forever)
     rc = sup.main(["python", str(manifest), "auth.json", str(archive)])
     assert rc == 8
+
+
+def test_a_malformed_checker_halt_needs_no_transport_corroboration(tmp_path):
+    """2026-08-19 phase-3 canary round 2 (auto-resume amendment 1): a malformed checker
+    RESPONSE settles billing normally and writes neither an abandoned-call ledger event nor
+    an error-log entry, so demanding transport-shaped evidence made every episodic
+    checker_malformed halt a manual review. The remaining protections (no result row for the
+    halted cell, same-cell limit, resume cap, uncertain ceiling) still bind. checker_outage
+    keeps the transport corroboration."""
+    usage = tmp_path / "usage.jsonl"
+    usage.write_text(json.dumps(
+        {"status": "success", "model": "m", "ts": "2026-08-05T14:49:00+00:00",
+         "cost_usd": 0.002}) + "\n", encoding="utf-8")
+    errors = tmp_path / "errors.jsonl"
+    errors.write_text("", encoding="utf-8")
+
+    reason = benign_transient_signature(
+        outcome={"halted_reason": "checker_malformed", "halted_cell_key": "cell-1"},
+        usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
+        attempt_started_at=_epoch("2026-08-05T14:40:00+00:00"))
+    assert reason is None, f"checker_malformed should corroborate on its own shape: {reason}"

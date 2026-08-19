@@ -232,13 +232,15 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     abandoned = [event for event in events
                  if event.get("status") == "unknown_charge"
                  and _event_epoch(event) >= attempt_started_at - _CLOCK_GRACE_SECONDS]
-    if str(outcome.get("halted_reason", "")).startswith("checker_"):
+    if outcome.get("halted_reason") == "checker_malformed":
         # A malformed or unresolved checker RESPONSE is a semantic anomaly, not a billing one:
         # the call settled normally, so it leaves no abandoned-call ledger event and usually
         # no error-log entry, and demanding that evidence made every episodic
         # checker_malformed halt a manual review (2026-08-19 phase-3 canary, round 2; phase 2
         # never hit this only because its windows always happened to contain unrelated
-        # transport noise). For checker_* halts the corroboration is the checker's own shape:
+        # transport noise). checker_outage stays on the transport-shaped corroboration: an
+        # outage DOES produce API errors and abandonments. For checker_malformed the
+        # corroboration is the checker's own shape:
         # the halted cell must have no result row (checked below) and the same-cell and
         # uncertain-ceiling bounds still apply; any abandonment that IS present must still be
         # enumerated. Recorded in rejudge/phase3_auto_resume_amendment1_2026-08-19.json.
@@ -250,7 +252,7 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     if unenumerated:
         return ("an abandoned call in the halt window is not in the enumerated transient set "
                 f"(got: {str(unenumerated[-1].get('error', ''))[:120]!r})")
-    if not str(outcome.get("halted_reason", "")).startswith("checker_"):
+    if outcome.get("halted_reason") != "checker_malformed":
         # The error-log corroboration is transport-shaped for the same reason as the
         # abandoned-call window above; checker_* halts write neither.
         errors = _tail_json_lines(error_log_path, 1)
