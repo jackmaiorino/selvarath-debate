@@ -1,0 +1,11 @@
+{
+ "schema_version": "phase3_auto_resume_amendment_v1",
+ "amendment_id": "phase3_auto_resume_amendment2_input_validation_transient_2026-08-19",
+ "amends": "the enumerated benign-transient set in scripts/canary_supervisor.py (grown by phase-2 amendments 1-5, 8, 10, 12 in the same way)",
+ "what_changed": "adds Together's serving-side 400 'Input validation error' (anchored to the exact message inside the provider's error envelope) to the enumerated transient set",
+ "why": "13 occurrences in the phase-3 canary, all on google/gemma-3n-E4B-it, 12 of them inside one 40-minute degradation window on 2026-08-18 evening, across ten DIFFERENT questions, dominated by judge_verdict calls at b0; every affected cell subsequently completed with the identical request, proving the requests are valid and the 400 is provider-side flake. Without enumeration each occurrence in a halt window forces a manual review (round-5 STOP, 2026-08-19T05:04Z).",
+ "risk_bound": "a genuinely deterministic 400 on one call still stops the run via the same-call consecutive-halt limit (SAME_CELL_MAX); the uncertain-spend ceiling and resume cap are unchanged",
+ "authority": "in-phase operational decision under the owner's standing delegation (the exact mechanism phase-2 amendments used for each new Together failure shape); recorded append-only; the owner sees this record in the canary close-out",
+ "execution_authorized_change": "none",
+ "recorded_at_utc": "2026-08-19T05:20:00Z"
+}

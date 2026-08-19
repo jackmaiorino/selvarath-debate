@@ -544,3 +544,17 @@ def test_a_malformed_checker_halt_needs_no_transport_corroboration(tmp_path):
         usage_path=usage, error_log_path=errors, results_path=tmp_path / "results.jsonl",
         attempt_started_at=_epoch("2026-08-05T14:40:00+00:00"))
     assert reason is None, f"checker_malformed should corroborate on its own shape: {reason}"
+
+
+def test_togethers_input_validation_400_is_an_enumerated_transient(tmp_path):
+    # Phase-3 auto-resume amendment 2 (2026-08-19): serving-side 400 flake, proven episodic
+    # (identical requests completed on retry). Anchored to the exact provider message.
+    err = ("Error code: 400 - {'id': 'x', 'error': {'message': 'Input validation error', "
+           "'type': 'invalid_request_error', 'param': None, 'code': None}}")
+    reason = _check(
+        tmp_path,
+        usage_rows=[{"status": "unknown_charge", "attempt_id": "a1", "cost_usd": 0.01,
+                     "error": err}],
+        error_rows=[{"ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)),
+                     "error": err}])
+    assert reason is None

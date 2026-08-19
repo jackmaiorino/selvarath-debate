@@ -125,6 +125,13 @@ _BENIGN_TRANSIENT = re.compile(
     # Anchored to the exact SDK string so it cannot become a catch-all for anything
     # mentioning a connection.
     r"^Connection error\.$|"
+    # Phase-3 auto-resume amendment 2 (2026-08-19): Together's serving-side 400 'Input
+    # validation error' flake. Evidence it is provider-side and episodic, not a malformed
+    # request: 12 of 13 occurrences landed in one 40-minute 2026-08-18 degradation window,
+    # all on gemma-3n-E4B across ten DIFFERENT questions, and every affected cell completed
+    # on retry with the identical request. Anchored to Together's exact message inside its
+    # error envelope; a deterministic 400 loop still trips the same-call limit.
+    r"Error code: 400 - .*'message': 'Input validation error'|"
     # Amendment 12 (2026-08-10): httpx's wording for a connection the peer closed mid-body,
     # the visible sibling of the silent open-connection hang killed the same day. Same class
     # as Server disconnected. Prefix-anchored because httpx varies the parenthetical
