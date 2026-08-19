@@ -1,0 +1,30 @@
+{
+ "schema_version": "phase3_amendment_v1",
+ "amendment_id": "phase3_amendment4_context_guard_estimator_2026-08-19",
+ "amends": {
+  "tracked_path": "rejudge/phase3_protocol.json",
+  "canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "sections": ["execution semantics (transport context guard), launch gates (canary completion across identity segments), primary/secondary analysis populations (frozen common support for any residual context exclusions)"]
+ },
+ "consult_basis": "rejudge/phase3_codex_context_guard_consult_2026-08-19.md (Codex, GPT-5.6, 2026-08-19): adopt option C. The phase-2 context guard estimates request size as prompt BYTES + max_tokens against token ceilings (~4x conservative). Invisible at budgets 0-2; at budget 8 the overcount blocked 100% of b8 cells for 3 of 6 judges. Empirically falsified as a physics boundary: three blocklisted cells completed all eight queries.",
+ "package": {
+  "1_context_estimator": "a NEW context-only size estimator used solely by the guard comparison: E_prompt = ceil(prompt_utf8_bytes / 3) + 512; E_total = E_prompt + effective_request_max_tokens. rejudge.api_client._estimate_usage (which also drives spend accounting and unknown-charge reservations) is NOT modified.",
+  "2_visible_history_caps": "a mechanically enforced cap on visible query-response bytes entering the judge's history, checked BEFORE insertion, never implemented by truncation: 1,024 UTF-8 bytes for base-256 query models, 6,144 for reasoning-floor models (at least 2x the observed per-class maxima of 2,204 / 2,839 bytes). An over-cap response follows the existing fixed malformed-query retry/block transition. The context precheck uses these caps for both possible attempts.",
+  "3_validation_gate": "before the successor manifest executes: freeze a ledger prefix (sequence number, terminal event hash, raw sha256); for EVERY terminal call in it with provider-reported prompt_tokens, require E_prompt >= actual_prompt_tokens + max(512, ceil(0.25 * actual_prompt_tokens)); the same rule applies prospectively to every call completing the previously blocked cells; ANY miss blocks main authorization and requires a new amendment; unknown-charge calls (no token ground truth) reported separately. Codex's preliminary replay over 4,800+ live calls: zero misses, minimum headroom 1,248 tokens / 67% relative.",
+  "4_carry_forward_check": "all completed canary query responses replayed against the caps before carry-forward; completed cells carry forward only because the estimator change affects ADMISSION only and no completed response would have transitioned differently",
+  "5_independent_review": "one independent reviewer (a fresh Codex review of the actual diff, separate from the implementing agent) checks the implementation before the successor manifest executes, confirming admitted-call request bytes, seeds, model parameters, cache keys, ceilings, and accounting reservations are unchanged",
+  "6_provenance_additions": "scripts/phase3_context_precheck.py and scripts/phase3_canary_orchestrator.sh join PHASE3_CODE_PROVENANCE_FILES; the successor identity binds the estimator formula and constants, the history caps and transition semantics, the frozen ledger prefix and validation report, and the regenerated eligibility list with its generating inputs",
+  "7_common_support_rule": "VERBATIM from the consult, pre-registered: before main authorization, freeze and hash eligibility from frozen prompts, transcripts, role limits, estimator version, and history caps. For each Delta(b), analyze b and b0 on matched common support keyed by (question, judge, debater, transcript, side, replicate). For S1, analyze b8 and b2 on their matched intersection. Context-ineligible slots are NEVER coded INVALID (that would manufacture errors under the primary rule). Any runtime ContextGuardError outside the frozen list halts execution. If any judge-condition stratum has zero support, main authorization requires an owner re-decision. D1/D2 stay full-domain if unaffected; a descriptive all-arm-intersection curve is reported for readability.",
+  "8_canary_completion_gate": "the frozen gate is read as: every original manifested canary slot (1,440) settles across the predecessor and successor execution segments; blocked records never count as completion; reduced-denominator convergence under the interim blocklist is PROVISIONAL only; the successor worklist is computed as manifested keys minus completed keys, never from the blocklist"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-19, enumerated-choice prompt in the session UI",
+  "selection_label": "Adopt all (Recommended)",
+  "alternatives_presented": ["Exclude instead (Option A)", "Discuss first"]
+ },
+ "execution_authorized": false,
+ "execution_note": "the 72 blocked cells run under the successor identity within the existing canary authorization's 60 USD cap (estimated +$3-8)",
+ "recorded_at_utc": "2026-08-19T19:05:00Z",
+ "note": "Append-only."
+}
