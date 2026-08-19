@@ -232,21 +232,35 @@ def benign_transient_signature(*, outcome: dict, usage_path: Path, error_log_pat
     abandoned = [event for event in events
                  if event.get("status") == "unknown_charge"
                  and _event_epoch(event) >= attempt_started_at - _CLOCK_GRACE_SECONDS]
-    if not abandoned:
+    if str(outcome.get("halted_reason", "")).startswith("checker_"):
+        # A malformed or unresolved checker RESPONSE is a semantic anomaly, not a billing one:
+        # the call settled normally, so it leaves no abandoned-call ledger event and usually
+        # no error-log entry, and demanding that evidence made every episodic
+        # checker_malformed halt a manual review (2026-08-19 phase-3 canary, round 2; phase 2
+        # never hit this only because its windows always happened to contain unrelated
+        # transport noise). For checker_* halts the corroboration is the checker's own shape:
+        # the halted cell must have no result row (checked below) and the same-cell and
+        # uncertain-ceiling bounds still apply; any abandonment that IS present must still be
+        # enumerated. Recorded in rejudge/phase3_auto_resume_amendment1_2026-08-19.json.
+        pass
+    elif not abandoned:
         return ("no abandoned call in this attempt's ledger events; the halt is unexplained")
     unenumerated = [event for event in abandoned
                     if not _BENIGN_TRANSIENT.search(str(event.get("error", "")))]
     if unenumerated:
         return ("an abandoned call in the halt window is not in the enumerated transient set "
                 f"(got: {str(unenumerated[-1].get('error', ''))[:120]!r})")
-    errors = _tail_json_lines(error_log_path, 1)
-    if not errors or not _BENIGN_TRANSIENT.search(str(errors[0].get("error", ""))):
-        return ("newest error-log entry is not in the enumerated transient set "
-                f"(got: {str(errors[0].get('error', ''))[:120] if errors else ''!r})")
-    error_ts = str(errors[0].get("ts", ""))
-    if error_ts and time.mktime(time.strptime(
-            error_ts[:19], "%Y-%m-%dT%H:%M:%S")) < attempt_started_at - 120:
-        return "newest error-log entry predates this attempt"
+    if not str(outcome.get("halted_reason", "")).startswith("checker_"):
+        # The error-log corroboration is transport-shaped for the same reason as the
+        # abandoned-call window above; checker_* halts write neither.
+        errors = _tail_json_lines(error_log_path, 1)
+        if not errors or not _BENIGN_TRANSIENT.search(str(errors[0].get("error", ""))):
+            return ("newest error-log entry is not in the enumerated transient set "
+                    f"(got: {str(errors[0].get('error', ''))[:120] if errors else ''!r})")
+        error_ts = str(errors[0].get("ts", ""))
+        if error_ts and time.mktime(time.strptime(
+                error_ts[:19], "%Y-%m-%dT%H:%M:%S")) < attempt_started_at - 120:
+            return "newest error-log entry predates this attempt"
     if results_path.exists():
         for line in results_path.read_text(encoding="utf-8").splitlines():
             if line.strip() and json.loads(line).get("cell_key") == cell:

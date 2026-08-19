@@ -1,0 +1,10 @@
+{
+ "schema_version": "phase3_auto_resume_amendment_v1",
+ "amendment_id": "phase3_auto_resume_amendment1_checker_corroboration_2026-08-19",
+ "amends": "the auto-resume corroboration in scripts/canary_supervisor.py (operational control inherited from rejudge/phase2_canary_auto_resume_policy_2026-07-28.json and its amendments)",
+ "what_changed": "for halted_reason values beginning checker_ (checker_malformed, checker_outage), the supervisor no longer requires an abandoned-call ledger event or a matching newest error-log entry as corroboration. Those are TRANSPORT-shaped evidence; a malformed or unresolved checker response settles its billing normally and writes neither. The checker-shape corroboration that remains: the halt must name a cell, the halted cell must have no result row, any abandonment that IS present in the window must still match the enumerated transient set, and the same-cell limit, resume cap, and uncertain-spend ceiling all still bind. UnknownChargeHalt corroboration is unchanged.",
+ "why": "2026-08-19 phase-3 canary round 2: two episodic checker_malformed halts on different cells (the first cell completed cleanly on resume, the classic phase-2 gemma checker signature that drove MAX_RESUMES to 400 there). The first auto-resumed only because unrelated transport noise happened to sit in its ledger window; the second had a clean window and stopped for manual review. All 107 cached checker responses in the run conform to the contract vocabulary, so this is provider-side episodic noise, not a new semantic failure of the checker prompt.",
+ "authority": "in-phase operational decision under the owner's standing delegation (transport-class relaunch discipline); recorded append-only; the owner sees this record in the canary close-out",
+ "execution_authorized_change": "none; this alters no spend control and no scientific content",
+ "recorded_at_utc": "2026-08-19T00:55:00Z"
+}
