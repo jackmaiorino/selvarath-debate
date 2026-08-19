@@ -1,7 +1,7 @@
 {
  "schema_version": "phase3_execution_manifest_v1",
  "stage": "phase3",
- "recorded_at_utc": "2026-08-18T21:06:01Z",
+ "recorded_at_utc": "2026-08-19T15:58:57Z",
  "protocol_tracked_path": "rejudge/phase3_protocol.json",
  "planning": {
   "question_counts": {
@@ -120,10 +120,10 @@
    "rejudge/run_accounting.py",
    "scripts/phase3_preseed_transcripts.py"
   ],
-  "code_bundle_sha256": "84a2c15686885a910ada600f7382ced2f4eb3e16814cb2ed166f2983d62396a1"
+  "code_bundle_sha256": "d23542c89b921547d1738c5942d6fdec988e59d21bfabb2af5a9734288176c30"
  },
  "resume_granularity": "cell",
  "transcript_generation_forbidden": true,
  "execution_authorized": false,
- "execution_identity_sha256": "dd513047de586663b93c56fd8669b431170cc3a6a435d504525018af171488de"
+ "execution_identity_sha256": "73bee8198c2986ce6b96c8ae3e3cef3e6752d503586b3dc834cc140aba673338"
 }

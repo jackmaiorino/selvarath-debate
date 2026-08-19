@@ -4,9 +4,9 @@
  "authorizes": "provider spend for the phase-3 canary stage ONLY, under the manifest and identity below. Main-run spend requires its own record, gated on the canary launch gates, the configuration-selection evaluation, the frozen forecast, and amendment 2's deferred items.",
  "binds": {
   "manifest_tracked_path": "rejudge/phase3_manifest_2026-08-18.json",
-  "execution_identity_sha256": "dd513047de586663b93c56fd8669b431170cc3a6a435d504525018af171488de",
-  "code_bundle_sha256": "84a2c15686885a910ada600f7382ced2f4eb3e16814cb2ed166f2983d62396a1",
-  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z; 4ce6c714/cacfa86d after the driver build; 28bb1819/b341f668 after the host-translation fix (executed the first 464 cells and the abandoned_cell_rate STOP); 518fffd9/b341f668 for the 6-judge roster per amendment 3 (executed 100 more cells and the 2026-08-18 watchdog STOP); now rebound after the stall fix (pending-payload bound + capability ungating) AND a provenance-gap fix that added phase3_runner.py, phase2_canary_runner.py, and phase2_canary_live.py to the hash-bound code bundle, which the earlier bundles silently omitted",
+  "execution_identity_sha256": "73bee8198c2986ce6b96c8ae3e3cef3e6752d503586b3dc834cc140aba673338",
+  "code_bundle_sha256": "d23542c89b921547d1738c5942d6fdec988e59d21bfabb2af5a9734288176c30",
+  "identity_history": "bound f7e9a50c/e5acbb0f at 16:20Z; 4ce6c714/cacfa86d after the driver build; 28bb1819/b341f668 after the host-translation fix (executed the first 464 cells and the abandoned_cell_rate STOP); 518fffd9/b341f668 for the 6-judge roster per amendment 3 (executed 100 more cells and the 2026-08-18 watchdog STOP); now rebound after the stall fix (pending-payload bound + capability ungating) AND a provenance-gap fix that added phase3_runner.py, phase2_canary_runner.py, and phase2_canary_live.py to the hash-bound code bundle, which the earlier bundles silently omitted; re-minted again 2026-08-19 after the context-precheck and worklist-fsync changes (blocklist support in the runner joined the bundle)",
   "amendment_3": "rejudge/phase3_amendment3_roster_2026-08-18.json",
   "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
   "amendment_1": "rejudge/phase3_amendment1_roster_2026-08-18.json (a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3)",
