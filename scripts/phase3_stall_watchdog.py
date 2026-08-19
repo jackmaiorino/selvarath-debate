@@ -89,23 +89,37 @@ def kill_process_tree(pid: int, *, timeout: float = DEFAULT_KILL_TIMEOUT_SECONDS
 
 
 def is_stalled(results_path, *, driver_started_at: float, now: float | None = None,
-               stall_threshold_seconds: float = DEFAULT_STALL_THRESHOLD_SECONDS) -> bool:
+               stall_threshold_seconds: float = DEFAULT_STALL_THRESHOLD_SECONDS,
+               liveness_paths=()) -> bool:
     """True when the driver appears to be making no forward progress.
 
-    Measured from whichever is more recent: the result store's newest-row mtime, or the
-    driver's own start time -- so a driver that has legitimately not finished its first cell
-    yet is not immediately flagged just because the results file does not exist.
+    Measured from whichever is most recent: the result store's newest-row mtime, any extra
+    liveness file's mtime, or the driver's own start time -- so a driver that has
+    legitimately not finished its first cell yet is not immediately flagged just because the
+    results file does not exist.
+
+    ``liveness_paths`` exists because result rows alone misread the high-budget endgame
+    (2026-08-19, round 3): a healthy driver spent over 30 minutes making continuous provider
+    calls (queries, checker, oracle) on cells that then PAUSE for gate review, so the result
+    store stayed quiet while the usage ledger advanced every few seconds, and the watchdog
+    killed a healthy run. The usage ledger is the right liveness signal for that phase; a
+    genuinely hung call still goes quiet everywhere after its reservation row, so the
+    2026-08-10 silent-hang class is still caught one row later.
     """
     now = time.time() if now is None else now
-    newest = newest_row_epoch(results_path)
-    reference = max(newest, driver_started_at) if newest is not None else driver_started_at
-    return (now - reference) > stall_threshold_seconds
+    stamps = [driver_started_at]
+    for path in (results_path, *liveness_paths):
+        newest = newest_row_epoch(path)
+        if newest is not None:
+            stamps.append(newest)
+    return (now - max(stamps)) > stall_threshold_seconds
 
 
 def watch_for_stall(
     results_path, pid: int, *, driver_started_at: float | None = None,
     stall_threshold_seconds: float = DEFAULT_STALL_THRESHOLD_SECONDS,
     poll_interval_seconds: float = DEFAULT_POLL_INTERVAL_SECONDS,
+    liveness_paths=(),
     now_fn=time.time, sleep_fn=time.sleep, is_alive_fn=is_alive, kill_fn=kill_process_tree,
 ) -> int:
     """Block, polling, until the driver exits on its own (return 0) or is judged stalled.
@@ -120,12 +134,14 @@ def watch_for_stall(
             return 0
         now = now_fn()
         if is_stalled(results_path, driver_started_at=started, now=now,
-                      stall_threshold_seconds=stall_threshold_seconds):
-            newest = newest_row_epoch(results_path)
-            age = (now - newest) if newest is not None else (now - started)
-            print(f"watchdog: STOP driver pid {pid} produced no new result row for "
-                  f"{age:.0f}s (threshold {stall_threshold_seconds:.0f}s); killing its "
-                  "process tree", file=sys.stderr, flush=True)
+                      stall_threshold_seconds=stall_threshold_seconds,
+                      liveness_paths=liveness_paths):
+            stamps = [s for s in (newest_row_epoch(p) for p in (results_path, *liveness_paths))
+                      if s is not None]
+            age = (now - max(stamps)) if stamps else (now - started)
+            print(f"watchdog: STOP driver pid {pid} produced no new result row or liveness "
+                  f"activity for {age:.0f}s (threshold {stall_threshold_seconds:.0f}s); "
+                  "killing its process tree", file=sys.stderr, flush=True)
             kill_fn(pid)
             return 9
         sleep_fn(poll_interval_seconds)
@@ -135,6 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True, help="the result store to watch for staleness")
     parser.add_argument("--pid", type=int, required=True, help="the driver process id")
+    parser.add_argument("--liveness", action="append", default=[],
+                        help="extra file(s) whose mtime also counts as forward progress "
+                             "(e.g. the usage ledger); repeatable")
     parser.add_argument("--stall-threshold-seconds", type=float,
                         default=DEFAULT_STALL_THRESHOLD_SECONDS)
     parser.add_argument("--poll-interval-seconds", type=float,
@@ -142,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     return watch_for_stall(
         args.results, args.pid, stall_threshold_seconds=args.stall_threshold_seconds,
-        poll_interval_seconds=args.poll_interval_seconds)
+        poll_interval_seconds=args.poll_interval_seconds, liveness_paths=args.liveness)
 
 
 if __name__ == "__main__":

@@ -168,3 +168,26 @@ def test_kill_process_tree_is_a_noop_on_an_already_dead_pid():
     # A pid this large cannot correspond to a real process on either platform; the kill must
     # not raise just because its target is already gone.
     kill_process_tree(2**30 - 1)
+
+
+def test_liveness_file_activity_prevents_a_stall_verdict(tmp_path):
+    """2026-08-19 round-3 false kill: a healthy driver's provider calls advance the usage
+    ledger while paused-for-review cells leave the result store quiet. Ledger activity must
+    count as forward progress."""
+    import time
+    from scripts.phase3_stall_watchdog import is_stalled
+
+    results = tmp_path / "results.jsonl"
+    results.write_text("row\n", encoding="utf-8")
+    ledger = tmp_path / "usage.jsonl"
+    ledger.write_text("event\n", encoding="utf-8")
+    now = time.time()
+    old = now - 4000
+    import os
+    os.utime(results, (old, old))     # results quiet for 4000s
+    os.utime(ledger, (now - 5, now - 5))   # ledger active seconds ago
+
+    assert is_stalled(results, driver_started_at=old, now=now,
+                      stall_threshold_seconds=1800) is True
+    assert is_stalled(results, driver_started_at=old, now=now,
+                      stall_threshold_seconds=1800, liveness_paths=[ledger]) is False

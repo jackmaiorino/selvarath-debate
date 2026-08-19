@@ -57,7 +57,14 @@ set -uo pipefail
 # Where convergence is measured, and what the watchdog watches for staleness. Derived from
 # ARCHIVE by default; overridable directly if a test wants a different name.
 : "${RESULTS_FILE:=$ARCHIVE/phase3_canary_results.jsonl}"
+# The usage ledger is the second liveness signal: in the high-budget endgame a healthy driver
+# makes continuous provider calls on cells that then pause for gate review, so the results
+# file goes quiet while the ledger advances every few seconds (2026-08-19 round-3 false kill).
+: "${LIVENESS_FILE:=$ARCHIVE/phase3_usage.jsonl}"
 : "${STALL_THRESHOLD_SECONDS:=1800}"
+# Review waves per round. 1 was fine while b0 dominated; the b4/b8 endgame advances cells only
+# one gate ruling at a time, so more waves per round cut the round count roughly in proportion.
+: "${MAX_WAVES:=3}"
 
 # Runaway backstops, not safety controls -- the real safety controls are the ones enforced
 # inside canary_supervisor.py (uncertain-spend ceiling, same-call limit) and
@@ -96,7 +103,7 @@ for round in $(seq 1 "$ROUND_CAP"); do
   say "round $round: review wave"
   "$VENV" "$REVIEW_DAEMON" --manifest "$MANIFEST" --authorization "$AUTH" \
     --archive "$ARCHIVE" --codex "$CODEX" --driver-module "$DRIVER_MODULE" \
-    --concurrency 8 --max-waves 1 --exit-when-empty 2>&1 | tee -a "$LOG"
+    --concurrency 8 --max-waves "$MAX_WAVES" --exit-when-empty 2>&1 | tee -a "$LOG"
   review_rc=${PIPESTATUS[0]}
   if [ "$review_rc" != "0" ]; then
     say "round $round: review wave failed (exit $review_rc); stopping for review before any relaunch"
@@ -119,7 +126,7 @@ for round in $(seq 1 "$ROUND_CAP"); do
     >"$sup_log" 2>&1 &
   sup_pid=$!
 
-  "$VENV" "$WATCHDOG" --results "$RESULTS_FILE" --pid "$sup_pid" \
+  "$VENV" "$WATCHDOG" --results "$RESULTS_FILE" --liveness "$LIVENESS_FILE" --pid "$sup_pid" \
     --stall-threshold-seconds "$STALL_THRESHOLD_SECONDS" >"$wd_log" 2>&1 &
   wd_pid=$!
 
