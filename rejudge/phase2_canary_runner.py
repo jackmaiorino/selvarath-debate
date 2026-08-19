@@ -49,6 +49,11 @@ class RunOutcome:
     halted_cell_key: str | None = None
     pending_payloads: list[dict[str, str]] = field(default_factory=list)
     paused_cell_keys: list[str] = field(default_factory=list)
+    # Additive, phase-3-only (rejudge.phase3_runner's --context-blocklist): how many cells this
+    # invocation excluded ex-ante per a context precheck, and that blocklist file's own sha256.
+    # Every phase-2 call site leaves both at their defaults, so phase-2 behavior is unchanged.
+    context_blocked: int = 0
+    context_blocklist_sha256: str | None = None
 
     @property
     def needs_labelling(self) -> bool:

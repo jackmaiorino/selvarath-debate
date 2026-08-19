@@ -1,0 +1,757 @@
+{
+ "ceilings_used": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": 32768,
+  "Qwen/Qwen3.7-Max": 1000000,
+  "google/gemma-3n-E4B-it": 32768,
+  "google/gemma-4-31B-it": 262144,
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": 131072,
+  "openai/gpt-oss-120b": 128000
+ },
+ "cell_key_namespace": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab",
+ "counts_by_judge_and_condition": [
+  {
+   "condition": "sequential_b8",
+   "count": 24,
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo"
+  },
+  {
+   "condition": "sequential_b8",
+   "count": 24,
+   "judge_model": "google/gemma-3n-E4B-it"
+  },
+  {
+   "condition": "sequential_b8",
+   "count": 24,
+   "judge_model": "openai/gpt-oss-120b"
+  }
+ ],
+ "estimator_provenance": {
+  "function": "_estimate_usage",
+  "module": "rejudge.api_client"
+ },
+ "excluded": [
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:0920769b013aade9e6d08040af92625f46c24b214b0481465bc7a9d5fc454110",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 47104
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1284c312f7db44b2e68f4a7d34bec603ac4958a803e03df78d5232eaa8909211",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 45609
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:12a5bf00cd69b2d88437b5888b22738bf44fa046c6c422562c0a34494dd283c0",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 44993
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1420118ad7969e56935121e139cdc4f2d66b45b9d73da935111cb3a67b2c043c",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45283
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:17c23b188a2da7960530fcf4eb9a375f21435d913df36bc2032ede214d4c6c4d",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 46320
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:19b72a6c4ef27d9d0e8211454e64cca98e8ef8c5dc545eb8b6cc24f3a8abbf32",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 44336
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1ebd2f9f5971d46ad8683ef663dfb522a3451adcd50b487db075858d8705c2ff",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 44336
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1f128db8dce79b2aeed59fde06f401844270b7f2fdf4d17b6829f7beb0da29d5",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 45910
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:21daba0a16de22065ea7b80d601328de0661a405105c9a96962a96a1f3c73357",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 249034
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:225fbb20e38e221153322506a65f59f91e35c136e3f1cf3bcd13a2c8a3686206",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 45609
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:2aa60f99d6f706ebd61ad2368a6be9b1543cbc1d55dc1f761e487ca179660e7c",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45283
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:32eeb8d3c5e0f0a8db35cf8473a4ca2fc0b16ba95c57a247e284a17b73e9a47f",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 45609
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:34782801ecec505333de79bde07f53e9f1b5431b132fc13fea4bb284577176c4",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 45770
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:374cb0b96bdb1b4d5a62cf7dab5d398b53c615caa425f74189fef87edf141154",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 46877
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:3c48ec93251305a7b30ad0140dfc70ac6777d79d45c7a8305503c6a761a39fa7",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 44336
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:3ca253f64ef4c4e6f2ea0eab25a33c0024b14a93aa65cb7d5bd12d98da55178c",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45028
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:3d6586bf2b193c3bd33bc76aeaf9f3acd4969bbf1edfec38115be8a15e908b54",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45028
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4228999e1d5e9196b51714673c754f4fc9d6a041ee29bd5d2691a207ab787b1f",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 248547
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4707739f9abe734203c77ba5765e2542fe81df4c0ae37e6bcc9d913c8806e260",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 45338
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4972230dbae4eb3de4ccec8a17c955b2ba7cdeaf77d901dd45bee61ca7a300ca",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 248292
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4a589daded37bf5c27bf90135aaff174c83e3aa6962b20a1553b43d8d24d3947",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 46320
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4b06cba79669771aa5a608fb05d0edbbab4ead2a5c35d1aaa0dfc53d95203c22",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45283
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4cc4d1daaf6acd8181c7a6b5c909025727697e2027103a90ec95da929ffc52aa",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 248292
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:55a63fcac1f6fe4d78a3bf3d71248183153a55034f27464d1e2ff997e2c38abf",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 46320
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:56ef22cc901c4e64f64b0e205a87fd356476adb365774853b7d391a3ab5bcbb3",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 248257
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:59f76fb66da9feaec3968db7f70f18c36f51c66cd2a7cbdc236fbf607732f179",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 46877
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:5c8a58830300df5f88453948da61292dd595704a21ca63fe8a1e45f2eb59aeab",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 46320
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:5e5c38d7f083813c054234f877ebdfa9b869360e1abcb847a46e68b7f73abb0a",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 250368
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:5e8ed0a30c11f57d0b49d565dd6ed6a0072b5c2b7eff8884d2761a8e72d3acc0",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 248547
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:5ef7ce9375b2d45bd62da46073fec875ca59b0fba286600c9a5aa67bd909a478",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45028
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:625c356654b218f1e8bcbfac7103b6c990f666a3e7cf03d07f030a62eafbb4f6",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 250031
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:67507a99a621b059df383c7bf3ef9e7b872f1ecced6bb1d5f1b00196004f4577",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 46877
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:6a8d38476093c9cc747d9582904d51237544697d0288c12056ed22085c40066b",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 248873
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:6b071b1a950d2a503c4b6dbfd7160d5ace014208bf9825864cc8ad1aca49bba6",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 250141
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:6bccbf0d3d2bcb9eb5a55516c9eb455eedae02db1d8edf21bbaa37b33c40b766",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 44993
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:6df2ee12785ca808c9c5c46230fa221818fa58778b3f2d00eaf2897239e4b9cf",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 250141
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:717b92adfa24fcd3f33cd44de20d291483f15a9771d09aa4d7f7c951a58c8ebd",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 45910
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:720408001ff2bdf75e191a9039e7e39959f40f8701b66a4e7284caec1c8a6bef",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 46767
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:731dee7b9f64731443eeed9f9179b88b7953176ff89d6e30e9f00600cf1b0575",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 47104
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:77845ce6bcbe35c41807d0da75fedc138dfb9d65a558eb68024829a653eca7b7",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 248602
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:7ed7039aba0a92af43f742d8f2be739461cc94f40df65da17b19c91ab40e8c20",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 45338
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:83ca642a34abc0a89c8ab21b433f9846195c250493576704039061194cd576fd",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 44993
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:9061b154d3421f68dc84736b46971bc614da755f3db960e4c4c9d1de60e50e9c",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 44336
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:a4c1cbd9f2df18d8e24219431f34c84c4ae0d64927ea24942aa369e5e6c34341",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 248257
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:a5d9be92a65175735f3e3f8b495eaba5d062e81a57c0e5494ad476fd7f65cf97",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 45770
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:a8daa8b398eb235fb055fe863c45090c4428e4278cabf798ad840dd1c7dd0d08",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 46767
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:aa7345c177f9adcfc4e66d922ba247d2ec573bb4ed1d67fecbf7e967bd0de2fb",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 248873
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:ac895ba0457649451f1372508447bcc51940f58b41d2006316e9a586b3147565",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 45338
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b04b9e1c558be3edb15513aa91ceb7a88030d8d6b4406d74ba54bc0e542d51f6",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 44993
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b3837d0f99435d95d758f412dc02a10a9fc1267ef1bb05efbec30863449e84d0",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 46767
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b4225a0afc08ddb56656a5ff6fdc680174d6188540ecdf8ff1bf8fe2ef4533d0",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45028
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b56c0bb1d0cf13b6a6c4768529e2122c6e225dfa90c77e5595458e5ecd543287",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 249034
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bc32a89a1c541ff57de8c22d09dd8023ab5d3ac2a6e2693babd7e52e12d45339",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 249174
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bddf6703aa4aac4bfcff2baa4e2e6b85e39b9dc31ea400c88a2051317c499852",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 45609
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bf0789597515728ad3b90cb5f8a3ebab86c70fbc81e3bacedf672ce1cff15c51",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 45910
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:c1bbbf18db9ae82c0f41e6cd67387838ebe335bfba8162f8dca08cf7ced659c8",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 47104
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:c9084fd8f745bb77d89119fa5b1b2c4112766dff5e31e43f2aa7a223bf3c8c2c",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 46767
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:ca9f8d65ea2f35aaddbba2237c80df728b6c768d1617051ff6f6d0e5512992c0",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 47104
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:cc652a0cbcecd37136605dddf3970bd060b4bb3a3b2c286c5e30fe3f5b786c9d",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 247600
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:cc741ce10ef0c47f8fff19e95703d4e51c596c93899f2df2fa98398958ffa0f2",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 250368
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:d5af975544df45f931547e698fae1ad9a9525a3201b7a7a92d617bbe8afb5354",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 45910
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:db111c17a3bb31380455ab209e8c15b6ee93996dddf96f071a15d528eba576dc",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 249584
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:db977cb9cc6489dc296dd79e82e806d8c89ea651519e5d91ddda2b1711c08b2b",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "CN-011",
+   "transcript_index": 0,
+   "worst_case_tokens": 247600
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:dc67f6601ea419700ced9c5872030bb01155274a2c5dde509914fb4805908d69",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 249584
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:df4b4897172e93232f67dc33332f6d89bbc4290102b0cadafbd7ae1b025dfee0",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 45770
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:e713b59e287eea82769e0b7f48b5ef875067136e52fca3b36616b20130908ee9",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "SEL-010",
+   "transcript_index": 0,
+   "worst_case_tokens": 45283
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:eaffe339e3785f732b2d83f06ceea6d311ad02d3577052ed61baa6b78bbdfebd",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "SEL-030",
+   "transcript_index": 0,
+   "worst_case_tokens": 46877
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:ece0c2a991a39541f0f3fd7cd6dbf9ba1a76cbeefe48e90fb4e9ba57abe0c062",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "google/gemma-3n-E4B-it",
+   "question_id": "CN-021",
+   "transcript_index": 0,
+   "worst_case_tokens": 45770
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f355c3d0d301cdc1fba234028f24fb5635e02bc2cb64dd4aa9c5fe2260aa807b",
+   "condition": "sequential_b8",
+   "debater_model": "Qwen/Qwen3.7-Plus",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 250031
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f72a40314f232f7753a561697b7b425caac7d00b963d8d69e5a6c3806fd387dc",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 248602
+  },
+  {
+   "ceiling": 128000,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f8c3082c0bd2ee95f7b9f7f819f1cc298f9286d524203eacec3bbf77b5bfdc31",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "openai/gpt-oss-120b",
+   "question_id": "VS-019",
+   "transcript_index": 0,
+   "worst_case_tokens": 249174
+  },
+  {
+   "ceiling": 32768,
+   "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:fbdf2f5932867b6631ace9de946cd267fc0f3bfec387b2edb1eb26f7b3eb8399",
+   "condition": "sequential_b8",
+   "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "question_id": "VS-023",
+   "transcript_index": 0,
+   "worst_case_tokens": 45338
+  }
+ ],
+ "excluded_count": 72,
+ "generated_at": "2026-08-19T00:00:00Z",
+ "scope": "canary"
+}

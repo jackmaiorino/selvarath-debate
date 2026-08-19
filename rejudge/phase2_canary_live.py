@@ -245,9 +245,18 @@ def export_reviewer_worklist(pending_payloads, frozen_prompt: str,
         "separator": SUBAGENT_PAYLOAD_SEPARATOR,
         "items": items,
     }
-    worklist_path.write_text(
-        json.dumps(worklist, ensure_ascii=False, indent=1) + "\n", encoding="utf-8",
-        newline="")
+    # Explicit flush + fsync, matching every other durable write in this codebase
+    # (DualGateDecisionStore.commit, CellResultStore.record, the usage ledger) -- a bare
+    # Path.write_text leaves the write in the writing process's own buffers with no guarantee
+    # a SEPARATE process (scripts/review_daemon.py, reading this exact path moments later, one
+    # round later) observes it promptly, particularly across the project's documented WSL/DrvFs
+    # mount boundary (see the canary-run-environment note). The worklist is the one hand-off
+    # between the driver process and the review daemon process in the subagent-batch flow, so
+    # it needs the same durability discipline every other cross-invocation handoff already has.
+    with worklist_path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(json.dumps(worklist, ensure_ascii=False, indent=1) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
     return worklist
 
 

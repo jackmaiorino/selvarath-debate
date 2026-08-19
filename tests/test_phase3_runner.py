@@ -15,6 +15,7 @@ content rather than placeholder text.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -24,7 +25,7 @@ from pathlib import Path
 import pytest
 
 from rejudge import api_client, phase3_manifest, phase3_plan, phase3_runner, run_accounting
-from rejudge.api_client import CapExceededError
+from rejudge.api_client import CapExceededError, ContextGuardError
 from rejudge.debate_gen import _load_question_bank
 from rejudge.phase2_canary_execute import GenerationForbiddenError
 from rejudge.phase2_canary_fixtures import DeterministicCanaryClient, StubReviewer
@@ -685,6 +686,132 @@ def test_pending_payload_limit_bounds_a_pass_instead_of_draining_the_whole_smoke
     assert second_outcome.halted_reason is None
     assert second_outcome.paused == 0
     assert not second_outcome.pending_payloads
+
+
+# ---------------------------------------------------------------------------
+# context-exclusion blocklist (2026-08-19 ContextGuardError fix): blocklisted cells are
+# skipped entirely; a miss (ContextGuardError on a cell NOT blocklisted) still halts loudly;
+# a blocklist for the wrong namespace is refused outright.
+# ---------------------------------------------------------------------------
+
+
+def _write_blocklist(path: Path, *, namespace: str, cell_keys: list[str]) -> dict:
+    payload = {
+        "generated_at": "2026-08-19T00:00:00Z", "scope": "canary",
+        "cell_key_namespace": namespace,
+        "estimator_provenance": {"module": "rejudge.api_client", "function": "_estimate_usage"},
+        "ceilings_used": {}, "excluded": [{"cell_key": key} for key in cell_keys],
+        "counts_by_judge_and_condition": [], "excluded_count": len(cell_keys),
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return payload
+
+
+def test_blocklisted_cells_are_skipped_entirely_and_the_rest_complete(
+        tmp_path, repo_root, held_out_ids):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
+    judgment_keys = sorted(str(c["cell_key"]) for c in canary_cells
+                           if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND)
+    blocked_keys = judgment_keys[:2]
+
+    blocklist_path = tmp_path / "blocklist.json"
+    _write_blocklist(blocklist_path, namespace=str(protocol["cell_key_namespace"]),
+                     cell_keys=blocked_keys)
+    blocklist_sha256 = hashlib.sha256(blocklist_path.read_bytes()).hexdigest()
+
+    client = DeterministicCanaryClient()
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=StubReviewer(), mode="api", context_blocklist_path=blocklist_path)
+
+    assert outcome.halted_reason is None
+    assert outcome.context_blocked == 2
+    assert outcome.context_blocklist_sha256 == blocklist_sha256
+
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    reopened = CellResultStore(results_path)
+    for key in blocked_keys:
+        assert key not in reopened._results, "a blocklisted cell must never be attempted"
+    for key in judgment_keys:
+        if key not in blocked_keys:
+            assert key in reopened._results, "every non-blocklisted judgment cell must complete"
+
+
+class _ContextGuardErrorOnCell:
+    """Raises ContextGuardError for exactly one target cell_key; passes everything else through."""
+
+    def __init__(self, inner, target_cell_key: str) -> None:
+        self._inner = inner
+        self._target = target_cell_key
+
+    @property
+    def dry_run(self) -> bool:
+        return getattr(self._inner, "dry_run", False)
+
+    def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
+                request_metadata=None):
+        if (request_metadata or {}).get("cell_key") == self._target:
+            raise ContextGuardError(f"synthetic guard trip on {self._target}")
+        return self._inner.complete(messages, model, temperature, seed, max_tokens, kind=kind,
+                                    request_metadata=request_metadata)
+
+
+def test_a_context_guard_error_outside_the_blocklist_still_halts(tmp_path, repo_root, held_out_ids):
+    """The precheck claimed completeness; a miss means the precheck was wrong, and that must
+    still halt the run loudly -- never be silently absorbed because a blocklist happens to be
+    active for OTHER cells."""
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
+    b0_keys = sorted(str(c["cell_key"]) for c in canary_cells
+                     if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND and c["condition"] == "b0")
+    target = b0_keys[0]        # b0 sorts first, so this cell is reached almost immediately
+    unrelated_blocked = b0_keys[-1]   # blocklisted, but NOT the one that trips the guard
+
+    blocklist_path = tmp_path / "blocklist.json"
+    _write_blocklist(blocklist_path, namespace=str(protocol["cell_key_namespace"]),
+                     cell_keys=[unrelated_blocked])
+
+    client = _ContextGuardErrorOnCell(DeterministicCanaryClient(), target)
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=StubReviewer(), mode="api", context_blocklist_path=blocklist_path)
+
+    assert outcome.halted_reason == "ContextGuardError"
+    assert outcome.halted_cell_key == target
+
+
+def test_a_context_blocklist_for_the_wrong_namespace_is_refused(tmp_path, repo_root):
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    blocklist_path = tmp_path / "blocklist.json"
+    _write_blocklist(blocklist_path, namespace="totally-different-namespace.qb-000000000000",
+                     cell_keys=[])
+
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="different namespace|different plan"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api",
+            context_blocklist_path=blocklist_path)
 
 
 # ---------------------------------------------------------------------------

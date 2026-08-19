@@ -20,7 +20,13 @@
 #    rejudge/phase3_runner.py, pointed at rejudge.phase3_runner and the phase-3 manifest's
 #    canary_results_path (its ledger block has no flat results_path the way phase-2's
 #    canary/main manifests do -- see rejudge.phase3_manifest -- so the phase-2 default would
-#    silently KeyError against a phase-3 manifest without this flag).
+#    silently KeyError against a phase-3 manifest without this flag);
+#  - when $BLOCKLIST names a scripts/phase3_context_precheck.py output (the 2026-08-19
+#    ContextGuardError fix: a deterministic ex-ante exclusion list, never mid-run discretion),
+#    it is forwarded to the driver as --context-blocklist, and its own excluded_count is
+#    subtracted from TOTAL_CELLS for the convergence check below -- an excluded cell is never
+#    attempted and so never appears in $RESULTS_FILE at all; counting it against TOTAL_CELLS
+#    would make convergence permanently unreachable.
 #
 # Target runtime is WSL (the live run's result-store locks use POSIX fcntl, per the
 # canary-run-environment note), so this is POSIX sh/bash, matching main_orchestrator.sh. NOT
@@ -53,6 +59,9 @@ set -uo pipefail
 : "${WATCHDOG:=scripts/phase3_stall_watchdog.py}"
 : "${DRIVER_MODULE:=rejudge.phase3_runner}"
 : "${RESULTS_KEY:=canary_results_path}"
+# scripts/phase3_context_precheck.py's output (rejudge/phase3_context_blocklist_*.json).
+# Empty by default: no blocklist is passed and TOTAL_CELLS is used as given, unchanged.
+: "${BLOCKLIST:=}"
 
 # Where convergence is measured, and what the watchdog watches for staleness. Derived from
 # ARCHIVE by default; overridable directly if a test wants a different name.
@@ -81,6 +90,20 @@ mkdir -p "$(dirname "$LOG")"
 
 say() { echo "[$(date -u +%FT%TZ)] $*" | tee -a "$LOG"; }
 
+# Additive driver args and the convergence total, both derived once from $BLOCKLIST.
+blocklist_args=()
+effective_total_cells="$TOTAL_CELLS"
+if [ -n "$BLOCKLIST" ]; then
+  blocklist_args=(--context-blocklist "$BLOCKLIST")
+  excluded_count=$("$VENV" -c '
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["excluded_count"])
+' "$BLOCKLIST")
+  effective_total_cells=$((TOTAL_CELLS - excluded_count))
+  say "context blocklist $BLOCKLIST: $excluded_count cell(s) excluded; " \
+      "effective TOTAL_CELLS $TOTAL_CELLS -> $effective_total_cells"
+fi
+
 reviewer_up() {
   # A live probe, not a clock -- unchanged from main_orchestrator.sh's own check: the phase-3
   # gate reviewer (gpt-5.6-sol) is the same external codex reviewer phase 2's review_daemon.py
@@ -91,8 +114,8 @@ reviewer_up() {
   grep -q "OK" <<<"$out"
 }
 
-say "phase-3 canary orchestrator armed; TOTAL_CELLS=$TOTAL_CELLS, round cap $ROUND_CAP, " \
-    "stall threshold ${STALL_THRESHOLD_SECONDS}s"
+say "phase-3 canary orchestrator armed; TOTAL_CELLS=$TOTAL_CELLS (effective $effective_total_cells), " \
+    "round cap $ROUND_CAP, stall threshold ${STALL_THRESHOLD_SECONDS}s"
 
 for round in $(seq 1 "$ROUND_CAP"); do
   if ! reviewer_up; then
@@ -123,6 +146,7 @@ for round in $(seq 1 "$ROUND_CAP"); do
   # orchestrator down with it.
   setsid "$VENV" "$SUPERVISOR" --driver-module "$DRIVER_MODULE" --driver-mode subagent-batch \
     --results-key "$RESULTS_KEY" "$VENV" "$MANIFEST" "$AUTH" "$ARCHIVE" \
+    "${blocklist_args[@]}" \
     >"$sup_log" 2>&1 &
   sup_pid=$!
 
@@ -157,8 +181,8 @@ for round in $(seq 1 "$ROUND_CAP"); do
   fi
 
   cells=$(grep -c . "$RESULTS_FILE" 2>/dev/null || echo 0)
-  say "round $round complete: $cells / $TOTAL_CELLS cells (supervisor exit $sup_rc, no STOP)"
-  if [ "$cells" -ge "$TOTAL_CELLS" ]; then
+  say "round $round complete: $cells / $effective_total_cells cells (supervisor exit $sup_rc, no STOP)"
+  if [ "$cells" -ge "$effective_total_cells" ]; then
     say "CONVERGED"
     exit 0
   fi

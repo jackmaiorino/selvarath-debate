@@ -602,7 +602,11 @@ def _merge_outcomes(first: RunOutcome, second: RunOutcome) -> RunOutcome:
         halted_cell_key=first.halted_cell_key if first.halted_reason is not None
         else second.halted_cell_key,
         pending_payloads=list(first.pending_payloads) + list(second.pending_payloads),
-        paused_cell_keys=list(first.paused_cell_keys) + list(second.paused_cell_keys))
+        paused_cell_keys=list(first.paused_cell_keys) + list(second.paused_cell_keys),
+        # Context-blocking is a judgment-phase-only concept (see run_phase3_canary): carried
+        # from `first` only, matching halted_reason/halted_cell_key's own "judgment phase wins"
+        # convention, since the capability phase never sets either.
+        context_blocked=first.context_blocked, context_blocklist_sha256=first.context_blocklist_sha256)
 
 
 # --- gate-review wiring: reuse phase 2's dual-gate flow unmodified ------------------------
@@ -642,6 +646,31 @@ def commit_reviewer_decisions(manifest_path: str | Path, decisions_file: str | P
     return commit_decisions_into(store, worklist, _load_json(decisions_file))
 
 
+# --- context-exclusion blocklist (scripts/phase3_context_precheck.py's output) -------------
+
+
+def load_context_blocklist(path: str | Path,
+                           protocol: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
+    """Load and namespace-verify a context-exclusion blocklist. Refuses outright if absent.
+
+    Returns ``(blocklist, sha256_of_the_raw_file_bytes)`` -- the hash is over exactly the bytes
+    read, so it identifies the file actually used, not a re-serialization of it.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise Phase3RunnerError(f"context blocklist not found: {path}")
+    raw = path.read_bytes()
+    blocklist = json.loads(raw.decode("utf-8"))
+    expected_namespace = str(protocol["cell_key_namespace"])
+    actual_namespace = blocklist.get("cell_key_namespace")
+    if actual_namespace != expected_namespace:
+        raise Phase3RunnerError(
+            f"context blocklist {path} names namespace {actual_namespace!r}, but this "
+            f"manifest's protocol binds namespace {expected_namespace!r}; refusing to trust a "
+            "blocklist computed against a different plan")
+    return blocklist, hashlib.sha256(raw).hexdigest()
+
+
 # --- the run itself ------------------------------------------------------------------------
 
 
@@ -652,6 +681,7 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
                       model_caps: dict[str, int] | None = None,
                       transcript_bundle_dir: str | Path | None = None,
                       pending_payload_limit: int | None = DEFAULT_PENDING_PAYLOAD_LIMIT,
+                      context_blocklist_path: str | Path | None = None,
                       ) -> RunOutcome:
     """Execute the authorized phase-3 canary. The only entry point here that can spend money.
 
@@ -698,6 +728,20 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     cells and returns -- bounding worst-case exposure to a fixed batch instead of the entire
     remaining query-producing set, and letting the orchestrator relaunch after a smaller,
     faster review wave.
+
+    **The 2026-08-19 ``ContextGuardError`` halt, and the ex-ante fix for it.**
+    ``ContextGuardError`` on a long, uncapped b8 transcript is not a bug (truncation is a
+    zero-tolerance gate; it fired correctly), so the fix is a deterministic EXCLUSION decided
+    offline before any live run, never mid-run discretion --
+    ``scripts/phase3_context_precheck.py`` computes it. Passing ``context_blocklist_path`` here
+    loads and namespace-verifies that blocklist (:func:`load_context_blocklist`) and removes
+    every listed cell from the judgment plan BEFORE ``run_canary`` ever sees it -- a blocklisted
+    cell is never attempted and never counted as completed, only as ``context_blocked`` on the
+    returned outcome (alongside the blocklist file's own sha256, for audit). A cell NOT on the
+    blocklist that still raises ``ContextGuardError`` is left to the EXISTING generic-exception
+    halt path unchanged: the precheck claimed completeness, so a miss there is the precheck
+    being wrong, and must still halt the run loudly, exactly as any other unmodelled exception
+    does.
     """
     if mode not in ("api", "subagent-batch"):
         raise Phase3RunnerError(f"unknown mode {mode!r}")
@@ -713,10 +757,28 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     roster_judges = list(manifest["roster"]["judges"])
     namespace = str(protocol["cell_key_namespace"])
 
+    context_blocklist_sha256 = None
+    context_blocked_keys: frozenset[str] = frozenset()
+    if context_blocklist_path is not None:
+        blocklist, context_blocklist_sha256 = load_context_blocklist(
+            context_blocklist_path, protocol)
+        context_blocked_keys = frozenset(
+            str(entry["cell_key"]) for entry in blocklist["excluded"])
+
     _main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, root)
     plan_cells = phase3_plan.enumerate_canary_cells(protocol, roster_judges, held_out_ids)
     judgment_cells, capability_cells = resolve_canary_cells(
         plan_cells, protocol=protocol, bundle=bundle)
+
+    context_blocked_count = 0
+    if context_blocked_keys:
+        before = len(judgment_cells)
+        judgment_cells = [cell for cell in judgment_cells
+                          if cell.cell_key not in context_blocked_keys]
+        # Counts only cells THIS plan actually contained -- a blocklist computed against a
+        # different roster/scope could name keys with no match here at all, and that must
+        # never be silently reported as if they were excluded from THIS run.
+        context_blocked_count = before - len(judgment_cells)
 
     archive_dir = local_path(manifest["ledger"]["archive_dir"])
     results_path = local_path(manifest["ledger"]["canary_results_path"])
@@ -745,6 +807,8 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
         max_workers=max_workers, block_size=block_size, model_caps=model_caps,
         transcript_generation_forbidden=True, namespace=namespace,
         pending_payload_limit=pending_payload_limit)
+    outcome.context_blocked = context_blocked_count
+    outcome.context_blocklist_sha256 = context_blocklist_sha256
 
     if outcome.halted_reason == "GenerationForbiddenError":
         raise GenerationForbiddenError(
@@ -804,6 +868,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="stop attempting further not-yet-complete cells once this many "
                              "NEW pending payloads have accumulated this pass (bounds "
                              "worst-case wall-clock exposure); 0 or negative disables the bound")
+    parser.add_argument("--context-blocklist", default=None,
+                        help="scripts/phase3_context_precheck.py output; excluded cells are "
+                             "skipped entirely (never attempted, never counted as completed)")
     args = parser.parse_args(argv)
     try:
         if args.commit_decisions is not None:
@@ -816,7 +883,8 @@ def main(argv: list[str] | None = None) -> int:
                                  else None)
         outcome = run_phase3_canary(
             args.manifest, args.authorization, args.project_root, limit=args.limit,
-            mode=args.mode, pending_payload_limit=pending_payload_limit)
+            mode=args.mode, pending_payload_limit=pending_payload_limit,
+            context_blocklist_path=args.context_blocklist)
     except Exception as exc:  # noqa: BLE001 - report, never swallow
         print(f"REFUSED/HALTED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
@@ -825,7 +893,9 @@ def main(argv: list[str] | None = None) -> int:
         "deferred": outcome.deferred, "paused": outcome.paused,
         "pending_labels": len(outcome.pending_payloads),
         "halted_reason": outcome.halted_reason,
-        "halted_cell_key": outcome.halted_cell_key}, sort_keys=True))
+        "halted_cell_key": outcome.halted_cell_key,
+        "context_blocked": outcome.context_blocked,
+        "context_blocklist_sha256": outcome.context_blocklist_sha256}, sort_keys=True))
     return 0 if outcome.halted_reason is None else 1
 
 
