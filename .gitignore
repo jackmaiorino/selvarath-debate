@@ -17,3 +17,6 @@ rejudge/output/
 
 # Phase-3 transcript bundles carry eval-world debate text: archive-resident only, never committed
 rejudge/phase3_transcript_bundle_*.json
+
+# Claude Code worktrees and session config (never committed)
+.claude/
