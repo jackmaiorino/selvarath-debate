@@ -1,0 +1,65 @@
+{
+ "calls_checked": 5603,
+ "estimator": {
+  "bytes_per_token_divisor": 3,
+  "function": "estimate_context_tokens",
+  "module": "rejudge.api_client",
+  "prompt_margin_tokens": 512
+ },
+ "generated_at": "2026-08-19T00:00:00+00:00",
+ "methodology": {
+  "max_plausible_messages": 51,
+  "note": "The usage ledger stores no raw request text, so E_prompt is not recomputed from real message bytes. It is instead lower-bounded from the ledger's own byte-conservative reservation estimate (_estimate_usage's estimated_tokens), peeling off the exactly-known reserved-completion term and a PROVEN upper bound on message count (max_plausible_messages) in place of the ledger's unrecorded true message count. Subtracting an upper bound on the message-count padding term can only underestimate prompt_utf8_bytes, never overestimate it, so every E_prompt value in this report is <= the true value a full message reconstruction would compute. A PASS is therefore a strictly stronger guarantee than checking the true value directly. A reported miss is NOT automatically a genuine formula failure -- it must be checked against the real request bytes before being treated as one -- but is reported here regardless, never suppressed."
+ },
+ "min_absolute_headroom_tokens": 170,
+ "min_headroom_call": {
+  "attempt_id": "93266cc488144bb0b7cf39a6a7a52835",
+  "call_role": "capability_qa",
+  "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fe018c76d28a9b84021cbdd3cb8c633a50092daf1ee58a36f326b8a8750f0bb3",
+  "model": "openai/gpt-oss-120b",
+  "sequence": 2381
+ },
+ "min_relative_headroom_fraction": 0.46168958742632615,
+ "misses": [],
+ "prefix_binding": {
+  "event_count": 11697,
+  "last_sequence": 11696,
+  "ledger_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_usage.jsonl",
+  "prefix_chain_tail_hash": "d240d09b859958678e548709926f13534e0c7acbf44a3ae6913729b8cecc5c4c",
+  "raw_byte_count": 12472692,
+  "raw_sha256": "934f06ceae523832cd72f09774fb378ea6b20d760d31e62b4ca75fa433a2e3b1",
+  "unmatched_reservations_in_prefix": [
+   {
+    "attempt_id": "413c174b9b984014b60b0db5331e1a76",
+    "call_role": "judge_query",
+    "model": "google/gemma-4-31B-it",
+    "sequence": 1537
+   },
+   {
+    "attempt_id": "ac3827f059334586b5cc148dac573183",
+    "call_role": "query_checker",
+    "model": "google/gemma-4-31B-it",
+    "sequence": 8210
+   },
+   {
+    "attempt_id": "01a8a8a9434d47bfa6fa8a90bebafede",
+    "call_role": "judge_query",
+    "model": "google/gemma-4-31B-it",
+    "sequence": 11589
+   },
+   {
+    "attempt_id": "1085a49d8b584145a8d915a7f7e49a52",
+    "call_role": "judge_query",
+    "model": "google/gemma-4-31B-it",
+    "sequence": 11696
+   }
+  ]
+ },
+ "requirement": {
+  "min_absolute_margin_tokens": 512,
+  "min_relative_margin_fraction": 0.25,
+  "rule": "E_prompt >= actual_prompt_tokens + max(512, ceil(0.25 * actual_prompt_tokens))"
+ },
+ "schema_version": "phase3_estimator_validation_v1",
+ "unknown_charge_calls_reported_separately": 243
+}

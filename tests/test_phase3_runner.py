@@ -161,11 +161,31 @@ def repo_root(tmp_path_factory, reference_question_ids) -> Path:
     return root
 
 
-def _build_manifest(root: Path, roster: list[str], archive_dir: Path) -> dict:
+_DEFAULT_CONTEXT_BLOCKLIST_CANARY_PATH = "rejudge/phase3_context_blocklist_canary_2026-08-19b.json"
+_DEFAULT_CONTEXT_BLOCKLIST_MAIN_PATH = "rejudge/phase3_context_blocklist_main_2026-08-19b.json"
+
+
+def _build_manifest(root: Path, roster: list[str], archive_dir: Path, *,
+                    context_blocklist_canary_path: str | None = None) -> dict:
+    """``context_blocklist_canary_path`` (Codex re-review, 2026-08-19, blocker 2), left at its
+    default, binds the real regenerated (zero-exclusion) precheck output -- what every test that
+    does not itself exercise blocklist behavior wants. A test that builds its OWN synthetic
+    blocklist (to exercise skip/halt behavior against specific cell keys) passes its path here
+    (root-relative or absolute) so the manifest's bound identity and the file it later supplies
+    to ``run_phase3_canary`` as ``--context-blocklist`` agree, exactly as a real successor
+    manifest and its real regenerated blocklist would.
+    """
     return phase3_manifest.build_manifest(
         root / "rejudge" / "phase3_protocol.json", project_root=root,
         recorded_at_utc="2026-08-18T00:00:00Z",
-        archive_dir=str(archive_dir).replace("\\", "/"), roster_judges=roster)
+        archive_dir=str(archive_dir).replace("\\", "/"), roster_judges=roster,
+        # Amendment 4 (2026-08-19): _copied_repo (via shutil.copytree) carries this real,
+        # on-disk validation report along with the rest of the repo, so the same root-relative
+        # path resolves under every per-test tmp copy.
+        estimator_validation_path="rejudge/phase3_estimator_validation_2026-08-19.json",
+        context_blocklist_canary_path=(
+            context_blocklist_canary_path or _DEFAULT_CONTEXT_BLOCKLIST_CANARY_PATH),
+        context_blocklist_main_path=_DEFAULT_CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def _authorization_for(manifest: dict, *, cap_usd: float = 40.0) -> dict:
@@ -709,23 +729,30 @@ def _write_blocklist(path: Path, *, namespace: str, cell_keys: list[str]) -> dic
 
 def test_blocklisted_cells_are_skipped_entirely_and_the_rest_complete(
         tmp_path, repo_root, held_out_ids):
-    archive_dir = tmp_path / "archive"
-    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
-    authorization = _authorization_for(manifest)
-    manifest_path, authorization_path = _write_manifest_and_authorization(
-        tmp_path, manifest, authorization)
-    _preseed(repo_root, manifest)
-
     protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
     canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
     judgment_keys = sorted(str(c["cell_key"]) for c in canary_cells
                            if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND)
     blocked_keys = judgment_keys[:2]
 
+    # The blocklist is written and bound into the manifest's OWN identity BEFORE the manifest
+    # is built (Codex re-review, 2026-08-19, blocker 2): a real successor manifest binds its
+    # regenerated blocklist the same way, and run_phase3_canary now refuses a runtime
+    # --context-blocklist that disagrees with what the manifest bound.
     blocklist_path = tmp_path / "blocklist.json"
     _write_blocklist(blocklist_path, namespace=str(protocol["cell_key_namespace"]),
                      cell_keys=blocked_keys)
-    blocklist_sha256 = hashlib.sha256(blocklist_path.read_bytes()).hexdigest()
+
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir,
+                               context_blocklist_canary_path=str(blocklist_path))
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    blocklist_sha256 = phase3_manifest.canonical_sha256(json.loads(
+        blocklist_path.read_text(encoding="utf-8")))
 
     client = DeterministicCanaryClient()
     outcome = phase3_runner.run_phase3_canary(
@@ -740,6 +767,54 @@ def test_blocklisted_cells_are_skipped_entirely_and_the_rest_complete(
     reopened = CellResultStore(results_path)
     for key in blocked_keys:
         assert key not in reopened._results, "a blocklisted cell must never be attempted"
+    for key in judgment_keys:
+        if key not in blocked_keys:
+            assert key in reopened._results, "every non-blocklisted judgment cell must complete"
+
+
+def test_omitting_context_blocklist_still_applies_the_manifest_bound_one(
+        tmp_path, repo_root, held_out_ids):
+    """Second re-review (2026-08-19), blocker 2: a manifest that binds a canary eligibility
+    list (every post-amendment-4 manifest does) has NO valid no-blocklist mode. Invoking the
+    runner with NO --context-blocklist at all must still resolve and apply the bound exclusions
+    from the manifest's own tracked path, and report their count and canonical sha exactly as
+    if the same file had been passed explicitly."""
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
+    judgment_keys = sorted(str(c["cell_key"]) for c in canary_cells
+                           if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND)
+    blocked_keys = judgment_keys[:2]
+
+    blocklist_path = tmp_path / "blocklist.json"
+    _write_blocklist(blocklist_path, namespace=str(protocol["cell_key_namespace"]),
+                     cell_keys=blocked_keys)
+
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir,
+                               context_blocklist_canary_path=str(blocklist_path))
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    blocklist_sha256 = phase3_manifest.canonical_sha256(json.loads(
+        blocklist_path.read_text(encoding="utf-8")))
+    assert blocklist_sha256 == manifest["frozen_inputs"]["context_blocklist_canary_report_sha256"]
+
+    client = DeterministicCanaryClient()
+    outcome = phase3_runner.run_phase3_canary(
+        manifest_path, authorization_path, project_root=repo_root, client=client,
+        reviewer=StubReviewer(), mode="api")   # NO context_blocklist_path supplied
+
+    assert outcome.halted_reason is None
+    assert outcome.context_blocked == 2
+    assert outcome.context_blocklist_sha256 == blocklist_sha256
+
+    results_path = local_path(manifest["ledger"]["canary_results_path"])
+    reopened = CellResultStore(results_path)
+    for key in blocked_keys:
+        assert key not in reopened._results, "a manifest-bound blocklisted cell must never be " \
+            "attempted, even when --context-blocklist is never passed"
     for key in judgment_keys:
         if key not in blocked_keys:
             assert key in reopened._results, "every non-blocklisted judgment cell must complete"
@@ -768,13 +843,6 @@ def test_a_context_guard_error_outside_the_blocklist_still_halts(tmp_path, repo_
     """The precheck claimed completeness; a miss means the precheck was wrong, and that must
     still halt the run loudly -- never be silently absorbed because a blocklist happens to be
     active for OTHER cells."""
-    archive_dir = tmp_path / "archive"
-    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
-    authorization = _authorization_for(manifest)
-    manifest_path, authorization_path = _write_manifest_and_authorization(
-        tmp_path, manifest, authorization)
-    _preseed(repo_root, manifest)
-
     protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
     canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
     b0_keys = sorted(str(c["cell_key"]) for c in canary_cells
@@ -782,9 +850,19 @@ def test_a_context_guard_error_outside_the_blocklist_still_halts(tmp_path, repo_
     target = b0_keys[0]        # b0 sorts first, so this cell is reached almost immediately
     unrelated_blocked = b0_keys[-1]   # blocklisted, but NOT the one that trips the guard
 
+    # Written and bound into the manifest's identity BEFORE the manifest is built -- see the
+    # sibling test above for why.
     blocklist_path = tmp_path / "blocklist.json"
     _write_blocklist(blocklist_path, namespace=str(protocol["cell_key_namespace"]),
                      cell_keys=[unrelated_blocked])
+
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir,
+                               context_blocklist_canary_path=str(blocklist_path))
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
 
     client = _ContextGuardErrorOnCell(DeterministicCanaryClient(), target)
     outcome = phase3_runner.run_phase3_canary(
@@ -808,6 +886,72 @@ def test_a_context_blocklist_for_the_wrong_namespace_is_refused(tmp_path, repo_r
                      cell_keys=[])
 
     with pytest.raises(phase3_runner.Phase3RunnerError, match="different namespace|different plan"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api",
+            context_blocklist_path=blocklist_path)
+
+
+def test_a_context_blocklist_that_disagrees_with_the_manifests_binding_is_refused(
+        tmp_path, repo_root, held_out_ids):
+    """Codex re-review (2026-08-19), blocker 2: same namespace, but DIFFERENT content than
+    what the manifest actually bound at build time -- a namespace match alone is not enough."""
+    protocol = phase3_plan.load_protocol(repo_root / "rejudge" / "phase3_protocol.json")
+    canary_cells = phase3_plan.enumerate_canary_cells(protocol, GUARD_ROSTER, held_out_ids)
+    judgment_keys = sorted(str(c["cell_key"]) for c in canary_cells
+                           if c["kind"] == phase3_plan.CANARY_JUDGMENT_KIND)
+
+    bound_blocklist_path = tmp_path / "bound_blocklist.json"
+    _write_blocklist(bound_blocklist_path, namespace=str(protocol["cell_key_namespace"]),
+                     cell_keys=judgment_keys[:1])
+
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir,
+                               context_blocklist_canary_path=str(bound_blocklist_path))
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    # Same namespace, different excluded cells -- never bound by THIS manifest.
+    different_blocklist_path = tmp_path / "different_blocklist.json"
+    _write_blocklist(different_blocklist_path, namespace=str(protocol["cell_key_namespace"]),
+                     cell_keys=judgment_keys[1:2])
+
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="does not match"):
+        phase3_runner.run_phase3_canary(
+            manifest_path, authorization_path, project_root=repo_root,
+            client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api",
+            context_blocklist_path=different_blocklist_path)
+
+
+def test_a_context_blocklist_is_refused_when_the_manifest_binds_none(
+        tmp_path, repo_root, monkeypatch):
+    """Codex re-review (2026-08-19), blocker 2: a --context-blocklist supplied against a
+    manifest with NO frozen_inputs.context_blocklist_canary_report_sha256 binding at all (the
+    pre-amendment-4 manifest shape) must be refused outright -- a namespace check alone is
+    insufficient, and there is nothing here to verify a runtime file against."""
+    archive_dir = tmp_path / "archive"
+    manifest = _build_manifest(repo_root, GUARD_ROSTER, archive_dir)
+    authorization = _authorization_for(manifest)
+    manifest_path, authorization_path = _write_manifest_and_authorization(
+        tmp_path, manifest, authorization)
+    _preseed(repo_root, manifest)
+
+    # Simulates a pre-amendment-4 manifest shape (build_manifest now makes this binding
+    # required, so the only way to reach this shape is a manifest from before that change).
+    # Isolates run_phase3_canary's OWN refusal from load_and_validate_manifest's unrelated
+    # rebuild-and-compare drift check, which would otherwise refuse first for a different
+    # reason (the on-disk manifest no longer matches a locally mutated in-memory copy).
+    unbound_manifest = json.loads(json.dumps(manifest))
+    del unbound_manifest["frozen_inputs"]["context_blocklist_canary_report_sha256"]
+    monkeypatch.setattr(
+        phase3_runner, "load_and_validate_manifest", lambda *a, **kw: unbound_manifest)
+
+    blocklist_path = tmp_path / "blocklist.json"
+    _write_blocklist(blocklist_path, namespace="irrelevant.qb-000000000000", cell_keys=[])
+
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="binds no"):
         phase3_runner.run_phase3_canary(
             manifest_path, authorization_path, project_root=repo_root,
             client=DeterministicCanaryClient(), reviewer=StubReviewer(), mode="api",

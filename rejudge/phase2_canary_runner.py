@@ -131,7 +131,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                model_caps: dict[str, int] | None = None,
                transcript_generation_forbidden: bool = False,
                namespace: str | None = None,
-               pending_payload_limit: int | None = None) -> RunOutcome:
+               pending_payload_limit: int | None = None,
+               role_limits: dict | None = None) -> RunOutcome:
     """Run one pass over the frozen canary plan, resuming from whatever is already recorded.
 
     Returns rather than raises on a halt: the caller needs the partial outcome, and everything
@@ -158,15 +159,19 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     caller that never passes it is completely unaffected: the check below is skipped entirely
     when the limit is ``None``.
 
-    ``transcript_generation_forbidden``/``namespace`` are additive, default-off phase-3 hooks;
-    every phase-2 call site omits both, so phase-2 behavior (and its byte-for-byte seed
-    identity) is unchanged. Set ``transcript_generation_forbidden=True`` to thread the
-    manifest's own flag onto the :class:`~rejudge.phase2_canary_execute.CellContext` this
-    function builds (see that module's ``GenerationForbiddenError``). ``namespace`` (left
+    ``transcript_generation_forbidden``/``namespace``/``role_limits`` are additive, default-off
+    phase-3 hooks; every phase-2 call site omits all three, so phase-2 behavior (and its
+    byte-for-byte seed identity) is unchanged. Set ``transcript_generation_forbidden=True`` to
+    thread the manifest's own flag onto the :class:`~rejudge.phase2_canary_execute.CellContext`
+    this function builds (see that module's ``GenerationForbiddenError``). ``namespace`` (left
     ``None``, the phase-2 default) is forwarded to :func:`~rejudge.phase2_canary_execute.
     execute_cell` as ``debater_model=cell.debater_model, namespace=namespace`` -- the phase-3
     ``decisions.execution_semantics.seed_policy`` extension -- ONLY when non-``None``; a
     phase-2 caller that never passes it gets ``execute_cell(cell, context)`` exactly as before.
+    ``role_limits`` (amendment 4, 2026-08-19) is the bound role-limits artifact, threaded onto
+    ``CellContext`` and from there into ``judge_loop.run_judgment`` to activate the mechanically
+    enforced visible-history byte cap (see ``judge_loop.visible_history_cap_bytes``); left
+    ``None`` the cap never activates and behavior is unchanged.
     """
     protocol = protocol if protocol is not None else _load(
         REPO_ROOT / "rejudge" / "phase2_protocol.json")
@@ -202,7 +207,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         decision_store=DualGateDecisionStore(decisions_path), reviewer=reviewer,
         anchor_judge_model=anchor_judge_model,
         results=dict(results._results), pause_when_unlabeled=pause_when_unlabeled,
-        transcript_generation_forbidden=transcript_generation_forbidden)
+        transcript_generation_forbidden=transcript_generation_forbidden,
+        role_limits=role_limits)
 
     outcome = RunOutcome()
     seen_payloads: set[str] = set()

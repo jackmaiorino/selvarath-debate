@@ -153,16 +153,20 @@ class CanaryQueryGate:
 
     def __init__(self, *, candidate_a: str, candidate_b: str, total_slots: int,
                  checker, dual_gate: DualGate, rejection_payload: str,
-                 no_query_payload: str, pause_when_unlabeled: bool = False) -> None:
+                 no_query_payload: str, pause_when_unlabeled: bool = False,
+                 max_response_bytes: int | None = None) -> None:
         self._candidate_a = candidate_a
         self._candidate_b = candidate_b
         self._dual_gate = dual_gate
         self._rejection_payload = rejection_payload
         self._no_query_payload = no_query_payload
         self._pause_when_unlabeled = pause_when_unlabeled
+        # Amendment 4 (2026-08-19), package item 2: additive, default-off, forwarded verbatim
+        # to Phase2QueryGate -- see that class's own docstring for what this does and why the
+        # gate (never a caller) must be the one to own this classification.
         self._gate = Phase2QueryGate(
             candidate_a=candidate_a, candidate_b=candidate_b, total_slots=total_slots,
-            checker=checker)
+            checker=checker, max_response_bytes=max_response_bytes)
         self.pending: list[dict[str, str]] = []
         self.intercepts: list[str] = []
         self.events: list[dict] = []

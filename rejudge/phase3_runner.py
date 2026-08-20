@@ -733,15 +733,30 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     ``ContextGuardError`` on a long, uncapped b8 transcript is not a bug (truncation is a
     zero-tolerance gate; it fired correctly), so the fix is a deterministic EXCLUSION decided
     offline before any live run, never mid-run discretion --
-    ``scripts/phase3_context_precheck.py`` computes it. Passing ``context_blocklist_path`` here
-    loads and namespace-verifies that blocklist (:func:`load_context_blocklist`) and removes
-    every listed cell from the judgment plan BEFORE ``run_canary`` ever sees it -- a blocklisted
-    cell is never attempted and never counted as completed, only as ``context_blocked`` on the
-    returned outcome (alongside the blocklist file's own sha256, for audit). A cell NOT on the
-    blocklist that still raises ``ContextGuardError`` is left to the EXISTING generic-exception
-    halt path unchanged: the precheck claimed completeness, so a miss there is the precheck
-    being wrong, and must still halt the run loudly, exactly as any other unmodelled exception
-    does.
+    ``scripts/phase3_context_precheck.py`` computes it.
+
+    ``context_blocklist_path`` is an OPTIONAL OVERRIDE, not a switch that turns exclusion on or
+    off (second re-review, 2026-08-19): every post-amendment-4 manifest binds its regenerated
+    canary eligibility list as a REQUIRED part of its own identity
+    (``frozen_inputs.context_blocklist_canary_report_sha256``/``..._tracked_path``), so there is
+    no valid "run without a blocklist" mode against a manifest that binds one. Left at its
+    default of ``None``, the bound blocklist is resolved and applied automatically from the
+    manifest's own tracked path -- omitting the flag can never silently mean "run unfiltered."
+    An explicitly supplied path is still accepted, but only as a caller-visible confirmation of
+    the SAME file: it must canonically hash-match the manifest's binding, exactly like the
+    auto-resolved path does, or the run refuses outright. Only a genuinely pre-amendment-4
+    manifest (no such binding recorded at all) runs with no exclusions when no path is supplied
+    -- there is nothing to resolve automatically in that case, and an explicitly supplied path
+    against it is refused rather than trusted blind.
+
+    Either way, :func:`load_context_blocklist` still namespace-verifies the resolved blocklist
+    and removes every listed cell from the judgment plan BEFORE ``run_canary`` ever sees it -- a
+    blocklisted cell is never attempted and never counted as completed, only as
+    ``context_blocked`` on the returned outcome (alongside the blocklist's own canonical
+    sha256, for audit). A cell NOT on the blocklist that still raises ``ContextGuardError`` is
+    left to the EXISTING generic-exception halt path unchanged: the precheck claimed
+    completeness, so a miss there is the precheck being wrong, and must still halt the run
+    loudly, exactly as any other unmodelled exception does.
     """
     if mode not in ("api", "subagent-batch"):
         raise Phase3RunnerError(f"unknown mode {mode!r}")
@@ -759,9 +774,44 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
 
     context_blocklist_sha256 = None
     context_blocked_keys: frozenset[str] = frozenset()
-    if context_blocklist_path is not None:
-        blocklist, context_blocklist_sha256 = load_context_blocklist(
-            context_blocklist_path, protocol)
+    bound_sha256 = manifest["frozen_inputs"].get("context_blocklist_canary_report_sha256")
+
+    resolved_blocklist_path = context_blocklist_path
+    if resolved_blocklist_path is None and bound_sha256 is not None:
+        # Second re-review (2026-08-19), blocker 2: the manifest ALWAYS binds a canary
+        # eligibility list now (build_manifest requires it) -- there is NO VALID no-blocklist
+        # mode against a binding manifest. A caller that omits --context-blocklist must still
+        # get the bound exclusions applied, resolved from the manifest's own tracked path,
+        # never silently run unfiltered because a flag happened to be left off.
+        tracked_path = manifest["frozen_inputs"].get(
+            "context_blocklist_canary_report_tracked_path")
+        if not tracked_path:
+            raise Phase3RunnerError(
+                "manifest binds context_blocklist_canary_report_sha256 but no "
+                "context_blocklist_canary_report_tracked_path to resolve it from; the "
+                "manifest is internally inconsistent")
+        resolved_blocklist_path = root / str(tracked_path)
+
+    if resolved_blocklist_path is not None:
+        # A namespace match alone let an ARBITRARY blocklist file run under this manifest's
+        # identity (the pre-amendment 72-exclusion file and the regenerated zero-exclusion one
+        # both name the same namespace). The resolved file's CANONICAL sha256 must match the
+        # one this manifest actually bound at build time -- refusing outright if the manifest
+        # carries no such binding at all (a pre-amendment-4 manifest shape) and a caller
+        # nonetheless supplied one explicitly, since there would be nothing to verify it
+        # against.
+        if bound_sha256 is None:
+            raise Phase3RunnerError(
+                "--context-blocklist was supplied but this manifest binds no "
+                "frozen_inputs.context_blocklist_canary_report_sha256 at all; refusing to "
+                "trust a runtime blocklist file this manifest never pinned")
+        blocklist, _raw_sha256 = load_context_blocklist(resolved_blocklist_path, protocol)
+        context_blocklist_sha256 = phase3_manifest.canonical_sha256(blocklist)
+        if context_blocklist_sha256 != bound_sha256:
+            raise Phase3RunnerError(
+                f"context blocklist {resolved_blocklist_path} does not match this manifest's "
+                f"bound canary eligibility list: observed {context_blocklist_sha256}, expected "
+                f"{bound_sha256}")
         context_blocked_keys = frozenset(
             str(entry["cell_key"]) for entry in blocklist["excluded"])
 
@@ -806,7 +856,7 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
         pause_when_unlabeled=(mode == "subagent-batch"), limit=limit, cells=judgment_cells,
         max_workers=max_workers, block_size=block_size, model_caps=model_caps,
         transcript_generation_forbidden=True, namespace=namespace,
-        pending_payload_limit=pending_payload_limit)
+        pending_payload_limit=pending_payload_limit, role_limits=role_limits)
     outcome.context_blocked = context_blocked_count
     outcome.context_blocklist_sha256 = context_blocklist_sha256
 
@@ -870,7 +920,11 @@ def main(argv: list[str] | None = None) -> int:
                              "worst-case wall-clock exposure); 0 or negative disables the bound")
     parser.add_argument("--context-blocklist", default=None,
                         help="scripts/phase3_context_precheck.py output; excluded cells are "
-                             "skipped entirely (never attempted, never counted as completed)")
+                             "skipped entirely (never attempted, never counted as completed). "
+                             "OPTIONAL OVERRIDE ONLY: a manifest that binds a canary blocklist "
+                             "(every post-amendment-4 manifest does) has it resolved and "
+                             "applied automatically even when this flag is omitted; an "
+                             "explicitly supplied path must still hash-match that binding")
     args = parser.parse_args(argv)
     try:
         if args.commit_decisions is not None:

@@ -7,13 +7,15 @@ is a zero-tolerance gate (``rejudge.api_client.RejudgeClient._resolve_context_ce
 ``ContextGuardError`` refuse rather than truncate). The fix is a DETERMINISTIC EX-ANTE
 EXCLUSION -- decided once, offline, before any live run -- never mid-run discretion.
 
-**Reuses the live guard's own arithmetic, never a separate approximation.** The estimator is
-:func:`rejudge.api_client._estimate_usage`, imported and called unmodified: it walks a
-``messages`` list, folding each message's ``32 + len(role.encode()) + len(content.encode())``
-UTF-8 byte count into a running "prompt" bound, and returns ``(prompt_bound, max_tokens)`` --
-the SAME two numbers ``RejudgeClient.complete`` sums and compares against
-``model_context_limits[model]`` to decide whether to raise. This module's whole job is to
-assemble the WORST-CASE ``messages`` list a judgment cell's FINAL (verdict) call could ever
+**Reuses the live guard's own arithmetic, never a separate approximation.** Amendment 4
+(2026-08-19, rejudge/phase3_amendment4_context_guard_2026-08-19.json) replaced the guard
+comparison's estimator: it is now :func:`rejudge.api_client.estimate_context_tokens`, imported
+and called unmodified -- ``E_prompt = ceil(prompt_utf8_bytes / 3) + 512`` and
+``E_total = E_prompt + effective_request_max_tokens`` -- the SAME function
+``RejudgeClient.complete`` calls and compares its ``E_total`` against
+``model_context_limits[model]`` to decide whether to raise (``_estimate_usage`` continues to
+drive spend/reservations only, and is untouched by this amendment). This module's whole job is
+to assemble the WORST-CASE ``messages`` list a judgment cell's FINAL (verdict) call could ever
 carry, then hand it to that exact function.
 
 **The base (real transcript presentation) needs no estimation at all.** Phase 3 reuses
@@ -48,14 +50,15 @@ so it too is computed once per pair, not once per cell:
 - every judge_query response (both the live message content and its extracted-claim echo
   inside every later round's growing ``previous_queries``/``query_results`` blocks -- a
   genuinely quadratic-in-``query_budget`` cost, which is exactly why b8 is the condition that
-  overflows) is modelled as a placeholder string of length EXACTLY the ``judge_query`` role's
-  ``effective_request_max_tokens`` for that model, in single-byte ASCII characters. This is a
-  deliberate choice, not an arbitrary one: ``_estimate_usage`` itself treats a REQUESTED
-  ``max_tokens`` as directly additive to a byte-counted prompt bound with NO bytes-per-token
-  conversion (``estimated_tokens = estimated_prompt_bytes + max_tokens``) -- an equal-length
-  ASCII placeholder reproduces that exact mixing when the same text later becomes a PAST
-  message in a subsequent call's prompt, rather than inventing a separate (and unfounded)
-  bytes-per-token assumption the live guard's own arithmetic does not make either.
+  overflows) is modelled as a placeholder string of length EXACTLY the MECHANICALLY ENFORCED
+  visible-history byte cap for that model's judge_query class
+  (:func:`rejudge.judge_loop.visible_history_cap_bytes`; amendment 4, package item 2), in
+  single-byte ASCII characters. The Codex consult specifically rejected the prior
+  ``"X" * judge_query_role_max_tokens`` construction: a requested ``max_tokens`` is an
+  output-token budget, not a byte or token bound on what actually enters history, and the live
+  guard now refuses (never truncates) any response exceeding the cap before it ever enters
+  history -- so the worst case a completed cell's history can ever actually contain is the cap
+  itself, for BOTH the retried (attempt 1) and blocked (attempt 2) slot.
 
 **A cell is excluded when worst_case_tokens >= ceiling** -- not only when strictly greater, the
 live guard's own threshold. This precheck's own construction is itself a bound, not an exact
@@ -87,12 +90,16 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from rejudge import phase3_manifest, phase3_plan, phase3_runner  # noqa: E402
-from rejudge.api_client import _estimate_usage  # noqa: E402
+from rejudge.api_client import estimate_context_tokens  # noqa: E402
 from rejudge.judge_loop import _format_previous  # noqa: E402
 from rejudge.judge_loop import _format_transcript as format_transcript  # noqa: E402
+from rejudge.judge_loop import visible_history_cap_bytes  # noqa: E402
 from rejudge.phase2_canary_compose import load_no_query_payload  # noqa: E402
 
-ESTIMATOR_PROVENANCE = {"module": "rejudge.api_client", "function": "_estimate_usage"}
+# Amendment 4 (2026-08-19): the precheck mirrors the LIVE guard's own arithmetic, which as of
+# this amendment is estimate_context_tokens (the context-only estimator), never _estimate_usage
+# (which continues to drive spend/reservations only -- see api_client.py's module note).
+ESTIMATOR_PROVENANCE = {"module": "rejudge.api_client", "function": "estimate_context_tokens"}
 
 # rejudge.phase2_query_gate's frozen one-attempt-then-one-free-retry contract
 # (judge_loop.run_judgment's own _MAX_ATTEMPTS_PER_SLOT): worst case always spends it.
@@ -170,10 +177,21 @@ def worst_case_query_history_and_verdict_messages(
     Mirrors ``rejudge.judge_loop.run_judgment``'s query loop and verdict construction message
     for message, substituting worst-case placeholders only where the real content does not yet
     exist (see the module docstring). Independent of any specific question or transcript.
+
+    Amendment 4 (2026-08-19), package items 2 and 3: the placeholder for a query-loop response
+    is now bounded by the MECHANICALLY ENFORCED visible-history byte cap
+    (``rejudge.judge_loop.visible_history_cap_bytes``), not by
+    ``judge_query_role_max_tokens`` characters. The Codex consult specifically rejected the
+    prior ``"X" * max_tokens`` construction (rejudge/phase3_codex_context_guard_consult_2026-08-
+    19.md, "3."): a requested ``max_tokens`` is an output-token budget, not a byte or token bound
+    on visible history, and the live guard now refuses any response that would exceed the cap
+    before it ever enters history -- so the worst case a completed cell's history can ever
+    actually contain is the cap itself, for BOTH the retried (attempt 1) and blocked (attempt 2)
+    slot.
     """
     messages: list[dict[str, str]] = []
     feedback_pairs: list[tuple[str, str]] = []
-    claim_placeholder = "X" * judge_query_role_max_tokens
+    claim_placeholder = "X" * visible_history_cap_bytes(judge_query_role_max_tokens)
     for query_num in range(query_budget):
         remaining = query_budget - query_num
         messages.append({"role": "user", "content": query_template.format(
@@ -298,9 +316,8 @@ def compute_blocklist(*, protocol: Mapping[str, Any], bundle: Mapping[str, Any],
             base_cache[base_key] = base_presentation_messages(transcript, presentation_template)
         base_messages = base_cache[base_key]
 
-        prompt_bound, completion_bound = _estimate_usage(
+        _, worst_case_tokens = estimate_context_tokens(
             base_messages + history_messages, verdict_max)
-        worst_case_tokens = prompt_bound + completion_bound
 
         if judge_model not in ceilings_used:
             ceilings_used[judge_model] = context_ceiling(role_limits, judge_model)

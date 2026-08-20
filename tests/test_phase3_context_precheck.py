@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from rejudge import phase3_plan
-from rejudge.api_client import _estimate_usage
+from rejudge.api_client import _estimate_usage, estimate_context_tokens
 from scripts.phase3_context_precheck import (
     ContextPrecheckError,
     base_presentation_messages,
@@ -133,8 +133,7 @@ def test_tiny_ceiling_excludes_long_b8_but_not_b0():
     base_messages = base_presentation_messages(transcript, presentation_template)
     verdict_max = 512
 
-    b0_prompt, b0_completion = _estimate_usage(base_messages, verdict_max)
-    b0_tokens = b0_prompt + b0_completion
+    _, b0_tokens = estimate_context_tokens(base_messages, verdict_max)
 
     history = worst_case_query_history_and_verdict_messages(
         query_budget=8, judge_query_role_max_tokens=256,
@@ -142,8 +141,7 @@ def test_tiny_ceiling_excludes_long_b8_but_not_b0():
         verdict_template=templates["sequential_judge_verdict"]["user_prompt_template"],
         rejection_payload=templates["sequential_judge_rejection"]["payload"],
         no_query_payload=load_no_query_payload(ROOT))
-    b8_prompt, b8_completion = _estimate_usage(base_messages + history, verdict_max)
-    b8_tokens = b8_prompt + b8_completion
+    _, b8_tokens = estimate_context_tokens(base_messages + history, verdict_max)
     assert b8_tokens > b0_tokens, "the b8 fixture must be worse-case than b0 for this test to mean anything"
 
     judge = "tiny-ceiling-judge"
@@ -221,4 +219,4 @@ def test_build_report_is_deterministic():
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     assert first["cell_key_namespace"] == "synthetic-precheck-test.qb-deadbeef0000"
     assert first["estimator_provenance"] == {
-        "module": "rejudge.api_client", "function": "_estimate_usage"}
+        "module": "rejudge.api_client", "function": "estimate_context_tokens"}
