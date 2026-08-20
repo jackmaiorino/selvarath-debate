@@ -208,6 +208,54 @@ def _estimate_usage(messages, max_tokens) -> tuple[int, int]:
     return prompt_bound, max_tokens
 
 
+# --- Amendment 4 (2026-08-19): context-only estimator for the ContextGuardError comparison ----
+#
+# rejudge/phase3_amendment4_context_guard_2026-08-19.json package item 1, prescribed by
+# rejudge/phase3_codex_context_guard_consult_2026-08-19.md (option C, reviewer point 2). The
+# phase-2 guard reused _estimate_usage's SPEND-oriented byte estimate (prompt bytes + max_tokens,
+# no bytes-per-token conversion) for the context-ceiling comparison too; that is ~4x conservative
+# for English text and, at query budget 8, overcounted past three of six judges' ceilings on
+# cells later replayed successfully. This estimator is used SOLELY by the guard comparison in
+# ``RejudgeClient.complete`` below; ``_estimate_usage`` itself is UNCHANGED and continues to
+# drive spend reservations and unknown-charge accounting untouched (see that function's
+# docstring and the consult's reviewer point 2: "do not replace _estimate_usage").
+CONTEXT_ESTIMATOR_BYTES_PER_TOKEN_DIVISOR = 3
+CONTEXT_ESTIMATOR_PROMPT_MARGIN_TOKENS = 512
+
+
+def _context_prompt_utf8_bytes(messages) -> int:
+    """Raw UTF-8 byte count of ``messages``' role+content text, no padding or inflation.
+
+    Deliberately NOT ``_estimate_usage``'s padded byte walk (64 + 32/message): this estimator
+    applies its own bytes-per-token divisor and margin below, so padding the byte count first
+    would double-count conservatism the validation gate already accounts for empirically.
+    """
+    total = 0
+    for message in messages:
+        total += len(str(message.get("role", "")).encode("utf-8"))
+        total += len(str(message.get("content", "")).encode("utf-8"))
+    return total
+
+
+def estimate_context_tokens(messages, effective_request_max_tokens: int) -> tuple[int, int]:
+    """Amendment-4 context-only size estimate: ``(E_prompt, E_total)``.
+
+    ``E_prompt = ceil(prompt_utf8_bytes / 3) + 512``; ``E_total = E_prompt +
+    effective_request_max_tokens`` (the ``max_tokens`` value actually sent to the provider for
+    this call, i.e. after any reasoning-floor resolution). Validated empirically against
+    ~4,800+ live provider-reported prompt token counts (see
+    ``rejudge/phase3_estimator_validation_2026-08-19.json``): for every terminal call,
+    ``E_prompt >= actual_prompt_tokens + max(512, ceil(0.25 * actual_prompt_tokens))``. Used
+    SOLELY for the ``ContextGuardError`` ceiling comparison; never for spend accounting.
+    """
+    prompt_bytes = _context_prompt_utf8_bytes(messages)
+    e_prompt = (
+        math.ceil(prompt_bytes / CONTEXT_ESTIMATOR_BYTES_PER_TOKEN_DIVISOR)
+        + CONTEXT_ESTIMATOR_PROMPT_MARGIN_TOKENS)
+    e_total = e_prompt + int(effective_request_max_tokens)
+    return e_prompt, e_total
+
+
 # How much completion to RESERVE, as a multiple of max_tokens.
 #
 # The reservation assumed completion <= max_tokens, which is false for reasoning models: the
@@ -1345,11 +1393,15 @@ class RejudgeClient:
         estimated_prompt, estimated_completion = _estimate_usage(messages, max_tokens)
         # Two different questions, deliberately kept apart.
         #
-        # estimated_tokens answers "does this fit the context ceiling", so it uses the TRUE
-        # completion bound. reserved_tokens answers "how much might this cost", so it carries
-        # the reasoning allowance. Conflating them breaks one or the other: inflating the
-        # context estimate refuses calls that fit, and reserving the context estimate
-        # under-reserves reasoning models, which is what halted the run at 2,573 cells.
+        # estimated_tokens/reserved_tokens both answer "how much might this cost" (the ledger
+        # reservation, via _estimate_usage -- unmodified by amendment 4). reserved_tokens
+        # additionally carries the reasoning allowance; estimated_tokens does not. Since
+        # amendment 4 the context-ceiling COMPARISON below answers a THIRD, separate question
+        # ("does this fit the context ceiling") using estimate_context_tokens's own E_total, not
+        # either of these. Conflating any of the three breaks something: inflating the
+        # accounting estimate for the ceiling check refuses calls that fit (the phase-2 bug this
+        # amendment fixes), and reserving the context estimate under-reserves reasoning models,
+        # which is what halted the run at 2,573 cells.
         estimated_tokens = estimated_prompt + estimated_completion
         reserved_completion = (
             reserved_completion_tokens(estimated_completion)
@@ -1359,9 +1411,14 @@ class RejudgeClient:
         # places made every reasoning-model call disagree with its own reservation.
         reserved_tokens = estimated_prompt + reserved_completion
         context_ceiling = self._resolve_context_ceiling(model)
-        if estimated_tokens > context_ceiling:
+        # Amendment 4 (2026-08-19): the ceiling COMPARISON uses the separate context-only
+        # estimator (see estimate_context_tokens's docstring above), never the accounting
+        # estimate above -- estimated_tokens/reserved_tokens continue to drive the ledger
+        # reservation completely unchanged by this guard.
+        _, context_estimated_total = estimate_context_tokens(messages, max_tokens)
+        if context_estimated_total > context_ceiling:
             raise ContextGuardError(
-                f"estimated {estimated_tokens} tokens > {context_ceiling}")
+                f"estimated {context_estimated_total} tokens > {context_ceiling}")
         if self.dry_run:
             if kind not in _DRY:
                 raise ValueError(f"unknown kind: {kind!r}")

@@ -34,6 +34,20 @@ AVAILABLE_ROSTER = [
     "google/gemma-3n-E4B-it", "Qwen/Qwen3.7-Max",
 ]
 
+# Amendment 4 (2026-08-19): build_manifest's new required estimator_validation_path kwarg. The
+# real, on-disk validation report (scripts/phase3_estimator_validation.py's actual output
+# against the live canary ledger) doubles as the fixture every test below binds: _copied_repo
+# copies it along with the rest of the repo (not excluded by _IGNORE), so the same
+# root-relative path resolves under ROOT, manifest_root, and every per-test tmp copy alike.
+ESTIMATOR_VALIDATION_PATH = "rejudge/phase3_estimator_validation_2026-08-19.json"
+
+# Codex re-review (2026-08-19), blocker 2: build_manifest's new required
+# context_blocklist_{canary,main}_path kwargs. The real, regenerated (zero-exclusion)
+# scripts/phase3_context_precheck.py outputs double as the fixtures every test below binds,
+# the same way ESTIMATOR_VALIDATION_PATH above does.
+CONTEXT_BLOCKLIST_CANARY_PATH = "rejudge/phase3_context_blocklist_canary_2026-08-19b.json"
+CONTEXT_BLOCKLIST_MAIN_PATH = "rejudge/phase3_context_blocklist_main_2026-08-19b.json"
+
 _IGNORE = shutil.ignore_patterns(".git", "data", "rejudge/output", "__pycache__", ".venv",
                                  ".pytest_cache")
 
@@ -129,7 +143,10 @@ def manifest(manifest_root):
     # PROTOCOL_PATH, so protocol_tracked_path matches on rebuild.
     return phase3_manifest.build_manifest(
         PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="2026-08-18T00:00:00Z",
-        archive_dir="E:/selvarath-archive/phase3-canary-TBD", roster_judges=AVAILABLE_ROSTER)
+        archive_dir="E:/selvarath-archive/phase3-canary-TBD", roster_judges=AVAILABLE_ROSTER,
+        estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +206,63 @@ def test_the_transcript_bundles_and_verification_report_are_bound(manifest, mani
         .as_posix())
 
 
+def test_the_estimator_validation_report_is_bound(manifest, manifest_root):
+    # Amendment 4 (2026-08-19), package items 3/6: bound the SAME way as
+    # transcript_verification_report above (path + canonical sha, re-read and re-hashed from
+    # disk, never trusted from a caller-supplied hash).
+    bindings = manifest["frozen_inputs"]
+    report = json.loads((manifest_root / ESTIMATOR_VALIDATION_PATH).read_text(encoding="utf-8"))
+    assert bindings["estimator_validation_report_sha256"] == canonical_sha256(report)
+    assert bindings["estimator_validation_report_tracked_path"] == ESTIMATOR_VALIDATION_PATH
+
+
+def test_a_tampered_estimator_validation_report_is_refused(tmp_path):
+    root = _copied_repo(tmp_path)
+    report_path = root / ESTIMATOR_VALIDATION_PATH
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    payload["_tampered_marker"] = True
+    report_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    manifest = phase3_manifest.build_manifest(
+        PROTOCOL_PATH, project_root=root, recorded_at_utc="t", archive_dir="a",
+        roster_judges=AVAILABLE_ROSTER, estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
+    # The manifest built AGAINST the tampered file binds the tampered hash (build_manifest
+    # trusts whatever real file is on disk at build time); the refusal fires on RE-validation
+    # against the untampered copy, exactly like the other tamper-refusal tests in this module.
+    untampered_root = _copied_repo(tmp_path / "untampered")
+    with pytest.raises(phase3_manifest.ManifestValidationError,
+                       match="frozen_inputs does not match"):
+        phase3_manifest.validate_manifest(
+            manifest, protocol_path=PROTOCOL_PATH, project_root=untampered_root,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
+
+
+def test_build_manifest_requires_estimator_validation_path_explicitly(manifest_root):
+    # No null-tolerant default: omitting the kwarg entirely must fail with a TypeError from
+    # Python's own argument binding, never silently build a manifest with no bound estimator
+    # validation at all.
+    with pytest.raises(TypeError, match="estimator_validation_path"):
+        phase3_manifest.build_manifest(
+            PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="t",
+            archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+
+
+def test_validate_manifest_recovers_estimator_validation_path_from_the_manifest_itself(
+        manifest, manifest_root):
+    # validate_manifest's own estimator_validation_path defaults to None and recovers the real
+    # binding from the manifest under validation (frozen_inputs.estimator_validation_report_
+    # tracked_path), mirroring how rejudge.phase3_runner.load_and_validate_manifest recovers
+    # transcript_bundle_dir -- so a caller that already trusts protocol_path/project_root does
+    # not also need to separately know this path.
+    revalidated = phase3_manifest.validate_manifest(
+        manifest, protocol_path=PROTOCOL_PATH, project_root=manifest_root)
+    assert revalidated["frozen_inputs"] == manifest["frozen_inputs"]
+
+
 def test_the_plan_cells_are_bound_and_match_the_frozen_slot_arithmetic(manifest, protocol):
     main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, ROOT)
     main_cells = phase3_plan.enumerate_cells(protocol, AVAILABLE_ROSTER, main_ids)
@@ -225,7 +299,11 @@ def test_the_manifest_authorizes_nothing(manifest):
 def test_the_code_provenance_bundle_is_bound(manifest):
     files = manifest["code_provenance"]["files"]
     for expected in ("rejudge/phase3_plan.py", "rejudge/phase2_canary_execute.py",
-                     "scripts/phase3_preseed_transcripts.py"):
+                     "scripts/phase3_preseed_transcripts.py",
+                     # Amendment 4 (2026-08-19), package item 6: the reviewer flagged that the
+                     # precheck and orchestrator scripts decide which cells run and were missing
+                     # from provenance entirely.
+                     "scripts/phase3_context_precheck.py", "scripts/phase3_canary_orchestrator.sh"):
         assert expected in files
     assert manifest["code_provenance"]["code_bundle_sha256"] == (
         phase3_manifest.phase3_code_bundle_sha256(ROOT))
@@ -244,10 +322,16 @@ def test_the_execution_identity_is_the_canonical_hash_of_the_manifest(manifest):
 def test_two_builds_agree(manifest_root):
     a = phase3_manifest.build_manifest(
         PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="2026-08-18T00:00:00Z",
-        archive_dir="archive", roster_judges=AVAILABLE_ROSTER)
+        archive_dir="archive", roster_judges=AVAILABLE_ROSTER,
+        estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
     b = phase3_manifest.build_manifest(
         PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="2026-08-18T00:00:00Z",
-        archive_dir="archive", roster_judges=AVAILABLE_ROSTER)
+        archive_dir="archive", roster_judges=AVAILABLE_ROSTER,
+        estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
     assert a == b
 
 
@@ -298,14 +382,19 @@ def test_roster_judges_must_be_non_empty():
     with pytest.raises(phase3_manifest.ManifestValidationError, match="non-empty"):
         phase3_manifest.build_manifest(
             PROTOCOL_PATH, project_root=ROOT, recorded_at_utc="t", archive_dir="a",
-            roster_judges=[])
+            roster_judges=[], estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_roster_judges_must_not_contain_duplicates():
     with pytest.raises(phase3_manifest.ManifestValidationError, match="duplicates"):
         phase3_manifest.build_manifest(
             PROTOCOL_PATH, project_root=ROOT, recorded_at_utc="t", archive_dir="a",
-            roster_judges=[*AVAILABLE_ROSTER, AVAILABLE_ROSTER[0]])
+            roster_judges=[*AVAILABLE_ROSTER, AVAILABLE_ROSTER[0]],
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_a_roster_model_outside_the_protocol_candidates_is_refused():
@@ -313,7 +402,10 @@ def test_a_roster_model_outside_the_protocol_candidates_is_refused():
                        match="not among the frozen protocol"):
         phase3_manifest.build_manifest(
             PROTOCOL_PATH, project_root=ROOT, recorded_at_utc="t", archive_dir="a",
-            roster_judges=[*AVAILABLE_ROSTER, "not-a-real-model"])
+            roster_judges=[*AVAILABLE_ROSTER, "not-a-real-model"],
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_an_unavailable_new_candidate_in_the_roster_is_refused():
@@ -325,13 +417,19 @@ def test_an_unavailable_new_candidate_in_the_roster_is_refused():
                        match="not among the frozen protocol's"):
         phase3_manifest.build_manifest(
             PROTOCOL_PATH, project_root=ROOT, recorded_at_utc="t", archive_dir="a",
-            roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3-8B-Instruct-Lite"])
+            roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3-8B-Instruct-Lite"],
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_the_amendment_admitted_substitute_is_accepted_and_bound(manifest_root):
     manifest = phase3_manifest.build_manifest(
         PROTOCOL_PATH, project_root=manifest_root, recorded_at_utc="t", archive_dir="a",
-        roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"])
+        roster_judges=[*AVAILABLE_ROSTER, "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"],
+        estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
     bindings = manifest["roster"]["amendments"]
     assert len(bindings) == 1
     assert bindings[0]["retired_candidate"] == "meta-llama/Meta-Llama-3-8B-Instruct-Lite"
@@ -355,7 +453,10 @@ def test_a_tampered_protocol_hash_is_refused(tmp_path):
                        match="frozen phase-3 protocol hash drift"):
         phase3_manifest.build_manifest(
             protocol_path, project_root=root, recorded_at_utc="t", archive_dir="a",
-            roster_judges=AVAILABLE_ROSTER)
+            roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_role_limits_missing_the_transport_section_is_refused(tmp_path):
@@ -368,7 +469,10 @@ def test_role_limits_missing_the_transport_section_is_refused(tmp_path):
                        match="request_settings.transport section"):
         phase3_manifest.build_manifest(
             root / "rejudge" / "phase3_protocol.json", project_root=root,
-            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_role_limits_with_an_incomplete_http_timeout_is_refused(tmp_path):
@@ -381,7 +485,10 @@ def test_role_limits_with_an_incomplete_http_timeout_is_refused(tmp_path):
                        match="http_timeout does not carry exactly"):
         phase3_manifest.build_manifest(
             root / "rejudge" / "phase3_protocol.json", project_root=root,
-            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_a_role_limits_file_missing_a_roster_models_entry_is_refused(tmp_path):
@@ -394,7 +501,10 @@ def test_a_role_limits_file_missing_a_roster_models_entry_is_refused(tmp_path):
                        match=r"no model_role_limits entry for roster judge\(s\)"):
         phase3_manifest.build_manifest(
             root / "rejudge" / "phase3_protocol.json", project_root=root,
-            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_a_tampered_reused_prompt_bundle_is_refused(tmp_path):
@@ -407,7 +517,10 @@ def test_a_tampered_reused_prompt_bundle_is_refused(tmp_path):
                        match="does not match the frozen phase-2 pin"):
         phase3_manifest.build_manifest(
             root / "rejudge" / "phase3_protocol.json", project_root=root,
-            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 def test_a_tampered_main_transcript_bundle_is_refused(tmp_path):
@@ -420,7 +533,10 @@ def test_a_tampered_main_transcript_bundle_is_refused(tmp_path):
                        match="verification report's pinned hash"):
         phase3_manifest.build_manifest(
             root / "rejudge" / "phase3_protocol.json", project_root=root,
-            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER)
+            recorded_at_utc="t", archive_dir="a", roster_judges=AVAILABLE_ROSTER,
+            estimator_validation_path=ESTIMATOR_VALIDATION_PATH,
+        context_blocklist_canary_path=CONTEXT_BLOCKLIST_CANARY_PATH,
+        context_blocklist_main_path=CONTEXT_BLOCKLIST_MAIN_PATH)
 
 
 # ---------------------------------------------------------------------------

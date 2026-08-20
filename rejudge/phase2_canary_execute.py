@@ -71,6 +71,10 @@ class CellContext:
     # Additive, default-off: see the module docstring's "Phase-3 transcript-generation guard"
     # section. Phase-2 call sites never pass this, so phase-2 behavior is unchanged.
     transcript_generation_forbidden: bool = False
+    # Additive, default-off (amendment 4, 2026-08-19): the bound role-limits artifact, threaded
+    # into judge_loop.run_judgment to activate the mechanically enforced visible-history byte
+    # cap. Phase-2 call sites never pass this, so phase-2 behavior is unchanged.
+    role_limits: dict | None = None
     _questions: dict | None = None
     _worlds: dict | None = None
 
@@ -236,18 +240,31 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext, *,
     pos_a_correct = _polarity(cell)
 
     query_gate = None
+    rejection_payload = no_query_payload = None
     if cell.produces_queries:
         position_a, position_b, _text = judge_loop._format_transcript(
             transcript, pos_a_correct)
+        rejection_payload = composed["gate"]["rejection_payload"]
+        no_query_payload = composed["gate"]["no_query_payload"]
+        # Amendment 4 (2026-08-19), package item 2: additive, default-off (context.role_limits
+        # is None on every phase-2 call site, so max_response_bytes stays None and
+        # CanaryQueryGate/Phase2QueryGate behavior is unchanged). The gate -- never this loop --
+        # must own the over-cap classification; see Phase2QueryGate's max_response_bytes.
+        max_response_bytes = None
+        if context.role_limits is not None:
+            max_response_bytes = judge_loop.visible_history_cap_bytes(
+                judge_loop.judge_query_effective_max_tokens(
+                    context.role_limits, str(cell.judge_model)))
         query_gate = CanaryQueryGate(
             candidate_a=position_a, candidate_b=position_b, total_slots=cell.query_budget,
             checker=FrozenCheckerAdapter(
                 context.client,
                 request_metadata={"cell_key": cell.cell_key, "condition": cell.condition}),
             dual_gate=DualGate(context.decision_store, context.reviewer),
-            rejection_payload=composed["gate"]["rejection_payload"],
-            no_query_payload=composed["gate"]["no_query_payload"],
-            pause_when_unlabeled=context.pause_when_unlabeled)
+            rejection_payload=rejection_payload,
+            no_query_payload=no_query_payload,
+            pause_when_unlabeled=context.pause_when_unlabeled,
+            max_response_bytes=max_response_bytes)
 
     record = judge_loop.run_judgment(
         transcript, context.world_document(cell.question_id),
@@ -258,7 +275,12 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext, *,
         # Passed explicitly rather than recomputed inside run_judgment: the gate above was
         # built from this same value, and the two must not be able to drift apart.
         position_override=pos_a_correct,
-        debater_model=debater_model, namespace=namespace)
+        debater_model=debater_model, namespace=namespace,
+        # Amendment 4 (2026-08-19): additive, default-off (context.role_limits is None on every
+        # phase-2 call site). rejection_payload/no_query_payload are the SAME texts just used to
+        # build query_gate above, reused verbatim rather than duplicated.
+        role_limits=context.role_limits,
+        rejection_payload=rejection_payload, no_query_payload=no_query_payload)
     record["cell_key"] = cell.cell_key
     record["condition"] = cell.condition
     if query_gate is not None:

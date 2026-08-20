@@ -1,0 +1,21 @@
+{
+ "call_cache_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_call_cache.jsonl",
+ "cap_bytes_by_class": {
+  "base": 1024,
+  "reasoning": 6144
+ },
+ "cap_classification": {
+  "function": "visible_history_cap_bytes",
+  "module": "rejudge.judge_loop"
+ },
+ "generated_at": "2026-08-19T00:00:00+00:00",
+ "max_observed_bytes_by_class": {
+  "base": 429,
+  "reasoning": 2839
+ },
+ "responses_checked": 1740,
+ "schema_version": "phase3_history_cap_replay_v1",
+ "unresolved_cells": [],
+ "usage_ledger_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_usage.jsonl",
+ "violations": []
+}

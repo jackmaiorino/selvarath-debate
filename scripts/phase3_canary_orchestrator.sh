@@ -21,12 +21,28 @@
 #    canary_results_path (its ledger block has no flat results_path the way phase-2's
 #    canary/main manifests do -- see rejudge.phase3_manifest -- so the phase-2 default would
 #    silently KeyError against a phase-3 manifest without this flag);
-#  - when $BLOCKLIST names a scripts/phase3_context_precheck.py output (the 2026-08-19
-#    ContextGuardError fix: a deterministic ex-ante exclusion list, never mid-run discretion),
-#    it is forwarded to the driver as --context-blocklist, and its own excluded_count is
-#    subtracted from TOTAL_CELLS for the convergence check below -- an excluded cell is never
-#    attempted and so never appears in $RESULTS_FILE at all; counting it against TOTAL_CELLS
-#    would make convergence permanently unreachable.
+#  - the eligibility blocklist (scripts/phase3_context_precheck.py's output: a deterministic
+#    ex-ante exclusion list, never mid-run discretion) is READ FROM THE MANIFEST ITSELF, never
+#    from an operator-set path -- a stale $BLOCKLIST env var previously ran the pre-amendment
+#    72-exclusion file against a manifest that had already moved on to the regenerated
+#    zero-exclusion one (Codex re-review, 2026-08-19, blocker 2c). One source of truth: this
+#    script resolves frozen_inputs.context_blocklist_canary_report_tracked_path off $MANIFEST
+#    and forwards THAT to the driver as --context-blocklist; rejudge.phase3_runner also
+#    independently refuses outright if the resolved file's canonical sha256 ever disagreed with
+#    what the manifest bound at build time, so this is defense in depth, not the only check.
+#    Amendment 4 (2026-08-19), package item 8, replaced the OLD blocklist-count-subtraction
+#    convergence arithmetic
+#    (TOTAL_CELLS - excluded_count, compared against a raw `grep -c .` line count) with a
+#    manifested-minus-completed computation: a $VENV one-liner re-enumerates the SAME frozen
+#    plan the driver itself would (rejudge.phase3_plan.enumerate_canary_cells against the
+#    manifest's own roster -- transcript + judgment + capability cells together, so the total
+#    can never drift from what TOTAL_CELLS used to hand-encode) and diffs its cell_key set
+#    against the DISTINCT cell_key values actually present in $RESULTS_FILE. This is exact by
+#    construction, not merely a closer approximation: rejudge.phase2_canary_order.
+#    CellResultStore.record refuses to overwrite an existing cell_key, so every row in
+#    $RESULTS_FILE is exactly one genuinely completed cell, and a context-guard-blocked cell is
+#    NEVER attempted and so never appears as a row there at all -- "blocked-record rows never
+#    count" falls out automatically rather than needing a special case.
 #
 # Target runtime is WSL (the live run's result-store locks use POSIX fcntl, per the
 # canary-run-environment note), so this is POSIX sh/bash, matching main_orchestrator.sh. NOT
@@ -46,11 +62,12 @@ set -uo pipefail
 : "${AUTH:=rejudge/phase3_canary_authorization_2026-08-18.json}"
 : "${ARCHIVE:=/mnt/e/selvarath-archive/phase3-2026-08-18}"
 : "${LOG:=$ARCHIVE/orchestrator.log}"
-# 540 pre-seeded transcript rows (492 main + 48 canary; the 492 are inert for the canary plan,
-# pre-satisfying the later main-stage dependency -- see the canary authorization record's
-# scope.store note) + 1,440 canary judgment/capability slots at the 6-judge roster
-# (amendment 3 dropped the weak-Llama slot; was 1,680 at the original 7-candidate roster).
-: "${TOTAL_CELLS:=1980}"
+# Amendment 4 (2026-08-19), package item 8: convergence no longer hand-encodes a cell count
+# here at all (the OLD TOTAL_CELLS=1980, "540 pre-seeded transcript rows [492 main + 48 canary]
+# + 1,440 canary judgment/capability slots at the 6-judge roster" -- a number that silently drops
+# out of sync the moment the roster or the transcript-row arithmetic changes). remaining_cells()
+# below re-derives the SAME total every round, from the SAME frozen plan enumeration the driver
+# itself runs (transcript + judgment + capability cells together), so it can never drift.
 
 # Script paths, overridable so a test can point them at stubs without touching VENV (VENV
 # stays a real interpreter; only the script it runs changes).
@@ -59,9 +76,6 @@ set -uo pipefail
 : "${WATCHDOG:=scripts/phase3_stall_watchdog.py}"
 : "${DRIVER_MODULE:=rejudge.phase3_runner}"
 : "${RESULTS_KEY:=canary_results_path}"
-# scripts/phase3_context_precheck.py's output (rejudge/phase3_context_blocklist_*.json).
-# Empty by default: no blocklist is passed and TOTAL_CELLS is used as given, unchanged.
-: "${BLOCKLIST:=}"
 
 # Where convergence is measured, and what the watchdog watches for staleness. Derived from
 # ARCHIVE by default; overridable directly if a test wants a different name.
@@ -90,19 +104,67 @@ mkdir -p "$(dirname "$LOG")"
 
 say() { echo "[$(date -u +%FT%TZ)] $*" | tee -a "$LOG"; }
 
-# Additive driver args and the convergence total, both derived once from $BLOCKLIST.
-blocklist_args=()
-effective_total_cells="$TOTAL_CELLS"
-if [ -n "$BLOCKLIST" ]; then
-  blocklist_args=(--context-blocklist "$BLOCKLIST")
-  excluded_count=$("$VENV" -c '
+# Codex re-review (2026-08-19), blocker 2c: the eligibility blocklist path is resolved from
+# THE MANIFEST ITSELF, never from an operator-set env var -- one source of truth, so this
+# script can never launch a stale blocklist (the old $BLOCKLIST default named the pre-amendment
+# 72-exclusion file) against a manifest that has moved on. rejudge.phase3_runner independently
+# refuses outright if the resolved file's canonical sha256 ever disagrees with what the
+# manifest bound at build time; this is defense in depth on top of that, not the only check.
+blocklist_path=$("$VENV" -c '
 import json, sys
-print(json.load(open(sys.argv[1], encoding="utf-8"))["excluded_count"])
-' "$BLOCKLIST")
-  effective_total_cells=$((TOTAL_CELLS - excluded_count))
-  say "context blocklist $BLOCKLIST: $excluded_count cell(s) excluded; " \
-      "effective TOTAL_CELLS $TOTAL_CELLS -> $effective_total_cells"
-fi
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+print(manifest["frozen_inputs"]["context_blocklist_canary_report_tracked_path"])
+' "$MANIFEST")
+blocklist_args=(--context-blocklist "$blocklist_path")
+say "eligibility blocklist resolved from the manifest: $blocklist_path"
+
+# Amendment 4 (2026-08-19), package item 8: manifested-minus-completed, replacing the old
+# blocklist-count subtraction. Re-enumerates the SAME frozen canary plan the driver itself runs
+# (rejudge.phase3_plan.enumerate_canary_cells against the manifest's own roster -- transcript,
+# judgment, and capability_qa cells together) and diffs its cell_key set against the DISTINCT
+# cell_key values actually present in $RESULTS_FILE. Exact by construction:
+# rejudge.phase2_canary_order.CellResultStore.record refuses to overwrite an existing cell_key,
+# so every row in $RESULTS_FILE is exactly one genuinely completed cell, and a context-guard-
+# blocked cell is never attempted and so never appears as a row there at all -- "blocked-record
+# rows never count" falls out automatically, with no special case needed. Re-run fresh each
+# round (never cached): $RESULTS_FILE grows every round, and a stale count would under-report
+# remaining work.
+remaining_cells() {
+  "$VENV" -c '
+import json, sys
+
+sys.path.insert(0, ".")
+from rejudge import phase3_plan
+
+manifest_path, results_path = sys.argv[1], sys.argv[2]
+manifest = json.load(open(manifest_path, encoding="utf-8"))
+protocol = phase3_plan.load_protocol(manifest["protocol_tracked_path"])
+roster_judges = list(manifest["roster"]["judges"])
+_main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, ".")
+plan_cells = phase3_plan.enumerate_canary_cells(protocol, roster_judges, held_out_ids)
+manifested = {str(cell["cell_key"]) for cell in plan_cells}
+
+completed = set()
+try:
+    with open(results_path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            key = json.loads(line).get("cell_key")
+            if key:
+                completed.add(str(key))
+except FileNotFoundError:
+    pass
+
+remaining = manifested - completed
+print(f"{len(manifested)} {len(completed & manifested)} {len(remaining)}")
+' "$MANIFEST" "$RESULTS_FILE"
+}
+
+read -r manifested_count completed_count remaining_count < <(remaining_cells)
+say "manifested-minus-completed: $manifested_count manifested, $completed_count completed, " \
+    "$remaining_count remaining"
 
 reviewer_up() {
   # A live probe, not a clock -- unchanged from main_orchestrator.sh's own check: the phase-3
@@ -114,8 +176,8 @@ reviewer_up() {
   grep -q "OK" <<<"$out"
 }
 
-say "phase-3 canary orchestrator armed; TOTAL_CELLS=$TOTAL_CELLS (effective $effective_total_cells), " \
-    "round cap $ROUND_CAP, stall threshold ${STALL_THRESHOLD_SECONDS}s"
+say "phase-3 canary orchestrator armed; $manifested_count manifested cell(s), " \
+    "$remaining_count remaining, round cap $ROUND_CAP, stall threshold ${STALL_THRESHOLD_SECONDS}s"
 
 for round in $(seq 1 "$ROUND_CAP"); do
   if ! reviewer_up; then
@@ -180,9 +242,10 @@ for round in $(seq 1 "$ROUND_CAP"); do
     exit 2
   fi
 
-  cells=$(grep -c . "$RESULTS_FILE" 2>/dev/null || echo 0)
-  say "round $round complete: $cells / $effective_total_cells cells (supervisor exit $sup_rc, no STOP)"
-  if [ "$cells" -ge "$effective_total_cells" ]; then
+  read -r manifested_count completed_count remaining_count < <(remaining_cells)
+  say "round $round complete: $completed_count / $manifested_count cells, $remaining_count " \
+      "remaining (supervisor exit $sup_rc, no STOP)"
+  if [ "$remaining_count" -le 0 ]; then
     say "CONVERGED"
     exit 0
   fi

@@ -117,6 +117,13 @@ PHASE3_CODE_PROVENANCE_FILES: tuple[str, ...] = (
     "rejudge/api_client.py",
     "rejudge/run_accounting.py",
     "scripts/phase3_preseed_transcripts.py",
+    # Amendment 4 (2026-08-19), package item 6: the reviewer flagged that the prior provenance
+    # list omitted the precheck and orchestrator scripts even though both execute logic that
+    # decides which cells run (the precheck's context-exclusion arithmetic; the orchestrator's
+    # completion-control worklist computation) -- see
+    # rejudge/phase3_codex_context_guard_consult_2026-08-19.md, "4."
+    "scripts/phase3_context_precheck.py",
+    "scripts/phase3_canary_orchestrator.sh",
 )
 
 MANIFEST_TOP_LEVEL_KEYS = frozenset({
@@ -296,7 +303,10 @@ def _resolve_transcript_bundle_path(
 
 def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
                    roster_judges: Sequence[str], *,
-                   transcript_bundle_dir: str | Path | None) -> dict[str, Any]:
+                   transcript_bundle_dir: str | Path | None,
+                   estimator_validation_path: str | Path,
+                   context_blocklist_canary_path: str | Path,
+                   context_blocklist_main_path: str | Path) -> dict[str, Any]:
     phase2_protocol = _load_phase2_protocol_verified(root, protocol)
 
     observed_bank_sha = _question_bank_bundle_sha256(root, phase2_protocol)
@@ -362,6 +372,28 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
             f"report's pinned hash: observed {canary_bundle_sha}, expected "
             f"{expected_bundle_hashes['canary_bundle']}")
 
+    # Amendment 4 (2026-08-19), package items 3 and 6: bound the SAME way as
+    # transcript_verification_report above (path + canonical sha, re-read and re-hashed from
+    # disk here, never trusted from a caller-supplied hash) -- REQUIRED, never null-tolerant:
+    # a successor manifest with no validated estimator is not a manifest this codebase should
+    # be able to build at all (see the consult, "4.": "successor identity should bind ...
+    # Frozen ledger prefix and validation report").
+    estimator_validation_relative = _rel(Path(estimator_validation_path))
+    estimator_validation_report = _json(root / estimator_validation_path)
+
+    # Codex re-review (2026-08-19), blocker 2: amendment item 6's "regenerated eligibility
+    # list" was never bound to the successor identity at all -- phase3_runner.py accepted an
+    # ARBITRARY --context-blocklist file, checking only its namespace, so the same manifest
+    # identity could run with zero, 72 (the pre-amendment blocklist), or no exclusions. Bound
+    # the SAME way as estimator_validation_path above: REQUIRED, path + canonical sha256,
+    # re-read and re-hashed from disk here. Both scopes are bound even though only the canary
+    # scope has a runtime consumer today (phase 3 main execution is not yet built) -- the
+    # eligibility PIN is a build-time identity property, independent of which stage runs it.
+    context_blocklist_canary_relative = _rel(Path(context_blocklist_canary_path))
+    context_blocklist_canary = _json(root / context_blocklist_canary_path)
+    context_blocklist_main_relative = _rel(Path(context_blocklist_main_path))
+    context_blocklist_main = _json(root / context_blocklist_main_path)
+
     return {
         "protocol_sha256": canonical_sha256(protocol),
         "phase2_protocol_sha256": canonical_sha256(phase2_protocol),
@@ -383,12 +415,21 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
         "transcript_verification_report_sha256": canonical_sha256(verification_report),
         "transcript_verification_report_tracked_path": _rel(
             TRANSCRIPT_VERIFICATION_RELATIVE_PATH),
+        "estimator_validation_report_sha256": canonical_sha256(estimator_validation_report),
+        "estimator_validation_report_tracked_path": estimator_validation_relative,
+        "context_blocklist_canary_report_sha256": canonical_sha256(context_blocklist_canary),
+        "context_blocklist_canary_report_tracked_path": context_blocklist_canary_relative,
+        "context_blocklist_main_report_sha256": canonical_sha256(context_blocklist_main),
+        "context_blocklist_main_report_tracked_path": context_blocklist_main_relative,
     }
 
 
 def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
                    recorded_at_utc: str, archive_dir: str,
                    roster_judges: Sequence[str],
+                   estimator_validation_path: str | Path,
+                   context_blocklist_canary_path: str | Path,
+                   context_blocklist_main_path: str | Path,
                    transcript_bundle_dir: str | Path | None = None) -> dict[str, Any]:
     """Assemble the phase-3 manifest.
 
@@ -413,6 +454,22 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
     ``roster_judges`` is likewise required and explicit: the final phase-3 roster is decided by
     the canary calibration gates (``roster.new_judge_failure_rule``), not read out of the
     protocol, so every caller must state which candidate judges this particular manifest binds.
+
+    ``estimator_validation_path`` (amendment 4, 2026-08-19, package items 3/6) is REQUIRED, with
+    no null-tolerant default: the successor manifest must bind a real estimator-validation
+    report (``scripts/phase3_estimator_validation.py``'s output), resolved under ``root`` and
+    bound by path + canonical sha256 the same way ``TRANSCRIPT_VERIFICATION_RELATIVE_PATH`` is
+    bound above. A caller building a synthetic-fixture manifest (e.g. this module's own tests)
+    must supply a real, on-disk fixture report explicitly -- there is no fallback that lets an
+    old caller omit it and keep passing.
+
+    ``context_blocklist_canary_path``/``context_blocklist_main_path`` (Codex re-review,
+    2026-08-19, blocker 2) are likewise REQUIRED, bound the same way: the regenerated
+    eligibility list (``scripts/phase3_context_precheck.py``'s output) is a build-time identity
+    property of the manifest, not a runtime-supplied file a caller could point anywhere.
+    :func:`rejudge.phase3_runner.run_phase3_canary` verifies a runtime ``--context-blocklist``
+    against ``frozen_inputs.context_blocklist_canary_report_sha256`` and refuses on any mismatch
+    or on a blocklist supplied against a manifest with no such binding.
     """
     root = Path(project_root)
     protocol = phase3_plan.load_protocol(protocol_path)
@@ -432,7 +489,10 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
     canary_cells = phase3_plan.enumerate_canary_cells(protocol, roster_judges, held_out_ids)
 
     frozen = _frozen_inputs(root, protocol, roster_judges,
-                            transcript_bundle_dir=transcript_bundle_dir)
+                            transcript_bundle_dir=transcript_bundle_dir,
+                            estimator_validation_path=estimator_validation_path,
+                            context_blocklist_canary_path=context_blocklist_canary_path,
+                            context_blocklist_main_path=context_blocklist_main_path)
 
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -486,7 +546,10 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
 
 def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
                       project_root: str | Path = ".",
-                      transcript_bundle_dir: str | Path | None = None) -> dict[str, Any]:
+                      transcript_bundle_dir: str | Path | None = None,
+                      estimator_validation_path: str | Path | None = None,
+                      context_blocklist_canary_path: str | Path | None = None,
+                      context_blocklist_main_path: str | Path | None = None) -> dict[str, Any]:
     """Re-derive every binding from the real artifacts and refuse on any mismatch.
 
     ``transcript_bundle_dir`` must name the same directory (or ``None``) the manifest was
@@ -495,9 +558,46 @@ def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
     (``frozen_inputs.main_transcript_bundle_path`` / ``canary_transcript_bundle_path``), so a
     manifest built against the archive re-validates by re-reading from the archive, and a
     manifest built hermetically under ``project_root`` re-validates the same way.
+
+    ``estimator_validation_path`` (amendment 4, 2026-08-19) likewise must resolve to the SAME
+    estimator-validation report the manifest was originally built with. Left at ``None``, it is
+    recovered from the manifest's own recorded binding
+    (``frozen_inputs.estimator_validation_report_tracked_path``) -- the manifest under
+    validation is untrusted for every OTHER purpose, but its own tracked path is exactly what a
+    caller re-validating without independently knowing that path needs to re-read from, mirroring
+    how :func:`rejudge.phase3_runner.load_and_validate_manifest` recovers ``transcript_bundle_dir``
+    from ``frozen_inputs.main_transcript_bundle_path``. A manifest with no such binding at all
+    (pre-amendment-4 shape) fails the top-level key check below before this ever matters.
     """
     if not isinstance(manifest, Mapping):
         raise ManifestValidationError("manifest must be a mapping")
+    if estimator_validation_path is None:
+        frozen_inputs = manifest.get("frozen_inputs")
+        if isinstance(frozen_inputs, Mapping):
+            estimator_validation_path = frozen_inputs.get(
+                "estimator_validation_report_tracked_path")
+        if not estimator_validation_path:
+            raise ManifestValidationError(
+                "no estimator_validation_path was supplied and the manifest carries no "
+                "frozen_inputs.estimator_validation_report_tracked_path to recover it from")
+    if context_blocklist_canary_path is None:
+        frozen_inputs = manifest.get("frozen_inputs")
+        if isinstance(frozen_inputs, Mapping):
+            context_blocklist_canary_path = frozen_inputs.get(
+                "context_blocklist_canary_report_tracked_path")
+        if not context_blocklist_canary_path:
+            raise ManifestValidationError(
+                "no context_blocklist_canary_path was supplied and the manifest carries no "
+                "frozen_inputs.context_blocklist_canary_report_tracked_path to recover it from")
+    if context_blocklist_main_path is None:
+        frozen_inputs = manifest.get("frozen_inputs")
+        if isinstance(frozen_inputs, Mapping):
+            context_blocklist_main_path = frozen_inputs.get(
+                "context_blocklist_main_report_tracked_path")
+        if not context_blocklist_main_path:
+            raise ManifestValidationError(
+                "no context_blocklist_main_path was supplied and the manifest carries no "
+                "frozen_inputs.context_blocklist_main_report_tracked_path to recover it from")
     keys = set(manifest)
     if keys != MANIFEST_TOP_LEVEL_KEYS:
         raise ManifestValidationError(
@@ -521,7 +621,10 @@ def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
     rebuilt = build_manifest(
         protocol_path, project_root=project_root, recorded_at_utc=manifest["recorded_at_utc"],
         archive_dir=manifest["ledger"]["archive_dir"], roster_judges=roster["judges"],
-        transcript_bundle_dir=transcript_bundle_dir)
+        transcript_bundle_dir=transcript_bundle_dir,
+        estimator_validation_path=estimator_validation_path,
+        context_blocklist_canary_path=context_blocklist_canary_path,
+        context_blocklist_main_path=context_blocklist_main_path)
     for section in ("protocol_tracked_path", "planning", "frozen_inputs", "roster", "caps",
                     "ledger", "code_provenance", "resume_granularity",
                     "transcript_generation_forbidden"):

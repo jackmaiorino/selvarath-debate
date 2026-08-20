@@ -20,6 +20,14 @@ from rejudge.api_client import UnknownChargeHalt
 from rejudge.query_screen import screen_query
 
 
+# Amendment 4 (2026-08-19), package item 2, blocker fix (Codex re-review, 2026-08-19): a
+# reason code for the gate's OWN mechanical byte-cap check, disjoint from query_screen.py's
+# frozen content-screening reason codes (EMPTY_QUERY etc.) -- this is a transport-safety
+# concern, not a content-quality one, and query_screen.py's contract must not be touched to
+# express it.
+VISIBLE_HISTORY_CAP_EXCEEDED = "visible_history_cap_exceeded"
+
+
 class CheckerDecision(str, Enum):
     """The only decisions a Phase-2 query checker may return."""
 
@@ -162,6 +170,7 @@ class Phase2QueryGate:
         candidate_b: str,
         total_slots: int,
         checker: QueryChecker | CheckerCallable,
+        max_response_bytes: int | None = None,
     ) -> None:
         if not isinstance(candidate_a, str) or not isinstance(candidate_b, str):
             raise TypeError("candidate_a and candidate_b must be strings")
@@ -169,11 +178,26 @@ class Phase2QueryGate:
             raise ValueError("total_slots must be a non-negative integer")
         if not callable(checker):
             raise TypeError("checker must be callable")
+        if max_response_bytes is not None:
+            if (isinstance(max_response_bytes, bool) or not isinstance(max_response_bytes, int)
+                    or max_response_bytes <= 0):
+                raise ValueError(
+                    "max_response_bytes must be a positive integer or None, got "
+                    f"{max_response_bytes!r}")
 
         self._candidate_a = candidate_a
         self._candidate_b = candidate_b
         self._total_slots = total_slots
         self._checker = checker
+        # Amendment 4 (2026-08-19), package item 2: additive, default-off (every pre-amendment
+        # caller omits it, so their behavior is byte-for-byte unchanged). When set, a raw query
+        # whose UTF-8 byte length exceeds this cap is treated as a MECHANICAL rejection --
+        # checked in submit() BEFORE query_screen.screen_query and BEFORE the (possibly billed)
+        # checker is ever consulted -- so it flows through the frozen retry-then-block state
+        # machine exactly like any other mechanical violation. This is the ONLY place that
+        # decides "is this raw query over the visible-history cap": the gate owns its own
+        # attempt/slot state, so no caller may synthesize that transition externally.
+        self._max_response_bytes = max_response_bytes
         self._slot = 1
         self._attempt = 1
         self._halted = False
@@ -306,6 +330,18 @@ class Phase2QueryGate:
             raise QueryGateClosed(self._closed_message())
         if not isinstance(raw_query, str):
             raise TypeError("raw_query must be a string")
+
+        # Amendment 4 (2026-08-19), package item 2: checked FIRST, before query_screen and
+        # before the (possibly billed) checker is ever consulted -- a transport-safety rejection,
+        # never a content judgement, and never worth spending a checker call to discover. Uses
+        # this gate's OWN attempt/slot state via _apply_rejection, exactly like any other
+        # mechanical violation, so no caller-side state can ever desync from it.
+        if (self._max_response_bytes is not None
+                and len(raw_query.encode("utf-8")) > self._max_response_bytes):
+            return self._apply_rejection(
+                raw_query=raw_query, mechanical_reasons=(VISIBLE_HISTORY_CAP_EXCEEDED,),
+                checker_raw_output=None, checker_decision=None, checker_reasons=(),
+                decision_source="mechanical")
 
         # The overlap rule is symmetric.  Positional arguments prevent the legacy
         # implementation's truth-labelled parameter names from entering this API.

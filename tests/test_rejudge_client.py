@@ -184,6 +184,61 @@ def test_context_guard():
         c.complete(big, "m", 0.1, 1, 64)
 
 
+# --- Amendment 4 (2026-08-19), package item 1: the context-only estimator ---------------------
+
+
+def test_estimate_usage_is_byte_identical_to_the_pre_amendment_formula():
+    # Golden values for the UNMODIFIED spend/reservation estimator: _estimate_usage must stay
+    # exactly "64 + 32*n + role/content bytes, max_tokens verbatim" -- amendment 4 adds a
+    # SEPARATE estimator and must never touch this one.
+    assert ac._estimate_usage(MSGS, 64) == (105, 64)   # 64 + 32 + len("user") + len("hello")
+    two_messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": "abc"}]
+    # 64 + (32+6+3) + (32+4+3) = 64 + 41 + 39 = 144
+    assert ac._estimate_usage(two_messages, 100) == (144, 100)
+
+
+def test_context_guard_uses_e_total_a_request_old_arithmetic_rejected_now_passes():
+    # The amendment's own motivating scenario: _estimate_usage's byte-conservative prompt bound
+    # (no bytes-per-token conversion) overcounts ~4x, so a request that comfortably fits in real
+    # tokens could still trip the OLD guard. Sized so the OLD arithmetic (prompt_bound +
+    # max_tokens) exceeds the ceiling but the NEW one (estimate_context_tokens's E_total) does
+    # not.
+    model = "m"
+    ceiling = 32_768
+    messages = [{"role": "user", "content": "z" * 60_000}]
+    max_tokens = 4096
+
+    old_prompt_bound, old_completion = ac._estimate_usage(messages, max_tokens)
+    assert old_prompt_bound + old_completion > ceiling, (
+        "fixture must reproduce the pre-amendment guard's false rejection")
+    _e_prompt, e_total = ac.estimate_context_tokens(messages, max_tokens)
+    assert e_total <= ceiling, "fixture must be accepted under the new estimator"
+
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK(), strict_context_mode=True,
+                         model_context_limits={model: ceiling})
+    assert c.complete(messages, model, 0.1, 1, max_tokens) == "YES"
+
+
+def test_context_guard_never_uses_estimate_usage_for_the_ceiling_comparison():
+    # A message set where estimate_context_tokens's E_total fits the ceiling but
+    # _estimate_usage's own prompt_bound + max_tokens would not -- proves the guard compares
+    # E_total, never the accounting estimate, by construction rather than by reading the source.
+    model = "m"
+    ceiling = 32_768
+    messages = [{"role": "user", "content": "z" * 60_000}]
+    max_tokens = 4096
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK(), strict_context_mode=True,
+                         model_context_limits={model: ceiling})
+    # Would not raise: if it did, the guard would still be comparing the old estimate.
+    c.complete(messages, model, 0.1, 1, max_tokens)
+    # And the reservation actually made is still the OLD (unmodified) estimate -- proving the
+    # guard's own leniency did not also weaken the spend accounting. "m" is not a reasoning
+    # model, so the reservation's completion term is max_tokens verbatim.
+    old_prompt_bound, _old_completion = ac._estimate_usage(messages, max_tokens)
+    events = [e for e in c.usage_events if e["status"] == "reserved"]
+    assert events[0]["estimated_tokens"] == old_prompt_bound + max_tokens
+
+
 def test_cap_reservation_is_atomic_across_threads():
     reservation = ac._estimate_tokens(MSGS, 64) / 1_000_000 * 1.04
     # The cap is strictly between one and two simultaneous conservative reservations.
@@ -567,10 +622,11 @@ def test_strict_context_mode_has_no_fallback_to_flat_ceiling():
 def test_strict_context_guard_applies_after_reasoning_floor_resolution():
     # The reasoning floor raises max_tokens to 4096 for a frozen reasoning model. The context
     # check must see that *resolved* value, not the small caller-supplied one.
-    # _estimate_usage's fixed per-message/prompt overhead means the true estimate for MSGS at
-    # max_tokens=4096 is a bit above 4096 (roughly 4096 + ~105 of framing overhead) -- assert
-    # against the client's own estimator rather than hardcoding that overhead here.
-    estimated_at_floor = ac._estimate_tokens(MSGS, 4096)
+    # Amendment 4: the guard compares estimate_context_tokens's E_total (the context-only
+    # estimator), never _estimate_usage/_estimate_tokens (which still drive spend accounting
+    # only) -- assert against the client's own guard estimator rather than hardcoding its
+    # margin here.
+    _, estimated_at_floor = ac.estimate_context_tokens(MSGS, 4096)
 
     sdk = CaptureSDK()
     c = ac.RejudgeClient(
@@ -586,6 +642,62 @@ def test_strict_context_guard_applies_after_reasoning_floor_resolution():
         model_context_limits={"google/gemma-4-31B-it": estimated_at_floor - 1})
     with pytest.raises(ac.ContextGuardError):
         c2.complete(MSGS, "google/gemma-4-31B-it", 0.1, 1, 64)  # floored to 4096, 1 over ceiling
+
+
+def test_estimate_context_tokens_golden_values():
+    # E_prompt = ceil(prompt_utf8_bytes / 3) + 512; E_total = E_prompt + effective_max_tokens.
+    # MSGS = [{"role": "user", "content": "hello"}]: role+content bytes = 4 + 5 = 9.
+    assert ac.estimate_context_tokens(MSGS, 64) == (3 + 512, 3 + 512 + 64)
+    # A byte count not a multiple of 3 exercises the ceiling: role "user" (4) + 10 'x' (10) = 14.
+    fourteen = [{"role": "user", "content": "x" * 10}]
+    assert ac.estimate_context_tokens(fourteen, 0) == (5 + 512, 5 + 512)  # ceil(14/3) == 5
+    empty = [{"role": "", "content": ""}]
+    assert ac.estimate_context_tokens(empty, 100) == (512, 612)
+
+
+def test_estimate_usage_is_byte_identical_after_amendment_4():
+    # Regression: _estimate_usage must keep driving spend/reservations completely unmodified by
+    # amendment 4's new, SEPARATE context-only estimator. Golden values pinned before and after
+    # the amendment landed (64 base bytes + 32/message framing + role/content bytes).
+    assert ac._estimate_usage(MSGS, 64) == (64 + 32 + len(b"user") + len(b"hello"), 64)
+    big = [{"role": "user", "content": "x" * 4000}]
+    assert ac._estimate_usage(big, 64) == (64 + 32 + len(b"user") + 4000, 64)
+    assert ac._estimate_tokens(MSGS, 64) == 105 + 64
+
+
+def test_context_guard_admits_a_call_the_old_byte_estimator_would_have_refused():
+    # A large prompt where the OLD guard arithmetic (prompt bytes + max_tokens, no bytes-per-
+    # token conversion) would have refused, but the NEW context-only estimator (which divides
+    # bytes by 3) admits -- the exact phase-2 overcount amendment 4 fixes.
+    big = [{"role": "user", "content": "x" * 4000}]
+    old_total = sum(ac._estimate_usage(big, 64))
+    _, new_total = ac.estimate_context_tokens(big, 64)
+    ceiling = 3000
+    assert new_total <= ceiling < old_total, "fixture must straddle old vs. new arithmetic"
+
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        model_context_limits={"m": ceiling})
+    out = c.complete(big, "m", 0.1, 1, 64)
+    assert out == "YES"
+    assert len(sdk.calls) == 1
+
+
+def test_context_guard_still_refuses_a_genuinely_over_ceiling_request():
+    # Not merely a smaller overcount: a request whose NEW E_total also exceeds the ceiling must
+    # still raise -- the guard is relaxed, not disabled.
+    huge = [{"role": "user", "content": "x" * 1_000_000}]
+    _, new_total = ac.estimate_context_tokens(huge, 64)
+    ceiling = 1000
+    assert new_total > ceiling
+    sdk = CaptureSDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, strict_context_mode=True,
+        model_context_limits={"m": ceiling})
+    with pytest.raises(ac.ContextGuardError):
+        c.complete(huge, "m", 0.1, 1, 64)
+    assert sdk.calls == []
 
 
 def test_legacy_context_mode_is_unchanged_flat_131072_default():

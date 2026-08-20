@@ -163,3 +163,121 @@ def test_ab_fixed_across_budgets_and_replay_stability():
     a, b = run(1), run(1)
     a.pop("created_at"); b.pop("created_at")
     assert a == b
+
+
+# --- Amendment 4 (2026-08-19), package item 2: visible-history byte caps ----------------------
+#
+# Synthetic transcript/protocol inputs (not _tr()/data/transcripts.jsonl) so these run without
+# the local research corpus.
+
+_SYNTHETIC_TRANSCRIPT = {
+    "question_id": "SYN-001", "transcript_index": 0, "world": "synthetic_world",
+    "question": "Is the claim true?", "correct_answer": "Yes.", "wrong_answer": "No.",
+    "honest_first": True,
+    "debate_transcript": [
+        {"speaker": "honest", "text": "Argues yes.", "round": 1},
+        {"speaker": "dishonest", "text": "Argues no.", "round": 1},
+    ],
+}
+
+_REJECTION_PAYLOAD = "REJECTED: malformed query, please retry."
+_NO_QUERY_PAYLOAD = "No query was submitted for this slot."
+
+
+def _role_limits_for(model: str, effective_judge_query_max_tokens: int) -> dict:
+    return {"model_role_limits": {model: {
+        "judge_query": {"effective_request_max_tokens": effective_judge_query_max_tokens}}}}
+
+
+def test_visible_history_cap_bytes_classifies_by_value_not_model_name():
+    assert judge_loop.visible_history_cap_bytes(256) == judge_loop.VISIBLE_HISTORY_CAP_BASE_BYTES
+    assert judge_loop.visible_history_cap_bytes(4096) == (
+        judge_loop.VISIBLE_HISTORY_CAP_REASONING_BYTES)
+    with pytest.raises(judge_loop.VisibleHistoryCapClassificationError):
+        judge_loop.visible_history_cap_bytes(512)
+
+
+def test_judge_query_effective_max_tokens_reads_role_limits_for_any_model_name():
+    # A model name never mentioned anywhere in judge_loop's own source, classified purely by
+    # the role-limits artifact's recorded value -- proving the classification is value-based,
+    # never a hard-coded model list.
+    role_limits = _role_limits_for("totally-fake/not-a-real-model-9000", 4096)
+    assert judge_loop.judge_query_effective_max_tokens(
+        role_limits, "totally-fake/not-a-real-model-9000") == 4096
+    assert judge_loop.visible_history_cap_bytes(4096) == (
+        judge_loop.VISIBLE_HISTORY_CAP_REASONING_BYTES)
+
+
+def test_judge_query_effective_max_tokens_refuses_unknown_judge():
+    with pytest.raises(judge_loop.VisibleHistoryCapClassificationError,
+                       match="no 'judge_query' entry"):
+        judge_loop.judge_query_effective_max_tokens({"model_role_limits": {}}, "unknown-model")
+
+
+def test_over_cap_query_response_never_enters_history_and_uses_existing_retry_block_transition():
+    over_cap_text = "X" * (judge_loop.VISIBLE_HISTORY_CAP_BASE_BYTES + 1)
+    client = ScriptedClient({
+        "query": [over_cap_text, over_cap_text],
+        "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: ok",
+    })
+    role_limits = _role_limits_for(config.JUDGE_MODEL, 256)
+    rec = judge_loop.run_judgment(
+        _SYNTHETIC_TRANSCRIPT, "WORLD DOC", config.ARMS["clean"], 1, 0, client, _protocol(),
+        role_limits=role_limits, rejection_payload=_REJECTION_PAYLOAD,
+        no_query_payload=_NO_QUERY_PAYLOAD)
+
+    assert client.calls[0]["kind"] == "query"
+    assert client.calls[1]["kind"] == "query"
+    # Attempt 1 -> retry (does not consume the slot); attempt 2 -> block (consumes it). Exactly
+    # two query-kind calls were made -- the frozen one-retry contract, not truncation or a
+    # third attempt.
+    assert sum(1 for c in client.calls if c["kind"] == "query") == 2
+
+    # The over-cap text must never appear anywhere in ANY call's message history -- not
+    # truncated, not partially admitted.
+    for call in client.calls:
+        for message in call["messages"]:
+            assert over_cap_text not in message["content"]
+
+    ex = rec["exchanges"][0]
+    assert ex["blocked"] is True
+    assert ex["blocked_feedback"] == _NO_QUERY_PAYLOAD
+    assert ex["context_guard_over_cap"] is True
+    assert rec["queries_used"] == 1
+
+
+def test_under_cap_query_response_is_unaffected_by_role_limits():
+    small_text = "CLAIM: a short well-formed claim"
+    client = ScriptedClient({"query": [small_text], "oracle": "YES",
+                             "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: ok"})
+    role_limits = _role_limits_for(config.JUDGE_MODEL, 256)
+    rec = judge_loop.run_judgment(
+        _SYNTHETIC_TRANSCRIPT, "WORLD DOC", config.ARMS["clean"], 1, 0, client, _protocol(),
+        role_limits=role_limits, rejection_payload=_REJECTION_PAYLOAD,
+        no_query_payload=_NO_QUERY_PAYLOAD)
+    ex = rec["exchanges"][0]
+    assert ex.get("blocked") is not True
+    assert ex["normalized"] == "YES"
+    assert any(small_text in m["content"] for c in client.calls for m in c["messages"])
+
+
+def test_role_limits_none_leaves_the_query_loop_byte_for_byte_unchanged():
+    # Legacy default: no role_limits/rejection_payload/no_query_payload supplied, matching
+    # every phase-2 call site. A response that would be over-cap under the reasoning class is
+    # admitted exactly as before amendment 4.
+    long_text = "X" * (judge_loop.VISIBLE_HISTORY_CAP_REASONING_BYTES + 1)
+    client = ScriptedClient({"query": [long_text], "oracle": "YES",
+                             "verdict": "VERDICT: Position A\nCONFIDENCE: 4\nREASONING: ok"})
+    rec = judge_loop.run_judgment(
+        _SYNTHETIC_TRANSCRIPT, "WORLD DOC", config.ARMS["clean"], 1, 0, client, _protocol())
+    ex = rec["exchanges"][0]
+    assert ex.get("blocked") is not True
+    assert any(long_text in m["content"] for c in client.calls for m in c["messages"])
+
+
+def test_role_limits_supplied_without_payloads_raises():
+    with pytest.raises(ValueError, match="rejection_payload/no_query_payload"):
+        judge_loop.run_judgment(
+            _SYNTHETIC_TRANSCRIPT, "WORLD DOC", config.ARMS["clean"], 1, 0,
+            ScriptedClient({"query": ["x"], "verdict": "v"}), _protocol(),
+            role_limits=_role_limits_for(config.JUDGE_MODEL, 256))
