@@ -1,7 +1,7 @@
 {
  "schema_version": "phase3_execution_manifest_v1",
  "stage": "phase3",
- "recorded_at_utc": "2026-08-19T15:58:57Z",
+ "recorded_at_utc": "2026-08-20T02:53:50Z",
  "protocol_tracked_path": "rejudge/phase3_protocol.json",
  "planning": {
   "question_counts": {
@@ -49,7 +49,13 @@
   "canary_transcript_bundle_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
   "canary_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
   "transcript_verification_report_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
-  "transcript_verification_report_tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json"
+  "transcript_verification_report_tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json",
+  "estimator_validation_report_sha256": "e68b621731a58d0f7dbb0572461936b0423416e7d0189012ddf007907e8924f0",
+  "estimator_validation_report_tracked_path": "rejudge/phase3_estimator_validation_2026-08-19.json",
+  "context_blocklist_canary_report_sha256": "c4fd654f6bcdcb1917086e4cb8df53174869dc41797000dfdedc2f473bc5ac59",
+  "context_blocklist_canary_report_tracked_path": "rejudge/phase3_context_blocklist_canary_2026-08-19b.json",
+  "context_blocklist_main_report_sha256": "645c309b66d7b39c0f6fb6a6c8dd3ffc768107775f5df1f706c49c6015b4b192",
+  "context_blocklist_main_report_tracked_path": "rejudge/phase3_context_blocklist_main_2026-08-19b.json"
  },
  "roster": {
   "judges": [
@@ -118,12 +124,14 @@
    "rejudge/phase2_caching_client.py",
    "rejudge/api_client.py",
    "rejudge/run_accounting.py",
-   "scripts/phase3_preseed_transcripts.py"
+   "scripts/phase3_preseed_transcripts.py",
+   "scripts/phase3_context_precheck.py",
+   "scripts/phase3_canary_orchestrator.sh"
   ],
-  "code_bundle_sha256": "d23542c89b921547d1738c5942d6fdec988e59d21bfabb2af5a9734288176c30"
+  "code_bundle_sha256": "19fa15c004af96d7adef7db21471a0d799cdac3dde166037d14afcd0bfb6021d"
  },
  "resume_granularity": "cell",
  "transcript_generation_forbidden": true,
  "execution_authorized": false,
- "execution_identity_sha256": "73bee8198c2986ce6b96c8ae3e3cef3e6752d503586b3dc834cc140aba673338"
+ "execution_identity_sha256": "5d7f6a568c8a91b3aa0874059028d0c2be4a610712ea781a1aa4747071919027"
 }
