@@ -147,3 +147,63 @@ Choose C: option B, but with a context-only estimator and an enforceable bound o
 No files were changed.
 
 
+
+
+---
+
+# Independent implementation review (Codex, 2026-08-19/20)
+
+## First pass: REFUTE (two blockers)
+
+REFUTE overall. Do not execute the successor manifest.
+
+1. CONFIRM for the frozen Phase 3 domain. All 5,796 reserved attempts admitted by the old guard remain admitted, with at least 21,496 tokens of conservative new-guard margin. Request fields, seeds, model parameters, cache keys, ceilings, and reservations are unchanged. `_estimate_usage` is untouched at [api_client.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/api_client.py:194), and cache fingerprints still use the same inputs at [phase2_caching_client.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase2_caching_client.py:84).
+
+   The literal API-wide claim is false: the new fixed 512 margin can reject artificial near-ceiling, tiny-prompt calls the old guard admitted. Frozen role limits exclude that case.
+
+2. CONFIRM. In `complete()`, the only executable change is computing `E_total`, comparing it with the unchanged ceiling using the unchanged strict `>`, and reporting `E_total` in the exception text. Accounting and request construction remain unchanged at [api_client.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/api_client.py:1392).
+
+3. BLOCKER, REFUTE. The check is before insertion and never truncates, but it does not use the existing malformed-query state machine. [judge_loop.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/judge_loop.py:256) locally synthesizes `retry` or `block` and bypasses `query_gate`, which is only called in the under-cap branch. Production `CanaryQueryGate` owns the attempt state and requires every raw query to receive a reviewer decision at [phase2_canary_gate.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase2_canary_gate.py:181).
+
+   Reproduction: over-cap attempt 1 followed by a mechanically rejected attempt 2 produced `QueryRetryPolicyError: query gate asked for attempt 3`. The gate treated attempt 2 as its internal attempt 1, and the over-cap payload received no reviewer decision. Existing tests miss this because they exercise the cap without a production `query_gate`.
+
+4. CONFIRM. Let the old reservation be `R = 64 + 32n + B + C`, where `B` is true prompt bytes and `C` is the exactly recoverable completion reservation. With proven `M = 51 >= n`, the script derives `B_L = max(0, R-C-64-32M) <= B`. Since ceiling division is monotone, `ceil(B_L/3)+512 <= true E_prompt`; therefore a lower-bound PASS implies the true estimator passes. Recalculation reproduced 5,550 checked, zero misses, 243 unknown charges, 170-token minimum required-floor headroom, and 46.17% minimum relative headroom.
+
+   Precision: the prefix also contains three unmatched reservations, including sequence 11589. Its reported “terminal event hash” is the chain-tail hash of a `reserved` event, not a terminal lifecycle event. This does not invalidate the 5,550-call PASS.
+
+5. SECOND BLOCKER. Amendment item 6 requires the successor identity to bind the regenerated eligibility list, but [phase3_manifest.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase3_manifest.py:373) binds only the validation report. [phase3_runner.py](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase3_runner.py:652) accepts an arbitrary runtime blocklist and checks only its namespace. Worse, [run_phase3_orchestrator.cmd](/C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/scripts/run_phase3_orchestrator.cmd:7) still selects the old 72-exclusion blocklist, not the regenerated zero-exclusion file. The same manifest identity can therefore run with zero, 72, or no exclusions.
+
+The history-cap state-machine defect and missing eligibility binding both block successor execution.
+
+
+
+
+## Second pass after fixes: REFUTE (two narrow items)
+
+**REFUTE**
+
+1. Blocker 1’s gate mechanics are fixed, but Phase-2 is not unchanged. [judge_loop.py](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/judge_loop.py:298) adds `context_guard_over_cap: False` to every blocked exchange when `role_limits=None`. The real Phase-2 caller omits `role_limits` at [phase2_canary_live.py](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase2_canary_live.py:1199), changing record shape and serialized bytes. A direct repro confirmed the new field.
+
+2. Blocker 2 still permits bypassing the bound blocklist. [phase3_runner.py](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase3_runner.py:684) defaults `context_blocklist_path=None`, and lines 760-784 apply exclusions only when it is supplied. The CLI also permits omission. A repro with 768 manifest-bound exclusions produced `context_blocked=0`, `context_blocklist_sha256=None`, and attempted an excluded cell.
+
+The supplied-hash mismatch checks, manifest bindings, gate ordering, checker bypass, and orchestrator path resolution all pass. Required fixes:
+
+- Emit `context_guard_over_cap` only when the Phase-3 cap is active.
+- Resolve the canary blocklist from the manifest unconditionally, or refuse omission.
+
+Focused suites: 117 passed, 11 skipped.
+
+
+
+
+## Final pass: PASS
+
+PASS
+
+- Phase-2 serialization: `context_guard_over_cap` is added only when `role_limits` is supplied. The regression loads the actual `51aadc8` source and confirms identical stable record serialization with the key absent. [judge_loop.py](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/judge_loop.py:298), [regression test](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/tests/test_phase3_amendment4_context_guard.py:270)
+- Blocklist binding: omission auto-resolves the manifest path, verifies namespace and canonical hash, then filters cells before execution. Explicit mismatches refuse. [phase3_runner.py](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate/.claude/worktrees/agent-a6d29d3bbd3ed6b9d/rejudge/phase3_runner.py:775)
+- Verification: 5 focused tests passed.
+
+The unbound pre-amendment fallback is unreachable through current manifest validation, making production behavior stricter. Also, the baseline regression file is currently untracked and must be included in the eventual commit.
+
+
