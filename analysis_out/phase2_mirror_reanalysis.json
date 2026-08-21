@@ -1,0 +1,1008 @@
+{
+ "spec": "rejudge/phase2_mirror_reanalysis_spec_2026-08-21.json",
+ "pins": "rejudge/phase2_analysis_pins_2026-08-11.json",
+ "status": "COMPLETED",
+ "B": 10000,
+ "seed": 20260821,
+ "step1_polarity_verification": {
+  "rows_checked": 19680,
+  "units_checked": 246,
+  "rows_missing_position_block": 0,
+  "rendered_text_inconsistent_units": {},
+  "stored_field_inconsistent_units": {},
+  "stored_field_vs_design_function_mismatches": [],
+  "gate_pass": true
+ },
+ "step1_banked_reproduction": {
+  "match": true
+ },
+ "realized_assignment_context": {
+  "n_question_transcript_units": 246,
+  "n_A_correct_units": 128,
+  "n_B_correct_units": 118,
+  "n_dual_polarity_questions": 63,
+  "n_single_polarity_questions": 19
+ },
+ "H_P_R": {
+  "strict": {
+   "realized_schedule": {
+    "H": {
+     "estimate": 0.03938008130081305,
+     "ci95": [
+      0.022357723577235783,
+      0.05665650406504058
+     ],
+     "p_two_sided": 0.00019998000199980003,
+     "shift_from_banked": 0.0
+    },
+    "P": {
+     "estimate": 0.013719512195121936,
+     "ci95": [
+      0.0010162601626016454,
+      0.026930894308943076
+     ],
+     "p_two_sided": 0.033996600339966,
+     "shift_from_banked": 0.0
+    },
+    "R": {
+     "estimate": 0.025660569105691117,
+     "ci95": [
+      0.005589430894309104,
+      0.04496951219512196
+     ],
+     "p_two_sided": 0.012198780121987801,
+     "shift_from_banked": 0.0
+    }
+   },
+   "standardized": {
+    "A_only": {
+     "H": {
+      "estimate": 0.014385819243156184,
+      "ci95": [
+       -0.008423918849869877,
+       0.03640511909255054
+      ],
+      "p_two_sided": 0.2171782821717828,
+      "shift_from_banked": -0.02499426205765687
+     },
+     "P": {
+      "estimate": -0.004612210454601723,
+      "ci95": [
+       -0.02411833652039721,
+       0.013971147287081773
+      ],
+      "p_two_sided": 0.6539346065393461,
+      "shift_from_banked": -0.01833172264972366
+     },
+     "R": {
+      "estimate": 0.018998029697757907,
+      "ci95": [
+       -0.008189381798756772,
+       0.04490809863683127
+      ],
+      "p_two_sided": 0.16058394160583941,
+      "shift_from_banked": -0.00666253940793321
+     }
+    },
+    "B_only": {
+     "H": {
+      "estimate": 0.07681279946904948,
+      "ci95": [
+       0.054107380089717036,
+       0.1003568863620947
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.03743271816823643
+     },
+     "P": {
+      "estimate": 0.036204391673141684,
+      "ci95": [
+       0.016545888001390733,
+       0.056131786296671156
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.022484879478019748
+     },
+     "R": {
+      "estimate": 0.0406084077959078,
+      "ci95": [
+       0.01580790239350023,
+       0.06694046570671341
+      ],
+      "p_two_sided": 0.0015998400159984002,
+      "shift_from_banked": 0.01494783869021668
+     }
+    },
+    "fifty_fifty": {
+     "H": {
+      "estimate": 0.04559930935610282,
+      "ci95": [
+       0.02887036169876233,
+       0.06251928680491234
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.006219228055289766
+     },
+     "P": {
+      "estimate": 0.01579609060926998,
+      "ci95": [
+       0.001371476957188039,
+       0.03060194554031356
+      ],
+      "p_two_sided": 0.031796820317968204,
+      "shift_from_banked": 0.0020765784141480448
+     },
+     "R": {
+      "estimate": 0.029803218746832838,
+      "ci95": [
+       0.008920658298885765,
+       0.049783489248984035
+      ],
+      "p_two_sided": 0.0053994600539946005,
+      "shift_from_banked": 0.004142649641141721
+     }
+    },
+    "interaction": {
+     "H": {
+      "estimate": -0.06242698022589329,
+      "ci95": [
+       -0.09373116033272283,
+       -0.03181192457583236
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": -0.10180706152670635
+     },
+     "P": {
+      "estimate": -0.040816602127743414,
+      "ci95": [
+       -0.06753358171451469,
+       -0.015801676623532577
+      ],
+      "p_two_sided": 0.000999900009999,
+      "shift_from_banked": -0.05453611432286535
+     },
+     "R": {
+      "estimate": -0.021610378098149877,
+      "ci95": [
+       -0.05273051502518216,
+       0.010297924327028977
+      ],
+      "p_two_sided": 0.1805819418058194,
+      "shift_from_banked": -0.04727094720384099
+     }
+    },
+    "n_worlds_with_both": 3,
+    "n_worlds_with_a": 3,
+    "n_worlds_with_b": 3
+   },
+   "within_question_corroboration": {
+    "n_questions": 63,
+    "fifty_fifty": {
+     "H": {
+      "estimate": 0.04489087301587302,
+      "ci95": [
+       0.02653769841269843,
+       0.06398869527649768
+      ],
+      "p_two_sided": 0.00019998000199980003
+     },
+     "P": {
+      "estimate": 0.016617063492063516,
+      "ci95": [
+       0.0002604166666666789,
+       0.03311617424729799
+      ],
+      "p_two_sided": 0.0471952804719528
+     },
+     "R": {
+      "estimate": 0.028273809523809507,
+      "ci95": [
+       0.005208333333333343,
+       0.04999999999999999
+      ],
+      "p_two_sided": 0.018198180181981802
+     }
+    },
+    "interaction": {
+     "H": {
+      "estimate": -0.0808531746031746,
+      "ci95": [
+       -0.1141332189950107,
+       -0.048114125457875474
+      ],
+      "p_two_sided": 0.00019998000199980003
+     },
+     "P": {
+      "estimate": -0.04216269841269841,
+      "ci95": [
+       -0.07229477611940298,
+       -0.013730437599681032
+      ],
+      "p_two_sided": 0.0033996600339966003
+     },
+     "R": {
+      "estimate": -0.03869047619047619,
+      "ci95": [
+       -0.07177978515625,
+       -0.004609025707898695
+      ],
+      "p_two_sided": 0.028997100289971003
+     }
+    }
+   },
+   "diagnostics": {
+    "judge_specific_interaction": {
+     "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "H": {
+       "estimate": -0.22441087998153222,
+       "ci95": [
+        -0.2988063489114213,
+        -0.15156494349339755
+       ]
+      },
+      "P": {
+       "estimate": -0.07684548241613465,
+       "ci95": [
+        -0.15345089388771452,
+        0.0003343403275467966
+       ]
+      },
+      "R": {
+       "estimate": -0.14756539756539758,
+       "ci95": [
+        -0.22042966959332094,
+        -0.0762352328560416
+       ]
+      }
+     },
+     "google/gemma-4-31B-it": {
+      "H": {
+       "estimate": 0.03247620435120438,
+       "ci95": [
+        -0.038285430426055415,
+        0.10383525219298242
+       ]
+      },
+      "P": {
+       "estimate": 0.029801569203743154,
+       "ci95": [
+        -0.0025316579511611846,
+        0.0631760876754083
+       ]
+      },
+      "R": {
+       "estimate": 0.0026746351474612228,
+       "ci95": [
+        -0.05700680426155971,
+        0.060849507301273566
+       ]
+      }
+     },
+     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "H": {
+       "estimate": -0.07474444838575271,
+       "ci95": [
+        -0.13276543704495095,
+        -0.019600385649978076
+       ]
+      },
+      "P": {
+       "estimate": -0.10846832314223617,
+       "ci95": [
+        -0.17312508520671419,
+        -0.049479184638831414
+       ]
+      },
+      "R": {
+       "estimate": 0.03372387475648346,
+       "ci95": [
+        -0.005327134670884669,
+        0.07562650813692481
+       ]
+      }
+     },
+     "openai/gpt-oss-120b": {
+      "H": {
+       "estimate": 0.01697120311250745,
+       "ci95": [
+        -0.05388805288020267,
+        0.08734005412417242
+       ]
+      },
+      "P": {
+       "estimate": -0.007754172156346069,
+       "ci95": [
+        -0.06754079648712802,
+        0.05351448806158949
+       ]
+      },
+      "R": {
+       "estimate": 0.024725375268853517,
+       "ci95": [
+        -0.04677132268451708,
+        0.09519063149120513
+       ]
+      }
+     }
+    },
+    "leave_one_judge_out_fifty_fifty_H": {
+     "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "estimate": 0.02598433588016924,
+      "ci95": [
+       0.007987231457626169,
+       0.04411818234938707
+      ]
+     },
+     "google/gemma-4-31B-it": {
+      "estimate": 0.03803336106325231,
+      "ci95": [
+       0.016019654051033814,
+       0.06037711622542033
+      ]
+     },
+     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "estimate": 0.05627578272505809,
+      "ci95": [
+       0.03705267818545301,
+       0.07551713476936153
+      ]
+     },
+     "openai/gpt-oss-120b": {
+      "estimate": 0.06210375775593163,
+      "ci95": [
+       0.043918246489399224,
+       0.08074882532981871
+      ]
+     }
+    },
+    "leave_one_world_out_fifty_fifty_H": {
+     "carath_norn": {
+      "estimate": 0.06047795708970982,
+      "ci95": [
+       0.038921505775700714,
+       0.08197112624694149
+      ]
+     },
+     "selvarath": {
+      "estimate": 0.03261126893939392,
+      "ci95": [
+       0.011322894928276268,
+       0.054417191978064404
+      ]
+     },
+     "vethun_sarak": {
+      "estimate": 0.04370870203920474,
+      "ci95": [
+       0.02534871435452756,
+       0.06305332169036597
+      ]
+     }
+    }
+   }
+  },
+  "valid_only": {
+   "realized_schedule": {
+    "H": {
+     "estimate": 0.04626524390243908,
+     "ci95": [
+      0.02909044715447165,
+      0.06379700203252037
+     ],
+     "p_two_sided": 0.00019998000199980003,
+     "shift_from_banked": 0.006885162601626027
+    },
+    "P": {
+     "estimate": 0.010238821138211368,
+     "ci95": [
+      -0.002643546747967492,
+      0.023653455284552732
+     ],
+     "p_two_sided": 0.12238776122387761,
+     "shift_from_banked": -0.0034806910569105676
+    },
+    "R": {
+     "estimate": 0.03602642276422771,
+     "ci95": [
+      0.015320121951219645,
+      0.05559133638211386
+     ],
+     "p_two_sided": 0.0011998800119988001,
+     "shift_from_banked": 0.010365853658536595
+    }
+   },
+   "standardized": {
+    "A_only": {
+     "H": {
+      "estimate": 0.01935028412609932,
+      "ci95": [
+       -0.0034122333672265298,
+       0.04134711528784224
+      ],
+      "p_two_sided": 0.10078992100789921,
+      "shift_from_banked": -0.02002979717471373
+     },
+     "P": {
+      "estimate": -0.008975713799083351,
+      "ci95": [
+       -0.030593361194489573,
+       0.011087385530018364
+      ],
+      "p_two_sided": 0.41275872412758724,
+      "shift_from_banked": -0.022695225994205287
+     },
+     "R": {
+      "estimate": 0.028325997925182672,
+      "ci95": [
+       -9.58714443768718e-05,
+       0.05620463756503152
+      ],
+      "p_two_sided": 0.050594940505949405,
+      "shift_from_banked": 0.0026654288194915554
+     }
+    },
+    "B_only": {
+     "H": {
+      "estimate": 0.0871703527953528,
+      "ci95": [
+       0.06362474060175602,
+       0.11229361374194557
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.04779027149453975
+     },
+     "P": {
+      "estimate": 0.032641548266548276,
+      "ci95": [
+       0.012017715873742648,
+       0.05312057377840892
+      ],
+      "p_two_sided": 0.0015998400159984002,
+      "shift_from_banked": 0.01892203607142634
+     },
+     "R": {
+      "estimate": 0.05452880452880453,
+      "ci95": [
+       0.02873838725854127,
+       0.08146766267727851
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.02886823542311341
+     }
+    },
+    "fifty_fifty": {
+     "H": {
+      "estimate": 0.05326031846072607,
+      "ci95": [
+       0.03584332316654526,
+       0.07044055445771742
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": 0.013880237159913017
+     },
+     "P": {
+      "estimate": 0.011832917233732448,
+      "ci95": [
+       -0.003596296281843124,
+       0.0274960082265147
+      ],
+      "p_two_sided": 0.13058694130586943,
+      "shift_from_banked": -0.0018865949613894872
+     },
+     "R": {
+      "estimate": 0.04142740122699362,
+      "ci95": [
+       0.019411935185863656,
+       0.0620810834232572
+      ],
+      "p_two_sided": 0.000999900009999,
+      "shift_from_banked": 0.015766832121302504
+     }
+    },
+    "interaction": {
+     "H": {
+      "estimate": -0.06782006866925347,
+      "ci95": [
+       -0.10014237866135188,
+       -0.03655578290343917
+      ],
+      "p_two_sided": 0.00019998000199980003,
+      "shift_from_banked": -0.10720014997006652
+     },
+     "P": {
+      "estimate": -0.04161726206563162,
+      "ci95": [
+       -0.07024118050365502,
+       -0.014823579049821758
+      ],
+      "p_two_sided": 0.0017998200179982,
+      "shift_from_banked": -0.055336774260753556
+     },
+     "R": {
+      "estimate": -0.026202806603621842,
+      "ci95": [
+       -0.05881159785877478,
+       0.0071215619395533225
+      ],
+      "p_two_sided": 0.126987301269873,
+      "shift_from_banked": -0.05186337570931296
+     }
+    },
+    "n_worlds_with_both": 3,
+    "n_worlds_with_a": 3,
+    "n_worlds_with_b": 3
+   },
+   "within_question_corroboration": {
+    "n_questions": 63,
+    "fifty_fifty": {
+     "H": {
+      "estimate": 0.05318168934240364,
+      "ci95": [
+       0.03404829924040511,
+       0.07250744047619048
+      ],
+      "p_two_sided": 0.00019998000199980003
+     },
+     "P": {
+      "estimate": 0.012790532879818572,
+      "ci95": [
+       -0.004580237022316778,
+       0.030308676918784326
+      ],
+      "p_two_sided": 0.14998500149985
+     },
+     "R": {
+      "estimate": 0.040391156462585065,
+      "ci95": [
+       0.016422126318747825,
+       0.06297582924247883
+      ],
+      "p_two_sided": 0.0011998800119988001
+     }
+    },
+    "interaction": {
+     "H": {
+      "estimate": -0.08652210884353741,
+      "ci95": [
+       -0.12121712081946125,
+       -0.05294363839285715
+      ],
+      "p_two_sided": 0.00019998000199980003
+     },
+     "P": {
+      "estimate": -0.04244614512471655,
+      "ci95": [
+       -0.07517337359591014,
+       -0.011903070887445912
+      ],
+      "p_two_sided": 0.0057994200579942
+     },
+     "R": {
+      "estimate": -0.04407596371882086,
+      "ci95": [
+       -0.07877780388471178,
+       -0.008496543778801852
+      ],
+      "p_two_sided": 0.0201979802019798
+     }
+    }
+   },
+   "diagnostics": {
+    "judge_specific_interaction": {
+     "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "H": {
+       "estimate": -0.2223779390898957,
+       "ci95": [
+        -0.29851064881620437,
+        -0.14747971781305116
+       ]
+      },
+      "P": {
+       "estimate": -0.07668219964415623,
+       "ci95": [
+        -0.15418634078001528,
+        0.00042867858568336015
+       ]
+      },
+      "R": {
+       "estimate": -0.14569573944573946,
+       "ci95": [
+        -0.2168190075742159,
+        -0.07557397868335379
+       ]
+      }
+     },
+     "google/gemma-4-31B-it": {
+      "H": {
+       "estimate": 0.03421231546231549,
+       "ci95": [
+        -0.03663992320581994,
+        0.10511038158464629
+       ]
+      },
+      "P": {
+       "estimate": 0.029801569203743154,
+       "ci95": [
+        -0.0025316579511611846,
+        0.0631760876754083
+       ]
+      },
+      "R": {
+       "estimate": 0.004410746258572337,
+       "ci95": [
+        -0.05522461510074735,
+        0.062479061894343206
+       ]
+      }
+     },
+     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "H": {
+       "estimate": -0.07474444838575271,
+       "ci95": [
+        -0.13276543704495095,
+        -0.019600385649978076
+       ]
+      },
+      "P": {
+       "estimate": -0.10846832314223617,
+       "ci95": [
+        -0.17312508520671419,
+        -0.049479184638831414
+       ]
+      },
+      "R": {
+       "estimate": 0.03372387475648346,
+       "ci95": [
+        -0.005327134670884669,
+        0.07562650813692481
+       ]
+      }
+     },
+     "openai/gpt-oss-120b": {
+      "H": {
+       "estimate": -0.0018766961701744307,
+       "ci95": [
+        -0.07092422327069066,
+        0.0651354917810986
+       ]
+      },
+      "P": {
+       "estimate": -0.006249964809747386,
+       "ci95": [
+        -0.0735131389091987,
+        0.0629837843064745
+       ]
+      },
+      "R": {
+       "estimate": 0.004373268639572955,
+       "ci95": [
+        -0.0702693271123223,
+        0.07919332154149127
+       ]
+      }
+     }
+    },
+    "leave_one_judge_out_fifty_fifty_H": {
+     "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+      "estimate": 0.03984463268883556,
+      "ci95": [
+       0.021456049977952665,
+       0.05849477650832569
+      ]
+     },
+     "google/gemma-4-31B-it": {
+      "estimate": 0.04763401269288953,
+      "ci95": [
+       0.025425554284667074,
+       0.06972753248160855
+      ]
+     },
+     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "estimate": 0.06641831145907232,
+      "ci95": [
+       0.04713364803389719,
+       0.08576937469038155
+      ]
+     },
+     "openai/gpt-oss-120b": {
+      "estimate": 0.058927866785656646,
+      "ci95": [
+       0.04088541304060852,
+       0.07770489719368791
+      ]
+     }
+    },
+    "leave_one_world_out_fifty_fifty_H": {
+     "carath_norn": {
+      "estimate": 0.06720351187912327,
+      "ci95": [
+       0.04547147793024481,
+       0.08919705336860285
+      ]
+     },
+     "selvarath": {
+      "estimate": 0.04108055572899322,
+      "ci95": [
+       0.019005538226241375,
+       0.0633116079883658
+      ]
+     },
+     "vethun_sarak": {
+      "estimate": 0.051496887774061695,
+      "ci95": [
+       0.03257320190777996,
+       0.07142856384224418
+      ]
+     }
+    }
+   }
+  }
+ },
+ "C_and_D_clean": {
+  "strict": {
+   "C": {
+    "realized_official_estimate": 0.16463414634146345,
+    "standardized_qt_grain": {
+     "A_only": {
+      "value": {
+       "estimate": 0.19442121887774064,
+       "ci95": [
+        0.11063889673128804,
+        0.2843554018445323
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": 0.029787072536277187
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.15430749805749808,
+       "ci95": [
+        0.08292129629629628,
+        0.23483694279754064
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": -0.010326648283965373
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.17436435846761933,
+       "ci95": [
+        0.11308422579826803,
+        0.24280782556703448
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": 0.00973021212615588
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": 0.04011372082024257,
+       "ci95": [
+        -0.05982105520931639,
+        0.14037625042697502
+       ],
+       "p_two_sided": 0.42855714428557146,
+       "shift_from_banked": -0.12452042552122089
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "note": "C's unit is (question, transcript, debater) at the cap judge; the cap judge sees the SAME transcript polarity in the uncapped-b0 and capped150-b0 arms it compares (both derive position from (question_id, transcript_index) alone), so it stratifies by side exactly like H/P/R."
+   },
+   "D_clean": {
+    "realized_official_estimate": 0.09730691056910568,
+    "matched_t0_standardized": {
+     "A_only": {
+      "value": {
+       "estimate": 0.12159173976608188,
+       "ci95": [
+        0.06629520114880748,
+        0.178105508947101
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.0908740179573513,
+       "ci95": [
+        0.03920841600529101,
+        0.14510602678571424
+       ],
+       "p_two_sided": 0.0013998600139986002
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.10623287886171658,
+       "ci95": [
+        0.06809837012598197,
+        0.14482508887150425
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": 0.030717721808730575,
+       "ci95": [
+        -0.045869708994709005,
+        0.10876155406341165
+       ],
+       "p_two_sided": 0.44355564443555645
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "note": "The OFFICIAL D_clean (debate sequential_b2 averaged over all 3 transcripts, minus no_debate clean_b2's fixed K3-at-transcript-0 comparator) has NO well-defined A-only/B-only/50-50 standardization: the no-debate side only ever observes transcript 0's realized side, so there is no 'no-debate B-side' population to standardize the A-side debate average against. What IS well-defined is matched_t0_standardized above: debate error restricted to transcript 0 only (dropping transcripts 1-2), which shares transcript 0's side with the no-debate comparator by construction and can be legitimately split by that side."
+   }
+  },
+  "valid_only": {
+   "C": {
+    "realized_official_estimate": 0.16463414634146345,
+    "standardized_qt_grain": {
+     "A_only": {
+      "value": {
+       "estimate": 0.19442121887774064,
+       "ci95": [
+        0.11063889673128804,
+        0.2843554018445323
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": 0.029787072536277187
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.15430749805749808,
+       "ci95": [
+        0.08292129629629628,
+        0.23483694279754064
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": -0.010326648283965373
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.17436435846761933,
+       "ci95": [
+        0.11308422579826803,
+        0.24280782556703448
+       ],
+       "p_two_sided": 0.00019998000199980003,
+       "shift_from_banked": 0.00973021212615588
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": 0.04011372082024257,
+       "ci95": [
+        -0.05982105520931639,
+        0.14037625042697502
+       ],
+       "p_two_sided": 0.42855714428557146,
+       "shift_from_banked": -0.12452042552122089
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "note": "C's unit is (question, transcript, debater) at the cap judge; the cap judge sees the SAME transcript polarity in the uncapped-b0 and capped150-b0 arms it compares (both derive position from (question_id, transcript_index) alone), so it stratifies by side exactly like H/P/R."
+   },
+   "D_clean": {
+    "realized_official_estimate": 0.09789972899728994,
+    "matched_t0_standardized": {
+     "A_only": {
+      "value": {
+       "estimate": 0.12458881578947367,
+       "ci95": [
+        0.06741354978882394,
+        0.18231347555469554
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.08913790684624018,
+       "ci95": [
+        0.037614293981481486,
+        0.14375912715756464
+       ],
+       "p_two_sided": 0.0015998400159984002
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.10686336131785694,
+       "ci95": [
+        0.0682155831117591,
+        0.14626112252607834
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": 0.0354509089432335,
+       "ci95": [
+        -0.04285420881315489,
+        0.11469308299420686
+       ],
+       "p_two_sided": 0.37936206379362064
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "note": "The OFFICIAL D_clean (debate sequential_b2 averaged over all 3 transcripts, minus no_debate clean_b2's fixed K3-at-transcript-0 comparator) has NO well-defined A-only/B-only/50-50 standardization: the no-debate side only ever observes transcript 0's realized side, so there is no 'no-debate B-side' population to standardize the A-side debate average against. What IS well-defined is matched_t0_standardized above: debate error restricted to transcript 0 only (dropping transcripts 1-2), which shares transcript 0's side with the no-debate comparator by construction and can be legitimately split by that side."
+   }
+  }
+ },
+ "decision_rule_application": {
+  "H": {
+   "verdict": "survives_as_post_hoc_robust",
+   "positive": true,
+   "ci_excludes_zero": true,
+   "valid_only_direction_agrees": true,
+   "within_question_direction_agrees": true
+  },
+  "P_stability": {
+   "label": "P",
+   "strict_estimate": 0.01579609060926998,
+   "strict_ci95": [
+    0.001371476957188039,
+    0.03060194554031356
+   ],
+   "valid_only_estimate": 0.011832917233732448,
+   "call": "stable"
+  },
+  "R_stability": {
+   "label": "R",
+   "strict_estimate": 0.029803218746832838,
+   "strict_ci95": [
+    0.008920658298885765,
+    0.049783489248984035
+   ],
+   "valid_only_estimate": 0.04142740122699362,
+   "call": "stable"
+  },
+  "C_stability": {
+   "label": "C",
+   "strict_estimate": 0.17436435846761933,
+   "strict_ci95": [
+    0.11308422579826803,
+    0.24280782556703448
+   ],
+   "valid_only_estimate": 0.17436435846761933,
+   "call": "stable"
+  },
+  "D_clean_stability": {
+   "label": "D_clean_matched_t0",
+   "strict_estimate": 0.10623287886171658,
+   "strict_ci95": [
+    0.06809837012598197,
+    0.14482508887150425
+   ],
+   "valid_only_estimate": 0.10686336131785694,
+   "call": "stable"
+  }
+ },
+ "integrity": {
+  "engine_commit": "1b008455eb355e5ea2ac1cacb57e4fec77d50e60",
+  "python": "3.13.5",
+  "spec_sha256": "2dc58262fca91803df815104bb4991fa3632b4c9af045f840021c241a94854bd",
+  "main_results_input_sha256": "c523eed92533ebc056334a9ee2b2efc3d59afb9fe82bfdfe743e96df06bc6b66",
+  "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
+  "draw_matrix_sha256": "5b72f3af9c8eddca274d1bf59f5f1c3ebdddc9d41687e042e62e71544629da03",
+  "banked_artifact_path": "analysis_out/phase2_main_results.json"
+ }
+}
