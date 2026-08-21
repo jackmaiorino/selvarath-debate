@@ -448,6 +448,13 @@ def _resolve_judgment_cell(cell: Mapping[str, Any], *, conditions: Mapping[str, 
             f"reused phase-2 prompt bundle has no debate_grid composition for {bundle_key!r} "
             f"(condition {condition_id!r}, budget {query_budget})")
     arm_name = "clean" if oracle_mode == "clean" else None
+    # Mirroring fix (2026-08-21): phase3_plan.enumerate_canary_cells folds
+    # (side, within_side_replicate) into replicate_index = side * replicates_per_side +
+    # within_side_replicate (see its docstring); this is the ONE resolver whose replicate_index
+    # is such a fold, so it is the one caller that must supply the unfold divisor.
+    # phase2_canary_execute._polarity treats a supplied value as "this cell has side semantics"
+    # and treats None (every other resolver) as "no side semantics, behave as before".
+    judgment_replicates_per_side = int(protocol_condition["judgment_replicates_per_transcript_side"])
 
     return ResolvedCell(
         cell_key=str(cell["cell_key"]), kind=str(cell["kind"]), condition=condition_id,
@@ -455,7 +462,8 @@ def _resolve_judgment_cell(cell: Mapping[str, Any], *, conditions: Mapping[str, 
         debater_model=cell.get("debater_model"), transcript_index=cell.get("transcript_index"),
         replicate_index=cell.get("replicate_index"), query_budget=query_budget,
         dependency_keys=tuple(cell.get("dependency_keys") or ()), composition=composition,
-        transcript_protocol_name=None, oracle_mode=oracle_mode, arm_name=arm_name)
+        transcript_protocol_name=None, oracle_mode=oracle_mode, arm_name=arm_name,
+        judgment_replicates_per_side=judgment_replicates_per_side)
 
 
 def resolve_canary_cells(cells: list[Mapping[str, Any]], *, protocol: Mapping[str, Any],
