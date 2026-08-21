@@ -55,10 +55,16 @@
    "rejudge/phase3_incident1_mirroring_2026-08-21.json": "6d7ff8446661fdc4b5becd8041d9a3f86e44627bbecce824f147cd9150599b18",
    "rejudge/phase2_mirror_reanalysis_spec_2026-08-21.json": "7e945c1f128a73ca4252f1d65dcd1cc39dd3c9d694a16ba34472ca13f7bdbb90",
    "analysis_out/phase2_mirror_reanalysis.json": "e946b125c1c1486e1df15c29017637b1a1cc4def9b7b9639c6608fce594e8642",
-   "rejudge/phase3_canary_closeout_2026-08-21.json": "c4b2a125af953c44c587bcc5f8ebc176fc9d6f83fbb544715dc55d90219a20fc"
+   "rejudge/phase3_canary_closeout_2026-08-21.json": "c4b2a125af953c44c587bcc5f8ebc176fc9d6f83fbb544715dc55d90219a20fc",
+   "rejudge/phase3_amendment1_roster_2026-08-18.json": "a99e2b100d089011e28057be484d19565e4b401bc943b23d554c26d352ad34d3",
+   "rejudge/phase3_amendment2_deferral_2026-08-18.json": "2ecfb20ffcaf0c95b6e4e7537377207ba2137ddb772a086fa18b7c313126627e",
+   "rejudge/phase3_amendment3_roster_2026-08-18.json": "3282abf11c8f58de86e8b4ba984f0e47e43c08b96aef3e2ed356e7fb44984392",
+   "rejudge/phase3_amendment4_context_guard_2026-08-19.json": "11bbc763598e8632960c9b9ea5a1087534b0e0e3ae48a217716379ebe842b432",
+   "rejudge/phase3_authorization_2026-08-18.json": "cc06635124695c4f3bb5144c783991f50167e39bdcfe1d933092a62d832f16de",
+   "rejudge/phase3_authorization_2026-08-18b.json": "10020b321a56e5a8cd2fd733e259906b7ee42eb286556605f5ec88dfad23d3e4"
   },
   "raw_sha256": {
-   "reports/2026-08-11-phase2-main-results.md": "e50acfd693fe6cc64c4ac4d55ea036265e6fc55fdaa61e6e0e6e62e143f3bbf4",
+   "reports/2026-08-11-phase2-main-results.md": "ca5b9cdb6a077de2e067b4ef28b26521baa59c88c77289d9d343f02b48541598",
    "scripts/phase3_fallback_subset.py": "1edb9f66770c50ba69fae1e19e16edee70e3cce69e89615019784158dd7de48f",
    "rejudge/phase3_codex_mirroring_consult_2026-08-21.md": "3c9b0bf5ce1926e8c037c13f4c6b45839b42b17bb93259bd4d0ee91cc24c13de",
    "rejudge/phase3_codex_context_guard_consult_2026-08-19.md": "c3eb0037a9997875037c10efc13b6ab93fdbabf66b11df216f1d10cc29f9ebe7",
@@ -120,11 +126,6 @@
    }
   },
   "new_pending_verification": {
-   "meta-llama/Meta-Llama-3-8B-Instruct-Lite": {
-    "display_name": "Llama-3-8B-Lite",
-    "input": null,
-    "output": null
-   },
    "google/gemma-3n-E4B-it": {
     "display_name": "Gemma-3n-E4B",
     "input": null,
@@ -168,7 +169,7 @@
   "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
   "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)",
   "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload",
-  "new_judge_failure_rule": "a NEW judge that fails a canary calibration gate for SEMANTIC reasons (parseability, side bias) is DROPPED, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check; no-replacement also prevents post-hoc model fishing; owner-ratified 2026-08-18, rejudge/phase3_authorization_2026-08-18b.json). TEMPORARY endpoint unavailability or transport failure is NOT a calibration failure: those cells retry/defer under the transport policy and only an owner-recorded decision can convert persistent unavailability into a drop. A dropped new judge dissolves its within-family descriptive pair; the roster proceeds with survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists.",
+  "new_judge_failure_rule": "a NEW judge that fails a canary calibration gate for SEMANTIC reasons (parseability/INVALID rate, or a structural-mirroring zero-tolerance failure attributable to the judge) is DROPPED, not replaced (no serverless same-family substitutes exist per the 2026-08-14 availability check; no-replacement also prevents post-hoc model fishing; owner-ratified 2026-08-18, rejudge/phase3_authorization_2026-08-18b.json). TEMPORARY endpoint unavailability or transport failure is NOT a calibration failure: those cells retry/defer under the transport policy and only an owner-recorded decision can convert persistent unavailability into a drop. A dropped new judge dissolves its within-family descriptive pair; the roster proceeds with survivors provided at least the four continuing judges remain. A CONTINUING judge failing a phase-3 gate is a halt-and-escalate to the owner, never a silent drop. All roster outcomes are recorded before any main-run outcome exists. The mandatory position-preference diagnostics carry NO roster consequence (v2 side-preference disposition).",
   "roster_freeze_timing": "the final roster (post-gates, post-configuration-selection) freezes before any capability anchor is scored and before any main-run outcome exists",
   "roster_note": "6-judge roster per amendment 3, native in v2: the weak-Llama slot is gone (no serverless weak Llama exists on the provider; probed 2026-08-19/20). Qwen2.5-7B endpoint availability is an environmental matter handled by retry/defer, never a semantic drop."
  },
@@ -260,7 +261,7 @@
      "N4": 27552
     }
    },
-   "selected": "A_no_d at the 7-judge candidate roster: 34,440 main judgment slots"
+   "selected": "A_no_d at the 6-judge roster per amendment 3: 29,520 main judgment slots; canary 1,152 fresh + 288 carried anchors"
   },
   "dropped_from_phase2": "batch_same_qa, placebo, capped debates, no-debate references, empty-evidence control, full-document anchors, AND with them the phase-2 secondary estimands C (cap-protection interaction) and D_clean (debate vs no-debate): all are settled phase-2 results, and phase 3 has no debater-side variation. Phase 3 is the sequential clean-oracle dose-response only."
  },
@@ -439,9 +440,13 @@
    "status": "approved_design_pending_manifest",
    "canary_question_set": "all 24 held-out questions, reused canary transcripts (zero transcript-generation cells; phase 2's canary generated transcripts, phase 3's does not)",
    "canary_slot_inventory": {
-    "per_judge_formula": "core b0 gates: 24 x 2 debaters x 1 transcript x K2 = 96; budget smoke: 6 x 2 x 1 x K2 x (replicate multiplier of the target config: A=4, B=5, C=5, D=6) = 96/120/120/144; capability anchor: 24 x 2 = 48",
-    "totals_by_config_and_roster": "total = N_judges x (96 + smoke + 48); at N7: A 1,680; B/C 1,848; D 2,016. SELECTED (config A, 7 candidate judges): 1,680 canary slots. Candidate judges that later fail gates or are shed still have their canary slots counted and their spend accrued.",
-    "pinned_denominator_rule": "the manifest pins the exact number from this formula for the selected config and candidate roster; the completion gate uses that number"
+    "per_judge": "core b0 gates 96 + budget smoke 96 (config A multiplier 4) + anchors 48 (carried) = 240",
+    "six_judge_totals": {
+     "fresh_v2_judgment_slots": 1152,
+     "carried_anchor_cells": 288,
+     "combined_gate_inventory": 1440
+    },
+    "pinned_denominator_rule": "the completion gate evaluates 1,152 fresh slots executed plus 288 carried anchor bindings verified = 1,440 combined"
    },
    "calibration_gates_per_judge": {
     "population": "the 96 core b0 judgments per judge (24 questions x 2 debaters x 1 transcript x K2 mirrored sides)",
@@ -475,7 +480,16 @@
     "any live debater/transcript-generation call"
    ],
    "failure_action": "halt before main spend; a semantic repair requires a new protocol ID/hash and a complete canary rerun",
-   "canary_scope": "COMPLETE corrected rerun: all 1,440 canary slots execute under the v2 namespace and a fresh execution identity. Rows recorded under v1 identities are preserved in the archive as superseded defect evidence and never mix with v2 analysis. EXCEPTION carried forward without rerun: the 288 capability-anchor cells, whose separate execution path was verified genuinely mirrored (24A/24B per judge) and whose scores are frozen pre-outcome; the v2 manifest binds their v1-identity rows by store reference and hash."
+   "canary_scope": "CORRECTED-RERUN INVENTORY, stated exactly: 1,152 judgment slots (576 core b0 + 576 budget smoke at the 6-judge roster) execute FRESH under the v2 namespace and identity; the 288 capability-anchor cells CARRY from the v1 identity by exact cell-key set and store/hash binding (their separate execution path was verified genuinely mirrored, 24A/24B per judge, and their scores are frozen pre-outcome); 1,440 is the COMBINED gate inventory, not the freshly-executed count. v1 judgment rows are preserved in the archive as superseded defect evidence and never enter v2 analysis; the anchor rows are the sole, explicitly bound exception, entering only the capability covariate.",
+   "pace_measurement_window": {
+    "opens": "at the first unique-payload ruling committed under the v2 manifest",
+    "closes": "at the commit of the last ruling required for canary convergence",
+    "counted": "unique-payload gate rulings committed in-window (dedup-suppressed payloads are never counted)",
+    "denominator": "elapsed wall-clock within the window; pace reported as rulings per 24 elapsed hours (continuous) AND per-UTC-calendar-day buckets; the configuration-selection L90 uses the continuous rate",
+    "quota_day_definition": "one UTC calendar day containing at least one committed ruling",
+    "interruption_rule": "an environmental interruption (any STOP, or a gap of more than 30 minutes with zero ledger events) VOIDS the window; it restarts at the next committed ruling; completed semantic cells are never invalidated by a voided window",
+    "crank_settings_freeze": "daemon concurrency and waves-per-round are recorded in the manifest before the window opens and are not tuned inside a window"
+   }
   },
   "spend": {
    "status": "stage_cap_set_no_spend_authorized",
@@ -494,6 +508,15 @@
     "executability": "every input above is measurable offline or from canary artifacts, so the forecast is executable the moment the canary completes, with no free parameters"
    },
    "controls": "the amended phase-2 supervisor controls (benign-transient enumeration, uncertain-spend ceiling, same-cell cap, STOP-terminating orchestrator) carry forward; ledger, locking, reconciliation, and abnormal-resume policies inherited unchanged from phase2_protocol.json decisions.cumulative_spend"
+  },
+  "context_guard": {
+   "status": "native_in_v2 (amendment 4 items 1-3 and 5-7; carry-forward items 4 and 8 retired by the v2 full rerun, except the anchor exception)",
+   "context_estimator": "context-only size estimate used solely by the guard comparison: E_prompt = ceil(prompt_utf8_bytes / 3) + 512; E_total = E_prompt + effective_request_max_tokens; rejudge.api_client._estimate_usage (spend accounting and reservations) is never modified",
+   "visible_history_caps": "enforced BEFORE history insertion, never by truncation: 1,024 UTF-8 bytes for base-256 judge_query models, 6,144 for reasoning-floor models, classification from the bound role-limits artifact; an over-cap response flows the frozen retry-then-block gate machinery (Phase2QueryGate max_response_bytes, reason VISIBLE_HISTORY_CAP_EXCEEDED) with attempt state owned by the gate",
+   "validation_gate": "the estimator is validated against a frozen ledger prefix: for every terminal call with provider-reported prompt tokens, E_prompt >= actual + max(512, ceil(0.25 * actual)); any miss blocks main authorization; the report is hash-bound in the manifest (rejudge/phase3_estimator_validation_2026-08-19.json for the v1 prefix; the v2 canary appends prospectively under the same rule)",
+   "eligibility": "the context-exclusion blocklist is regenerated by scripts/phase3_context_precheck.py FROM THE CORRECTED v2 RENDERED-PROMPT semantics, hash-bound in the manifest, auto-resolved by the runner (an explicit path must hash-match; a guard trip outside the frozen list halts); expected zero exclusions per the validated estimator",
+   "common_support_rule": "VERBATIM from amendment 4 item 7: eligibility frozen and hashed pre-main from frozen inputs; each Delta(b) analyzed on matched common support keyed by (question, judge, debater, transcript, side, replicate); S1 on the b8/b2 matched intersection; context-ineligible slots never coded INVALID; zero-support strata require owner re-decision",
+   "independent_review": "the amendment-4 implementation passed a three-pass independent review (final PASS, rejudge/phase3_codex_context_guard_consult_2026-08-19.md)"
   }
  },
  "materialization_requirements": {
@@ -521,23 +544,23 @@
    "verified_starting_spend_usd": null,
    "verified_prepaid_credit_usd": null,
    "evidence_reference": null,
-   "requirement": "verified against the provider dashboard before canary authorization; phase-2 closed reconciled but the CURRENT figures must be re-verified, not assumed"
+   "requirement": "verified against the provider dashboard BEFORE MAIN-RUN AUTHORIZATION (amendment 2, owner-authorized deferral past canary); the canary proceeds on the fail-closed ledger alone"
   },
   "credential_rotation": {
    "complete": false,
-   "requirement": "rotate the provider API key before canary authorization (the phase-2 key has since been used across many sessions); non-secret evidence recorded"
+   "requirement": "rotate the provider API key BEFORE MAIN-RUN AUTHORIZATION (amendment 2, owner-authorized: deferred past canary; a HARD pre-main blocker); non-secret evidence recorded"
   },
   "role_limits": {
    "tracked_path": null,
    "sha256": null,
-   "requirement": "extend phase-2 v6 limits with per-model role limits and transport pins for the three new judges; transport pins are load-bearing and MUST be present for every model (rejudge/phase2_canary_manifest.py:_require_transport_pins enforces this)"
+   "requirement": "extend phase-2 v6 limits with per-model role limits and transport pins for the two new judges (google/gemma-3n-E4B-it, Qwen/Qwen3.7-Max); transport pins are load-bearing and MUST be present for every model (rejudge/phase2_canary_manifest.py:_require_transport_pins enforces this)"
   },
   "cost_model": {
    "tracked_path": null,
    "requirement": "phase3_cost_model.json computed per decisions.spend.forecast_method from canary measurements plus the exact frozen transcript lengths; replaces the prose estimate before main authorization"
   },
   "engineering_gates_before_canary": [
-   "phase3_plan.py module set: its own validate_protocol for schema_version phase3_plan_v1; enumerate_cells reading debate_grid.conditions GENERICALLY (phase 2's enumerate_canary_cells hard-codes a literal condition tuple and its validate_protocol hard-rejects any non-phase-2 protocol, so none of the phase-2 planning stack is reusable as-is); per-condition judgment replicates from the selected configuration multiplied into the replicate range (no code reads this field today); a self-test asserting per-condition slot counts against debate_grid.slot_arithmetic_by_roster before any plan is accepted",
+   "phase3_plan.py module set: its own validate_protocol for schema_version phase3_plan_v2 (loader support for the v2 schema AND the re-pinned v2 canonical hash; the v1-only validate_protocol rejects this document today); enumerate_cells reading debate_grid.conditions GENERICALLY (phase 2's enumerate_canary_cells hard-codes a literal condition tuple and its validate_protocol hard-rejects any non-phase-2 protocol, so none of the phase-2 planning stack is reusable as-is); per-condition judgment replicates from the selected configuration multiplied into the replicate range (no code reads this field today); a self-test asserting per-condition slot counts against debate_grid.slot_arithmetic_by_roster before any plan is accepted",
    "phase3 manifest modules accepting an injected protocol path (phase-2's manifest code hard-codes rejudge/phase2_protocol.json in three places)",
    "transcript ingestion script per transcript_reuse.ingestion_mechanics, with the hard runtime assertion against live generation and the byte-mismatch zero-tolerance gate actually implemented (no code computes such a comparison today)",
    "judgment_seed extended to include debater model and protocol namespace per decisions.execution_semantics.seed_policy, with a regression test",
