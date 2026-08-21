@@ -5,16 +5,25 @@
  "B": 10000,
  "seed": 20260821,
  "step1_polarity_verification": {
+  "method": "direct comparison of the rendered Position A/B block text against the frozen question bank's correct_answer/wrong_answer text (exact string equality), performed for all 19,680 judgment rows; the stored position_a_is_correct field and analysis.infra.design.position_a_is_correct are checked AGAINST this direct comparison's result, not used to produce it",
   "rows_checked": 19680,
   "units_checked": 246,
   "rows_missing_position_block": 0,
+  "rows_unmatched_answer_block": [],
+  "n_rows_unmatched_answer_block": 0,
+  "rows_field_vs_direct_comparison_disagreement": [],
+  "n_rows_field_vs_direct_comparison_disagreement": 0,
+  "direct_comparison_n_A_correct_units": 128,
+  "direct_comparison_n_B_correct_units": 118,
+  "direct_comparison_inconsistent_units": {},
   "rendered_text_inconsistent_units": {},
   "stored_field_inconsistent_units": {},
   "stored_field_vs_design_function_mismatches": [],
   "gate_pass": true
  },
  "step1_banked_reproduction": {
-  "match": true
+  "match": true,
+  "note": "the complete semantic artifact was reproduced exactly, excluding the expected engine_commit provenance field"
  },
  "realized_assignment_context": {
   "n_question_transcript_units": 246,
@@ -737,6 +746,7 @@
    }
   }
  },
+ "interaction_framing_note": "Every 'interaction' quantity in this artifact (H/P/R, C, D_clean alike) is a statistically distinguishable OBSERVED side-stratum interaction, not a causally identified position effect. It can combine genuine position-by-condition interaction with question/transcript heterogeneity allocated unevenly by the hash-based side assignment; no unit in this archive was judged under both labels, so unit-level counterfactuals are not available to separate those two sources. A 50/50-standardized estimate differing from the realized-schedule estimate is a reweighting consequence of the observed side-stratum composition, not independent confirmatory evidence for the interaction's cause.",
  "C_and_D_clean": {
   "strict": {
    "C": {
@@ -755,13 +765,13 @@
      },
      "B_only": {
       "value": {
-       "estimate": 0.15430749805749808,
+       "estimate": 0.15430749805749805,
        "ci95": [
         0.08292129629629628,
         0.23483694279754064
        ],
        "p_two_sided": 0.00019998000199980003,
-       "shift_from_banked": -0.010326648283965373
+       "shift_from_banked": -0.0103266482839654
       }
      },
      "fifty_fifty": {
@@ -777,13 +787,13 @@
      },
      "interaction": {
       "value": {
-       "estimate": 0.04011372082024257,
+       "estimate": 0.040113720820242574,
        "ci95": [
         -0.05982105520931639,
         0.14037625042697502
        ],
        "p_two_sided": 0.42855714428557146,
-       "shift_from_banked": -0.12452042552122089
+       "shift_from_banked": -0.12452042552122088
       }
      },
      "n_worlds_with_both": 3,
@@ -794,7 +804,52 @@
    },
    "D_clean": {
     "realized_official_estimate": 0.09730691056910568,
-    "matched_t0_standardized": {
+    "official_stratified_by_transcript0_side": {
+     "A_only": {
+      "value": {
+       "estimate": 0.09635264376218322,
+       "ci95": [
+        0.047348949631022,
+        0.1448151910618048
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.09834455667789001,
+       "ci95": [
+        0.05931628412097161,
+        0.13800884589947085
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.09734860022003662,
+       "ci95": [
+        0.06590117849538805,
+        0.12854633851646718
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": -0.0019919129157067914,
+       "ci95": [
+        -0.06414873248857625,
+        0.05943669415200955
+       ],
+       "p_two_sided": 0.940905909409059
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "matched_transcript0_sensitivity": {
      "A_only": {
       "value": {
        "estimate": 0.12159173976608188,
@@ -839,7 +894,7 @@
      "n_worlds_with_a": 3,
      "n_worlds_with_b": 3
     },
-    "note": "The OFFICIAL D_clean (debate sequential_b2 averaged over all 3 transcripts, minus no_debate clean_b2's fixed K3-at-transcript-0 comparator) has NO well-defined A-only/B-only/50-50 standardization: the no-debate side only ever observes transcript 0's realized side, so there is no 'no-debate B-side' population to standardize the A-side debate average against. What IS well-defined is matched_t0_standardized above: debate error restricted to transcript 0 only (dropping transcripts 1-2), which shares transcript 0's side with the no-debate comparator by construction and can be legitimately split by that side."
+    "note": "D_clean has NO UNIQUE H-analogous standardization: its two arms (debate sequential_b2, no_debate clean_b2) have different polarity-exposure structures -- debate averages three transcripts' worth of (possibly mixed) sides while the no-debate K3 comparator always reuses transcript 0's realized side alone -- so there is no single well-defined side-standardization of the arms against each other. Two different, individually well-defined constructions are reported instead, and neither should be read as THE standardized D_clean: (1) official_stratified_by_transcript0_side keeps the OFFICIAL, banked per-question D_clean (all three debate transcripts averaged, as published) and merely buckets questions by transcript 0's side for the world-standardization weighting -- transcripts 1 and 2 remain uncontrolled for side inside this number; (2) matched_transcript0_sensitivity is a SEPARATELY DEFINED sensitivity analysis that instead restricts the debate arm itself to transcript 0 only, so both arms share the same realized side by construction, at the cost of discarding transcripts 1-2 entirely from the debate average -- it is not a standardization of the official estimand, it is a different estimand. realized_official_estimate (unstandardized, matches the banked +9.7pp) remains the estimand actually published."
    }
   },
   "valid_only": {
@@ -859,13 +914,13 @@
      },
      "B_only": {
       "value": {
-       "estimate": 0.15430749805749808,
+       "estimate": 0.15430749805749805,
        "ci95": [
         0.08292129629629628,
         0.23483694279754064
        ],
        "p_two_sided": 0.00019998000199980003,
-       "shift_from_banked": -0.010326648283965373
+       "shift_from_banked": -0.0103266482839654
       }
      },
      "fifty_fifty": {
@@ -881,13 +936,13 @@
      },
      "interaction": {
       "value": {
-       "estimate": 0.04011372082024257,
+       "estimate": 0.040113720820242574,
        "ci95": [
         -0.05982105520931639,
         0.14037625042697502
        ],
        "p_two_sided": 0.42855714428557146,
-       "shift_from_banked": -0.12452042552122089
+       "shift_from_banked": -0.12452042552122088
       }
      },
      "n_worlds_with_both": 3,
@@ -898,7 +953,52 @@
    },
    "D_clean": {
     "realized_official_estimate": 0.09789972899728994,
-    "matched_t0_standardized": {
+    "official_stratified_by_transcript0_side": {
+     "A_only": {
+      "value": {
+       "estimate": 0.09835952729044833,
+       "ci95": [
+        0.048400915056568454,
+        0.1474371294101686
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "B_only": {
+      "value": {
+       "estimate": 0.09572460718294051,
+       "ci95": [
+        0.05705996260683761,
+        0.13495896464646462
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "fifty_fifty": {
+      "value": {
+       "estimate": 0.09704206723669444,
+       "ci95": [
+        0.06555415713115943,
+        0.12853634919184534
+       ],
+       "p_two_sided": 0.00019998000199980003
+      }
+     },
+     "interaction": {
+      "value": {
+       "estimate": 0.0026349201075078162,
+       "ci95": [
+        -0.06055448770943562,
+        0.06481915653790651
+       ],
+       "p_two_sided": 0.9455054494550545
+      }
+     },
+     "n_worlds_with_both": 3,
+     "n_worlds_with_a": 3,
+     "n_worlds_with_b": 3
+    },
+    "matched_transcript0_sensitivity": {
      "A_only": {
       "value": {
        "estimate": 0.12458881578947367,
@@ -943,7 +1043,7 @@
      "n_worlds_with_a": 3,
      "n_worlds_with_b": 3
     },
-    "note": "The OFFICIAL D_clean (debate sequential_b2 averaged over all 3 transcripts, minus no_debate clean_b2's fixed K3-at-transcript-0 comparator) has NO well-defined A-only/B-only/50-50 standardization: the no-debate side only ever observes transcript 0's realized side, so there is no 'no-debate B-side' population to standardize the A-side debate average against. What IS well-defined is matched_t0_standardized above: debate error restricted to transcript 0 only (dropping transcripts 1-2), which shares transcript 0's side with the no-debate comparator by construction and can be legitimately split by that side."
+    "note": "D_clean has NO UNIQUE H-analogous standardization: its two arms (debate sequential_b2, no_debate clean_b2) have different polarity-exposure structures -- debate averages three transcripts' worth of (possibly mixed) sides while the no-debate K3 comparator always reuses transcript 0's realized side alone -- so there is no single well-defined side-standardization of the arms against each other. Two different, individually well-defined constructions are reported instead, and neither should be read as THE standardized D_clean: (1) official_stratified_by_transcript0_side keeps the OFFICIAL, banked per-question D_clean (all three debate transcripts averaged, as published) and merely buckets questions by transcript 0's side for the world-standardization weighting -- transcripts 1 and 2 remain uncontrolled for side inside this number; (2) matched_transcript0_sensitivity is a SEPARATELY DEFINED sensitivity analysis that instead restricts the debate arm itself to transcript 0 only, so both arms share the same realized side by construction, at the cost of discarding transcripts 1-2 entirely from the debate average -- it is not a standardization of the official estimand, it is a different estimand. realized_official_estimate (unstandardized, matches the banked +9.7pp) remains the estimand actually published."
    }
   }
  },
@@ -962,8 +1062,15 @@
     0.001371476957188039,
     0.03060194554031356
    ],
+   "strict_ci_excludes_zero": true,
    "valid_only_estimate": 0.011832917233732448,
-   "call": "stable"
+   "valid_only_ci95": [
+    -0.003596296281843124,
+    0.0274960082265147
+   ],
+   "valid_only_ci_excludes_zero": false,
+   "call": "positive_under_strict_valid_only_inconclusive_same_direction",
+   "prose": "P is positive under strict standardization; valid-only is inconclusive (CI crosses zero) with the same point-estimate direction."
   },
   "R_stability": {
    "label": "R",
@@ -972,8 +1079,15 @@
     0.008920658298885765,
     0.049783489248984035
    ],
+   "strict_ci_excludes_zero": true,
    "valid_only_estimate": 0.04142740122699362,
-   "call": "stable"
+   "valid_only_ci95": [
+    0.019411935185863656,
+    0.0620810834232572
+   ],
+   "valid_only_ci_excludes_zero": true,
+   "call": "stable",
+   "prose": "R is stable: both the strict and valid-only CIs exclude zero, same sign."
   },
   "C_stability": {
    "label": "C",
@@ -982,27 +1096,50 @@
     0.11308422579826803,
     0.24280782556703448
    ],
+   "strict_ci_excludes_zero": true,
    "valid_only_estimate": 0.17436435846761933,
-   "call": "stable"
+   "valid_only_ci95": [
+    0.11308422579826803,
+    0.24280782556703448
+   ],
+   "valid_only_ci_excludes_zero": true,
+   "call": "stable",
+   "prose": "C is stable: both the strict and valid-only CIs exclude zero, same sign."
   },
   "D_clean_stability": {
-   "label": "D_clean_matched_t0",
-   "strict_estimate": 0.10623287886171658,
-   "strict_ci95": [
-    0.06809837012598197,
-    0.14482508887150425
-   ],
-   "valid_only_estimate": 0.10686336131785694,
-   "call": "stable"
+   "call": "not_uniquely_defined_see_sensitivity",
+   "prose": "D_clean has no unique H-analogous standardization (the arms have different polarity-exposure structures), so it does not get a single 'stable'/'unstable' call. The matched-transcript-0 sensitivity variant is positive and robust (stable); mirror robustness of the OFFICIAL D_clean estimand is not uniquely defined by the frozen specification.",
+   "matched_transcript0_sensitivity_call": {
+    "label": "D_clean_matched_transcript0_sensitivity",
+    "strict_estimate": 0.10623287886171658,
+    "strict_ci95": [
+     0.06809837012598197,
+     0.14482508887150425
+    ],
+    "strict_ci_excludes_zero": true,
+    "valid_only_estimate": 0.10686336131785694,
+    "valid_only_ci95": [
+     0.0682155831117591,
+     0.14626112252607834
+    ],
+    "valid_only_ci_excludes_zero": true,
+    "call": "stable",
+    "prose": "D_clean_matched_transcript0_sensitivity is stable: both the strict and valid-only CIs exclude zero, same sign."
+   }
   }
  },
  "integrity": {
-  "engine_commit": "1b008455eb355e5ea2ac1cacb57e4fec77d50e60",
+  "engine_commit": "e07fb21001a29c6bf435e14c3964a1df62952e1d",
+  "engine_commit_note": "git HEAD at run time; only a valid provenance pointer for this exact script if engine_script_committed_at_engine_commit is true. engine_script_sha256 is the authoritative, commit-independent content binding for this run.",
+  "engine_script_path": "scripts/phase2_mirror_reanalysis.py",
+  "engine_script_sha256": "32b8a167f5399605b8fa904c590cebc6487dd36285346ebced9ff2c4ebfcc4fc",
+  "engine_script_committed_at_engine_commit": false,
   "python": "3.13.5",
   "spec_sha256": "2dc58262fca91803df815104bb4991fa3632b4c9af045f840021c241a94854bd",
   "main_results_input_sha256": "c523eed92533ebc056334a9ee2b2efc3d59afb9fe82bfdfe743e96df06bc6b66",
   "execution_identity_sha256": "ba017fe3c6753a79236917b932b5434a8b99b9e2de37f0d32d4aca38f6613c1c",
   "draw_matrix_sha256": "5b72f3af9c8eddca274d1bf59f5f1c3ebdddc9d41687e042e62e71544629da03",
-  "banked_artifact_path": "analysis_out/phase2_main_results.json"
+  "banked_artifact_path": "analysis_out/phase2_main_results.json",
+  "estimand_scope_note": "Every confidence interval in this artifact represents question-cluster bootstrap uncertainty under the OBSERVED label assignment and, for standardized/interaction quantities, under the post-stratification (equal-side, equal-world) reweighting assumption. It is NOT uncertainty over the missing opposite-polarity potential outcomes: no unit in this archive was ever judged under both labels, so no CI here reflects a true mirrored-design sampling distribution. Standardization changing a point estimate is a reweighting consequence of the observed side-stratum composition, not independent confirmatory evidence."
  }
 }

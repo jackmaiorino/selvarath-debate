@@ -26,8 +26,9 @@ analysis.infra.design.position_a_is_correct(question_id, transcript_index); (c)
 agreement with the position_a_is_correct field stamped into every result row (which
 rejudge/judge_loop.py:run_judgment writes from the SAME variable, pos_a_correct, that
 built the rendered messages -- see the module docstring's code citation below). Then
-the banked H/P/R point estimates, CIs and p-values are reproduced byte-for-byte from
-the frozen engine before any new quantity is computed.
+the complete semantic banked artifact -- every H/P/R point estimate, CI, p-value and
+integrity field -- is reproduced exactly from the frozen engine, excluding the
+expected engine_commit provenance field, before any new quantity is computed.
 
 Code citation for (c): rejudge/judge_loop.py run_judgment computes
 ``pos_a_correct = position_for(...)``, uses it to build ``position_a, position_b =
@@ -96,26 +97,44 @@ def _extract_positions(content: str) -> tuple[str, str] | None:
     return pos_a, pos_b
 
 
+def _load_answer_bank() -> dict:
+    """The frozen question bank: question_id -> {"correct_answer", "wrong_answer", ...}.
+    The single ground truth every rendered Position A/B block is checked against
+    directly (rejudge/debate_gen._load_question_bank; the same source
+    judge_loop._format_transcript and phase2_canary_execute._transcript_for draw
+    tr["correct_answer"]/tr["wrong_answer"] from when composing a prompt)."""
+    from rejudge.debate_gen import _load_question_bank
+    return _load_question_bank()
+
+
 def verify_step1(results_path: Path, plan_meta: dict) -> dict:
     """Re-derive realized polarity from archived rendered prompts; halt-worthy gate.
 
-    For every judgment row (all kinds, all conditions, both K2 replicates), extracts
-    the actual POSITION A / POSITION B text the judge was shown from judge_messages,
-    and checks:
-      1. every row sharing a (question_id, transcript_index) unit rendered the SAME
-         position_a text, across b0 / sequential_b2 / batch_same_qa_b2 / placebo_b2 /
-         clean_b2 / capped150_b0 and across both K2 replicates;
-      2. the row's stored position_a_is_correct field agrees with the rendered text
-         (True iff the rendered position_a text is the row's own correct_answer side
-         -- operationalized here as agreement with the pure function, see below);
-      3. analysis.infra.design.position_a_is_correct(question_id, transcript_index)
-         reproduces the stored field for every row.
+    Reviewer-hardened (2026-08-21): the gate no longer infers polarity from the
+    stored position_a_is_correct field or from re-deriving
+    analysis.infra.design.position_a_is_correct -- either could in principle be
+    wrong in the same way the archived field could be. Instead, for every one of
+    the 19,680 judgment rows this performs the DIRECT comparison itself: extract
+    the rendered POSITION A / POSITION B text from judge_messages and compare it,
+    by exact string equality, against the frozen question bank's own
+    correct_answer/wrong_answer text for that question_id. That comparison alone
+    determines "rendered polarity"; the stored field and the design function are
+    then checked AGAINST that independently-derived ground truth, not used to
+    produce it.
+
+    Also retains the original cross-condition/cross-K2-replicate consistency
+    check on the raw rendered text (a row-identity sanity check, independent of
+    the answer-bank comparison above).
     """
+    bank = _load_answer_bank()
     text_by_unit: dict[tuple, set] = defaultdict(set)
     field_by_unit: dict[tuple, set] = defaultdict(set)
+    direct_polarity_by_unit: dict[tuple, set] = defaultdict(set)
     row_count = 0
     field_vs_design_mismatches = []
     rows_missing_position_block = 0
+    rows_unmatched_answer_block = []          # extracted, but matches NEITHER known answer
+    rows_field_vs_direct_disagreement = []    # stored field disagrees with the direct comparison
 
     with results_path.open(encoding="utf-8") as f:
         for line in f:
@@ -131,33 +150,64 @@ def verify_step1(results_path: Path, plan_meta: dict) -> dict:
             pos = res["position_a_is_correct"]
             unit = (q, t)
             field_by_unit[unit].add(pos)
+            row_count += 1
 
             extracted = _extract_positions(res["judge_messages"][1]["content"])
             if extracted is None:
                 rows_missing_position_block += 1
-            else:
-                pos_a_text, _pos_b_text = extracted
-                text_by_unit[unit].add(hashlib.sha256(pos_a_text.encode("utf-8")).hexdigest())
+                continue
+            pos_a_text, _pos_b_text = extracted
+            text_by_unit[unit].add(hashlib.sha256(pos_a_text.encode("utf-8")).hexdigest())
+
+            answers = bank.get(q)
+            correct_text = answers["correct_answer"].strip() if answers else None
+            wrong_text = answers["wrong_answer"].strip() if answers else None
+            a_stripped = pos_a_text.strip()
+            if answers is None or (a_stripped != correct_text and a_stripped != wrong_text):
+                rows_unmatched_answer_block.append(row["cell_key"])
+                continue
+            direct_polarity = (a_stripped == correct_text)   # True: A is the correct answer
+            direct_polarity_by_unit[unit].add(direct_polarity)
+            if direct_polarity != pos:
+                rows_field_vs_direct_disagreement.append(row["cell_key"])
 
             expected = design_position_a_is_correct(q, t)
             if expected != pos:
                 field_vs_design_mismatches.append(row["cell_key"])
-            row_count += 1
 
     text_inconsistent_units = {u: len(h) for u, h in text_by_unit.items() if len(h) > 1}
     field_inconsistent_units = {u: sorted(v) for u, v in field_by_unit.items() if len(v) > 1}
+    direct_inconsistent_units = {u: sorted(v) for u, v in direct_polarity_by_unit.items()
+                                 if len(v) > 1}
+    n_direct_a = sum(1 for v in direct_polarity_by_unit.values() if v == {True})
+    n_direct_b = sum(1 for v in direct_polarity_by_unit.values() if v == {False})
 
     return {
+        "method": "direct comparison of the rendered Position A/B block text against the "
+                 "frozen question bank's correct_answer/wrong_answer text (exact string "
+                 "equality), performed for all 19,680 judgment rows; the stored "
+                 "position_a_is_correct field and analysis.infra.design.position_a_is_correct "
+                 "are checked AGAINST this direct comparison's result, not used to produce it",
         "rows_checked": row_count,
         "units_checked": len(field_by_unit),
         "rows_missing_position_block": rows_missing_position_block,
+        "rows_unmatched_answer_block": rows_unmatched_answer_block,
+        "n_rows_unmatched_answer_block": len(rows_unmatched_answer_block),
+        "rows_field_vs_direct_comparison_disagreement": rows_field_vs_direct_disagreement,
+        "n_rows_field_vs_direct_comparison_disagreement": len(rows_field_vs_direct_disagreement),
+        "direct_comparison_n_A_correct_units": n_direct_a,
+        "direct_comparison_n_B_correct_units": n_direct_b,
+        "direct_comparison_inconsistent_units": direct_inconsistent_units,
         "rendered_text_inconsistent_units": text_inconsistent_units,
         "stored_field_inconsistent_units": field_inconsistent_units,
         "stored_field_vs_design_function_mismatches": field_vs_design_mismatches,
         "gate_pass": (
             rows_missing_position_block == 0
+            and not rows_unmatched_answer_block
+            and not rows_field_vs_direct_disagreement
             and not text_inconsistent_units
             and not field_inconsistent_units
+            and not direct_inconsistent_units
             and not field_vs_design_mismatches
         ),
     }
@@ -165,7 +215,15 @@ def verify_step1(results_path: Path, plan_meta: dict) -> dict:
 
 def reproduce_banked(project_root: Path, archive: Path, manifest_path: Path) -> dict:
     """Re-run the frozen engine unmodified at its own pinned B/seed and diff against
-    the committed banked artifact. Returns {"match": bool, "banked": ..., "got": ...}.
+    the committed banked artifact.
+
+    "Match" means: the complete semantic artifact (every estimate, CI, p-value,
+    population count, question stratum, and every other integrity field) was
+    reproduced exactly, EXCLUDING the engine_commit provenance field -- which is
+    expected to differ, since engine_commit records the git HEAD at run time and
+    the banked artifact's run predates commits made after it. This is not a
+    "byte-for-byte identical file" claim; it is an exact-match claim over every
+    field except that one expected, documented exception.
     """
     from scripts.phase2_main_analysis import main as engine_main
 
@@ -181,7 +239,12 @@ def reproduce_banked(project_root: Path, archive: Path, manifest_path: Path) -> 
     (project_root / tmp_out).unlink()
     b2 = {**banked, "integrity": {k: v for k, v in banked["integrity"].items() if k != "engine_commit"}}
     g2 = {**got, "integrity": {k: v for k, v in got["integrity"].items() if k != "engine_commit"}}
-    return {"match": b2 == g2, "banked_primary": banked["primary"], "got_primary": got["primary"]}
+    return {
+        "match": b2 == g2,
+        "note": "the complete semantic artifact was reproduced exactly, excluding the "
+               "expected engine_commit provenance field",
+        "banked_primary": banked["primary"], "got_primary": got["primary"],
+    }
 
 
 # --------------------------------------------------------------------------------
@@ -527,6 +590,23 @@ def build_per_unit_D_clean_t0(records: list[dict], *, valid_only: bool) -> dict:
     return per_unit
 
 
+def build_per_unit_D_clean_official_stratified_by_t0(records: list[dict], *,
+                                                      valid_only: bool) -> dict:
+    """The OFFICIAL, banked per-question D_clean (debate sequential_b2 averaged over
+    ALL THREE transcripts, unchanged from per_question_D), merely STRATIFIED into an
+    A-bucket/B-bucket by transcript 0's realized side for standardization purposes.
+    Distinct from build_per_unit_D_clean_t0, which restricts the debate ARM itself to
+    transcript 0 (dropping transcripts 1-2 from the debate average): this function
+    keeps the official estimand's debate average intact and only uses transcript 0's
+    side as the stratification label, so transcripts 1 and 2 remain uncontrolled for
+    side within the resulting estimate -- reported as a separate, explicitly-scoped
+    variant, not a full standardization of the official quantity (see the
+    reviewer-required D_clean note in the output for why no unique H-analogous
+    standardization of the official estimand exists)."""
+    official = per_question_D(records, "sequential_b2", "clean_b2", valid_only=valid_only)
+    return {(q, 0): v for q, v in official.items()}
+
+
 # --------------------------------------------------------------------------------
 # Step 4 corroboration: within-question direct centering, 63 dual-polarity questions.
 # --------------------------------------------------------------------------------
@@ -672,21 +752,46 @@ def apply_decision_rule(fifty_fifty_H: dict, valid_only_fifty_fifty_H: dict,
     }
 
 
+def _ci_excludes_zero(entry: dict) -> bool:
+    est, ci = entry.get("estimate"), entry.get("ci95")
+    return est is not None and ci and ci[0] is not None and (ci[0] > 0 or ci[1] < 0)
+
+
 def _stability_call(strict: dict, valid_only: dict, label: str) -> dict:
-    est, ci = strict["estimate"], strict["ci95"]
-    ci_excludes_zero = est is not None and ci[0] is not None and (ci[0] > 0 or ci[1] < 0)
+    """Reviewer-required (2026-08-21): a directional-stability rule that reads BOTH
+    the strict and the valid-only CI, never collapsing "positive under strict,
+    inconclusive under valid-only, same direction" into "stable". "stable" is
+    reserved for the case where BOTH rules' CIs exclude zero with agreeing sign.
+    """
+    est, strict_ci = strict["estimate"], strict["ci95"]
+    strict_excludes_zero = _ci_excludes_zero(strict)
+    valid_excludes_zero = _ci_excludes_zero(valid_only)
     same_sign = (valid_only["estimate"] is not None and est is not None
                 and (valid_only["estimate"] > 0) == (est > 0))
     if est is None:
         call = "undefined"
-    elif ci_excludes_zero and same_sign:
-        call = "stable"
-    elif not ci_excludes_zero:
+        prose = f"{label} is undefined under the strict rule."
+    elif not strict_excludes_zero:
         call = "inconclusive_ci_includes_zero"
-    else:
+        prose = f"{label}'s strict-rule CI includes zero: inconclusive."
+    elif not same_sign:
         call = "unstable_sign_disagreement_with_valid_only"
-    return {"label": label, "strict_estimate": est, "strict_ci95": ci,
-           "valid_only_estimate": valid_only["estimate"], "call": call}
+        prose = (f"{label} is positive under strict standardization but the valid-only "
+                f"point estimate has the OPPOSITE sign: unstable.")
+    elif not valid_excludes_zero:
+        call = "positive_under_strict_valid_only_inconclusive_same_direction"
+        sign_word = "positive" if est > 0 else "negative"
+        prose = (f"{label} is {sign_word} under strict standardization; valid-only is "
+                f"inconclusive (CI crosses zero) with the same point-estimate direction.")
+    else:
+        call = "stable"
+        prose = f"{label} is stable: both the strict and valid-only CIs exclude zero, same sign."
+    return {"label": label, "strict_estimate": est, "strict_ci95": strict_ci,
+           "strict_ci_excludes_zero": strict_excludes_zero,
+           "valid_only_estimate": valid_only["estimate"],
+           "valid_only_ci95": valid_only.get("ci95"),
+           "valid_only_ci_excludes_zero": valid_excludes_zero,
+           "call": call, "prose": prose}
 
 
 def main(argv=None) -> int:
@@ -705,7 +810,8 @@ def main(argv=None) -> int:
     print("Step 1: verifying realized polarity from rendered prompts...", file=sys.stderr)
     plan_meta = load_plan_meta(root, manifest_path)
     step1 = verify_step1(results_path, plan_meta)
-    print("Step 1: reproducing banked H/P/R byte-for-byte...", file=sys.stderr)
+    print("Step 1: reproducing the complete banked semantic artifact exactly "
+         "(excluding engine_commit)...", file=sys.stderr)
     repro = reproduce_banked(root, archive, manifest_path)
     gate_pass = step1["gate_pass"] and repro["match"]
 
@@ -749,7 +855,7 @@ def main(argv=None) -> int:
         "status": "COMPLETED",
         "B": B_SPEC, "seed": SEED_SPEC,
         "step1_polarity_verification": step1,
-        "step1_banked_reproduction": {"match": repro["match"]},
+        "step1_banked_reproduction": {"match": repro["match"], "note": repro.get("note")},
         "realized_assignment_context": {
             "n_question_transcript_units": len(qt_pairs),
             "n_A_correct_units": n_a_units,
@@ -800,6 +906,16 @@ def main(argv=None) -> int:
         }
 
     out["H_P_R"] = per_rule
+    out["interaction_framing_note"] = (
+        "Every 'interaction' quantity in this artifact (H/P/R, C, D_clean alike) is a "
+        "statistically distinguishable OBSERVED side-stratum interaction, not a causally "
+        "identified position effect. It can combine genuine position-by-condition "
+        "interaction with question/transcript heterogeneity allocated unevenly by the "
+        "hash-based side assignment; no unit in this archive was judged under both labels, "
+        "so unit-level counterfactuals are not available to separate those two sources. "
+        "A 50/50-standardized estimate differing from the realized-schedule estimate is a "
+        "reweighting consequence of the observed side-stratum composition, not independent "
+        "confirmatory evidence for the interaction's cause.")
 
     # Step 6: C and D_clean audit.
     print("Computing step 6: C and D_clean audit ...", file=sys.stderr)
@@ -820,7 +936,16 @@ def main(argv=None) -> int:
                                       estimand_fn=scalar_estimand, estimand_ids=("value",))
         reps_d = bootstrap_standardized(pqs_d, world_of, draws, ("value",), ("value",),
                                         estimand_fn=scalar_estimand)
-        d_summary = summarize_family(point_d, reps_d, ("value",), None)
+        d_sensitivity_summary = summarize_family(point_d, reps_d, ("value",), None)
+
+        per_unit_d_off = build_per_unit_D_clean_official_stratified_by_t0(
+            records, valid_only=valid_only)
+        pqs_d_off = per_unit_to_per_q_side(per_unit_d_off)
+        point_d_off = standardized_family(pqs_d_off, ("value",), world_of,
+                                          estimand_fn=scalar_estimand, estimand_ids=("value",))
+        reps_d_off = bootstrap_standardized(pqs_d_off, world_of, draws, ("value",), ("value",),
+                                            estimand_fn=scalar_estimand)
+        d_official_stratified_summary = summarize_family(point_d_off, reps_d_off, ("value",), None)
 
         d_clean_realized_official = per_question_D(records, "sequential_b2", "clean_b2",
                                                     valid_only=valid_only)
@@ -839,16 +964,28 @@ def main(argv=None) -> int:
             },
             "D_clean": {
                 "realized_official_estimate": weighted_question_mean(d_clean_realized_official),
-                "matched_t0_standardized": d_summary,
-                "note": "The OFFICIAL D_clean (debate sequential_b2 averaged over all 3 "
-                       "transcripts, minus no_debate clean_b2's fixed K3-at-transcript-0 "
-                       "comparator) has NO well-defined A-only/B-only/50-50 standardization: "
-                       "the no-debate side only ever observes transcript 0's realized side, so "
-                       "there is no 'no-debate B-side' population to standardize the A-side "
-                       "debate average against. What IS well-defined is matched_t0_standardized "
-                       "above: debate error restricted to transcript 0 only (dropping "
-                       "transcripts 1-2), which shares transcript 0's side with the no-debate "
-                       "comparator by construction and can be legitimately split by that side.",
+                "official_stratified_by_transcript0_side": d_official_stratified_summary,
+                "matched_transcript0_sensitivity": d_sensitivity_summary,
+                "note": "D_clean has NO UNIQUE H-analogous standardization: its two arms "
+                       "(debate sequential_b2, no_debate clean_b2) have different "
+                       "polarity-exposure structures -- debate averages three transcripts' "
+                       "worth of (possibly mixed) sides while the no-debate K3 comparator "
+                       "always reuses transcript 0's realized side alone -- so there is no "
+                       "single well-defined side-standardization of the arms against each "
+                       "other. Two different, individually well-defined constructions are "
+                       "reported instead, and neither should be read as THE standardized "
+                       "D_clean: (1) official_stratified_by_transcript0_side keeps the "
+                       "OFFICIAL, banked per-question D_clean (all three debate transcripts "
+                       "averaged, as published) and merely buckets questions by transcript "
+                       "0's side for the world-standardization weighting -- transcripts 1 and "
+                       "2 remain uncontrolled for side inside this number; (2) "
+                       "matched_transcript0_sensitivity is a SEPARATELY DEFINED sensitivity "
+                       "analysis that instead restricts the debate arm itself to transcript 0 "
+                       "only, so both arms share the same realized side by construction, at "
+                       "the cost of discarding transcripts 1-2 entirely from the debate "
+                       "average -- it is not a standardization of the official estimand, it "
+                       "is a different estimand. realized_official_estimate (unstandardized, "
+                       "matches the banked +9.7pp) remains the estimand actually published.",
             },
         }
     out["C_and_D_clean"] = sec
@@ -859,6 +996,10 @@ def main(argv=None) -> int:
         per_rule["valid_only"]["standardized"]["fifty_fifty"]["H"],
         per_rule["strict"]["within_question_corroboration"]["fifty_fifty"]["H"],
     )
+    d_clean_sensitivity_stability = _stability_call(
+        sec["strict"]["D_clean"]["matched_transcript0_sensitivity"]["fifty_fifty"]["value"],
+        sec["valid_only"]["D_clean"]["matched_transcript0_sensitivity"]["fifty_fifty"]["value"],
+        "D_clean_matched_transcript0_sensitivity")
     out["decision_rule_application"] = {
         "H": verdict,
         "P_stability": _stability_call(
@@ -870,10 +1011,16 @@ def main(argv=None) -> int:
         "C_stability": _stability_call(
             sec["strict"]["C"]["standardized_qt_grain"]["fifty_fifty"]["value"],
             sec["valid_only"]["C"]["standardized_qt_grain"]["fifty_fifty"]["value"], "C"),
-        "D_clean_stability": _stability_call(
-            sec["strict"]["D_clean"]["matched_t0_standardized"]["fifty_fifty"]["value"],
-            sec["valid_only"]["D_clean"]["matched_t0_standardized"]["fifty_fifty"]["value"],
-            "D_clean_matched_t0"),
+        "D_clean_stability": {
+            "call": "not_uniquely_defined_see_sensitivity",
+            "prose": ("D_clean has no unique H-analogous standardization (the arms have "
+                     "different polarity-exposure structures), so it does not get a single "
+                     "'stable'/'unstable' call. The matched-transcript-0 sensitivity "
+                     "variant is positive and robust ({}); mirror robustness of the "
+                     "OFFICIAL D_clean estimand is not uniquely defined by the frozen "
+                     "specification.").format(d_clean_sensitivity_stability["call"]),
+            "matched_transcript0_sensitivity_call": d_clean_sensitivity_stability,
+        },
     }
 
     try:
@@ -884,8 +1031,39 @@ def main(argv=None) -> int:
         engine_commit = "unavailable"
     spec_sha256 = hashlib.sha256((root / SPEC_PATH).read_bytes()).hexdigest()
 
+    # Content-addressed binding of THIS script, independent of git HEAD: engine_commit
+    # records the git HEAD at run time, which is only a valid provenance pointer for
+    # this exact script content if the script was already committed at that HEAD --
+    # not guaranteed (e.g. a run against a working-tree-modified or not-yet-committed
+    # script). engine_script_sha256 is the authoritative binding: whoever reads this
+    # artifact can hash scripts/phase2_mirror_reanalysis.py themselves and compare,
+    # regardless of what engine_commit says. engine_script_committed_at_engine_commit
+    # records whether git HEAD's own blob for this path already matches that hash.
+    script_path = Path(__file__).resolve()
+    script_bytes = script_path.read_bytes()
+    script_sha256 = hashlib.sha256(script_bytes).hexdigest()
+    try:
+        script_rel = script_path.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        script_rel = script_path.name
+    committed_matches = None
+    try:
+        committed_blob = subprocess.run(
+            ["git", "show", f"HEAD:{script_rel}"], cwd=root, capture_output=True,
+            check=True).stdout
+        committed_matches = hashlib.sha256(committed_blob).hexdigest() == script_sha256
+    except Exception:
+        committed_matches = False
+
     out["integrity"] = {
         "engine_commit": engine_commit,
+        "engine_commit_note": "git HEAD at run time; only a valid provenance pointer for "
+                              "this exact script if engine_script_committed_at_engine_commit "
+                              "is true. engine_script_sha256 is the authoritative, "
+                              "commit-independent content binding for this run.",
+        "engine_script_path": script_rel,
+        "engine_script_sha256": script_sha256,
+        "engine_script_committed_at_engine_commit": committed_matches,
         "python": platform.python_version(),
         "spec_sha256": spec_sha256,
         "main_results_input_sha256": hashlib.sha256(results_path.read_bytes()).hexdigest(),
@@ -893,6 +1071,17 @@ def main(argv=None) -> int:
             .get("execution_identity_sha256"),
         "draw_matrix_sha256": draw_matrix_sha256,
         "banked_artifact_path": BANKED_PATH,
+        "estimand_scope_note": "Every confidence interval in this artifact represents "
+                               "question-cluster bootstrap uncertainty under the OBSERVED "
+                               "label assignment and, for standardized/interaction "
+                               "quantities, under the post-stratification (equal-side, "
+                               "equal-world) reweighting assumption. It is NOT uncertainty "
+                               "over the missing opposite-polarity potential outcomes: no "
+                               "unit in this archive was ever judged under both labels, so "
+                               "no CI here reflects a true mirrored-design sampling "
+                               "distribution. Standardization changing a point estimate is a "
+                               "reweighting consequence of the observed side-stratum "
+                               "composition, not independent confirmatory evidence.",
     }
 
     out_path = root / args.out

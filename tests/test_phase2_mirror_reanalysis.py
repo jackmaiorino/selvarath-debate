@@ -10,6 +10,8 @@ realized-schedule (question-equal-weight, side-blind) estimate carries when side
 unevenly represented across questions -- which is exactly the archive's situation
 (128 A-correct / 118 B-correct units, 19 single-polarity questions).
 """
+import json
+
 import pytest
 
 from scripts.phase2_main_analysis import (
@@ -24,6 +26,7 @@ from scripts.phase2_mirror_reanalysis import (
     _stability_call,
     apply_decision_rule,
     build_per_unit_C,
+    build_per_unit_D_clean_official_stratified_by_t0,
     build_per_unit_D_clean_t0,
     error_by_unit,
     per_unit_to_per_q_side,
@@ -233,6 +236,28 @@ def test_build_per_unit_D_clean_t0_ignores_other_transcripts():
     assert per_unit[("Q1", 0)] == pytest.approx(0.5)
 
 
+def test_build_per_unit_D_clean_official_stratified_by_t0_uses_all_transcripts():
+    # Same fixture as the t0-only builder above, but the OFFICIAL-stratified builder
+    # must pool transcripts 0 AND 1 into the per-debater error (matching the banked
+    # per_question_D exactly), then only use transcript 0's side as the bucket label
+    # -- giving a DIFFERENT number (0.75, not 0.5) from the t0-restricted sensitivity.
+    rows = [
+        _rec("Q1", 0, "wA", "sequential_b2", "J", "D1", 0, True, kind="debate_judgment"),
+        _rec("Q1", 0, "wA", "sequential_b2", "J", "D2", 0, False, kind="debate_judgment"),
+        _rec("Q1", 1, "wA", "sequential_b2", "J", "D1", 0, False, kind="debate_judgment"),
+        _rec("Q1", 1, "wA", "sequential_b2", "J", "D2", 0, False, kind="debate_judgment"),
+        _rec("Q1", 0, "wA", "clean_b2", "J", None, 0, True, kind="no_debate_judgment"),
+        _rec("Q1", 0, "wA", "clean_b2", "J", None, 1, True, kind="no_debate_judgment"),
+        _rec("Q1", 0, "wA", "clean_b2", "J", None, 2, True, kind="no_debate_judgment"),
+    ]
+    per_unit_official = build_per_unit_D_clean_official_stratified_by_t0(rows, valid_only=False)
+    per_unit_t0_only = build_per_unit_D_clean_t0(rows, valid_only=False)
+    # D1: (0.0 t0 + 1.0 t1)/2 = 0.5; D2: (1.0 + 1.0)/2 = 1.0; mean over debaters 0.75.
+    assert per_unit_official[("Q1", 0)] == pytest.approx(0.75)
+    assert per_unit_t0_only[("Q1", 0)] == pytest.approx(0.5)
+    assert per_unit_official[("Q1", 0)] != per_unit_t0_only[("Q1", 0)]
+
+
 # ---------------------------------------------------------------------------------
 # per_unit_to_per_q_side + scalar_estimand: the C/D_clean adapter into the same
 # world-standardization machinery H/P/R uses.
@@ -289,3 +314,93 @@ def test_stability_call_stable_and_inconclusive():
     assert stable["call"] == "stable"
     inconclusive = _stability_call(_entry(0.01, (-0.01, 0.03)), _entry(0.01, (-0.01, 0.02)), "R")
     assert inconclusive["call"] == "inconclusive_ci_includes_zero"
+
+
+def test_stability_call_never_says_stable_when_valid_only_ci_crosses_zero():
+    # Exactly the real P scenario: strict CI excludes zero, valid-only CI crosses
+    # zero but keeps the same point-estimate sign. Must NOT be called "stable".
+    result = _stability_call(_entry(0.0158, (0.0014, 0.0306)),
+                             _entry(0.0118, (-0.0036, 0.0275)), "P")
+    assert result["call"] == "positive_under_strict_valid_only_inconclusive_same_direction"
+    assert result["call"] != "stable"
+    assert "inconclusive" in result["prose"] and "same point-estimate direction" in result["prose"]
+    assert result["strict_ci_excludes_zero"] is True
+    assert result["valid_only_ci_excludes_zero"] is False
+
+
+def test_stability_call_sign_disagreement_is_unstable():
+    result = _stability_call(_entry(0.02, (0.01, 0.03)), _entry(-0.01, (-0.03, 0.005)), "X")
+    assert result["call"] == "unstable_sign_disagreement_with_valid_only"
+
+
+# ---------------------------------------------------------------------------------
+# verify_step1: the hardened gate performs its OWN direct rendered-answer comparison
+# against the frozen question bank, rather than trusting the stored field.
+# ---------------------------------------------------------------------------------
+
+def _judgment_row(cell_key, question_id, transcript_index, position_a_is_correct,
+                  position_a_text, position_b_text, condition="b0", replicate=0):
+    return {
+        "cell_key": f"plan:{cell_key}:x",
+        "result": {
+            "question_id": question_id, "transcript_index": transcript_index,
+            "position_a_is_correct": position_a_is_correct, "condition": condition,
+            "replicate": replicate,
+            "judge_messages": [
+                {"role": "system", "content": "sys"},
+                {"role": "user", "content": (
+                    f"QUESTION: does X?\n\nPOSITION A: {position_a_text}\n\n"
+                    f"POSITION B: {position_b_text}\n\nDEBATE TRANSCRIPT:\nTurn 1...")},
+            ],
+        },
+    }
+
+
+def test_verify_step1_direct_comparison_passes_on_consistent_data(tmp_path, monkeypatch):
+    bank = {"Q1": {"correct_answer": "the right answer.", "wrong_answer": "the wrong answer."}}
+    monkeypatch.setattr(mod, "_load_answer_bank", lambda: bank)
+    monkeypatch.setattr(mod, "design_position_a_is_correct", lambda q, t: True)
+    rows = [
+        _judgment_row("debate_judgment", "Q1", 0, True,
+                      "the right answer.", "the wrong answer."),
+        _judgment_row("debate_judgment", "Q1", 0, True,
+                      "the right answer.", "the wrong answer.", replicate=1),
+    ]
+    p = tmp_path / "results.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    out = mod.verify_step1(p, {})
+    assert out["gate_pass"] is True
+    assert out["direct_comparison_n_A_correct_units"] == 1
+    assert out["direct_comparison_n_B_correct_units"] == 0
+    assert out["n_rows_unmatched_answer_block"] == 0
+    assert out["n_rows_field_vs_direct_comparison_disagreement"] == 0
+
+
+def test_verify_step1_direct_comparison_catches_field_disagreement(tmp_path, monkeypatch):
+    # The RENDERED text says B is correct (position_a_text is the wrong answer),
+    # but the stored field claims A is correct: the direct comparison must flag
+    # this even though nothing about the rendered-text-consistency check would.
+    bank = {"Q1": {"correct_answer": "the right answer.", "wrong_answer": "the wrong answer."}}
+    monkeypatch.setattr(mod, "_load_answer_bank", lambda: bank)
+    monkeypatch.setattr(mod, "design_position_a_is_correct", lambda q, t: True)
+    rows = [_judgment_row("debate_judgment", "Q1", 0, True,
+                          "the wrong answer.", "the right answer.")]
+    p = tmp_path / "results.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    out = mod.verify_step1(p, {})
+    assert out["gate_pass"] is False
+    assert out["n_rows_field_vs_direct_comparison_disagreement"] == 1
+    assert out["direct_comparison_n_B_correct_units"] == 1
+
+
+def test_verify_step1_flags_unmatched_answer_block(tmp_path, monkeypatch):
+    bank = {"Q1": {"correct_answer": "the right answer.", "wrong_answer": "the wrong answer."}}
+    monkeypatch.setattr(mod, "_load_answer_bank", lambda: bank)
+    monkeypatch.setattr(mod, "design_position_a_is_correct", lambda q, t: True)
+    rows = [_judgment_row("debate_judgment", "Q1", 0, True,
+                          "neither known answer.", "the wrong answer.")]
+    p = tmp_path / "results.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    out = mod.verify_step1(p, {})
+    assert out["gate_pass"] is False
+    assert out["n_rows_unmatched_answer_block"] == 1
