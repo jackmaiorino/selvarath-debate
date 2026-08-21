@@ -8,7 +8,7 @@
   "namespace_hash_prefix_length": 12,
   "execution_key_requirement": "external execution manifests must bind this frozen design protocol, the question banks, the reused phase-2 prompt bundle, extended role limits, provider request fields, the side/seed policy, and the frozen transcript bundles"
  },
- "status": "draft_pending_consult_and_owner_ratification",
+ "status": "ratified_design_pending_materialization",
  "offline_planning_only": true,
  "execution_authorized": false,
  "authorization": {
@@ -72,7 +72,7 @@
   },
   "stamped_at_freeze": {
    "rejudge/phase3_protocol.json (v1, immutable)": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
-   "this document": null
+   "this document": "bound externally: the ratification record pins canonical sha 512ad419...; a document cannot contain its own hash"
   },
   "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8"
  },
@@ -596,9 +596,6 @@
   ]
  },
  "open_items_before_freeze": [
-  "external design consult (Codex) on this v2 draft",
-  "owner ratification (the mirroring-fix gate redesign changes eligibility semantics; the owner approved the v2 PATH on 2026-08-21, the document itself needs sign-off)",
-  "restamp source_bindings entries marked stamped_at_freeze after the final pre-freeze edit",
-  "engineering: phase3_plan FROZEN_PROTOCOL_CANONICAL_SHA256 re-pins to the v2 hash; manifest and authorization re-mint under v2"
+  "CLOSED 2026-08-21: consult PASS, owner ratified (rejudge/phase3_v2_ratification_2026-08-21.json); remaining work is materialization, tracked in materialization_requirements"
  ]
 }

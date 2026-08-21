@@ -1,0 +1,24 @@
+{
+ "schema_version": "phase3_v2_ratification_v1",
+ "ratification_id": "phase3_protocol_v2_ratification_2026-08-21",
+ "ratifies": {
+  "tracked_path": "rejudge/phase3_protocol_v2.json",
+  "canonical_sha256": "512ad419b48a9bf7be8e220852a48b388bf12a95d6d9a809c27082df6dc2937e",
+  "independent_review": "Codex, two passes (REFUTE with eleven items, all repaired; final PASS with all twenty source bindings independently recomputed), 2026-08-21",
+  "test_state": "full suite 2,141 passed / 30 skipped / 0 failed at commit 70af1f7 with the polarity fix merged"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-21, enumerated-choice prompt in the session UI",
+  "selection_label": "Ratify and launch (Recommended)",
+  "scope": "ratifies protocol v2 AND approves launching the corrected canary rerun under the EXISTING canary spend authorization: the 60 USD cap from rejudge/phase3_canary_authorization_2026-08-18.json continues to govern; accounted v1-segment spend (~19.78 USD) counts against it; the rerun's ~12-14 USD estimate leaves ~25 USD headroom"
+ },
+ "effect": [
+  "phase3_protocol_v2.json is FROZEN at the ratified hash; v1 remains immutable as the superseded record",
+  "materialization proceeds: phase3_plan v2 schema support and hash re-pin, v2 manifest with crank settings frozen, blocklists regenerated from v2 rendered semantics, anchor carry bindings (288 v1-identity cells by exact cell-key set and hash), fresh v2 archive segment, preseeded transcripts, fresh execution identity, and a v2 canary authorization record binding it",
+  "the corrected canary is also the frozen-settings review-pace crank test and regenerates the main-run cost forecast"
+ ],
+ "execution_authorized": "canary stage under the continued 60 USD cap; main-run authorization still requires its own record gated on corrected gates, forecast, configuration selection, and the amendment-2 pre-main blockers (key rotation, provider reconciliation)",
+ "recorded_at_utc": "2026-08-21T14:35:00Z",
+ "note": "Append-only."
+}
