@@ -1,0 +1,30 @@
+{
+ "schema_version": "phase3_canary_authorization_v1",
+ "authorization_id": "phase3_canary_authorization_v2_2026-08-21",
+ "authorizes": "provider spend for the CORRECTED phase-3 canary rerun under protocol v2, per the owner's 2026-08-21 ratify-and-launch decision (rejudge/phase3_v2_ratification_2026-08-21.json). Main-run spend still requires its own record, gated on corrected gates, forecast, configuration selection, and the amendment-2 pre-main blockers.",
+ "binds": {
+  "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
+  "protocol_canonical_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+  "manifest_tracked_path": "rejudge/phase3_manifest_v2_2026-08-21.json",
+  "execution_identity_sha256": "518fd9d60051e06a0464d54d39511d665be1900626da7f1e009e2f113225ea17",
+  "ratification": "rejudge/phase3_v2_ratification_2026-08-21.json",
+  "predecessor_authorization": "rejudge/phase3_canary_authorization_2026-08-18.json (v1; its spend cap CONTINUES here per the ratification)"
+ },
+ "scope": {
+  "inventory": "1,152 fresh v2 judgment slots (576 core b0 + 576 budget smoke, 6-judge roster) + 540 preseeded transcript rows; the 288 capability-anchor cells carry from the v1 identity by manifest binding and are not re-run",
+  "canary_cap_usd": 60,
+  "cap_continuity": "one canary-stage family cap across v1 and v2 segments: v1-segment accounted spend (~19.78 USD) counts against it; the corrected rerun estimate is 12-14 USD, leaving roughly 25 USD headroom",
+  "store": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_canary_results.jsonl, preseeded with 540 transcript rows, idempotency verified",
+  "crank_settings_frozen": "review daemon concurrency 12, waves per round 4, recorded in the manifest before the pace window opens (protocol pace_measurement_window governs)",
+  "post_convergence_gate": "scripts/phase3_polarity_verify.py must report 100% mirrored pairs and exact 48/48 core-b0 splits per judge from RENDERED prompts, or the orchestrator STOPs"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-21, enumerated-choice prompt in the session UI",
+  "selection_label": "Ratify and launch (Recommended)"
+ },
+ "execution_authorized": true,
+ "execution_authorization_scope": "v2 canary rerun only, under the continued 60 USD canary-stage cap",
+ "recorded_at_utc": "2026-08-21T15:20:00Z",
+ "note": "Append-only."
+}
