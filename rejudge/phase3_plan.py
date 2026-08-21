@@ -43,6 +43,7 @@ from rejudge.phase2_execution import canonical_sha256
 
 
 DEFAULT_PROTOCOL_PATH = Path(__file__).with_name("phase3_protocol.json")
+DEFAULT_PROTOCOL_V2_PATH = Path(__file__).with_name("phase3_protocol_v2.json")
 OFFLINE_ONLY = True
 
 # The frozen phase-3 protocol's own canonical_sha256 (whole document, sort_keys, no formatting
@@ -50,8 +51,23 @@ OFFLINE_ONLY = True
 # Any semantic edit to phase3_protocol.json, however small, changes this hash: validate_protocol
 # treats it as the final, catch-all check after the more specific structural checks below give
 # a targeted error message for the mutations this planning module actually acts on.
+#
+# This is the IMMUTABLE v1 pin -- kept forever, even after v2 supersedes v1 as the design in
+# force, so a v1 document (and everything historically bound to it: the v1 manifest, the v1
+# canary archive) keeps validating exactly as it always did. v2 gets its own, separate pin
+# below; validate_protocol/load_protocol select between the two by schema_version, never by
+# trying one pin and falling back to the other.
 FROZEN_PROTOCOL_CANONICAL_SHA256 = (
     "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee"
+)
+
+# The ratified phase-3 v2 protocol's canonical_sha256 (rejudge/phase3_protocol_v2.json), pinned
+# post-ratification (rejudge/phase3_v2_ratification_2026-08-21.json). v2 supersedes v1
+# (supersedes.canonical_sha256 in the v2 document itself names the v1 pin above, cross-checked
+# by _validate_protocol_v2), but v1 stays immutable and separately pinned -- this is a NEW
+# constant, never a mutation of FROZEN_PROTOCOL_CANONICAL_SHA256.
+FROZEN_PROTOCOL_V2_CANONICAL_SHA256 = (
+    "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104"
 )
 
 # make_cell_key is reused verbatim from phase2_plan, never copy-pasted; re-exported here so
@@ -82,6 +98,10 @@ EXPECTED_DECISION_KEYS = frozenset({
     "primary_tests", "secondary_analyses", "capability_anchor", "configuration_selection",
     "query_screening", "execution_semantics", "launch_gates", "spend",
 })
+
+# v2 adds exactly one new decisions section relative to v1: decisions.context_guard (native in
+# v2 per amendment 4; the v1 immutable document never had this key at all).
+EXPECTED_DECISION_KEYS_V2 = EXPECTED_DECISION_KEYS | {"context_guard"}
 
 
 class ProtocolValidationError(ValueError):
@@ -133,7 +153,28 @@ def _non_negative_int(value: Any, label: str) -> int:
 
 
 def validate_protocol(protocol: Mapping[str, Any]) -> None:
-    """Validate the frozen Phase-3 design while keeping materialization fail-closed.
+    """Validate a frozen Phase-3 design document, selecting the check-set by schema_version.
+
+    Two schema versions are supported, each with its OWN pinned canonical hash: ``phase3_plan_v1``
+    (the immutable v1 document, :data:`FROZEN_PROTOCOL_CANONICAL_SHA256`, checked by
+    :func:`_validate_protocol_v1`) and ``phase3_plan_v2`` (the ratified successor,
+    :data:`FROZEN_PROTOCOL_V2_CANONICAL_SHA256`, checked by :func:`_validate_protocol_v2`).
+    Selection is by ``schema_version`` alone -- never "try v1, fall back to v2" -- so a document
+    that claims one schema but hashes to the other's pin still fails closed with a hash-drift
+    error naming the schema it actually claimed, rather than silently validating under the wrong
+    rule set.
+    """
+    schema_version = protocol.get("schema_version")
+    if schema_version == "phase3_plan_v1":
+        _validate_protocol_v1(protocol)
+    elif schema_version == "phase3_plan_v2":
+        _validate_protocol_v2(protocol)
+    else:
+        raise ProtocolValidationError("unsupported schema_version")
+
+
+def _validate_protocol_v1(protocol: Mapping[str, Any]) -> None:
+    """Validate the frozen Phase-3 v1 design while keeping materialization fail-closed.
 
     Structural checks run first, each with a targeted error message, for the shapes this
     planning module actually reads: the roster's continuing/new split, ``debate_grid.conditions``
@@ -332,6 +373,274 @@ def validate_protocol(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError(
             "frozen phase-3 protocol hash drift: observed "
             f"{observed_hash}, expected {FROZEN_PROTOCOL_CANONICAL_SHA256}")
+
+
+def _validate_protocol_v2(protocol: Mapping[str, Any]) -> None:
+    """Validate the ratified Phase-3 v2 design (rejudge/phase3_protocol_v2.json).
+
+    v2 restates every v1 structural shape that is unchanged (question set, K2 debate grid,
+    tail-replicate configuration, transcript reuse) and adds the sections the ratification
+    (``rejudge/phase3_v2_ratification_2026-08-21.json``) actually changed: a ``supersedes``
+    block naming the superseded v1 pin, a ``ratified_design_pending_materialization`` status, a
+    6-judge roster (4 continuing + exactly 2 new candidates, one carrying an
+    ``inclusion_rule``), a v2-shaped ``canary_slot_inventory`` (``per_judge`` prose +
+    ``six_judge_totals`` with the fresh/carried/combined counts the manifest's anchor-carry
+    binding depends on), ``canary_scope`` and ``pace_measurement_window`` (both drive the
+    manifest's crank-settings binding), and a native ``decisions.context_guard`` section. The
+    frozen whole-document canonical hash is checked last, against
+    :data:`FROZEN_PROTOCOL_V2_CANONICAL_SHA256`, as the catch-all for anything not explicitly
+    named here.
+    """
+    if protocol.get("schema_version") != "phase3_plan_v2":
+        raise ProtocolValidationError("unsupported schema_version")
+    if protocol.get("status") != "ratified_design_pending_materialization":
+        raise ProtocolValidationError(
+            "v2 status must remain ratified_design_pending_materialization")
+    if protocol.get("offline_planning_only") is not True:
+        raise ProtocolValidationError("offline_planning_only must be true")
+    if protocol.get("execution_authorized") is not False:
+        raise ProtocolValidationError("execution_authorized must be false")
+    for field in ("protocol_id", "cell_key_namespace"):
+        _non_empty_string(protocol.get(field), field)
+
+    planning_identity = _mapping(
+        protocol.get("planning_cell_identity"), "planning_cell_identity")
+    if planning_identity.get("status") != "planning_only_not_executable":
+        raise ProtocolValidationError("planning cell keys cannot be represented as executable")
+    bundle_sha = planning_identity.get("question_bank_bundle_sha256")
+    if not isinstance(bundle_sha, str) or len(bundle_sha) != 64:
+        raise ProtocolValidationError("question-bank bundle hash must be SHA-256")
+    prefix_length = planning_identity.get("namespace_hash_prefix_length")
+    if prefix_length != 12:
+        raise ProtocolValidationError("planning namespace hash-prefix length must remain 12")
+    expected_suffix = f".qb-{bundle_sha[:prefix_length]}"
+    if not str(protocol["cell_key_namespace"]).endswith(expected_suffix):
+        raise ProtocolValidationError("planning namespace is not bound to the question banks")
+    if planning_identity.get("execution_key_requirement") != (
+            "external execution manifests must bind this frozen design protocol, the question "
+            "banks, the reused phase-2 prompt bundle, extended role limits, provider request "
+            "fields, the side/seed policy, and the frozen transcript bundles"):
+        raise ProtocolValidationError("execution-key binding contract drifted")
+
+    authorization = _mapping(protocol.get("authorization"), "authorization")
+    if authorization.get("design_scope_approved") is not True:
+        raise ProtocolValidationError("the scientific design must have explicit design-scope approval")
+    if authorization.get("canary_spend_authorized") is not False:
+        raise ProtocolValidationError("canary spend must remain separately unauthorized")
+    if authorization.get("main_run_spend_authorized") is not False:
+        raise ProtocolValidationError("main-run spend must remain separately unauthorized")
+    for field in ("approval_record", "approver", "approved_at_utc", "redecision_record"):
+        _non_empty_string(authorization.get(field), f"authorization.{field}")
+
+    question_set = _mapping(protocol.get("question_set"), "question_set")
+    expected_main = _positive_int(
+        question_set.get("expected_main_question_count"), "expected_main_question_count")
+    expected_held_out = _positive_int(
+        question_set.get("held_out_question_count"), "held_out_question_count")
+    if expected_main != 82 or expected_held_out != 24:
+        raise ProtocolValidationError(
+            "the frozen design must keep 82 main questions and 24 held-out questions")
+
+    roster = _mapping(protocol.get("roster"), "roster")
+    judges_continuing = _unique_strings(
+        roster.get("judges_continuing"), "roster.judges_continuing")
+    if len(judges_continuing) != 4:
+        raise ProtocolValidationError("roster.judges_continuing must list exactly 4 judges")
+    judges_new = _list(roster.get("judges_new"), "roster.judges_new")
+    if len(judges_new) != 2:
+        raise ProtocolValidationError(
+            "v2 roster.judges_new must list exactly 2 new candidates (the native 6-judge roster)")
+    seen_candidates: set[str] = set()
+    for index, raw_candidate in enumerate(judges_new):
+        candidate = _mapping(raw_candidate, f"roster.judges_new[{index}]")
+        candidate_id = _non_empty_string(
+            candidate.get("candidate_model_id"), f"roster.judges_new[{index}].candidate_model_id")
+        if candidate_id in seen_candidates or candidate_id in judges_continuing:
+            raise ProtocolValidationError(
+                "roster.judges_new candidate_model_id values must be unique and distinct from "
+                "the continuing roster")
+        seen_candidates.add(candidate_id)
+        for field in ("display_name", "rationale", "id_and_price_status"):
+            _non_empty_string(candidate.get(field), f"roster.judges_new[{index}].{field}")
+    debaters = _unique_strings(roster.get("debaters"), "roster.debaters")
+    if len(debaters) != 2:
+        raise ProtocolValidationError("roster.debaters must list exactly 2 debaters")
+    for field in (
+        "debater_role_note", "oracle", "query_checker", "gate_reviewer",
+        "new_judge_failure_rule", "roster_freeze_timing",
+    ):
+        _non_empty_string(roster.get(field), f"roster.{field}")
+
+    debate_grid = _mapping(protocol.get("debate_grid"), "debate_grid")
+    if debate_grid.get("k") != 2:
+        raise ProtocolValidationError("debate-grid K must be 2")
+    conditions = _list(debate_grid.get("conditions"), "debate_grid.conditions")
+    if not conditions:
+        raise ProtocolValidationError("debate_grid.conditions must be non-empty")
+    seen_condition_ids: set[str] = set()
+    budgets_seen: set[int] = set()
+    by_budget: dict[int, Mapping[str, Any]] = {}
+    for index, raw_condition in enumerate(conditions):
+        condition = _mapping(raw_condition, f"debate_grid.conditions[{index}]")
+        condition_id = _non_empty_string(condition.get("id"), f"debate_grid.conditions[{index}].id")
+        if condition_id in seen_condition_ids:
+            raise ProtocolValidationError(f"duplicate debate_grid.conditions id: {condition_id!r}")
+        seen_condition_ids.add(condition_id)
+        budget = _non_negative_int(
+            condition.get("query_budget"), f"debate_grid.conditions[{index}].query_budget")
+        budgets_seen.add(budget)
+        by_budget[budget] = condition
+        _non_empty_string(
+            condition.get("oracle_mode"), f"debate_grid.conditions[{index}].oracle_mode")
+        _non_empty_string(
+            condition.get("presentation"), f"debate_grid.conditions[{index}].presentation")
+        _positive_int(
+            condition.get("judgment_replicates_per_transcript_side"),
+            f"debate_grid.conditions[{index}].judgment_replicates_per_transcript_side")
+    if budgets_seen != {0, 1, 2, 4, 8}:
+        raise ProtocolValidationError(
+            "debate_grid.conditions must cover exactly query budgets {0, 1, 2, 4, 8}")
+
+    tail = _mapping(
+        debate_grid.get("tail_replicate_configurations"), "debate_grid.tail_replicate_configurations")
+    tail_config_names = ("A_no_d", "B_b4_only", "C_b8_only", "D_full")
+    tail_configs: dict[str, Mapping[str, Any]] = {}
+    for name in tail_config_names:
+        config = _mapping(tail.get(name), f"tail_replicate_configurations.{name}")
+        if set(config) != {"b4", "b8"}:
+            raise ProtocolValidationError(
+                f"tail_replicate_configurations.{name} must specify exactly b4 and b8")
+        for key in ("b4", "b8"):
+            _positive_int(config.get(key), f"tail_replicate_configurations.{name}.{key}")
+        tail_configs[name] = config
+    selected_name = tail.get("selected")
+    if selected_name not in tail_configs:
+        raise ProtocolValidationError(
+            "tail_replicate_configurations.selected must name one of the four configurations")
+    selected_config = tail_configs[str(selected_name)]
+    for budget in (4, 8):
+        condition = by_budget[budget]
+        expected_replicates = int(selected_config[f"b{budget}"])
+        actual_replicates = int(condition["judgment_replicates_per_transcript_side"])
+        if actual_replicates != expected_replicates:
+            raise ProtocolValidationError(
+                f"condition {condition['id']!r} judgment_replicates_per_transcript_side "
+                f"({actual_replicates}) disagrees with the selected tail configuration "
+                f"{selected_name!r} ({expected_replicates})")
+
+    slot_arithmetic = _mapping(
+        debate_grid.get("slot_arithmetic_by_roster"), "debate_grid.slot_arithmetic_by_roster")
+    total_slots = _mapping(
+        slot_arithmetic.get("total_judgment_slots"), "slot_arithmetic_by_roster.total_judgment_slots")
+    if set(total_slots) != set(tail_config_names):
+        raise ProtocolValidationError(
+            "slot_arithmetic_by_roster.total_judgment_slots config names drifted")
+    for name, per_roster in total_slots.items():
+        per_roster_map = _mapping(per_roster, f"total_judgment_slots.{name}")
+        if set(per_roster_map) != {"N7", "N6", "N5", "N4"}:
+            raise ProtocolValidationError(f"total_judgment_slots.{name} must list N4..N7")
+        for roster_key, count in per_roster_map.items():
+            _positive_int(count, f"total_judgment_slots.{name}.{roster_key}")
+    if str(selected_name) not in str(slot_arithmetic.get("selected", "")):
+        raise ProtocolValidationError(
+            "slot_arithmetic_by_roster.selected must reference the selected tail configuration")
+
+    decisions = _mapping(protocol.get("decisions"), "decisions")
+    if set(decisions) != EXPECTED_DECISION_KEYS_V2:
+        raise ProtocolValidationError(
+            f"v2 decisions must be exactly {sorted(EXPECTED_DECISION_KEYS_V2)!r}")
+
+    configuration_selection = _mapping(
+        decisions["configuration_selection"], "decisions.configuration_selection")
+    limits = _mapping(configuration_selection.get("limits"), "configuration_selection.limits")
+    _positive_int(limits.get("R_max"), "configuration_selection.limits.R_max")
+    _positive_int(limits.get("D_max"), "configuration_selection.limits.D_max")
+
+    launch_gates = _mapping(decisions["launch_gates"], "decisions.launch_gates")
+    smoke_subset = _unique_strings(
+        launch_gates.get("budget_smoke_subset"), "launch_gates.budget_smoke_subset")
+    if len(smoke_subset) != 6:
+        raise ProtocolValidationError("launch_gates.budget_smoke_subset must list exactly 6 questions")
+
+    # v2's canary_slot_inventory is a DIFFERENT shape than v1's: "per_judge" prose (not
+    # "per_judge_formula"), and a "six_judge_totals" object carrying the fresh/carried/combined
+    # counts this task's manifest anchor-carry binding and orchestrator convergence arithmetic
+    # both depend on (decisions.launch_gates.canary_slot_inventory "drives everything below").
+    canary_inventory = _mapping(
+        launch_gates.get("canary_slot_inventory"), "launch_gates.canary_slot_inventory")
+    _non_empty_string(canary_inventory.get("per_judge"), "launch_gates.canary_slot_inventory.per_judge")
+    _non_empty_string(
+        canary_inventory.get("pinned_denominator_rule"),
+        "launch_gates.canary_slot_inventory.pinned_denominator_rule")
+    six_judge_totals = _mapping(
+        canary_inventory.get("six_judge_totals"), "launch_gates.canary_slot_inventory.six_judge_totals")
+    fresh_slots = _positive_int(
+        six_judge_totals.get("fresh_v2_judgment_slots"),
+        "canary_slot_inventory.six_judge_totals.fresh_v2_judgment_slots")
+    carried_anchors = _positive_int(
+        six_judge_totals.get("carried_anchor_cells"),
+        "canary_slot_inventory.six_judge_totals.carried_anchor_cells")
+    combined = _positive_int(
+        six_judge_totals.get("combined_gate_inventory"),
+        "canary_slot_inventory.six_judge_totals.combined_gate_inventory")
+    if fresh_slots != 1152 or carried_anchors != 288 or combined != 1440:
+        raise ProtocolValidationError(
+            "canary_slot_inventory.six_judge_totals must be exactly fresh_v2_judgment_slots=1152, "
+            "carried_anchor_cells=288, combined_gate_inventory=1440")
+    if combined != fresh_slots + carried_anchors:
+        raise ProtocolValidationError(
+            "canary_slot_inventory.six_judge_totals.combined_gate_inventory must equal "
+            "fresh_v2_judgment_slots + carried_anchor_cells")
+
+    _non_empty_string(
+        launch_gates.get("canary_scope"), "decisions.launch_gates.canary_scope")
+    calibration_gates = _mapping(
+        launch_gates.get("calibration_gates_per_judge"), "launch_gates.calibration_gates_per_judge")
+    if not calibration_gates:
+        raise ProtocolValidationError("launch_gates.calibration_gates_per_judge must be non-empty")
+
+    pace_window = _mapping(
+        launch_gates.get("pace_measurement_window"), "decisions.launch_gates.pace_measurement_window")
+    for field in ("opens", "closes", "counted", "denominator", "quota_day_definition",
+                  "interruption_rule", "crank_settings_freeze"):
+        _non_empty_string(pace_window.get(field), f"pace_measurement_window.{field}")
+
+    context_guard = _mapping(decisions["context_guard"], "decisions.context_guard")
+    for field in ("status", "context_estimator", "visible_history_caps", "validation_gate",
+                  "eligibility", "common_support_rule", "independent_review"):
+        _non_empty_string(context_guard.get(field), f"decisions.context_guard.{field}")
+
+    transcript_reuse = _mapping(protocol.get("transcript_reuse"), "transcript_reuse")
+    policy = _non_empty_string(transcript_reuse.get("policy"), "transcript_reuse.policy")
+    if "ZERO debater calls" not in policy:
+        raise ProtocolValidationError("transcript_reuse.policy must assert zero debater calls")
+    main_bundle = _mapping(transcript_reuse.get("main_bundle"), "transcript_reuse.main_bundle")
+    for field in ("content", "source_archive", "materialization", "verifier"):
+        _non_empty_string(main_bundle.get(field), f"transcript_reuse.main_bundle.{field}")
+    canary_bundle = _mapping(transcript_reuse.get("canary_bundle"), "transcript_reuse.canary_bundle")
+    for field in ("content", "source_archive", "materialization"):
+        _non_empty_string(canary_bundle.get(field), f"transcript_reuse.canary_bundle.{field}")
+    _non_empty_string(
+        transcript_reuse.get("ingestion_mechanics"), "transcript_reuse.ingestion_mechanics")
+
+    # supersedes: the ratification's core semantic claim -- v2 supersedes the IMMUTABLE v1
+    # document, named here by its own frozen pin, never re-derived.
+    supersedes = _mapping(protocol.get("supersedes"), "supersedes")
+    _non_empty_string(supersedes.get("protocol_id"), "supersedes.protocol_id")
+    if supersedes.get("canonical_sha256") != FROZEN_PROTOCOL_CANONICAL_SHA256:
+        raise ProtocolValidationError(
+            "supersedes.canonical_sha256 must name the immutable v1 protocol's own frozen pin")
+    _non_empty_string(supersedes.get("reason"), "supersedes.reason")
+    amendments_folded_in = _unique_strings(
+        supersedes.get("amendments_folded_in"), "supersedes.amendments_folded_in")
+    if not amendments_folded_in:
+        raise ProtocolValidationError("supersedes.amendments_folded_in must be non-empty")
+
+    observed_hash = canonical_sha256(protocol)
+    if observed_hash != FROZEN_PROTOCOL_V2_CANONICAL_SHA256:
+        raise ProtocolValidationError(
+            "frozen phase-3 v2 protocol hash drift: observed "
+            f"{observed_hash}, expected {FROZEN_PROTOCOL_V2_CANONICAL_SHA256}")
 
 
 def load_protocol(path: str | Path = DEFAULT_PROTOCOL_PATH) -> dict[str, Any]:
@@ -780,3 +1089,51 @@ def selftest(project_root: str | Path | None = None) -> dict[str, Any]:
             "decisions.launch_gates.canary_slot_inventory (selected config A, 7 candidates)")
 
     return {"main_slots_by_n": main_slots_by_n, "canary_slots_n7": canary_slot_count}
+
+
+def selftest_v2(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Assert the v2 enumerator matches the ratified v2 slot arithmetic before any plan is
+    accepted.
+
+    v2 has exactly one candidate roster size (4 continuing + 2 new = 6; unlike v1's N4..N7
+    ladder, v2's ``judges_new`` always has exactly 2 entries -- enforced by
+    :func:`_validate_protocol_v2`), so this checks exactly three numbers, all pinned in the
+    ratified protocol: main judgment slots at N6 (``debate_grid.slot_arithmetic_by_roster.
+    total_judgment_slots.A_no_d.N6``, 29,520), and the canary's fresh judgment slots (1,152 = 576
+    core b0 + 576 budget smoke) plus capability-anchor cells (288) against
+    ``decisions.launch_gates.canary_slot_inventory.six_judge_totals``.
+    """
+    protocol = load_protocol(DEFAULT_PROTOCOL_V2_PATH)
+    root = (Path(project_root) if project_root is not None
+            else DEFAULT_PROTOCOL_V2_PATH.resolve().parent.parent)
+    main_question_ids, held_out_question_ids = load_reference_question_ids(protocol, root)
+
+    debate_grid = _mapping(protocol["debate_grid"], "debate_grid")
+    expected_main_n6 = int(_mapping(
+        _mapping(debate_grid["slot_arithmetic_by_roster"], "slot_arithmetic_by_roster")
+        ["total_judgment_slots"]["A_no_d"], "total_judgment_slots.A_no_d")["N6"])
+
+    judges6 = candidate_roster_judges(protocol, 6)
+    main_cells = enumerate_cells(protocol, judges6, main_question_ids)
+    main_slot_count = summarize_cells(main_cells)["slot_count"]
+    if main_slot_count != expected_main_n6:
+        raise PlanValidationError(
+            f"v2 main judgment-slot count at N=6 is {main_slot_count}, expected "
+            f"{expected_main_n6} per debate_grid.slot_arithmetic_by_roster."
+            "total_judgment_slots.A_no_d.N6")
+
+    canary_cells = enumerate_canary_cells(protocol, judges6, held_out_question_ids)
+    canary_summary = summarize_cells(canary_cells)
+    fresh_judgment_slots = int(canary_summary["by_kind"].get(CANARY_JUDGMENT_KIND, 0))
+    anchor_cells = int(canary_summary["by_kind"].get(CAPABILITY_ANCHOR_KIND, 0))
+    combined = int(canary_summary["slot_count"])
+    if fresh_judgment_slots != 1152 or anchor_cells != 288 or combined != 1440:
+        raise PlanValidationError(
+            f"v2 canary slots are fresh_judgment={fresh_judgment_slots}, anchor={anchor_cells}, "
+            f"combined={combined}; expected 1152/288/1440 per decisions.launch_gates."
+            "canary_slot_inventory.six_judge_totals")
+
+    return {
+        "main_slots_n6": main_slot_count, "canary_fresh_judgment_slots": fresh_judgment_slots,
+        "canary_anchor_cells": anchor_cells, "canary_combined_slots": combined,
+    }

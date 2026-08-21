@@ -33,16 +33,31 @@
 #    Amendment 4 (2026-08-19), package item 8, replaced the OLD blocklist-count-subtraction
 #    convergence arithmetic
 #    (TOTAL_CELLS - excluded_count, compared against a raw `grep -c .` line count) with a
-#    manifested-minus-completed computation: a $VENV one-liner re-enumerates the SAME frozen
-#    plan the driver itself would (rejudge.phase3_plan.enumerate_canary_cells against the
-#    manifest's own roster -- transcript + judgment + capability cells together, so the total
-#    can never drift from what TOTAL_CELLS used to hand-encode) and diffs its cell_key set
-#    against the DISTINCT cell_key values actually present in $RESULTS_FILE. This is exact by
-#    construction, not merely a closer approximation: rejudge.phase2_canary_order.
-#    CellResultStore.record refuses to overwrite an existing cell_key, so every row in
-#    $RESULTS_FILE is exactly one genuinely completed cell, and a context-guard-blocked cell is
-#    NEVER attempted and so never appears as a row there at all -- "blocked-record rows never
-#    count" falls out automatically rather than needing a special case.
+#    manifested-minus-completed computation: rejudge.phase3_orchestrator_support.
+#    remaining_canary_cells re-enumerates the SAME frozen plan the driver itself would
+#    (rejudge.phase3_plan.enumerate_canary_cells against the manifest's own roster -- transcript
+#    + judgment cells) and diffs its cell_key set against the DISTINCT cell_key values actually
+#    present in $RESULTS_FILE. This is exact by construction, not merely a closer approximation:
+#    rejudge.phase2_canary_order.CellResultStore.record refuses to overwrite an existing
+#    cell_key, so every row in $RESULTS_FILE is exactly one genuinely completed cell, and a
+#    context-guard-blocked cell is NEVER attempted and so never appears as a row there at all --
+#    "blocked-record rows never count" falls out automatically rather than needing a special
+#    case.
+#  - v2 (2026-08-21): the 288 capability-anchor cells are EXCLUDED from the manifested/remaining
+#    arithmetic above (decisions.launch_gates.canary_scope: they CARRY from the v1 identity by
+#    exact cell-key set and store/hash binding, never preseeded or executed against the v2
+#    store). Convergence alone no longer implies "done": two post-convergence, STOP-style hard
+#    gates run once, before this orchestrator is allowed to report success --
+#    verify_manifest_and_anchor_carry (re-validates the full manifest, re-deriving the
+#    anchor-carry binding from the real, read-only v1 archive store) and run_polarity_gate
+#    (scripts/phase3_polarity_verify.py, requiring 100% mirrored with an exact 48/48 per-judge
+#    core-b0 split -- the corrected-mirroring property v2 exists to restore). All of the
+#    convergence/gate arithmetic itself now lives in rejudge.phase3_orchestrator_support, a real
+#    unit-tested Python module, rather than as logic embedded directly in bash one-liners.
+#    Review-daemon concurrency and waves-per-round are likewise no longer independent operator
+#    tunables: decisions.launch_gates.pace_measurement_window.crank_settings_freeze requires
+#    them FROZEN in the manifest (frozen_inputs.crank_settings), resolved from there instead of
+#    the old hardcoded --concurrency 8 literal and env-overridable MAX_WAVES default.
 #
 # Target runtime is WSL (the live run's result-store locks use POSIX fcntl, per the
 # canary-run-environment note), so this is POSIX sh/bash, matching main_orchestrator.sh. NOT
@@ -58,16 +73,27 @@ set -uo pipefail
 : "${REPO:=/mnt/c/Users/Jack/Dev/FailureModeExperiment/selvarath-debate}"
 : "${VENV:=/home/jack/phase3-venv/bin/python}"
 : "${CODEX:=/home/jack/.local/bin/codex}"
-: "${MANIFEST:=rejudge/phase3_manifest_2026-08-18.json}"
-: "${AUTH:=rejudge/phase3_canary_authorization_2026-08-18.json}"
-: "${ARCHIVE:=/mnt/e/selvarath-archive/phase3-2026-08-18}"
+# v2 defaults (2026-08-21 materialization): the corrected-mirroring canary rerun. AUTH names a
+# record the ORCHESTRATING SESSION writes separately (not this materialization task) -- the
+# default points at where it will land, so a fresh checkout needs no env override to pick it up
+# once that record exists.
+: "${MANIFEST:=rejudge/phase3_manifest_v2_2026-08-21.json}"
+: "${AUTH:=rejudge/phase3_canary_authorization_v2_2026-08-21.json}"
+: "${ARCHIVE:=/mnt/e/selvarath-archive/phase3-v2-2026-08-21}"
 : "${LOG:=$ARCHIVE/orchestrator.log}"
 # Amendment 4 (2026-08-19), package item 8: convergence no longer hand-encodes a cell count
 # here at all (the OLD TOTAL_CELLS=1980, "540 pre-seeded transcript rows [492 main + 48 canary]
 # + 1,440 canary judgment/capability slots at the 6-judge roster" -- a number that silently drops
 # out of sync the moment the roster or the transcript-row arithmetic changes). remaining_cells()
 # below re-derives the SAME total every round, from the SAME frozen plan enumeration the driver
-# itself runs (transcript + judgment + capability cells together), so it can never drift.
+# itself runs (transcript + judgment cells together), so it can never drift.
+#
+# v2 (2026-08-21): the 288 capability-anchor cells are EXCLUDED from that re-derived total. They
+# CARRY from the v1 identity by exact cell-key set and store/hash binding
+# (decisions.launch_gates.canary_scope) -- they are never preseeded and never executed against
+# the v2 store at all, so counting them as "manifested" work would make convergence permanently
+# unreachable. Their integrity is verified separately, by manifest (re-)validation
+# (verify_manifest_and_anchor_carry, below), not by a row appearing in $RESULTS_FILE.
 
 # Script paths, overridable so a test can point them at stubs without touching VENV (VENV
 # stays a real interpreter; only the script it runs changes).
@@ -85,9 +111,14 @@ set -uo pipefail
 # file goes quiet while the ledger advances every few seconds (2026-08-19 round-3 false kill).
 : "${LIVENESS_FILE:=$ARCHIVE/phase3_usage.jsonl}"
 : "${STALL_THRESHOLD_SECONDS:=1800}"
-# Review waves per round. 1 was fine while b0 dominated; the b4/b8 endgame advances cells only
-# one gate ruling at a time, so more waves per round cut the round count roughly in proportion.
-: "${MAX_WAVES:=3}"
+# v2 (2026-08-21): review-daemon concurrency and waves-per-round are no longer independent
+# operator tunables here -- decisions.launch_gates.pace_measurement_window.crank_settings_freeze
+# requires them FROZEN in the manifest before the pace-measurement window opens and untouched
+# inside it. Resolved once, below (after $REPO/$MANIFEST are usable), from $MANIFEST's own
+# frozen_inputs.crank_settings (bound and pinned by rejudge.phase3_manifest.
+# _crank_settings_binding at build time: exactly review_daemon_concurrency=12,
+# max_waves_per_round=4) -- replacing the old hardcoded --concurrency 8 literal and the old
+# env-overridable MAX_WAVES default (no longer meaningful once the settings are frozen).
 
 # Runaway backstops, not safety controls -- the real safety controls are the ones enforced
 # inside canary_supervisor.py (uncertain-spend ceiling, same-call limit) and
@@ -104,11 +135,28 @@ mkdir -p "$(dirname "$LOG")"
 
 say() { echo "[$(date -u +%FT%TZ)] $*" | tee -a "$LOG"; }
 
+# v2 (2026-08-21): crank settings, convergence arithmetic, the anchor-carry re-verification and
+# the post-convergence polarity-gate decision all live in rejudge.phase3_orchestrator_support
+# now (a real, unit-tested Python module -- see tests/test_phase3_orchestrator_support.py),
+# never as ad hoc logic inline in a bash string. Each $VENV -c block below does the minimum
+# possible: load JSON, call one function, print the result.
+crank_settings=$("$VENV" -c '
+import json, sys
+sys.path.insert(0, ".")
+from rejudge import phase3_orchestrator_support as support
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+crank = support.resolve_crank_settings(manifest)
+print(crank["review_daemon_concurrency"], crank["max_waves_per_round"])
+' "$MANIFEST")
+read -r REVIEW_CONCURRENCY REVIEW_MAX_WAVES <<<"$crank_settings"
+say "crank settings resolved from the manifest (frozen, not env-overridable): " \
+    "concurrency=$REVIEW_CONCURRENCY waves=$REVIEW_MAX_WAVES"
+
 # Codex re-review (2026-08-19), blocker 2c: the eligibility blocklist path is resolved from
 # THE MANIFEST ITSELF, never from an operator-set env var -- one source of truth, so this
 # script can never launch a stale blocklist (the old $BLOCKLIST default named the pre-amendment
 # 72-exclusion file) against a manifest that has moved on. rejudge.phase3_runner independently
-# refuses outright if the resolved file's canonical sha256 ever disagrees with what the
+# refuses outright if the resolved file's canonical sha256 ever disagreed with what the
 # manifest bound at build time; this is defense in depth on top of that, not the only check.
 blocklist_path=$("$VENV" -c '
 import json, sys
@@ -119,46 +167,25 @@ blocklist_args=(--context-blocklist "$blocklist_path")
 say "eligibility blocklist resolved from the manifest: $blocklist_path"
 
 # Amendment 4 (2026-08-19), package item 8: manifested-minus-completed, replacing the old
-# blocklist-count subtraction. Re-enumerates the SAME frozen canary plan the driver itself runs
-# (rejudge.phase3_plan.enumerate_canary_cells against the manifest's own roster -- transcript,
-# judgment, and capability_qa cells together) and diffs its cell_key set against the DISTINCT
-# cell_key values actually present in $RESULTS_FILE. Exact by construction:
-# rejudge.phase2_canary_order.CellResultStore.record refuses to overwrite an existing cell_key,
-# so every row in $RESULTS_FILE is exactly one genuinely completed cell, and a context-guard-
-# blocked cell is never attempted and so never appears as a row there at all -- "blocked-record
-# rows never count" falls out automatically, with no special case needed. Re-run fresh each
-# round (never cached): $RESULTS_FILE grows every round, and a stale count would under-report
-# remaining work.
+# blocklist-count subtraction. v2 (2026-08-21): the 288 capability-anchor cells are EXCLUDED
+# from "manifested" -- decisions.launch_gates.canary_scope: they CARRY from the v1 identity by
+# exact cell-key set and store/hash binding and are never preseeded or executed against the v2
+# store at all, so counting them would make convergence permanently unreachable (1,152 fresh
+# judgment slots + 540 preseeded transcript rows = 1,692 is the real v2 denominator). Their
+# integrity is verified separately, by manifest (re-)validation
+# (verify_manifest_and_anchor_carry, below), never by a row appearing in $RESULTS_FILE. See
+# rejudge.phase3_orchestrator_support.remaining_canary_cells for the exact-by-construction
+# argument (CellResultStore.record refuses to overwrite an existing cell_key, and a
+# context-guard-blocked cell is never attempted, so "blocked-record rows never count" falls out
+# automatically).
 remaining_cells() {
   "$VENV" -c '
 import json, sys
-
 sys.path.insert(0, ".")
-from rejudge import phase3_plan
-
-manifest_path, results_path = sys.argv[1], sys.argv[2]
-manifest = json.load(open(manifest_path, encoding="utf-8"))
-protocol = phase3_plan.load_protocol(manifest["protocol_tracked_path"])
-roster_judges = list(manifest["roster"]["judges"])
-_main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, ".")
-plan_cells = phase3_plan.enumerate_canary_cells(protocol, roster_judges, held_out_ids)
-manifested = {str(cell["cell_key"]) for cell in plan_cells}
-
-completed = set()
-try:
-    with open(results_path, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            key = json.loads(line).get("cell_key")
-            if key:
-                completed.add(str(key))
-except FileNotFoundError:
-    pass
-
-remaining = manifested - completed
-print(f"{len(manifested)} {len(completed & manifested)} {len(remaining)}")
+from rejudge import phase3_orchestrator_support as support
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+counts = support.remaining_canary_cells(manifest, sys.argv[2], project_root=".")
+print(counts["manifested"], counts["completed"], counts["remaining"])
 ' "$MANIFEST" "$RESULTS_FILE"
 }
 
@@ -176,6 +203,95 @@ reviewer_up() {
   grep -q "OK" <<<"$out"
 }
 
+# v2 (2026-08-21) post-convergence gates, run ONCE after remaining_cells() first reaches zero,
+# before this orchestrator is allowed to report success. Convergence alone (1,692 fresh
+# transcript+judgment rows present) says nothing about the two things v1's incident actually
+# broke: whether the 288 carried anchor rows are still exactly what the manifest bound (they are
+# never re-executed here, only re-verified), and whether the mirroring fix that motivated v2 in
+# the first place actually produced true K2 mirroring end to end. Both are STOP-style hard gates
+# -- a failure here means the run converged on the wrong thing, which is worse than not
+# converging at all.
+
+verify_manifest_and_anchor_carry() {
+  # Re-validates the FULL manifest (rejudge.phase3_runner.load_and_validate_manifest), which
+  # rebuilds frozen_inputs wholesale -- including re-deriving the anchor-carry binding from the
+  # real, read-only v1 archive store (rejudge.phase3_manifest._anchor_carry_binding) and
+  # comparing it against what this manifest bound at build time. This is how the 288 carried
+  # anchor cells are verified: never by a row appearing in $RESULTS_FILE (they never will), but
+  # by every one of their v1 event hashes still matching on re-read.
+  "$VENV" -c '
+import sys
+sys.path.insert(0, ".")
+from rejudge import phase3_runner
+phase3_runner.load_and_validate_manifest(sys.argv[1], project_root=".")
+print("MANIFEST_AND_ANCHOR_CARRY_OK")
+' "$MANIFEST"
+}
+
+run_polarity_gate() {
+  # scripts/phase3_polarity_verify.py, run twice against the SAME $RESULTS_FILE: once over every
+  # judged row (must be 100% mirrored, zero duplicated/other-shape, zero incomplete/inconsistent
+  # groups), and once restricted to the core b0 rows alone (must realize the frozen protocol's
+  # exact 48/48 per-judge split -- decisions.launch_gates.calibration_gates_per_judge.
+  # structural_mirroring_gates_zero_tolerance: "per-judge realized split exactly 48/48 on the
+  # core b0 set"). The b0-only restriction is computed by
+  # rejudge.phase3_orchestrator_support.condition_cell_keys/write_condition_filtered_results
+  # (the verifier itself reports per-judge splits pooled across every condition, so the
+  # restriction has to happen before it runs, not inside it); the pass/fail decision itself is
+  # rejudge.phase3_orchestrator_support.evaluate_polarity_gate.
+  local roster
+  roster=$("$VENV" -c '
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+print(",".join(manifest["roster"]["judges"]))
+' "$MANIFEST")
+  local protocol_path
+  protocol_path=$("$VENV" -c '
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+print(manifest["protocol_tracked_path"])
+' "$MANIFEST")
+
+  local full_report
+  full_report=$("$VENV" scripts/phase3_polarity_verify.py --results "$RESULTS_FILE" \
+    --protocol "$protocol_path" --project-root . --roster "$roster") || {
+    say "STOP: polarity verifier failed to run against the full store"
+    return 1
+  }
+
+  local b0_results
+  b0_results="$ARCHIVE/phase3_canary_results_b0_only.jsonl"
+  "$VENV" -c '
+import json, sys
+sys.path.insert(0, ".")
+from rejudge import phase3_orchestrator_support as support
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+keys = support.condition_cell_keys(manifest, condition="b0", project_root=".")
+n = support.write_condition_filtered_results(sys.argv[2], sys.argv[3], keys)
+print(f"{n} core b0 row(s) filtered to {sys.argv[3]}", file=sys.stderr)
+' "$MANIFEST" "$RESULTS_FILE" "$b0_results"
+
+  local b0_report
+  b0_report=$("$VENV" scripts/phase3_polarity_verify.py --results "$b0_results" \
+    --protocol "$protocol_path" --project-root . --roster "$roster") || {
+    say "STOP: polarity verifier failed to run against the core b0 subset"
+    return 1
+  }
+
+  "$VENV" -c '
+import json, sys
+sys.path.insert(0, ".")
+from rejudge import phase3_orchestrator_support as support
+full_report, b0_report = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+problems = support.evaluate_polarity_gate(full_report, b0_report)
+if problems:
+    for p in problems:
+        print("PROBLEM: " + p)
+    sys.exit(1)
+print("polarity gate PASS: 100% mirrored, exact 48/48 core b0 split per judge")
+' "$full_report" "$b0_report" | tee -a "$LOG"
+}
+
 say "phase-3 canary orchestrator armed; $manifested_count manifested cell(s), " \
     "$remaining_count remaining, round cap $ROUND_CAP, stall threshold ${STALL_THRESHOLD_SECONDS}s"
 
@@ -188,7 +304,8 @@ for round in $(seq 1 "$ROUND_CAP"); do
   say "round $round: review wave"
   "$VENV" "$REVIEW_DAEMON" --manifest "$MANIFEST" --authorization "$AUTH" \
     --archive "$ARCHIVE" --codex "$CODEX" --driver-module "$DRIVER_MODULE" \
-    --concurrency 8 --max-waves "$MAX_WAVES" --exit-when-empty 2>&1 | tee -a "$LOG"
+    --concurrency "$REVIEW_CONCURRENCY" --max-waves "$REVIEW_MAX_WAVES" --exit-when-empty \
+    2>&1 | tee -a "$LOG"
   review_rc=${PIPESTATUS[0]}
   if [ "$review_rc" != "0" ]; then
     say "round $round: review wave failed (exit $review_rc); stopping for review before any relaunch"
@@ -246,7 +363,23 @@ for round in $(seq 1 "$ROUND_CAP"); do
   say "round $round complete: $completed_count / $manifested_count cells, $remaining_count " \
       "remaining (supervisor exit $sup_rc, no STOP)"
   if [ "$remaining_count" -le 0 ]; then
-    say "CONVERGED"
+    say "CONVERGED: $completed_count / $manifested_count fresh cells; running post-convergence " \
+        "gates (anchor-carry re-verification, polarity gate) before reporting success"
+
+    if ! verify_manifest_and_anchor_carry; then
+      say "STOP: manifest/anchor-carry re-verification FAILED after convergence -- the 288 " \
+          "carried v1 anchor rows no longer match what this manifest bound; a human must review"
+      exit 6
+    fi
+    say "anchor-carry re-verification: PASS (288 carried v1 rows still match)"
+
+    if ! run_polarity_gate; then
+      say "STOP: polarity gate FAILED after convergence -- not 100% mirrored and/or the core " \
+          "b0 split is not exactly 48/48 per judge; a human must review before any relaunch"
+      exit 7
+    fi
+
+    say "CONVERGED and PASSED all post-convergence gates"
     exit 0
   fi
 done

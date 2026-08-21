@@ -1,0 +1,1585 @@
+{
+ "caps": {
+  "configuration_selection_limits": {
+   "D_max": 45,
+   "R_max": 135000,
+   "note": "owner-selected 2026-08-18 (D_max 45 quota-days; R_max derived as 45 x 3,000/day planning pace); the manifest enforces both R_U <= R_max and D_U <= D_max; the canary-measured pace replaces the planning pace inside D_U at evaluation time"
+  },
+  "stage_cap_usd": 450
+ },
+ "code_provenance": {
+  "code_bundle_sha256": "72374c7139ea08809258e56e2935c4d246cc871d35360d8c667585940a3e8b03",
+  "files": [
+   "rejudge/phase3_plan.py",
+   "rejudge/phase3_manifest.py",
+   "rejudge/phase3_runner.py",
+   "rejudge/phase2_canary_runner.py",
+   "rejudge/phase2_canary_live.py",
+   "rejudge/phase2_canary_cells.py",
+   "rejudge/phase2_canary_compose.py",
+   "rejudge/phase2_canary_gate.py",
+   "rejudge/phase2_dual_gate.py",
+   "rejudge/phase2_canary_order.py",
+   "rejudge/phase2_canary_execute.py",
+   "rejudge/judge_loop.py",
+   "rejudge/debate_gen.py",
+   "rejudge/composer.py",
+   "rejudge/oracle_channel.py",
+   "rejudge/query_screen.py",
+   "rejudge/parsers.py",
+   "rejudge/records.py",
+   "rejudge/config.py",
+   "rejudge/phase2_query_gate.py",
+   "rejudge/phase2_call_cache.py",
+   "rejudge/phase2_caching_client.py",
+   "rejudge/api_client.py",
+   "rejudge/run_accounting.py",
+   "scripts/phase3_preseed_transcripts.py",
+   "scripts/phase3_context_precheck.py",
+   "scripts/phase3_canary_orchestrator.sh",
+   "scripts/phase3_polarity_verify.py",
+   "rejudge/phase3_orchestrator_support.py"
+  ]
+ },
+ "execution_authorized": false,
+ "execution_identity_sha256": "518fd9d60051e06a0464d54d39511d665be1900626da7f1e009e2f113225ea17",
+ "frozen_inputs": {
+  "anchor_carry_cell_count": 288,
+  "anchor_carry_cell_keys": [
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:002c7fb254ac775958f71f70a26fc6213162657f9804365913de0e868de69ffb",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:004307ca79d7eed0be20aba59504b1eb3f94f47aef96367e80854e2b78542b68",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:00471429c9659e42b7cbcc6c92eddc28ec5dcf91e1959d262d5eb9cee956f372",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:017eb24b62d8f3c0b546b9351fd0f7dc3b023f9f87797e5c9da07f4c82d8c3a0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:028b09657a3ad3a761b52301528ca1e2e7f4e18ad4c93a9efc38d7ab264af421",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:047e2a4690e9502c3f3840b022f5ba2b00c9d055370c5d137ccd0a99abc9de86",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:057235ab7409fae950b07786efb7c1262025538f1f9241c4da311266ad87d1f7",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:080dc1e0a497491af475b54d044b873a31199821673c017d6cb2838e23f16110",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:091c61045c497f75dd697835bb7c1c3ac97a16836c599dfa0bebbdcd1d7ea517",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:094f43e58854307178c076fcacba0e1b4adfe9c35c240762a0ed721384be746c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0a5562c7d359abbba333ab35f19ada9a9c2d7e864aa9b8768d279aaed6071352",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0acf0baf8433033ceeae966c41b9f2de15be34aebf697ea17aa9a3bd58b84226",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0e8f5b1c48f220864ab86fa8bb00a5ffa3f2835896db285b8609fc4d983cfeab",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0eda346801e573d5e64611b1bd2545850b1e65affdc2b95ad448289e8400e989",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0f6669d96b5f9501b3d4313c399c69b4d6a16a6651fb9558c0f05da5bc6fea08",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0f6943e305b77db83b1f9dc3f123e24aa5df6da7d0f106db4e81bb806f22714e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:121db801ea20c089c13b52052c21d7aa945e855b637c0e48a3826e4940e1b6f7",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1355c47d9731a66fc9d4e3b26380ab86c1b64575ecfd80b0a1556b21e5256846",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1446039798fef3bc5987aaef469cc2220c252e38d1d7cc4bb1d9118f3948e532",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:158477df7bb9779c5509bd2cf75ffab45c684674dd3f6e69a50b6eacea27c942",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:158672305c6731d2e151a27809f957d01aff570178174eeddf9debb249b3c88b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:18dabae11a79276b6bd03d057eb692606812e12f42fbbbce1148f30cabaabfdb",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1b57a41c91ee81864a65a2910084b6d489065ed880eb23ede5a751174cc2e7ee",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1b652141e8914b71b3ce81a2950a1158979dda07d020e11482668ffc614c8983",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1c6e18a9daa7b5c654ce6fef1e714b73483c9cb01898bb43372c33ac7f4afd96",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1ce22fe729954439bf6a7a5293ff907f23ad8b2bfe597df095970a58b88fbdb4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1cf618015a0f8b2fe969a6183247d56ddc7b7250cc0b8f7eae6fd71d5f1b80a1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1d5174640e5e53b7d2a1979b7fd9c0a6dbc462e9a888a9c9e7b811b29c31c42d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1db8005b7119400ae00d7a2311fe3e19c045f4b65c1710598d50ed2afb758613",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1dbee416984c004a513a722900820f3e8bb2ffd2bcbe4df320cdb0538bdccbc6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1e8f4b6cc784f631c287a5f18209eb1b3ee9c51a130ff7c1b5abe465a1385f77",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1eb43d524a0f97c51d1e0b672ee04189edc5bb6a336501e79d28594b0a3af8e1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1ebc6052dfa97f2b13edc84286a6105d417820f0d12533acaeabf7f5cfb2866d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1f67a8fa797c99c31f417c6a2b9e3647fab4f0fa90dd75ab176420e621886410",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:209317e0cb471ecd862e687d544cfed758fe22c306584fa9cfcbee56f8ee5b59",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:20e3b1555a952d2ad3cfa166a9d41f3900979e5519473a7845acfcc894fa92fa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:20f9bd4dc72481ac3688cb8d12493b13d03f644b1f743d10896f28eb495e44c3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:226b14e5a072a919220e75219cdf3a427eb6be76b14bddc954c724451e967c52",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2375c5796834dc31952c3e5584b7ed7084644fd4c46b21c2dab4f3b7c5a3a20e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:23b11f31220cf99cd424943eadf25a46f2baa4d809c214e1fed5b935433e85ac",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:242411713da814219e2b22e90eb86f43fece3cda6f5da58622e269d8548f2731",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:25659a80446f2fd0f34e0aaed4a4dc5a232e5d0d5ea994e9f71957b176a927ff",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:25b76b61563c179f21d3c3273adfa6de177fa8b42eef0bfcc8b7cf15699718da",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2990ee32d768654d84b909db3256795965bec0777b736923d4abef1ab39750c0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2a3f438ba00b04845469d5a625debd8f43b5fa85da1551a5b69a4509a3163df0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2a7680b34195500de7672509dbc67d6ad2f675f577b13e696dfa841ee5f1f5a7",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2acd333f5c298e449cf17b34bc5675f5bda507f44829e0eb432ed03e02a3af14",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2b0009867bc376e2576f4fc0c46da071e4d454bc4c821c552a38fb4701d455d5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2eb41245a32ff2c4ff4e05872327bc7fa1c0f4bf60ec037f85a8248600873222",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2fab6f483726bdd1581cdd2450a836823bebec958b8f2db99e01d07650148b58",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2ff79c99439c709ac9e8d22c49f50468fcbdfa44c0402b991aa103f6988140cc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:304fe75adbb6e1fb62965cd9e6b44344b13a5174ef5e86f650bcf23519246bdf",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:34b5eb745c867f97a3afe8f849a82dfbb4ea020410a646b2044b1b03879c47a3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:359eb8c962198bbd7188101615cb06c710ac6fcf26e5cf3007bf8fe0a75b5332",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:35c1c3fd0d75b2755b81f8b14e454d872d96473ffa94789e3677d6d9814c4215",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3641b88652ec88d151243fdd82ba127091f17f7f72b75712a3f4c13aa5e972bd",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:37ed1b313112a7be5b004ee9b4e1a3a5ac9ad3b343d7b59db4c95b94c49d15e5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:38ea35129a8363c8c79acdf415b3970f3c001a58cad520759ed6df918a88980f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:39f4577b77baa687652b10574232140c28f05e4b54a6fb41b9a8da37efe1a5f4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3c15becfbd265b18bc13152cab2a30c2c702966d49e8b5588e72246282814a1f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3e75dda4df538cfd294574fd00bf51644f999ad90f712575306a63ebdf7873a6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3ec6e0db32bd79d0dae75f5d0329fa2744a5f8af39c470155ad0dbf87747f8f3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3ee6a20f630fc0bd33e2e8f27d3bd6419cfac7c465713197004b955b107b3171",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3fa2ff50cf49497a9d0b26f60a51c7aee4ac0dca42d514f5b2a0763f52a1d5ca",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:40039c20cb6f8b1b58b65afd3b3356c3b4bfeca5e5c961a87f2cc425d4ae1b1f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4016e91d41477d6ff69353d9f04855468dafe4e3ff50d069d2727fa4034eda69",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:40c2975a5d4d4c95b356722d193f2f1da6ac2fbc752d0137f29968d9ed9786d0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:41413a9f60d1cad3449e01b23f558b4eb8a772d740a897e4d7ec7fb057ad6e2e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4143d4351b3c181bfb87c4d00dfa60a3ed7e695f19be7631957993ea11e847e1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:41bf7d364a36fa1d8626515328645127320e2fd8ac7649473ccd380f0e2e8b30",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:429009c293f0d8492decd67d5a949f2c18c68e6ca95fa34ea69fa2a61c730f4b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:462f19e099755c5260d18b571be4a0ef7f2ebb30648dde5f5e75958382cfb63f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:47c9c5f8e0cebeafa51368ce6632a44ac52442e2aba5a3a088b38c0c100d906c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:480b54d27f4bb05709366760fcc30ecdfe70a1909fe9e69869e18e50f7157360",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:48d01fbc62f89c37febee036561b0336193bc78ccf74c545ed4913b6235e0ef7",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:490aa1c7207e5a73af9ed285eec12ea10b96db81b843f1c0c46b73335779fa95",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:49c3a092cfcc516f4f54731197f32ade7efbb877841f3e72e762c7c08d280125",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4a02a476dbb28dd87a8746e6eaa024449a29010b9a768c6ded82420fae6bf658",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4ab4f5fb477a4a0c9020e9999990587fd4af756315d2ae0cf0ec3a2994138de0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b3a602277907573e6badd2028b7d1993223890382a762b2391bbed8bb72f2fc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b91d8469682ea1266ac2276b36e1070f5b044e446b2cf3a97c3cc6a95239cc8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b949eda52e99433b68ac7718fb8afd6c07aef0449cbb7b26c04963814e4bc9d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4bc8d6027c477fc8e68afcb0f045aaaede4d648cd817f062c8b04c7a609e6c69",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4c911f683739267be2a13061de74aa8ba622d9a0e416f743924e6afd55d0557d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4c947e1989cdc79ad41035faed8aabcc5af989978a3692d6e98bcb5ece84ac55",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4cd2c32399e91697a7278402a569d096070d0d832cd122d5d9226f78ab04d2f8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4d161bad699b43f10d44cc02d357735e1952779a2cfef1a1ed74603ad2fa5d6a",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4d81a9fec06cfaee449d747c653d05e4a0d23d64b0170b5644182cd2244d5738",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4ddb1149a8f850fea96a9c4208eaf4dab42a054deca62e998dc0d795ace8e5ed",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4e426009ee12c9ee0e8372877b2b2cb1fb592e3ab7897c7861ab78baa94e3143",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5109cbbdd9f6193b5ee6e2323a65dc3eaa5b40605920794d8dcfa117110a59d0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5282ad66014c30024bf1f9da96a0861bd8adb0a6adb423c406ed0a40c1854b49",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5316a6cdf0e9c8705d8bcda7ae6038480e896a5ef59995de98c090c9dd52bcfd",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:531a56c38c33dcddfae9a01a85308aea5b1137c826eea07b56af40e800524663",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:539f70271e355479483f4707ae04e366bbfd61a9b20aef91841bbece8aef939c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5462bd4992d7905fdc918fea1d2d7a6dd3c757b8bd15c2b2e0d9681e63ba1a3a",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5567e2490e0e2f76dab533275ea809fa2cc42446e7ed4277519ac821a3808b1e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:562a168c5c441bf0afada11208d7b5e988040e65411fc9b1c02a12cfcfad03e0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:566e75c0c05a4c7ff8e57bff436326144430deccfbb4af80b5c55b051f7d23cd",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:568ce7829819d56d246c7e63438a9958b1fb09450000631ff32d42879ef6d385",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:56de9d76a4fd83cea25b59e4de376e71a80253ceaa6b5259a52462c5c104f85b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:57011b5d6f01cc996a695a8712cdcb8304a76a1e5560bbb8d87cd07ef6c895d8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5767aca850263674a47b0ebf7f217ec4d54fe168460e063fab1524d072a417c8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5814bc225fcfeaff2eb72ce63d95de15c9c1a12c970bef9763a7d56e811547f8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ca088dffa72b012371caada3da58d9d4332526c581c5a8fab7f46c0aa731185",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5d4dd6ffed1d9b13d1ed6ea6d151609ff996961c64402acbed7daa65c5aa3d6d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5e2ca2eebbf6e0cb1140fc87d070c176dac101d1cfda8fc4b4af7acabc7a6f54",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ea4f607487895ba06b49351c31fbaeaba5302c5d4ac5dcb9e33010855bb998d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5f2d4dc6ea1f629cd852cc13582c46c63f29d8a4efba663af7556926502f3259",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ffe1e9e943ae0cb36ff349221cf13c6191bb4d121a67049f419f916f385cd3d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:60927013c886608ffc61a088d420800d1dd61e67eae5cfd35899300d8c6b947a",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:609e08e4b68ed093a513ed40cd9c3c327175745916a3fa3b408974c04679ba86",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:61cb5f2c4af1197031259e95304c6668fa371cc7b2ff9cbaf621600822b876b3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:61deb10ebf6f69e49188c805289a6daefa391c9226845c75a9b7530e23ec3f75",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:62f5ec4cd2d37783fdbcb2e8a013e8dfdc5432186e8570da658f751af7f69d7e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6302c6144ceeb0cb13e6a44872202c56163d80e4f8913152aecdf059d9d58d5e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:649622a4de1a17f3ff50927a5b0b6e45e8e91a939a2753c85527f60649c383af",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:64a023bc267a03e0d343ba3adc0ebaf79a44b1717b9d83fcb6f864e558090628",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:66271443a1fb31be90078d445f18dbbe1b5a1a027b99e9aa28f6c0eb346d1202",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:662d65450fa64445594f77c82227c5bda680d2bfc124284909117d347589d640",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6650e9dd933289020e7351f748946d759b9c2e97d33bce28ebff16f24e12caf5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:66fa01588dd7e237facbc6caf0b1037980033c8b893c0393bb8bcb5efbf3c80f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:67130097df2ef58dfc8869f32a4d7c9a29d5ac850fc3ebc9e2c645757c1889ef",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:688f42e2e8710dc24955cd38b3c01bea6144eb274840ff9df740a3d112a37514",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:68d161cc315ab55f4ffe0e9073b029ceed03e12f348d9d3e1438841fe7fb0e02",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a12496fec876cbc96de071b88602914195ef8ae3f8f7022a46901953379c33c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a32d4774b7b5af700e86413a1ea40821337a2b6e62112b1ed050dfbb7d9bbda",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a67e0d4cf9959714600c6b55591f86e2903af5ace61a356970487f2c7a3bb93",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6c7eeadf04122899cdf5333491a87cefe712ea941b9af3c6d92122a8511fedeb",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6cdeb01f1430d49bce93d6ee60b84f1c4125917e2bca1f86580757c2e48f9ae7",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6d65868161934f57a041a1c1695ad9d75258ece93a61d5e81426cb2f5b5594cf",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6e5a11d36a24aba3e5471f17fdda07c068df7114ecfade279808e4fdb0a90c8b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6ed62f75f17540396bafc4ecb824335a2d4f57d711ec4f3c4b85cb8d9a9ecc8d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6ee6dff66b16b6c79cdd373cf5411eccb4de07cbe310ea042b254fe8802ec7e5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6f88c929ade8343b2eb7e851133bdb09cfaea3de26c634227f24e7a20ea8064a",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:707570ea2f5e2dd43261ea4d455ab582c20e8227867c53d28b41684c94709cc6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:708df1527defc7aff52b7fef530b5926c58eebc4bdafd27ec264e63423a9b9ef",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:71bb82740c2fca92c4da6d412f830943f23ddaedc6170bacd780fe3099aeb4ad",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:72991fcd82abaad2dafc220c52af808cce9296f3791f45e9e167f0578e858aba",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:72e512f496368b14c2616a4b75d5029529e04223558e256b8294a7c0b54859cc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:78722c52a300066e6a724dccffc7b5c7e8f36fbbed1c72b82679f907fdf6e5d0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7be30e7ab8cb89d2825c5580abad9ada4646e90c7c8086a40d02d291cac9da87",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7cdc6fc21e5d676bae0cbcd7a4b50c094fa35c2ef9262b565c8ccbadf50effc5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7cf99da5fb0effe35ac56826dedb83b44949aaf78e0e00ceae3d771c79f45a04",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7dacbd31d53fd04f7a5d629e93620a1cc05ff6f86921a0002ab06a4e69965da0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7e0424163b47767f1964a1c9934b7ff05b7de2a8a169e9ba9993af02ff078d41",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7e249c6c643583bb0891f0a27739dcd2e44779224ab14d6941d0f0a158922961",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7fb8cd3c3d34577caf677c3010c517bd2897f3eea971d296ea532dbc51866c2b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:800276cf85b15b49c27d101fb744a32c13aac37da1f8b308240a1eaa3baf1ffa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:800387f57d333c6aae847dfe7286f7baab25dce5ad741b50ae29d5acd41c881b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:80ef613ff59351191b10cb9cef3bcff9e06bcae251801a624c261c37e88a02f1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:82d0249ce9367d6400e0ecccbd53ed061de111152031ea01f67efd7882d44982",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:832e0159b7c6f5151913203d170efd37063ff49d2d9f5f48d48b78b1f8dd61aa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:845a4bbffda624b57f0618aba1e8f000a584c6e213bed21c86a0db8d15f3ccf6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:85523bb816adfbb319246d9536911449fa4109172339eadb9b49dd3c89a95d4d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8752d987a60bd853117566f8247d682e4b9c0fd8ebb99250d52b7ca3315a3b90",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:87af7d9e46720ae65867320ab3f98ea95a0e1393bcfb8393845c333a07020c45",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:87fd2c377072917579b32b9d85209fd6edee2332901426820f50a17796c9bd46",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:88ad890978178fe260ec694d0f77cd3bc057747613e93359aa46084120db2fe0",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:88d0e46d468285c371040422da10eaa727a48a6dc4e2542a0e5b8efa2fe46b9f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b63726bbc1622a516d7abba3bb2c33dfa4ae6104d43aa4b40556446f779ef6c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b829229724c385aa9ecdac700d4f09cb674cfe7c32c1d0facb441885229d9ea",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b8bad33e3bf5fc068145600aea9ae42c057554f39c63434711a628f6d1125fc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b9608627fe131587525bc77ecda6fdf8f5186f88b4f7291e069c4400b1c282b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8c08ba9524a736bb8824bd6582d1a89c6351c2d06e8f9ceb000285c3744e8855",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8c2903005e5245f3e734d3797bf1f81549e1097fa2bce496e7b9411461141464",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8e2377b60a7862359c1adedc9ccb93fd78f880104111ebe26c7b69d064c7a923",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:909c67e4f706940c03811c9c1336fbb9d610a894f080a88c9f3c59b9d6543bef",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9123d0535d88d83a3cf07eb010aa6d93b447523e8436285951b8f0710f6cf79c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9182e8b626250eee3e9775f04afda689b762ae3cdac25976f2dd4157a151865e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:92fd0fd60cf131050478bdbd97c4c72af4865e26f9c80fea3883e43138f89467",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9333f5aeab2ed4df540e90c986fbf1a04d5251e8e7eaba675c7c69ffcedd0168",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9354153af09368cd76a33a81903414db3b17e43348b3a42491902246959743aa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:936630c058f6a79a754f07f342c96f0774421cd126653c2ef0e9ed1fcd7afc6e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:951ec9cf99fb021cef0583f5368cb97bd41431a01a40957c972dea778dd2273b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9609491be728321d381b4d2bddd2e7c22fcbb5faaaae3b5f2b7e6061e382f669",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:96eccc6e99d0a53c283461a0a2ab4d22ee3cbd24359c9727e3ef983dc8ad7bce",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:997bbc0ccd1cd456d7568b82fbe73a18cb2ba64fa58b5de4d97f55f0441f0a06",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:99eca4796e02a55df57844f4badc530e88f5fbb49c347db40b61122cd8da59bf",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9a050ef66e8b4270f2602ea427bfe713205a53c7bf0d75773fa44f14178f4380",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9b027fbd1d175a4a209dc8906a1c612c7d463c2708c7067653ac4638bd022775",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9c3fe5e931c5a9c960af49ed250b8086b7ab59c03bcf8c4b7a38ae467f43edfd",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9cf41562457df0bbfaf3ff52f7b01af8e3e3925e73e84827c2f7981ff23b63a4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ebc32c217b62d17a3d47e2ea460a0e69f5f9cd2ae761adf5a538878efdcb8ab",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ecd20c9416183821d605f637cebbea728498d1c76d8cd1546d08a3798488da4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9f2ec5320eeede5f0a943d270005757651810f310d1e64356df0865d4f7d3ba4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9fb4c7172360840c59d928d3e45cd876282cf5c4037d0a9b7ca60c13aaa0aaff",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ffb8cb5485164c23fb9786566d456d301b2e25f0048e317a960109c1538f000",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a3012d837388b2a8f72828a2d18c4586c197235074365ffd0c01133e00c802ab",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a41e8e8cdae47a188bf63e161d8c06409b1784acc273d360857356d4ce62a043",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a73b54c0fe9fe88e73143488c51a1ab5021c71d70576142992b36ebb2df4d278",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a7469c5c474be53a77cc19b9f30e219a47a9601bd8dda41570663f017f444de2",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a94cc04c7de2472381f416b0a81e41b7d76100984624c353b4452bf32b1d171b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a9fc323fa93943adb2cc202e95679583fc482a64a1bcee3f14fda4abed8fd19b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ad94d1c05ed5d4518a33cf217efc34cf3f13019bb1c7644ab49afa8e59290212",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:af902b175dc0e8c55b9334b0341e930ebe3150a44147ec971a8f75a0618a29a6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:afeb03f7affc74e0d209afe0d43662d0c80e12a779f9f046c62757a4a1b37584",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b227d653f287ba0ced45d77c0141f9a2fb716a2b607d15997f7d49436bfa9bac",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b54eef195adefb5025ed9f2898fcf598dd5ea7d8301bd98abb0b616942325395",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b5681d626a83c9d57273231d0e4d2607206dc1d52951c0c8c78e38cd742d917c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b668606303b9cab3c313bb3f5f1ac904902970dda02ebac11b90a6ca439ff7a1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b7e38f97e3e825bfbc0f8438edacf94c801fcad9a12b37ff3a286dca34f2832a",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b8d768f8a5c188ecf95f2cb36725d9541193849aa85246f5f3c60517f2be236e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bb1a597c874b75e0da6341acb4e0c5e6c21b2010707fc9b3ae8c8cda65328eaa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bb6848b99e432cc50e2b366cffcae3e532eb7e2e9a34a7f90e096fd1539a9108",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bbca296d621fb9d1fbf630275245f92234aa9cba367649b8fdb64deddfac9143",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bbcb913f5f77f058fe3506adba9c74577290bfe586c9c2e7af6aaddd2f4dd6aa",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bd0b069d8986d9cf24c5abbae41865d0c070196fac34d34603f83b541b4bbd8c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bdd0b7246d40046fb1dc5b1e8fd2969481fc45b269efe9fa2dd47d48877c28f6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:be95027849ea805cfe283edc18f0992a93c9d07d70336c4e09e4c99326ab1b1d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bee29b2f6dad2625648b7c9372eeca5d7830f75d8a1eb5e60c7d6b1a978f175c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:beee7511b02e9422ea69bf1ffcae8fa2ab6ab9f1b067409fb3a1390c402f08e8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bf40909f0d3c3b34f0280698a1fe2e0d34145a0612ecf888412cbd75f6c1bc4d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bfa961863f24378e2d66338fbd6dd2ba2cc1fc6dc34ed97ec5cf7b2501937af3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c008491f5b523957c68e6cb792199074f3bc11c7ecee0728bb867b50e145dd7c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c06b2c4312852b29494e36c77e8d0dac35207f106b9ccf726068ffe0d509d533",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c083b9336ce5bf7848001a46829103e3d318ed898626ba76f84fc00ff876415d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c175a6054e08989f4a6578e6ca0dce6404b00bd1f95d0e1fce1a727b4c190f90",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c2912f3dfcd70ac6551175f725decc7f4d9df1858293bf65eef58aa3c261bf16",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c2a2fa03ddf1e3de8a7bccdba725ee9acdde3386857ba4abce3a4802aeb99eb4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c35c1bff87ac65b38cc3533be39ce10bd3a1c9c5dbf4e29aee480cac7c45c275",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c37f6ceca2b550d253610d75d6df08aaec57ba4f456bc11bf0ad8d920ef60c5c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c3bf13e6d0a645527f51db95c5eb682ada486ca249559726d37c9eac12ba8e5e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c3e81810546040c8af6424cf771e399f540ee898e3349e02259b332f936d21a4",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c65b198ca95a71655c208ec7ae53c7435fbe4ead8aa35c1146f4574455b0abe6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c750a9c79a37f4bd83653eb0273a10d6dffd839aef730cfd97983f9f32b58978",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c97f1e261d266fb11bbe534eef0f232007454ac96f6897ce6666c05bbe16f1fe",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c9d8b832ab017ff276ab9b6d9e3b4fe23d50652fcd8aaacccf4d83109b05bc97",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ca9539d0a7fe6d76a60c0dee79664ee28e731110159a5e9f793d6c4e86ab4a65",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cb817e35577bcb91925a81f77ab3e2ce417a13f5a7d965b2b11d970ce402d27f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc1606eb38da92ad4038f000d24e7b3868e89ba3bd1b21329588c19341ec4708",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc4d23546f5d329c62561d813328d7bf08dca8dfad81cb96039994f408552dc6",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc82ea20f1cf417b286b10466c7593ce075f419254bcfcb21d181a899b8a6644",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cda6c562451830940f07c28464bd423187be1e0b3d1511cc5e6e7056ebea206d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cf57bb677a3f45a526db174ac5e9c280595c792e8d6ecfe081288edff614d279",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d0c6a95c756422edc948cd50f0b989e6193c505f7c49439b5b069b0247578d70",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d0f1173943c963d1580a02a5be5e20eabe5219e9f70955587c7bcbc68bd8daf2",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d146f2a80580f889f687d45c2e8b81f7543749a4aea35d6f451589b58d8f4842",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d443c1af5f3039b2f6dfc01089c1f487bab0573f3a9cc8cb18f2f0aa930826c1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d539d70da4c8ef9b5f0c4f2ad17a7c8b2678ae721eae9f6e55ee67d46dd52cee",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d5a3091e2ec5016681dded4203aeda8227a3c0ffac64ac96fa039ae640c40fa1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d9066d9d3025353b71b149a37dbd95407aeb6bfb58fb055a445fbe7ba5458182",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:daabce0d0a6b2dccf3f2ed16cf85ba586a00e4551d92e96944c0b066c8bcf3ec",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:daf09ad6d1085f87583ebd6bba739aaf026c24fabd5988c7807428254d869c48",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dbba04fe2e382dd3219c49f68ad73404cd8210501f77e6d4b0b77801c1a8c843",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dbd89c1b3940ce7c3f2de40fd32b185c783e1d428ff275d3003e80b03c6c4409",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dc3a43b848489c6252298a4fb57298674a3e4d08b00b4817c39fc17f7db726bf",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dcd0475ca208210616a18340779cc985170b664154d308dd9c389dd05c6bbc2e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dd2760e008cae452ce39c19623cb47ddae85d95f15d7062a368695bf32f86217",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dd767d32e2d73a5d96719a8cd3d101d55cf0ed69caebc938d3301a284a0d94db",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:de590f36e3b5c33d30db28b3ac29367143b6d39adfc904793433162bda830f88",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df5a15707e87f1b14cafbfdb8740d584fe1cab20b5956abd5faa85617c333875",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df621a5c194591cac2817ea8b6daec60d7f600476e63cb91c9ccc8b3fbdf94c1",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df703d1ccf734a047279e292cc4ae14d36b424497613d01f035c661c8c92935f",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e04f36ac4cdf130c350eb66dd4f03213d3c26887dbe2eca4520223c4e807345c",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e0f88bfe4067bb19e4ea33bc57ad284a8907aac6d00fd3040edf569b0f575cee",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e23ddf361ee773cfceffa9fe1a70c0f6f8b1f2f97f9f4f148aef5fe10adb0cd8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e28412052356d59f9cba4b9bdff74a148b83f34a01955f14c91d2e561d63c324",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e336a4b430af79802a0a9facf1adfba16eff3343b4c80ba6d805980999d984f8",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e3fb20c7bdf08adf54c4e70deb113b84f7bf0d6515b93608cc6e434d2feae881",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e4f4cc8b55b2da781b065843e89153c3b5c09c8e4ce101406a17e05a5ae385bc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e5510369fc1cb699921e8995db02922e30bbe6559d0b19d68094b9d4b773fb67",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e58d2e45dbaf56c8d87c39c431cf7269c82fa6223962a6b84cccf6f43552d134",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e70dcebe6389db7a8baf67b4c120ab564736b69a9de784d1d53d88af73e3ff64",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e7710e1225fe35246f80240bff3bb5196ba0a9a6830acf9357eb8d22eba03c3d",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e88755287194e070425b69db8637df3a1a983d0b6b3733e9bb62c8840c187b44",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e8f21a5f8ab644627f9767a323c3908a828599f26792900454feb2641022088b",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e9dd1a05920fd4f43629ebb727a97585eccd266fcf94edd2336b3e979def7e81",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ebc02a5876a48f1c2fac36e830fc946e8baf94d6a46a3ec0d0e1ce1ad75c6722",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ed074e5966d72b9b617bb3398f073fab17380b96539e64137e4eb697149b6bfc",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:edd888d116a642b555f63d5610f88a037286044db8adf59a2c8a25a81f5fd57e",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f0ffec9e3669c5aa9f63ad39d4842ff172f3dc85aba379dc0267215742d11229",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f285479128334f02467b237fe370e613f54e71136108ed0b2a0ca71c2af6c388",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f2aa81f183db8c7d59e37d183871a1498ab3538830449640b259eee4ca4b2049",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f2eb9ae18795eb6d88d0efe136e265a289d47cd02dc2cb3fd8b7fdf3f42d2c59",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f30d759b2286f1c2472b0fe4449ce5e061d2521e993544cd323820911f3db841",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f338dcfbf9e8ee24cc3f6ce110babedeb9366b0c7edac39514e794addaa47976",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f3b5c20190ba1844a7fb322d7bca08193deeeb97f06ec84a214f1fb1d81a4abb",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f489e22d1dd5b87d131b3597d65eb80aafe0b6b17c8e220b6bfa0ca513325533",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f4ab8916abba0c8e63cc27adfb2e9ae87b5b435ad245a17e39ddd8d8c7526108",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f82066969e6f191df6723bc86c83ee6e7a1b867546c70ca1a6fef70f3722c265",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f8ac6d6867d66e460ff045db646bff77086213c05f1d9a72f5994ec327608008",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f92359cc262e6eb88eccd38b8fa55d708fbbb8f365b8ddfd08ab0befa42c4a95",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fbc3650ea5803d52491daadd6a9a38510a3c0aa374cb121d43adfeac2a35e6e5",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fe018c76d28a9b84021cbdd3cb8c633a50092daf1ee58a36f326b8a8750f0bb3",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fea2ccbff1aa165443f788c1a115068c72fd20e600a620a11ac97fd6a768aafb",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:feafd6b4e013b4807d47713583fed7fdbe4ad3ec12d8751d98f91b2557b604fd",
+   "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ff3122ace1732378e41d34435289879d1b037ace45d3f36495d6c83e0b18a6fd"
+  ],
+  "anchor_carry_rows": [
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:002c7fb254ac775958f71f70a26fc6213162657f9804365913de0e868de69ffb",
+    "event_hash": "69ef44286a9ed10bc72e1296b337ca05e68fb2787ad452150d22a6a3db8d1de9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:004307ca79d7eed0be20aba59504b1eb3f94f47aef96367e80854e2b78542b68",
+    "event_hash": "61d148ca641f00ae6030ceb64ad6e9d0f6e0d6620e7a81b40d9c50bc212487d6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:00471429c9659e42b7cbcc6c92eddc28ec5dcf91e1959d262d5eb9cee956f372",
+    "event_hash": "27e368d888b6a4903d9fafcd143262940bec0f6a0cd814fba964248ea881de53"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:017eb24b62d8f3c0b546b9351fd0f7dc3b023f9f87797e5c9da07f4c82d8c3a0",
+    "event_hash": "cebe2230f938eff3d9bf4300081dd5651892210df8a7aff62491df227657e91f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:028b09657a3ad3a761b52301528ca1e2e7f4e18ad4c93a9efc38d7ab264af421",
+    "event_hash": "ea70ca0cf7dea86b7ea7f2b359ebe238eb117b4570d4a38d1ea23fc7e571766f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:047e2a4690e9502c3f3840b022f5ba2b00c9d055370c5d137ccd0a99abc9de86",
+    "event_hash": "a3daa9c66b01ec3aa33d5dce8ff53db20386a663a8c287e4739bbe0d2898e767"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:057235ab7409fae950b07786efb7c1262025538f1f9241c4da311266ad87d1f7",
+    "event_hash": "8dfeefc45c0e5315ffdf8be71678f4c1cd15b034864ce81a946980af15f4b3bb"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:080dc1e0a497491af475b54d044b873a31199821673c017d6cb2838e23f16110",
+    "event_hash": "b3f22525588497b4f3b9ca811599253aeeb28e5e62d62a93192ea9ae3f633824"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:091c61045c497f75dd697835bb7c1c3ac97a16836c599dfa0bebbdcd1d7ea517",
+    "event_hash": "4475dcfb904e4a0082834f34fa806696bb5fd476af68320f7c771ba47175546e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:094f43e58854307178c076fcacba0e1b4adfe9c35c240762a0ed721384be746c",
+    "event_hash": "89205bee16d9ef8c37e4baefa8de2f0d9252ed421fa078ab8952caf96c99e475"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0a5562c7d359abbba333ab35f19ada9a9c2d7e864aa9b8768d279aaed6071352",
+    "event_hash": "e6b08eb09a72b8afb635b187a5a3a17c04a6070fddb587a1a63739951c9875f3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0acf0baf8433033ceeae966c41b9f2de15be34aebf697ea17aa9a3bd58b84226",
+    "event_hash": "2313c76786338ac8cae84f73238a9647345b1fd9148b46a71c51a965aceb5767"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0e8f5b1c48f220864ab86fa8bb00a5ffa3f2835896db285b8609fc4d983cfeab",
+    "event_hash": "65f971ff7fecb90a79fa344a9129d79c8ec297f31b073d138441206c4ece7fb8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0eda346801e573d5e64611b1bd2545850b1e65affdc2b95ad448289e8400e989",
+    "event_hash": "50c7288ad3583089cb15bc5409104045b17e50af8b36ab5c26a2215f5294e1e7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0f6669d96b5f9501b3d4313c399c69b4d6a16a6651fb9558c0f05da5bc6fea08",
+    "event_hash": "740b6422ee10725c3354aff476d0df53fe36b2a29a68b95a674e78724a8d1f3b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:0f6943e305b77db83b1f9dc3f123e24aa5df6da7d0f106db4e81bb806f22714e",
+    "event_hash": "111d0eea3d1f506226fa6191e97e6bbef9aec1851a317136d890c06ecd2de21a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:121db801ea20c089c13b52052c21d7aa945e855b637c0e48a3826e4940e1b6f7",
+    "event_hash": "0cbc851f5965e9071a4abb69f9165cf88a858a03f50aab991c3969d5d47f3908"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1355c47d9731a66fc9d4e3b26380ab86c1b64575ecfd80b0a1556b21e5256846",
+    "event_hash": "81ef570eb86924339ae5c3b327347eb0e2ff689dd7b55f2fa20027c51286bc56"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1446039798fef3bc5987aaef469cc2220c252e38d1d7cc4bb1d9118f3948e532",
+    "event_hash": "fb216fb55943915ed9fb94e2f1f61e723b0c13a05383adbc66f59acd098e2141"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:158477df7bb9779c5509bd2cf75ffab45c684674dd3f6e69a50b6eacea27c942",
+    "event_hash": "11a4edde0a7018074548eb16790abc24d118aec361dd4ee0e811a97d08f0e517"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:158672305c6731d2e151a27809f957d01aff570178174eeddf9debb249b3c88b",
+    "event_hash": "8ec783ff7576aaaabdc1cdb9eb4664b777ab11f3d688fe919aeec3e70fda259c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:18dabae11a79276b6bd03d057eb692606812e12f42fbbbce1148f30cabaabfdb",
+    "event_hash": "02abe207fa78e8dbc5f0a265df6b2856ff63b9c168390b77b533eb604b259d67"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1b57a41c91ee81864a65a2910084b6d489065ed880eb23ede5a751174cc2e7ee",
+    "event_hash": "b3fe7320b171e7e9eb0f50a2f263a542865280e82a58c49d0e6a9a0fa5280ab6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1b652141e8914b71b3ce81a2950a1158979dda07d020e11482668ffc614c8983",
+    "event_hash": "18cbf6e14705192e8fbae6543c2302df7894cabe998a905e3a058638cb4d5048"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1c6e18a9daa7b5c654ce6fef1e714b73483c9cb01898bb43372c33ac7f4afd96",
+    "event_hash": "b7d1243d153ac71bc75eb663b32201804e662a519624db772ab7ef803ff6960a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1ce22fe729954439bf6a7a5293ff907f23ad8b2bfe597df095970a58b88fbdb4",
+    "event_hash": "8b3faa22c8624a3e829f91aaa95b2b9606ed4e4a58235c090a0657efde9a6744"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1cf618015a0f8b2fe969a6183247d56ddc7b7250cc0b8f7eae6fd71d5f1b80a1",
+    "event_hash": "df7c7eb973be1ef61fc899b94e5f2a1b823f893dcac7579f2c17610a50ff9788"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1d5174640e5e53b7d2a1979b7fd9c0a6dbc462e9a888a9c9e7b811b29c31c42d",
+    "event_hash": "25afcaab2cb6f1ee1493a97f416f393fbff81be9b8390d9c8913f52f5564a03d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1db8005b7119400ae00d7a2311fe3e19c045f4b65c1710598d50ed2afb758613",
+    "event_hash": "390cbeebe75a6ca00990437d05c68c5cbec1c2a199e5f602c25832a8065870cf"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1dbee416984c004a513a722900820f3e8bb2ffd2bcbe4df320cdb0538bdccbc6",
+    "event_hash": "babe31f34af7516eba14db231990f85ee00c22311385bac44094f029bbe9b10e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1e8f4b6cc784f631c287a5f18209eb1b3ee9c51a130ff7c1b5abe465a1385f77",
+    "event_hash": "afeae5fe43db6594b85802c9e907cc4d2704990d4f5b7fa5bfc83352587bf861"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1eb43d524a0f97c51d1e0b672ee04189edc5bb6a336501e79d28594b0a3af8e1",
+    "event_hash": "cc3ed22b9bb70703265d667f46fab58ef3795ca7a0917c3799d44515ac79f856"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1ebc6052dfa97f2b13edc84286a6105d417820f0d12533acaeabf7f5cfb2866d",
+    "event_hash": "a221db6442a32bc3a8af02b4355fc4f86e30603611809a44f44a0d2fd4a6ddb9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:1f67a8fa797c99c31f417c6a2b9e3647fab4f0fa90dd75ab176420e621886410",
+    "event_hash": "45be7f46e27aee2df9e4837c2d771241735cf30823097309bdb7424fd81aecc8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:209317e0cb471ecd862e687d544cfed758fe22c306584fa9cfcbee56f8ee5b59",
+    "event_hash": "fc61c71f68cee8afaa80776bc4c266a7c7be9f82bb00222cf1b75d8d0b4c8fc3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:20e3b1555a952d2ad3cfa166a9d41f3900979e5519473a7845acfcc894fa92fa",
+    "event_hash": "eec7dca6149b5fc64bd38e3e2151c9359b662026da6e71495ce1f69ff6b9b6f4"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:20f9bd4dc72481ac3688cb8d12493b13d03f644b1f743d10896f28eb495e44c3",
+    "event_hash": "4c56cd5c3acea4820537313c215ad68eb602b036aa875585741e5bf0a04f046f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:226b14e5a072a919220e75219cdf3a427eb6be76b14bddc954c724451e967c52",
+    "event_hash": "2d30a6a3eb40b4a68a84404af2adc170b929e2c8b1b4329a6914e8250eb0a201"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2375c5796834dc31952c3e5584b7ed7084644fd4c46b21c2dab4f3b7c5a3a20e",
+    "event_hash": "3335e17a5ab3d17a03fee460d62098765e22d91619b69fd7fe2fa0ddf5365a21"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:23b11f31220cf99cd424943eadf25a46f2baa4d809c214e1fed5b935433e85ac",
+    "event_hash": "8b7c3fbf2bc8725094b659f27609d742a632ce3e1ef8a901c03e4e48c376df2f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:242411713da814219e2b22e90eb86f43fece3cda6f5da58622e269d8548f2731",
+    "event_hash": "f2bfb0702fda8b7f950c95fec6f9dc275dd962bb070aa217930305e4f6a0472d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:25659a80446f2fd0f34e0aaed4a4dc5a232e5d0d5ea994e9f71957b176a927ff",
+    "event_hash": "cd8c7ca74b320fab907cf742fd60e61643020ee0de0758c97afe1fc6243cbbc9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:25b76b61563c179f21d3c3273adfa6de177fa8b42eef0bfcc8b7cf15699718da",
+    "event_hash": "e34e221c33c0f8d2f57aa1a787e342dcee62746adcbbcc638232ca8818c241ca"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2990ee32d768654d84b909db3256795965bec0777b736923d4abef1ab39750c0",
+    "event_hash": "0118d7757bee65970f93cbb8f899cdeaeea755bf69351a6888c7523bdbf0cee8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2a3f438ba00b04845469d5a625debd8f43b5fa85da1551a5b69a4509a3163df0",
+    "event_hash": "2c3e4adfe15d7b842eb0787e374343c88ad34d0cb8fbb0885952ace77b3c3cd9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2a7680b34195500de7672509dbc67d6ad2f675f577b13e696dfa841ee5f1f5a7",
+    "event_hash": "eea89271e52dea996da40a0b963cea1c021744b8f98fdd28cd5d969c906b4778"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2acd333f5c298e449cf17b34bc5675f5bda507f44829e0eb432ed03e02a3af14",
+    "event_hash": "dfd6c57170af39a2c1857850fafc562699c22c1186e9208b22f503d212fc76b9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2b0009867bc376e2576f4fc0c46da071e4d454bc4c821c552a38fb4701d455d5",
+    "event_hash": "10eae721c75200ab11bf2735ff762b126e422889d476ee57e628e0b97917b9ea"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2eb41245a32ff2c4ff4e05872327bc7fa1c0f4bf60ec037f85a8248600873222",
+    "event_hash": "53a8f9a65a3be318c2ec1607bc82557d46c929602a0b61b6ba60b6c104c08e5b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2fab6f483726bdd1581cdd2450a836823bebec958b8f2db99e01d07650148b58",
+    "event_hash": "76589490e9608a30427526197ebda7adf87f678f5ba5c680c8168875a8ea03a7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:2ff79c99439c709ac9e8d22c49f50468fcbdfa44c0402b991aa103f6988140cc",
+    "event_hash": "f60852405831e625b170091812492624c751db13657da73d2489c600490623a1"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:304fe75adbb6e1fb62965cd9e6b44344b13a5174ef5e86f650bcf23519246bdf",
+    "event_hash": "016585036694aea927ab644f63df07e88bbea18a390a9a31ad332c1e0e80aafe"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:34b5eb745c867f97a3afe8f849a82dfbb4ea020410a646b2044b1b03879c47a3",
+    "event_hash": "8176fb708af6aeed771ca025a635db998de75f208b525acc85343ee2943c52f5"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:359eb8c962198bbd7188101615cb06c710ac6fcf26e5cf3007bf8fe0a75b5332",
+    "event_hash": "e4f1fc33e8ec8e09a008c653d2b966a5395d02e36975a63c9759b34eb4fde9ba"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:35c1c3fd0d75b2755b81f8b14e454d872d96473ffa94789e3677d6d9814c4215",
+    "event_hash": "83480023e0fa621ec3127bfe452705a17b62b628cb9dcd65c40c125fd8dca543"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3641b88652ec88d151243fdd82ba127091f17f7f72b75712a3f4c13aa5e972bd",
+    "event_hash": "9048a1bb1326de46c827c812fb8ccc2c16e476bbc0be26fe737955e1fbdf34b3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:37ed1b313112a7be5b004ee9b4e1a3a5ac9ad3b343d7b59db4c95b94c49d15e5",
+    "event_hash": "a3ff001899ae1a0115e9c3cd5c4da8ce311ef630a2872411d559176dd91c1d9a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:38ea35129a8363c8c79acdf415b3970f3c001a58cad520759ed6df918a88980f",
+    "event_hash": "7bd33fcbdfc1ddec1c4b24dea1b2b25d7a6220f39fa4398accbf2b2d407ae150"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:39f4577b77baa687652b10574232140c28f05e4b54a6fb41b9a8da37efe1a5f4",
+    "event_hash": "fa6b2496e17892f1d47ba0da8d2dc77491dc310b6113a569e754c6feed1b160c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3c15becfbd265b18bc13152cab2a30c2c702966d49e8b5588e72246282814a1f",
+    "event_hash": "5c9b8f82820fd30f74a5dbf8d2a78aef4a18ca3f676bb7f7477337cee71e2824"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3e75dda4df538cfd294574fd00bf51644f999ad90f712575306a63ebdf7873a6",
+    "event_hash": "f887f5a8065bbd3c8f2c49ac43d8b307e6d728843ed1a97c955eb835cd02f891"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3ec6e0db32bd79d0dae75f5d0329fa2744a5f8af39c470155ad0dbf87747f8f3",
+    "event_hash": "911ed5d090ca1d01289adb882a2b2e6cb8cef280e640cafa439f7211bf8a10aa"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3ee6a20f630fc0bd33e2e8f27d3bd6419cfac7c465713197004b955b107b3171",
+    "event_hash": "9e6986ed699cda7c42866c03767a773418e23a7d0790693a3ac01c84af05141e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:3fa2ff50cf49497a9d0b26f60a51c7aee4ac0dca42d514f5b2a0763f52a1d5ca",
+    "event_hash": "8ad79f578f099b0338b249549fca6576105b2bcf1edd2bc221f4b2d99562493d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:40039c20cb6f8b1b58b65afd3b3356c3b4bfeca5e5c961a87f2cc425d4ae1b1f",
+    "event_hash": "a4906ce77927bced7629971a21e58c52ae911c4a9eca4d6f39d805a8c0a65dbe"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4016e91d41477d6ff69353d9f04855468dafe4e3ff50d069d2727fa4034eda69",
+    "event_hash": "b0c8b0ddb44a6f3b8f5c8f3436f495bf7b2defe7f2bbe4e8a9757e291eaa6b60"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:40c2975a5d4d4c95b356722d193f2f1da6ac2fbc752d0137f29968d9ed9786d0",
+    "event_hash": "9b5e27bb8b23e109f3142871717bc2b88de683a9ea636920e2012b94beb4aed7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:41413a9f60d1cad3449e01b23f558b4eb8a772d740a897e4d7ec7fb057ad6e2e",
+    "event_hash": "27bdc8db48f71bd2a7dfc7162a67ed54cd4297b8b982e70aed7f1e907a832f42"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4143d4351b3c181bfb87c4d00dfa60a3ed7e695f19be7631957993ea11e847e1",
+    "event_hash": "c3f5e9530e251f9e1a459f4cd272b1998fd377f53d8529f0be74e8c75b26a1bb"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:41bf7d364a36fa1d8626515328645127320e2fd8ac7649473ccd380f0e2e8b30",
+    "event_hash": "99d8937a63a6830e9574327e1d750a47467764f57362100aeddd950623bd787b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:429009c293f0d8492decd67d5a949f2c18c68e6ca95fa34ea69fa2a61c730f4b",
+    "event_hash": "31d052485203f4fcc9ffadaf5e19cd0262556e8c6ace07b7a0857bbd090eeac8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:462f19e099755c5260d18b571be4a0ef7f2ebb30648dde5f5e75958382cfb63f",
+    "event_hash": "7c321b09c03a22c51bf5ac9baa3fc7606be4bb0e8a8be1da27de44ed641f079c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:47c9c5f8e0cebeafa51368ce6632a44ac52442e2aba5a3a088b38c0c100d906c",
+    "event_hash": "6d5b8202afe6ed457d63118309369aa4c644952d25d9f8be37d8a3fb57c843f4"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:480b54d27f4bb05709366760fcc30ecdfe70a1909fe9e69869e18e50f7157360",
+    "event_hash": "f0a9bc1760224a625002b65372082f141f957d45db462b420ff9511695a8bf29"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:48d01fbc62f89c37febee036561b0336193bc78ccf74c545ed4913b6235e0ef7",
+    "event_hash": "e054edfb2f9f08553f0295c672b3963261bd8aa9ddc90d9b404001d72bbdada7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:490aa1c7207e5a73af9ed285eec12ea10b96db81b843f1c0c46b73335779fa95",
+    "event_hash": "d37132352988d7301056742759330df1f990faa6b33c10e8869aecfe3de6c45e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:49c3a092cfcc516f4f54731197f32ade7efbb877841f3e72e762c7c08d280125",
+    "event_hash": "ce7ee28737944a1634a097b20f00111238affcb3826e8f5227e78baf4a6a79e5"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4a02a476dbb28dd87a8746e6eaa024449a29010b9a768c6ded82420fae6bf658",
+    "event_hash": "e50807febaf8231ada5da5c91d772ee105ac903951f5582d6fc16a2ed89f240f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4ab4f5fb477a4a0c9020e9999990587fd4af756315d2ae0cf0ec3a2994138de0",
+    "event_hash": "33cc91987fcc3cf1d4561001a2bdfd549d0d466518aba907669105b59a0ceba8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b3a602277907573e6badd2028b7d1993223890382a762b2391bbed8bb72f2fc",
+    "event_hash": "9c127666db909cc82346468bfd4397a42a2fbc840373aa9789e60d7e67818d62"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b91d8469682ea1266ac2276b36e1070f5b044e446b2cf3a97c3cc6a95239cc8",
+    "event_hash": "676955d80cef3a84062ae13982332fdb28fb8d752600b2b48df55621f538891e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4b949eda52e99433b68ac7718fb8afd6c07aef0449cbb7b26c04963814e4bc9d",
+    "event_hash": "51555ce349c8bee75d62a0e82b799ac16f0fdbcbea5304e5b463d94c544e82b5"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4bc8d6027c477fc8e68afcb0f045aaaede4d648cd817f062c8b04c7a609e6c69",
+    "event_hash": "af03e6f2458b4da3c80ec8c86ea88b4719e0d6902562db7c5dfd7279b01f5b1f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4c911f683739267be2a13061de74aa8ba622d9a0e416f743924e6afd55d0557d",
+    "event_hash": "32b13d31a972b77b5b29d4e9462613595525ed3bbbb92fef1de5f2adf3850746"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4c947e1989cdc79ad41035faed8aabcc5af989978a3692d6e98bcb5ece84ac55",
+    "event_hash": "c7991dab3093b1c614020be1707a4a781ec3be6a08c1a66af4262cf3b748feb0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4cd2c32399e91697a7278402a569d096070d0d832cd122d5d9226f78ab04d2f8",
+    "event_hash": "f3c3a22d6e1bb0e30f4466c1942a3bd43e05e4e5ab7d9a631d96b0266f1b0e3c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4d161bad699b43f10d44cc02d357735e1952779a2cfef1a1ed74603ad2fa5d6a",
+    "event_hash": "d3a38bc4614f87c498aaadf893f3c4ab00e2b93df91281e450374da85499d781"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4d81a9fec06cfaee449d747c653d05e4a0d23d64b0170b5644182cd2244d5738",
+    "event_hash": "aa20229fb4650400c60f40a4073ebec3645bd95d307220e02e0d49d6c7fb98f0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4ddb1149a8f850fea96a9c4208eaf4dab42a054deca62e998dc0d795ace8e5ed",
+    "event_hash": "990cf93cb0117ff46ea73e872bf2fbb886e82811b08f06f6db4886f88365911f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:4e426009ee12c9ee0e8372877b2b2cb1fb592e3ab7897c7861ab78baa94e3143",
+    "event_hash": "3e8028bde47c55f82b3ff81e872fd938d8635f15ccb1980d92bb679ef2ead625"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5109cbbdd9f6193b5ee6e2323a65dc3eaa5b40605920794d8dcfa117110a59d0",
+    "event_hash": "d411ccdabc74ab7bf83e449c03aa62fd038ff606857babc33771465b6094633f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5282ad66014c30024bf1f9da96a0861bd8adb0a6adb423c406ed0a40c1854b49",
+    "event_hash": "5e0d293d6abe8e88c839803a777d9d712cc3e14173f339cf740a779580ae2dc2"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5316a6cdf0e9c8705d8bcda7ae6038480e896a5ef59995de98c090c9dd52bcfd",
+    "event_hash": "e07c3707dd021e77039cf87e3ca7d51eb76b2d3e89cdda549e9ff955cafc6cc7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:531a56c38c33dcddfae9a01a85308aea5b1137c826eea07b56af40e800524663",
+    "event_hash": "20601ef304607ca0eb3ae7e59ab19943b0eb06590d9c0ceb7248c2126c6a325e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:539f70271e355479483f4707ae04e366bbfd61a9b20aef91841bbece8aef939c",
+    "event_hash": "e8e3d6110401f265925b0763687b2e4606ba4c98414ba138b1e1ab82dd23a1b9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5462bd4992d7905fdc918fea1d2d7a6dd3c757b8bd15c2b2e0d9681e63ba1a3a",
+    "event_hash": "72152dfdcbe2919482b322f4a192a0eb7d9d506eadbefca09b1e96a93b3cf03f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5567e2490e0e2f76dab533275ea809fa2cc42446e7ed4277519ac821a3808b1e",
+    "event_hash": "279fc1b20d56a5b4767d41cd02fc42126fb849803bfcfdc7646ac0afe1d2c6b7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:562a168c5c441bf0afada11208d7b5e988040e65411fc9b1c02a12cfcfad03e0",
+    "event_hash": "caf87356da1adf76185e041ca55b348dfa50c4003e0107805fa5f7bbd256b52b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:566e75c0c05a4c7ff8e57bff436326144430deccfbb4af80b5c55b051f7d23cd",
+    "event_hash": "e7e332ac7b913754bf43d254e2dc7032ff8e8057f85c1d6cf9602c59ba61639d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:568ce7829819d56d246c7e63438a9958b1fb09450000631ff32d42879ef6d385",
+    "event_hash": "1d88404b30382364b6d480d56a6b6cf3087c0a0e06597d28a3c5c69d40070f4f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:56de9d76a4fd83cea25b59e4de376e71a80253ceaa6b5259a52462c5c104f85b",
+    "event_hash": "20b3b7d758c81eec826c866ea3eae59f26e2e6210700ded0df961abf1485f26b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:57011b5d6f01cc996a695a8712cdcb8304a76a1e5560bbb8d87cd07ef6c895d8",
+    "event_hash": "5dddd35ed1c29995cd324abac45a616d67ab2723b987b55dd7030cec1b9b48b9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5767aca850263674a47b0ebf7f217ec4d54fe168460e063fab1524d072a417c8",
+    "event_hash": "3231af1e9e1e822f1ba2d162e74b264e2b1a5c0cdb34c2540edc89e867ccf78e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5814bc225fcfeaff2eb72ce63d95de15c9c1a12c970bef9763a7d56e811547f8",
+    "event_hash": "84b9db877c1d3cc6bc565c08648baca76635b448c9e35b329817338744cf1cd3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ca088dffa72b012371caada3da58d9d4332526c581c5a8fab7f46c0aa731185",
+    "event_hash": "f38102ed29902186d35dacaeb165cd15b7186b7e9ed9a9fce61d3818d60216af"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5d4dd6ffed1d9b13d1ed6ea6d151609ff996961c64402acbed7daa65c5aa3d6d",
+    "event_hash": "3ac04b975020dea321111123171e6cf00a2e9e97448df2f71401c4f34f15d38a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5e2ca2eebbf6e0cb1140fc87d070c176dac101d1cfda8fc4b4af7acabc7a6f54",
+    "event_hash": "09261f2120059c20748d5fbed3209cc8f02ac15411688766c668e1060e47c5b6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ea4f607487895ba06b49351c31fbaeaba5302c5d4ac5dcb9e33010855bb998d",
+    "event_hash": "c507e77a1d894351191e6fd1e93add9de0225ff0d83dd902125a0b149784ec99"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5f2d4dc6ea1f629cd852cc13582c46c63f29d8a4efba663af7556926502f3259",
+    "event_hash": "3bff8075659cb21a62d46aabd2718db746f14d0d5aaa3027b9b25a7c84d1378f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:5ffe1e9e943ae0cb36ff349221cf13c6191bb4d121a67049f419f916f385cd3d",
+    "event_hash": "c58faef9848da7840c35e28ae2fb693d6d2257f5aecc33eb19dc53fed39ca54b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:60927013c886608ffc61a088d420800d1dd61e67eae5cfd35899300d8c6b947a",
+    "event_hash": "7192e3ed302733cc96b2faf35d2da9123dabc158babd88f4ef9c13894475cdbb"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:609e08e4b68ed093a513ed40cd9c3c327175745916a3fa3b408974c04679ba86",
+    "event_hash": "d50c5de4073987faacf3fcd0fbc872f7abc7e9d9f958afe395b0678ae57ed3f7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:61cb5f2c4af1197031259e95304c6668fa371cc7b2ff9cbaf621600822b876b3",
+    "event_hash": "3fbd1f4b981349add34c26266c23f02adf54a836502c8353b0fe857a32784add"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:61deb10ebf6f69e49188c805289a6daefa391c9226845c75a9b7530e23ec3f75",
+    "event_hash": "1a51761cd5cdd7d87085e07ae37b186f1d1c0d0cbe93ca81133576d4624dd25c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:62f5ec4cd2d37783fdbcb2e8a013e8dfdc5432186e8570da658f751af7f69d7e",
+    "event_hash": "f733e3f870e6efc1f6702902d1b7b5fd4897ed6afb20cd935d15d2bc4d336453"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6302c6144ceeb0cb13e6a44872202c56163d80e4f8913152aecdf059d9d58d5e",
+    "event_hash": "0a53fa00ef11640f888a97699028bfb671e9766428aacb83043b8b062ca774c1"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:649622a4de1a17f3ff50927a5b0b6e45e8e91a939a2753c85527f60649c383af",
+    "event_hash": "b734e945f19c129de50684522dc2b92484075b120cfd902f41a8845c9f217e21"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:64a023bc267a03e0d343ba3adc0ebaf79a44b1717b9d83fcb6f864e558090628",
+    "event_hash": "7eec16ab2281ac17bab2be7b32b1f0409af642f253c5b35449c761abb513d2c6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:66271443a1fb31be90078d445f18dbbe1b5a1a027b99e9aa28f6c0eb346d1202",
+    "event_hash": "3c27a52c42d787de5d98d5eff23c11a8f9976055ff6c476ba7040e3a305c2f01"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:662d65450fa64445594f77c82227c5bda680d2bfc124284909117d347589d640",
+    "event_hash": "6726063291104f4fabd9eeb6ae896257c3a74c98d141584d89941f3537416b30"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6650e9dd933289020e7351f748946d759b9c2e97d33bce28ebff16f24e12caf5",
+    "event_hash": "6a66afd7d7ed2ff32f3fe4646ae88861cf825b3861e71c1bd159a5872e71149c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:66fa01588dd7e237facbc6caf0b1037980033c8b893c0393bb8bcb5efbf3c80f",
+    "event_hash": "e883e57bdd377e19c80f229fb84177b7ec2aef78e95802c744013a447b55a73f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:67130097df2ef58dfc8869f32a4d7c9a29d5ac850fc3ebc9e2c645757c1889ef",
+    "event_hash": "45c96b54ec093ba74859314bd9bb69b9017a4b91320feb3df0d6206146f6dde0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:688f42e2e8710dc24955cd38b3c01bea6144eb274840ff9df740a3d112a37514",
+    "event_hash": "592c26e0b92aa1fd0f15d76f172b2a8307458ea08cc5bf4b3735df8cf6054574"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:68d161cc315ab55f4ffe0e9073b029ceed03e12f348d9d3e1438841fe7fb0e02",
+    "event_hash": "fab4965c8a1d5e7b68ddcd036310e7ba832d7d7f05942e9cbfbd985d69f8a829"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a12496fec876cbc96de071b88602914195ef8ae3f8f7022a46901953379c33c",
+    "event_hash": "5a04f644a0f225e88d161c764d48a37f95af4f1528834155c0bb47de9c4d669e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a32d4774b7b5af700e86413a1ea40821337a2b6e62112b1ed050dfbb7d9bbda",
+    "event_hash": "4c0d445420099709d5ddaad2778721f9833fd3474d5626747dd10942544c193c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6a67e0d4cf9959714600c6b55591f86e2903af5ace61a356970487f2c7a3bb93",
+    "event_hash": "13c625419c530ade5592ae48e0660481eb06f907dd2713852f9aa0870444f207"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6c7eeadf04122899cdf5333491a87cefe712ea941b9af3c6d92122a8511fedeb",
+    "event_hash": "21776808b3d86d927394d2def8e05e117e1d6c08046eee1f9e5b92c48529b548"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6cdeb01f1430d49bce93d6ee60b84f1c4125917e2bca1f86580757c2e48f9ae7",
+    "event_hash": "b7910eb793c67ce75aca797beb7a0235cedfc5e5e51f2b39773f587b4c90b6e0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6d65868161934f57a041a1c1695ad9d75258ece93a61d5e81426cb2f5b5594cf",
+    "event_hash": "0e3298a900fafb4153fa88ed71b9e787596bd4a6d9f7af1c32d56b86a8b7a1c8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6e5a11d36a24aba3e5471f17fdda07c068df7114ecfade279808e4fdb0a90c8b",
+    "event_hash": "1d23aa8318e964e672f9d464a201f5b170b1e5f542a3f46f379fc61ffc17f956"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6ed62f75f17540396bafc4ecb824335a2d4f57d711ec4f3c4b85cb8d9a9ecc8d",
+    "event_hash": "12c6d244a6d685f64d5d338cc8715c86e194e5115103a72510c112231811ed9a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6ee6dff66b16b6c79cdd373cf5411eccb4de07cbe310ea042b254fe8802ec7e5",
+    "event_hash": "78f231205148b7501c56b9cbf508c437ff2257bc86ae9c8311865d3b1023f556"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:6f88c929ade8343b2eb7e851133bdb09cfaea3de26c634227f24e7a20ea8064a",
+    "event_hash": "739542b9de25ec223bd59bf6d35a264f7072cb7938d38d57a7d405ffcea277ea"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:707570ea2f5e2dd43261ea4d455ab582c20e8227867c53d28b41684c94709cc6",
+    "event_hash": "99e328d298622773ea5cb9bf026697033f049c65ac3cd0f7f3a340a72f41ada6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:708df1527defc7aff52b7fef530b5926c58eebc4bdafd27ec264e63423a9b9ef",
+    "event_hash": "4d3a1aaab8e05c8bc73b45a5f22b7f0053c83c4a3feccc8b94fb166d9889c26a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:71bb82740c2fca92c4da6d412f830943f23ddaedc6170bacd780fe3099aeb4ad",
+    "event_hash": "26b96d1f6a0e6933d7497bdcc3a2f1c7cbca9f28da322981705d3cebdf842b17"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:72991fcd82abaad2dafc220c52af808cce9296f3791f45e9e167f0578e858aba",
+    "event_hash": "2265a29433c04764a6dbca52974040e019d6320e049a63a08d4a860dcb0cb743"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:72e512f496368b14c2616a4b75d5029529e04223558e256b8294a7c0b54859cc",
+    "event_hash": "6798a4630f2b6ac39c92c1b20995c99893636b847f852501b4ef092fb876dceb"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:78722c52a300066e6a724dccffc7b5c7e8f36fbbed1c72b82679f907fdf6e5d0",
+    "event_hash": "639b592e3f210246223b87ea46b850a4c8fae31e642e748085458c8bde78e35e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7be30e7ab8cb89d2825c5580abad9ada4646e90c7c8086a40d02d291cac9da87",
+    "event_hash": "9526949366ec015601b3633951dca87932258bd473100f3078fb4dbf16b668cf"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7cdc6fc21e5d676bae0cbcd7a4b50c094fa35c2ef9262b565c8ccbadf50effc5",
+    "event_hash": "e587b460da859ac072d8114be2a2e379d0dd0204477bd37fb5d65f57d53b3d2a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7cf99da5fb0effe35ac56826dedb83b44949aaf78e0e00ceae3d771c79f45a04",
+    "event_hash": "5a73e5bb0b5dccb813e20b016a51e1bfe2dc0f719d7f32a951c3a8c250758985"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7dacbd31d53fd04f7a5d629e93620a1cc05ff6f86921a0002ab06a4e69965da0",
+    "event_hash": "4b4920b72c9dbe049469a09a6b0a121ee3e6a8498cbfbc6e532b7b69bc2f45bd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7e0424163b47767f1964a1c9934b7ff05b7de2a8a169e9ba9993af02ff078d41",
+    "event_hash": "4715dcbf927936038d8fadcb2531f8ff2ce85812e634b34c8283697b341f3b97"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7e249c6c643583bb0891f0a27739dcd2e44779224ab14d6941d0f0a158922961",
+    "event_hash": "72d53452dcf7635efa2505cc881916c4c229ae23410b34fc511c98a6cf9c8d43"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:7fb8cd3c3d34577caf677c3010c517bd2897f3eea971d296ea532dbc51866c2b",
+    "event_hash": "7b80d4c65752fcf9843c3a4e69cf6ada6410f2122f791dcd74e68a649f32395f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:800276cf85b15b49c27d101fb744a32c13aac37da1f8b308240a1eaa3baf1ffa",
+    "event_hash": "de45c7544753d93ca2a6a2006f71e34766c1265939e8c18fd97a7f14a7bc7995"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:800387f57d333c6aae847dfe7286f7baab25dce5ad741b50ae29d5acd41c881b",
+    "event_hash": "8321b3ddbbf7f307b4e8dd2dc0e51789d863fea776361f93ff40316980f11f63"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:80ef613ff59351191b10cb9cef3bcff9e06bcae251801a624c261c37e88a02f1",
+    "event_hash": "574d72edcc9c63e9643cfd33b6cd1c39b6aca2e551a3b87b6ddde837d31890f6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:82d0249ce9367d6400e0ecccbd53ed061de111152031ea01f67efd7882d44982",
+    "event_hash": "547713d49e27be0ca0a85145c14724985912236190e8b4581c7726df1f8d8fd7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:832e0159b7c6f5151913203d170efd37063ff49d2d9f5f48d48b78b1f8dd61aa",
+    "event_hash": "5bafac287c6500dfabe52d857ad60ebf96e8b9ac0de141492f6ec036c2fe084b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:845a4bbffda624b57f0618aba1e8f000a584c6e213bed21c86a0db8d15f3ccf6",
+    "event_hash": "a5621acac65e42b72dda428de245a71cdde8df2bd2272ee39324fe7b1f416f07"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:85523bb816adfbb319246d9536911449fa4109172339eadb9b49dd3c89a95d4d",
+    "event_hash": "3122a0f0c53017824b86d9c80f4e8ded6a457d2b86f454d8c48e831b6495b635"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8752d987a60bd853117566f8247d682e4b9c0fd8ebb99250d52b7ca3315a3b90",
+    "event_hash": "f1dab79f2c9cc564820e1b2576ff05350e8987b676d1ea9c90b810d9ed41c2ff"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:87af7d9e46720ae65867320ab3f98ea95a0e1393bcfb8393845c333a07020c45",
+    "event_hash": "441b11bbef9111705c06a55b5b9a750c4ac014b7d405e9311dee64dbc57e4ffe"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:87fd2c377072917579b32b9d85209fd6edee2332901426820f50a17796c9bd46",
+    "event_hash": "7acbdf75bf93999772ad27de4b3aa87018da7fb46a04ca44bf771816012a886d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:88ad890978178fe260ec694d0f77cd3bc057747613e93359aa46084120db2fe0",
+    "event_hash": "bd02dd2998a127d6e1f02c966a4990a8e2ef4af9155ff7dc9a49df5b36cf8dc0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:88d0e46d468285c371040422da10eaa727a48a6dc4e2542a0e5b8efa2fe46b9f",
+    "event_hash": "31aee0b7d0a54f978a18553f4273d8f159bf9a8da996e1b10801f914550c9bfd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b63726bbc1622a516d7abba3bb2c33dfa4ae6104d43aa4b40556446f779ef6c",
+    "event_hash": "5dbc6d57b48a79362832f9c8e364392b0e3fa4cbfdb3be5ec7c4ac393fd78536"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b829229724c385aa9ecdac700d4f09cb674cfe7c32c1d0facb441885229d9ea",
+    "event_hash": "dd22865f60af4f64baac05a588d05d66ca35d8aa83657757bd47b14d2c81daf7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b8bad33e3bf5fc068145600aea9ae42c057554f39c63434711a628f6d1125fc",
+    "event_hash": "92e0757768d112d13dfa2bc6e0da4741c3261f89ec71ccfca1b0507e37786b94"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8b9608627fe131587525bc77ecda6fdf8f5186f88b4f7291e069c4400b1c282b",
+    "event_hash": "908f12b99e65869585efc36b66db73434d38036f0952d7eae0e913460d3a8f64"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8c08ba9524a736bb8824bd6582d1a89c6351c2d06e8f9ceb000285c3744e8855",
+    "event_hash": "d4ef7f9f24b73f340f20b7cefa6cebbe2c3d12732b22613f52e48cc5d93fdc01"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8c2903005e5245f3e734d3797bf1f81549e1097fa2bce496e7b9411461141464",
+    "event_hash": "9c11a46db411ba99a93de97b417fb177926c906c67aba13a4ebc79348da6bd36"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:8e2377b60a7862359c1adedc9ccb93fd78f880104111ebe26c7b69d064c7a923",
+    "event_hash": "971cb30a4dbd5e0cf4f0074438924221c764cabe162dc699c6d78527a3be49d5"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:909c67e4f706940c03811c9c1336fbb9d610a894f080a88c9f3c59b9d6543bef",
+    "event_hash": "b2b735f7b9f0c1ef14f5f4d047eeebe2bb861eb3558a7b1bea220d7e38ea5650"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9123d0535d88d83a3cf07eb010aa6d93b447523e8436285951b8f0710f6cf79c",
+    "event_hash": "65d99845a577c7baa336cd0a419c597f35f6d97a878300d0721ea91a686bbf28"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9182e8b626250eee3e9775f04afda689b762ae3cdac25976f2dd4157a151865e",
+    "event_hash": "7d8a7f01e9a41f7d8fb2873e4a5b7da0d6885dc806b4c4dfb2dd67417ef89377"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:92fd0fd60cf131050478bdbd97c4c72af4865e26f9c80fea3883e43138f89467",
+    "event_hash": "1c1391e1648ec997a89fb902bab302ac51589e2992f3b566c7a1d84d83deedb3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9333f5aeab2ed4df540e90c986fbf1a04d5251e8e7eaba675c7c69ffcedd0168",
+    "event_hash": "9f8681e52387620c30fe8fd12922152f90a09f0543794104b476a998b8e6b51c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9354153af09368cd76a33a81903414db3b17e43348b3a42491902246959743aa",
+    "event_hash": "f2f476af64249aae063b5d7cbd5e53feb56ff4d5cc7641145ae520983f527ccd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:936630c058f6a79a754f07f342c96f0774421cd126653c2ef0e9ed1fcd7afc6e",
+    "event_hash": "6c9f11fe28626faad31c85c3a5d586a640ab9392a8ade99785301653fab0f675"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:951ec9cf99fb021cef0583f5368cb97bd41431a01a40957c972dea778dd2273b",
+    "event_hash": "da7235cad5590fe7a0f173c536ce6e279268cd96737299291a8308e758082664"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9609491be728321d381b4d2bddd2e7c22fcbb5faaaae3b5f2b7e6061e382f669",
+    "event_hash": "8532a9423ea049e44eac424fd0b6a77e852e903817837748cb1031f05e8af5cf"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:96eccc6e99d0a53c283461a0a2ab4d22ee3cbd24359c9727e3ef983dc8ad7bce",
+    "event_hash": "0743e5ba54bef61aee988ba3a1299bfd5290bf0e76f7cab1b32d52d2021a8bbd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:997bbc0ccd1cd456d7568b82fbe73a18cb2ba64fa58b5de4d97f55f0441f0a06",
+    "event_hash": "9e44b7af0f53d808a5a36591d79ae00a02bcf491e3d0fb8eab6a49aac8fbb0b4"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:99eca4796e02a55df57844f4badc530e88f5fbb49c347db40b61122cd8da59bf",
+    "event_hash": "234ff4ea888879c458c679a3916b8326d49f2258656cf663e231c6945749de48"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9a050ef66e8b4270f2602ea427bfe713205a53c7bf0d75773fa44f14178f4380",
+    "event_hash": "ded082b4f40af69cf04ebfccdfbb64c064c4f37038e34d373a77db511376be2c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9b027fbd1d175a4a209dc8906a1c612c7d463c2708c7067653ac4638bd022775",
+    "event_hash": "df42590766279e5a1ded23bc02e42aefc36b10dc8c4016c801afdc303e667591"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9c3fe5e931c5a9c960af49ed250b8086b7ab59c03bcf8c4b7a38ae467f43edfd",
+    "event_hash": "925786a7d44331da11bca91bcd3dac21341a5b359432547ffa0385adec2bf2eb"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9cf41562457df0bbfaf3ff52f7b01af8e3e3925e73e84827c2f7981ff23b63a4",
+    "event_hash": "9b45de3b81ded17de0fc4199e702e8f54f4d468964fb4ffa247118d1b1e5fa66"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ebc32c217b62d17a3d47e2ea460a0e69f5f9cd2ae761adf5a538878efdcb8ab",
+    "event_hash": "722d493ffeae30cf448361d8e39ef1d0bf42ac9a2976f1ad26bc8cbfd0401183"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ecd20c9416183821d605f637cebbea728498d1c76d8cd1546d08a3798488da4",
+    "event_hash": "05c5a02f0e82c4c622d4b824dd1a3cd0e6403f3383e66993eb173b926294b807"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9f2ec5320eeede5f0a943d270005757651810f310d1e64356df0865d4f7d3ba4",
+    "event_hash": "bb0e6abafc44cb25c590f1bed728060dc44877cfa334ba88b11436ac165fd3c3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9fb4c7172360840c59d928d3e45cd876282cf5c4037d0a9b7ca60c13aaa0aaff",
+    "event_hash": "df601c2eda4d7961276058eb1057415aca192ed8b039ce5af9886de15d9f0517"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:9ffb8cb5485164c23fb9786566d456d301b2e25f0048e317a960109c1538f000",
+    "event_hash": "1e4342023eea158bbe5256721d968fc3c7de6c1347712e6a6fca5fb1de27e364"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a3012d837388b2a8f72828a2d18c4586c197235074365ffd0c01133e00c802ab",
+    "event_hash": "eef7c9af6e827db338b140d18708bb3358e48da8c8a15da3ec00bb46b5a1d9d0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a41e8e8cdae47a188bf63e161d8c06409b1784acc273d360857356d4ce62a043",
+    "event_hash": "d79f25bbca833cf2b009e513ea8016dc6ab29b0bf1198ec3aed513426f6a2059"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a73b54c0fe9fe88e73143488c51a1ab5021c71d70576142992b36ebb2df4d278",
+    "event_hash": "c460de4abdff8f421110b9a4b3c2353def897d4d94c5843b7d86f6895abfa4fa"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a7469c5c474be53a77cc19b9f30e219a47a9601bd8dda41570663f017f444de2",
+    "event_hash": "2c2a4358b5724b04a0d910318ad1707a043a9c33b5eb9fde72291841e545ce30"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a94cc04c7de2472381f416b0a81e41b7d76100984624c353b4452bf32b1d171b",
+    "event_hash": "b8b19e2c832470ef4377d1d62080fbc85d80c012d2e4a33c37937f806ff0c296"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:a9fc323fa93943adb2cc202e95679583fc482a64a1bcee3f14fda4abed8fd19b",
+    "event_hash": "eccc026df1db7369ef7986598ccec3dfbbda811431c2cde40cdeafe27cc3639d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ad94d1c05ed5d4518a33cf217efc34cf3f13019bb1c7644ab49afa8e59290212",
+    "event_hash": "66041d2473a242268b7dfba26e789320b495274cd13eef2c8b97eef51b07678f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:af902b175dc0e8c55b9334b0341e930ebe3150a44147ec971a8f75a0618a29a6",
+    "event_hash": "46cdf219fd8621f4dfd43e2968e2cf6ec6f65969f3ee793c46aefd7c8a3f87a0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:afeb03f7affc74e0d209afe0d43662d0c80e12a779f9f046c62757a4a1b37584",
+    "event_hash": "faeb3e50f4a9d56a25d5da5de4a30a31c1a7ed7c5829351138e64ab3f41eed7d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b227d653f287ba0ced45d77c0141f9a2fb716a2b607d15997f7d49436bfa9bac",
+    "event_hash": "b8d050dc34391521236c6f4ec483ae9bdb9f33e85aaae9808f2c4462c829435d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b54eef195adefb5025ed9f2898fcf598dd5ea7d8301bd98abb0b616942325395",
+    "event_hash": "8167dcf1c2a066be53323f509d7cd1d28bdd07b8b4bdbd676aec631019d440a6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b5681d626a83c9d57273231d0e4d2607206dc1d52951c0c8c78e38cd742d917c",
+    "event_hash": "9d606bf28a0fd2075b3b0d4e9d6c77ca80d539ee60be412b701ebdfcb68cbf0d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b668606303b9cab3c313bb3f5f1ac904902970dda02ebac11b90a6ca439ff7a1",
+    "event_hash": "d73d2ca00344a910bcfef8b52802294131a627fa125b47a7db530b7d02105c4c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b7e38f97e3e825bfbc0f8438edacf94c801fcad9a12b37ff3a286dca34f2832a",
+    "event_hash": "c0ce5f8e8005acf0a5fe2b8488dea35d5ea4080f07d569e14d3b5c818988b230"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:b8d768f8a5c188ecf95f2cb36725d9541193849aa85246f5f3c60517f2be236e",
+    "event_hash": "f3f71d859c9dd797c35c292c5c1ff6d985f41a772c051c44c071ca9b52927830"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bb1a597c874b75e0da6341acb4e0c5e6c21b2010707fc9b3ae8c8cda65328eaa",
+    "event_hash": "b5e4bc8ceecad6d7d4fa38cb8898a92f312e20edd063414ec1232935afc35696"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bb6848b99e432cc50e2b366cffcae3e532eb7e2e9a34a7f90e096fd1539a9108",
+    "event_hash": "4bf10c2658df0273de1f660a72140e922726bfbe65b8cfec78aed91437f1dca1"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bbca296d621fb9d1fbf630275245f92234aa9cba367649b8fdb64deddfac9143",
+    "event_hash": "8e02729222fa07adaeff86b2e1856fda6e806d66280ed05237f0b47031c0c6c5"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bbcb913f5f77f058fe3506adba9c74577290bfe586c9c2e7af6aaddd2f4dd6aa",
+    "event_hash": "1ac4bc9772f3f3d97f14f336c17fcd8e6cfa15cafd0e5d05eb2d4d078b762c1c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bd0b069d8986d9cf24c5abbae41865d0c070196fac34d34603f83b541b4bbd8c",
+    "event_hash": "287b716962aeacaf2363730a8d02132b619af07e766b953ee62307c94091c577"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bdd0b7246d40046fb1dc5b1e8fd2969481fc45b269efe9fa2dd47d48877c28f6",
+    "event_hash": "d1f0babc121ffc2a0dc646bc681b52faebda26fec9d00ac2581a454e601527ac"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:be95027849ea805cfe283edc18f0992a93c9d07d70336c4e09e4c99326ab1b1d",
+    "event_hash": "c1e7dfd2437478573238ae679eb4a639b0cf2df35cea2a094c547c3cb69f31de"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bee29b2f6dad2625648b7c9372eeca5d7830f75d8a1eb5e60c7d6b1a978f175c",
+    "event_hash": "b5ee62d266c53c49a31fa7568a0a5ad8d1cf8728e0c2c218e893d92e79b93076"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:beee7511b02e9422ea69bf1ffcae8fa2ab6ab9f1b067409fb3a1390c402f08e8",
+    "event_hash": "23d274fc28889b41717781c98e6832b9f8ddac37a80a9636302d9c4bd1ff88fd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bf40909f0d3c3b34f0280698a1fe2e0d34145a0612ecf888412cbd75f6c1bc4d",
+    "event_hash": "740706d4c013089c3a9225a50b780f658a6808f1a51716104d0013b0741f11be"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:bfa961863f24378e2d66338fbd6dd2ba2cc1fc6dc34ed97ec5cf7b2501937af3",
+    "event_hash": "2c2ed758fc6444355822b49a281991fb1504d06ab15ace859bcfe1f063f457fa"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c008491f5b523957c68e6cb792199074f3bc11c7ecee0728bb867b50e145dd7c",
+    "event_hash": "077c21306775b5b67aa30399f5b61b3972908ad5e484d4618ac378267bb83c68"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c06b2c4312852b29494e36c77e8d0dac35207f106b9ccf726068ffe0d509d533",
+    "event_hash": "bb02f84fbec603ca2b7e457f15e818287f7b945fd1a13e0a0edb850a55b1f399"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c083b9336ce5bf7848001a46829103e3d318ed898626ba76f84fc00ff876415d",
+    "event_hash": "2763f3570ee8b2eddad697b8ea64db5fa7f7bdcbb7464703c636f85df75f5b81"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c175a6054e08989f4a6578e6ca0dce6404b00bd1f95d0e1fce1a727b4c190f90",
+    "event_hash": "61328e064f5bde96a9e19600b9429f883e11343103aff9ee9eb308d78e7ecaaf"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c2912f3dfcd70ac6551175f725decc7f4d9df1858293bf65eef58aa3c261bf16",
+    "event_hash": "6ea59642b2f1c7be7f8de80921a0967cb10ee5bdc02bfd300e1978310c36dad3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c2a2fa03ddf1e3de8a7bccdba725ee9acdde3386857ba4abce3a4802aeb99eb4",
+    "event_hash": "01592e62043fc7101b3da5ef841d2018670ab62e673a29c31c00427ea33950d3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c35c1bff87ac65b38cc3533be39ce10bd3a1c9c5dbf4e29aee480cac7c45c275",
+    "event_hash": "1fcf239a26b5d3c1407ddf36d11d50eb06d1a00928acbad1e3f57ec11c3f6723"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c37f6ceca2b550d253610d75d6df08aaec57ba4f456bc11bf0ad8d920ef60c5c",
+    "event_hash": "e9080de8e8e4bb1fc0b9eaef3166504e220f0554ad8def1e2ef1b9c741d8c2d8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c3bf13e6d0a645527f51db95c5eb682ada486ca249559726d37c9eac12ba8e5e",
+    "event_hash": "2e14a03e39067bfa92d68c62c6dcf797af9fec0dea0cb329aebc8372a4b7dc13"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c3e81810546040c8af6424cf771e399f540ee898e3349e02259b332f936d21a4",
+    "event_hash": "f869bb0b93854cf0504248d3b17e6315e4610d6b86d37caee9c5a83d00ed676e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c65b198ca95a71655c208ec7ae53c7435fbe4ead8aa35c1146f4574455b0abe6",
+    "event_hash": "9a927d18e06d0f96f1f67b4b262593fb58302ace6c37962007f5ac475a35a693"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c750a9c79a37f4bd83653eb0273a10d6dffd839aef730cfd97983f9f32b58978",
+    "event_hash": "c879f9d66ff22750677fdcf0f6c2f8efeee114afb96cd17097f558f63c403eea"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c97f1e261d266fb11bbe534eef0f232007454ac96f6897ce6666c05bbe16f1fe",
+    "event_hash": "e3c990f0b1523cb85e1f70fe87d0a47182ee0aa9017207e8ef08617fa98b3248"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:c9d8b832ab017ff276ab9b6d9e3b4fe23d50652fcd8aaacccf4d83109b05bc97",
+    "event_hash": "75c049cba345a92a2fb8fcefdd4ff6ac1ba61a86dca754742712665f1f3a53c7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ca9539d0a7fe6d76a60c0dee79664ee28e731110159a5e9f793d6c4e86ab4a65",
+    "event_hash": "61a09290ebeca36bd7666d810f55847bc5bfe6a3d59a1ee61b15c5df9b2177a0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cb817e35577bcb91925a81f77ab3e2ce417a13f5a7d965b2b11d970ce402d27f",
+    "event_hash": "67ad79167dd085af969f0012951976bf9298d2e06c28841b046bd707e0ec66fa"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc1606eb38da92ad4038f000d24e7b3868e89ba3bd1b21329588c19341ec4708",
+    "event_hash": "f2bbba5df6ce24bcaf659ab2a05ae3dfd0803307b72fd8524848d9b48c0e54ec"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc4d23546f5d329c62561d813328d7bf08dca8dfad81cb96039994f408552dc6",
+    "event_hash": "792a6ef9501e5395cc68d1ef4df3856954d8e9162c576c06d6776c1ac0702a34"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cc82ea20f1cf417b286b10466c7593ce075f419254bcfcb21d181a899b8a6644",
+    "event_hash": "01f0a34deb36d5b29a700a88a1a778655ffec352639a65f2715515ecdcdc970c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cda6c562451830940f07c28464bd423187be1e0b3d1511cc5e6e7056ebea206d",
+    "event_hash": "4ffa110ce25f73da5bb3edfc839f6a5433ff35a612851ff33ec3e2edbdbe695e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:cf57bb677a3f45a526db174ac5e9c280595c792e8d6ecfe081288edff614d279",
+    "event_hash": "b494c21f22d92afb28d4861321592971196bdcc92da3faa26e2f3dbf35a153ff"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d0c6a95c756422edc948cd50f0b989e6193c505f7c49439b5b069b0247578d70",
+    "event_hash": "522e495ca383c01843a3e02c2ef5fb20ba5e36bc417018a5ed370bd76e5b48c9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d0f1173943c963d1580a02a5be5e20eabe5219e9f70955587c7bcbc68bd8daf2",
+    "event_hash": "4c80e1c53cc979eb86e4cd639626938e59a7c5783adc4bb237c3c7f22e0a52df"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d146f2a80580f889f687d45c2e8b81f7543749a4aea35d6f451589b58d8f4842",
+    "event_hash": "e46842a564d36703e5c21e93c5d1dbb8fa005753dddbc467649f192c56ac9dd0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d443c1af5f3039b2f6dfc01089c1f487bab0573f3a9cc8cb18f2f0aa930826c1",
+    "event_hash": "87aa3f1c4bcc7c26fad0519142d99e979e65f1c74c0f52baf0b03e4696648260"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d539d70da4c8ef9b5f0c4f2ad17a7c8b2678ae721eae9f6e55ee67d46dd52cee",
+    "event_hash": "25c6d0112882045dd466c1ab9e1e60e628afc82aca67a5ef50e0fdac51978a8d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d5a3091e2ec5016681dded4203aeda8227a3c0ffac64ac96fa039ae640c40fa1",
+    "event_hash": "832e16ef683117ed970be753ef9d5185fa9cd5daa231957e03a44972f935210d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:d9066d9d3025353b71b149a37dbd95407aeb6bfb58fb055a445fbe7ba5458182",
+    "event_hash": "d5fc8f3b654a9a451caac87d13ba4282aa825bcbab8b68467f6853ba3ac7b2f7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:daabce0d0a6b2dccf3f2ed16cf85ba586a00e4551d92e96944c0b066c8bcf3ec",
+    "event_hash": "7fb962d32fe443e880503a45ee0a442eed2d3f2c01054b20507e588d10e738ff"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:daf09ad6d1085f87583ebd6bba739aaf026c24fabd5988c7807428254d869c48",
+    "event_hash": "ff17ad6d77d3482a1713893536a7f298a1d9f97263ffccd42a0490ada7c61985"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dbba04fe2e382dd3219c49f68ad73404cd8210501f77e6d4b0b77801c1a8c843",
+    "event_hash": "bfec8420abcd651fce25f8213f362523d40fcd7f67ac8bf8074a26c39107a60a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dbd89c1b3940ce7c3f2de40fd32b185c783e1d428ff275d3003e80b03c6c4409",
+    "event_hash": "4c46200b91ae51985329c799b426453264853cf11815f0122f9f352efbf6456d"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dc3a43b848489c6252298a4fb57298674a3e4d08b00b4817c39fc17f7db726bf",
+    "event_hash": "5611b1fa48a2bb97d4c863d873c010cea8e96a05fe73e6817f24270c0d544b34"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dcd0475ca208210616a18340779cc985170b664154d308dd9c389dd05c6bbc2e",
+    "event_hash": "7602b42550879209cef702dc9a817937940357da9245dc68f80420b4eb27c174"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dd2760e008cae452ce39c19623cb47ddae85d95f15d7062a368695bf32f86217",
+    "event_hash": "ef97a9deef784fdc17d19910caade94e9b7ea1c920b68817debec4a8e433d4c1"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:dd767d32e2d73a5d96719a8cd3d101d55cf0ed69caebc938d3301a284a0d94db",
+    "event_hash": "056041f956a2413b1ad96c25632145c3ba828496431148c3abbed1975acdcb76"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:de590f36e3b5c33d30db28b3ac29367143b6d39adfc904793433162bda830f88",
+    "event_hash": "f7279b4572329a57e091cd24c2933250d88b991dbe157eef008432ed47a2692f"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df5a15707e87f1b14cafbfdb8740d584fe1cab20b5956abd5faa85617c333875",
+    "event_hash": "f6aa59e0d3659e401c2b57f548f4da3969378b1b44de8ed913336a2effca3129"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df621a5c194591cac2817ea8b6daec60d7f600476e63cb91c9ccc8b3fbdf94c1",
+    "event_hash": "8288381be3976b96779ff0b23da8d839ae9f643907390dec06e2a18506ff82e7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:df703d1ccf734a047279e292cc4ae14d36b424497613d01f035c661c8c92935f",
+    "event_hash": "07a876cbca4955cb986b2da708f90e98a9a0982f642013eb45b1fe97b51992ee"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e04f36ac4cdf130c350eb66dd4f03213d3c26887dbe2eca4520223c4e807345c",
+    "event_hash": "47079c8b01c0f9cdec26bfa588d1a977180ea8be9fa050c8d5481a95022ee2f0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e0f88bfe4067bb19e4ea33bc57ad284a8907aac6d00fd3040edf569b0f575cee",
+    "event_hash": "a4ba987dc6b07cfeceacc5fc2c0daf3a02b011077ef39e13f953cd97b26d7af9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e23ddf361ee773cfceffa9fe1a70c0f6f8b1f2f97f9f4f148aef5fe10adb0cd8",
+    "event_hash": "8e47e95a0837e8cbfa795b696206325630dce60193064293a2c52f776042ed73"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e28412052356d59f9cba4b9bdff74a148b83f34a01955f14c91d2e561d63c324",
+    "event_hash": "a887824884baa9393e53f1924eaf359385e5d6fccc3f0258ea8fb536d81d62b9"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e336a4b430af79802a0a9facf1adfba16eff3343b4c80ba6d805980999d984f8",
+    "event_hash": "a7e8c78338ec5f193443e9c064b594552848b2718d01dd1b326591a1054fe955"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e3fb20c7bdf08adf54c4e70deb113b84f7bf0d6515b93608cc6e434d2feae881",
+    "event_hash": "9ef47cf6e35aac32d25e7a7e5cffdfe5ba59b7f3c711734746c71f9d83573ab6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e4f4cc8b55b2da781b065843e89153c3b5c09c8e4ce101406a17e05a5ae385bc",
+    "event_hash": "ee0fe6267e7c4ac5cb112c58a18de9bc28c43a5a253e4dcb33bb9f72adc5f575"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e5510369fc1cb699921e8995db02922e30bbe6559d0b19d68094b9d4b773fb67",
+    "event_hash": "8a6724b85a0aff7e94b63b8244ca1af0f144562def6257b390d6da69db5674cd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e58d2e45dbaf56c8d87c39c431cf7269c82fa6223962a6b84cccf6f43552d134",
+    "event_hash": "0a2a8487842a3d41144a44401ec77b6e8ef3454fdb509c6b85c80347568744e3"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e70dcebe6389db7a8baf67b4c120ab564736b69a9de784d1d53d88af73e3ff64",
+    "event_hash": "e2c61cba7e5ac981d14750a534da69a25206c2fffd66ae920e1da020d31ea23a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e7710e1225fe35246f80240bff3bb5196ba0a9a6830acf9357eb8d22eba03c3d",
+    "event_hash": "406616f7ce0cae83547dd1de18b6361ba9d42536eae2ef6d500b8f31435d9ba7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e88755287194e070425b69db8637df3a1a983d0b6b3733e9bb62c8840c187b44",
+    "event_hash": "9c2da2f120ec257f7f20e8f4f00c073a53e2d82d00d4ad7693c058cf1e3d72af"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e8f21a5f8ab644627f9767a323c3908a828599f26792900454feb2641022088b",
+    "event_hash": "80c739934e478f2e67eeb2875d95f24774c39def1680a382de7a46218d79ac1c"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:e9dd1a05920fd4f43629ebb727a97585eccd266fcf94edd2336b3e979def7e81",
+    "event_hash": "f87c8ffc6b61084897c7a0e07d5ce4adbac26b4724d63df79c4e765a7910d73e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ebc02a5876a48f1c2fac36e830fc946e8baf94d6a46a3ec0d0e1ce1ad75c6722",
+    "event_hash": "588818e11445b2b927e1233167fa123e0584f00aec4f002399719c032144ef70"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ed074e5966d72b9b617bb3398f073fab17380b96539e64137e4eb697149b6bfc",
+    "event_hash": "a76e45eed95e6d0fcad7f3df0cdde6471aea396d717db797b312df26b4de7b39"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:edd888d116a642b555f63d5610f88a037286044db8adf59a2c8a25a81f5fd57e",
+    "event_hash": "1762eed007074223ece9e1166858175b4f1373b4494c9d2f0593e243c9400e5e"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f0ffec9e3669c5aa9f63ad39d4842ff172f3dc85aba379dc0267215742d11229",
+    "event_hash": "036fbaa81971bbb7778b9a0e2db4c44ebdd8e98f53f0abf8f65731cde4f8db84"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f285479128334f02467b237fe370e613f54e71136108ed0b2a0ca71c2af6c388",
+    "event_hash": "e21d16b9a2c14a4632cde06d2fdf4c87d3f00ffdb0d047232aab06ee46ffc079"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f2aa81f183db8c7d59e37d183871a1498ab3538830449640b259eee4ca4b2049",
+    "event_hash": "89dc0f1a1b8e22f4682d50046f74ff82cfa3cb4b9e9d02300f26839c2b8285a0"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f2eb9ae18795eb6d88d0efe136e265a289d47cd02dc2cb3fd8b7fdf3f42d2c59",
+    "event_hash": "a3b2904abfd4cdfe27741a4de183ef2ede8dc38c7550ba58b92de723c949a495"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f30d759b2286f1c2472b0fe4449ce5e061d2521e993544cd323820911f3db841",
+    "event_hash": "2070e4d0954bd1676d2ab3cf458c9227d24dbd863cf0fe69498f0d7ea38d08b6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f338dcfbf9e8ee24cc3f6ce110babedeb9366b0c7edac39514e794addaa47976",
+    "event_hash": "f2924e1e4507ff70336c7630bfffe73f68fa2c0dd36718485c506efd51b707cd"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f3b5c20190ba1844a7fb322d7bca08193deeeb97f06ec84a214f1fb1d81a4abb",
+    "event_hash": "5f56ac45bf4c15254dfe33e7c6a9459f707a52d9e9d052ce98e13410a6a0e2f7"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f489e22d1dd5b87d131b3597d65eb80aafe0b6b17c8e220b6bfa0ca513325533",
+    "event_hash": "2ea530044ee7b5e02b0a48f72bce885528e7d0edc4000b29c301e8e0bdc2d5ca"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f4ab8916abba0c8e63cc27adfb2e9ae87b5b435ad245a17e39ddd8d8c7526108",
+    "event_hash": "fb4cf3c64e1a294fc34493fa409c4dd1fb15dc6b7c931cc6e06378a393281afa"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f82066969e6f191df6723bc86c83ee6e7a1b867546c70ca1a6fef70f3722c265",
+    "event_hash": "d88b2400983e487baca995ae112fd2a37fdbd80d89a1ee7d5d115657697b3bb6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f8ac6d6867d66e460ff045db646bff77086213c05f1d9a72f5994ec327608008",
+    "event_hash": "f57563490dc0235864f059dc232d4050a6deef380d3101d3a8ec24542fa528a8"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:f92359cc262e6eb88eccd38b8fa55d708fbbb8f365b8ddfd08ab0befa42c4a95",
+    "event_hash": "769091c366f8c3a37a1245fe993e00ac71a9e676f570320b8294491f19524b8b"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fbc3650ea5803d52491daadd6a9a38510a3c0aa374cb121d43adfeac2a35e6e5",
+    "event_hash": "345d4973f24250701987ec57af5a172cdba224473646acaf9331af10f51ee485"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fe018c76d28a9b84021cbdd3cb8c633a50092daf1ee58a36f326b8a8750f0bb3",
+    "event_hash": "4ef8a095c3851e77306f4497c9170cedaf1ddbd3957d43952b2f21f4b404b7a6"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:fea2ccbff1aa165443f788c1a115068c72fd20e600a620a11ac97fd6a768aafb",
+    "event_hash": "994ca94e724c5a405e7664062e3f5286c6b28a3b7c655156ad344d4597265d3a"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:feafd6b4e013b4807d47713583fed7fdbe4ad3ec12d8751d98f91b2557b604fd",
+    "event_hash": "f6feb4956c2da16a6fe15c7a25c66ba7da3e143cf429cb1556be42c9a8596220"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:ff3122ace1732378e41d34435289879d1b037ace45d3f36495d6c83e0b18a6fd",
+    "event_hash": "c9de4310284732bc574a2668048e4c334721f073e8ae834ed2a2e7fe2a9b2202"
+   }
+  ],
+  "anchor_carry_rows_sha256": "38f00ec36d39e03ae75f5682637b3fc658a8604fdf334757a8c938bc69cbfa05",
+  "anchor_carry_store_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl",
+  "anchor_carry_v1_protocol_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "anchor_carry_v1_protocol_tracked_path": "rejudge/phase3_protocol.json",
+  "canary_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+  "canary_transcript_bundle_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
+  "checker_frozen_config_sha256": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
+  "checker_model": "google/gemma-4-31B-it",
+  "checker_system_prompt_sha256": "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428",
+  "context_blocklist_canary_report_sha256": "f4a9ba1c456cdf191c88188e29cdea5e0a9534c98b0abbfdd52db41e6bf1faf7",
+  "context_blocklist_canary_report_tracked_path": "rejudge/phase3_context_blocklist_canary_v2_2026-08-21.json",
+  "context_blocklist_main_report_sha256": "4e37e9370a500ef7b99dc6ab31341afe58f4bc0d518bb06fc9a6c13c90bf2cb3",
+  "context_blocklist_main_report_tracked_path": "rejudge/phase3_context_blocklist_main_v2_2026-08-21.json",
+  "crank_settings": {
+   "max_waves_per_round": 4,
+   "review_daemon_concurrency": 12
+  },
+  "estimator_validation_report_sha256": "e68b621731a58d0f7dbb0572461936b0423416e7d0189012ddf007907e8924f0",
+  "estimator_validation_report_tracked_path": "rejudge/phase3_estimator_validation_2026-08-19.json",
+  "main_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+  "main_transcript_bundle_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+  "phase2_protocol_sha256": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
+  "prompt_bundle_approval_sha256": "c719371e666c23197c89bde25ed1f9ea7225e5a68a2c0b0cca62fca4dae1a960",
+  "prompt_bundle_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "protocol_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+  "provider_snapshot_sha256": "58022b53e294df1dcedb3ba700142e5d94c72ef57438e6a5265db6b1bd3849a9",
+  "provider_snapshot_tracked_path": "rejudge/phase3_provider_snapshot_2026-08-18.json",
+  "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8",
+  "reviewer_prompt_sha256": "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4",
+  "role_limits_sha256": "dd71bdc029a2eaba748b40456348e578449137f35b8bfbcd4b58d52fca6e4562",
+  "role_limits_tracked_path": "rejudge/phase3_role_limits_v1_2026-08-18.json",
+  "transcript_verification_report_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
+  "transcript_verification_report_tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json"
+ },
+ "ledger": {
+  "archive_dir": "E:/selvarath-archive/phase3-v2-2026-08-21",
+  "call_cache_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_call_cache.jsonl",
+  "canary_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_canary_results.jsonl",
+  "decisions_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_reviewer_decisions.jsonl",
+  "main_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_main_results.jsonl",
+  "usage_log_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_usage.jsonl"
+ },
+ "planning": {
+  "canary": {
+   "all_cells": 1488,
+   "by_kind": {
+    "phase3_canary_debate_judgment": 1152,
+    "phase3_canary_transcript_reference": 48,
+    "phase3_capability_qa": 288
+   },
+   "cells_sha256": "e35c4691c4453dc0677bc465d664159db78fb82dfa168cb1b430aeb496a00b9f",
+   "slot_count": 1440,
+   "transcript_cells": 48
+  },
+  "main": {
+   "all_cells": 30012,
+   "by_kind": {
+    "phase3_debate_judgment": 29520,
+    "phase3_transcript_reference": 492
+   },
+   "cells_sha256": "a11663a8d1846f30a0750214a14ecd932b075d93a82bb9a2315638a307cb22dd",
+   "slot_count": 29520,
+   "transcript_cells": 492
+  },
+  "question_counts": {
+   "held_out": 24,
+   "main": 82
+  }
+ },
+ "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
+ "recorded_at_utc": "2026-08-21T12:30:00Z",
+ "resume_granularity": "cell",
+ "roster": {
+  "amendments": [],
+  "debaters": [
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "Qwen/Qwen3.7-Plus"
+  ],
+  "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload",
+  "judges": [
+   "Qwen/Qwen2.5-7B-Instruct-Turbo",
+   "google/gemma-4-31B-it",
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "openai/gpt-oss-120b",
+   "google/gemma-3n-E4B-it",
+   "Qwen/Qwen3.7-Max"
+  ],
+  "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)"
+ },
+ "schema_version": "phase3_execution_manifest_v1",
+ "stage": "phase3",
+ "transcript_generation_forbidden": true
+}

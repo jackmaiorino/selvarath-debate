@@ -43,11 +43,33 @@ from typing import Any, Mapping, Sequence
 
 from rejudge import phase3_plan
 from rejudge.phase2_canary_live import local_path
+from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.phase2_role_limits import HTTP_TIMEOUT_KEYS, TRANSPORT_KEYS_V5
 
 SCHEMA_VERSION = "phase3_execution_manifest_v1"
 STAGE = "phase3"
+
+# Selects which protocol pin a manifest binds, by the LOADED protocol's own schema_version --
+# never "try v1, fall back to v2". phase3_plan.load_protocol already enforces the matching pin
+# internally (via validate_protocol's dispatch); this restates the check at the manifest layer
+# so a caller of THIS module never needs to know phase3_plan raises its own exception type for
+# the same drift, matching the existing restated-check convention in build_manifest below.
+PROTOCOL_SCHEMA_PINS: dict[str, str] = {
+    "phase3_plan_v1": phase3_plan.FROZEN_PROTOCOL_CANONICAL_SHA256,
+    "phase3_plan_v2": phase3_plan.FROZEN_PROTOCOL_V2_CANONICAL_SHA256,
+}
+
+# The v2 anchor carry (decisions.launch_gates.canary_scope): the 288 capability-anchor cells
+# carry from the v1 identity by exact cell-key set and store/hash binding rather than being
+# re-scored under v2.
+ANCHOR_CARRY_EXPECTED_COUNT = 288
+
+# decisions.launch_gates.pace_measurement_window.crank_settings_freeze: daemon concurrency and
+# waves-per-round are recorded in the manifest before the pace-measurement window opens and are
+# not tuned inside one. Frozen at these exact values (owner-selected, v2 materialization).
+CRANK_SETTINGS_KEYS = frozenset({"review_daemon_concurrency", "max_waves_per_round"})
+FROZEN_CRANK_SETTINGS = {"review_daemon_concurrency": 12, "max_waves_per_round": 4}
 
 # Frozen pins for the phase-2 artifacts phase 3 REUSES byte-identically. Unlike the role-limits
 # and provider-snapshot artifacts below (both still "draft_pending_manifest_binding" at the
@@ -124,6 +146,15 @@ PHASE3_CODE_PROVENANCE_FILES: tuple[str, ...] = (
     # rejudge/phase3_codex_context_guard_consult_2026-08-19.md, "4."
     "scripts/phase3_context_precheck.py",
     "scripts/phase3_canary_orchestrator.sh",
+    # v2 (2026-08-21): decisions.launch_gates's zero-tolerance structural-mirroring gates
+    # execute this verifier as part of launch-gate evaluation, so it decides which cells are
+    # judged to have passed exactly as the precheck/orchestrator scripts above already do.
+    "scripts/phase3_polarity_verify.py",
+    # v2 (2026-08-21): the orchestrator's convergence arithmetic and post-convergence
+    # polarity-gate pass/fail decision live here (extracted out of inline bash one-liners) --
+    # same rationale as the precheck/orchestrator/polarity-verify entries above: this decides
+    # which cells count as done and whether the run is allowed to report success.
+    "rejudge/phase3_orchestrator_support.py",
 )
 
 MANIFEST_TOP_LEVEL_KEYS = frozenset({
@@ -245,7 +276,14 @@ def _validate_roster_against_protocol(protocol: Mapping[str, Any],
     continuing = set(roster["judges_continuing"])
     new_candidates = {str(candidate["candidate_model_id"]) for candidate in roster["judges_new"]}
     allowed = continuing | new_candidates
-    amendment_bindings = _apply_roster_amendments(root, allowed)
+    if protocol.get("schema_version") == "phase3_plan_v2":
+        # v2's roster.judges_new is already the final 2 candidates -- the v1 amendment records
+        # name a candidate (meta-llama/Meta-Llama-3-8B-Instruct-Lite) v2 never lists at all, so
+        # applying them here would be a category error against a document they were never
+        # written for, not a harmless no-op worth keeping.
+        amendment_bindings: list[dict[str, Any]] = []
+    else:
+        amendment_bindings = _apply_roster_amendments(root, allowed)
     unknown = sorted(model for model in roster_judges if model not in allowed)
     if unknown:
         raise ManifestValidationError(
@@ -301,12 +339,104 @@ def _resolve_transcript_bundle_path(
     return Path(transcript_bundle_dir) / relative_path.name
 
 
+def _anchor_carry_binding(root: Path, *, roster_judges: Sequence[str],
+                          v1_protocol_path: str | Path, v1_store_path: str | Path) -> dict[str, Any]:
+    """Bind the 288 v1-identity capability-anchor rows v2 CARRIES forward, never re-scores.
+
+    ``decisions.launch_gates.canary_scope``: "the 288 capability-anchor cells CARRY from the v1
+    identity by exact cell-key set and store/hash binding ... their scores are frozen
+    pre-outcome". This re-derives that carried set from the real, READ-ONLY v1 archive rather
+    than trusting a caller-supplied list: the immutable v1 protocol is loaded and hash-verified
+    (:func:`rejudge.phase3_plan.load_protocol` fails closed on any v1 drift), its canary plan is
+    re-enumerated for THIS manifest's own roster (the final roster is unchanged from v1 to v2,
+    per the ratification), and the resulting 288 capability-anchor cell keys are looked up in the
+    v1 result store -- itself re-verified as a genuine, untampered hash chain by
+    :class:`rejudge.phase2_canary_order.CellResultStore`'s own constructor before a single event
+    hash is trusted out of it. Nothing here writes to the v1 store: it is opened read-only in
+    every sense that matters (its parent directory already exists, and ``.record()`` is never
+    called), matching the "v1 archive is READ-ONLY" constraint this binding exists to respect.
+    """
+    v1_protocol_path = Path(v1_protocol_path)
+    v1_protocol = phase3_plan.load_protocol(root / v1_protocol_path)
+    v1_protocol_sha = canonical_sha256(v1_protocol)
+
+    _main_ids, held_out_ids = phase3_plan.load_reference_question_ids(v1_protocol, root)
+    v1_canary_cells = phase3_plan.enumerate_canary_cells(
+        v1_protocol, list(roster_judges), held_out_ids)
+    anchor_cell_keys = sorted(
+        str(cell["cell_key"]) for cell in v1_canary_cells
+        if cell["kind"] == phase3_plan.CAPABILITY_ANCHOR_KIND)
+    if len(anchor_cell_keys) != ANCHOR_CARRY_EXPECTED_COUNT:
+        raise ManifestValidationError(
+            f"the v1 plan enumerates {len(anchor_cell_keys)} capability-anchor cell(s) for this "
+            f"roster, expected exactly {ANCHOR_CARRY_EXPECTED_COUNT}; the anchor carry cannot "
+            "be bound")
+
+    store_path = local_path(str(v1_store_path))
+    if not store_path.exists():
+        raise ManifestValidationError(f"v1 anchor-carry source store not found: {store_path}")
+    # Re-verifies the ENTIRE hash chain (row hashes, sequence linkage) before this trusts a
+    # single event_hash out of the file -- reused from rejudge.phase2_canary_order, never
+    # reimplemented. Raises ValueError (propagated, never swallowed) on any tamper.
+    CellResultStore(store_path)
+
+    event_hashes: dict[str, str] = {}
+    with store_path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            event_hashes[str(row["cell_key"])] = str(row["event_hash"])
+
+    missing = [key for key in anchor_cell_keys if key not in event_hashes]
+    if missing:
+        raise ManifestValidationError(
+            f"{len(missing)} v1 anchor cell(s) are not present in {store_path}, e.g. "
+            f"{missing[:5]!r}; the anchor carry cannot be bound")
+
+    carried_rows = [{"cell_key": key, "event_hash": event_hashes[key]} for key in anchor_cell_keys]
+    return {
+        "v1_protocol_tracked_path": _rel(v1_protocol_path),
+        "v1_protocol_sha256": v1_protocol_sha,
+        "store_path": str(v1_store_path).replace("\\", "/"),
+        "cell_count": len(carried_rows),
+        "cell_keys": anchor_cell_keys,
+        "rows": carried_rows,
+        "rows_sha256": canonical_sha256(carried_rows),
+    }
+
+
+def _crank_settings_binding(crank_settings: Mapping[str, Any]) -> dict[str, int]:
+    """Validate and normalize the frozen review-daemon crank settings.
+
+    ``decisions.launch_gates.pace_measurement_window.crank_settings_freeze``: "daemon
+    concurrency and waves-per-round are recorded in the manifest before the window opens and
+    are not tuned inside a window". Pinned at exactly 12/4 (owner-selected at v2
+    materialization) -- not merely shape-checked -- so a manifest can never bind a crank
+    configuration that was quietly changed after the fact.
+    """
+    if set(crank_settings) != CRANK_SETTINGS_KEYS:
+        raise ManifestValidationError(
+            f"crank_settings must carry exactly {sorted(CRANK_SETTINGS_KEYS)!r}")
+    normalized = {key: crank_settings[key] for key in CRANK_SETTINGS_KEYS}
+    if normalized != FROZEN_CRANK_SETTINGS:
+        raise ManifestValidationError(
+            f"crank_settings must be frozen at exactly {FROZEN_CRANK_SETTINGS!r} per "
+            "decisions.launch_gates.pace_measurement_window.crank_settings_freeze; observed "
+            f"{normalized!r}")
+    return {key: int(value) for key, value in normalized.items()}
+
+
 def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
                    roster_judges: Sequence[str], *,
                    transcript_bundle_dir: str | Path | None,
                    estimator_validation_path: str | Path,
                    context_blocklist_canary_path: str | Path,
-                   context_blocklist_main_path: str | Path) -> dict[str, Any]:
+                   context_blocklist_main_path: str | Path,
+                   anchor_carry_v1_protocol_path: str | Path | None = None,
+                   anchor_carry_store_path: str | Path | None = None,
+                   crank_settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
     phase2_protocol = _load_phase2_protocol_verified(root, protocol)
 
     observed_bank_sha = _question_bank_bundle_sha256(root, phase2_protocol)
@@ -394,7 +524,30 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
     context_blocklist_main_relative = _rel(Path(context_blocklist_main_path))
     context_blocklist_main = _json(root / context_blocklist_main_path)
 
-    return {
+    is_v2 = protocol.get("schema_version") == "phase3_plan_v2"
+    if is_v2:
+        if anchor_carry_v1_protocol_path is None or anchor_carry_store_path is None:
+            raise ManifestValidationError(
+                "a v2 manifest requires anchor_carry_v1_protocol_path and "
+                "anchor_carry_store_path (decisions.launch_gates.canary_scope's anchor carry)")
+        if crank_settings is None:
+            raise ManifestValidationError(
+                "a v2 manifest requires crank_settings (decisions.launch_gates."
+                "pace_measurement_window.crank_settings_freeze)")
+        anchor_carry = _anchor_carry_binding(
+            root, roster_judges=roster_judges, v1_protocol_path=anchor_carry_v1_protocol_path,
+            v1_store_path=anchor_carry_store_path)
+        crank = _crank_settings_binding(crank_settings)
+    else:
+        if (anchor_carry_v1_protocol_path is not None or anchor_carry_store_path is not None
+                or crank_settings is not None):
+            raise ManifestValidationError(
+                "anchor_carry_v1_protocol_path/anchor_carry_store_path/crank_settings are "
+                "v2-only bindings; a v1-protocol manifest must not supply them")
+        anchor_carry = None
+        crank = None
+
+    frozen_inputs: dict[str, Any] = {
         "protocol_sha256": canonical_sha256(protocol),
         "phase2_protocol_sha256": canonical_sha256(phase2_protocol),
         "question_bank_bundle_sha256": observed_bank_sha,
@@ -422,6 +575,17 @@ def _frozen_inputs(root: Path, protocol: Mapping[str, Any],
         "context_blocklist_main_report_sha256": canonical_sha256(context_blocklist_main),
         "context_blocklist_main_report_tracked_path": context_blocklist_main_relative,
     }
+    if is_v2:
+        frozen_inputs["anchor_carry_v1_protocol_tracked_path"] = anchor_carry[
+            "v1_protocol_tracked_path"]
+        frozen_inputs["anchor_carry_v1_protocol_sha256"] = anchor_carry["v1_protocol_sha256"]
+        frozen_inputs["anchor_carry_store_path"] = anchor_carry["store_path"]
+        frozen_inputs["anchor_carry_cell_count"] = anchor_carry["cell_count"]
+        frozen_inputs["anchor_carry_cell_keys"] = anchor_carry["cell_keys"]
+        frozen_inputs["anchor_carry_rows"] = anchor_carry["rows"]
+        frozen_inputs["anchor_carry_rows_sha256"] = anchor_carry["rows_sha256"]
+        frozen_inputs["crank_settings"] = crank
+    return frozen_inputs
 
 
 def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
@@ -430,7 +594,10 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
                    estimator_validation_path: str | Path,
                    context_blocklist_canary_path: str | Path,
                    context_blocklist_main_path: str | Path,
-                   transcript_bundle_dir: str | Path | None = None) -> dict[str, Any]:
+                   transcript_bundle_dir: str | Path | None = None,
+                   anchor_carry_v1_protocol_path: str | Path | None = None,
+                   anchor_carry_store_path: str | Path | None = None,
+                   crank_settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Assemble the phase-3 manifest.
 
     ``protocol_path`` is INJECTED: every read of the frozen protocol inside this function (and
@@ -470,16 +637,27 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
     :func:`rejudge.phase3_runner.run_phase3_canary` verifies a runtime ``--context-blocklist``
     against ``frozen_inputs.context_blocklist_canary_report_sha256`` and refuses on any mismatch
     or on a blocklist supplied against a manifest with no such binding.
+
+    ``anchor_carry_v1_protocol_path``/``anchor_carry_store_path``/``crank_settings`` are the v2
+    bindings: REQUIRED when ``protocol_path`` loads a ``phase3_plan_v2`` document (the anchor
+    carry and the frozen crank settings decisions.launch_gates requires), and FORBIDDEN when it
+    loads a ``phase3_plan_v1`` document (they are v2-only concepts; supplying them against v1
+    is refused rather than silently ignored). See :func:`_anchor_carry_binding` and
+    :func:`_crank_settings_binding`.
     """
     root = Path(project_root)
     protocol = phase3_plan.load_protocol(protocol_path)
+    schema_version = protocol.get("schema_version")
+    expected_pin = PROTOCOL_SCHEMA_PINS.get(schema_version)
+    if expected_pin is None:
+        raise ManifestValidationError(f"unsupported protocol schema_version {schema_version!r}")
     observed_protocol_sha = canonical_sha256(protocol)
-    if observed_protocol_sha != phase3_plan.FROZEN_PROTOCOL_CANONICAL_SHA256:
+    if observed_protocol_sha != expected_pin:
         # phase3_plan.load_protocol already enforces this; restated so a caller of THIS module
         # never needs to know phase3_plan raises a different exception type to catch the case.
         raise ManifestValidationError(
             "loaded protocol does not match phase3_plan's frozen pin: observed "
-            f"{observed_protocol_sha}, expected {phase3_plan.FROZEN_PROTOCOL_CANONICAL_SHA256}")
+            f"{observed_protocol_sha}, expected {expected_pin}")
 
     roster_judges = list(roster_judges)
     amendment_bindings = _validate_roster_against_protocol(protocol, roster_judges, root)
@@ -492,7 +670,10 @@ def build_manifest(protocol_path: str | Path, *, project_root: str | Path = ".",
                             transcript_bundle_dir=transcript_bundle_dir,
                             estimator_validation_path=estimator_validation_path,
                             context_blocklist_canary_path=context_blocklist_canary_path,
-                            context_blocklist_main_path=context_blocklist_main_path)
+                            context_blocklist_main_path=context_blocklist_main_path,
+                            anchor_carry_v1_protocol_path=anchor_carry_v1_protocol_path,
+                            anchor_carry_store_path=anchor_carry_store_path,
+                            crank_settings=crank_settings)
 
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -549,7 +730,10 @@ def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
                       transcript_bundle_dir: str | Path | None = None,
                       estimator_validation_path: str | Path | None = None,
                       context_blocklist_canary_path: str | Path | None = None,
-                      context_blocklist_main_path: str | Path | None = None) -> dict[str, Any]:
+                      context_blocklist_main_path: str | Path | None = None,
+                      anchor_carry_v1_protocol_path: str | Path | None = None,
+                      anchor_carry_store_path: str | Path | None = None,
+                      crank_settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Re-derive every binding from the real artifacts and refuse on any mismatch.
 
     ``transcript_bundle_dir`` must name the same directory (or ``None``) the manifest was
@@ -598,6 +782,20 @@ def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
             raise ManifestValidationError(
                 "no context_blocklist_main_path was supplied and the manifest carries no "
                 "frozen_inputs.context_blocklist_main_report_tracked_path to recover it from")
+    # v2-only bindings (anchor carry, crank settings): recovered from the manifest's own
+    # frozen_inputs the same way estimator_validation_path/context_blocklist_*_path are above,
+    # but ONLY when the manifest actually carries them -- a v1-protocol manifest has no such
+    # frozen_inputs entries at all, and must stay that way (build_manifest refuses if a v1
+    # protocol is asked to bind v2-only kwargs), so this recovery is conditional, not required.
+    frozen_inputs_raw = manifest.get("frozen_inputs")
+    if isinstance(frozen_inputs_raw, Mapping) and "anchor_carry_store_path" in frozen_inputs_raw:
+        if anchor_carry_v1_protocol_path is None:
+            anchor_carry_v1_protocol_path = frozen_inputs_raw.get(
+                "anchor_carry_v1_protocol_tracked_path")
+        if anchor_carry_store_path is None:
+            anchor_carry_store_path = frozen_inputs_raw.get("anchor_carry_store_path")
+        if crank_settings is None:
+            crank_settings = frozen_inputs_raw.get("crank_settings")
     keys = set(manifest)
     if keys != MANIFEST_TOP_LEVEL_KEYS:
         raise ManifestValidationError(
@@ -624,7 +822,9 @@ def validate_manifest(manifest: Mapping[str, Any], *, protocol_path: str | Path,
         transcript_bundle_dir=transcript_bundle_dir,
         estimator_validation_path=estimator_validation_path,
         context_blocklist_canary_path=context_blocklist_canary_path,
-        context_blocklist_main_path=context_blocklist_main_path)
+        context_blocklist_main_path=context_blocklist_main_path,
+        anchor_carry_v1_protocol_path=anchor_carry_v1_protocol_path,
+        anchor_carry_store_path=anchor_carry_store_path, crank_settings=crank_settings)
     for section in ("protocol_tracked_path", "planning", "frozen_inputs", "roster", "caps",
                     "ledger", "code_provenance", "resume_granularity",
                     "transcript_generation_forbidden"):

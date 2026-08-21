@@ -1,0 +1,20 @@
+{
+ "ceilings_used": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": 32768,
+  "Qwen/Qwen3.7-Max": 1000000,
+  "google/gemma-3n-E4B-it": 32768,
+  "google/gemma-4-31B-it": 262144,
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": 131072,
+  "openai/gpt-oss-120b": 128000
+ },
+ "cell_key_namespace": "phase3-budget-knob-2026-08-21-v2.qb-d9e52c3339ab",
+ "counts_by_judge_and_condition": [],
+ "estimator_provenance": {
+  "function": "estimate_context_tokens",
+  "module": "rejudge.api_client"
+ },
+ "excluded": [],
+ "excluded_count": 0,
+ "generated_at": "2026-08-21T00:00:00Z",
+ "scope": "canary"
+}

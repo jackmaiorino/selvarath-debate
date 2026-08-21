@@ -47,8 +47,21 @@ def test_validate_protocol_accepts_the_frozen_protocol(protocol):
 
 def test_validate_protocol_rejects_wrong_schema_version(protocol):
     mutated = deepcopy(protocol)
-    mutated["schema_version"] = "phase3_plan_v2"
+    mutated["schema_version"] = "phase3_plan_v3_does_not_exist"
     with pytest.raises(phase3_plan.ProtocolValidationError, match="unsupported schema_version"):
+        phase3_plan.validate_protocol(mutated)
+
+
+def test_validate_protocol_dispatches_a_v1_body_tagged_v2_into_v2_checks(protocol):
+    # schema_version alone selects the check-set (never "try v1, fall back to v2"): a v1-shaped
+    # body relabelled as v2 must be evaluated under v2's OWN structural rules (e.g. exactly 2
+    # roster.judges_new candidates, a supersedes block, decisions.context_guard) -- not silently
+    # accepted, and not rejected with the generic "unsupported schema_version" message either,
+    # since phase3_plan_v2 is itself a supported schema.
+    mutated = deepcopy(protocol)
+    mutated["schema_version"] = "phase3_plan_v2"
+    with pytest.raises(phase3_plan.ProtocolValidationError,
+                       match="ratified_design_pending_materialization"):
         phase3_plan.validate_protocol(mutated)
 
 

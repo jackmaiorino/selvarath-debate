@@ -40,10 +40,17 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from rejudge import phase3_plan
-from rejudge.debate_gen import _load_question_bank
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# Invoked directly (python scripts/phase3_polarity_verify.py ...), not via `python -m`, so
+# sys.path[0] defaults to this file's own directory (scripts/), not the repo root -- the rejudge
+# package is not importable without this, matching the same fix every sibling phase-3 script
+# (phase3_preseed_transcripts.py, phase3_context_precheck.py) already applies before its own
+# `from rejudge import ...` line.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from rejudge import phase3_plan  # noqa: E402
+from rejudge.debate_gen import _load_question_bank  # noqa: E402
 
 # Same extraction pattern as scripts/phase2_mirror_reanalysis.py's _extract_positions, applied
 # to phase 3's reused "sequential_judge_presentation" template
