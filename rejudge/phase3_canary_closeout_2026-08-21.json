@@ -1,0 +1,1671 @@
+{
+ "calibration_gates": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "invalid_count": 0,
+   "invalid_gate_pass": true,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.0,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": false,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 41.60839160839161
+  },
+  "Qwen/Qwen3.7-Max": {
+   "invalid_count": 0,
+   "invalid_gate_pass": true,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.0,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": true,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 1.223776223776224
+  },
+  "_note": "The protocol's side_bias_gate assumes an exact 48 A-correct / 48 B-correct split ('K2 mirrored'). The executed pipeline's position assignment (rejudge.config.position_for -> position_a_is_correct) is a deterministic function of question_id alone for the 'clean' arm (randomize_ab_per_budget=False), independent of the K2 side/replicate axis -- so both replicates of a given (question, debater) share the same position label. Across this canary's 24 held-out questions that deterministic split realizes as 13 A-correct / 11 B-correct questions (52/44 of the 96 core-b0 rows per judge, not 48/48). The gate is computed on the REALIZED split exactly as the protocol words it (n_a_correct/n_b_correct are reported per judge for audit); this is a design-vs-implementation gap worth the owner's attention, not a bug in this script.",
+  "google/gemma-3n-E4B-it": {
+   "invalid_count": 0,
+   "invalid_gate_pass": true,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.0,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": false,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 25.52447552447552
+  },
+  "google/gemma-4-31B-it": {
+   "invalid_count": 2,
+   "invalid_gate_pass": false,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.020833333333333332,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": true,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 6.993006993006993
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "invalid_count": 0,
+   "invalid_gate_pass": true,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.0,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": false,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 10.83916083916084
+  },
+  "openai/gpt-oss-120b": {
+   "invalid_count": 6,
+   "invalid_gate_pass": false,
+   "invalid_gate_threshold": 0.02,
+   "invalid_rate": 0.0625,
+   "n_a_correct": 52,
+   "n_b_correct": 44,
+   "n_core_b0": 96,
+   "side_bias_gate_pass": true,
+   "side_bias_gate_threshold_pp": 10.0,
+   "side_bias_pp": 1.0489510489510496
+  }
+ },
+ "capability_anchors": {
+  "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.9375,
+   "strict_score": 45,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 0.9375,
+   "tolerant_score": 45,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": false
+  },
+  "Qwen/Qwen3.7-Max": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.9791666666666666,
+   "strict_score": 47,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 0.9791666666666666,
+   "tolerant_score": 47,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": false
+  },
+  "_integrity_check": {
+   "note": "Every raw_verdict_text was re-parsed from scratch with the frozen parser rule and cross-checked against the archive's own is_correct_tolerant/is_correct_strict fields; 0 mismatches confirms this script's parser matches the executed pipeline.",
+   "reparsed_vs_stored_mismatches": 0
+  },
+  "google/gemma-3n-E4B-it": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.9375,
+   "strict_score": 45,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 0.9375,
+   "tolerant_score": 45,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": false
+  },
+  "google/gemma-4-31B-it": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.9791666666666666,
+   "strict_score": 47,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 0.9791666666666666,
+   "tolerant_score": 47,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": false
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.7291666666666666,
+   "strict_score": 35,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 1.0,
+   "tolerant_score": 48,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": true
+  },
+  "openai/gpt-oss-120b": {
+   "n_anchor_cells": 48,
+   "strict_fraction": 0.9166666666666666,
+   "strict_score": 44,
+   "strict_score_denominator": 48,
+   "tolerant_fraction": 0.9166666666666666,
+   "tolerant_score": 44,
+   "tolerant_score_denominator": 48,
+   "zero_spread_strict": false,
+   "zero_spread_tolerant": false
+  }
+ },
+ "completion": {
+  "note": "The orchestrator's own convergence log (orchestrator.log) independently confirms 1449/1488 (39 remaining) at the final halt, matching this derivation. All 39 pending cells are sequential_b8 judgment cells; none are core-b0 (the calibration gates) or capability-anchor cells, both of which are 100% complete.",
+  "pending_by_condition": {
+   "sequential_b8": 39
+  },
+  "pending_by_judge": {
+   "Qwen/Qwen2.5-7B-Instruct-Turbo": 23,
+   "google/gemma-3n-E4B-it": 4,
+   "openai/gpt-oss-120b": 12
+  },
+  "pending_judgment_or_capability_cells": [
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1284c312f7db44b2e68f4a7d34bec603ac4958a803e03df78d5232eaa8909211",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:12a5bf00cd69b2d88437b5888b22738bf44fa046c6c422562c0a34494dd283c0",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:17c23b188a2da7960530fcf4eb9a375f21435d913df36bc2032ede214d4c6c4d",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:1ebd2f9f5971d46ad8683ef663dfb522a3451adcd50b487db075858d8705c2ff",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:2aa60f99d6f706ebd61ad2368a6be9b1543cbc1d55dc1f761e487ca179660e7c",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:34782801ecec505333de79bde07f53e9f1b5431b132fc13fea4bb284577176c4",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-021",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:374cb0b96bdb1b4d5a62cf7dab5d398b53c615caa425f74189fef87edf141154",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:3ca253f64ef4c4e6f2ea0eab25a33c0024b14a93aa65cb7d5bd12d98da55178c",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:4228999e1d5e9196b51714673c754f4fc9d6a041ee29bd5d2691a207ab787b1f",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:55a63fcac1f6fe4d78a3bf3d71248183153a55034f27464d1e2ff997e2c38abf",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:5e8ed0a30c11f57d0b49d565dd6ed6a0072b5c2b7eff8884d2761a8e72d3acc0",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:67507a99a621b059df383c7bf3ef9e7b872f1ecced6bb1d5f1b00196004f4577",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:720408001ff2bdf75e191a9039e7e39959f40f8701b66a4e7284caec1c8a6bef",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:77845ce6bcbe35c41807d0da75fedc138dfb9d65a558eb68024829a653eca7b7",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:7ed7039aba0a92af43f742d8f2be739461cc94f40df65da17b19c91ab40e8c20",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:83ca642a34abc0a89c8ab21b433f9846195c250493576704039061194cd576fd",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:9061b154d3421f68dc84736b46971bc614da755f3db960e4c4c9d1de60e50e9c",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:a4c1cbd9f2df18d8e24219431f34c84c4ae0d64927ea24942aa369e5e6c34341",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:a8daa8b398eb235fb055fe863c45090c4428e4278cabf798ad840dd1c7dd0d08",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b3837d0f99435d95d758f412dc02a10a9fc1267ef1bb05efbec30863449e84d0",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "google/gemma-3n-E4B-it",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:b4225a0afc08ddb56656a5ff6fdc680174d6188540ecdf8ff1bf8fe2ef4533d0",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bc32a89a1c541ff57de8c22d09dd8023ab5d3ac2a6e2693babd7e52e12d45339",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bddf6703aa4aac4bfcff2baa4e2e6b85e39b9dc31ea400c88a2051317c499852",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:bf0789597515728ad3b90cb5f8a3ebab86c70fbc81e3bacedf672ce1cff15c51",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:c1bbbf18db9ae82c0f41e6cd67387838ebe335bfba8162f8dca08cf7ced659c8",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-021",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:c9084fd8f745bb77d89119fa5b1b2c4112766dff5e31e43f2aa7a223bf3c8c2c",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "google/gemma-3n-E4B-it",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:ca9f8d65ea2f35aaddbba2237c80df728b6c768d1617051ff6f6d0e5512992c0",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-021",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:cc652a0cbcecd37136605dddf3970bd060b4bb3a3b2c286c5e30fe3f5b786c9d",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:cc741ce10ef0c47f8fff19e95703d4e51c596c93899f2df2fa98398958ffa0f2",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-021",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:d5af975544df45f931547e698fae1ad9a9525a3201b7a7a92d617bbe8afb5354",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "google/gemma-3n-E4B-it",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:db111c17a3bb31380455ab209e8c15b6ee93996dddf96f071a15d528eba576dc",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:db977cb9cc6489dc296dd79e82e806d8c89ea651519e5d91ddda2b1711c08b2b",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-011",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:df4b4897172e93232f67dc33332f6d89bbc4290102b0cadafbd7ae1b025dfee0",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "CN-021",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:e713b59e287eea82769e0b7f48b5ef875067136e52fca3b36616b20130908ee9",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-010",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:eaffe339e3785f732b2d83f06ceea6d311ad02d3577052ed61baa6b78bbdfebd",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "google/gemma-3n-E4B-it",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "SEL-030",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f355c3d0d301cdc1fba234028f24fb5635e02bc2cb64dd4aa9c5fe2260aa807b",
+    "condition": "sequential_b8",
+    "debater_model": "Qwen/Qwen3.7-Plus",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f72a40314f232f7753a561697b7b425caac7d00b963d8d69e5a6c3806fd387dc",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 0,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:f8c3082c0bd2ee95f7b9f7f819f1cc298f9286d524203eacec3bbf77b5bfdc31",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "openai/gpt-oss-120b",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-019",
+    "replicate_index": 1,
+    "transcript_index": 0
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_canary_debate_judgment:fbdf2f5932867b6631ace9de946cd267fc0f3bfec387b2edb1eb26f7b3eb8399",
+    "condition": "sequential_b8",
+    "debater_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "judge_model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "kind": "phase3_canary_debate_judgment",
+    "question_id": "VS-023",
+    "replicate_index": 1,
+    "transcript_index": 0
+   }
+  ],
+  "pending_transcript_cells": [],
+  "total_manifested": 1488,
+  "total_pending": 39,
+  "total_settled": 1449
+ },
+ "configuration_selection": {
+  "dedup_credit_rate_applied_informationally": 0.4829647340107591,
+  "informational_projection_with_observed_dedup_credit": {
+   "D_U": 86,
+   "D_U_pass": false,
+   "D_max": 45,
+   "L90_rulings_per_quota_day": 426.3333333333333,
+   "R_U": 36421.60581910005,
+   "R_U_pass": true,
+   "R_max": 135000,
+   "accrued_rulings": 1279,
+   "dedup_discount_applied": 0.4829647340107591,
+   "per_arm_judge": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 532.7088964404884,
+     "u90_rulings_per_slot": 1.0470675122714146
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 906.6622037015012,
+     "u90_rulings_per_slot": 1.7820925170268944
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 1844.0340377693242,
+     "u90_rulings_per_slot": 3.6245464368486293
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 1526.288105200239,
+     "u90_rulings_per_slot": 3.0
+    },
+    "Qwen/Qwen3.7-Max|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 551.7975978006614,
+     "u90_rulings_per_slot": 1.0845873644444128
+    },
+    "Qwen/Qwen3.7-Max|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 936.4785088076758,
+     "u90_rulings_per_slot": 1.8406980417726886
+    },
+    "Qwen/Qwen3.7-Max|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 1771.0829377126588,
+     "u90_rulings_per_slot": 3.4811571911195056
+    },
+    "Qwen/Qwen3.7-Max|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 2875.8881895934737,
+     "u90_rulings_per_slot": 5.652710349628602
+    },
+    "google/gemma-3n-E4B-it|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 505.64396758288524,
+     "u90_rulings_per_slot": 0.9938699630694194
+    },
+    "google/gemma-3n-E4B-it|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 972.0097775051804,
+     "u90_rulings_per_slot": 1.910536629736086
+    },
+    "google/gemma-3n-E4B-it|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 1815.611736875295,
+     "u90_rulings_per_slot": 3.568680901114207
+    },
+    "google/gemma-3n-E4B-it|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 2930.815066556237,
+     "u90_rulings_per_slot": 5.760672031520025
+    },
+    "google/gemma-4-31B-it|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 530.2801497670372,
+     "u90_rulings_per_slot": 1.0422936822222064
+    },
+    "google/gemma-4-31B-it|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 976.4045201679694,
+     "u90_rulings_per_slot": 1.9191747288888257
+    },
+    "google/gemma-4-31B-it|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 1542.6155808682672,
+     "u90_rulings_per_slot": 3.032092517026894
+    },
+    "google/gemma-4-31B-it|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 2807.493113613497,
+     "u90_rulings_per_slot": 5.518276210201819
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 375.28607412399384,
+     "u90_rulings_per_slot": 0.7376446285180714
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 881.0184815021572,
+     "u90_rulings_per_slot": 1.731688424682914
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 1441.0194653473336,
+     "u90_rulings_per_slot": 2.8323999782956073
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 2915.7990166128384,
+     "u90_rulings_per_slot": 5.731157191119506
+    },
+    "openai/gpt-oss-120b|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 520.3976167774954,
+     "u90_rulings_per_slot": 1.0228690409191572
+    },
+    "openai/gpt-oss-120b|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 856.7298872980745,
+     "u90_rulings_per_slot": 1.6839479080897584
+    },
+    "openai/gpt-oss-120b|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 2001.862537570572,
+     "u90_rulings_per_slot": 3.9347667011555605
+    },
+    "openai/gpt-oss-120b|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 3124.678349905189,
+     "u90_rulings_per_slot": 6.141720568860592
+    }
+   },
+   "projected_rulings": 35142.60581910005,
+   "quota_day_interval": {
+    "df": 2,
+    "interval_defined": true,
+    "lower90": -67.0731927686216,
+    "mean": 426.3333333333333,
+    "n": 3,
+    "se": 168.9756721477319,
+    "upper90": 919.7398594352883
+   }
+  },
+  "limits": {
+   "D_max": 45,
+   "R_max": 135000
+  },
+  "note": "decisions.configuration_selection pins the official projection to ZERO dedup credit; the dedup-credited variant is shown for information only and never used to pass a threshold case.",
+  "official_projection_zero_dedup_credit": {
+   "D_U": 163,
+   "D_U_pass": false,
+   "D_max": 45,
+   "L90_rulings_per_quota_day": 426.3333333333333,
+   "R_U": 69248.45611023628,
+   "R_U_pass": true,
+   "R_max": 135000,
+   "accrued_rulings": 1279,
+   "dedup_discount_applied": 0.0,
+   "per_arm_judge": {
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 1030.3144320750719,
+     "u90_rulings_per_slot": 1.0470675122714146
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1753.5790367544641,
+     "u90_rulings_per_slot": 1.7820925170268944
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 3566.5536938590512,
+     "u90_rulings_per_slot": 3.6245464368486293
+    },
+    "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 2952.0,
+     "u90_rulings_per_slot": 3.0
+    },
+    "Qwen/Qwen3.7-Max|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 1067.2339666133023,
+     "u90_rulings_per_slot": 1.0845873644444128
+    },
+    "Qwen/Qwen3.7-Max|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1811.2468731043255,
+     "u90_rulings_per_slot": 1.8406980417726886
+    },
+    "Qwen/Qwen3.7-Max|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 3425.4586760615935,
+     "u90_rulings_per_slot": 3.4811571911195056
+    },
+    "Qwen/Qwen3.7-Max|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 5562.266984034545,
+     "u90_rulings_per_slot": 5.652710349628602
+    },
+    "google/gemma-3n-E4B-it|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 977.9680436603087,
+     "u90_rulings_per_slot": 0.9938699630694194
+    },
+    "google/gemma-3n-E4B-it|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1879.9680436603085,
+     "u90_rulings_per_slot": 1.910536629736086
+    },
+    "google/gemma-3n-E4B-it|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 3511.5820066963797,
+     "u90_rulings_per_slot": 3.568680901114207
+    },
+    "google/gemma-3n-E4B-it|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 5668.501279015705,
+     "u90_rulings_per_slot": 5.760672031520025
+    },
+    "google/gemma-4-31B-it|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 1025.616983306651,
+     "u90_rulings_per_slot": 1.0422936822222064
+    },
+    "google/gemma-4-31B-it|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1888.4679332266044,
+     "u90_rulings_per_slot": 1.9191747288888257
+    },
+    "google/gemma-4-31B-it|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 2983.5790367544637,
+     "u90_rulings_per_slot": 3.032092517026894
+    },
+    "google/gemma-4-31B-it|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 5429.98379083859,
+     "u90_rulings_per_slot": 5.518276210201819
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 725.8423144617823,
+     "u90_rulings_per_slot": 0.7376446285180714
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1703.9814098879874,
+     "u90_rulings_per_slot": 1.731688424682914
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 2787.0815786428775,
+     "u90_rulings_per_slot": 2.8323999782956073
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 5639.458676061594,
+     "u90_rulings_per_slot": 5.731157191119506
+    },
+    "openai/gpt-oss-120b|sequential_b1": {
+     "main_slots": 984,
+     "projected_rulings": 1006.5031362644506,
+     "u90_rulings_per_slot": 1.0228690409191572
+    },
+    "openai/gpt-oss-120b|sequential_b2": {
+     "main_slots": 984,
+     "projected_rulings": 1657.0047415603221,
+     "u90_rulings_per_slot": 1.6839479080897584
+    },
+    "openai/gpt-oss-120b|sequential_b4": {
+     "main_slots": 984,
+     "projected_rulings": 3871.8104339370716,
+     "u90_rulings_per_slot": 3.9347667011555605
+    },
+    "openai/gpt-oss-120b|sequential_b8": {
+     "main_slots": 984,
+     "projected_rulings": 6043.453039758822,
+     "u90_rulings_per_slot": 6.141720568860592
+    }
+   },
+   "projected_rulings": 67969.45611023628,
+   "quota_day_interval": {
+    "df": 2,
+    "interval_defined": true,
+    "lower90": -67.0731927686216,
+    "mean": 426.3333333333333,
+    "n": 3,
+    "se": 168.9756721477319,
+    "upper90": 919.7398594352883
+   }
+  }
+ },
+ "execution_identity_sha256": "5d7f6a568c8a91b3aa0874059028d0c2be4a610712ea781a1aa4747071919027",
+ "forecast": {
+  "accrued_spend_usd": 19.782449,
+  "chars_per_token_estimate": 4.0,
+  "detail_by_judge_condition_role": {
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|b0|judge_verdict": {
+    "cost_usd": 1.112703942080932,
+    "main_slots": 984,
+    "tokens_in_total": 3571075.5523322886,
+    "tokens_out_total": 137937.5879374848
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1|judge_query": {
+    "cost_usd": 1.4174959202382058,
+    "main_slots": 984,
+    "tokens_in_total": 4682381.64114986,
+    "tokens_out_total": 42604.75964415944
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1|judge_verdict": {
+    "cost_usd": 1.1731259561275862,
+    "main_slots": 984,
+    "tokens_in_total": 3807243.8108272264,
+    "tokens_out_total": 103176.0429313947
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1|query_checker": {
+    "cost_usd": 0.9557098719692049,
+    "main_slots": 984,
+    "tokens_in_total": 2340802.7767349137,
+    "tokens_out_total": 844896.796495769
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2|judge_query": {
+    "cost_usd": 3.01578499115385,
+    "main_slots": 984,
+    "tokens_in_total": 9966929.360858003,
+    "tokens_out_total": 85687.27632149709
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2|judge_verdict": {
+    "cost_usd": 1.2436116031027404,
+    "main_slots": 984,
+    "tokens_in_total": 4023866.6285013244,
+    "tokens_out_total": 121505.38184114314
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2|query_checker": {
+    "cost_usd": 2.054834519950367,
+    "main_slots": 984,
+    "tokens_in_total": 4571397.846696921,
+    "tokens_out_total": 2278050.5531376353
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4|judge_query": {
+    "cost_usd": 6.991383333110233,
+    "main_slots": 984,
+    "tokens_in_total": 23127944.46288758,
+    "tokens_out_total": 176666.64747986416
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4|judge_verdict": {
+    "cost_usd": 1.4383781929360415,
+    "main_slots": 984,
+    "tokens_in_total": 4661189.879130832,
+    "tokens_out_total": 133404.0973226406
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4|query_checker": {
+    "cost_usd": 4.464736458553087,
+    "main_slots": 984,
+    "tokens_in_total": 9215664.960186712,
+    "tokens_out_total": 5666789.901656914
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8|judge_query": {
+    "cost_usd": 12.7686402,
+    "main_slots": 984,
+    "tokens_in_total": 42312198.0,
+    "tokens_out_total": 249936.0
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8|judge_verdict": {
+    "cost_usd": 1.8043569000000002,
+    "main_slots": 984,
+    "tokens_in_total": 5914155.0,
+    "tokens_out_total": 100368.0
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8|query_checker": {
+    "cost_usd": 6.727017599999999,
+    "main_slots": 984,
+    "tokens_in_total": 14903664.0,
+    "tokens_out_total": 7519728.0
+   },
+   "Qwen/Qwen3.7-Max|b0|judge_verdict": {
+    "cost_usd": 9.27374924738098,
+    "main_slots": 984,
+    "tokens_in_total": 3589656.6363744726,
+    "tokens_out_total": 1276447.5871767704
+   },
+   "Qwen/Qwen3.7-Max|sequential_b1|judge_query": {
+    "cost_usd": 10.116530662805125,
+    "main_slots": 984,
+    "tokens_in_total": 4364190.138697315,
+    "tokens_out_total": 1243011.463848929
+   },
+   "Qwen/Qwen3.7-Max|sequential_b1|judge_verdict": {
+    "cost_usd": 8.69914513476468,
+    "main_slots": 984,
+    "tokens_in_total": 3822699.0065558846,
+    "tokens_out_total": 1045539.0337519533
+   },
+   "Qwen/Qwen3.7-Max|sequential_b1|query_checker": {
+    "cost_usd": 7.7397744314140855,
+    "main_slots": 984,
+    "tokens_in_total": 2014721.1399747145,
+    "tokens_out_total": 1392366.1350521848
+   },
+   "Qwen/Qwen3.7-Max|sequential_b2|judge_query": {
+    "cost_usd": 18.574200185420946,
+    "main_slots": 984,
+    "tokens_in_total": 9019358.585806621,
+    "tokens_out_total": 1946667.1875100448
+   },
+   "Qwen/Qwen3.7-Max|sequential_b2|judge_verdict": {
+    "cost_usd": 8.79462843996707,
+    "main_slots": 984,
+    "tokens_in_total": 4026533.599523985,
+    "tokens_out_total": 1003056.3841498905
+   },
+   "Qwen/Qwen3.7-Max|sequential_b2|query_checker": {
+    "cost_usd": 14.733233310046895,
+    "main_slots": 984,
+    "tokens_in_total": 3923488.6302328873,
+    "tokens_out_total": 2621032.672601543
+   },
+   "Qwen/Qwen3.7-Max|sequential_b4|judge_query": {
+    "cost_usd": 33.32471660059278,
+    "main_slots": 984,
+    "tokens_in_total": 17138518.84836028,
+    "tokens_out_total": 3173751.4773713145
+   },
+   "Qwen/Qwen3.7-Max|sequential_b4|judge_verdict": {
+    "cost_usd": 9.34819512199035,
+    "main_slots": 984,
+    "tokens_in_total": 4476400.817264114,
+    "tokens_out_total": 1000718.4267760556
+   },
+   "Qwen/Qwen3.7-Max|sequential_b4|query_checker": {
+    "cost_usd": 19.692024270191535,
+    "main_slots": 984,
+    "tokens_in_total": 6001520.4125800785,
+    "tokens_out_total": 3250699.667857717
+   },
+   "Qwen/Qwen3.7-Max|sequential_b8|judge_query": {
+    "cost_usd": 56.54520739177464,
+    "main_slots": 984,
+    "tokens_in_total": 31753966.2361041,
+    "tokens_out_total": 4494066.5591052035
+   },
+   "Qwen/Qwen3.7-Max|sequential_b8|judge_verdict": {
+    "cost_usd": 10.63943030515564,
+    "main_slots": 984,
+    "tokens_in_total": 5569840.170535465,
+    "tokens_out_total": 980568.0245296826
+   },
+   "Qwen/Qwen3.7-Max|sequential_b8|query_checker": {
+    "cost_usd": 34.922516786991174,
+    "main_slots": 984,
+    "tokens_in_total": 11606793.729085814,
+    "tokens_out_total": 5443739.900169042
+   },
+   "google/gemma-3n-E4B-it|b0|judge_verdict": {
+    "cost_usd": 0.2437969451999064,
+    "main_slots": 984,
+    "tokens_in_total": 3591411.4813635214,
+    "tokens_out_total": 235935.4693174596
+   },
+   "google/gemma-3n-E4B-it|sequential_b1|judge_query": {
+    "cost_usd": 0.3088415696872699,
+    "main_slots": 984,
+    "tokens_in_total": 5049654.84467135,
+    "tokens_out_total": 48852.32505824051
+   },
+   "google/gemma-3n-E4B-it|sequential_b1|judge_verdict": {
+    "cost_usd": 0.2434506870084204,
+    "main_slots": 984,
+    "tokens_in_total": 3817454.8684841553,
+    "tokens_out_total": 120028.2908280925
+   },
+   "google/gemma-3n-E4B-it|sequential_b1|query_checker": {
+    "cost_usd": 0.25552951333973417,
+    "main_slots": 984,
+    "tokens_in_total": 2232853.6478658486,
+    "tokens_out_total": 1012985.787231527
+   },
+   "google/gemma-3n-E4B-it|sequential_b2|judge_query": {
+    "cost_usd": 0.5673198791403354,
+    "main_slots": 984,
+    "tokens_in_total": 9267277.30066705,
+    "tokens_out_total": 94027.00916927152
+   },
+   "google/gemma-3n-E4B-it|sequential_b2|judge_verdict": {
+    "cost_usd": 0.25781348820626343,
+    "main_slots": 984,
+    "tokens_in_total": 4051537.398730689,
+    "tokens_out_total": 122677.03568685088
+   },
+   "google/gemma-3n-E4B-it|sequential_b2|query_checker": {
+    "cost_usd": 0.4601284094208359,
+    "main_slots": 984,
+    "tokens_in_total": 4047749.2047215556,
+    "tokens_out_total": 1810528.8094795214
+   },
+   "google/gemma-3n-E4B-it|sequential_b4|judge_query": {
+    "cost_usd": 1.1344206760365618,
+    "main_slots": 984,
+    "tokens_in_total": 18644415.86786648,
+    "tokens_out_total": 131297.69970477547
+   },
+   "google/gemma-3n-E4B-it|sequential_b4|judge_verdict": {
+    "cost_usd": 0.29231136459546064,
+    "main_slots": 984,
+    "tokens_in_total": 4571496.7393128555,
+    "tokens_out_total": 150179.6686390778
+   },
+   "google/gemma-3n-E4B-it|sequential_b4|query_checker": {
+    "cost_usd": 0.6694958680711983,
+    "main_slots": 984,
+    "tokens_in_total": 6406437.451604863,
+    "tokens_out_total": 2375913.508124222
+   },
+   "google/gemma-3n-E4B-it|sequential_b8|judge_query": {
+    "cost_usd": 2.741670933032291,
+    "main_slots": 984,
+    "tokens_in_total": 44953622.485346064,
+    "tokens_out_total": 370446.5325960581
+   },
+   "google/gemma-3n-E4B-it|sequential_b8|judge_verdict": {
+    "cost_usd": 0.3940881656700375,
+    "main_slots": 984,
+    "tokens_in_total": 6335372.306564704,
+    "tokens_out_total": 116381.89396796098
+   },
+   "google/gemma-3n-E4B-it|sequential_b8|query_checker": {
+    "cost_usd": 2.421511916150911,
+    "main_slots": 984,
+    "tokens_in_total": 15940934.275772484,
+    "tokens_out_total": 12208798.830038015
+   },
+   "google/gemma-4-31B-it|b0|judge_verdict": {
+    "cost_usd": 2.9712643051420287,
+    "main_slots": 984,
+    "tokens_in_total": 3598274.50034217,
+    "tokens_out_total": 1616430.154648023
+   },
+   "google/gemma-4-31B-it|sequential_b1|judge_query": {
+    "cost_usd": 3.6266831354258606,
+    "main_slots": 984,
+    "tokens_in_total": 4508538.832299989,
+    "tokens_out_total": 1926137.1039472832
+   },
+   "google/gemma-4-31B-it|sequential_b1|judge_verdict": {
+    "cost_usd": 2.7100875233412154,
+    "main_slots": 984,
+    "tokens_in_total": 3831259.0307170874,
+    "tokens_out_total": 1253501.5477954138
+   },
+   "google/gemma-4-31B-it|sequential_b1|query_checker": {
+    "cost_usd": 2.776709695036066,
+    "main_slots": 984,
+    "tokens_in_total": 2102651.2526670643,
+    "tokens_out_total": 2017191.449995784
+   },
+   "google/gemma-4-31B-it|sequential_b2|judge_query": {
+    "cost_usd": 6.605343950443927,
+    "main_slots": 984,
+    "tokens_in_total": 9759920.855769029,
+    "tokens_out_total": 2885541.0481381505
+   },
+   "google/gemma-4-31B-it|sequential_b2|judge_verdict": {
+    "cost_usd": 2.900462688793209,
+    "main_slots": 984,
+    "tokens_in_total": 4229445.16373175,
+    "tokens_out_total": 1289669.1494204395
+   },
+   "google/gemma-4-31B-it|sequential_b2|query_checker": {
+    "cost_usd": 3.8501179279652815,
+    "main_slots": 984,
+    "tokens_in_total": 3457757.93912291,
+    "tokens_out_total": 2578961.166708605
+   },
+   "google/gemma-4-31B-it|sequential_b4|judge_query": {
+    "cost_usd": 12.751375428959701,
+    "main_slots": 984,
+    "tokens_in_total": 22620960.538375948,
+    "tokens_out_total": 4050722.4938073014
+   },
+   "google/gemma-4-31B-it|sequential_b4|judge_verdict": {
+    "cost_usd": 2.84395818226465,
+    "main_slots": 984,
+    "tokens_in_total": 4927402.814250974,
+    "tokens_out_total": 950794.9326873916
+   },
+   "google/gemma-4-31B-it|sequential_b4|query_checker": {
+    "cost_usd": 7.482593604303199,
+    "main_slots": 984,
+    "tokens_in_total": 6526965.706337822,
+    "tokens_out_total": 5089770.081269535
+   },
+   "google/gemma-4-31B-it|sequential_b8|judge_query": {
+    "cost_usd": 23.905703592033337,
+    "main_slots": 984,
+    "tokens_in_total": 43790883.54842037,
+    "tokens_out_total": 7038411.348607623
+   },
+   "google/gemma-4-31B-it|sequential_b8|judge_verdict": {
+    "cost_usd": 3.3200646042877207,
+    "main_slots": 984,
+    "tokens_in_total": 6570650.504990539,
+    "tokens_out_total": 780939.0797334126
+   },
+   "google/gemma-4-31B-it|sequential_b8|query_checker": {
+    "cost_usd": 11.674961313259502,
+    "main_slots": 984,
+    "tokens_in_total": 11554533.286543991,
+    "tokens_out_total": 7390405.496399325
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|b0|judge_verdict": {
+    "cost_usd": 3.866183279959601,
+    "main_slots": 984,
+    "tokens_in_total": 3558785.515056884,
+    "tokens_out_total": 158698.40798119386
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1|judge_query": {
+    "cost_usd": 5.36876816086951,
+    "main_slots": 984,
+    "tokens_in_total": 5123448.745067479,
+    "tokens_out_total": 38828.33269166427
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1|judge_verdict": {
+    "cost_usd": 4.074646268988003,
+    "main_slots": 984,
+    "tokens_in_total": 3808246.2492992873,
+    "tokens_out_total": 109682.85549686909
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1|query_checker": {
+    "cost_usd": 4.455832397583056,
+    "main_slots": 984,
+    "tokens_in_total": 2496868.1411756533,
+    "tokens_out_total": 1787586.0872695928
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2|judge_query": {
+    "cost_usd": 10.196991864078935,
+    "main_slots": 984,
+    "tokens_in_total": 9741109.106621599,
+    "tokens_out_total": 63690.76268506947
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2|judge_verdict": {
+    "cost_usd": 4.305447428379983,
+    "main_slots": 984,
+    "tokens_in_total": 4025349.7883829945,
+    "tokens_out_total": 114503.50813621908
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2|query_checker": {
+    "cost_usd": 7.391172129868194,
+    "main_slots": 984,
+    "tokens_in_total": 4148061.438408197,
+    "tokens_out_total": 2958834.84031122
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4|judge_query": {
+    "cost_usd": 18.961540521705626,
+    "main_slots": 984,
+    "tokens_in_total": 18128144.772291474,
+    "tokens_out_total": 104105.7293485486
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4|judge_verdict": {
+    "cost_usd": 4.806854247600303,
+    "main_slots": 984,
+    "tokens_in_total": 4501442.816217087,
+    "tokens_out_total": 120532.42186012713
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4|query_checker": {
+    "cost_usd": 12.603203616742652,
+    "main_slots": 984,
+    "tokens_in_total": 7466688.931083032,
+    "tokens_out_total": 4651776.085015671
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8|judge_query": {
+    "cost_usd": 40.91751700797363,
+    "main_slots": 984,
+    "tokens_in_total": 39157600.809481904,
+    "tokens_out_total": 186165.54433888913
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8|judge_verdict": {
+    "cost_usd": 6.187768981230741,
+    "main_slots": 984,
+    "tokens_in_total": 5816459.595706268,
+    "tokens_out_total": 133318.27086175245
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8|query_checker": {
+    "cost_usd": 21.846901732307696,
+    "main_slots": 984,
+    "tokens_in_total": 13670510.982155887,
+    "tokens_out_total": 7336125.298909205
+   },
+   "openai/gpt-oss-120b|b0|judge_verdict": {
+    "cost_usd": 0.8874577793295193,
+    "main_slots": 984,
+    "tokens_in_total": 3565594.648593145,
+    "tokens_out_total": 587697.636734246
+   },
+   "openai/gpt-oss-120b|sequential_b1|judge_query": {
+    "cost_usd": 1.1065066261459267,
+    "main_slots": 984,
+    "tokens_in_total": 5743092.624691232,
+    "tokens_out_total": 408404.5540704033
+   },
+   "openai/gpt-oss-120b|sequential_b1|judge_verdict": {
+    "cost_usd": 0.8460897145251254,
+    "main_slots": 984,
+    "tokens_in_total": 3807443.6260670098,
+    "tokens_out_total": 458288.6176917899
+   },
+   "openai/gpt-oss-120b|sequential_b1|query_checker": {
+    "cost_usd": 1.3751423734060686,
+    "main_slots": 984,
+    "tokens_in_total": 2540107.559033275,
+    "tokens_out_total": 1656877.0659184621
+   },
+   "openai/gpt-oss-120b|sequential_b2|judge_query": {
+    "cost_usd": 2.023557395354981,
+    "main_slots": 984,
+    "tokens_in_total": 10403491.340567095,
+    "tokens_out_total": 771722.8237831945
+   },
+   "openai/gpt-oss-120b|sequential_b2|judge_verdict": {
+    "cost_usd": 0.9083413342614174,
+    "main_slots": 984,
+    "tokens_in_total": 4018168.5311120204,
+    "tokens_out_total": 509360.0909910239
+   },
+   "openai/gpt-oss-120b|sequential_b2|query_checker": {
+    "cost_usd": 2.493974817137104,
+    "main_slots": 984,
+    "tokens_in_total": 3677651.795576214,
+    "tokens_out_total": 3237211.746334453
+   },
+   "openai/gpt-oss-120b|sequential_b4|judge_query": {
+    "cost_usd": 4.775188750861509,
+    "main_slots": 984,
+    "tokens_in_total": 24301483.711178575,
+    "tokens_out_total": 1883276.9903078715
+   },
+   "openai/gpt-oss-120b|sequential_b4|judge_verdict": {
+    "cost_usd": 0.9933504566301596,
+    "main_slots": 984,
+    "tokens_in_total": 4890092.160243975,
+    "tokens_out_total": 433061.05432260584
+   },
+   "openai/gpt-oss-120b|sequential_b4|query_checker": {
+    "cost_usd": 3.911670364791909,
+    "main_slots": 984,
+    "tokens_in_total": 6203070.035630663,
+    "tokens_out_total": 4968683.09907885
+   },
+   "openai/gpt-oss-120b|sequential_b8|judge_query": {
+    "cost_usd": 9.717113100984971,
+    "main_slots": 984,
+    "tokens_in_total": 50293893.041922584,
+    "tokens_out_total": 3621715.2411609725
+   },
+   "openai/gpt-oss-120b|sequential_b8|judge_verdict": {
+    "cost_usd": 1.3243994035615814,
+    "main_slots": 984,
+    "tokens_in_total": 6857062.39351402,
+    "tokens_out_total": 493066.7408907974
+   },
+   "openai/gpt-oss-120b|sequential_b8|query_checker": {
+    "cost_usd": 5.680672729321465,
+    "main_slots": 984,
+    "tokens_in_total": 11843567.43650137,
+    "tokens_out_total": 6506896.0230771
+   }
+  },
+  "note": "Per estimator_pins: U90 = upper bound of a 90% t-interval over canary PER-QUESTION mean tokens per slot; per base_context_rule the judge_query/judge_verdict transcript component is computed from the exact frozen main-transcript-bundle text (token COUNT is a chars/4 estimate -- no offline per-model tokenizer available -- but the TEXT itself is the exact frozen bundle, not extrapolated from the 6 smoke questions), with only the per-turn/oracle-block overhead measured from canary.",
+  "projected_main_run_usd_by_judge_with_transport": {
+   "Qwen/Qwen2.5-7B-Instruct-Turbo": 51.94294641260558,
+   "Qwen/Qwen3.7-Max": 278.7638546717702,
+   "google/gemma-3n-E4B-it": 11.488936327893109,
+   "google/gemma-4-31B-it": 100.53222484394405,
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": 166.7302517828811,
+   "openai/gpt-oss-120b": 41.44998457325849
+  },
+  "projected_main_run_usd_pre_transport": 566.007129228133,
+  "projected_main_run_usd_with_transport": 650.9081986123529,
+  "projected_stage_total_usd": 670.6906476123529,
+  "qwen3_7_max_inclusion_evaluation": {
+   "everything_else_plus_qwen_fits_cap": false,
+   "projected_total_with_qwen_usd": 650.9081986123529,
+   "projected_total_without_qwen_usd": 372.14434394058264,
+   "qwen_projected_main_run_usd_with_transport": 278.7638546717702,
+   "qwen_share_of_projected_main_run": 0.4282690789055301,
+   "stage_cap_usd": 450.0
+  },
+  "stage_cap_pass": false,
+  "stage_cap_usd": 450.0,
+  "transport_multiplier": 1.15
+ },
+ "generated_by": "scripts/phase3_canary_closeout.py",
+ "incident_and_amendment_index": {
+  "amendments": [
+   {
+    "id": "amendment_1",
+    "summary": "pre-outcome availability substitution: candidate meta-llama/Meta-Llama-3-8B-Instruct-Lite (absent from the provider catalog under any spelling) replaced by meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo as a candidate",
+    "tracked_path": "rejudge/phase3_amendment1_roster_2026-08-18.json"
+   },
+   {
+    "id": "amendment_2",
+    "summary": "credential-rotation and provider-reconciliation gates deferred from before-canary to before-main-run, where they become hard blockers",
+    "tracked_path": "rejudge/phase3_amendment2_deferral_2026-08-18.json"
+   },
+   {
+    "id": "amendment_3",
+    "summary": "the amendment-1 substitute proved not serverless-accessible on this account (dead roster model, caught by the transport layer: 83 abandoned calls, 'Unable to access non-serverless model'); the slot is DROPPED entirely per the no-replacement rule, roster proceeds at 6 judges; canary cap raised 40->60 USD in the same exchange",
+    "tracked_path": "rejudge/phase3_amendment3_roster_2026-08-18.json"
+   },
+   {
+    "id": "amendment_4",
+    "summary": "byte-vs-token context-guard conservatism (caught by the run itself: 3 blocklisted b8 cells were later shown to complete all 8 queries) fixed with a context-only size estimator, mechanically enforced visible-history caps, and a validation gate (replayed against 4,800+ live calls, zero misses, minimum headroom 1,248 tokens / 67% relative); independently reviewed before the successor manifest executed",
+    "tracked_path": "rejudge/phase3_amendment4_context_guard_2026-08-19.json"
+   }
+  ],
+  "auto_resume_amendments": [
+   {
+    "id": "auto_resume_amendment_1",
+    "summary": "checker_malformed auto-resume corroboration loosened (transport-shaped evidence is not meaningful for a malformed-response halt); in-phase operational decision under standing delegation",
+    "tracked_path": "rejudge/phase3_auto_resume_amendment1_2026-08-19.json"
+   },
+   {
+    "id": "auto_resume_amendment_2",
+    "summary": "Together's 400 'Input validation error' added to the enumerated benign-transient set (13 occurrences, all gemma-3n-E4B-it, all subsequently completed on identical requests); in-phase operational decision",
+    "tracked_path": "rejudge/phase3_auto_resume_amendment2_2026-08-19.json"
+   }
+  ],
+  "control_layers_that_caught_something": [
+   {
+    "caught": "dead roster model: meta-llama/Meta-Llama-3-8B-Instruct-Lite absent from the catalog under any spelling, before any spend",
+    "layer": "provider verification snapshot"
+   },
+   {
+    "caught": "dead roster model #2: the amendment-1 substitute was catalog-listed but not serverless-accessible on this account (83 abandoned calls)",
+    "layer": "transport/abandoned-call accounting"
+   },
+   {
+    "caught": "driver livelock, twice (2026-08-18T20:46Z, 2026-08-19T08:22Z)",
+    "layer": "stall watchdog (30-minute no-new-row)"
+   },
+   {
+    "caught": "a supervisor/host-path mismatch surfaced as a stale code-bundle hash before any relaunch spend",
+    "layer": "manifest code-provenance check"
+   },
+   {
+    "caught": "byte-vs-token guard conservatism (phase-2's estimator, ~4x conservative for English text) blocking 100% of b8 cells for 3 of 6 judges on cells that actually fit",
+    "layer": "context-guard validation gate + Codex-reviewed estimator swap"
+   },
+   {
+    "caught": "a genuine, terminal provider outage (Qwen2.5-7B-Instruct-Turbo 503s, also hitting gpt-oss-120b and gemma-3n-E4B-it) correctly refused auto-resume and left 39 sequential_b8 cells PENDING rather than imputing them",
+    "layer": "supervisor benign-transient enumeration (fail-closed)"
+   }
+  ],
+  "identity_chain": [
+   {
+    "code_bundle_short": "e5acbb0f",
+    "event": "initial canary authorization, 2026-08-18T16:20Z",
+    "identity_short": "f7e9a50c",
+    "order": 1
+   },
+   {
+    "code_bundle_short": "cacfa86d",
+    "event": "rebound after the driver build",
+    "identity_short": "4ce6c714",
+    "order": 2
+   },
+   {
+    "code_bundle_short": "b341f668",
+    "event": "rebound after the host-translation fix; executed the first 464 cells, then the abandoned_cell_rate STOP",
+    "identity_short": "28bb1819",
+    "order": 3
+   },
+   {
+    "code_bundle_short": "b341f668",
+    "event": "rebound for the 6-judge roster per amendment 3; executed 100 more cells, then the 2026-08-18 watchdog STOP",
+    "identity_short": "518fffd9",
+    "order": 4
+   },
+   {
+    "code_bundle_short": null,
+    "event": "rebound after the stall fix (pending-payload bound + capability ungating) AND a provenance-gap fix adding phase3_runner.py/phase2_canary_runner.py/phase2_canary_live.py to the hash-bound code bundle",
+    "identity_short": "(unlabeled intermediate)",
+    "order": 5
+   },
+   {
+    "code_bundle_short": null,
+    "event": "re-minted after the context-precheck and worklist-fsync changes (blocklist support joined the bundle); executed the interim segments through the provisional 1,908-slot convergence",
+    "identity_short": "73bee819",
+    "order": 6
+   },
+   {
+    "code_bundle_short": "19fa15c0",
+    "event": "SUCCESSOR identity minted 2026-08-20 after the amendment-4 merge (context-only guard estimator, history caps, validation report + zero-exclusion blocklists hash-bound); this is the identity the manifest and this close-out bind to",
+    "identity_short": "5d7f6a56 (current)",
+    "order": 7
+   }
+  ],
+  "stop_history": [
+   {
+    "disposition": "not an enumerated transient reason; halted for owner review -> became amendment 3 (weak-Llama slot dropped, roster to 6 judges)",
+    "reason": "abandoned_cell_rate",
+    "ts_utc": "2026-08-18T19:03:58Z"
+   },
+   {
+    "disposition": "driver livelock; caught by the 30-minute stall watchdog, process tree killed, driver rebound",
+    "reason": "watchdog: no new result row for 1808s",
+    "ts_utc": "2026-08-18T20:46:47Z"
+   },
+   {
+    "disposition": "manual review; auto_resume_amendment1 (checker_malformed corroboration loosened) followed the next day's recurrence",
+    "reason": "newest error-log entry not in transient set (empty)",
+    "ts_utc": "2026-08-18T21:41:48Z"
+   },
+   {
+    "disposition": "manual review; resolved as episodic checker-shape noise, folded into auto_resume_amendment1",
+    "reason": "no abandoned call in ledger window; halt unexplained",
+    "ts_utc": "2026-08-19T00:36:51Z"
+   },
+   {
+    "disposition": "became auto_resume_amendment2 (Together 400 'Input validation error' added to the enumerated transient set, 13 occurrences on gemma-3n-E4B-it)",
+    "reason": "abandoned call not in transient set (400 Input validation error)",
+    "ts_utc": "2026-08-19T05:04:52Z"
+   },
+   {
+    "disposition": "second driver livelock; watchdog killed and rebound again",
+    "reason": "watchdog: no new result row for 1808s",
+    "ts_utc": "2026-08-19T08:22:41Z"
+   },
+   {
+    "disposition": "the byte-vs-token context guard (phase-2's estimator, ~4x conservative) blocked 100% of b8 cells for 3 of 6 judges on cells later shown to complete all 8 queries; became amendment 4 (context-only estimator, visible-history caps, validation gate)",
+    "reason": "ContextGuardError",
+    "ts_utc": "2026-08-19T15:25:23Z"
+   },
+   {
+    "disposition": "manifest/code-bundle mismatch caught by the provenance check before any spend; resolved by re-minting the identity with the corrected bundle",
+    "reason": "ManifestValidationError: code_provenance drift",
+    "ts_utc": "2026-08-19T15:58:37Z"
+   },
+   {
+    "disposition": "provider-side degradation (503 Service unavailable, dominant on Qwen2.5-7B-Instruct-Turbo, also hitting gpt-oss-120b and gemma-3n-E4B-it) stalled the last 39 sequential_b8 cells; not an enumerated transient reason, so the supervisor correctly refused to auto-resume; canary closed out with these 39 cells PENDING, never imputed",
+    "reason": "abandoned_cell_rate (repeat, terminal)",
+    "ts_utc": "2026-08-20T05:54:14Z"
+   }
+  ]
+ },
+ "protocol_canonical_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+ "review_volume": {
+  "dedup": {
+   "duplicate_cross_arm_same_judge": 292,
+   "duplicate_cross_judge": 369,
+   "duplicate_events": 808,
+   "duplicate_rate": 0.4829647340107591,
+   "duplicate_same_judge_same_arm": 147,
+   "scope_note": "Computed on the ALLOWED-query subset only (the exchanges recorded inside completed judgment cells). REJECTed query attempts' claim text is not retained in the result store, so their payload identity -- and thus their dedup attribution -- is not derivable from the archived stores; the reviewer_decisions store's REJECT rows (label counts reported separately) are real unique-payload rulings but cannot be joined back to a (judge, arm, question) origin.",
+   "total_events": 1673,
+   "unique_payloads": 865
+  },
+  "label_counts": {
+   "ALLOW": 778,
+   "None": 1,
+   "REJECT": 500
+  },
+  "mean_unique_allowed_rulings_per_slot_by_judge_arm": {
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.875,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.0470675122714146
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.5416666666666667,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.7820925170268944
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 3.125,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 3.6245464368486293
+   },
+   "Qwen/Qwen2.5-7B-Instruct-Turbo|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 3.0,
+    "n_questions": 1,
+    "u90_unique_allowed_rulings_per_slot": 3.0
+   },
+   "Qwen/Qwen3.7-Max|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.9166666666666666,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.0845873644444128
+   },
+   "Qwen/Qwen3.7-Max|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.625,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.8406980417726886
+   },
+   "Qwen/Qwen3.7-Max|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 3.0416666666666665,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 3.4811571911195056
+   },
+   "Qwen/Qwen3.7-Max|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 4.875,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 5.652710349628602
+   },
+   "google/gemma-3n-E4B-it|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.7916666666666666,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 0.9938699630694194
+   },
+   "google/gemma-3n-E4B-it|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.7083333333333333,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.910536629736086
+   },
+   "google/gemma-3n-E4B-it|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 3.0416666666666665,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 3.568680901114207
+   },
+   "google/gemma-3n-E4B-it|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 4.736111111111112,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 5.760672031520025
+   },
+   "google/gemma-4-31B-it|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.9583333333333334,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.0422936822222064
+   },
+   "google/gemma-4-31B-it|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.5833333333333333,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.9191747288888257
+   },
+   "google/gemma-4-31B-it|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 2.7916666666666665,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 3.032092517026894
+   },
+   "google/gemma-4-31B-it|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 4.583333333333333,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 5.518276210201819
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.625,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 0.7376446285180714
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.4583333333333333,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.731688424682914
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 2.5833333333333335,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 2.8323999782956073
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 5.291666666666667,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 5.731157191119506
+   },
+   "openai/gpt-oss-120b|sequential_b1": {
+    "mean_unique_allowed_rulings_per_slot": 0.9166666666666666,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.0228690409191572
+   },
+   "openai/gpt-oss-120b|sequential_b2": {
+    "mean_unique_allowed_rulings_per_slot": 1.5,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 1.6839479080897584
+   },
+   "openai/gpt-oss-120b|sequential_b4": {
+    "mean_unique_allowed_rulings_per_slot": 3.4583333333333335,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 3.9347667011555605
+   },
+   "openai/gpt-oss-120b|sequential_b8": {
+    "mean_unique_allowed_rulings_per_slot": 5.25,
+    "n_questions": 6,
+    "u90_unique_allowed_rulings_per_slot": 6.141720568860592
+   }
+  },
+  "outside_packet_note": null,
+  "realized_rulings_per_quota_day": {
+   "2026-08-18": 128,
+   "2026-08-19": 713,
+   "2026-08-20": 438
+  },
+  "rulings_committed_outside_auto_packets": 0,
+  "rulings_committed_via_auto_packets": 1279,
+  "total_unique_payload_rulings": 1279
+ },
+ "roster": [
+  "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "google/gemma-4-31B-it",
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "openai/gpt-oss-120b",
+  "google/gemma-3n-E4B-it",
+  "Qwen/Qwen3.7-Max"
+ ],
+ "schema_version": "phase3_canary_closeout_v1",
+ "spend_to_date": {
+  "open_reservation_count": 3,
+  "open_reservation_usd": 0.052639,
+  "settled_count": 7351,
+  "settled_usd": 15.305358,
+  "stage_cap_usd": 450.0,
+  "total_usd": 19.782449,
+  "uncertain_count": 526,
+  "uncertain_usd": 4.424452,
+  "unexpected_status_combinations": {}
+ }
+}
