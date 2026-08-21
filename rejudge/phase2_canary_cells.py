@@ -80,6 +80,17 @@ class ResolvedCell:
     transcript_protocol_name: str | None
     oracle_mode: str
     arm_name: str | None
+    # Additive (2026-08-21 mirroring fix, incident phase3_incident1_k2_mirroring_never_
+    # implemented_2026-08-21): how many within-side judgment replicates one K2 side carries
+    # for this cell's condition, i.e. ``debate_grid.conditions[*].
+    # judgment_replicates_per_transcript_side`` -- the divisor ``phase2_canary_execute._polarity``
+    # needs to unfold phase3_plan's ``replicate_index = side * replicates + within_side_replicate``
+    # fold back into (side, within_side_replicate). ``None`` (the default, and every value this
+    # module's own :func:`resolve_cell` ever supplies -- genuine phase-2 cells fold no side into
+    # ``replicate_index`` at all) means "no side semantics": ``_polarity`` falls back to its
+    # pre-fix behavior byte-for-byte. Only :mod:`rejudge.phase3_runner`'s judgment-cell resolver
+    # (the one caller whose ``replicate_index`` actually IS such a fold) sets this to a real int.
+    judgment_replicates_per_side: int | None = None
 
     @property
     def is_transcript(self) -> bool:
@@ -142,7 +153,16 @@ def _budget_and_oracle_mode(cell: Mapping[str, Any],
 def resolve_cell(cell: Mapping[str, Any], protocol: Mapping[str, Any],
                  bundle: Mapping[str, Any], *,
                  anchor_judge_model: str | None = None) -> ResolvedCell:
-    """Resolve one frozen plan cell. Refuses anything it cannot resolve exactly."""
+    """Resolve one frozen plan cell. Refuses anything it cannot resolve exactly.
+
+    Every genuine phase-2 cell's ``replicate_index`` is a plain K2 index -- phase-2's plan
+    enumerators never fold a side into it (only ``rejudge.phase3_plan``'s DOES, and phase 3
+    resolves its own cells through ``rejudge.phase3_runner._resolve_judgment_cell`` instead of
+    this function; see ``phase2_canary_execute._polarity``). So this leaves
+    ``ResolvedCell.judgment_replicates_per_side`` at its dataclass default of ``None``,
+    deliberately: passing anything else here would tell ``_polarity`` a side is foldable into a
+    ``replicate_index`` that in fact never carries one.
+    """
     kind, condition = str(cell["kind"]), str(cell["condition"])
     composition = _composition(kind, condition, bundle)
 

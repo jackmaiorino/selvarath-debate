@@ -114,10 +114,31 @@ def _polarity(cell: ResolvedCell) -> bool:
     were never counterbalanced at all, and the query gate was handed the two candidate
     answers under labels swapped from the ones the judge actually read (224 of 332 gated
     cells). Deriving both from one function is what stops them drifting apart again.
+
+    **Mirroring fix (2026-08-21), additive.** ``position_for`` (via
+    ``analysis.infra.design.position_a_is_correct``) is a pure function of
+    ``(question_id, transcript_index)`` -- the per-question BASE draw, held fixed by design. It
+    carries no side input, so before this fix every K2 slot of a cell rendered the IDENTICAL
+    label order: duplication, not the mirroring the frozen protocols always claimed (see
+    ``rejudge/phase3_incident1_mirroring_2026-08-21.json``). ``cell.judgment_replicates_per_side``
+    is the ADDITIVE unfold key: when a resolver supplies it (currently only
+    ``rejudge.phase3_runner._resolve_judgment_cell``, from the frozen protocol's
+    ``judgment_replicates_per_transcript_side``), ``cell.replicate_index`` is known to be
+    ``side * replicates_per_side + within_side_replicate`` (see ``phase3_plan.enumerate_cells``/
+    ``enumerate_canary_cells``'s docstrings), so the side bit is recovered by integer division
+    and XORed against the base draw: side 0 keeps the base polarity, side 1 flips it. When it is
+    ``None`` (every phase-2 cell, resolved by this module's own :func:`resolve_cell`, whose
+    ``replicate_index`` is a plain K2 index with no side folded into it at all), this is a no-op
+    and the return value is byte-identical to the pre-fix function.
     """
-    return position_for(ARMS[cell.arm_name or "clean"], cell.question_id,
+    base = position_for(ARMS[cell.arm_name or "clean"], cell.question_id,
                         cell.transcript_index or 0, str(cell.judge_model),
                         cell.query_budget)
+    replicates_per_side = cell.judgment_replicates_per_side
+    if not replicates_per_side:
+        return base
+    side = (cell.replicate_index or 0) // replicates_per_side
+    return base if side % 2 == 0 else not base
 
 
 def _transcript_for(cell: ResolvedCell, context: CellContext) -> dict:
