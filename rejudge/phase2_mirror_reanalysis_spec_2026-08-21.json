@@ -1,0 +1,25 @@
+{
+ "schema_version": "phase2_mirror_reanalysis_spec_v1",
+ "spec_id": "phase2_mirror_reanalysis_2026-08-21",
+ "status": "FROZEN_BEFORE_COMPUTATION",
+ "freeze_note": "This spec is committed before any side-stratified or standardized quantity is computed from the phase-2 archive. Phase-2 outcomes are already unblinded, so this is a post-hoc robustness analysis by necessity and is labeled as such everywhere; the spec freeze removes the remaining selection freedom. Transcribed from the 2026-08-21 oracle consult (rejudge/phase3_codex_mirroring_consult_2026-08-21.md) with no substantive alteration.",
+ "context": "Incident: rejudge/phase3_incident1_mirroring_2026-08-21.json. K2 mirroring was never executed; both slots duplicated one fixed label assignment per (question, transcript) unit. Realized main-grid assignment: 128 A-correct / 118 B-correct over the 246 (question, transcript) units; 63 of 82 questions carry both polarities across their transcripts; 19 are single-polarity.",
+ "steps": [
+  {"n": 1, "step": "Verify polarity from RENDERED PROMPTS, never intended metadata: extract the realized A/B assignment for every (q, t, j, d, r) row from the archived composed prompts (call cache / result records), confirm the assignment matches across b0, sequential_b2, and batch_same_qa_b2 for every unit, and reproduce the banked H/P/R numbers exactly from the archive before anything else. Any mismatch or reproduction failure halts the reanalysis for review."},
+  {"n": 2, "step": "Collapse the duplicated K2 judgments to condition means at (q, t, j, d). Compute atomic H/P/R contrasts at that unit level, preserving H = P + R exactly."},
+  {"n": 3, "step": "For BOTH invalid rules (strict-INVALID-counts-wrong and common-support valid-only), report: (a) realized-schedule H/P/R (should equal the banked numbers under strict); (b) world-standardized A-polarity-only and B-polarity-only estimates; (c) the 50/50 standardized estimate (equal weight to the A and B strata within world); (d) the A-minus-B interaction; (e) the shift of each from the banked estimate."},
+  {"n": 4, "step": "Inference: common world-stratified question-cluster bootstrap draws shared across all quantities (B and seed pinned in this spec: B = 10000, seed = 20260821, same draw machinery as the frozen phase-2 engine). Additionally a within-question analysis restricted to the 63 questions having both polarities across transcripts, using direct within-question centering; treated as CORROBORATION only, since transcript content differs across polarities."},
+  {"n": 5, "step": "Prespecified diagnostics, none selected among afterward: judge-specific interaction contributions; leave-one-judge-out; leave-one-world-out; valid-only variants of all of the above."},
+  {"n": 6, "step": "Audit EVERY published phase-2 judgment result, not only H/P/R: the cap-protection interaction C under the same side-by-condition exposure, and D_clean (most exposed: debate averages three transcript polarities while the no-debate K3 comparator reuses the question's transcript-0 polarity, so even a raw side main effect may not cancel). Same standardization treatment where applicable."}
+ ],
+ "decision_rule": {
+  "survives_as_post_hoc_robust": "the frozen 50/50-standardized H (strict rule) is positive, its 95% question-cluster CI excludes zero, AND the valid-only and within-question estimates agree in direction",
+  "withdraw_directional_headline": "the primary standardized CI includes zero: report phase 2 as inconclusive for the mirrored target",
+  "retract": "the standardized estimate is zero or negative",
+  "always": "the erratum is mandatory regardless; any numerical mirrored-effect claim uses the corrected estimate; the original +3.94pp remains only as the realized-schedule estimate; P and R (and C, D_clean) require their own stability and are not rescued by a stable H; 'fully preregistered mirrored result' and 'all eligibility gates passed' are not restorable by this analysis"
+ },
+ "outputs": ["analysis_out/phase2_mirror_reanalysis.json (machine-readable, with integrity block: input hashes, engine commit, draw-matrix hash)", "an erratum section for reports/2026-08-11-phase2-main-results.md drafted from the consult's template language, completed with the computed numbers"],
+ "authority": "consult-prescribed; owner approved the reanalysis path 2026-08-21 ('adopt the whole package' recommendation accepted); executed once, like the frozen phase-2 analysis",
+ "recorded_at_utc": "2026-08-21T11:40:00Z",
+ "note": "Append-only."
+}
