@@ -1,0 +1,20 @@
+{
+ "schema_version": "phase3_incident_v1",
+ "incident_id": "phase3_incident1_k2_mirroring_never_implemented_2026-08-21",
+ "severity": "major_cross_phase",
+ "summary": "The K2 'mirrored sides' design property was NEVER implemented, in phase 2 or phase 3. The A/B position function (analysis/infra/design.py position_a_is_correct, consumed via rejudge/config.py position_for by rejudge/phase2_canary_execute.py _polarity) takes only (question_id, transcript_index); no side or replicate input exists anywhere downstream of the plan enumerators' side folds. Both K2 slots of every judgment cell present IDENTICAL labels: duplication, not mirroring.",
+ "evidence": {
+  "phase3_canary": "0 of 288 b0 pairs mirrored (288/288 duplicated); 0 mirrored at every budget (72/72, 72/72, 72/72, 56/56 duplicated at b1/b2/b4/b8)",
+  "phase2_bridge_canary_control": "0 of 192 b0 pairs mirrored (192/192 duplicated): the defect is pre-existing, not phase-3-introduced",
+  "split_mechanism": "position_a_is_correct realizes 13 A-correct / 11 B-correct among the 24 held-out questions; duplicated across K2 this yields the observed 52/44 row split for every judge in both phases",
+  "phase2_gate_discrepancy": "applying the frozen side-bias/invalid gate arithmetic to the raw phase-2 bridge archive on REALIZED positions fails 3 of 4 continuing judges (Qwen2.5-7B 39.7pp, gemma-4-31B 11.5pp, Llama-3.3-70B 10.84pp side bias; gpt-oss-120b 4.17% invalid); the phase-2 canary's reported gate PASS was therefore not this computation on realized positions: the reported gate was measuring the intended-side metadata, which under duplication is vacuous",
+  "unaffected": "phase-3 capability-anchor cells use a separate path (_capability_qa_side from mirror_index) and are verified perfectly mirrored (24/24 per judge); transcript reuse and all non-judgment machinery unaffected",
+  "invalid_rate_failures": "separately diagnosed as pre-existing pathologies, not phase-3 regressions: gpt-oss-120b reasoning-leakage preamble at b0 (present in phase 2 at similar magnitude); gemma-4-31B a single-question 4096-token reasoning truncation (new but n=1)"
+ },
+ "phase2_implications_preliminary": "the banked phase-2 contrasts (H/P/R) difference the same fixed assignment across conditions within each cell, so first-order side effects cancel; residual exposure is a side-by-condition interaction weighted by the assignment imbalance, empirically boundable from the phase-2 data since realized positions are known. The protocol text's 'K2 mirrored' claim is false as-executed and requires disclosure regardless of measured impact. Interpretation and reanalysis design are going to the Codex oracle before any owner decision.",
+ "containment": "canary auto-relaunch probe STOPPED (no further cells complete under the broken polarity); main run was never authorized or built; the 39 pending canary cells stay pending until the corrected identity exists",
+ "remedy_sketch": "add a side input to _polarity (XOR the per-question base draw with the recovered side bit), thread replicates-per-side down to it; re-run all 1,113 completed canary judgment cells plus the 39 pending under a corrected successor identity (~12-14 USD at measured per-cell prices); capability anchors and transcript rows carry forward; gates re-evaluated on true 48/48 balance",
+ "discovered_by": "the phase-3 canary close-out computing the side-bias gate on REALIZED positions for the first time; forensic pairing analysis against both archives confirmed",
+ "recorded_at_utc": "2026-08-21T09:30:00Z",
+ "note": "Append-only. Owner notified 2026-08-21; oracle consult in flight; no fix applied yet."
+}
