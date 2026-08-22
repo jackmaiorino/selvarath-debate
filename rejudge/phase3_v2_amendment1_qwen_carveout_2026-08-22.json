@@ -1,0 +1,26 @@
+{
+ "schema_version": "phase3_amendment_v1",
+ "amendment_id": "phase3_v2_amendment1_qwen_carveout_2026-08-22",
+ "amends": {
+  "tracked_path": "rejudge/phase3_protocol_v2.json",
+  "canonical_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+  "section": "launch_gates canary completion (the Qwen/Qwen2.5-7B-Instruct-Turbo judgment cells only)"
+ },
+ "what_changed": "CONDITIONAL CARVE-OUT, 7 days: the v2 canary closes PROVISIONALLY on the five healthy judges (gates, pace window, dedup/volume measurement, forecast, and configuration-selection all proceed on their complete cells); the 192 Qwen2.5-7B judgment cells (96 core b0 + 96 smoke) are DEFERRED, not dropped. If the endpoint recovers and all 192 complete under the v2 identity by 2026-08-29T00:00:00Z, Qwen2.5-7B rejoins the roster and its gates are evaluated identically. Otherwise it is DROPPED at that boundary OR at main-run authorization, whichever comes first (roster 5), triggering the frozen non-estimable rule for the capability slope (estimate-and-plot only, no p-value). The deferral list is mechanical: exactly the judgment cell keys of judge Qwen/Qwen2.5-7B-Instruct-Turbo in the v2 canary plan.",
+ "why": "the provider endpoint has been hard-down (503) for ~60 hours (probed continuously since 2026-08-20; the catalog still lists it; both non-Turbo servings of the same weights are dedicated-only). The v2 protocol treats endpoint unavailability as environmental (retry/defer, never a semantic drop), but unbounded deferral blocks the entire pipeline; the owner bounded it.",
+ "mechanics": "the runner gains a deferral-list input bound BY CANONICAL HASH TO THIS AMENDMENT (mirroring the context-blocklist binding discipline): deferred cells are never attempted, reported as deferred_by_amendment with this record's hash; the orchestrator subtracts them from the remaining-cells convergence arithmetic; the post-convergence polarity gate evaluates the five healthy judges' 48/48 splits and the deferred judge's on rejoin",
+ "deferral_list": "rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json (generated mechanically from the v2 plan; its canonical sha recorded there and cross-bound here at generation)",
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "direct chat, 2026-08-22, enumerated-choice prompt in the session UI",
+  "selection_label": "Conditional carve-out, 7 days (Recommended)",
+  "alternatives_presented": [
+   "Wait indefinitely",
+   "Drop now (roster 5)"
+  ]
+ },
+ "execution_authorized_change": "none; spend stays under the continued 60 USD canary cap",
+ "recorded_at_utc": "2026-08-22T09:30:00Z",
+ "note": "Append-only.",
+ "owner_context_note": "the owner assesses (2026-08-22) that the provider has likely removed the model from serverless service entirely, matching the Llama-3-8B removal signature (catalog-listed, permanently 503); the carve-out is retained because it costs nothing and resolves identically to a drop if that assessment is right"
+}
