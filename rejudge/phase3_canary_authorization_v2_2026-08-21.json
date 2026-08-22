@@ -6,9 +6,11 @@
   "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
   "protocol_canonical_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
   "manifest_tracked_path": "rejudge/phase3_manifest_v2_2026-08-21.json",
-  "execution_identity_sha256": "518fd9d60051e06a0464d54d39511d665be1900626da7f1e009e2f113225ea17",
+  "execution_identity_sha256": "691478d829e2384975ba0e7491e33f96c0ea433c4238abc4fd39d55f0c5fc793",
   "ratification": "rejudge/phase3_v2_ratification_2026-08-21.json",
-  "predecessor_authorization": "rejudge/phase3_canary_authorization_2026-08-18.json (v1; its spend cap CONTINUES here per the ratification)"
+  "predecessor_authorization": "rejudge/phase3_canary_authorization_2026-08-18.json (v1; its spend cap CONTINUES here per the ratification)",
+  "identity_history": "first v2 identity 518fd9d6 executed the first 477 mirrored cells and the two outage STOPs; rebound 2026-08-22 after the owner-authorized carve-out machinery (deferral support) joined the code bundle",
+  "amendment_v2_1": "rejudge/phase3_v2_amendment1_qwen_carveout_2026-08-22.json (canonical 22692c76...) + deferral list rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json (canonical 5c8c5bb1...)"
  },
  "scope": {
   "inventory": "1,152 fresh v2 judgment slots (576 core b0 + 576 budget smoke, 6-judge roster) + 540 preseeded transcript rows; the 288 capability-anchor cells carry from the v1 identity by manifest binding and are not re-run",

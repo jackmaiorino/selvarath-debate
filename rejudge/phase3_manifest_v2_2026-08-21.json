@@ -1,49 +1,64 @@
 {
- "caps": {
-  "configuration_selection_limits": {
-   "D_max": 45,
-   "R_max": 135000,
-   "note": "owner-selected 2026-08-18 (D_max 45 quota-days; R_max derived as 45 x 3,000/day planning pace); the manifest enforces both R_U <= R_max and D_U <= D_max; the canary-measured pace replaces the planning pace inside D_U at evaluation time"
+ "schema_version": "phase3_execution_manifest_v1",
+ "stage": "phase3",
+ "recorded_at_utc": "2026-08-22T20:40:41Z",
+ "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
+ "planning": {
+  "question_counts": {
+   "main": 82,
+   "held_out": 24
   },
-  "stage_cap_usd": 450
+  "main": {
+   "all_cells": 30012,
+   "by_kind": {
+    "phase3_debate_judgment": 29520,
+    "phase3_transcript_reference": 492
+   },
+   "transcript_cells": 492,
+   "slot_count": 29520,
+   "cells_sha256": "a11663a8d1846f30a0750214a14ecd932b075d93a82bb9a2315638a307cb22dd"
+  },
+  "canary": {
+   "all_cells": 1488,
+   "by_kind": {
+    "phase3_canary_debate_judgment": 1152,
+    "phase3_canary_transcript_reference": 48,
+    "phase3_capability_qa": 288
+   },
+   "transcript_cells": 48,
+   "slot_count": 1440,
+   "cells_sha256": "e35c4691c4453dc0677bc465d664159db78fb82dfa168cb1b430aeb496a00b9f"
+  }
  },
- "code_provenance": {
-  "code_bundle_sha256": "72374c7139ea08809258e56e2935c4d246cc871d35360d8c667585940a3e8b03",
-  "files": [
-   "rejudge/phase3_plan.py",
-   "rejudge/phase3_manifest.py",
-   "rejudge/phase3_runner.py",
-   "rejudge/phase2_canary_runner.py",
-   "rejudge/phase2_canary_live.py",
-   "rejudge/phase2_canary_cells.py",
-   "rejudge/phase2_canary_compose.py",
-   "rejudge/phase2_canary_gate.py",
-   "rejudge/phase2_dual_gate.py",
-   "rejudge/phase2_canary_order.py",
-   "rejudge/phase2_canary_execute.py",
-   "rejudge/judge_loop.py",
-   "rejudge/debate_gen.py",
-   "rejudge/composer.py",
-   "rejudge/oracle_channel.py",
-   "rejudge/query_screen.py",
-   "rejudge/parsers.py",
-   "rejudge/records.py",
-   "rejudge/config.py",
-   "rejudge/phase2_query_gate.py",
-   "rejudge/phase2_call_cache.py",
-   "rejudge/phase2_caching_client.py",
-   "rejudge/api_client.py",
-   "rejudge/run_accounting.py",
-   "scripts/phase3_preseed_transcripts.py",
-   "scripts/phase3_context_precheck.py",
-   "scripts/phase3_canary_orchestrator.sh",
-   "scripts/phase3_polarity_verify.py",
-   "rejudge/phase3_orchestrator_support.py"
-  ]
- },
- "execution_authorized": false,
- "execution_identity_sha256": "518fd9d60051e06a0464d54d39511d665be1900626da7f1e009e2f113225ea17",
  "frozen_inputs": {
+  "protocol_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+  "phase2_protocol_sha256": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
+  "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8",
+  "prompt_bundle_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "prompt_bundle_approval_sha256": "c719371e666c23197c89bde25ed1f9ea7225e5a68a2c0b0cca62fca4dae1a960",
+  "role_limits_sha256": "dd71bdc029a2eaba748b40456348e578449137f35b8bfbcd4b58d52fca6e4562",
+  "role_limits_tracked_path": "rejudge/phase3_role_limits_v1_2026-08-18.json",
+  "provider_snapshot_sha256": "58022b53e294df1dcedb3ba700142e5d94c72ef57438e6a5265db6b1bd3849a9",
+  "provider_snapshot_tracked_path": "rejudge/phase3_provider_snapshot_2026-08-18.json",
+  "checker_frozen_config_sha256": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
+  "checker_system_prompt_sha256": "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428",
+  "checker_model": "google/gemma-4-31B-it",
+  "reviewer_prompt_sha256": "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4",
+  "main_transcript_bundle_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+  "main_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+  "canary_transcript_bundle_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
+  "canary_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+  "transcript_verification_report_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
+  "transcript_verification_report_tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json",
+  "estimator_validation_report_sha256": "e68b621731a58d0f7dbb0572461936b0423416e7d0189012ddf007907e8924f0",
+  "estimator_validation_report_tracked_path": "rejudge/phase3_estimator_validation_2026-08-19.json",
+  "context_blocklist_canary_report_sha256": "f4a9ba1c456cdf191c88188e29cdea5e0a9534c98b0abbfdd52db41e6bf1faf7",
+  "context_blocklist_canary_report_tracked_path": "rejudge/phase3_context_blocklist_canary_v2_2026-08-21.json",
+  "context_blocklist_main_report_sha256": "4e37e9370a500ef7b99dc6ab31341afe58f4bc0d518bb06fc9a6c13c90bf2cb3",
+  "context_blocklist_main_report_tracked_path": "rejudge/phase3_context_blocklist_main_v2_2026-08-21.json",
+  "anchor_carry_v1_protocol_tracked_path": "rejudge/phase3_protocol.json",
+  "anchor_carry_v1_protocol_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
+  "anchor_carry_store_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl",
   "anchor_carry_cell_count": 288,
   "anchor_carry_cell_keys": [
    "phase3-budget-knob-2026-08-18-v1.qb-d9e52c3339ab:phase3_capability_qa:002c7fb254ac775958f71f70a26fc6213162657f9804365913de0e868de69ffb",
@@ -1490,84 +1505,12 @@
    }
   ],
   "anchor_carry_rows_sha256": "38f00ec36d39e03ae75f5682637b3fc658a8604fdf334757a8c938bc69cbfa05",
-  "anchor_carry_store_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl",
-  "anchor_carry_v1_protocol_sha256": "615d1e1f46e32978fbf4af54ab0c6098c2f65354a4b287e3677dc169d9013aee",
-  "anchor_carry_v1_protocol_tracked_path": "rejudge/phase3_protocol.json",
-  "canary_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
-  "canary_transcript_bundle_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
-  "checker_frozen_config_sha256": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
-  "checker_model": "google/gemma-4-31B-it",
-  "checker_system_prompt_sha256": "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428",
-  "context_blocklist_canary_report_sha256": "f4a9ba1c456cdf191c88188e29cdea5e0a9534c98b0abbfdd52db41e6bf1faf7",
-  "context_blocklist_canary_report_tracked_path": "rejudge/phase3_context_blocklist_canary_v2_2026-08-21.json",
-  "context_blocklist_main_report_sha256": "4e37e9370a500ef7b99dc6ab31341afe58f4bc0d518bb06fc9a6c13c90bf2cb3",
-  "context_blocklist_main_report_tracked_path": "rejudge/phase3_context_blocklist_main_v2_2026-08-21.json",
   "crank_settings": {
    "max_waves_per_round": 4,
    "review_daemon_concurrency": 12
-  },
-  "estimator_validation_report_sha256": "e68b621731a58d0f7dbb0572461936b0423416e7d0189012ddf007907e8924f0",
-  "estimator_validation_report_tracked_path": "rejudge/phase3_estimator_validation_2026-08-19.json",
-  "main_transcript_bundle_path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
-  "main_transcript_bundle_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
-  "phase2_protocol_sha256": "54dce0c325b83989a1f50c26a76b687362bbdeee09f52cb23b6a0a62ecd89d75",
-  "prompt_bundle_approval_sha256": "c719371e666c23197c89bde25ed1f9ea7225e5a68a2c0b0cca62fca4dae1a960",
-  "prompt_bundle_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
-  "protocol_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
-  "provider_snapshot_sha256": "58022b53e294df1dcedb3ba700142e5d94c72ef57438e6a5265db6b1bd3849a9",
-  "provider_snapshot_tracked_path": "rejudge/phase3_provider_snapshot_2026-08-18.json",
-  "question_bank_bundle_sha256": "d9e52c3339ab4d0c845074f6badb5c6dc36751cc31fa41a62618644705126fd8",
-  "reviewer_prompt_sha256": "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4",
-  "role_limits_sha256": "dd71bdc029a2eaba748b40456348e578449137f35b8bfbcd4b58d52fca6e4562",
-  "role_limits_tracked_path": "rejudge/phase3_role_limits_v1_2026-08-18.json",
-  "transcript_verification_report_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
-  "transcript_verification_report_tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json"
- },
- "ledger": {
-  "archive_dir": "E:/selvarath-archive/phase3-v2-2026-08-21",
-  "call_cache_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_call_cache.jsonl",
-  "canary_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_canary_results.jsonl",
-  "decisions_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_reviewer_decisions.jsonl",
-  "main_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_main_results.jsonl",
-  "usage_log_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_usage.jsonl"
- },
- "planning": {
-  "canary": {
-   "all_cells": 1488,
-   "by_kind": {
-    "phase3_canary_debate_judgment": 1152,
-    "phase3_canary_transcript_reference": 48,
-    "phase3_capability_qa": 288
-   },
-   "cells_sha256": "e35c4691c4453dc0677bc465d664159db78fb82dfa168cb1b430aeb496a00b9f",
-   "slot_count": 1440,
-   "transcript_cells": 48
-  },
-  "main": {
-   "all_cells": 30012,
-   "by_kind": {
-    "phase3_debate_judgment": 29520,
-    "phase3_transcript_reference": 492
-   },
-   "cells_sha256": "a11663a8d1846f30a0750214a14ecd932b075d93a82bb9a2315638a307cb22dd",
-   "slot_count": 29520,
-   "transcript_cells": 492
-  },
-  "question_counts": {
-   "held_out": 24,
-   "main": 82
   }
  },
- "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
- "recorded_at_utc": "2026-08-21T12:30:00Z",
- "resume_granularity": "cell",
  "roster": {
-  "amendments": [],
-  "debaters": [
-   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-   "Qwen/Qwen3.7-Plus"
-  ],
-  "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload",
   "judges": [
    "Qwen/Qwen2.5-7B-Instruct-Turbo",
    "google/gemma-4-31B-it",
@@ -1576,10 +1519,67 @@
    "google/gemma-3n-E4B-it",
    "Qwen/Qwen3.7-Max"
   ],
+  "amendments": [],
+  "debaters": [
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "Qwen/Qwen3.7-Plus"
+  ],
   "oracle": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-  "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)"
+  "query_checker": "google/gemma-4-31B-it under the phase-2 frozen checker config (sha256 8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872)",
+  "gate_reviewer": "gpt-5.6-sol under the phase-2 frozen reviewer prompt (sha256 b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4), fresh isolated context per payload"
  },
- "schema_version": "phase3_execution_manifest_v1",
- "stage": "phase3",
- "transcript_generation_forbidden": true
+ "caps": {
+  "stage_cap_usd": 450,
+  "configuration_selection_limits": {
+   "R_max": 135000,
+   "D_max": 45,
+   "note": "owner-selected 2026-08-18 (D_max 45 quota-days; R_max derived as 45 x 3,000/day planning pace); the manifest enforces both R_U <= R_max and D_U <= D_max; the canary-measured pace replaces the planning pace inside D_U at evaluation time"
+  }
+ },
+ "ledger": {
+  "archive_dir": "E:/selvarath-archive/phase3-v2-2026-08-21",
+  "main_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_main_results.jsonl",
+  "canary_results_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_canary_results.jsonl",
+  "usage_log_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_usage.jsonl",
+  "decisions_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_reviewer_decisions.jsonl",
+  "call_cache_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_call_cache.jsonl"
+ },
+ "code_provenance": {
+  "files": [
+   "rejudge/phase3_plan.py",
+   "rejudge/phase3_manifest.py",
+   "rejudge/phase3_runner.py",
+   "rejudge/phase2_canary_runner.py",
+   "rejudge/phase2_canary_live.py",
+   "rejudge/phase2_canary_cells.py",
+   "rejudge/phase2_canary_compose.py",
+   "rejudge/phase2_canary_gate.py",
+   "rejudge/phase2_dual_gate.py",
+   "rejudge/phase2_canary_order.py",
+   "rejudge/phase2_canary_execute.py",
+   "rejudge/judge_loop.py",
+   "rejudge/debate_gen.py",
+   "rejudge/composer.py",
+   "rejudge/oracle_channel.py",
+   "rejudge/query_screen.py",
+   "rejudge/parsers.py",
+   "rejudge/records.py",
+   "rejudge/config.py",
+   "rejudge/phase2_query_gate.py",
+   "rejudge/phase2_call_cache.py",
+   "rejudge/phase2_caching_client.py",
+   "rejudge/api_client.py",
+   "rejudge/run_accounting.py",
+   "scripts/phase3_preseed_transcripts.py",
+   "scripts/phase3_context_precheck.py",
+   "scripts/phase3_canary_orchestrator.sh",
+   "scripts/phase3_polarity_verify.py",
+   "rejudge/phase3_orchestrator_support.py"
+  ],
+  "code_bundle_sha256": "2f76a8b8c4b0e1deb1de39a1f40cdcaf5e02517e02cc293fbf3fe30227927f10"
+ },
+ "resume_granularity": "cell",
+ "transcript_generation_forbidden": true,
+ "execution_authorized": false,
+ "execution_identity_sha256": "691478d829e2384975ba0e7491e33f96c0ea433c4238abc4fd39d55f0c5fc793"
 }
