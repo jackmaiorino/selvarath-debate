@@ -619,7 +619,8 @@ def _merge_outcomes(first: RunOutcome, second: RunOutcome) -> RunOutcome:
         # never subject to it (the v2 amendment carves out judgment cells specifically), so the
         # capability phase never sets either field.
         deferred_by_amendment=first.deferred_by_amendment,
-        deferral_amendment_sha256=first.deferral_amendment_sha256)
+        deferral_amendment_sha256=first.deferral_amendment_sha256,
+        anchors_carried=first.anchors_carried + second.anchors_carried)
 
 
 # --- gate-review wiring: reuse phase 2's dual-gate flow unmodified ------------------------
@@ -1029,7 +1030,17 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     # labels" (the pre-2026-08-18-fix behavior) meant a single paused judgment cell silently
     # blocked all 288 capability cells, every invocation, even though they share no gate, no
     # dependency, and no reviewer with the judgment pass at all.
-    if outcome.halted_reason is None:
+    if outcome.halted_reason is None and manifest["frozen_inputs"].get("anchor_carry_cell_count"):
+        # A v2-style manifest CARRIES the capability anchors from a predecessor identity by
+        # store/hash binding (decisions.launch_gates.canary_scope): the anchors are never
+        # re-executed here. validate_manifest has already re-verified the carried rows exist in
+        # the bound predecessor store with matching hashes, so the capability phase is complete
+        # by construction. Discovered live 2026-08-22: without this skip, the runner re-ran
+        # anchors (wasteful for healthy judges, and a deterministic 9-strike same-cell STOP on
+        # the outage-dead judge whose anchors the carry already covers).
+        outcome = _merge_outcomes(outcome, RunOutcome(
+            anchors_carried=int(manifest["frozen_inputs"]["anchor_carry_cell_count"])))
+    elif outcome.halted_reason is None:
         # A FRESH store, opened only now: run_canary above owns (and has already closed) its
         # own independent CellResultStore instance over the same file, appending every
         # judgment/transcript row to the on-disk hash chain. A store instance opened any
@@ -1117,7 +1128,8 @@ def main(argv: list[str] | None = None) -> int:
         "context_blocked": outcome.context_blocked,
         "context_blocklist_sha256": outcome.context_blocklist_sha256,
         "deferred_by_amendment": outcome.deferred_by_amendment,
-        "deferral_amendment_sha256": outcome.deferral_amendment_sha256}, sort_keys=True))
+        "deferral_amendment_sha256": outcome.deferral_amendment_sha256,
+        "anchors_carried": outcome.anchors_carried}, sort_keys=True))
     return 0 if outcome.halted_reason is None else 1
 
 

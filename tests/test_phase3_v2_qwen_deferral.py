@@ -433,8 +433,12 @@ def test_the_real_v2_canary_converges_with_qwens_192_cells_deferred(
     # preseeded MAIN-scope transcript rows already sit in this same store (a later main-run
     # stage's dependency), but this canary driver never enumerates or counts them at all.
     assert outcome.skipped == 48
-    assert outcome.completed == 960 + 288
-    assert outcome.completed + outcome.skipped + outcome.deferred_by_amendment == 1488
+    # The 288 capability anchors CARRY from the v1 identity (manifest binding) and are never
+    # re-executed under a carrying manifest; the runner reports them separately.
+    assert outcome.completed == 960
+    assert outcome.anchors_carried == 288
+    assert (outcome.completed + outcome.skipped + outcome.deferred_by_amendment
+            + outcome.anchors_carried == 1488)
 
     results_path = local_path(manifest["ledger"]["canary_results_path"])
     reopened = CellResultStore(results_path)

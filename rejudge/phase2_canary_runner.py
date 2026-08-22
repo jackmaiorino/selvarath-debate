@@ -61,6 +61,7 @@ class RunOutcome:
     # amendment, never attempted at all. Every phase-2 call site leaves both at their defaults,
     # so phase-2 behavior is unchanged.
     deferred_by_amendment: int = 0
+    anchors_carried: int = 0
     deferral_amendment_sha256: str | None = None
 
     @property
