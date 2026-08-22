@@ -6,10 +6,10 @@
   "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
   "protocol_canonical_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
   "manifest_tracked_path": "rejudge/phase3_manifest_v2_2026-08-21.json",
-  "execution_identity_sha256": "691478d829e2384975ba0e7491e33f96c0ea433c4238abc4fd39d55f0c5fc793",
+  "execution_identity_sha256": "f3e7e11b22f3fed66eb777750de8815cf4a7ea22bb76d7dbda21eae415c754c2",
   "ratification": "rejudge/phase3_v2_ratification_2026-08-21.json",
   "predecessor_authorization": "rejudge/phase3_canary_authorization_2026-08-18.json (v1; its spend cap CONTINUES here per the ratification)",
-  "identity_history": "first v2 identity 518fd9d6 executed the first 477 mirrored cells and the two outage STOPs; rebound 2026-08-22 after the owner-authorized carve-out machinery (deferral support) joined the code bundle",
+  "identity_history": "first v2 identity 518fd9d6 executed the first 477 mirrored cells and the two outage STOPs; rebound 2026-08-22 after the owner-authorized carve-out machinery (deferral support) joined the code bundle; rebound again 2026-08-22 after the anchor-carry skip fix (carried anchors are never re-executed; the 9-strike deterministic STOP on the dead judge anchor cell exposed the gap)",
   "amendment_v2_1": "rejudge/phase3_v2_amendment1_qwen_carveout_2026-08-22.json (canonical 22692c76...) + deferral list rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json (canonical 5c8c5bb1...)"
  },
  "scope": {

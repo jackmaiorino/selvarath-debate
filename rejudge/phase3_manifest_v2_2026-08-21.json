@@ -1,7 +1,7 @@
 {
  "schema_version": "phase3_execution_manifest_v1",
  "stage": "phase3",
- "recorded_at_utc": "2026-08-22T20:40:41Z",
+ "recorded_at_utc": "2026-08-22T21:50:36Z",
  "protocol_tracked_path": "rejudge/phase3_protocol_v2.json",
  "planning": {
   "question_counts": {
@@ -1506,8 +1506,8 @@
   ],
   "anchor_carry_rows_sha256": "38f00ec36d39e03ae75f5682637b3fc658a8604fdf334757a8c938bc69cbfa05",
   "crank_settings": {
-   "max_waves_per_round": 4,
-   "review_daemon_concurrency": 12
+   "review_daemon_concurrency": 12,
+   "max_waves_per_round": 4
   }
  },
  "roster": {
@@ -1576,10 +1576,10 @@
    "scripts/phase3_polarity_verify.py",
    "rejudge/phase3_orchestrator_support.py"
   ],
-  "code_bundle_sha256": "2f76a8b8c4b0e1deb1de39a1f40cdcaf5e02517e02cc293fbf3fe30227927f10"
+  "code_bundle_sha256": "305cf4ab708a81ce37e6f98d66b792045ad2c71883a03ea1f36d4e8d6de93b6a"
  },
  "resume_granularity": "cell",
  "transcript_generation_forbidden": true,
  "execution_authorized": false,
- "execution_identity_sha256": "691478d829e2384975ba0e7491e33f96c0ea433c4238abc4fd39d55f0c5fc793"
+ "execution_identity_sha256": "f3e7e11b22f3fed66eb777750de8815cf4a7ea22bb76d7dbda21eae415c754c2"
 }
