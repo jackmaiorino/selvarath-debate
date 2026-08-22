@@ -54,6 +54,14 @@ class RunOutcome:
     # Every phase-2 call site leaves both at their defaults, so phase-2 behavior is unchanged.
     context_blocked: int = 0
     context_blocklist_sha256: str | None = None
+    # Additive, phase-3-only (rejudge.phase3_runner's --deferral-list, v2 amendment 1's Qwen
+    # carve-out): how many cells this invocation excluded ex-ante per an amendment-bound
+    # deferral list, and that amendment record's own canonical sha256. Distinct from `deferred`
+    # above (ambiguous-billing retries) -- this counts cells excluded by owner-authorized
+    # amendment, never attempted at all. Every phase-2 call site leaves both at their defaults,
+    # so phase-2 behavior is unchanged.
+    deferred_by_amendment: int = 0
+    deferral_amendment_sha256: str | None = None
 
     @property
     def needs_labelling(self) -> bool:

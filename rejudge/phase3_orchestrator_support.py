@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from rejudge import phase3_plan
+from rejudge import phase3_plan, phase3_runner
 
 CRANK_SETTINGS_KEYS = ("review_daemon_concurrency", "max_waves_per_round")
 
@@ -39,7 +39,8 @@ def resolve_crank_settings(manifest: Mapping[str, Any]) -> dict[str, int]:
 
 
 def remaining_canary_cells(manifest: Mapping[str, Any], results_path: str | Path, *,
-                           project_root: str | Path = ".") -> dict[str, int]:
+                           project_root: str | Path = ".",
+                           deferral_list_path: str | Path | None = None) -> dict[str, int]:
     """Manifested-minus-completed canary convergence, v2-aware.
 
     "Manifested" is every row this v2 canary stage's result store (the SAME single file
@@ -68,6 +69,17 @@ def remaining_canary_cells(manifest: Mapping[str, Any], results_path: str | Path
     Returns ``{"manifested": N, "completed": N, "remaining": N}`` (1,692 manifested at the v2
     six-judge roster: 1,152 + 48 + 492). ``results_path`` need not exist yet (an absent file
     counts as zero completed cells, matching a freshly preseeded but not-yet-run store).
+
+    ``deferral_list_path`` (v2 amendment 1, the Qwen carve-out, 2026-08-22): also EXCLUDED from
+    "manifested" once given, the SAME way the 288 capability-anchor cells already are -- an
+    amendment-authorized carve-out is never attempted at all, so counting its cells here would
+    make convergence permanently unreachable while the carve-out is in force. Verified exactly
+    as strictly as the live driver verifies it (:func:`rejudge.phase3_runner.load_deferral_list`:
+    the amendment binding's canonical sha256 must match the amendment record actually on disk,
+    and the listed cells must exactly match the mechanical derivation rule re-run against this
+    SAME re-enumerated ``canary_cells`` plan) -- this is not a second, looser check, it is the
+    identical one, so the orchestrator's convergence arithmetic can never silently drift from
+    what the driver itself will actually skip.
     """
     root = Path(project_root)
     protocol = phase3_plan.load_protocol(manifest["protocol_tracked_path"])
@@ -82,6 +94,11 @@ def remaining_canary_cells(manifest: Mapping[str, Any], results_path: str | Path
         str(cell["cell_key"]) for cell in main_cells
         if cell["kind"] == phase3_plan.MAIN_TRANSCRIPT_KIND
     }
+
+    if deferral_list_path is not None:
+        deferral = phase3_runner.load_deferral_list(
+            deferral_list_path, project_root=root, protocol=protocol, plan_cells=canary_cells)
+        manifested -= deferral["cell_keys"]
 
     completed: set[str] = set()
     path = Path(results_path)

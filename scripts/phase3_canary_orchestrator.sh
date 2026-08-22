@@ -58,6 +58,15 @@
 #    tunables: decisions.launch_gates.pace_measurement_window.crank_settings_freeze requires
 #    them FROZEN in the manifest (frozen_inputs.crank_settings), resolved from there instead of
 #    the old hardcoded --concurrency 8 literal and env-overridable MAX_WAVES default.
+#  - amendment 1 (2026-08-22): the bounded Qwen2.5-7B carve-out. $DEFERRAL_LIST (env-overridable,
+#    default rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json) is passed to the driver as
+#    --deferral-list, subtracted from the manifested/remaining arithmetic
+#    (rejudge.phase3_orchestrator_support.remaining_canary_cells's deferral_list_path), and its
+#    named judge is excluded from the post-convergence polarity gate's roster (filtering the
+#    call, never weakening scripts/phase3_polarity_verify.py itself) -- so the gate evaluates
+#    "48/48 for each of the five [healthy judges]", exactly the amendment's own mechanics
+#    paragraph. A missing file (the carve-out already retired) degrades to "no deferral" at every
+#    one of these three call sites.
 #
 # Target runtime is WSL (the live run's result-store locks use POSIX fcntl, per the
 # canary-run-environment note), so this is POSIX sh/bash, matching main_orchestrator.sh. NOT
@@ -81,6 +90,16 @@ set -uo pipefail
 : "${AUTH:=rejudge/phase3_canary_authorization_v2_2026-08-21.json}"
 : "${ARCHIVE:=/mnt/e/selvarath-archive/phase3-v2-2026-08-21}"
 : "${LOG:=$ARCHIVE/orchestrator.log}"
+# Amendment 1 (2026-08-22): the bounded Qwen2.5-7B carve-out. An owner-authorized,
+# amendment-bound judgment-cell deferral -- see rejudge/phase3_runner.load_deferral_list and
+# rejudge/phase3_v2_amendment1_qwen_carveout_2026-08-22.json's mechanics paragraph. Defaults to
+# the v2 deferral list a fresh checkout already carries; overridable so a test harness (or a
+# later amendment superseding this one) can point at a different file without editing this
+# script. Passed to the driver on every invocation regardless of whether the carve-out is still
+# live -- rejudge.phase3_runner refuses to run with it at all only if it fails verification, not
+# merely because the endpoint has since recovered (recovery is handled by regenerating/retiring
+# this file, not by this script guessing at the amendment's current status).
+: "${DEFERRAL_LIST:=rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json}"
 # Amendment 4 (2026-08-19), package item 8: convergence no longer hand-encodes a cell count
 # here at all (the OLD TOTAL_CELLS=1980, "540 pre-seeded transcript rows [492 main + 48 canary]
 # + 1,440 canary judgment/capability slots at the 6-judge roster" -- a number that silently drops
@@ -166,6 +185,22 @@ print(manifest["frozen_inputs"]["context_blocklist_canary_report_tracked_path"])
 blocklist_args=(--context-blocklist "$blocklist_path")
 say "eligibility blocklist resolved from the manifest: $blocklist_path"
 
+# Amendment 1 (2026-08-22): resolved from $DEFERRAL_LIST (env-overridable, unlike the eligibility
+# blocklist above -- the deferral is a bounded, time-limited owner carve-out, never bound into
+# the manifest's own identity, so there is no manifest field to read it from instead).
+# rejudge.phase3_runner independently re-verifies the amendment binding and re-derives the
+# mechanical cell set every invocation; this is just where the path comes from. A MISSING file
+# means the carve-out has already been retired (endpoint recovered, or dropped at the amendment
+# boundary) -- run without one rather than passing a --deferral-list the driver would refuse
+# outright for not existing.
+if [ -n "$DEFERRAL_LIST" ] && [ -f "$DEFERRAL_LIST" ]; then
+  deferral_args=(--deferral-list "$DEFERRAL_LIST")
+  say "amendment-bound deferral list: $DEFERRAL_LIST"
+else
+  deferral_args=()
+  say "no amendment-bound deferral list found at '${DEFERRAL_LIST:-<unset>}'; running without one"
+fi
+
 # Amendment 4 (2026-08-19), package item 8: manifested-minus-completed, replacing the old
 # blocklist-count subtraction. v2 (2026-08-21): the 288 capability-anchor cells are EXCLUDED
 # from "manifested" -- decisions.launch_gates.canary_scope: they CARRY from the v1 identity by
@@ -180,13 +215,19 @@ say "eligibility blocklist resolved from the manifest: $blocklist_path"
 # automatically).
 remaining_cells() {
   "$VENV" -c '
-import json, sys
+import json, os, sys
 sys.path.insert(0, ".")
 from rejudge import phase3_orchestrator_support as support
 manifest = json.load(open(sys.argv[1], encoding="utf-8"))
-counts = support.remaining_canary_cells(manifest, sys.argv[2], project_root=".")
+# A missing $DEFERRAL_LIST means the carve-out has been retired (endpoint recovered, or dropped
+# at the amendment boundary and the file removed) -- fall back to no deferral, never crash the
+# convergence check over a file this amendment always expected to eventually go away.
+deferral_arg = sys.argv[3] if len(sys.argv) > 3 else ""
+deferral_list_path = deferral_arg if deferral_arg and os.path.exists(deferral_arg) else None
+counts = support.remaining_canary_cells(
+    manifest, sys.argv[2], project_root=".", deferral_list_path=deferral_list_path)
 print(counts["manifested"], counts["completed"], counts["remaining"])
-' "$MANIFEST" "$RESULTS_FILE"
+' "$MANIFEST" "$RESULTS_FILE" "$DEFERRAL_LIST"
 }
 
 read -r manifested_count completed_count remaining_count < <(remaining_cells)
@@ -239,12 +280,34 @@ run_polarity_gate() {
   # (the verifier itself reports per-judge splits pooled across every condition, so the
   # restriction has to happen before it runs, not inside it); the pass/fail decision itself is
   # rejudge.phase3_orchestrator_support.evaluate_polarity_gate.
+  #
+  # Amendment 1 (2026-08-22): the gate's SCOPE excludes whichever judge $DEFERRAL_LIST names as
+  # deferred (read from the file's own generation_basis.deferred_judge_model, never a hardcoded
+  # model id) -- the verify tool itself is never weakened (no new flag on it, no change to its
+  # 48/48 expectation), only the roster THIS call passes it is filtered down to the healthy
+  # judges, so the gate evaluates exactly "48/48 for each of the five" rather than silently
+  # tolerating a sixth judge's absence. If $DEFERRAL_LIST does not exist (the carve-out has
+  # already been retired -- endpoint recovered, or dropped at the amendment's own boundary and
+  # the file removed), this resolves to the full manifest roster, unchanged from before this
+  # amendment.
   local roster
   roster=$("$VENV" -c '
 import json, sys
 manifest = json.load(open(sys.argv[1], encoding="utf-8"))
-print(",".join(manifest["roster"]["judges"]))
-' "$MANIFEST")
+judges = list(manifest["roster"]["judges"])
+deferral_path = sys.argv[2]
+if deferral_path:
+    try:
+        with open(deferral_path, encoding="utf-8") as fh:
+            deferral = json.load(fh)
+    except FileNotFoundError:
+        deferral = None
+    if deferral is not None:
+        deferred_judge = (deferral.get("generation_basis") or {}).get("deferred_judge_model")
+        if deferred_judge in judges:
+            judges = [j for j in judges if j != deferred_judge]
+print(",".join(judges))
+' "$MANIFEST" "$DEFERRAL_LIST")
   local protocol_path
   protocol_path=$("$VENV" -c '
 import json, sys
@@ -325,7 +388,7 @@ for round in $(seq 1 "$ROUND_CAP"); do
   # orchestrator down with it.
   setsid "$VENV" "$SUPERVISOR" --driver-module "$DRIVER_MODULE" --driver-mode subagent-batch \
     --results-key "$RESULTS_KEY" "$VENV" "$MANIFEST" "$AUTH" "$ARCHIVE" \
-    "${blocklist_args[@]}" \
+    "${blocklist_args[@]}" "${deferral_args[@]}" \
     >"$sup_log" 2>&1 &
   sup_pid=$!
 

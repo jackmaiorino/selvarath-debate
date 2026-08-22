@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from rejudge import phase3_orchestrator_support as support
-from rejudge import phase3_plan
+from rejudge import phase3_plan, phase3_runner
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_V2_PATH = ROOT / "rejudge" / "phase3_protocol_v2.json"
@@ -21,6 +21,10 @@ V2_ROSTER = [
     "meta-llama/Llama-3.3-70B-Instruct-Turbo", "openai/gpt-oss-120b",
     "google/gemma-3n-E4B-it", "Qwen/Qwen3.7-Max",
 ]
+# v2 amendment 1 (2026-08-22), the bounded Qwen2.5-7B carve-out: the REAL, shipped, tracked
+# deferral list -- used here as a fixture-free, always-in-sync-with-the-current-protocol input,
+# exactly like the real orchestrator would resolve it.
+DEFERRAL_LIST_PATH = ROOT / "rejudge" / "phase3_v2_qwen_deferral_cells_2026-08-22.json"
 
 
 def _v2_manifest_stub() -> dict:
@@ -68,17 +72,18 @@ def test_remaining_canary_cells_v2_denominator_excludes_anchor_cells():
 
 
 def test_remaining_canary_cells_against_the_real_preseeded_v2_store():
-    # The real v2 store this materialization task preseeded: 540 transcript rows (492 main + 48
-    # canary), zero judgment rows yet. This is an integration-style check against real on-disk
-    # state, not a synthetic fixture -- exercising the exact inventory the orchestrator will see.
+    # Integration-style check against the LIVE v2 store, which accumulates judgment rows as the
+    # canary runs, so exact counts are a moving target. The invariants that must always hold:
+    # the manifested total is the fixed v2 inventory, the 540 preseeded transcript rows are a
+    # floor on completed, and remaining is exactly their difference.
     store_path = Path("E:/selvarath-archive/phase3-v2-2026-08-21/phase3_canary_results.jsonl")
     if not store_path.exists():
         pytest.skip("v2 archive store not present in this environment")
     manifest = _v2_manifest_stub()
     counts = support.remaining_canary_cells(manifest, store_path, project_root=ROOT)
     assert counts["manifested"] == 1692
-    assert counts["completed"] == 540
-    assert counts["remaining"] == 1152
+    assert counts["completed"] >= 540
+    assert counts["remaining"] == counts["manifested"] - counts["completed"]
 
 
 def test_remaining_canary_cells_only_counts_cells_the_current_plan_actually_has(tmp_path):
@@ -91,6 +96,80 @@ def test_remaining_canary_cells_only_counts_cells_the_current_plan_actually_has(
     counts = support.remaining_canary_cells(manifest, results_path, project_root=ROOT)
     assert counts["completed"] == 0
     assert counts["remaining"] == 1692
+
+
+# ---------------------------------------------------------------------------
+# remaining_canary_cells with deferral_list_path -- v2 amendment 1's Qwen carve-out
+# ---------------------------------------------------------------------------
+
+
+def test_remaining_canary_cells_deferral_list_excludes_the_deferred_judges_cells():
+    # 1,692 - 192 deferred Qwen judgment cells = 1,500.
+    manifest = _v2_manifest_stub()
+    counts = support.remaining_canary_cells(
+        manifest, ROOT / "no-such-results-file.jsonl", project_root=ROOT,
+        deferral_list_path=DEFERRAL_LIST_PATH)
+    assert counts["manifested"] == 1500
+    assert counts["completed"] == 0
+    assert counts["remaining"] == 1500
+
+
+def test_remaining_canary_cells_without_a_deferral_list_path_is_unchanged():
+    # Omitting deferral_list_path (the default) must reproduce the pre-amendment-1 arithmetic
+    # exactly -- this parameter is additive, never a behavior change for an existing caller.
+    manifest = _v2_manifest_stub()
+    counts = support.remaining_canary_cells(
+        manifest, ROOT / "no-such-results-file.jsonl", project_root=ROOT)
+    assert counts["manifested"] == 1692
+    assert counts["remaining"] == 1692
+
+
+def test_remaining_canary_cells_a_stray_row_for_a_deferred_cell_never_counts_as_completed(
+        tmp_path):
+    # A deferred cell is excluded from "manifested" entirely, so even a stray/foreign result
+    # row recorded against one (which should never happen -- the driver refuses to attempt a
+    # deferred cell) can never inflate "completed".
+    protocol = phase3_plan.load_protocol(PROTOCOL_V2_PATH)
+    _main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, ROOT)
+    plan_cells = phase3_plan.enumerate_canary_cells(protocol, V2_ROSTER, held_out_ids)
+    one_deferred_key = phase3_runner.mechanical_deferral_cell_keys(
+        plan_cells, "Qwen/Qwen2.5-7B-Instruct-Turbo")[0]
+
+    manifest = _v2_manifest_stub()
+    results_path = tmp_path / "results.jsonl"
+    results_path.write_text(json.dumps({"cell_key": one_deferred_key}) + "\n", encoding="utf-8")
+    counts = support.remaining_canary_cells(
+        manifest, results_path, project_root=ROOT, deferral_list_path=DEFERRAL_LIST_PATH)
+    assert counts["manifested"] == 1500
+    assert counts["completed"] == 0
+    assert counts["remaining"] == 1500
+
+
+def test_remaining_canary_cells_deferral_list_refuses_a_tampered_amendment_binding(tmp_path):
+    tampered = json.loads(DEFERRAL_LIST_PATH.read_text(encoding="utf-8"))
+    tampered["amendment"]["canonical_sha256"] = "0" * 64
+    tampered_path = tmp_path / "tampered_deferral.json"
+    tampered_path.write_text(json.dumps(tampered), encoding="utf-8")
+
+    manifest = _v2_manifest_stub()
+    with pytest.raises(phase3_runner.Phase3RunnerError, match="drifted or tampered"):
+        support.remaining_canary_cells(
+            manifest, ROOT / "no-such-results-file.jsonl", project_root=ROOT,
+            deferral_list_path=tampered_path)
+
+
+def test_remaining_canary_cells_deferral_list_refuses_a_wrong_cell_set(tmp_path):
+    tampered = json.loads(DEFERRAL_LIST_PATH.read_text(encoding="utf-8"))
+    tampered["cell_keys"] = tampered["cell_keys"][:-1]   # drop one -- no longer the mechanical set
+    tampered_path = tmp_path / "tampered_deferral.json"
+    tampered_path.write_text(json.dumps(tampered), encoding="utf-8")
+
+    manifest = _v2_manifest_stub()
+    with pytest.raises(phase3_runner.Phase3RunnerError,
+                       match="does not match the mechanical rule's output"):
+        support.remaining_canary_cells(
+            manifest, ROOT / "no-such-results-file.jsonl", project_root=ROOT,
+            deferral_list_path=tampered_path)
 
 
 def test_remaining_canary_cells_a_real_cell_key_counts_as_completed():

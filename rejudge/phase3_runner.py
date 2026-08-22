@@ -614,7 +614,12 @@ def _merge_outcomes(first: RunOutcome, second: RunOutcome) -> RunOutcome:
         # Context-blocking is a judgment-phase-only concept (see run_phase3_canary): carried
         # from `first` only, matching halted_reason/halted_cell_key's own "judgment phase wins"
         # convention, since the capability phase never sets either.
-        context_blocked=first.context_blocked, context_blocklist_sha256=first.context_blocklist_sha256)
+        context_blocked=first.context_blocked, context_blocklist_sha256=first.context_blocklist_sha256,
+        # Amendment-driven deferral is likewise judgment-phase-only: capability_qa cells are
+        # never subject to it (the v2 amendment carves out judgment cells specifically), so the
+        # capability phase never sets either field.
+        deferred_by_amendment=first.deferred_by_amendment,
+        deferral_amendment_sha256=first.deferral_amendment_sha256)
 
 
 # --- gate-review wiring: reuse phase 2's dual-gate flow unmodified ------------------------
@@ -679,6 +684,118 @@ def load_context_blocklist(path: str | Path,
     return blocklist, hashlib.sha256(raw).hexdigest()
 
 
+# --- amendment-bound judgment-cell deferral list (v2 amendment 1: the Qwen carve-out) -----
+
+
+def mechanical_deferral_cell_keys(plan_cells: list[Mapping[str, Any]],
+                                  judge_model: str) -> list[str]:
+    """The mechanical deferral rule, sorted: every ``CANARY_JUDGMENT_KIND`` cell_key in
+    ``plan_cells`` whose ``judge_model`` is ``judge_model``.
+
+    ``plan_cells`` is the SAME raw ``phase3_plan.enumerate_canary_cells`` output the caller is
+    already using to resolve this run's cells -- never re-enumerated independently -- so this
+    always agrees with what the live run actually plans to execute, including whatever
+    roster/held-out-question binding that run itself used.
+    """
+    return sorted(
+        str(cell["cell_key"]) for cell in plan_cells
+        if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND
+        and cell.get("judge_model") == judge_model)
+
+
+def load_deferral_list(path: str | Path, *, project_root: str | Path, protocol: Mapping[str, Any],
+                       plan_cells: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Load and fully verify an amendment-bound judgment-cell deferral list.
+
+    Mirrors :func:`load_context_blocklist`'s binding discipline (fail closed on any drift), with
+    one addition specific to a deferral list: it is bound not to a namespace/manifest field but
+    to a whole OTHER append-only record -- the amendment that authorized deferring these cells
+    at all (``rejudge/phase3_v2_amendment1_qwen_carveout_2026-08-22.json`` for v2 amendment 1).
+    Two independent checks, both fail-closed:
+
+    * ``amendment.canonical_sha256`` must match the amendment record ACTUALLY on disk at
+      ``amendment.tracked_path`` right now -- a tampered or drifted amendment record (or a
+      deferral list edited to point at a different one) is refused outright, exactly like a
+      context blocklist whose canonical sha256 disagrees with the manifest's binding.
+    * the listed ``cell_keys`` must be EXACTLY (as a set) the mechanical rule's output
+      (:func:`mechanical_deferral_cell_keys`) against ``plan_cells`` for the judge named in
+      ``generation_basis.deferred_judge_model`` -- never trusted as a hand-curated or
+      independently-recomputed list. A file that dropped, added, or substituted even one cell
+      key relative to what the live plan actually contains is refused.
+
+    Also cross-checks ``generation_basis.protocol_canonical_sha256`` against the protocol THIS
+    run actually loaded, when the field is present, as a third defense-in-depth check (a
+    deferral list generated against a different protocol version silently matching by coincidence
+    on cell-key overlap would otherwise pass the set-equality check alone).
+
+    Returns ``{"raw": ..., "cell_keys": frozenset[str], "judge_model": str,
+    "amendment_sha256": str}``.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise Phase3RunnerError(f"deferral list not found: {path}")
+    deferral = _load_json(path)
+    root = Path(project_root)
+
+    amendment_meta = deferral.get("amendment")
+    if not isinstance(amendment_meta, Mapping):
+        raise Phase3RunnerError(f"deferral list {path} carries no amendment binding")
+    amendment_tracked_path = amendment_meta.get("tracked_path")
+    recorded_amendment_sha = amendment_meta.get("canonical_sha256")
+    if not amendment_tracked_path or not recorded_amendment_sha:
+        raise Phase3RunnerError(f"deferral list {path} amendment binding is incomplete")
+    amendment_path = root / str(amendment_tracked_path)
+    if not amendment_path.exists():
+        raise Phase3RunnerError(
+            f"deferral list {path} binds amendment record {amendment_path}, which does not "
+            "exist; refusing to trust an unverifiable deferral")
+    observed_amendment_sha = phase3_manifest.canonical_sha256(_load_json(amendment_path))
+    if observed_amendment_sha != recorded_amendment_sha:
+        raise Phase3RunnerError(
+            f"deferral list {path} binds amendment canonical_sha256 {recorded_amendment_sha!r}, "
+            f"but the amendment record actually on disk at {amendment_path} hashes to "
+            f"{observed_amendment_sha!r}; refusing to trust a drifted or tampered amendment "
+            "binding")
+
+    generation_basis = deferral.get("generation_basis")
+    if not isinstance(generation_basis, Mapping):
+        raise Phase3RunnerError(f"deferral list {path} carries no generation_basis")
+    judge_model = generation_basis.get("deferred_judge_model")
+    if not judge_model:
+        raise Phase3RunnerError(
+            f"deferral list {path} generation_basis names no deferred_judge_model")
+    recorded_protocol_sha = generation_basis.get("protocol_canonical_sha256")
+    if recorded_protocol_sha is not None:
+        observed_protocol_sha = phase3_manifest.canonical_sha256(protocol)
+        if observed_protocol_sha != recorded_protocol_sha:
+            raise Phase3RunnerError(
+                f"deferral list {path} was generated against a different protocol: recorded "
+                f"protocol_canonical_sha256 {recorded_protocol_sha!r}, this run's protocol "
+                f"hashes to {observed_protocol_sha!r}")
+
+    listed_keys = deferral.get("cell_keys")
+    if not isinstance(listed_keys, list) or not listed_keys:
+        raise Phase3RunnerError(f"deferral list {path} carries no cell_keys")
+    listed_key_set = frozenset(str(key) for key in listed_keys)
+    if len(listed_key_set) != len(listed_keys):
+        raise Phase3RunnerError(f"deferral list {path} cell_keys contains duplicate entries")
+
+    mechanical_key_set = frozenset(mechanical_deferral_cell_keys(plan_cells, str(judge_model)))
+    if listed_key_set != mechanical_key_set:
+        missing = sorted(mechanical_key_set - listed_key_set)[:5]
+        extra = sorted(listed_key_set - mechanical_key_set)[:5]
+        raise Phase3RunnerError(
+            f"deferral list {path} does not match the mechanical rule's output for judge "
+            f"{judge_model!r}: {len(mechanical_key_set)} expected vs {len(listed_key_set)} "
+            f"listed (missing sample {missing!r}, extra sample {extra!r}); refusing to trust a "
+            "hand-edited or stale deferral list")
+
+    return {
+        "raw": deferral, "cell_keys": listed_key_set, "judge_model": str(judge_model),
+        "amendment_sha256": str(recorded_amendment_sha),
+    }
+
+
 # --- the run itself ------------------------------------------------------------------------
 
 
@@ -690,6 +807,7 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
                       transcript_bundle_dir: str | Path | None = None,
                       pending_payload_limit: int | None = DEFAULT_PENDING_PAYLOAD_LIMIT,
                       context_blocklist_path: str | Path | None = None,
+                      deferral_list_path: str | Path | None = None,
                       ) -> RunOutcome:
     """Execute the authorized phase-3 canary. The only entry point here that can spend money.
 
@@ -765,6 +883,18 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
     left to the EXISTING generic-exception halt path unchanged: the precheck claimed
     completeness, so a miss there is the precheck being wrong, and must still halt the run
     loudly, exactly as any other unmodelled exception does.
+
+    **``deferral_list_path`` (v2 amendment 1, the Qwen carve-out, 2026-08-22).** An amendment-
+    bound judgment-cell deferral list, verified by :func:`load_deferral_list` and applied the
+    same way the context blocklist is: every listed cell is removed from the judgment plan
+    BEFORE ``run_canary`` ever sees it, so a deferred cell is never attempted and never counted
+    as completed -- only as ``deferred_by_amendment`` on the returned outcome, alongside the
+    amendment record's own canonical sha256 (``deferral_amendment_sha256``). A cell named by
+    BOTH the deferral list and the context blocklist is refused outright (ambiguous exclusion),
+    never silently resolved by filter order. Left at its default of ``None``, no deferral is
+    applied at all -- unlike the context blocklist, a deferral is never bound into the manifest's
+    own identity (it is a bounded, time-limited owner carve-out, not a permanent property of the
+    plan), so there is no manifest-driven auto-resolution here.
     """
     if mode not in ("api", "subagent-batch"):
         raise Phase3RunnerError(f"unknown mode {mode!r}")
@@ -838,6 +968,23 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
         # never be silently reported as if they were excluded from THIS run.
         context_blocked_count = before - len(judgment_cells)
 
+    deferred_amendment_sha256 = None
+    deferred_count = 0
+    if deferral_list_path is not None:
+        deferral = load_deferral_list(
+            deferral_list_path, project_root=root, protocol=protocol, plan_cells=plan_cells)
+        deferred_keys = deferral["cell_keys"]
+        deferred_amendment_sha256 = deferral["amendment_sha256"]
+        overlap = deferred_keys & context_blocked_keys
+        if overlap:
+            raise Phase3RunnerError(
+                f"{len(overlap)} cell(s) appear in BOTH the deferral list and the context "
+                f"blocklist (e.g. {sorted(overlap)[0]!r}); an ambiguous exclusion is refused "
+                "rather than silently resolved by whichever filter happens to run first")
+        before = len(judgment_cells)
+        judgment_cells = [cell for cell in judgment_cells if cell.cell_key not in deferred_keys]
+        deferred_count = before - len(judgment_cells)
+
     archive_dir = local_path(manifest["ledger"]["archive_dir"])
     results_path = local_path(manifest["ledger"]["canary_results_path"])
     decisions_path = local_path(manifest["ledger"]["decisions_path"])
@@ -867,6 +1014,8 @@ def run_phase3_canary(manifest_path: str | Path, authorization_path: str | Path,
         pending_payload_limit=pending_payload_limit, role_limits=role_limits)
     outcome.context_blocked = context_blocked_count
     outcome.context_blocklist_sha256 = context_blocklist_sha256
+    outcome.deferred_by_amendment = deferred_count
+    outcome.deferral_amendment_sha256 = deferred_amendment_sha256
 
     if outcome.halted_reason == "GenerationForbiddenError":
         raise GenerationForbiddenError(
@@ -933,6 +1082,14 @@ def main(argv: list[str] | None = None) -> int:
                              "(every post-amendment-4 manifest does) has it resolved and "
                              "applied automatically even when this flag is omitted; an "
                              "explicitly supplied path must still hash-match that binding")
+    parser.add_argument("--deferral-list", default=None,
+                        help="an amendment-bound judgment-cell deferral list (e.g. v2 amendment "
+                             "1's Qwen carve-out); listed cells are skipped entirely (never "
+                             "attempted, never counted as completed) and reported as "
+                             "deferred_by_amendment. Refused outright if its bound amendment "
+                             "sha256 has drifted or its cell set does not exactly match the "
+                             "mechanical derivation rule re-run against the live plan, or if it "
+                             "overlaps the context blocklist")
     args = parser.parse_args(argv)
     try:
         if args.commit_decisions is not None:
@@ -946,7 +1103,8 @@ def main(argv: list[str] | None = None) -> int:
         outcome = run_phase3_canary(
             args.manifest, args.authorization, args.project_root, limit=args.limit,
             mode=args.mode, pending_payload_limit=pending_payload_limit,
-            context_blocklist_path=args.context_blocklist)
+            context_blocklist_path=args.context_blocklist,
+            deferral_list_path=args.deferral_list)
     except Exception as exc:  # noqa: BLE001 - report, never swallow
         print(f"REFUSED/HALTED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
@@ -957,7 +1115,9 @@ def main(argv: list[str] | None = None) -> int:
         "halted_reason": outcome.halted_reason,
         "halted_cell_key": outcome.halted_cell_key,
         "context_blocked": outcome.context_blocked,
-        "context_blocklist_sha256": outcome.context_blocklist_sha256}, sort_keys=True))
+        "context_blocklist_sha256": outcome.context_blocklist_sha256,
+        "deferred_by_amendment": outcome.deferred_by_amendment,
+        "deferral_amendment_sha256": outcome.deferral_amendment_sha256}, sort_keys=True))
     return 0 if outcome.halted_reason is None else 1
 
 
