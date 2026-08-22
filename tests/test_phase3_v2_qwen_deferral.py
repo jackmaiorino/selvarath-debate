@@ -459,8 +459,13 @@ def test_the_real_v2_canary_converges_with_qwens_192_cells_deferred(
     capability_keys = {
         str(c["cell_key"]) for c in plan_cells
         if c["kind"] == phase3_plan.CAPABILITY_ANCHOR_KIND}
-    assert capability_keys <= set(reopened._results), (
-        "capability_qa cells (including Qwen's) are untouched by the judgment-only carve-out")
+    # Under a carrying manifest the anchors are NEVER executed here (they carry from the
+    # predecessor identity by manifest binding), so none of their keys appear in this store;
+    # the outcome reports them as anchors_carried instead.
+    assert capability_keys.isdisjoint(set(reopened._results)), (
+        "carried capability_qa cells must not be re-executed into the v2 store")
+    assert not any(c.get("call_role") == "capability_qa" for c in client.calls), (
+        "no provider capability_qa call may fire under a carrying manifest")
 
     judgment_calls = [c for c in client.calls if c.get("call_role") in ("judge_query", "judge_verdict")]
     assert not any(c["model"] == QWEN for c in judgment_calls), (
