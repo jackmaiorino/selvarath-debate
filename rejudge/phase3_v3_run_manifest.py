@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from rejudge import phase3_plan, phase3_v3_materialization
+from rejudge import phase3_plan, phase3_v3_inputs, phase3_v3_materialization
 from rejudge.phase2_execution import canonical_sha256
 
 
@@ -133,6 +134,8 @@ def build_run_manifest(
     planned_output_paths: Sequence[str],
     gpu_ordinal_or_not_used: int | str,
     harness_seed_name: str,
+    project_root: str | Path | None = None,
+    verify_external_files: bool = True,
 ) -> dict[str, Any]:
     """Build an offline preflight manifest. This function can never authorize execution."""
     phase3_plan.validate_protocol(protocol)
@@ -176,6 +179,8 @@ def build_run_manifest(
         protocol_pin=protocol_pin,
         tokenizer_manifest=tokenizer_manifest,
         price_snapshot=price_snapshot,
+        project_root=project_root,
+        verify_external_files=verify_external_files,
     )
     return manifest
 
@@ -187,6 +192,8 @@ def validate_run_manifest(
     protocol_pin: Mapping[str, Any] | None = None,
     tokenizer_manifest: Mapping[str, Any] | None = None,
     price_snapshot: Mapping[str, Any] | None = None,
+    project_root: str | Path | None = None,
+    verify_external_files: bool = True,
 ) -> None:
     if set(manifest) != MANIFEST_FIELDS:
         raise RunManifestError(f"run manifest fields must be exactly {sorted(MANIFEST_FIELDS)!r}")
@@ -277,10 +284,41 @@ def validate_run_manifest(
         pin_path = str(protocol_pin["protocol_tracked_path"]).replace("\\", "/")
         if inputs.get(pin_path) != protocol_sha:
             raise RunManifestError("input_sha256s must bind the pinned protocol path")
-    if tokenizer_manifest is not None and canonical_sha256(tokenizer_manifest) != tokenizer_sha:
-        raise RunManifestError("manifest tokenizer hash drifted")
-    if price_snapshot is not None and canonical_sha256(price_snapshot) != price_sha:
-        raise RunManifestError("manifest price snapshot hash drifted")
+    if tokenizer_manifest is not None:
+        if canonical_sha256(tokenizer_manifest) != tokenizer_sha:
+            raise RunManifestError("manifest tokenizer hash drifted")
+        if tokenizer_sha not in inputs.values():
+            raise RunManifestError("input_sha256s must bind the exact-tokenizer manifest")
+        if protocol is None:
+            raise RunManifestError("protocol is required when validating exact tokenizers")
+        try:
+            phase3_v3_inputs.validate_exact_tokenizer_manifest(
+                tokenizer_manifest,
+                protocol=protocol,
+                project_root=project_root,
+                verify_files=verify_external_files,
+            )
+        except phase3_v3_inputs.InputGateError as exc:
+            raise RunManifestError(f"exact-tokenizer gate failed: {exc}") from exc
+    if price_snapshot is not None:
+        if canonical_sha256(price_snapshot) != price_sha:
+            raise RunManifestError("manifest price snapshot hash drifted")
+        if price_sha not in inputs.values():
+            raise RunManifestError("input_sha256s must bind the fresh price snapshot")
+        if protocol is None:
+            raise RunManifestError("protocol is required when validating prices")
+        recorded_at = datetime.fromisoformat(
+            str(manifest["recorded_at_utc"]).replace("Z", "+00:00"))
+        try:
+            phase3_v3_inputs.validate_price_snapshot(
+                price_snapshot,
+                protocol=protocol,
+                as_of=recorded_at,
+                project_root=project_root,
+                verify_catalog=verify_external_files,
+            )
+        except phase3_v3_inputs.InputGateError as exc:
+            raise RunManifestError(f"fresh-price gate failed: {exc}") from exc
 
 
 def finalize_run_manifest(

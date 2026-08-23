@@ -1,0 +1,215 @@
+"""Tests for zero-filled Phase 3 v3 slot-role forecast inputs."""
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+from pathlib import Path
+
+import pytest
+
+from rejudge import phase3_plan, phase3_v3_forecast as forecast
+from rejudge import phase3_v3_materialization as materialization
+
+from tests.test_phase3_v3_materialization import _resolution
+
+
+ROOT = Path(__file__).resolve().parents[1]
+V2 = json.loads((ROOT / materialization.V2_PROTOCOL_PATH).read_text(encoding="utf-8"))
+DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def protocol():
+    return materialization.materialize_protocol(
+        V2, DESIGN, _resolution("excluded_deadline"))
+
+
+@pytest.fixture
+def planned_cells(protocol):
+    judge = protocol["roster"]["judges_final"][0]
+    return [
+        {
+            "cell_key": f"slot-{question}-{condition}",
+            "kind": phase3_plan.CANARY_JUDGMENT_KIND,
+            "condition": condition,
+            "question_id": question,
+            "judge_model": judge,
+            "query_budget": 0 if condition == "b0" else 1,
+        }
+        for question in ("Q1", "Q2")
+        for condition in ("b0", "b1")
+    ]
+
+
+def _attempt(
+    attempt_id: str,
+    *,
+    cell: dict,
+    role: str,
+    model: str,
+    status: str,
+    reserved_prompt: int = 100,
+    reserved_completion: int = 50,
+    prompt: int | None = 10,
+    completion: int | None = 5,
+) -> list[dict]:
+    metadata = {
+        "cell_key": cell["cell_key"],
+        "call_role": role,
+        "judge_model": cell["judge_model"],
+        "condition": cell["condition"],
+        "question_id": cell["question_id"],
+    }
+    stable = {
+        "attempt_id": attempt_id,
+        "model": model,
+        "kind": "verdict" if role != "oracle_verification" else "oracle",
+        "seed": 1,
+        "attempt": 0,
+        "metadata": metadata,
+        "reserved_prompt_tokens": reserved_prompt,
+        "reserved_completion_tokens": reserved_completion,
+        "estimated_tokens": reserved_prompt + reserved_completion,
+    }
+    reservation = {**stable, "status": "reserved", "prompt_tokens": None,
+                   "completion_tokens": None}
+    terminal = {**stable, "status": status, "prompt_tokens": prompt,
+                "completion_tokens": completion}
+    return [reservation, terminal]
+
+
+def _complete_usage(protocol, planned_cells):
+    judge = protocol["roster"]["judges_final"][0]
+    checker = protocol["roster"]["query_checker"]
+    oracle = protocol["roster"]["oracle"]
+    events: list[dict] = []
+    for index, cell in enumerate(planned_cells):
+        events.extend(_attempt(
+            f"verdict-{index}", cell=cell, role="judge_verdict", model=judge,
+            status="success", reserved_prompt=1000, reserved_completion=500,
+            prompt=10 + index, completion=2 + index))
+    q1_b1 = next(cell for cell in planned_cells
+                 if cell["question_id"] == "Q1" and cell["condition"] == "b1")
+    events.extend(_attempt(
+        "query-unknown", cell=q1_b1, role="judge_query", model=judge,
+        status="unknown_charge", reserved_prompt=20, reserved_completion=30,
+        prompt=None, completion=None))
+    events.extend(_attempt(
+        "query-success", cell=q1_b1, role="judge_query", model=judge,
+        status="success", reserved_prompt=999, reserved_completion=999,
+        prompt=5, completion=2))
+    events.extend(_attempt(
+        "checker-release", cell=q1_b1, role="query_checker", model=checker,
+        status="released_no_charge", prompt=0, completion=0))
+    events.extend(_attempt(
+        "oracle-success", cell=q1_b1, role="oracle_verification", model=oracle,
+        status="success", prompt=7, completion=1))
+    return events
+
+
+def _build(protocol, planned_cells, events):
+    return forecast.build_slot_role_frame(
+        protocol=protocol,
+        planned_cells=planned_cells,
+        completed_cell_keys=[cell["cell_key"] for cell in planned_cells],
+        usage_events=events,
+        usage_ledger_sha256="f" * 64,
+    )
+
+
+def test_frame_materializes_every_slot_role_and_includes_zero_rows(protocol, planned_cells):
+    artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    assert artifact["planned_judgment_slot_count"] == 4
+    assert artifact["role_record_count"] == 16
+    assert artifact["expected_role_record_count"] == 16
+    assert artifact["execution_authorized"] is False
+
+    q2_b1_query = next(
+        record for record in artifact["role_records"]
+        if record["question_id"] == "Q2" and record["condition"] == "b1"
+        and record["role"] == "judge_query")
+    assert q2_b1_query["zero_filled"] is True
+    assert q2_b1_query["prompt_tokens"] == 0
+    assert q2_b1_query["completion_tokens"] == 0
+    assert q2_b1_query["attempt_count"] == 0
+
+
+def test_unknown_charge_uses_full_split_and_success_uses_actual_tokens(protocol, planned_cells):
+    artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    q1_b1_query = next(
+        record for record in artifact["role_records"]
+        if record["question_id"] == "Q1" and record["condition"] == "b1"
+        and record["role"] == "judge_query")
+    assert q1_b1_query["prompt_tokens"] == 25
+    assert q1_b1_query["completion_tokens"] == 32
+    assert q1_b1_query["attempt_count"] == 2
+    assert q1_b1_query["unknown_charge_attempt_count"] == 1
+    assert q1_b1_query["actual_token_attempt_count"] == 1
+
+
+def test_checker_and_oracle_are_priced_by_actual_billed_model(protocol, planned_cells):
+    artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    q1_b1 = [record for record in artifact["role_records"]
+             if record["question_id"] == "Q1" and record["condition"] == "b1"]
+    by_role = {record["role"]: record for record in q1_b1}
+    assert by_role["query_checker"]["billed_model"] == protocol["roster"]["query_checker"]
+    assert by_role["oracle_verification"]["billed_model"] == protocol["roster"]["oracle"]
+    assert by_role["judge_query"]["billed_model"] == by_role["judge_query"]["source_judge"]
+
+
+def test_cluster_u90_keeps_all_zero_role_groups(protocol, planned_cells):
+    artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    checker_b1 = next(
+        group for group in artifact["clustered_u90"]
+        if group["role"] == "query_checker" and group["condition"] == "b1")
+    assert checker_b1["question_count"] == 2
+    assert checker_b1["metrics"]["prompt_tokens"]["mean"] == 0
+    assert checker_b1["metrics"]["prompt_tokens"]["upper90"] == 0
+
+
+def test_missing_unknown_charge_split_blocks_frame(protocol, planned_cells):
+    events = _complete_usage(protocol, planned_cells)
+    for event in events:
+        if event.get("attempt_id") == "query-unknown":
+            event.pop("reserved_prompt_tokens")
+            event.pop("reserved_completion_tokens")
+    with pytest.raises(forecast.ForecastInputError, match="reserved_prompt_tokens"):
+        _build(protocol, planned_cells, events)
+
+
+def test_wrong_billed_model_blocks_frame(protocol, planned_cells):
+    events = _complete_usage(protocol, planned_cells)
+    for event in events:
+        if event.get("attempt_id") == "checker-release":
+            event["model"] = protocol["roster"]["judges_final"][-1]
+    with pytest.raises(forecast.ForecastInputError, match="billed model"):
+        _build(protocol, planned_cells, events)
+
+
+def test_terminal_attempt_cannot_change_reserved_token_split(protocol, planned_cells):
+    events = _complete_usage(protocol, planned_cells)
+    terminal = next(
+        event for event in events
+        if event.get("attempt_id") == "query-unknown"
+        and event.get("status") == "unknown_charge"
+    )
+    terminal["reserved_prompt_tokens"] += 1
+    with pytest.raises(forecast.ForecastInputError, match="reserved_prompt_tokens"):
+        _build(protocol, planned_cells, events)
+
+
+def test_incomplete_slot_set_and_unmatched_reservations_block(protocol, planned_cells):
+    events = _complete_usage(protocol, planned_cells)
+    with pytest.raises(forecast.ForecastInputError, match="differs from plan"):
+        forecast.build_slot_role_frame(
+            protocol=protocol,
+            planned_cells=planned_cells,
+            completed_cell_keys=[planned_cells[0]["cell_key"]],
+            usage_events=events,
+            usage_ledger_sha256="f" * 64,
+        )
+
+    unmatched = deepcopy(events)
+    unmatched.pop()
+    with pytest.raises(forecast.ForecastInputError, match="unmatched reservation"):
+        _build(protocol, planned_cells, unmatched)

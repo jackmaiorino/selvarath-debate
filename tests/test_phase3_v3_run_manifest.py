@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -11,6 +12,7 @@ from rejudge import phase3_v3_materialization as materialization
 from rejudge import phase3_v3_run_manifest as run_manifest
 from rejudge.phase2_execution import canonical_sha256
 
+from tests.test_phase3_v3_inputs import _tokenizer_manifest
 from tests.test_phase3_v3_materialization import _resolution
 
 
@@ -24,20 +26,40 @@ def _artifacts():
         V2, DESIGN, _resolution("excluded_deadline"))
     pin = materialization.build_protocol_pin(
         protocol, protocol_tracked_path="rejudge/phase3_protocol_v3.json")
-    tokenizer = {
-        "schema_version": "phase3_v3_exact_tokenizer_manifest_v1",
-        "models": {model: {} for model in protocol["roster"]["judges_final"]},
-    }
+    tokenizer = _tokenizer_manifest(protocol)
+    raw_catalog: list[dict[str, Any]] = [
+        {
+            "id": model,
+            "type": "chat",
+            "pricing": {"input": float(index + 1), "output": float(index + 2)},
+        }
+        for index, model in enumerate(protocol["roster"]["judges_final"])
+    ]
     prices = {
         "schema_version": "phase3_v3_price_snapshot_v1",
-        "models": {model: {} for model in protocol["roster"]["judges_final"]},
+        "provider": "Together",
+        "verified_at_utc": "2026-08-29T01:00:00Z",
+        "execution_authorized": False,
+        "raw_catalog": {
+            "path": "raw_catalog.json",
+            "canonical_sha256": canonical_sha256(raw_catalog),
+            "model_count": len(raw_catalog),
+        },
+        "models": {
+            entry["id"]: {
+                "serverless_available": True,
+                "input_usd_per_million": entry["pricing"]["input"],
+                "output_usd_per_million": entry["pricing"]["output"],
+                "catalog_entry_sha256": canonical_sha256(entry),
+            }
+            for entry in raw_catalog
+        },
     }
     return protocol, pin, tokenizer, prices
 
 
-def _manifest():
-    protocol, pin, tokenizer, prices = _artifacts()
-    manifest = run_manifest.build_run_manifest(
+def _build_manifest(protocol, pin, tokenizer, prices):
+    return run_manifest.build_run_manifest(
         protocol=protocol,
         protocol_pin=pin,
         tokenizer_manifest=tokenizer,
@@ -60,7 +82,13 @@ def _manifest():
         ],
         gpu_ordinal_or_not_used="not_used",
         harness_seed_name="harness",
+        verify_external_files=False,
     )
+
+
+def _manifest():
+    protocol, pin, tokenizer, prices = _artifacts()
+    manifest = _build_manifest(protocol, pin, tokenizer, prices)
     return manifest, protocol, pin, tokenizer, prices
 
 
@@ -77,6 +105,7 @@ def test_small_manifest_has_exact_required_fields_and_cannot_authorize():
         protocol_pin=pin,
         tokenizer_manifest=tokenizer,
         price_snapshot=prices,
+        verify_external_files=False,
     )
 
 
@@ -114,7 +143,15 @@ def test_manifest_requires_protocol_path_binding():
             protocol_pin=pin,
             tokenizer_manifest=tokenizer,
             price_snapshot=prices,
+            verify_external_files=False,
         )
+
+
+def test_manifest_builder_rejects_stale_prices_even_without_local_file_checks():
+    protocol, pin, tokenizer, prices = _artifacts()
+    prices["verified_at_utc"] = "2026-08-28T00:59:59Z"
+    with pytest.raises(run_manifest.RunManifestError, match="fresh-price gate failed"):
+        _build_manifest(protocol, pin, tokenizer, prices)
 
 
 def test_finalize_requires_bit_identical_harness_hashes_and_all_output_hashes():

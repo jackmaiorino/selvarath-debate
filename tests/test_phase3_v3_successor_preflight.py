@@ -1,7 +1,7 @@
 """Focused tests for the phase-3 successor design preflight."""
 from __future__ import annotations
 
-import hashlib
+import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,6 +15,21 @@ if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import phase3_v3_successor_preflight as preflight  # ty: ignore[unresolved-import]  # noqa: E402
+from rejudge import phase3_v3_materialization as materialization  # noqa: E402
+from tests.test_phase3_v3_inputs import (  # noqa: E402
+    _price_snapshot,
+    _tokenizer_manifest,
+)
+from tests.test_phase3_v3_materialization import _resolution  # noqa: E402
+
+
+V2 = json.loads((REPO_ROOT / materialization.V2_PROTOCOL_PATH).read_text(encoding="utf-8"))
+DESIGN = json.loads((REPO_ROOT / materialization.DESIGN_PATH).read_text(encoding="utf-8"))
+
+
+def _protocol():
+    return materialization.materialize_protocol(
+        V2, DESIGN, _resolution("excluded_deadline"))
 
 
 def _utc(hour: int, minute: int = 0) -> datetime:
@@ -133,72 +148,36 @@ def test_charged_terminal_attempt_requires_actual_input_and_output_tokens():
     assert report["compatible_with_successor_forecast"] is False
 
 
-def _tokenizer_manifest(tokenizer_file: Path, *, classification: str) -> dict:
-    file_hash = hashlib.sha256(tokenizer_file.read_bytes()).hexdigest()
-    entry = {
-        "classification": classification,
-        "repository": "example/repository",
-        "revision": "0123456789abcdef",
-        "provider_equivalence_evidence": "provider catalog exact tokenizer mapping",
-        "chat_template_sha256": "1" * 64,
-        "rendered_prompt_counts_sha256": "2" * 64,
-        "expected_rendered_prompt_count": 492,
-        "actual_rendered_prompt_count": 492,
-        "files": {
-            "tokenizer.json": {
-                "path": str(tokenizer_file),
-                "sha256": file_hash,
-            }
-        },
-    }
-    return {
-        "schema_version": "phase3_v3_exact_tokenizer_manifest_v1",
-        "source_transcript_bundle": {
-            "transcript_count": 492,
-            "sha256": "3" * 64,
-        },
-        "models": {model: dict(entry) for model in preflight.EXPECTED_PROVISIONAL_ROSTER},
-    }
-
-
-def test_exact_tokenizer_manifest_checks_files_and_rejects_proxy(tmp_path: Path):
-    tokenizer_file = tmp_path / "tokenizer.json"
-    tokenizer_file.write_text("{}", encoding="utf-8")
-    manifest = _tokenizer_manifest(tokenizer_file, classification="exact_provider_tokenizer")
+def test_exact_tokenizer_manifest_checks_full_role_shape_and_rejects_proxy():
+    protocol = _protocol()
+    manifest = _tokenizer_manifest(protocol)
     report = preflight.validate_exact_tokenizer_manifest(
-        manifest, required_models=preflight.EXPECTED_PROVISIONAL_ROSTER)
+        manifest, protocol=protocol, verify_files=False)
     assert report["verified_model_count"] == 4
     assert report["verified_file_count"] == 4
 
-    manifest["models"][preflight.EXPECTED_PROVISIONAL_ROSTER[-1]][
+    manifest["models"][protocol["roster"]["judges_final"][-1]][
         "classification"] = "proxy_tokenizer_estimate"
     with pytest.raises(ValueError, match="not exact"):
         preflight.validate_exact_tokenizer_manifest(
-            manifest, required_models=preflight.EXPECTED_PROVISIONAL_ROSTER)
+            manifest, protocol=protocol, verify_files=False)
 
 
-def test_price_snapshot_requires_all_models_serverless_and_younger_than_24_hours():
-    as_of = _utc(12)
-    snapshot = {
-        "schema_version": "phase3_v3_price_snapshot_v1",
-        "verified_at_utc": "2026-08-23T11:00:00Z",
-        "models": {
-            model: {
-                "serverless_available": True,
-                "input_usd_per_million": 1.0,
-                "output_usd_per_million": 2.0,
-            }
-            for model in preflight.EXPECTED_PROVISIONAL_ROSTER
-        },
-    }
+def test_price_snapshot_requires_all_models_serverless_and_younger_than_24_hours(
+    tmp_path: Path,
+):
+    protocol = _protocol()
+    as_of = datetime(2026, 8, 29, 2, tzinfo=timezone.utc)
+    snapshot = _price_snapshot(
+        protocol, tmp_path / "catalog.json", verified_at="2026-08-29T01:00:00Z")
     report = preflight.validate_price_snapshot(
-        snapshot, required_models=preflight.EXPECTED_PROVISIONAL_ROSTER, as_of=as_of)
+        snapshot, protocol=protocol, as_of=as_of)
     assert report["age_seconds"] == 3600.0
 
-    snapshot["verified_at_utc"] = "2026-08-22T11:59:59Z"
+    stale_as_of = as_of + timedelta(hours=24, seconds=1)
     with pytest.raises(ValueError, match="24-hour"):
         preflight.validate_price_snapshot(
-            snapshot, required_models=preflight.EXPECTED_PROVISIONAL_ROSTER, as_of=as_of)
+            snapshot, protocol=protocol, as_of=stale_as_of)
 
 
 def test_live_v2_archive_diagnostic_is_read_only_and_not_paid_ready():

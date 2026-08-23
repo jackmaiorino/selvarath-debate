@@ -247,6 +247,11 @@
   "Qwen/Qwen3.7-Max"
  ],
  "read_only_derivation": true,
+ "resolved_final_roster": null,
  "schema_version": "phase3_v3_successor_preflight_v1",
- "successor_design_ready": true
+ "successor_design_ready": true,
+ "successor_protocol": {
+  "reason": "final roster resolution and v3 protocol are absent",
+  "validation": "pending"
+ }
 }

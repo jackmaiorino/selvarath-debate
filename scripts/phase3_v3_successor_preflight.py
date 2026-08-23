@@ -7,7 +7,6 @@ formula and to show whether its historical ledger can satisfy the corrected fore
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import statistics
@@ -22,6 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+from rejudge import phase3_plan, phase3_v3_inputs  # noqa: E402
 from rejudge.phase2_execution import canonical_sha256  # noqa: E402
 from phase3_canary_closeout_v2 import (  # noqa: E402
     collect_packet_commits,
@@ -44,29 +44,12 @@ EXPECTED_PROVISIONAL_ROSTER = (
     "google/gemma-3n-E4B-it",
     "Qwen/Qwen3.7-Max",
 )
-HASH_HEX_LENGTH = 64
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def load_json_object(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError(f"expected a JSON object: {path}")
-    return value
-
-
-def _require_sha256(value: Any, label: str) -> str:
-    if not isinstance(value, str) or len(value) != HASH_HEX_LENGTH:
-        raise ValueError(f"{label} must be a lowercase SHA-256")
-    if value.lower() != value or any(char not in "0123456789abcdef" for char in value):
-        raise ValueError(f"{label} must be a lowercase SHA-256")
     return value
 
 
@@ -313,96 +296,31 @@ def audit_unknown_charge_token_splits(events: Sequence[Mapping[str, Any]]) -> di
 
 
 def validate_exact_tokenizer_manifest(
-    manifest: Mapping[str, Any], *, required_models: Sequence[str], verify_files: bool = True,
+    manifest: Mapping[str, Any], *, protocol: Mapping[str, Any],
+    verify_files: bool = True, project_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Validate a materialization-time exact-tokenizer manifest and its local file hashes."""
-    if manifest.get("schema_version") != "phase3_v3_exact_tokenizer_manifest_v1":
-        raise ValueError("unexpected exact-tokenizer manifest schema")
-    source = manifest.get("source_transcript_bundle")
-    if not isinstance(source, Mapping) or source.get("transcript_count") != 492:
-        raise ValueError("exact-tokenizer manifest must bind all 492 main transcripts")
-    _require_sha256(source.get("sha256"), "source_transcript_bundle.sha256")
-    models = manifest.get("models")
-    if not isinstance(models, Mapping):
-        raise ValueError("exact-tokenizer manifest models must be an object")
-    missing_models = sorted(set(required_models) - set(str(value) for value in models))
-    if missing_models:
-        raise ValueError(f"exact-tokenizer manifest missing models: {missing_models}")
-
-    verified_files = 0
-    for model in required_models:
-        raw_entry = models[model]
-        if not isinstance(raw_entry, Mapping):
-            raise ValueError(f"tokenizer entry for {model} must be an object")
-        if raw_entry.get("classification") != "exact_provider_tokenizer":
-            raise ValueError(f"tokenizer for {model} is not exact and provider-matched")
-        for key in ("repository", "revision", "provider_equivalence_evidence"):
-            if not isinstance(raw_entry.get(key), str) or not raw_entry[key].strip():
-                raise ValueError(f"tokenizer entry for {model} has no {key}")
-        _require_sha256(raw_entry.get("chat_template_sha256"), f"{model}.chat_template_sha256")
-        _require_sha256(
-            raw_entry.get("rendered_prompt_counts_sha256"),
-            f"{model}.rendered_prompt_counts_sha256")
-        expected = raw_entry.get("expected_rendered_prompt_count")
-        actual = raw_entry.get("actual_rendered_prompt_count")
-        if not isinstance(expected, int) or isinstance(expected, bool) or expected <= 0:
-            raise ValueError(f"tokenizer entry for {model} has invalid expected prompt count")
-        if actual != expected:
-            raise ValueError(f"tokenizer entry for {model} has incomplete rendered prompts")
-        files = raw_entry.get("files")
-        if not isinstance(files, Mapping) or not files:
-            raise ValueError(f"tokenizer entry for {model} has no files")
-        for name, raw_file in files.items():
-            if not isinstance(name, str) or not isinstance(raw_file, Mapping):
-                raise ValueError(f"tokenizer file entry for {model} is malformed")
-            expected_hash = _require_sha256(raw_file.get("sha256"), f"{model}.{name}.sha256")
-            raw_path = raw_file.get("path")
-            if not isinstance(raw_path, str) or not raw_path:
-                raise ValueError(f"tokenizer file entry for {model}.{name} has no path")
-            if verify_files:
-                path = Path(raw_path)
-                if not path.is_file():
-                    raise ValueError(f"tokenizer file does not exist: {path}")
-                if sha256_file(path) != expected_hash:
-                    raise ValueError(f"tokenizer file hash mismatch: {path}")
-            verified_files += 1
-    return {
-        "validation": "pass",
-        "required_models": list(required_models),
-        "verified_model_count": len(required_models),
-        "verified_file_count": verified_files,
-        "local_file_hashes_checked": verify_files,
-    }
+    """Apply the full provider-tokenizer and role-corpus gate."""
+    return phase3_v3_inputs.validate_exact_tokenizer_manifest(
+        manifest,
+        protocol=protocol,
+        verify_files=verify_files,
+        project_root=project_root,
+    )
 
 
 def validate_price_snapshot(
-    snapshot: Mapping[str, Any], *, required_models: Sequence[str], as_of: datetime,
-    max_age: timedelta = timedelta(hours=24),
+    snapshot: Mapping[str, Any], *, protocol: Mapping[str, Any], as_of: datetime,
+    max_age: timedelta = timedelta(hours=24), project_root: Path | None = None,
+    verify_catalog: bool = True,
 ) -> dict[str, Any]:
-    if snapshot.get("schema_version") != "phase3_v3_price_snapshot_v1":
-        raise ValueError("unexpected price snapshot schema")
-    verified_at = parse_timestamp(str(snapshot.get("verified_at_utc")))
-    reference = as_of.astimezone(timezone.utc)
-    age = reference - verified_at
-    if age < timedelta(0) or age > max_age:
-        raise ValueError("price snapshot is not within the required 24-hour window")
-    models = snapshot.get("models")
-    if not isinstance(models, Mapping):
-        raise ValueError("price snapshot models must be an object")
-    for model in required_models:
-        entry = models.get(model)
-        if not isinstance(entry, Mapping) or entry.get("serverless_available") is not True:
-            raise ValueError(f"required model is not verified serverless: {model}")
-        for field in ("input_usd_per_million", "output_usd_per_million"):
-            value = entry.get(field)
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
-                raise ValueError(f"invalid {field} for {model}")
-    return {
-        "validation": "pass",
-        "verified_at_utc": verified_at.isoformat().replace("+00:00", "Z"),
-        "age_seconds": age.total_seconds(),
-        "required_models": list(required_models),
-    }
+    return phase3_v3_inputs.validate_price_snapshot(
+        snapshot,
+        protocol=protocol,
+        as_of=as_of,
+        max_age=max_age,
+        project_root=project_root,
+        verify_catalog=verify_catalog,
+    )
 
 
 def historical_pace_diagnostic(
@@ -439,6 +357,7 @@ def historical_pace_diagnostic(
 
 def build_preflight(
     *, design_path: Path, closeout_path: Path, archive_dir: Path,
+    protocol_path: Path | None = None,
     tokenizer_manifest_path: Path | None = None, price_snapshot_path: Path | None = None,
     price_as_of: datetime | None = None,
 ) -> dict[str, Any]:
@@ -461,7 +380,27 @@ def build_preflight(
     usage_events = stream_jsonl(archive_dir / "phase3_usage.jsonl")
     historical_usage_compatibility = audit_unknown_charge_token_splits(usage_events)
 
-    required_models = list(EXPECTED_PROVISIONAL_ROSTER)
+    protocol: dict[str, Any] | None = None
+    protocol_validation: dict[str, Any]
+    if protocol_path is None:
+        required_models = list(EXPECTED_PROVISIONAL_ROSTER)
+        protocol_validation = {
+            "validation": "pending",
+            "reason": "final roster resolution and v3 protocol are absent",
+        }
+    else:
+        protocol = phase3_plan.load_protocol(protocol_path)
+        if protocol.get("schema_version") != "phase3_plan_v3":
+            raise ValueError("successor protocol must use phase3_plan_v3")
+        required_models = list(protocol["roster"]["judges_final"])
+        protocol_validation = {
+            "validation": "pass",
+            "path": protocol_path.as_posix(),
+            "canonical_sha256": canonical_sha256(protocol),
+            "final_roster": required_models,
+            "execution_authorized": False,
+        }
+
     tokenizer_validation: dict[str, Any]
     if tokenizer_manifest_path is None:
         tokenizer_validation = {
@@ -469,10 +408,11 @@ def build_preflight(
             "reason": "no exact-tokenizer manifest supplied",
         }
     else:
+        if protocol is None:
+            raise ValueError("a resolved v3 protocol is required to validate exact tokenizers")
         tokenizer_manifest = load_json_object(tokenizer_manifest_path)
         tokenizer_validation = validate_exact_tokenizer_manifest(
-            tokenizer_manifest, required_models=required_models)
-        tokenizer_validation["canonical_sha256"] = canonical_sha256(tokenizer_manifest)
+            tokenizer_manifest, protocol=protocol, project_root=REPO_ROOT)
 
     price_validation: dict[str, Any]
     if price_snapshot_path is None:
@@ -481,19 +421,21 @@ def build_preflight(
             "reason": "no fresh price snapshot supplied",
         }
     else:
+        if protocol is None:
+            raise ValueError("a resolved v3 protocol is required to validate a price snapshot")
         if price_as_of is None:
             raise ValueError("price-as-of is required when validating a price snapshot")
         price_snapshot = load_json_object(price_snapshot_path)
         price_validation = validate_price_snapshot(
-            price_snapshot, required_models=required_models, as_of=price_as_of)
-        price_validation["canonical_sha256"] = canonical_sha256(price_snapshot)
+            price_snapshot, protocol=protocol, as_of=price_as_of, project_root=REPO_ROOT)
 
-    blockers = [
-        "Qwen2.5 deferral has not reached its recovery, deadline, or main-authorization boundary",
-        "full successor protocol and namespace are not materialized",
-        "successor run manifest is not materialized",
-        "fresh complete successor canary has not run",
-    ]
+    blockers = ["successor run manifest is not materialized",
+                "fresh complete successor canary has not run"]
+    if protocol is None:
+        blockers[:0] = [
+            "Qwen2.5 deferral has not reached its recovery, deadline, or main-authorization boundary",
+            "full successor protocol and namespace are not materialized",
+        ]
     if tokenizer_validation["validation"] != "pass":
         blockers.append("exact provider-matched tokenizer corpus is absent")
     if price_validation["validation"] != "pass":
@@ -510,7 +452,9 @@ def build_preflight(
             "validation": "pass",
             "execution_authorized": False,
         },
-        "provisional_roster": required_models,
+        "successor_protocol": protocol_validation,
+        "provisional_roster": list(EXPECTED_PROVISIONAL_ROSTER),
+        "resolved_final_roster": (required_models if protocol is not None else None),
         "historical_v2_pace_diagnostic_only": historical_pace,
         "historical_v2_usage_forecast_compatibility": historical_usage_compatibility,
         "exact_tokenizer_manifest": tokenizer_validation,
@@ -533,6 +477,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--design", type=Path, default=DESIGN_PATH_DEFAULT)
     parser.add_argument("--closeout", type=Path, default=CLOSEOUT_PATH_DEFAULT)
     parser.add_argument("--archive-dir", type=Path, default=ARCHIVE_DIR_DEFAULT)
+    parser.add_argument("--protocol", type=Path)
     parser.add_argument("--tokenizer-manifest", type=Path)
     parser.add_argument("--price-snapshot", type=Path)
     parser.add_argument("--price-as-of", type=str)
@@ -543,6 +488,7 @@ def main(argv: list[str] | None = None) -> int:
         design_path=args.design.resolve(),
         closeout_path=args.closeout.resolve(),
         archive_dir=args.archive_dir,
+        protocol_path=args.protocol.resolve() if args.protocol else None,
         tokenizer_manifest_path=(
             args.tokenizer_manifest.resolve() if args.tokenizer_manifest else None),
         price_snapshot_path=args.price_snapshot.resolve() if args.price_snapshot else None,
