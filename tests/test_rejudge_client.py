@@ -276,6 +276,27 @@ def test_failed_attempts_remain_reserved_as_unknown_charges():
     assert c.uncertain_spend_usd == pytest.approx(estimated * 2 / 1_000_000 * 1.04)
     assert [e["status"] for e in c.usage_events] == [
         "reserved", "unknown_charge", "reserved", "unknown_charge"]
+    for reservation, terminal in zip(c.usage_events[::2], c.usage_events[1::2]):
+        assert reservation["reserved_prompt_tokens"] > 0
+        assert reservation["reserved_completion_tokens"] == 64
+        assert terminal["reserved_prompt_tokens"] == reservation["reserved_prompt_tokens"]
+        assert terminal["reserved_completion_tokens"] == 64
+        assert (terminal["reserved_prompt_tokens"]
+                + terminal["reserved_completion_tokens"] == terminal["estimated_tokens"])
+
+
+def test_success_records_the_same_explicit_reservation_split_on_both_events():
+    c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=StubSDK())
+    c.complete(MSGS, "m", 0.1, 1, 64)
+    reservation, success = c.usage_events
+    expected_prompt, expected_completion = ac._estimate_usage(MSGS, 64)
+    assert reservation["status"] == "reserved"
+    assert success["status"] == "success"
+    for event in (reservation, success):
+        assert event["reserved_prompt_tokens"] == expected_prompt
+        assert event["reserved_completion_tokens"] == expected_completion
+        assert (event["reserved_prompt_tokens"] + event["reserved_completion_tokens"]
+                == event["estimated_tokens"])
 
 
 def test_malformed_choices_after_charge_is_terminal_not_retried():
@@ -401,6 +422,20 @@ def test_unmatched_pre_call_reservation_survives_a_crash_as_uncertain(tmp_path):
     assert summary["uncertain_spend_usd"] == pytest.approx(0.25)
     assert summary["accounted_spend_usd"] == pytest.approx(0.25)
     assert summary["unmatched_reservations"] == 1
+
+
+def test_usage_summary_rejects_an_inconsistent_reservation_token_split(tmp_path):
+    log = tmp_path / "usage.jsonl"
+    log.write_text(json.dumps({
+        "status": "reserved",
+        "attempt_id": "bad-split",
+        "cost_usd": 0.25,
+        "estimated_tokens": 10,
+        "reserved_prompt_tokens": 7,
+        "reserved_completion_tokens": 4,
+    }) + "\n", encoding="utf-8")
+    with pytest.raises(ac.UsageLedgerError, match="does not equal estimated_tokens"):
+        ac.summarize_usage_log(log)
 
 
 @pytest.mark.parametrize("status,cost,match", [
@@ -965,6 +1000,23 @@ def test_streaming_required_probe_release_still_retries_under_halt_on_unknown_ch
     statuses = [event["status"] for event in c.usage_events]
     assert "released_no_charge" in statuses
     assert "unknown_charge" not in statuses
+
+
+def test_reasoning_reservation_release_removes_the_full_reserved_completion_allowance():
+    sdk = StreamingOnlySDK()
+    c = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=sdk, _sleep=lambda s: None,
+        halt_on_unknown_charge=True, reasoning_models=frozenset({"m"}))
+    assert c.complete(MSGS, "m", 0.1, 1, 64) == "YES"
+    reservation, release, retry_reservation, success = c.usage_events
+    assert [event["status"] for event in c.usage_events] == [
+        "reserved", "released_no_charge", "reserved", "success"]
+    assert reservation["reserved_completion_tokens"] == 192
+    assert release["reserved_completion_tokens"] == 192
+    assert release["estimated_tokens"] == reservation["estimated_tokens"]
+    assert retry_reservation["reserved_completion_tokens"] == 192
+    assert success["reserved_completion_tokens"] == 192
+    assert c.total_tokens == 150
 
 
 def test_halt_on_unknown_charge_default_is_legacy_retry_behavior():

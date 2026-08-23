@@ -373,7 +373,9 @@ def _summarize_usage_events(
     terminal_attempts: set[str] = set()
     terminal_statuses = {"success", "charged_malformed", "unknown_charge",
                          "released_no_charge"}
-    stable_fields = ("model", "kind", "seed", "attempt", "estimated_tokens", "metadata")
+    stable_fields = (
+        "model", "kind", "seed", "attempt", "estimated_tokens",
+        "reserved_prompt_tokens", "reserved_completion_tokens", "metadata")
 
     for event_number, event in enumerate(events, 1):
         status = event.get("status")
@@ -386,6 +388,21 @@ def _summarize_usage_events(
             if attempt_id in reservations or attempt_id in terminal_attempts:
                 raise UsageLedgerError(
                     f"duplicate usage attempt at {path}:event {event_number}")
+            reserved_prompt = event.get("reserved_prompt_tokens")
+            reserved_completion = event.get("reserved_completion_tokens")
+            if reserved_prompt is not None or reserved_completion is not None:
+                if (not isinstance(reserved_prompt, int) or isinstance(reserved_prompt, bool)
+                        or reserved_prompt < 0
+                        or not isinstance(reserved_completion, int)
+                        or isinstance(reserved_completion, bool)
+                        or reserved_completion < 0):
+                    raise UsageLedgerError(
+                        "reservation has invalid input-output token split at "
+                        f"{path}:event {event_number}")
+                if event.get("estimated_tokens") != reserved_prompt + reserved_completion:
+                    raise UsageLedgerError(
+                        "reservation token split does not equal estimated_tokens at "
+                        f"{path}:event {event_number}")
             reservations[attempt_id] = (cost, event)
             continue
 
@@ -1060,6 +1077,8 @@ class RejudgeClient:
                     "status": "reserved", "attempt_id": attempt_id,
                     "model": model, "kind": kind, "seed": seed, "attempt": attempt,
                     "prompt_tokens": None, "completion_tokens": None,
+                    "reserved_prompt_tokens": prompt_tokens,
+                    "reserved_completion_tokens": completion_tokens,
                     "estimated_tokens": prompt_tokens + completion_tokens,
                     "cost_usd": estimated_cost,
                     "metadata": request_metadata or {},
@@ -1071,6 +1090,7 @@ class RejudgeClient:
         return input_price, output_price, estimated_cost, attempt_id
 
     def _mark_unknown(self, *, estimated_cost: float, estimated_tokens: int,
+                      reserved_prompt_tokens: int, reserved_completion_tokens: int,
                       model: str, kind: str, seed: int, attempt: int,
                       attempt_id: str, exc: Exception,
                       request_metadata: dict | None) -> None:
@@ -1080,6 +1100,8 @@ class RejudgeClient:
                     "status": "unknown_charge", "attempt_id": attempt_id,
                     "model": model, "kind": kind, "seed": seed, "attempt": attempt,
                     "prompt_tokens": None, "completion_tokens": None,
+                    "reserved_prompt_tokens": reserved_prompt_tokens,
+                    "reserved_completion_tokens": reserved_completion_tokens,
                     "estimated_tokens": estimated_tokens,
                     "cost_usd": estimated_cost, "error": str(exc),
                     "metadata": request_metadata or {},
@@ -1091,6 +1113,8 @@ class RejudgeClient:
             self.uncertain_tokens += estimated_tokens
 
     def _release_reservation(self, estimated_cost: float, estimated_tokens: int, *,
+                             reserved_prompt_tokens: int,
+                             reserved_completion_tokens: int,
                              attempt_id: str, model: str, kind: str, seed: int,
                              attempt: int, request_metadata: dict | None) -> None:
         with self._lock:
@@ -1099,6 +1123,8 @@ class RejudgeClient:
                     "status": "released_no_charge", "attempt_id": attempt_id,
                     "model": model, "kind": kind, "seed": seed, "attempt": attempt,
                     "prompt_tokens": 0, "completion_tokens": 0,
+                    "reserved_prompt_tokens": reserved_prompt_tokens,
+                    "reserved_completion_tokens": reserved_completion_tokens,
                     "estimated_tokens": estimated_tokens, "cost_usd": 0.0,
                     "metadata": request_metadata or {},
                 })
@@ -1108,6 +1134,8 @@ class RejudgeClient:
             self.total_tokens -= estimated_tokens
 
     def _reconcile_success(self, *, estimated_cost: float, estimated_tokens: int,
+                           reserved_prompt_tokens: int,
+                           reserved_completion_tokens: int,
                            prompt_tokens: int, completion_tokens: int,
                            input_price: float, output_price: float, model: str,
                            kind: str, seed: int, attempt: int, status: str,
@@ -1122,6 +1150,8 @@ class RejudgeClient:
                     "model": model, "kind": kind, "seed": seed, "attempt": attempt,
                     "prompt_tokens": prompt_tokens,
                     "completion_tokens": completion_tokens,
+                    "reserved_prompt_tokens": reserved_prompt_tokens,
+                    "reserved_completion_tokens": reserved_completion_tokens,
                     "estimated_tokens": estimated_tokens,
                     "cost_usd": actual_cost,
                     "metadata": request_metadata or {},
@@ -1384,6 +1414,8 @@ class RejudgeClient:
                 "abandoning the call (the underlying attempt may still be in flight)")
         ok, value = outcome[0]
         if not ok:
+            if not isinstance(value, BaseException):
+                raise RuntimeError("deadline worker returned a non-exception failure")
             raise value
         return value
 
@@ -1471,7 +1503,10 @@ class RejudgeClient:
                     # Capability negotiation is a rejected request, not an inference. Release
                     # its reservation and retry immediately through the required transport.
                     self._release_reservation(
-                        estimated_cost, estimated_tokens, attempt_id=attempt_id,
+                        estimated_cost, reserved_tokens,
+                        reserved_prompt_tokens=estimated_prompt,
+                        reserved_completion_tokens=reserved_completion,
+                        attempt_id=attempt_id,
                         model=model, kind=kind, seed=seed, attempt=attempt,
                         request_metadata=request_metadata)
                     self._streaming_models.add(model)
@@ -1480,6 +1515,8 @@ class RejudgeClient:
                 last = exc
                 self._mark_unknown(
                     estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
+                    reserved_prompt_tokens=estimated_prompt,
+                    reserved_completion_tokens=reserved_completion,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
@@ -1513,6 +1550,8 @@ class RejudgeClient:
                 last = exc
                 self._mark_unknown(
                     estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
+                    reserved_prompt_tokens=estimated_prompt,
+                    reserved_completion_tokens=reserved_completion,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
                     request_metadata=request_metadata)
@@ -1530,6 +1569,8 @@ class RejudgeClient:
             except Exception as exc:
                 self._reconcile_success(
                     estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
+                    reserved_prompt_tokens=estimated_prompt,
+                    reserved_completion_tokens=reserved_completion,
                     prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                     input_price=input_price, output_price=output_price, model=model,
                     kind=kind, seed=seed, attempt=attempt, status="charged_malformed",
@@ -1539,6 +1580,8 @@ class RejudgeClient:
                     f"malformed API response after successful charge: {exc}") from exc
             self._reconcile_success(
                 estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
+                reserved_prompt_tokens=estimated_prompt,
+                reserved_completion_tokens=reserved_completion,
                 prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                 input_price=input_price, output_price=output_price, model=model,
                 kind=kind, seed=seed, attempt=attempt, status="success",
