@@ -1,0 +1,421 @@
+{
+ "archive_dir": "E:/selvarath-archive/phase3-v2-2026-08-21",
+ "archive_integrity": {
+  "authorization_validation": "pass",
+  "call_cache": {
+   "chain_seed": "genesis",
+   "last_event_hash": "e9e0f7683a941142a50f0502145d1d6fa638667221e5af035cab06602c3611f8",
+   "last_sequence": 6092,
+   "row_count": 6093,
+   "validation": "pass"
+  },
+  "decision_store": {
+   "last_event_hash": "10ff527c6e52d41ade2c68fe41de74c59700721d9f83108e2cee3279bfe54d20",
+   "last_sequence": 1352,
+   "row_count": 1353,
+   "validation": "pass"
+  },
+  "deferral_binding_validation": "pass",
+  "manifest_validation": "pass",
+  "result_store": {
+   "last_event_hash": "325d27503e7c752f3fd7e54cf8df0ee9dd25057da1ee7d34ae6477e7e30c59f4",
+   "last_sequence": 1499,
+   "row_count": 1500,
+   "validation": "pass"
+  },
+  "v1_usage": {
+   "accounted_spend_usd": 19.78244912999991,
+   "actual_spend_usd": 15.305358109999913,
+   "events": 15757,
+   "last_event_hash": "38a7a518d9b920405d76101f3353481c5b62e5a946ced0cbd32085631d4e861f",
+   "last_sequence": 15757,
+   "ledger_id": "8c2aed0e492e4a9f87296b00ebc41fa3",
+   "state_validation": "pass",
+   "uncertain_spend_usd": 4.477091019999999,
+   "unmatched_reservations": 3,
+   "validation": "pass"
+  },
+  "v2_usage": {
+   "accounted_spend_usd": 14.786986309999996,
+   "actual_spend_usd": 13.695891119999995,
+   "events": 12508,
+   "last_event_hash": "bfc861156acfc6d30f499613f2efdd8dcb9f4739f9a4c5002e51720647b136fc",
+   "last_sequence": 12508,
+   "ledger_id": "5116ce0bf7104ceeba4b9971c9b875f7",
+   "state_validation": "pass",
+   "uncertain_spend_usd": 1.09109519,
+   "unmatched_reservations": 0,
+   "validation": "pass"
+  }
+ },
+ "binding_disposition": "halt_and_escalate_to_owner",
+ "calibration": {
+  "active_judges": [
+   "google/gemma-4-31B-it",
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "openai/gpt-oss-120b",
+   "google/gemma-3n-E4B-it",
+   "Qwen/Qwen3.7-Max"
+  ],
+  "all_active_invalid_gates_pass": false,
+  "all_structural_gates_pass": true,
+  "continuing_judge_failures": [
+   "openai/gpt-oss-120b"
+  ],
+  "core_b0_rendered_split_by_judge": {
+   "Qwen/Qwen3.7-Max": {
+    "expected_each": 48,
+    "pass": true,
+    "rendered_A_correct": 48,
+    "rendered_B_correct": 48
+   },
+   "google/gemma-3n-E4B-it": {
+    "expected_each": 48,
+    "pass": true,
+    "rendered_A_correct": 48,
+    "rendered_B_correct": 48
+   },
+   "google/gemma-4-31B-it": {
+    "expected_each": 48,
+    "pass": true,
+    "rendered_A_correct": 48,
+    "rendered_B_correct": 48
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+    "expected_each": 48,
+    "pass": true,
+    "rendered_A_correct": 48,
+    "rendered_B_correct": 48
+   },
+   "openai/gpt-oss-120b": {
+    "expected_each": 48,
+    "pass": true,
+    "rendered_A_correct": 48,
+    "rendered_B_correct": 48
+   }
+  },
+  "deferred_judge": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "paired_diagnostic_scope": "Core b0 only, 48 rendered mirrored pairs per active judge. These formulas are reported explicitly because v2 mandates the diagnostics but does not prescribe their exact estimator. They are descriptive and have no roster consequence.",
+  "paired_position_diagnostics": {
+   "Qwen/Qwen3.7-Max": {
+    "gate_consequence": "none; mandatory descriptive diagnostic",
+    "incomplete_pair_count": 0,
+    "independent_rows_reference_variance": 0.019965277777777776,
+    "invalid_pair_count": 0,
+    "invalid_row_count": 0,
+    "n_pairs": 48,
+    "pair_mean_error_sample_variance": 0.01950354609929078,
+    "semantic_answer_consistency_fraction": 0.9166666666666666,
+    "semantic_answer_consistent_valid_pairs": 44,
+    "signed_position_effect_definition": "error when the rendered correct answer is in A minus error when it is in B; strict INVALID counts wrong",
+    "signed_position_effect_pp": 8.333333333333332,
+    "unresolved_cell_keys": [],
+    "unresolved_row_count": 0,
+    "valid_pair_count": 48,
+    "variance_ratio_vs_independent_rows": 0.9768732654949123
+   },
+   "google/gemma-3n-E4B-it": {
+    "gate_consequence": "none; mandatory descriptive diagnostic",
+    "incomplete_pair_count": 0,
+    "independent_rows_reference_variance": 0.0793728298611111,
+    "invalid_pair_count": 0,
+    "invalid_row_count": 0,
+    "n_pairs": 48,
+    "pair_mean_error_sample_variance": 0.12488918439716312,
+    "semantic_answer_consistency_fraction": 0.8541666666666666,
+    "semantic_answer_consistent_valid_pairs": 41,
+    "signed_position_effect_definition": "error when the rendered correct answer is in A minus error when it is in B; strict INVALID counts wrong",
+    "signed_position_effect_pp": 2.083333333333333,
+    "unresolved_cell_keys": [],
+    "unresolved_row_count": 0,
+    "valid_pair_count": 48,
+    "variance_ratio_vs_independent_rows": 1.573450066171231
+   },
+   "google/gemma-4-31B-it": {
+    "gate_consequence": "none; mandatory descriptive diagnostic",
+    "incomplete_pair_count": 0,
+    "independent_rows_reference_variance": 0.03379991319444445,
+    "invalid_pair_count": 1,
+    "invalid_row_count": 1,
+    "n_pairs": 48,
+    "pair_mean_error_sample_variance": 0.06371897163120567,
+    "semantic_answer_consistency_fraction": 0.9787234042553191,
+    "semantic_answer_consistent_valid_pairs": 46,
+    "signed_position_effect_definition": "error when the rendered correct answer is in A minus error when it is in B; strict INVALID counts wrong",
+    "signed_position_effect_pp": 2.083333333333333,
+    "unresolved_cell_keys": [],
+    "unresolved_row_count": 0,
+    "valid_pair_count": 47,
+    "variance_ratio_vs_independent_rows": 1.8851815170246915
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+    "gate_consequence": "none; mandatory descriptive diagnostic",
+    "incomplete_pair_count": 0,
+    "independent_rows_reference_variance": 0.0546875,
+    "invalid_pair_count": 0,
+    "invalid_row_count": 0,
+    "n_pairs": 48,
+    "pair_mean_error_sample_variance": 0.09042553191489362,
+    "semantic_answer_consistency_fraction": 0.9166666666666666,
+    "semantic_answer_consistent_valid_pairs": 44,
+    "signed_position_effect_definition": "error when the rendered correct answer is in A minus error when it is in B; strict INVALID counts wrong",
+    "signed_position_effect_pp": 0.0,
+    "unresolved_cell_keys": [],
+    "unresolved_row_count": 0,
+    "valid_pair_count": 48,
+    "variance_ratio_vs_independent_rows": 1.6534954407294833
+   },
+   "openai/gpt-oss-120b": {
+    "gate_consequence": "none; mandatory descriptive diagnostic",
+    "incomplete_pair_count": 0,
+    "independent_rows_reference_variance": 0.076171875,
+    "invalid_pair_count": 3,
+    "invalid_row_count": 3,
+    "n_pairs": 48,
+    "pair_mean_error_sample_variance": 0.12367021276595745,
+    "semantic_answer_consistency_fraction": 0.9333333333333333,
+    "semantic_answer_consistent_valid_pairs": 42,
+    "signed_position_effect_definition": "error when the rendered correct answer is in A minus error when it is in B; strict INVALID counts wrong",
+    "signed_position_effect_pp": 0.0,
+    "unresolved_cell_keys": [],
+    "unresolved_row_count": 0,
+    "valid_pair_count": 45,
+    "variance_ratio_vs_independent_rows": 1.6235679214402619
+   }
+  },
+  "strict_invalid_gate_by_judge": {
+   "Qwen/Qwen3.7-Max": {
+    "disposition": "pass",
+    "expected_n_core_b0": 96,
+    "invalid_cell_keys": [],
+    "n_core_b0": 96,
+    "pass": true,
+    "strict_invalid_count": 0,
+    "strict_invalid_rate": 0.0,
+    "threshold": "strict INVALID / 96 < 0.02"
+   },
+   "google/gemma-3n-E4B-it": {
+    "disposition": "pass",
+    "expected_n_core_b0": 96,
+    "invalid_cell_keys": [],
+    "n_core_b0": 96,
+    "pass": true,
+    "strict_invalid_count": 0,
+    "strict_invalid_rate": 0.0,
+    "threshold": "strict INVALID / 96 < 0.02"
+   },
+   "google/gemma-4-31B-it": {
+    "disposition": "pass",
+    "expected_n_core_b0": 96,
+    "invalid_cell_keys": [
+     "phase3-budget-knob-2026-08-21-v2.qb-d9e52c3339ab:phase3_canary_debate_judgment:b926d7e170e90a80779af4d2683b0b5e6ed7d25899bd4d28ad7a27150857d6a7"
+    ],
+    "n_core_b0": 96,
+    "pass": true,
+    "strict_invalid_count": 1,
+    "strict_invalid_rate": 0.010416666666666666,
+    "threshold": "strict INVALID / 96 < 0.02"
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+    "disposition": "pass",
+    "expected_n_core_b0": 96,
+    "invalid_cell_keys": [],
+    "n_core_b0": 96,
+    "pass": true,
+    "strict_invalid_count": 0,
+    "strict_invalid_rate": 0.0,
+    "threshold": "strict INVALID / 96 < 0.02"
+   },
+   "openai/gpt-oss-120b": {
+    "disposition": "halt_and_escalate_continuing_judge",
+    "expected_n_core_b0": 96,
+    "invalid_cell_keys": [
+     "phase3-budget-knob-2026-08-21-v2.qb-d9e52c3339ab:phase3_canary_debate_judgment:1a7f2a6bed0ae323041cc16c1256491fd000ab1edf16d7286626b80198c85153",
+     "phase3-budget-knob-2026-08-21-v2.qb-d9e52c3339ab:phase3_canary_debate_judgment:33d29b606224d1803631f0b9fff1d77af0c4f621ce63626bea9460889d87bf81",
+     "phase3-budget-knob-2026-08-21-v2.qb-d9e52c3339ab:phase3_canary_debate_judgment:fbfdafe1a3e6a955939eb8691ecd9ef338b46369a39989205a558132e818d999"
+    ],
+    "n_core_b0": 96,
+    "pass": false,
+    "strict_invalid_count": 3,
+    "strict_invalid_rate": 0.03125,
+    "threshold": "strict INVALID / 96 < 0.02"
+   }
+  },
+  "structural_mirroring": {
+   "incomplete_or_missing_side_groups": [],
+   "n_incomplete_or_missing_side_groups": 0,
+   "n_pairs_inconsistent_across_conditions": 0,
+   "n_rows_unparseable": 0,
+   "pairs_duplicated": 0,
+   "pairs_duplicated_pct": 0.0,
+   "pairs_inconsistent_across_conditions": {},
+   "pairs_mirrored": 480,
+   "pairs_mirrored_pct": 100.0,
+   "pairs_other_inconsistent_shape": 0,
+   "pairs_other_inconsistent_shape_pct": 0.0,
+   "pairs_total": 480,
+   "per_judge_realized_split": {
+    "Qwen/Qwen3.7-Max": {
+     "realized_A_correct": 96,
+     "realized_B_correct": 96,
+     "unresolved": 0
+    },
+    "google/gemma-3n-E4B-it": {
+     "realized_A_correct": 96,
+     "realized_B_correct": 96,
+     "unresolved": 0
+    },
+    "google/gemma-4-31B-it": {
+     "realized_A_correct": 96,
+     "realized_B_correct": 96,
+     "unresolved": 0
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+     "realized_A_correct": 96,
+     "realized_B_correct": 96,
+     "unresolved": 0
+    },
+    "openai/gpt-oss-120b": {
+     "realized_A_correct": 96,
+     "realized_B_correct": 96,
+     "unresolved": 0
+    }
+   },
+   "rows_seen_as_canary_judgment_cells": 960,
+   "rows_unparseable": []
+  }
+ },
+ "capability_anchors": {
+  "binding_validation": "pass",
+  "bound_row_count": 288,
+  "bound_rows_sha256": "38f00ec36d39e03ae75f5682637b3fc658a8604fdf334757a8c938bc69cbfa05",
+  "by_judge": {
+   "Qwen/Qwen2.5-7B-Instruct-Turbo": {
+    "n": 48,
+    "strict_score": 45,
+    "tolerant_score": 45
+   },
+   "Qwen/Qwen3.7-Max": {
+    "n": 48,
+    "strict_score": 47,
+    "tolerant_score": 47
+   },
+   "google/gemma-3n-E4B-it": {
+    "n": 48,
+    "strict_score": 45,
+    "tolerant_score": 45
+   },
+   "google/gemma-4-31B-it": {
+    "n": 48,
+    "strict_score": 47,
+    "tolerant_score": 47
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+    "n": 48,
+    "strict_score": 35,
+    "tolerant_score": 48
+   },
+   "openai/gpt-oss-120b": {
+    "n": 48,
+    "strict_score": 44,
+    "tolerant_score": 44
+   }
+  },
+  "reparsed_vs_stored_mismatches": 0,
+  "source_store": "E:/selvarath-archive/phase3-2026-08-18/phase3_canary_results.jsonl"
+ },
+ "completion": {
+  "anchor_rows_erroneously_copied_into_v2": [],
+  "anchor_rows_erroneously_copied_into_v2_count": 0,
+  "canary_transcript_references_completed": 48,
+  "carried_anchor_bindings_verified": 288,
+  "combined_gate_inventory_accounted": 1440,
+  "combined_gate_inventory_expected": 1440,
+  "completed_deferred_cell_keys": [],
+  "completed_deferred_count": 0,
+  "fresh_judgment_slots_planned": 1152,
+  "fresh_judgments_completed_active": 960,
+  "fresh_judgments_deferred_by_amendment": 192,
+  "fresh_rows_expected_after_deferral": 1500,
+  "fresh_store_rows": 1500,
+  "main_transcript_references_completed": 492,
+  "note": "The 192 Qwen2.5 judgment cells are deferred by the owner-authorized carve-out. The 288 anchors are verified against the v1 store and are not copied into the v2 result store. The 540 transcript rows are preseeded operational inputs, not gate slots.",
+  "provisional_completion_gate_pass": true,
+  "unexpected_cell_keys": [],
+  "unexpected_missing_cell_keys": [],
+  "unexpected_missing_count": 0,
+  "unexpected_row_count": 0
+ },
+ "configuration_selection": {
+  "D_U": null,
+  "R_U": null,
+  "main_spend_forecast_usd": null,
+  "ready": false,
+  "reason": "No configuration or cap selection is issued while a continuing-judge gate fails. The historical v1 close-out is also not reused because it applies the retired side-bias gate, calendar-day pace interval, success-only role samples, chars-per-four token estimates, and v2-only accrued spend."
+ },
+ "execution_identity_sha256": "f3e7e11b22f3fed66eb777750de8815cf4a7ea22bb76d7dbda21eae415c754c2",
+ "gate_blockers": [
+  "continuing judge strict-invalid gate failed: openai/gpt-oss-120b",
+  "configuration-selection continuous-rate L90 is underspecified"
+ ],
+ "generated_by": "scripts/phase3_canary_closeout_v2.py",
+ "main_authorization_ready": false,
+ "non_claims": [
+  "No phase-3 main outcome or treatment-efficacy analysis was performed.",
+  "The continuous pace point rate is not an L90 confidence bound.",
+  "No main-run configuration or spend forecast is certified by this artifact.",
+  "No provider call or archive mutation was performed by this derivation."
+ ],
+ "protocol_canonical_sha256": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+ "read_only_derivation": true,
+ "recommended_next_step": "Keep the gpt-oss gate failure binding. Do not waive or rerun it. Approve a successor roster design and a corrected exact-token forecast contract before any new paid calibration or main-run authorization.",
+ "review_pace": {
+  "attributed_unique_rulings": 1353,
+  "configuration_selection_L90": null,
+  "configuration_selection_L90_status": "undefined_by_protocol: v2 requires a lower 90% interval over one continuous elapsed-time rate but specifies no sampling units or interval construction",
+  "final_window": {
+   "closes_at_utc": "2026-08-23T09:41:25.515988Z",
+   "elapsed_hours": 11.829100804722222,
+   "elapsed_seconds": 42584.762897,
+   "max_ledger_event_gap_seconds_inside_window": 207.046407,
+   "opens_at_utc": "2026-08-22T21:51:40.753091Z",
+   "point_rate_rulings_per_24_elapsed_hours": 2743.065642575861,
+   "unique_rulings": 1352,
+   "utc_calendar_day_buckets": {
+    "2026-08-22": 256,
+    "2026-08-23": 1096
+   }
+  },
+  "latest_interruption": {
+   "timestamp": "2026-08-22T21:34:55Z",
+   "type": "STOP"
+  },
+  "ledger_gap_over_30m_count": 1,
+  "stop_count": 3,
+  "timestamp_evidence": "earliest mtime of an auto-review packet containing each payload",
+  "unattributed_payload_sha256": [],
+  "unattributed_unique_ruling_count": 0
+ },
+ "schema_version": "phase3_v2_canary_review_v1",
+ "spend_to_date": {
+  "canary_family_cap_usd": 60.0,
+  "combined_accounted_spend_usd": 34.56943544,
+  "headroom_usd": 25.43056456,
+  "note": "The v1 and v2 segments share one continued canary-stage cap.",
+  "v1_segment": {
+   "accounted_spend_usd": 19.78244913,
+   "actual_spend_usd": 15.30535811,
+   "events": 15757,
+   "uncertain_spend_usd": 4.47709102,
+   "unmatched_reservations": 3
+  },
+  "v2_segment": {
+   "accounted_spend_usd": 14.78698631,
+   "actual_spend_usd": 13.69589112,
+   "events": 12508,
+   "uncertain_spend_usd": 1.09109519,
+   "unmatched_reservations": 0
+  },
+  "within_canary_family_cap": true
+ }
+}

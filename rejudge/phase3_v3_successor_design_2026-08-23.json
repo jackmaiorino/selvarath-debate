@@ -1,0 +1,104 @@
+{
+  "schema_version": "phase3_v3_successor_design_v1",
+  "design_id": "phase3_v3_successor_2026_08_23",
+  "status": "owner_approved_offline_design_pending_materialization",
+  "owner_approval": {
+    "approver": "Jack Maiorino",
+    "channel": "active Codex project session",
+    "approved_on_date": "2026-08-23",
+    "scope": "successor roster and offline forecast and pace contracts only"
+  },
+  "execution_authorized": false,
+  "main_run_authorized": false,
+  "source_commit": "265ef526b2cecd415316ade4539ab1df1cd6fabb",
+  "source_bindings": {
+    "rejudge/phase3_protocol_v2.json": "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104",
+    "rejudge/phase3_canary_closeout_v2_2026-08-23.json": "e96658d2cadf8577278cd3e53ef837c19bc1bb6416f23a4c3effceaa640364d7",
+    "rejudge/phase3_v2_amendment1_qwen_carveout_2026-08-22.json": "22692c762b5150fc29f6b4ffa4efcc4b993eb2789d40f22c8555b129c849763c",
+    "rejudge/phase3_v2_qwen_deferral_cells_2026-08-22.json": "5c8c5bb1760e98065e90b78eb2c699353ebf760b5cdb87fd1219504e1e4c1895"
+  },
+  "v2_disposition": {
+    "openai/gpt-oss-120b": "strict INVALID gate failure remains binding; exclude from the successor, with no waiver, same-cell retry, or replacement",
+    "Qwen/Qwen2.5-7B-Instruct-Turbo": "remain deferred under the existing amendment until all 192 v2 cells complete, 2026-08-29T00:00:00Z, or main authorization, whichever resolves first",
+    "v2_main_spend": "not authorized"
+  },
+  "roster": {
+    "provisional_judges": [
+      "google/gemma-4-31B-it",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "google/gemma-3n-E4B-it",
+      "Qwen/Qwen3.7-Max"
+    ],
+    "conditional_judge": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "conditional_inclusion": "include only if the existing v2 deferral resolves by full completion and the unchanged v2 gates pass before the deadline or any main authorization",
+    "final_size_range": [
+      4,
+      5
+    ],
+    "replacement_policy": "none; roster breadth is not restored post hoc for the nominal capability-slope p-value",
+    "capability_slope_rule": "with fewer than 6 judges, report the estimate and plot only, with no p-value"
+  },
+  "successor_canary": {
+    "required": true,
+    "identity_rule": "materialize one new protocol ID, namespace, protocol hash, and run identity after the final roster resolves",
+    "fresh_scope": "rerun every calibration, budget-smoke, and capability-anchor cell for every final rostered judge under the successor identity; carry no v1 or v2 result row",
+    "gates": "retain the v2 strict INVALID and structural mirroring gates; paired position diagnostics remain mandatory and non-exclusionary",
+    "formal_measurement": "single-shot after freely retryable checkout, build, dependency, archive, and provider preflight",
+    "environmental_interruption": "void and restart only the pace window, with one log line; completed semantic cells remain valid",
+    "provider_calls_authorized": false
+  },
+  "continuous_rate_l90": {
+    "purpose": "configuration-selection review-throughput denominator",
+    "window": "the final uninterrupted successor-canary pace window under the v2 STOP and greater-than-30-minute ledger-gap restart rule",
+    "timestamp_evidence": "earliest committed auto-review packet containing each unique payload",
+    "deduplication": "count each required payload once at its earliest commit",
+    "block_seconds": 3600,
+    "alignment": "anchor block zero at the first unique ruling in the final uninterrupted window",
+    "blocks": "use consecutive half-open one-hour blocks; include every zero-ruling block; discard the final partial block",
+    "minimum_full_blocks": 8,
+    "sample": "x_i = 24 times the unique-ruling count in full block i, in rulings per 24 elapsed hours",
+    "formula": "L90 = max(0, mean(x) - t_0.95,n-1 times sample_sd(x) / sqrt(n)); this is the lower endpoint of a central 90 percent Student t interval",
+    "undefined_action": "if fewer than 8 full blocks exist, configuration selection is not estimable and paid main authorization remains blocked",
+    "calendar_day_buckets": "descriptive only"
+  },
+  "forecast_contract": {
+    "slot_frame": "for every planned judging slot, materialize judge_query, judge_verdict, query_checker, and oracle_verification role records; roles not called, including early-DONE paths, contribute zero",
+    "attempt_accounting": "sum every attempt in its slot and role; successes and charged malformed responses use actual provider tokens; released-no-charge attempts use zero; unknown charges use their full separately recorded reserved input and reserved output tokens until reconciled",
+    "missing_reservation_split": "block the forecast; never infer an input-output split from a combined reserved token count",
+    "billing_model_key": "group and price by the model actually called, plus source judge, role, condition, and question; checker and oracle calls never inherit the source judge price",
+    "cluster_estimator": "within each question compute the mean per-slot value, including zeros, then use the upper endpoint of a central 90 percent Student t interval across questions",
+    "exact_context": "for every billed model, use one exact non-proxy tokenizer revision to render and count every applicable static role template against all 492 frozen main transcripts; record tokenizer files, revisions, hashes, chat-template hashes, rendered-corpus hash, and all per-prompt counts",
+    "dynamic_context": "measure canary dynamic-history residuals around the exact rendered canary static contexts and add their per-question U90 to the exact main static counts; a negative residual or tokenizer-provider mismatch blocks the forecast",
+    "completion_tokens": "use per-question U90 completion tokens per slot and role, including zero-output slots",
+    "price_snapshot": "use a serverless availability and input-output price snapshot obtained after final roster resolution and no earlier than 24 hours before paid authorization; refresh immediately before main authorization",
+    "transport_multiplier": 1.15,
+    "rounding": "ceil each billed model, source judge, role, and condition line item to whole cents before summing",
+    "cumulative_spend": "add accounted spend from every v1, v2, and successor canary ledger segment, including unresolved unknown charges",
+    "required_main_transcript_count": 492,
+    "proxy_or_byte_bound_policy": "not decision-grade; any proxy tokenizer, byte bound, character heuristic, missing prompt, or stale price leaves the forecast uncertified"
+  },
+  "materialization_manifest": {
+    "required_fields": [
+      "git_commit",
+      "python_version",
+      "dependency_lock_sha256",
+      "linker_version_or_not_applicable",
+      "seeds",
+      "input_sha256s",
+      "planned_output_paths",
+      "gpu_ordinal_or_not_used",
+      "final_roster",
+      "protocol_sha256",
+      "tokenizer_manifest_sha256",
+      "price_snapshot_sha256"
+    ],
+    "crash_consistency": "result, decision, cache, and usage stores remain append-only and crash-consistent",
+    "harness_check": "before formal measurement, rerun one seed end to end and require a bit-identical output-store SHA-256"
+  },
+  "non_claims": [
+    "This design is not a full successor protocol or run manifest.",
+    "It does not authorize provider calls, canary spend, main spend, or GPU work.",
+    "The v2 pace data may be evaluated under the new L90 formula only as a historical diagnostic.",
+    "No successor forecast is certified until the final roster, exact tokenizer corpus, fresh prices, and fresh canary ledger exist."
+  ]
+}
