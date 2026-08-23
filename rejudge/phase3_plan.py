@@ -70,6 +70,24 @@ FROZEN_PROTOCOL_V2_CANONICAL_SHA256 = (
     "33e0a1213c682dbd658d73dfc7f87f255e1e46db002c7237cbd0f04347420104"
 )
 
+# v3 is materialized only after the conditional Qwen2.5 roster branch resolves. Its exact
+# protocol hash therefore cannot be pinned in source before that resolution exists. Instead,
+# the materializer binds the owner-approved successor design below, the immutable v2 protocol,
+# and the roster-resolution artifact, then records a content digest inside the generated
+# protocol. The small run manifest pins the generated protocol's full canonical hash.
+FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256 = (
+    "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479"
+)
+
+PHASE3_V3_BASE_JUDGES = (
+    "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "google/gemma-3n-E4B-it",
+    "Qwen/Qwen3.7-Max",
+)
+PHASE3_V3_CONDITIONAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct-Turbo"
+PHASE3_V3_EXCLUDED_JUDGE = "openai/gpt-oss-120b"
+
 # make_cell_key is reused verbatim from phase2_plan, never copy-pasted; re-exported here so
 # callers (and tests) can address it as phase3_plan.make_cell_key, matching phase2_plan's own
 # module-level surface.
@@ -140,6 +158,13 @@ def _non_empty_string(value: Any, label: str) -> str:
     return value
 
 
+def _sha256_string(value: Any, label: str) -> str:
+    text = _non_empty_string(value, label)
+    if len(text) != 64 or any(character not in "0123456789abcdef" for character in text):
+        raise ProtocolValidationError(f"{label} must be a lowercase SHA-256 digest")
+    return text
+
+
 def _positive_int(value: Any, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ProtocolValidationError(f"{label} must be a positive integer")
@@ -155,20 +180,18 @@ def _non_negative_int(value: Any, label: str) -> int:
 def validate_protocol(protocol: Mapping[str, Any]) -> None:
     """Validate a frozen Phase-3 design document, selecting the check-set by schema_version.
 
-    Two schema versions are supported, each with its OWN pinned canonical hash: ``phase3_plan_v1``
-    (the immutable v1 document, :data:`FROZEN_PROTOCOL_CANONICAL_SHA256`, checked by
-    :func:`_validate_protocol_v1`) and ``phase3_plan_v2`` (the ratified successor,
-    :data:`FROZEN_PROTOCOL_V2_CANONICAL_SHA256`, checked by :func:`_validate_protocol_v2`).
-    Selection is by ``schema_version`` alone -- never "try v1, fall back to v2" -- so a document
-    that claims one schema but hashes to the other's pin still fails closed with a hash-drift
-    error naming the schema it actually claimed, rather than silently validating under the wrong
-    rule set.
+    v1 and v2 each have their own immutable code pin. v3 does not exist until the conditional
+    roster branch resolves, so it instead binds the code-pinned successor design, the v2 pin,
+    and a roster-resolution hash. Its generated content digest is verified here and its full
+    canonical hash is pinned by the small run manifest.
     """
     schema_version = protocol.get("schema_version")
     if schema_version == "phase3_plan_v1":
         _validate_protocol_v1(protocol)
     elif schema_version == "phase3_plan_v2":
         _validate_protocol_v2(protocol)
+    elif schema_version == "phase3_plan_v3":
+        _validate_protocol_v3(protocol)
     else:
         raise ProtocolValidationError("unsupported schema_version")
 
@@ -643,6 +666,228 @@ def _validate_protocol_v2(protocol: Mapping[str, Any]) -> None:
             f"{observed_hash}, expected {FROZEN_PROTOCOL_V2_CANONICAL_SHA256}")
 
 
+def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
+    """Validate a successor protocol produced after the final roster resolves.
+
+    The exact v3 document cannot be code-pinned before the conditional Qwen2.5 outcome exists.
+    The generated document instead binds the immutable v2 protocol, the owner-approved v3
+    design, and one roster-resolution artifact. A self-contained content digest detects drift;
+    the run manifest later pins the full canonical protocol hash.
+    """
+    if protocol.get("schema_version") != "phase3_plan_v3":
+        raise ProtocolValidationError("unsupported schema_version")
+    if protocol.get("status") != "materialized_offline_protocol":
+        raise ProtocolValidationError("v3 status must be materialized_offline_protocol")
+    if protocol.get("offline_planning_only") is not True:
+        raise ProtocolValidationError("offline_planning_only must be true")
+    if protocol.get("execution_authorized") is not False:
+        raise ProtocolValidationError("execution_authorized must be false")
+    if protocol.get("protocol_id") != "phase3_budget_knob_2026_08_23_v3":
+        raise ProtocolValidationError("unexpected v3 protocol_id")
+
+    content_digest = _sha256_string(
+        protocol.get("protocol_content_sha256"), "protocol_content_sha256")
+    content = dict(protocol)
+    del content["protocol_content_sha256"]
+    observed_content_digest = canonical_sha256(content)
+    if observed_content_digest != content_digest:
+        raise ProtocolValidationError(
+            "phase-3 v3 protocol content digest drift: observed "
+            f"{observed_content_digest}, expected {content_digest}")
+
+    planning_identity = _mapping(
+        protocol.get("planning_cell_identity"), "planning_cell_identity")
+    if planning_identity.get("status") != "planning_only_not_executable":
+        raise ProtocolValidationError("v3 planning cell keys cannot be executable")
+    question_bank_sha = _sha256_string(
+        planning_identity.get("question_bank_bundle_sha256"),
+        "planning_cell_identity.question_bank_bundle_sha256",
+    )
+    resolution_sha = _sha256_string(
+        planning_identity.get("roster_resolution_sha256"),
+        "planning_cell_identity.roster_resolution_sha256",
+    )
+    namespace = _non_empty_string(protocol.get("cell_key_namespace"), "cell_key_namespace")
+    expected_namespace = (
+        "phase3-budget-knob-2026-08-23-v3."
+        f"rr-{resolution_sha[:12]}.qb-{question_bank_sha[:12]}"
+    )
+    if namespace != expected_namespace:
+        raise ProtocolValidationError("v3 namespace is not bound to roster resolution and banks")
+
+    source_bindings = _mapping(protocol.get("source_bindings"), "source_bindings")
+    canonical_bindings = _mapping(
+        source_bindings.get("canonical_json_sha256"),
+        "source_bindings.canonical_json_sha256",
+    )
+    if canonical_bindings.get("rejudge/phase3_protocol_v2.json") != (
+            FROZEN_PROTOCOL_V2_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the immutable v2 protocol")
+    if canonical_bindings.get(
+            "rejudge/phase3_v3_successor_design_2026-08-23.json") != (
+                FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the owner-approved successor design")
+    resolution = _mapping(protocol.get("roster_resolution"), "roster_resolution")
+    resolution_path = _non_empty_string(
+        resolution.get("tracked_path"), "roster_resolution.tracked_path")
+    if canonical_bindings.get(resolution_path) != resolution_sha:
+        raise ProtocolValidationError("v3 roster-resolution source binding drifted")
+    if source_bindings.get("question_bank_bundle_sha256") != question_bank_sha:
+        raise ProtocolValidationError("v3 question-bank binding drifted")
+
+    authorization = _mapping(protocol.get("authorization"), "authorization")
+    if authorization.get("design_scope_approved") is not True:
+        raise ProtocolValidationError("v3 design scope must be owner approved")
+    if authorization.get("canary_spend_authorized") is not False:
+        raise ProtocolValidationError("v3 canary spend must remain separately unauthorized")
+    if authorization.get("main_run_spend_authorized") is not False:
+        raise ProtocolValidationError("v3 main spend must remain separately unauthorized")
+
+    question_set = _mapping(protocol.get("question_set"), "question_set")
+    if question_set.get("expected_main_question_count") != 82:
+        raise ProtocolValidationError("v3 must keep 82 main questions")
+    if question_set.get("held_out_question_count") != 24:
+        raise ProtocolValidationError("v3 must keep 24 held-out questions")
+
+    roster = _mapping(protocol.get("roster"), "roster")
+    judges = _unique_strings(roster.get("judges_final"), "roster.judges_final")
+    if judges[:len(PHASE3_V3_BASE_JUDGES)] != list(PHASE3_V3_BASE_JUDGES):
+        raise ProtocolValidationError("v3 final roster must preserve the four approved base judges")
+    if len(judges) == 5:
+        if judges[-1] != PHASE3_V3_CONDITIONAL_JUDGE:
+            raise ProtocolValidationError("the only permitted fifth v3 judge is Qwen2.5")
+        expected_outcome = "included_recovery_pass"
+    elif len(judges) == 4:
+        expected_outcome = {
+            "excluded_recovery_fail", "excluded_deadline", "excluded_main_authorization",
+        }
+    else:
+        raise ProtocolValidationError("v3 final roster must contain exactly 4 or 5 judges")
+    if PHASE3_V3_EXCLUDED_JUDGE in judges:
+        raise ProtocolValidationError("gpt-oss cannot rejoin the v3 roster")
+    if roster.get("final_size") != len(judges):
+        raise ProtocolValidationError("roster.final_size does not match judges_final")
+    outcome = _non_empty_string(resolution.get("outcome"), "roster_resolution.outcome")
+    if isinstance(expected_outcome, str):
+        if outcome != expected_outcome:
+            raise ProtocolValidationError("five-judge v3 roster requires Qwen2.5 recovery pass")
+    elif outcome not in expected_outcome:
+        raise ProtocolValidationError("four-judge v3 roster requires an exclusion outcome")
+    if roster.get("capability_slope_inference") != "estimate_and_plot_only_no_p_value":
+        raise ProtocolValidationError("v3 capability slope must not report a p-value")
+    debaters = _unique_strings(roster.get("debaters"), "roster.debaters")
+    if len(debaters) != 2:
+        raise ProtocolValidationError("v3 must retain exactly two reused-transcript debaters")
+    for field in ("debater_role_note", "oracle", "query_checker", "gate_reviewer"):
+        _non_empty_string(roster.get(field), f"roster.{field}")
+
+    transcript_reuse = _mapping(protocol.get("transcript_reuse"), "transcript_reuse")
+    policy = _non_empty_string(transcript_reuse.get("policy"), "transcript_reuse.policy")
+    if "ZERO debater calls" not in policy:
+        raise ProtocolValidationError("v3 transcript policy must assert zero debater calls")
+    for bundle_name in ("main_bundle", "canary_bundle"):
+        bundle = _mapping(transcript_reuse.get(bundle_name), f"transcript_reuse.{bundle_name}")
+        for field in ("content", "source_archive", "materialization"):
+            _non_empty_string(bundle.get(field), f"transcript_reuse.{bundle_name}.{field}")
+    _non_empty_string(
+        transcript_reuse.get("ingestion_mechanics"), "transcript_reuse.ingestion_mechanics")
+
+    debate_grid = _mapping(protocol.get("debate_grid"), "debate_grid")
+    if debate_grid.get("k") != 2:
+        raise ProtocolValidationError("v3 debate-grid K must be 2")
+    conditions = _list(debate_grid.get("conditions"), "debate_grid.conditions")
+    seen_ids: set[str] = set()
+    by_budget: dict[int, Mapping[str, Any]] = {}
+    for index, raw_condition in enumerate(conditions):
+        condition = _mapping(raw_condition, f"debate_grid.conditions[{index}]")
+        condition_id = _non_empty_string(
+            condition.get("id"), f"debate_grid.conditions[{index}].id")
+        if condition_id in seen_ids:
+            raise ProtocolValidationError(f"duplicate debate-grid condition {condition_id!r}")
+        seen_ids.add(condition_id)
+        budget = _non_negative_int(
+            condition.get("query_budget"), f"debate_grid.conditions[{index}].query_budget")
+        if budget in by_budget:
+            raise ProtocolValidationError(f"duplicate query budget {budget}")
+        by_budget[budget] = condition
+        if condition.get("judgment_replicates_per_transcript_side") != 1:
+            raise ProtocolValidationError("v3 configuration A requires one replicate per side")
+    if set(by_budget) != {0, 1, 2, 4, 8}:
+        raise ProtocolValidationError("v3 debate grid must cover budgets 0, 1, 2, 4, and 8")
+    if debate_grid.get("selected_configuration") != "A_no_d":
+        raise ProtocolValidationError("v3 selected configuration must remain A_no_d")
+    arithmetic = _mapping(debate_grid.get("slot_arithmetic"), "debate_grid.slot_arithmetic")
+    if arithmetic.get("per_judge_per_condition") != 984:
+        raise ProtocolValidationError("v3 per-judge per-condition slot count must be 984")
+    if arithmetic.get("per_judge_total") != 4920:
+        raise ProtocolValidationError("v3 per-judge total slot count must be 4920")
+    if arithmetic.get("final_roster_size") != len(judges):
+        raise ProtocolValidationError("v3 slot arithmetic roster size drifted")
+    if arithmetic.get("total_judgment_slots") != 4920 * len(judges):
+        raise ProtocolValidationError("v3 total judgment-slot count drifted")
+
+    decisions = _mapping(protocol.get("decisions"), "decisions")
+    if set(decisions) != EXPECTED_DECISION_KEYS_V2:
+        raise ProtocolValidationError(
+            f"v3 decisions must be exactly {sorted(EXPECTED_DECISION_KEYS_V2)!r}")
+    capability_slope = _mapping(
+        _mapping(decisions.get("secondary_analyses"), "decisions.secondary_analyses").get(
+            "capability_slope"),
+        "decisions.secondary_analyses.capability_slope",
+    )
+    if capability_slope.get("p_value_rule") != "never_report_with_v3_roster_below_6":
+        raise ProtocolValidationError("v3 capability-slope p-value rule drifted")
+
+    launch_gates = _mapping(decisions.get("launch_gates"), "decisions.launch_gates")
+    smoke_subset = _unique_strings(
+        launch_gates.get("budget_smoke_subset"), "launch_gates.budget_smoke_subset")
+    if len(smoke_subset) != 6:
+        raise ProtocolValidationError("v3 budget smoke must contain exactly six questions")
+    inventory = _mapping(
+        launch_gates.get("canary_slot_inventory"),
+        "decisions.launch_gates.canary_slot_inventory",
+    )
+    per_judge = _mapping(inventory.get("per_judge"), "canary_slot_inventory.per_judge")
+    expected_per_judge = {
+        "core_b0_judgment_slots": 96,
+        "budget_smoke_judgment_slots": 96,
+        "capability_anchor_slots": 48,
+        "combined_fresh_gate_slots": 240,
+    }
+    if dict(per_judge) != expected_per_judge:
+        raise ProtocolValidationError("v3 per-judge canary inventory drifted")
+    if inventory.get("final_roster_size") != len(judges):
+        raise ProtocolValidationError("v3 canary inventory roster size drifted")
+    if inventory.get("fresh_judgment_slots") != 192 * len(judges):
+        raise ProtocolValidationError("v3 fresh canary judgment count drifted")
+    if inventory.get("fresh_capability_anchor_slots") != 48 * len(judges):
+        raise ProtocolValidationError("v3 fresh capability-anchor count drifted")
+    if inventory.get("combined_fresh_gate_slots") != 240 * len(judges):
+        raise ProtocolValidationError("v3 combined canary count drifted")
+    if inventory.get("carry_forward_result_rows") != 0:
+        raise ProtocolValidationError("v3 cannot carry v1 or v2 result rows")
+
+    forecast = _mapping(
+        _mapping(decisions.get("spend"), "decisions.spend").get("forecast_contract"),
+        "decisions.spend.forecast_contract",
+    )
+    for field in (
+        "slot_frame", "attempt_accounting", "missing_reservation_split", "billing_model_key",
+        "cluster_estimator", "exact_context", "dynamic_context", "completion_tokens",
+        "price_snapshot", "rounding", "cumulative_spend", "proxy_or_byte_bound_policy",
+    ):
+        _non_empty_string(forecast.get(field), f"decisions.spend.forecast_contract.{field}")
+    if forecast.get("transport_multiplier") != 1.15:
+        raise ProtocolValidationError("v3 forecast transport multiplier must be 1.15")
+    if forecast.get("required_main_transcript_count") != 492:
+        raise ProtocolValidationError("v3 exact-context corpus must contain 492 transcripts")
+
+    supersedes = _mapping(protocol.get("supersedes"), "supersedes")
+    if supersedes.get("canonical_sha256") != FROZEN_PROTOCOL_V2_CANONICAL_SHA256:
+        raise ProtocolValidationError("v3 must supersede the immutable v2 pin")
+    _non_empty_string(supersedes.get("reason"), "supersedes.reason")
+
+
 def load_protocol(path: str | Path = DEFAULT_PROTOCOL_PATH) -> dict[str, Any]:
     protocol = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(protocol, dict):
@@ -697,15 +942,19 @@ def load_reference_question_ids(
 
 
 def candidate_roster_judges(protocol: Mapping[str, Any], n: int) -> list[str]:
-    """Return N candidate judges: the 4 continuing judges plus the first N-4 new candidates.
+    """Return the protocol-ordered judges for a requested planning roster size.
 
-    For self-test grid sizing only. The real roster composition at any given N is decided by
-    the phase-3 canary calibration gates (``roster.new_judge_failure_rule``), never by this
-    planning module -- this just gives a deterministic, in-protocol-order N-judge candidate
-    slice to exercise ``enumerate_cells``/``enumerate_canary_cells`` against the frozen
-    per-roster-size slot counts.
+    v1 and v2 expose a continuing-plus-candidate roster. A v3 protocol exists only after roster
+    resolution, so v3 accepts only its exact final size and returns ``judges_final``.
     """
     roster = _mapping(protocol["roster"], "roster")
+    if protocol.get("schema_version") == "phase3_plan_v3":
+        judges = list(_unique_strings(roster.get("judges_final"), "roster.judges_final"))
+        if n != len(judges):
+            raise PlanValidationError(
+                f"v3 roster is resolved at exactly {len(judges)} judges, not {n}")
+        return judges
+
     continuing = list(_unique_strings(roster["judges_continuing"], "roster.judges_continuing"))
     new_candidates = [
         str(_mapping(candidate, "roster.judges_new item")["candidate_model_id"])
