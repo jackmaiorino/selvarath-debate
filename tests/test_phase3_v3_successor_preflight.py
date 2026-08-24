@@ -20,7 +20,7 @@ from tests.test_phase3_v3_inputs import (  # noqa: E402
     _price_snapshot,
     _tokenizer_manifest,
 )
-from tests.test_phase3_v3_materialization import _resolution  # noqa: E402
+from tests.test_phase3_v3_materialization import AMENDMENT, _resolution  # noqa: E402
 
 
 V2 = json.loads((REPO_ROOT / materialization.V2_PROTOCOL_PATH).read_text(encoding="utf-8"))
@@ -29,7 +29,8 @@ DESIGN = json.loads((REPO_ROOT / materialization.DESIGN_PATH).read_text(encoding
 
 def _protocol():
     return materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
 
 
 def _utc(hour: int, minute: int = 0) -> datetime:

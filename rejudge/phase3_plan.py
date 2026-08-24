@@ -79,6 +79,9 @@ FROZEN_PROTOCOL_V2_CANONICAL_SHA256 = (
 FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256 = (
     "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479"
 )
+FROZEN_V3_ROSTER_AMENDMENT_CANONICAL_SHA256 = (
+    "44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58"
+)
 FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256 = (
     "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f"
 )
@@ -89,12 +92,20 @@ FROZEN_CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256 = (
     "4f9d3a34008234259503ce4e9b6d8152566ad7414b15e8c3d62135d892c7ed5f"
 )
 
-PHASE3_V3_BASE_JUDGES = (
+PHASE3_V3_DESIGN_BASE_JUDGES = (
     "google/gemma-4-31B-it",
     "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "google/gemma-3n-E4B-it",
     "Qwen/Qwen3.7-Max",
 )
+PHASE3_V3_BASE_JUDGES = (
+    "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "google/gemma-3n-E4B-it",
+    "Qwen/Qwen3.5-397B-A17B",
+)
+PHASE3_V3_REPLACED_JUDGE = "Qwen/Qwen3.7-Max"
+PHASE3_V3_REPLACEMENT_JUDGE = "Qwen/Qwen3.5-397B-A17B"
 PHASE3_V3_CONDITIONAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 PHASE3_V3_EXCLUDED_JUDGE = "openai/gpt-oss-120b"
 
@@ -717,13 +728,18 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         planning_identity.get("roster_resolution_sha256"),
         "planning_cell_identity.roster_resolution_sha256",
     )
+    amendment_sha = _sha256_string(
+        planning_identity.get("roster_amendment_sha256"),
+        "planning_cell_identity.roster_amendment_sha256",
+    )
     namespace = _non_empty_string(protocol.get("cell_key_namespace"), "cell_key_namespace")
     expected_namespace = (
         "phase3-budget-knob-2026-08-23-v3."
-        f"rr-{resolution_sha[:12]}.qb-{question_bank_sha[:12]}"
+        f"rr-{resolution_sha[:12]}.ra-{amendment_sha[:12]}.qb-{question_bank_sha[:12]}"
     )
     if namespace != expected_namespace:
-        raise ProtocolValidationError("v3 namespace is not bound to roster resolution and banks")
+        raise ProtocolValidationError(
+            "v3 namespace is not bound to roster resolution, amendment, and banks")
 
     source_bindings = _mapping(protocol.get("source_bindings"), "source_bindings")
     canonical_bindings = _mapping(
@@ -737,6 +753,10 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             "rejudge/phase3_v3_successor_design_2026-08-23.json") != (
                 FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the owner-approved successor design")
+    if canonical_bindings.get(
+            "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json") != (
+                FROZEN_V3_ROSTER_AMENDMENT_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the owner-approved roster amendment")
     if canonical_bindings.get("rejudge/phase2_prompt_bundle.json") != (
             FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the exact reused prompt bundle")
@@ -753,6 +773,22 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         resolution.get("tracked_path"), "roster_resolution.tracked_path")
     if canonical_bindings.get(resolution_path) != resolution_sha:
         raise ProtocolValidationError("v3 roster-resolution source binding drifted")
+    amendment_path = _non_empty_string(
+        resolution.get("amendment_tracked_path"),
+        "roster_resolution.amendment_tracked_path",
+    )
+    if amendment_path != (
+            "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json"):
+        raise ProtocolValidationError("v3 roster amendment path drifted")
+    if canonical_bindings.get(amendment_path) != amendment_sha:
+        raise ProtocolValidationError("v3 roster-amendment source binding drifted")
+    if resolution.get("amendment_canonical_sha256") != amendment_sha:
+        raise ProtocolValidationError("v3 roster amendment identity drifted")
+    replacement = _mapping(resolution.get("replacement"), "roster_resolution.replacement")
+    if replacement.get("removed_model") != PHASE3_V3_REPLACED_JUDGE:
+        raise ProtocolValidationError("v3 removed judge drifted")
+    if replacement.get("added_model") != PHASE3_V3_REPLACEMENT_JUDGE:
+        raise ProtocolValidationError("v3 replacement judge drifted")
     if source_bindings.get("question_bank_bundle_sha256") != question_bank_sha:
         raise ProtocolValidationError("v3 question-bank binding drifted")
 

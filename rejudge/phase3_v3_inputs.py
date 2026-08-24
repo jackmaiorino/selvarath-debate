@@ -12,7 +12,7 @@ from rejudge import phase3_plan, phase3_v3_static_prompts as static_prompts
 from rejudge.phase2_execution import canonical_sha256
 
 
-TOKENIZER_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_manifest_v3"
+TOKENIZER_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_manifest_v4"
 PRICE_SCHEMA_VERSION = "phase3_v3_price_snapshot_v1"
 TRANSCRIPT_BUNDLE_COUNTS = {"main": 492, "canary": 48}
 REQUIRED_TRANSCRIPT_COUNT = TRANSCRIPT_BUNDLE_COUNTS["main"]
@@ -435,7 +435,7 @@ def validate_exact_tokenizer_manifest(
         expected_entry_fields = {
             "classification", "repository", "revision", "provider_equivalence_evidence",
             "tokenizer_directory", "tokenizer_class", "chat_template_sha256", "files",
-            "corpora",
+            "chat_template_rendering", "corpora",
         }
         if set(entry) != expected_entry_fields:
             raise InputGateError(f"tokenizer entry fields drifted for {model}")
@@ -449,6 +449,29 @@ def validate_exact_tokenizer_manifest(
             entry.get("tokenizer_class"), f"models[{model!r}].tokenizer_class")
         declared_template_sha = _sha256(
             entry.get("chat_template_sha256"), f"models[{model!r}].chat_template_sha256")
+        rendering = _object(
+            entry.get("chat_template_rendering"),
+            f"models[{model!r}].chat_template_rendering",
+        )
+        expected_rendering_fields = {
+            "mode", "effective_chat_template_sha256", "evidence",
+        }
+        if set(rendering) != expected_rendering_fields:
+            raise InputGateError(f"chat-template rendering fields drifted for {model}")
+        rendering_mode = _text(
+            rendering.get("mode"), f"models[{model!r}].chat_template_rendering.mode")
+        if rendering_mode not in {
+                static_prompts.NATIVE_RENDERING_MODE,
+                static_prompts.GEMMA3N_PROVIDER_RENDERING_MODE}:
+            raise InputGateError(f"unsupported chat-template rendering mode for {model}")
+        _sha256(
+            rendering.get("effective_chat_template_sha256"),
+            f"models[{model!r}].chat_template_rendering.effective_chat_template_sha256",
+        )
+        _text(
+            rendering.get("evidence"),
+            f"models[{model!r}].chat_template_rendering.evidence",
+        )
         files = _object(entry.get("files"), f"models[{model!r}].files")
         if not files:
             raise InputGateError(f"tokenizer entry for {model} has no tokenizer files")
@@ -490,6 +513,10 @@ def validate_exact_tokenizer_manifest(
                 chat_template.encode("utf-8")).hexdigest()
             if observed_template_sha != declared_template_sha:
                 raise InputGateError(f"chat template hash drifted for {model}")
+            _template_override, observed_rendering = (
+                static_prompts.chat_template_rendering_policy(tokenizer))
+            if dict(rendering) != observed_rendering:
+                raise InputGateError(f"chat-template rendering policy drifted for {model}")
 
         expected_roles = expected_role_variants(protocol, model)
         corpora = _object(entry.get("corpora"), f"models[{model!r}].corpora")

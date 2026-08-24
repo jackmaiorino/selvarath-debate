@@ -23,10 +23,54 @@ CHECKER_SYSTEM_PROMPT_SHA256 = (
     "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428")
 CHECKER_USER_TEMPLATE_SHA256 = (
     "72e588cdf325c14193b421d4a4b2a2e2a3957b1afe04e510ab54201fab08d168")
+GEMMA3N_CHAT_TEMPLATE_SHA256 = (
+    "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001")
+GEMMA3N_PROVIDER_EFFECTIVE_TEMPLATE_SHA256 = (
+    "7bd8b0c39b1e6e291a418fb85f61b11cd58402ed87e30a941e0350370edf6ba3")
+_ROLE_ALTERNATION_GUARD = (
+    '{{ raise_exception("Conversation roles must alternate '
+    'user/assistant/user/assistant/...") }}'
+)
+NATIVE_RENDERING_MODE = "native_chat_template"
+GEMMA3N_PROVIDER_RENDERING_MODE = "provider_observed_role_guard_bypass_v1"
 
 
 class StaticPromptError(ValueError):
     """Raised when a static prompt cannot be derived from frozen runtime inputs."""
+
+
+def chat_template_rendering_policy(tokenizer: Any) -> tuple[str | None, dict[str, str]]:
+    """Return any provider-observed template override and its auditable identity.
+
+    Together accepted the runtime's consecutive user messages for Gemma 3n and reported
+    prompt-token usage matching the public template with only its role-validation guard
+    disabled. The rendered role boundaries remain unchanged. A frozen template hash keeps
+    this compatibility rule from applying to any other tokenizer revision.
+    """
+    template = getattr(tokenizer, "chat_template", None)
+    if not isinstance(template, str) or not template:
+        raise StaticPromptError("tokenizer has no chat template")
+    template_sha = hashlib.sha256(template.encode("utf-8")).hexdigest()
+    if template_sha != GEMMA3N_CHAT_TEMPLATE_SHA256:
+        return None, {
+            "mode": NATIVE_RENDERING_MODE,
+            "effective_chat_template_sha256": template_sha,
+            "evidence": "the tokenizer's native chat template is applied without modification",
+        }
+    if template.count(_ROLE_ALTERNATION_GUARD) != 1:
+        raise StaticPromptError("frozen Gemma 3n role guard cannot be identified exactly once")
+    effective_template = template.replace(_ROLE_ALTERNATION_GUARD, "")
+    effective_sha = hashlib.sha256(effective_template.encode("utf-8")).hexdigest()
+    if effective_sha != GEMMA3N_PROVIDER_EFFECTIVE_TEMPLATE_SHA256:
+        raise StaticPromptError("frozen Gemma 3n effective chat template hash drifted")
+    return effective_template, {
+        "mode": GEMMA3N_PROVIDER_RENDERING_MODE,
+        "effective_chat_template_sha256": effective_sha,
+        "evidence": (
+            "Together v2 usage matched the same public template with only its role guard "
+            "disabled while preserving consecutive user-message boundaries"
+        ),
+    }
 
 
 def _object(value: Any, label: str) -> Mapping[str, Any]:
@@ -288,10 +332,13 @@ def render_static_messages(
 def render_chat_prompt(tokenizer: Any, messages: Sequence[Mapping[str, str]]) -> tuple[str, int]:
     """Apply one local tokenizer's own chat template and return text plus exact token count."""
     try:
+        template_override, _policy = chat_template_rendering_policy(tokenizer)
+        template_kwargs = (
+            {} if template_override is None else {"chat_template": template_override})
         rendered = tokenizer.apply_chat_template(
-            list(messages), tokenize=False, add_generation_prompt=True)
+            list(messages), tokenize=False, add_generation_prompt=True, **template_kwargs)
         token_ids = tokenizer.apply_chat_template(
-            list(messages), tokenize=True, add_generation_prompt=True)
+            list(messages), tokenize=True, add_generation_prompt=True, **template_kwargs)
     except Exception as exc:  # noqa: BLE001 - normalize tokenizer-specific failures
         raise StaticPromptError(f"tokenizer chat-template rendering failed: {exc}") from exc
     if not isinstance(rendered, str) or not rendered:

@@ -1,0 +1,761 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.5-397B-A17B": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/canary/judge_query.counts.jsonl",
+       "sha256": "bce4b9c7613d0984573f0b95ba86e3b504fa4fbae84795b256ac70293e40004a"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/canary/judge_query.rendered.jsonl",
+       "sha256": "83ad93224ad3181e295fcc3a6e0009d47b7a4108cafe6365f2e0927953f4b29d"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/canary/judge_verdict.counts.jsonl",
+       "sha256": "ae22400b1603391c611b9f76b61298237fc203c09da928c480d50517df274dd4"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/canary/judge_verdict.rendered.jsonl",
+       "sha256": "5c82400d65c935774abb6b609ba95c4580979db1ee1622a97fbe080753911b49"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/main/judge_query.counts.jsonl",
+       "sha256": "99cbdabeb22081b07aca9464ff7c39801eb255c0fcc21c92a8045c5ab0fb9eea"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/main/judge_query.rendered.jsonl",
+       "sha256": "703130e62bf2bdeabe3c1660ca75dd66f53aa2fe48dcff14cddac425c2718196"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/main/judge_verdict.counts.jsonl",
+       "sha256": "2e8bbdc4c5ab2e06e961f61fc333fbbd48ba7d44aa0821af83b1d6d123e9ebc8"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/Qwen--Qwen3.5-397B-A17B/main/judge_verdict.rendered.jsonl",
+       "sha256": "6cad8a7b6506513eb52cb6635baf2eb551df0e2a586d8e673e67969fcd0bc4ee"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    "chat_template.jinja": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B/chat_template.jinja",
+     "sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B/tokenizer.json",
+     "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B/tokenizer_config.json",
+     "sha256": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry Qwen/Qwen3.5-397B-A17B links directly to the same Hugging Face repository, as bound by the owner-approved roster amendment.",
+   "repository": "Qwen/Qwen3.5-397B-A17B",
+   "revision": "8472618112abcbd45acbcdc58436aff4233c23f7",
+   "tokenizer_class": "Qwen2Tokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B"
+  },
+  "google/gemma-3n-E4B-it": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "7bd8b0c39b1e6e291a418fb85f61b11cd58402ed87e30a941e0350370edf6ba3",
+    "evidence": "Together v2 usage matched the same public template with only its role guard disabled while preserving consecutive user-message boundaries",
+    "mode": "provider_observed_role_guard_bypass_v1"
+   },
+   "chat_template_sha256": "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/canary/judge_query.counts.jsonl",
+       "sha256": "a83451b5ba1f79b0254b8c0533e9618904899b71f2a4fec675afedd8e4a11d6c"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/canary/judge_query.rendered.jsonl",
+       "sha256": "4696a38d4525f6771fcfaddf4b61af834c173df2ffa1ba952da4f7823aba04ac"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/canary/judge_verdict.counts.jsonl",
+       "sha256": "59188991098f57ec4d248c4d21aa4050c6b022e43d57db48d13124c57ca1d914"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/canary/judge_verdict.rendered.jsonl",
+       "sha256": "d59763bd505fa1c682e6e42e4f9b111ba873783fd972729cde8ad8cd845ecefd"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/main/judge_query.counts.jsonl",
+       "sha256": "8fc9061ae1304199b90448878ce83c1840871f0f4b4764940844f0b994fa4842"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/main/judge_query.rendered.jsonl",
+       "sha256": "09a56ff1ea0e721e1562e18d1ab4661b5ef6f39256a49aecbfe7f0384de67166"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/main/judge_verdict.counts.jsonl",
+       "sha256": "1d7d5d4a704b0bdea586024bcf3cd5df7f68db55ce76cc2ef1a5c22894c78821"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-3n-E4B-it/main/judge_verdict.rendered.jsonl",
+       "sha256": "3acaac270bcb2b734e24dc12074cf60d57b3e508c3ee17405e4123a19d654034"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    ".cache/huggingface/.gitignore": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/.gitignore",
+     "sha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1"
+    },
+    ".cache/huggingface/CACHEDIR.TAG": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/CACHEDIR.TAG",
+     "sha256": "e8893e2dcb3f4545ef67a0a5b7b769113d38eef1aa61c7c7ba14659b02af955f"
+    },
+    ".cache/huggingface/download/chat_template.jinja.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/download/chat_template.jinja.metadata",
+     "sha256": "d506f59c646784970017672502017b21c57239535e24db8527328a4ece347ca2"
+    },
+    ".cache/huggingface/download/special_tokens_map.json.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/download/special_tokens_map.json.metadata",
+     "sha256": "358f57c1db8e11f0159fc062cb8b118806f1f9b65f2ff73241aeeddcc5d00704"
+    },
+    ".cache/huggingface/download/tokenizer.json.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/download/tokenizer.json.metadata",
+     "sha256": "e20e0ae135e16fb1de774c9d372261e6664eaa01e6f1338ddce0117858479ee1"
+    },
+    ".cache/huggingface/download/tokenizer.model.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/download/tokenizer.model.metadata",
+     "sha256": "7c1008fa7eb0ba7b823c7fe8a44a23ef36ed7457f7171754467d029cf7816b17"
+    },
+    ".cache/huggingface/download/tokenizer_config.json.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/download/tokenizer_config.json.metadata",
+     "sha256": "12e3fff6d4f80908e008d3ed828899f51c92b29658ddbf1d5c725c47aca73d3a"
+    },
+    ".cache/huggingface/trees/c1221e9c62e34a43ab7ffacd1be0ea71f126ef10.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/.cache/huggingface/trees/c1221e9c62e34a43ab7ffacd1be0ea71f126ef10.json",
+     "sha256": "be4f948b2bcb9fd762b19ed8bf807e342f26e4aee96d27f163926e25e35ed90b"
+    },
+    "chat_template.jinja": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/chat_template.jinja",
+     "sha256": "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001"
+    },
+    "special_tokens_map.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/special_tokens_map.json",
+     "sha256": "d0585986e1fa2764eb2ca29cd854da40478d804a9953ba2e2c1c682d1428adc6"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/tokenizer.json",
+     "sha256": "c4c19736bf24d1c6805cf49340e31bd02c70fb7857a2cb31065c90c2b5719c4e"
+    },
+    "tokenizer.model": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/tokenizer.model",
+     "sha256": "ea5f0cc48abfbfc04d14562270a32e02149a3e7035f368cc5a462786f4a59961"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it/tokenizer_config.json",
+     "sha256": "53f610f9a24692d444ab7f64b9b6ac07b0edabca6b15bb530d1b056bd36bc6e2"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-3n-E4B-it links directly to the same Hugging Face repository.",
+   "repository": "google/gemma-3n-E4B-it",
+   "revision": "c1221e9c62e34a43ab7ffacd1be0ea71f126ef10",
+   "tokenizer_class": "GemmaTokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it"
+  },
+  "google/gemma-4-31B-it": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/judge_query.counts.jsonl",
+       "sha256": "a8e9dfdd09744136cf388ea993dd4baa86550844c22ed9195e2c64564b731815"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/judge_query.rendered.jsonl",
+       "sha256": "275b82fd80df11158fa0fa670b151dc612c03f257c5126c7ff1ad4634de814be"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/judge_verdict.counts.jsonl",
+       "sha256": "260cf49f8e6e10eb78475b5de46b611865b96081d7ddad04d1fd2a9f837345ab"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/judge_verdict.rendered.jsonl",
+       "sha256": "8069f612b4ed8a88d8d793b44e286a2cedd3f5a980f3dbc74602a404444f881f"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "query_checker": {
+      "actual_rendered_prompt_count": 1536,
+      "expected_rendered_prompt_count": 1536,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/query_checker.counts.jsonl",
+       "sha256": "768104332c4213f8a5d567b1735a26f65fcee924ba4068b0cca2e4c806a6659b"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/canary/query_checker.rendered.jsonl",
+       "sha256": "fc1e1ff9bfce9f2b61727b069cbc72471986db4d529094ba18486595b00dd462"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b1::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b1::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b2::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b2::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b4::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b4::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b8::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/judge_query.counts.jsonl",
+       "sha256": "12c2049933cec22fb11f450ba34f0d5beee77cb7c524250dfdc3aeead50c54b0"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/judge_query.rendered.jsonl",
+       "sha256": "dbeddea51262821bb9f15de5f7b503b0d0e2beb696478768d9a314d1655f1f35"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/judge_verdict.counts.jsonl",
+       "sha256": "cc6d836036aadbb08fa2698b7a3547f4bf79488276328f134d10237168ad33a8"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/judge_verdict.rendered.jsonl",
+       "sha256": "fb6f051f19bdc03827d4fc5be7fdb6be13b8cb4879f4320f070334d01b74cacc"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "query_checker": {
+      "actual_rendered_prompt_count": 15744,
+      "expected_rendered_prompt_count": 15744,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/query_checker.counts.jsonl",
+       "sha256": "aafe8d8b9c061c6bdda625de405864c4e934be819d4f7922d7016e59b0cb609d"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/google--gemma-4-31B-it/main/query_checker.rendered.jsonl",
+       "sha256": "cd97236c7560bd1800ef819c6a675ad63f33e4a8f9bd036b122fa4f18b7c91f3"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b1::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b1::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b2::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b2::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b4::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b4::side1",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b8::side0",
+       "query_checker::google/gemma-3n-E4B-it::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.5-397B-A17B::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    ".cache/huggingface/.gitignore": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/.gitignore",
+     "sha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1"
+    },
+    ".cache/huggingface/CACHEDIR.TAG": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/CACHEDIR.TAG",
+     "sha256": "e8893e2dcb3f4545ef67a0a5b7b769113d38eef1aa61c7c7ba14659b02af955f"
+    },
+    ".cache/huggingface/download/chat_template.jinja.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/download/chat_template.jinja.metadata",
+     "sha256": "7983787187ae3240e9ce803d118f3c80fdb14917454e7654967e4b8af3e07688"
+    },
+    ".cache/huggingface/download/tokenizer.json.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/download/tokenizer.json.metadata",
+     "sha256": "cb7ac4e5c259b27332c20f5cc081c3a4e1e1bfa46a0257abd02bb717ac1aefd5"
+    },
+    ".cache/huggingface/download/tokenizer_config.json.metadata": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/download/tokenizer_config.json.metadata",
+     "sha256": "3d21d8010cacbb66b8946b83e42eddda7015c37b53440d03b2b9de8fe8bc96a1"
+    },
+    ".cache/huggingface/trees/842da3794eaa0b77d5f08bae87a17459d91ff475.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/.cache/huggingface/trees/842da3794eaa0b77d5f08bae87a17459d91ff475.json",
+     "sha256": "151f83e89585a0b6b05e29a28faf04b349d579076b9592e07935c71a30d07cc1"
+    },
+    "chat_template.jinja": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/chat_template.jinja",
+     "sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/tokenizer.json",
+     "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it/tokenizer_config.json",
+     "sha256": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-4-31B-it links directly to the same Hugging Face repository.",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "tokenizer_class": "GemmaTokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_query.counts.jsonl",
+       "sha256": "a62cfaf5d2399b225720ba7004a6489933f73bf3796273d4248eafe234b21c15"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_query.rendered.jsonl",
+       "sha256": "ff3534c934d12486541d56041b681efd9af66eda01978d924fc1435194975b0c"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_verdict.counts.jsonl",
+       "sha256": "b12410c4b95583691aac8db37a23dc2eb9ae331b51aeca1e9542bbfd3a43d0c9"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_verdict.rendered.jsonl",
+       "sha256": "bfd3ceb1016309fffb9a2e4ba446f0a04ef1056796dbda49ecfd9f0da2cac94a"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "oracle_verification": {
+      "actual_rendered_prompt_count": 48,
+      "expected_rendered_prompt_count": 48,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/oracle_verification.counts.jsonl",
+       "sha256": "4c602838523cd03e26c95f299e6bee3c05f1a32039db25de3d28e6d0b32ab53a"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/oracle_verification.rendered.jsonl",
+       "sha256": "ca5b0431013990b418b7cd312292c01f3b2bc18fad7f626c2a13851e062030ce"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "oracle_verification"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_query.counts.jsonl",
+       "sha256": "9fff46464b4f15bb15b400a25d5880375e08f24a4f1037e2a8bd1a8bcdaf3ae5"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_query.rendered.jsonl",
+       "sha256": "3dbec4c3f9f4c558989756cd977c5e8e5bcb96b8835a4ab2fb8724c5fbee9c2d"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_verdict.counts.jsonl",
+       "sha256": "8885186e4ff5e9dcf656ede4cd795f1f57da248da8c0e73ea26254cb1213d204"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_verdict.rendered.jsonl",
+       "sha256": "56513f664db20933ebb3b84052c46248aba3b77c9f448d0a7e5b4229138f7526"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "oracle_verification": {
+      "actual_rendered_prompt_count": 492,
+      "expected_rendered_prompt_count": 492,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/oracle_verification.counts.jsonl",
+       "sha256": "0a4b9350a4caec021ad4cab1c149f4eee74531d1b19b534e2548e4517082281d"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r2_2026-08-23/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/oracle_verification.rendered.jsonl",
+       "sha256": "5da63dc0d402b0c6d8f02b48f9eabc164d79402f2bdd22ba6708b3089ffb56ec"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "oracle_verification"
+      ]
+     }
+    }
+   },
+   "files": {
+    "special_tokens_map.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/special_tokens_map.json",
+     "sha256": "b7455f0e8f00539108837bfa586c4fbf424e31f8717819a6798be74bef813d05"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/tokenizer.json",
+     "sha256": "6b9e4e7fb171f92fd137b777cc2714bf87d11576700a1dcd7a399e7bbe39537b"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/tokenizer_config.json",
+     "sha256": "5c756ad6048c884974a331963ae3c3e1624b548a11174dadda02a69041c87352"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry meta-llama/Llama-3.3-70B-Instruct-Turbo links directly to this repository, and its exposed chat template has the same SHA-256 as the local revision.",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "tokenizer_class": "TokenizersBackend",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact"
+  }
+ },
+ "prompt_bundle": {
+  "canonical_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "path": "rejudge/phase2_prompt_bundle.json"
+ },
+ "protocol_canonical_sha256": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+ "query_checker_prompt": {
+  "frozen_config": {
+   "canonical_sha256": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
+   "path": "rejudge/phase2_checker_frozen_config_2026-07-23.json"
+  },
+  "system_prompt_sha256": "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428",
+  "user_template_sha256": "72e588cdf325c14193b421d4a4b2a2e2a3957b1afe04e510ab54201fab08d168",
+  "validation_design": {
+   "canonical_sha256": "4f9d3a34008234259503ce4e9b6d8152566ad7414b15e8c3d62135d892c7ed5f",
+   "path": "rejudge/phase2_checker_validation_design_2026-07-18.json"
+  }
+ },
+ "schema_version": "phase3_v3_exact_tokenizer_manifest_v4",
+ "transcript_bundles": {
+  "canary": {
+   "canonical_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
+   "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+   "transcript_count": 48,
+   "transcript_keys_sha256": "7a6ef05510f6ab1ff7b212416a4ca6942ed5150a59efa815c7721ea015e26948"
+  },
+  "main": {
+   "canonical_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+   "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+   "transcript_count": 492,
+   "transcript_keys_sha256": "01b9c88c28e0604345bb2c0d9f710b6c986989eedc66d78ba76d63d4bead21cc"
+  }
+ },
+ "world_documents": {
+  "carath_norn": {
+   "path": "world_specs/carath_norn.txt",
+   "sha256": "17a9eaf339e52aa60b2ddabba438a369cb22580c0e28672b0cc0cef6da01c543"
+  },
+  "selvarath": {
+   "path": "world_specs/selvarath.txt",
+   "sha256": "59b79aa4bd0ff47ea2ee339a5e5808fba184f498c2a00df1946d5dbfee0533e3"
+  },
+  "vethun_sarak": {
+   "path": "world_specs/vethun_sarak.txt",
+   "sha256": "eaf3ed57a2ee758d713a2b1a81f163fa3e6a5eb837c3be6ad2c367bb7e5d7fa2"
+  }
+ }
+}

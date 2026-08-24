@@ -40,10 +40,10 @@ def materialize(
     pin_output_path: Path,
     check_only: bool,
 ) -> dict:
-    v2, design, resolution = materialization.load_materialization_inputs(
+    v2, design, amendment, resolution = materialization.load_materialization_inputs(
         REPO_ROOT, resolution_path)
     protocol = materialization.materialize_protocol(
-        v2, design, resolution, project_root=REPO_ROOT)
+        v2, design, resolution, amendment=amendment, project_root=REPO_ROOT)
     pin = materialization.build_protocol_pin(
         protocol, protocol_tracked_path=_relative(protocol_output_path))
 

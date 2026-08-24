@@ -13,7 +13,7 @@ from rejudge import phase3_v3_static_prompts as static_prompts
 from rejudge import phase3_v3_tokenizer_materialization as tokenizers
 from rejudge.phase2_execution import canonical_sha256
 
-from tests.test_phase3_v3_materialization import _resolution
+from tests.test_phase3_v3_materialization import AMENDMENT, _resolution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +36,7 @@ def _stage(tmp_path: Path):
     protocol = protocol_materialization.materialize_protocol(
         V2, DESIGN,
         _resolution(protocol_materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT,
     )
     prompt_path = tmp_path / protocol_materialization.PROMPT_BUNDLE_PATH
     prompt_path.parent.mkdir(parents=True)

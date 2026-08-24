@@ -20,7 +20,13 @@ from tests.test_phase3_v3_materialization import _resolution  # noqa: E402
 
 
 def _stage_inputs(root: Path) -> Path:
-    for relative_path in (materialization.V2_PROTOCOL_PATH, materialization.DESIGN_PATH):
+    for relative_path in (
+        materialization.V2_PROTOCOL_PATH,
+        materialization.DESIGN_PATH,
+        materialization.AMENDMENT_PATH,
+        Path("rejudge/phase3_v3_tokenizer_acquisition_2026-08-23.json"),
+        Path("rejudge/phase3_provider_models_raw_2026-08-23.json"),
+    ):
         destination = root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / relative_path, destination)

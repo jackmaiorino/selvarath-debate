@@ -34,7 +34,7 @@ from phase3_canary_closeout_v2 import (  # noqa: E402
 DESIGN_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_design_2026-08-23.json"
 CLOSEOUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_canary_closeout_v2_2026-08-23.json"
 ARCHIVE_DIR_DEFAULT = Path("E:/selvarath-archive/phase3-v2-2026-08-21")
-PROTOCOL_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_protocol_v3.json"
+PROTOCOL_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_protocol_v3_r2.json"
 OUTPUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_preflight_2026-08-23.json"
 
 EXPECTED_DESIGN_CANONICAL_SHA256 = (

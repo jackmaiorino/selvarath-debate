@@ -1,0 +1,37 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.5-397B-A17B": {
+   "catalog_entry_sha256": "33b41f5eb22760ccfd187e56d09f6630c931e1e3981891f52710344b70fa5c0e",
+   "input_usd_per_million": 0.6,
+   "output_usd_per_million": 3.6,
+   "serverless_available": true
+  },
+  "google/gemma-3n-E4B-it": {
+   "catalog_entry_sha256": "548b1f85b41fecddfe9baf32c653347c73a9593d6eba634fee0b85753b377005",
+   "input_usd_per_million": 0.060000000000000005,
+   "output_usd_per_million": 0.12000000000000001,
+   "serverless_available": true
+  },
+  "google/gemma-4-31B-it": {
+   "catalog_entry_sha256": "0cb6fc8603f73f8ed35a3fc2783e41954462c7ed7f0ebdb7f6b7fc791f13d39a",
+   "input_usd_per_million": 0.39,
+   "output_usd_per_million": 0.9700000000000001,
+   "serverless_available": true
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "catalog_entry_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
+   "input_usd_per_million": 1.0399999999999998,
+   "output_usd_per_million": 1.0399999999999998,
+   "serverless_available": true
+  }
+ },
+ "provider": "Together",
+ "raw_catalog": {
+  "canonical_sha256": "b1b3e99fd6a7697707f8c39e05663aa5dc4609fb0c62b2dddf19f63088e1b541",
+  "model_count": 279,
+  "path": "rejudge/phase3_provider_models_raw_r2_2026-08-23.json"
+ },
+ "schema_version": "phase3_v3_price_snapshot_v1",
+ "verified_at_utc": "2026-08-24T02:27:45.415224Z"
+}

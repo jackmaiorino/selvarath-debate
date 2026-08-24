@@ -14,6 +14,7 @@ from rejudge.phase2_execution import canonical_sha256
 ROOT = Path(__file__).resolve().parents[1]
 V2 = json.loads((ROOT / materialization.V2_PROTOCOL_PATH).read_text(encoding="utf-8"))
 DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf-8"))
+AMENDMENT = json.loads((ROOT / materialization.AMENDMENT_PATH).read_text(encoding="utf-8"))
 
 
 def _resolution(outcome: str) -> dict:
@@ -84,57 +85,99 @@ def _resolution(outcome: str) -> dict:
 @pytest.mark.parametrize("outcome", sorted(materialization.ALL_OUTCOMES))
 def test_all_terminal_resolution_branches_validate(outcome: str):
     resolution = _resolution(outcome)
-    materialization.validate_roster_resolution(resolution, DESIGN)
+    materialization.validate_roster_resolution(
+        resolution, DESIGN, amendment=AMENDMENT)
+
+
+def test_tracked_amendment_and_evidence_validate():
+    materialization.validate_amendment(AMENDMENT, project_root=ROOT)
+
+
+def test_amendment_rejects_canonical_hash_drift():
+    changed = deepcopy(AMENDMENT)
+    changed["owner_approval"]["response"] = "no"
+    with pytest.raises(materialization.MaterializationError, match="canonical hash drifted"):
+        materialization.validate_amendment(changed)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (("replacement", "added_model", "Qwen/not-approved"), "added model drifted"),
+        ((None, "execution_authorized", True), "execution_authorized must be false"),
+    ],
+)
+def test_amendment_structure_rejects_unapproved_changes(
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: tuple[str | None, str, object],
+    match: str,
+):
+    changed = deepcopy(AMENDMENT)
+    section, field, value = mutation
+    target = changed if section is None else changed[section]
+    target[field] = value
+    monkeypatch.setattr(
+        materialization, "AMENDMENT_CANONICAL_SHA256", canonical_sha256(changed))
+    with pytest.raises(materialization.MaterializationError, match=match):
+        materialization.validate_amendment(changed)
 
 
 def test_recovery_inclusion_requires_all_cells_and_both_gates():
     resolution = _resolution(materialization.INCLUDED_OUTCOME)
     resolution["qwen2_5"]["completed_deferred_cells"] = 191
     with pytest.raises(materialization.MaterializationError, match="all 192"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
     resolution = _resolution(materialization.INCLUDED_OUTCOME)
     resolution["qwen2_5"]["structural_mirroring_gate_pass"] = False
     with pytest.raises(materialization.MaterializationError, match="both unchanged"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
 
 def test_strict_invalid_gate_is_derived_from_integer_count():
     resolution = _resolution("excluded_recovery_fail")
     resolution["qwen2_5"]["strict_invalid_gate_pass"] = True
     with pytest.raises(materialization.MaterializationError, match="integer count"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
 
 def test_deadline_cannot_be_selected_early_or_after_complete_recovery():
     resolution = _resolution("excluded_deadline")
     resolution["resolved_at_utc"] = "2026-08-28T23:59:59Z"
     with pytest.raises(materialization.MaterializationError, match="before the deadline"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
     resolution = _resolution("excluded_deadline")
     resolution["qwen2_5"]["completed_deferred_cells"] = 192
     with pytest.raises(materialization.MaterializationError, match="resolve through its gates"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
 
 def test_main_authorization_boundary_cannot_be_backdated_after_deadline():
     resolution = _resolution("excluded_main_authorization")
     resolution["resolved_at_utc"] = "2026-08-29T00:00:00Z"
     with pytest.raises(materialization.MaterializationError, match="precede the deadline"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
 
 def test_provider_unavailable_requires_exact_trigger_and_incomplete_gate_claims():
     resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
     resolution["trigger"] = "deadline"
     with pytest.raises(materialization.MaterializationError, match="provider_unavailability"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
     resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
     resolution["qwen2_5"]["strict_invalid_count"] = 0
     with pytest.raises(materialization.MaterializationError, match="cannot claim"):
-        materialization.validate_roster_resolution(resolution, DESIGN)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT)
 
 
 def test_resolution_evidence_hash_is_verified_when_root_is_supplied(tmp_path: Path):
@@ -147,10 +190,12 @@ def test_resolution_evidence_hash_is_verified_when_root_is_supplied(tmp_path: Pa
         "tracked_path": "rejudge/evidence.json",
         "canonical_sha256": canonical_sha256(evidence),
     }
-    materialization.validate_roster_resolution(resolution, DESIGN, project_root=tmp_path)
+    materialization.validate_roster_resolution(
+        resolution, DESIGN, amendment=AMENDMENT, project_root=tmp_path)
     resolution["evidence"]["canonical_sha256"] = "b" * 64
     with pytest.raises(materialization.MaterializationError, match="evidence hash drift"):
-        materialization.validate_roster_resolution(resolution, DESIGN, project_root=tmp_path)
+        materialization.validate_roster_resolution(
+            resolution, DESIGN, amendment=AMENDMENT, project_root=tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -166,7 +211,8 @@ def test_materialized_protocol_is_valid_and_matches_slot_arithmetic(
     expected_main: int,
     expected_canary: int,
 ):
-    protocol = materialization.materialize_protocol(V2, DESIGN, _resolution(outcome))
+    protocol = materialization.materialize_protocol(
+        V2, DESIGN, _resolution(outcome), amendment=AMENDMENT)
     phase3_plan.validate_protocol(protocol)
     judges = phase3_plan.candidate_roster_judges(protocol, expected_roster_size)
     main_ids, held_out_ids = phase3_plan.load_reference_question_ids(protocol, ROOT)
@@ -192,7 +238,8 @@ def test_materialized_protocol_is_valid_and_matches_slot_arithmetic(
 
 def test_successor_canary_cannot_depend_on_its_downstream_main_forecast():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
     protocol["decisions"]["spend"]["authorization_rule"]["successor_canary"][
         "certified_main_forecast_required"] = True
     protocol["protocol_content_sha256"] = canonical_sha256({
@@ -208,22 +255,41 @@ def test_successor_canary_cannot_depend_on_its_downstream_main_forecast():
 
 def test_v3_candidate_roster_helper_rejects_nonfinal_size():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
     with pytest.raises(phase3_plan.PlanValidationError, match="resolved at exactly 4"):
         phase3_plan.candidate_roster_judges(protocol, 5)
 
 
 def test_protocol_content_digest_detects_tampering():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
     protocol["roster"]["replacement_policy"] = "quietly changed"
     with pytest.raises(phase3_plan.ProtocolValidationError, match="content digest drift"):
         phase3_plan.validate_protocol(protocol)
 
 
+def test_protocol_rejects_amendment_source_binding_tamper():
+    protocol = materialization.materialize_protocol(
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
+    protocol["source_bindings"]["canonical_json_sha256"][
+        materialization.AMENDMENT_PATH.as_posix()] = "0" * 64
+    protocol["protocol_content_sha256"] = canonical_sha256({
+        key: value for key, value in protocol.items()
+        if key != "protocol_content_sha256"
+    })
+    with pytest.raises(
+        phase3_plan.ProtocolValidationError,
+        match="owner-approved roster amendment",
+    ):
+        phase3_plan.validate_protocol(protocol)
+
+
 def test_protocol_pin_binds_full_protocol_resolution_and_roster():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.INCLUDED_OUTCOME))
+        V2, DESIGN, _resolution(materialization.INCLUDED_OUTCOME), amendment=AMENDMENT)
     pin = materialization.build_protocol_pin(
         protocol, protocol_tracked_path="rejudge/phase3_protocol_v3.json")
     assert pin["protocol_canonical_sha256"] == canonical_sha256(protocol)
@@ -232,4 +298,9 @@ def test_protocol_pin_binds_full_protocol_resolution_and_roster():
     changed = deepcopy(pin)
     changed["protocol_canonical_sha256"] = "0" * 64
     with pytest.raises(materialization.MaterializationError, match="canonical hash drifted"):
+        materialization.validate_protocol_pin(changed, protocol)
+
+    changed = deepcopy(pin)
+    changed["successor_design_amendment_canonical_sha256"] = "0" * 64
+    with pytest.raises(materialization.MaterializationError, match="roster-amendment binding"):
         materialization.validate_protocol_pin(changed, protocol)

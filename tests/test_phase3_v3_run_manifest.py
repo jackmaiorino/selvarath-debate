@@ -13,7 +13,7 @@ from rejudge import phase3_v3_run_manifest as run_manifest
 from rejudge.phase2_execution import canonical_sha256
 
 from tests.test_phase3_v3_inputs import _tokenizer_manifest
-from tests.test_phase3_v3_materialization import _resolution
+from tests.test_phase3_v3_materialization import AMENDMENT, _resolution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +23,8 @@ DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf
 
 def _artifacts():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
     pin = materialization.build_protocol_pin(
         protocol, protocol_tracked_path="rejudge/phase3_protocol_v3.json")
     tokenizer = _tokenizer_manifest(protocol)

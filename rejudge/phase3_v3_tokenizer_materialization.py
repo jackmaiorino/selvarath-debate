@@ -189,6 +189,8 @@ def build_exact_tokenizer_artifacts(
             if not isinstance(chat_template, str) or not chat_template:
                 raise TokenizerMaterializationError(
                     f"local tokenizer for {model} has no chat template")
+            _template_override, rendering_policy = (
+                static_prompts.chat_template_rendering_policy(tokenizer))
             files = sorted(path for path in tokenizer_directory.rglob("*") if path.is_file())
             if not files:
                 raise TokenizerMaterializationError(
@@ -290,6 +292,7 @@ def build_exact_tokenizer_artifacts(
                 "tokenizer_class": type(tokenizer).__name__,
                 "chat_template_sha256": hashlib.sha256(
                     chat_template.encode("utf-8")).hexdigest(),
+                "chat_template_rendering": rendering_policy,
                 "files": file_bindings,
                 "corpora": corpora,
             }

@@ -11,7 +11,7 @@ from rejudge import phase3_v3_inputs as inputs
 from rejudge import phase3_v3_materialization as protocol_materialization
 from rejudge import phase3_v3_price_materialization as prices
 
-from tests.test_phase3_v3_materialization import _resolution
+from tests.test_phase3_v3_materialization import AMENDMENT, _resolution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +25,7 @@ def _protocol():
     return protocol_materialization.materialize_protocol(
         V2, DESIGN,
         _resolution(protocol_materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT,
     )
 
 

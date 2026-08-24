@@ -1,0 +1,45 @@
+{
+ "schema_version": "phase3_v3_roster_amendment_v1",
+ "amendment_id": "phase3_v3_qwen3_7_tokenizer_replacement_2026_08_23",
+ "decided_at_utc": "2026-08-24T02:19:21.165604Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "active Codex project session",
+  "approved_on_date": "2026-08-23",
+  "question": "Approve replacing Qwen/Qwen3.7-Max with Qwen/Qwen3.5-397B-A17B?",
+  "response": "yes"
+ },
+ "replacement": {
+  "removed_model": "Qwen/Qwen3.7-Max",
+  "added_model": "Qwen/Qwen3.5-397B-A17B",
+  "timing": "before any v3 provider inference, run manifest, or canary",
+  "reason": "The removed proprietary endpoint exposes no exact tokenizer. The added model has an exact provider-mapped public tokenizer that loads locally and satisfies the approved non-proxy forecast contract.",
+  "roster_size_change": 0,
+  "capability_slope_rule_change": "none"
+ },
+ "evidence": {
+  "tokenizer_acquisition": {
+   "path": "rejudge/phase3_v3_tokenizer_acquisition_2026-08-23.json",
+   "canonical_sha256": "89e6c57c0239388c8da4c059af2b231bbfba91df62644e9ed4750a4bb091d92e"
+  },
+  "provider_catalog": {
+   "path": "rejudge/phase3_provider_models_raw_2026-08-23.json",
+   "canonical_sha256": "b1b3e99fd6a7697707f8c39e05663aa5dc4609fb0c62b2dddf19f63088e1b541",
+   "removed_model_entry_canonical_sha256": "826a19dcaf40815c734d055f3767fa827613da734059b87580d779fae9525f14",
+   "added_model_entry_canonical_sha256": "33b41f5eb22760ccfd187e56d09f6630c931e1e3981891f52710344b70fa5c0e"
+  },
+  "added_model_tokenizer": {
+   "repository": "Qwen/Qwen3.5-397B-A17B",
+   "revision": "8472618112abcbd45acbcdc58436aff4233c23f7",
+   "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+   "tokenizer_json_sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+  }
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment does not waive the exact-tokenizer requirement for any judge.",
+  "This amendment does not authorize provider inference, canary spend, main spend, GPU work, or execution."
+ ]
+}

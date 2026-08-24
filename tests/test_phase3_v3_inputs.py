@@ -17,7 +17,7 @@ from rejudge import phase3_v3_static_prompts as static_prompts
 from rejudge.config import ARMS, position_for
 from rejudge.phase2_execution import canonical_sha256
 
-from tests.test_phase3_v3_materialization import _resolution
+from tests.test_phase3_v3_materialization import AMENDMENT, _resolution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +28,8 @@ DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf
 @pytest.fixture(scope="module")
 def protocol():
     return materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+        amendment=AMENDMENT)
 
 
 def _tokenizer_manifest(protocol):
@@ -62,6 +63,11 @@ def _tokenizer_manifest(protocol):
             "tokenizer_directory": f"tokenizers/{model}",
             "tokenizer_class": "FakeTokenizer",
             "chat_template_sha256": "1" * 64,
+            "chat_template_rendering": {
+                "mode": static_prompts.NATIVE_RENDERING_MODE,
+                "effective_chat_template_sha256": "1" * 64,
+                "evidence": "the tokenizer's native chat template is applied without modification",
+            },
             "files": {
                 "tokenizer.json": {"path": f"tokenizers/{model}/tokenizer.json", "sha256": "2" * 64}
             },
@@ -126,7 +132,7 @@ def test_exact_tokenizer_shape_requires_every_model_role_variant_and_prompt(prot
 
 def test_five_judge_exact_corpus_arithmetic_includes_checker_source_variants():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution(materialization.INCLUDED_OUTCOME))
+        V2, DESIGN, _resolution(materialization.INCLUDED_OUTCOME), amendment=AMENDMENT)
     expected = sum(
         transcript_count * len(variants)
         for model in protocol["roster"]["judges_final"]
@@ -158,6 +164,56 @@ def test_exact_tokenizer_gate_rejects_proxy_missing_role_and_incomplete_corpus(p
     with pytest.raises(inputs.InputGateError, match="incomplete"):
         inputs.validate_exact_tokenizer_manifest(
             manifest, protocol=protocol, verify_files=False)
+
+
+def test_exact_tokenizer_gate_binds_chat_template_rendering_policy(protocol):
+    manifest = _tokenizer_manifest(protocol)
+    model = protocol["roster"]["judges_final"][0]
+    manifest["models"][model]["chat_template_rendering"]["mode"] = "unapproved_mode"
+    with pytest.raises(inputs.InputGateError, match="unsupported chat-template rendering mode"):
+        inputs.validate_exact_tokenizer_manifest(
+            manifest, protocol=protocol, verify_files=False)
+
+
+def test_gemma3n_provider_rendering_bypasses_only_the_frozen_guard(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    guard = static_prompts._ROLE_ALTERNATION_GUARD
+    original_template = "template-prefix\n" + guard + "\ntemplate-suffix"
+    effective_template = original_template.replace(guard, "")
+    monkeypatch.setattr(
+        static_prompts,
+        "GEMMA3N_CHAT_TEMPLATE_SHA256",
+        hashlib.sha256(original_template.encode("utf-8")).hexdigest(),
+    )
+    monkeypatch.setattr(
+        static_prompts,
+        "GEMMA3N_PROVIDER_EFFECTIVE_TEMPLATE_SHA256",
+        hashlib.sha256(effective_template.encode("utf-8")).hexdigest(),
+    )
+
+    class GuardedTokenizer:
+        chat_template = original_template
+
+        def apply_chat_template(
+            self, messages, *, tokenize, add_generation_prompt, chat_template=None,
+        ):
+            assert add_generation_prompt is True
+            assert chat_template == effective_template
+            rendered = json.dumps(messages, sort_keys=True, separators=(",", ":"))
+            return list(rendered.encode("utf-8")) if tokenize else rendered
+
+    tokenizer = GuardedTokenizer()
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "presentation"},
+        {"role": "user", "content": "verdict"},
+    ]
+    rendered, count = static_prompts.render_chat_prompt(tokenizer, messages)
+    override, policy = static_prompts.chat_template_rendering_policy(tokenizer)
+    assert override == effective_template
+    assert policy["mode"] == static_prompts.GEMMA3N_PROVIDER_RENDERING_MODE
+    assert count == len(rendered.encode("utf-8"))
 
 
 def test_role_corpus_files_recompute_prompts_and_exact_token_counts(protocol, tmp_path: Path):
