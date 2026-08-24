@@ -1,8 +1,8 @@
 # Phase 3 v3 successor handoff
 
 Status: the owner-approved offline successor implementation is complete on
-`codex/phase3-v3-successor` through `649634b`. The authenticated Together catalog and price
-snapshot are captured, and one fixed-roster exact tokenizer is locally validated. The approved
+`codex/phase3-v3-successor` through `01ed987`. The authenticated Together catalog and price
+snapshot are captured, and two fixed-roster exact tokenizers are locally validated. The approved
 four-judge roster cannot yet satisfy its exact-tokenizer contract because Qwen 3.7 Max exposes
 no exact tokenizer. No run manifest exists. No provider inference call, archive write, GPU run,
 or paid spend occurred in this branch.
@@ -47,7 +47,7 @@ Bound artifacts:
   SHA-256 `5025daf763e09678e7a4dbcc64e0ad2eed5452f321cca047b6ee889805a1cec4`.
 - Tokenizer acquisition state: `rejudge/phase3_v3_tokenizer_acquisition_2026-08-23.json`,
   canonical SHA-256
-  `eed28c8072c2c7fb15d4ce3b70e49aae8f0c416d916252768a5a5858076d835b`.
+  `89e6c57c0239388c8da4c059af2b231bbfba91df62644e9ed4750a4bb091d92e`.
 
 ## Completed implementation
 
@@ -69,6 +69,8 @@ Bound artifacts:
   observation and resolution, fixed four-judge protocol and pin, and resolved preflight.
 - `649634b`: create-only authenticated Together catalog capture, fresh four-roster price
   snapshot, exact-tokenizer acquisition findings, and refreshed preflight.
+- `01ed987`: authenticated Gemma 3n tokenizer acquisition and the pending Llama repository
+  review state.
 
 Important implementation invariants:
 
@@ -116,6 +118,9 @@ whole cents, and adds all actual and uncertain prior-stage spend.
 - `google/gemma-4-31B-it` exact tokenizer revision
   `842da3794eaa0b77d5f08bae87a17459d91ff475` loads locally as `GemmaTokenizer` with the
   required chat template.
+- `google/gemma-3n-E4B-it` exact tokenizer revision
+  `c1221e9c62e34a43ab7ffacd1be0ea71f126ef10` loads locally as `GemmaTokenizer` with the
+  required chat template.
 - `Qwen/Qwen3.5-397B-A17B` revision
   `8472618112abcbd45acbcdc58436aff4233c23f7` is locally validated as a possible replacement,
   but is not in the roster without Jack's approval.
@@ -129,9 +134,9 @@ whole cents, and adds all actual and uncertain prior-stage spend.
    endpoint. The approved exact non-proxy contract cannot be satisfied for this judge. Jack must
    approve a roster replacement or a scientific contract amendment. The locally validated
    replacement recommendation is `Qwen/Qwen3.5-397B-A17B`.
-2. Exact provider mappings exist for `google/gemma-3n-E4B-it` and
-   `meta-llama/Llama-3.3-70B-Instruct-Turbo`, but both Hugging Face repositories require manual
-   license access. Jack must grant access and authenticate the local Hugging Face client.
+2. Jack authenticated the local Hugging Face client and obtained Gemma 3n access. The submitted
+   request for `meta-llama/Llama-3.3-70B-Instruct-Turbo` remains under manual review by the
+   repository authors. Its exact tokenizer cannot be downloaded until they approve the request.
 3. The run manifest cannot be built until the final tokenizer manifest exists. If the roster
    changes, rematerialize the protocol, catalog price snapshot, tokenizer corpus, and manifest.
 4. A fresh complete successor canary, exact usage ledger, and dynamic residual frame are absent.
@@ -145,8 +150,8 @@ infer or retrofit the old split.
 ## Return sequence for Fable
 
 1. Obtain Jack's roster decision for Qwen 3.7 Max. Do not substitute a model silently.
-2. Obtain owner-granted Hugging Face access for Gemma 3n and Llama 3.3, then download their exact
-   pinned tokenizer files.
+2. Wait for the Llama 3.3 repository authors to approve Jack's submitted access request, then
+   download its exact pinned tokenizer files.
 3. If Jack approves the replacement recommendation, rematerialize the v3 roster and protocol,
    then rebuild the saved-catalog price snapshot for the new final roster.
 4. Run `scripts\phase3_v3_build_tokenizer_corpus.py` with both frozen transcript bundles and all
