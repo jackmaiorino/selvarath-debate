@@ -1,6 +1,7 @@
 {
  "schema_version": "phase3_v3_tokenizer_acquisition_v1",
  "observed_at_utc": "2026-08-24T01:54:29.163861Z",
+ "last_checked_at_utc": "2026-08-24T02:13:09.598535Z",
  "execution_authorized": false,
  "provider_inference_calls": 0,
  "provider_catalog": {
@@ -26,22 +27,31 @@
    }
   },
   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
-   "status": "blocked_owner_license_access_required",
+   "status": "blocked_provider_review_pending",
    "catalog_entry_canonical_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
    "provider_repository_mapping": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
    "repository": "meta-llama/Llama-3.3-70B-Instruct",
    "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
    "gated": "manual",
-   "unauthenticated_tokenizer_download": "HTTP 401 GatedRepoError"
+   "authenticated_tokenizer_download": "HTTP 403 GatedRepoError: access request awaiting review from repository authors"
   },
   "google/gemma-3n-E4B-it": {
-   "status": "blocked_owner_license_access_required",
+   "status": "exact_tokenizer_ready",
    "catalog_entry_canonical_sha256": "548b1f85b41fecddfe9baf32c653347c73a9593d6eba634fee0b85753b377005",
    "provider_repository_mapping": "https://huggingface.co/google/gemma-3n-E4B-it",
    "repository": "google/gemma-3n-E4B-it",
    "revision": "c1221e9c62e34a43ab7ffacd1be0ea71f126ef10",
    "gated": "manual",
-   "unauthenticated_tokenizer_download": "HTTP 401 GatedRepoError"
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it",
+   "tokenizer_class": "GemmaTokenizer",
+   "chat_template_sha256": "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001",
+   "files": {
+    "chat_template.jinja": "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001",
+    "special_tokens_map.json": "d0585986e1fa2764eb2ca29cd854da40478d804a9953ba2e2c1c682d1428adc6",
+    "tokenizer.json": "c4c19736bf24d1c6805cf49340e31bd02c70fb7857a2cb31065c90c2b5719c4e",
+    "tokenizer.model": "ea5f0cc48abfbfc04d14562270a32e02149a3e7035f368cc5a462786f4a59961",
+    "tokenizer_config.json": "53f610f9a24692d444ab7f64b9b6ac07b0edabca6b15bb530d1b056bd36bc6e2"
+   }
   },
   "Qwen/Qwen3.7-Max": {
    "status": "blocked_no_exact_tokenizer_exposed",
@@ -84,7 +94,7 @@
  },
  "owner_actions_required": [
   "Choose whether to replace Qwen/Qwen3.7-Max or amend the exact-tokenizer contract.",
-  "Grant Hugging Face access for the exact Gemma 3n and Llama 3.3 repositories."
+  "Wait for the Llama 3.3 repository authors to approve the submitted access request."
  ],
  "non_claims": [
   "Authenticated catalog presence is not a paid endpoint smoke test.",
