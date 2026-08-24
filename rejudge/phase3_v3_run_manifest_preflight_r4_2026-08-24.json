@@ -1,0 +1,76 @@
+{
+ "dependency_lock_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848",
+ "execution_authorized": false,
+ "final_roster": [
+  "google/gemma-4-31B-it",
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "google/gemma-3n-E4B-it",
+  "Qwen/Qwen3.5-397B-A17B"
+ ],
+ "git_commit": "91c53f12d26aae113ca8aa1e27bc2c9ba38106b2",
+ "gpu_ordinal_or_not_used": "not_used",
+ "harness_check": {
+  "first_output_store_sha256": null,
+  "rerun_output_store_sha256": null,
+  "seed_name": "harness",
+  "status": "pending"
+ },
+ "input_sha256s": {
+  "rejudge/phase2_checker_frozen_config_2026-07-23.json": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
+  "rejudge/phase2_checker_validation_design_2026-07-18.json": "4f9d3a34008234259503ce4e9b6d8152566ad7414b15e8c3d62135d892c7ed5f",
+  "rejudge/phase2_prompt_bundle.json": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "rejudge/phase2_reviewer_prompt_2026-07-23.json": "caace8450fef7973c62c33015a35d36341c812b25344be08e1115d3d34a89a1c",
+  "rejudge/phase3_protocol_v3_pin_r2.json": "20db4e6bcc098abe63ab78e62c0af37cd702f7e1dbfaa8f40567b949fc7e6620",
+  "rejudge/phase3_protocol_v3_r2.json": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+  "rejudge/phase3_transcript_verification_2026-08-18.json": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
+  "rejudge/phase3_v3_exact_tokenizer_manifest_r3_2026-08-23.json": "b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127",
+  "rejudge/phase3_v3_execution_binding_2026-08-24.json": "c894bd771b1113d93c3ec456c1a02dd17fff738ca201d5f8635d71b29f5c63d8",
+  "rejudge/phase3_v3_price_snapshot_r3_2026-08-24.json": "1208e71f3c20a60af10cb130a287fe79a9cf89be4588bded20fea3090650a374",
+  "rejudge/phase3_v3_role_limits_2026-08-24.json": "b1a89e6b0a2a67be27110027883295ffee38f5d654d3c67fba16b7d46cab21b0"
+ },
+ "linker_version_or_not_applicable": "not_applicable",
+ "output_sha256s": {
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_1_call_cache.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_1_results.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_2_call_cache.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_2_results.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_call_cache.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_canary_results.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_error_log.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_reviewer_decisions.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_run_log.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_successor_canary_report.json": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl.state.json": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/reviewer_index.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/reviewer_worklist.json": null
+ },
+ "planned_output_paths": [
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_1_results.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_1_call_cache.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_2_results.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/harness_2_call_cache.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_canary_results.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_reviewer_decisions.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_call_cache.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl.state.json",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_error_log.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_run_log.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/reviewer_worklist.json",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/reviewer_index.jsonl",
+  "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_successor_canary_report.json"
+ ],
+ "price_snapshot_sha256": "1208e71f3c20a60af10cb130a287fe79a9cf89be4588bded20fea3090650a374",
+ "protocol_sha256": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+ "python_version": "3.13.5",
+ "recorded_at_utc": "2026-08-24T12:52:46.875630Z",
+ "run_id": "phase3-v3-e5b8302e171f96e5",
+ "schema_version": "phase3_v3_run_manifest_v1",
+ "seeds": {
+  "analysis_bootstrap": 20260830,
+  "harness": 20260829
+ },
+ "status": "preflight",
+ "tokenizer_manifest_sha256": "b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127"
+}
