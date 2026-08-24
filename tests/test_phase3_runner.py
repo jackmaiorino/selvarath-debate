@@ -258,6 +258,16 @@ def test_full_canary_dry_run_completes_all_1680_slots(tmp_path, repo_root, held_
     assert all(call["messages"][0]["content"] == expected_system for call in capability_calls)
     assert all(call["messages"][0]["role"] == "system" for call in capability_calls)
 
+    # Phase 3 uses one role taxonomy for both b0 and positive-budget verdicts. This is also
+    # what the v3 dynamic forecast accepts when attributing every paid attempt to a slot.
+    b0_verdicts = [c for c in client.calls
+                   if c.get("budget") == 0 and c.get("call_role") == "judge_verdict"]
+    assert b0_verdicts
+    assert all(
+        c.get("stage") == "judgment" and c.get("question_id") and c.get("judge_model")
+        for c in b0_verdicts)
+    assert not any(c.get("call_role") == "batch_verdict" for c in client.calls)
+
     # Budgets flow through generically: every sequential_b1/b2/b4/b8 judgment saw the correct
     # total_budget in its rendered query prompt -- not hard-coded to phase 2's budget-2 grid.
     for budget in (1, 2, 4, 8):

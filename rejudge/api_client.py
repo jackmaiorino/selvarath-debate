@@ -61,6 +61,15 @@ class UnknownChargeHalt(RuntimeError):
     """
 
 
+class ModelAliasDriftError(RuntimeError):
+    """The provider returned a different or missing model ID in strict alias mode.
+
+    The successful charge is reconciled and durably recorded before this exception is raised.
+    A strict runner must inspect the ledger on resume and refuse any prior mismatched event, so
+    the same semantic call is never paid for again under an unresolved provider alias.
+    """
+
+
 class AccountingInvariantError(RuntimeError):
     pass
 
@@ -789,7 +798,8 @@ class RejudgeClient:
                  halt_on_unknown_charge: bool = False,
                  http_timeout: Mapping[str, float] | None = None,
                  sdk_internal_max_retries: int | None = None,
-                 per_call_wall_clock_ceiling_seconds: float | None = None):
+                 per_call_wall_clock_ceiling_seconds: float | None = None,
+                 require_returned_model_match: bool = False):
         self.approved_cap_usd = float(approved_cap_usd)
         self.price_per_mtok = price_per_mtok
         self.model_prices = dict(model_prices or {})
@@ -856,6 +866,7 @@ class RejudgeClient:
         # ReasoningMaxTokensError and on complete()/_streamed_create() for what each does.
         self.require_explicit_reasoning_max_tokens = bool(require_explicit_reasoning_max_tokens)
         self.halt_on_unknown_charge = bool(halt_on_unknown_charge)
+        self.require_returned_model_match = bool(require_returned_model_match)
         self.model_context_limits: dict[str, int] = dict(model_context_limits or {})
         self.strict_context_mode = bool(strict_context_mode)
         self.streaming_pinned_models: frozenset[str] = frozenset(streaming_pinned_models)
@@ -1578,6 +1589,7 @@ class RejudgeClient:
                     response_metadata=self._response_metadata(resp, request_fields_sha256))
                 raise RuntimeError(
                     f"malformed API response after successful charge: {exc}") from exc
+            response_metadata = self._response_metadata(resp, request_fields_sha256)
             self._reconcile_success(
                 estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                 reserved_prompt_tokens=estimated_prompt,
@@ -1586,6 +1598,12 @@ class RejudgeClient:
                 input_price=input_price, output_price=output_price, model=model,
                 kind=kind, seed=seed, attempt=attempt, status="success",
                 attempt_id=attempt_id, request_metadata=request_metadata,
-                response_metadata=self._response_metadata(resp, request_fields_sha256))
+                response_metadata=response_metadata)
+            if (self.require_returned_model_match
+                    and response_metadata["returned_model_id"] != model):
+                raise ModelAliasDriftError(
+                    f"provider returned model {response_metadata['returned_model_id']!r} for "
+                    f"requested model {model!r}; the successful charge is recorded, but the "
+                    "response is refused until alias drift is resolved")
             return content if content is not None else ""
         raise RuntimeError(f"API call failed after {self.max_retries + 1} attempts: {last}")

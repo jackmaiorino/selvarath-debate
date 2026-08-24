@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dependency-lock", type=Path, default=REPO_ROOT / "uv.lock")
     parser.add_argument("--seed", action="append", required=True)
     parser.add_argument("--planned-output", action="append", required=True)
+    parser.add_argument("--input", action="append", type=Path, default=[],
+                        help="additional repo-local canonical-JSON execution input")
     parser.add_argument("--gpu-ordinal", type=int)
     parser.add_argument("--harness-seed", required=True)
     parser.add_argument("--recorded-at-utc")
@@ -65,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         harness_seed_name=args.harness_seed,
         project_root=REPO_ROOT,
         recorded_at_utc=args.recorded_at_utc,
+        extra_input_paths=args.input,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("x", encoding="utf-8", newline="\n") as handle:

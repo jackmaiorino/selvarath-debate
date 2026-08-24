@@ -920,6 +920,42 @@ def test_response_metadata_missing_attributes_are_null_not_guessed():
     assert meta["completion_tokens"] == 50
 
 
+def test_strict_returned_model_match_refuses_drift_after_recording_charge():
+    class _RichResp(_Resp):
+        model = "provider/alias"
+
+    class AliasSDK:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return _RichResp()
+
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=AliasSDK(), max_retries=3,
+        require_returned_model_match=True)
+    with pytest.raises(ac.ModelAliasDriftError, match="provider/alias"):
+        client.complete(MSGS, "requested/model", 0.1, 1, 64)
+    assert len([event for event in client.usage_events if event["status"] == "success"]) == 1
+
+
+def test_strict_returned_model_match_accepts_exact_id():
+    class _RichResp(_Resp):
+        model = "requested/model"
+
+    class ExactSDK:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return _RichResp()
+
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0, _sdk_client=ExactSDK(),
+        require_returned_model_match=True)
+    assert client.complete(MSGS, "requested/model", 0.1, 1, 64) == "YES"
+
+
 def test_response_metadata_is_persisted_on_malformed_response_too():
     sdk = MalformedChoicesStubSDK()
     c = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk, max_retries=0)

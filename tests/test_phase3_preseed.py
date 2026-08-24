@@ -22,7 +22,12 @@ import pytest
 from rejudge import phase3_plan
 from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_execution import canonical_sha256
-from scripts.phase3_preseed_transcripts import DEFAULT_MAIN_BUNDLE_PATH, PreseedError, preseed
+from scripts.phase3_preseed_transcripts import (
+    DEFAULT_MAIN_BUNDLE_PATH,
+    PreseedError,
+    preseed,
+    preseed_canary,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -189,6 +194,38 @@ def test_preseeding_writes_a_row_per_transcript_and_satisfies_is_complete(tmp_pa
     assert len(canary_keys) == 2
     for key in main_keys + canary_keys:
         assert store.is_complete(key), key
+
+
+def test_canary_only_preseed_never_writes_main_rows(tmp_path, fixtures):
+    target = tmp_path / "canary-only.jsonl"
+    result = preseed_canary(
+        protocol_path=fixtures["protocol_path"], project_root=ROOT,
+        canary_bundle_path=fixtures["canary_bundle_path"],
+        verification_report_path=fixtures["verification_report_path"],
+        target_store_path=target)
+    assert result == {
+        "target_store_path": str(target), "canary_bundle_count": 2,
+        "written": 2, "skipped": 0,
+    }
+    store = CellResultStore(target)
+    main_keys, canary_keys = _enumerated_transcript_keys(fixtures)
+    assert set(store._results) == set(canary_keys)
+    assert not set(store._results) & set(main_keys)
+
+
+def test_canary_only_preseed_rejects_existing_row_that_differs_from_bundle(
+    tmp_path, fixtures,
+):
+    target = tmp_path / "canary-drift.jsonl"
+    _main_keys, canary_keys = _enumerated_transcript_keys(fixtures)
+    key = canary_keys[0]
+    CellResultStore(target).record(key, {"cell_key": key, "question": "wrong transcript"})
+    with pytest.raises(PreseedError, match="differs from the frozen bundle"):
+        preseed_canary(
+            protocol_path=fixtures["protocol_path"], project_root=ROOT,
+            canary_bundle_path=fixtures["canary_bundle_path"],
+            verification_report_path=fixtures["verification_report_path"],
+            target_store_path=target)
 
 
 def test_a_preseeded_rows_result_carries_the_transcript_payload_and_phase3_cell_key(

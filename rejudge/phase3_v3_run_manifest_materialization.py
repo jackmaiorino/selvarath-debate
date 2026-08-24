@@ -81,6 +81,7 @@ def materialize_run_manifest(
     git_commit: str | None = None,
     python_version: str | None = None,
     verify_external_files: bool = True,
+    extra_input_paths: Sequence[str | Path] = (),
 ) -> dict[str, Any]:
     """Load bound artifacts, capture the environment, and build the preflight manifest."""
     root = Path(project_root)
@@ -111,6 +112,18 @@ def materialize_run_manifest(
             paths["price_snapshot"], root, "price snapshot",
         ): canonical_sha256(prices),
     }
+    for raw_extra_path in extra_input_paths:
+        extra_path = Path(raw_extra_path)
+        extra_path = extra_path if extra_path.is_absolute() else root / extra_path
+        if not extra_path.is_file():
+            raise RunManifestMaterializationError(
+                f"extra input file does not exist: {extra_path}")
+        relative = _relative_path(extra_path, root, "extra input")
+        if relative in input_sha256s:
+            raise RunManifestMaterializationError(
+                f"duplicate run-manifest input path: {relative}")
+        input_sha256s[relative] = canonical_sha256(
+            _load_json_object(extra_path, "extra input"))
     observed_commit = git_commit
     if require_clean_git:
         if git_commit is not None:
