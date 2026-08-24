@@ -200,8 +200,9 @@ def validate_run_manifest(
     if manifest.get("schema_version") != SCHEMA_VERSION:
         raise RunManifestError("unsupported v3 run-manifest schema")
     status = manifest.get("status")
-    if status not in {"preflight", "complete"}:
-        raise RunManifestError("run manifest status must be preflight or complete")
+    if status not in {"preflight", "harness_verified", "complete"}:
+        raise RunManifestError(
+            "run manifest status must be preflight, harness_verified, or complete")
     if manifest.get("execution_authorized") is not False:
         raise RunManifestError("the run manifest can never authorize execution")
     _utc_text(manifest.get("recorded_at_utc"), "recorded_at_utc")
@@ -220,16 +221,17 @@ def validate_run_manifest(
     output_hashes = manifest.get("output_sha256s")
     if not isinstance(output_hashes, dict) or set(output_hashes) != set(outputs):
         raise RunManifestError("output_sha256s keys must equal planned_output_paths")
-    if status == "preflight":
+    if status in {"preflight", "harness_verified"}:
         if any(value is not None for value in output_hashes.values()):
-            raise RunManifestError("preflight output hashes must remain null")
+            raise RunManifestError("pre-formal output hashes must remain null")
     else:
         for path, digest in output_hashes.items():
             _sha256(digest, f"output_sha256s[{path!r}]")
 
     gpu = manifest.get("gpu_ordinal_or_not_used")
-    if gpu != "not_used" and (isinstance(gpu, bool) or not isinstance(gpu, int) or gpu < 0):
-        raise RunManifestError("gpu_ordinal_or_not_used must be not_used or a non-negative integer")
+    if gpu != "not_used" and (isinstance(gpu, bool) or gpu != 1):
+        raise RunManifestError(
+            "gpu_ordinal_or_not_used must be not_used or exclusive headless GPU ordinal 1")
     roster = manifest.get("final_roster")
     if (not isinstance(roster, list) or len(roster) not in {4, 5}
             or not all(isinstance(model, str) and model for model in roster)
@@ -321,25 +323,39 @@ def validate_run_manifest(
             raise RunManifestError(f"fresh-price gate failed: {exc}") from exc
 
 
-def finalize_run_manifest(
+def record_harness_check(
     manifest: Mapping[str, Any],
     *,
-    output_sha256s: Mapping[str, str],
     first_output_store_sha256: str,
     rerun_output_store_sha256: str,
 ) -> dict[str, Any]:
-    """Return the same small manifest with output and deterministic harness hashes filled."""
+    """Record the required bit-identical rerun before formal measurement begins."""
     validate_run_manifest(manifest)
     if manifest.get("status") != "preflight":
-        raise RunManifestError("only a preflight manifest can be finalized")
-    completed = deepcopy(dict(manifest))
-    completed["status"] = "complete"
-    completed["output_sha256s"] = dict(output_sha256s)
-    completed["harness_check"] = {
+        raise RunManifestError("only a preflight manifest can record its harness check")
+    verified = deepcopy(dict(manifest))
+    verified["status"] = "harness_verified"
+    verified["harness_check"] = {
         "seed_name": manifest["harness_check"]["seed_name"],
         "status": "bit_identical_pass",
         "first_output_store_sha256": first_output_store_sha256,
         "rerun_output_store_sha256": rerun_output_store_sha256,
     }
+    validate_run_manifest(verified)
+    return verified
+
+
+def finalize_run_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    output_sha256s: Mapping[str, str],
+) -> dict[str, Any]:
+    """Bind completed formal outputs after the pre-formal harness check has passed."""
+    validate_run_manifest(manifest)
+    if manifest.get("status") != "harness_verified":
+        raise RunManifestError("only a harness-verified manifest can be finalized")
+    completed = deepcopy(dict(manifest))
+    completed["status"] = "complete"
+    completed["output_sha256s"] = dict(output_sha256s)
     validate_run_manifest(completed)
     return completed

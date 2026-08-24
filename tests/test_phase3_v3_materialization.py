@@ -162,6 +162,29 @@ def test_materialized_protocol_is_valid_and_matches_slot_arithmetic(
         48 * expected_roster_size)
     assert protocol["decisions"]["launch_gates"]["canary_slot_inventory"][
         "carry_forward_result_rows"] == 0
+    authorization_rule = protocol["decisions"]["spend"]["authorization_rule"]
+    assert authorization_rule["successor_canary"][
+        "separate_owner_authorization_required"] is True
+    assert authorization_rule["successor_canary"][
+        "certified_main_forecast_required"] is False
+    assert authorization_rule["main"]["separate_owner_authorization_required"] is True
+    assert authorization_rule["main"]["certified_main_forecast_required"] is True
+
+
+def test_successor_canary_cannot_depend_on_its_downstream_main_forecast():
+    protocol = materialization.materialize_protocol(
+        V2, DESIGN, _resolution("excluded_deadline"))
+    protocol["decisions"]["spend"]["authorization_rule"]["successor_canary"][
+        "certified_main_forecast_required"] = True
+    protocol["protocol_content_sha256"] = canonical_sha256({
+        key: value for key, value in protocol.items()
+        if key != "protocol_content_sha256"
+    })
+    with pytest.raises(
+        phase3_plan.ProtocolValidationError,
+        match="cannot depend on its downstream main forecast",
+    ):
+        phase3_plan.validate_protocol(protocol)
 
 
 def test_v3_candidate_roster_helper_rejects_nonfinal_size():

@@ -6,18 +6,16 @@ import json
 import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
-from rejudge import phase3_plan
+from rejudge import phase3_plan, phase3_v3_static_prompts as static_prompts
 from rejudge.phase2_execution import canonical_sha256
 
 
-TOKENIZER_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_manifest_v1"
+TOKENIZER_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_manifest_v3"
 PRICE_SCHEMA_VERSION = "phase3_v3_price_snapshot_v1"
-REQUIRED_TRANSCRIPT_COUNT = 492
-FORECAST_ROLES = frozenset({
-    "judge_query", "judge_verdict", "query_checker", "oracle_verification",
-})
+TRANSCRIPT_BUNDLE_COUNTS = {"main": 492, "canary": 48}
+REQUIRED_TRANSCRIPT_COUNT = TRANSCRIPT_BUNDLE_COUNTS["main"]
 
 
 class InputGateError(ValueError):
@@ -99,56 +97,30 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def expected_role_variants(protocol: Mapping[str, Any], model: str) -> dict[str, list[str]]:
-    phase3_plan.validate_protocol(protocol)
-    registry = _object(protocol.get("model_registry"), "protocol.model_registry")
-    models = _object(registry.get("models"), "protocol.model_registry.models")
-    entry = _object(models.get(model), f"protocol.model_registry.models[{model!r}]")
-    billed_roles = entry.get("billed_roles")
-    if (not isinstance(billed_roles, list)
-            or not all(isinstance(role, str) and role for role in billed_roles)):
-        raise InputGateError(f"protocol billed roles are invalid for {model}")
-    conditions = protocol["debate_grid"]["conditions"]
-    all_conditions = [str(condition["id"]) for condition in conditions]
-    query_conditions = [str(condition["id"]) for condition in conditions
-                        if int(condition["query_budget"]) > 0]
-    variants_by_role = {
-        "judge_query": query_conditions,
-        "judge_verdict": all_conditions,
-        "query_checker": ["query_checker"],
-        "oracle_verification": ["oracle_verification"],
-    }
-    return {
-        role: variants_by_role[role]
-        for role in billed_roles
-        if role in FORECAST_ROLES
-    }
+    try:
+        return static_prompts.expected_role_variants(protocol, model)
+    except static_prompts.StaticPromptError as exc:
+        raise InputGateError(str(exc)) from exc
 
 
-def _transcript_keys(bundle: Mapping[str, Any]) -> list[str]:
+def transcript_entries(
+    bundle: Mapping[str, Any], *, expected_count: int,
+) -> dict[str, Mapping[str, Any]]:
     transcripts = bundle.get("transcripts")
-    if not isinstance(transcripts, list) or len(transcripts) != REQUIRED_TRANSCRIPT_COUNT:
-        raise InputGateError("source transcript bundle must contain exactly 492 transcripts")
-    keys: list[str] = []
+    if not isinstance(transcripts, list) or len(transcripts) != expected_count:
+        raise InputGateError(
+            f"source transcript bundle must contain exactly {expected_count} transcripts")
+    entries: dict[str, Mapping[str, Any]] = {}
     for index, raw_transcript in enumerate(transcripts):
         transcript = _object(raw_transcript, f"source transcript {index}")
-        identity = {
-            "debater_model": _text(
-                transcript.get("debater_model"), f"source transcript {index}.debater_model"),
-            "question_id": _text(
-                transcript.get("question_id"), f"source transcript {index}.question_id"),
-            "transcript_index": transcript.get("transcript_index"),
-            "transcript_sha256": _sha256(
-                transcript.get("transcript_sha256"),
-                f"source transcript {index}.transcript_sha256"),
-        }
-        transcript_index = identity["transcript_index"]
-        if (isinstance(transcript_index, bool) or not isinstance(transcript_index, int)
-                or transcript_index < 0):
-            raise InputGateError(f"source transcript {index}.transcript_index is invalid")
-        keys.append(canonical_sha256(identity))
-    if len(keys) != len(set(keys)):
-        raise InputGateError("source transcript bundle has duplicate transcript identities")
-    return sorted(keys)
+        try:
+            key = static_prompts.transcript_key(transcript)
+        except static_prompts.StaticPromptError as exc:
+            raise InputGateError(f"source transcript {index}: {exc}") from exc
+        if key in entries:
+            raise InputGateError("source transcript bundle has duplicate transcript identities")
+        entries[key] = transcript
+    return dict(sorted(entries.items()))
 
 
 def _validate_file_binding(
@@ -173,51 +145,85 @@ def _validate_role_corpus_files(
     model: str,
     role: str,
     variants: Sequence[str],
-    transcript_keys: Sequence[str],
+    transcript_entries: Mapping[str, Mapping[str, Any]],
     corpus_entry: Mapping[str, Any],
     project_root: str | Path | None,
+    protocol: Mapping[str, Any],
+    prompt_bundle: Mapping[str, Any],
+    world_documents: Mapping[str, str],
+    tokenizer: Any,
+    dataset: str = "main",
 ) -> int:
+    expected_transcript_count = TRANSCRIPT_BUNDLE_COUNTS[dataset]
+    label = f"{model}.{dataset}.{role}"
     rendered_path = _validate_file_binding(
-        _object(corpus_entry.get("rendered_corpus"), f"{model}.{role}.rendered_corpus"),
-        f"{model}.{role}.rendered_corpus",
+        _object(corpus_entry.get("rendered_corpus"), f"{label}.rendered_corpus"),
+        f"{label}.rendered_corpus",
         project_root=project_root,
     )
     counts_path = _validate_file_binding(
-        _object(corpus_entry.get("per_prompt_counts"), f"{model}.{role}.per_prompt_counts"),
-        f"{model}.{role}.per_prompt_counts",
+        _object(corpus_entry.get("per_prompt_counts"), f"{label}.per_prompt_counts"),
+        f"{label}.per_prompt_counts",
         project_root=project_root,
     )
     rendered_rows = _load_jsonl(rendered_path)
     count_rows = _load_jsonl(counts_path)
-    expected_count = REQUIRED_TRANSCRIPT_COUNT * len(variants)
+    expected_count = expected_transcript_count * len(variants)
     if len(rendered_rows) != expected_count or len(count_rows) != expected_count:
         raise InputGateError(
-            f"{model}.{role} corpus files do not contain {expected_count} rows each")
+            f"{label} corpus files do not contain {expected_count} rows each")
 
-    expected_transcript_keys = set(transcript_keys)
+    expected_transcript_keys = set(transcript_entries)
+    counts_by_key: dict[str, int] = {}
+    for index, row in enumerate(count_rows):
+        if set(row) != {"prompt_key", "prompt_tokens"}:
+            raise InputGateError(f"{label} count row {index} fields drifted")
+        prompt_key = _sha256(
+            row.get("prompt_key"), f"{label}.counts[{index}].prompt_key")
+        prompt_tokens = _positive_int(
+            row.get("prompt_tokens"), f"{label}.counts[{index}].prompt_tokens")
+        if prompt_key in counts_by_key:
+            raise InputGateError(f"{label} has duplicate per-prompt counts")
+        counts_by_key[prompt_key] = prompt_tokens
+
     seen_prompt_keys: set[str] = set()
     seen_by_variant: dict[str, set[str]] = {variant: set() for variant in variants}
     for index, row in enumerate(rendered_rows):
         if set(row) != {
-            "prompt_key", "transcript_key", "variant_id", "rendered_prompt",
-            "rendered_prompt_sha256",
+            "prompt_key", "transcript_key", "variant_id", "rendered_prompt_sha256",
         }:
-            raise InputGateError(f"{model}.{role} rendered row {index} fields drifted")
+            raise InputGateError(f"{label} rendered row {index} fields drifted")
         transcript_key = _sha256(
-            row.get("transcript_key"), f"{model}.{role}.rendered[{index}].transcript_key")
+            row.get("transcript_key"), f"{label}.rendered[{index}].transcript_key")
         variant = _text(
-            row.get("variant_id"), f"{model}.{role}.rendered[{index}].variant_id")
+            row.get("variant_id"), f"{label}.rendered[{index}].variant_id")
         if variant not in seen_by_variant:
-            raise InputGateError(f"{model}.{role} rendered row has unexpected variant {variant}")
-        rendered_prompt = _text(
-            row.get("rendered_prompt"), f"{model}.{role}.rendered[{index}].rendered_prompt")
+            raise InputGateError(f"{label} rendered row has unexpected variant {variant}")
         prompt_sha = _sha256(
             row.get("rendered_prompt_sha256"),
-            f"{model}.{role}.rendered[{index}].rendered_prompt_sha256",
+            f"{label}.rendered[{index}].rendered_prompt_sha256",
         )
+        transcript_entry = transcript_entries.get(transcript_key)
+        if transcript_entry is None:
+            raise InputGateError(f"{label} rendered row names an unknown transcript")
+        try:
+            messages = static_prompts.render_static_messages(
+                protocol=protocol,
+                prompt_bundle=prompt_bundle,
+                world_documents=world_documents,
+                transcript_entry=transcript_entry,
+                billed_model=model,
+                role=role,
+                variant_id=variant,
+            )
+            rendered_prompt, observed_prompt_tokens = static_prompts.render_chat_prompt(
+                tokenizer, messages)
+        except static_prompts.StaticPromptError as exc:
+            raise InputGateError(
+                f"could not reproduce {label} rendered row {index}: {exc}") from exc
         observed_prompt_sha = hashlib.sha256(rendered_prompt.encode("utf-8")).hexdigest()
         if observed_prompt_sha != prompt_sha:
-            raise InputGateError(f"{model}.{role} rendered prompt hash mismatch")
+            raise InputGateError(f"{label} rendered prompt hash mismatch")
         expected_prompt_key = canonical_sha256({
             "model": model,
             "role": role,
@@ -226,31 +232,47 @@ def _validate_role_corpus_files(
             "rendered_prompt_sha256": prompt_sha,
         })
         if row.get("prompt_key") != expected_prompt_key:
-            raise InputGateError(f"{model}.{role} rendered prompt_key drifted")
+            raise InputGateError(f"{label} rendered prompt_key drifted")
         if expected_prompt_key in seen_prompt_keys:
-            raise InputGateError(f"{model}.{role} has a duplicate rendered prompt_key")
+            raise InputGateError(f"{label} has a duplicate rendered prompt_key")
+        if counts_by_key.get(expected_prompt_key) != observed_prompt_tokens:
+            raise InputGateError(
+                f"{label} exact tokenizer count mismatch for {expected_prompt_key}")
         seen_prompt_keys.add(expected_prompt_key)
         seen_by_variant[variant].add(transcript_key)
     for variant, observed_keys in seen_by_variant.items():
         if observed_keys != expected_transcript_keys:
             raise InputGateError(
-                f"{model}.{role}.{variant} does not cover all 492 transcripts exactly once")
+                f"{label}.{variant} does not cover all {expected_transcript_count} "
+                "transcripts exactly once")
 
-    count_keys: set[str] = set()
-    for index, row in enumerate(count_rows):
-        if set(row) != {"prompt_key", "prompt_tokens"}:
-            raise InputGateError(f"{model}.{role} count row {index} fields drifted")
-        prompt_key = _sha256(
-            row.get("prompt_key"), f"{model}.{role}.counts[{index}].prompt_key")
-        _positive_int(
-            row.get("prompt_tokens"), f"{model}.{role}.counts[{index}].prompt_tokens")
-        if prompt_key in count_keys:
-            raise InputGateError(f"{model}.{role} has duplicate per-prompt counts")
-        count_keys.add(prompt_key)
-    if count_keys != seen_prompt_keys:
+    if set(counts_by_key) != seen_prompt_keys:
         raise InputGateError(
-            f"{model}.{role} per-prompt counts do not match the rendered corpus")
+            f"{label} per-prompt counts do not match the rendered corpus")
     return expected_count
+
+
+def _load_local_tokenizer(path: Path) -> Any:
+    try:
+        from transformers import AutoTokenizer
+        return AutoTokenizer.from_pretrained(
+            str(path), local_files_only=True, trust_remote_code=False)
+    except Exception as exc:  # noqa: BLE001 - normalize optional library/model failures
+        raise InputGateError(f"could not load local tokenizer {path}: {exc}") from exc
+
+
+def _validate_json_binding(
+    binding: Mapping[str, Any], label: str, *, project_root: str | Path | None,
+) -> tuple[Path, Mapping[str, Any]]:
+    if set(binding) != {"path", "canonical_sha256"}:
+        raise InputGateError(f"{label} fields must be exactly path and canonical_sha256")
+    path = _resolve_path(_text(binding.get("path"), f"{label}.path"), project_root)
+    value = _load_json(path)
+    payload = _object(value, label)
+    expected = _sha256(binding.get("canonical_sha256"), f"{label}.canonical_sha256")
+    if canonical_sha256(payload) != expected:
+        raise InputGateError(f"{label} canonical hash mismatch")
+    return path, payload
 
 
 def validate_exact_tokenizer_manifest(
@@ -259,38 +281,148 @@ def validate_exact_tokenizer_manifest(
     protocol: Mapping[str, Any],
     project_root: str | Path | None = None,
     verify_files: bool = True,
+    tokenizer_loader: Callable[[Path], Any] | None = None,
 ) -> dict[str, Any]:
-    """Require exact provider tokenizers plus complete role-by-transcript prompt counts."""
+    """Re-render and re-tokenize every declared static prompt from bound local inputs."""
     phase3_plan.validate_protocol(protocol)
+    expected_top_fields = {
+        "schema_version", "execution_authorized", "protocol_canonical_sha256",
+        "prompt_bundle", "query_checker_prompt", "world_documents",
+        "transcript_bundles", "models",
+    }
+    if set(manifest) != expected_top_fields:
+        raise InputGateError(
+            f"exact-tokenizer manifest fields must be exactly {sorted(expected_top_fields)!r}")
     if manifest.get("schema_version") != TOKENIZER_SCHEMA_VERSION:
         raise InputGateError("unexpected exact-tokenizer manifest schema")
     if manifest.get("execution_authorized") is not False:
         raise InputGateError("exact-tokenizer manifest cannot authorize execution")
-    source = _object(manifest.get("source_transcript_bundle"), "source_transcript_bundle")
+    if manifest.get("protocol_canonical_sha256") != canonical_sha256(protocol):
+        raise InputGateError("exact-tokenizer manifest binds a different v3 protocol")
+
+    prompt_binding = _object(manifest.get("prompt_bundle"), "prompt_bundle")
+    if set(prompt_binding) != {"path", "canonical_sha256"}:
+        raise InputGateError("prompt_bundle fields must be exactly path and canonical_sha256")
+    prompt_sha = _sha256(
+        prompt_binding.get("canonical_sha256"), "prompt_bundle.canonical_sha256")
+    expected_prompt_path = str(protocol["sources"]["prompt_bundle"]).replace("\\", "/")
+    expected_prompt_sha = protocol["source_bindings"]["canonical_json_sha256"].get(
+        expected_prompt_path)
+    if prompt_sha != expected_prompt_sha:
+        raise InputGateError("prompt bundle does not match the v3 protocol binding")
+
+    checker_prompt = _object(manifest.get("query_checker_prompt"), "query_checker_prompt")
+    expected_checker_fields = {
+        "frozen_config", "validation_design", "system_prompt_sha256",
+        "user_template_sha256",
+    }
+    if set(checker_prompt) != expected_checker_fields:
+        raise InputGateError(
+            f"query_checker_prompt fields must be exactly {sorted(expected_checker_fields)!r}")
+    checker_source_fields = {
+        "frozen_config": "query_checker_frozen_config",
+        "validation_design": "query_checker_validation_design",
+    }
+    for field, protocol_source_name in checker_source_fields.items():
+        binding = _object(checker_prompt.get(field), f"query_checker_prompt.{field}")
+        if set(binding) != {"path", "canonical_sha256"}:
+            raise InputGateError(f"query_checker_prompt.{field} fields drifted")
+        declared_sha = _sha256(
+            binding.get("canonical_sha256"),
+            f"query_checker_prompt.{field}.canonical_sha256",
+        )
+        expected_path = str(protocol["sources"][protocol_source_name]).replace("\\", "/")
+        expected_sha = protocol["source_bindings"]["canonical_json_sha256"].get(expected_path)
+        if declared_sha != expected_sha:
+            raise InputGateError(f"query-checker {field} does not match the protocol binding")
+        if verify_files:
+            _validate_json_binding(
+                binding, f"query_checker_prompt.{field}", project_root=project_root)
+        else:
+            _text(binding.get("path"), f"query_checker_prompt.{field}.path")
+    if checker_prompt.get("system_prompt_sha256") != (
+            static_prompts.CHECKER_SYSTEM_PROMPT_SHA256):
+        raise InputGateError("query-checker system prompt hash drifted")
+    if checker_prompt.get("user_template_sha256") != (
+            static_prompts.CHECKER_USER_TEMPLATE_SHA256):
+        raise InputGateError("query-checker user template hash drifted")
+
+    raw_transcript_bundles = _object(
+        manifest.get("transcript_bundles"), "transcript_bundles")
+    if set(raw_transcript_bundles) != set(TRANSCRIPT_BUNDLE_COUNTS):
+        raise InputGateError("exact-tokenizer manifest must bind main and canary transcripts")
     expected_source_fields = {
         "path", "canonical_sha256", "transcript_count", "transcript_keys_sha256",
     }
-    if set(source) != expected_source_fields:
-        raise InputGateError(
-            f"source_transcript_bundle fields must be exactly {sorted(expected_source_fields)!r}")
-    if source.get("transcript_count") != REQUIRED_TRANSCRIPT_COUNT:
-        raise InputGateError("exact-tokenizer manifest must bind all 492 main transcripts")
-    source_sha = _sha256(
-        source.get("canonical_sha256"), "source_transcript_bundle.canonical_sha256")
-    declared_transcript_keys_sha = _sha256(
-        source.get("transcript_keys_sha256"), "source_transcript_bundle.transcript_keys_sha256")
-    transcript_keys: list[str] | None = None
+    transcript_entries_by_dataset: dict[
+        str, dict[str, Mapping[str, Any]]
+    ] = {}
+    for dataset, required_count in TRANSCRIPT_BUNDLE_COUNTS.items():
+        source = _object(
+            raw_transcript_bundles.get(dataset), f"transcript_bundles[{dataset!r}]")
+        if set(source) != expected_source_fields:
+            raise InputGateError(
+                f"transcript_bundles[{dataset!r}] fields must be exactly "
+                f"{sorted(expected_source_fields)!r}")
+        if source.get("transcript_count") != required_count:
+            raise InputGateError(
+                f"exact-tokenizer manifest must bind all {required_count} {dataset} transcripts")
+        source_sha = _sha256(
+            source.get("canonical_sha256"),
+            f"transcript_bundles[{dataset!r}].canonical_sha256",
+        )
+        declared_transcript_keys_sha = _sha256(
+            source.get("transcript_keys_sha256"),
+            f"transcript_bundles[{dataset!r}].transcript_keys_sha256",
+        )
+        if verify_files:
+            source_path = _resolve_path(
+                _text(source.get("path"), f"transcript_bundles[{dataset!r}].path"),
+                project_root,
+            )
+            bundle = _load_json(source_path)
+            if not isinstance(bundle, dict):
+                raise InputGateError(f"{dataset} transcript bundle must be a JSON object")
+            if canonical_sha256(bundle) != source_sha:
+                raise InputGateError(f"{dataset} transcript bundle canonical hash mismatch")
+            entries = transcript_entries(bundle, expected_count=required_count)
+            if canonical_sha256(list(entries)) != declared_transcript_keys_sha:
+                raise InputGateError(f"{dataset} transcript-key binding mismatch")
+            transcript_entries_by_dataset[dataset] = entries
+    prompt_bundle: Mapping[str, Any] | None = None
+    world_documents: dict[str, str] = {}
     if verify_files:
-        source_path = _resolve_path(
-            _text(source.get("path"), "source_transcript_bundle.path"), project_root)
-        bundle = _load_json(source_path)
-        if not isinstance(bundle, dict):
-            raise InputGateError("source transcript bundle must be a JSON object")
-        if canonical_sha256(bundle) != source_sha:
-            raise InputGateError("source transcript bundle canonical hash mismatch")
-        transcript_keys = _transcript_keys(bundle)
-        if canonical_sha256(transcript_keys) != declared_transcript_keys_sha:
-            raise InputGateError("source transcript-key binding mismatch")
+        _prompt_path, prompt_bundle = _validate_json_binding(
+            prompt_binding, "prompt_bundle", project_root=project_root)
+
+    raw_worlds = _object(manifest.get("world_documents"), "world_documents")
+    if verify_files:
+        expected_worlds = {
+            _text(
+                _object(entry.get("transcript_payload"), "transcript_payload").get("world"),
+                "transcript_payload.world",
+            )
+            for entries in transcript_entries_by_dataset.values()
+            for entry in entries.values()
+        }
+        if set(raw_worlds) != expected_worlds:
+            raise InputGateError("world-document bindings do not match transcript worlds")
+    for world, raw_binding in raw_worlds.items():
+        _text(world, "world_documents key")
+        binding = _object(raw_binding, f"world_documents[{world!r}]")
+        if verify_files:
+            path = _validate_file_binding(
+                binding, f"world_documents[{world!r}]", project_root=project_root)
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise InputGateError(f"could not read world document {path}: {exc}") from exc
+            world_documents[world] = _text(content, f"world document {world!r}")
+        else:
+            if set(binding) != {"path", "sha256"}:
+                raise InputGateError(f"world-document binding fields drifted for {world}")
+            _text(binding.get("path"), f"world_documents[{world!r}].path")
+            _sha256(binding.get("sha256"), f"world_documents[{world!r}].sha256")
 
     models = _object(manifest.get("models"), "models")
     required_models = list(protocol["roster"]["judges_final"])
@@ -302,7 +434,8 @@ def validate_exact_tokenizer_manifest(
         entry = _object(models.get(model), f"models[{model!r}]")
         expected_entry_fields = {
             "classification", "repository", "revision", "provider_equivalence_evidence",
-            "chat_template_sha256", "files", "role_corpora",
+            "tokenizer_directory", "tokenizer_class", "chat_template_sha256", "files",
+            "corpora",
         }
         if set(entry) != expected_entry_fields:
             raise InputGateError(f"tokenizer entry fields drifted for {model}")
@@ -310,16 +443,34 @@ def validate_exact_tokenizer_manifest(
             raise InputGateError(f"tokenizer for {model} is not exact and provider-matched")
         for field in ("repository", "revision", "provider_equivalence_evidence"):
             _text(entry.get(field), f"models[{model!r}].{field}")
-        _sha256(entry.get("chat_template_sha256"), f"models[{model!r}].chat_template_sha256")
+        tokenizer_dir_text = _text(
+            entry.get("tokenizer_directory"), f"models[{model!r}].tokenizer_directory")
+        tokenizer_class = _text(
+            entry.get("tokenizer_class"), f"models[{model!r}].tokenizer_class")
+        declared_template_sha = _sha256(
+            entry.get("chat_template_sha256"), f"models[{model!r}].chat_template_sha256")
         files = _object(entry.get("files"), f"models[{model!r}].files")
         if not files:
             raise InputGateError(f"tokenizer entry for {model} has no tokenizer files")
+        tokenizer_dir = _resolve_path(tokenizer_dir_text, project_root)
+        if verify_files and not tokenizer_dir.is_dir():
+            raise InputGateError(f"local tokenizer directory does not exist: {tokenizer_dir}")
+        declared_names = set(files)
+        if verify_files:
+            observed_names = {
+                path.relative_to(tokenizer_dir).as_posix()
+                for path in tokenizer_dir.rglob("*") if path.is_file()
+            }
+            if observed_names != declared_names:
+                raise InputGateError(f"tokenizer file inventory drifted for {model}")
         for name, raw_binding in files.items():
             _text(name, f"models[{model!r}].files name")
             binding = _object(raw_binding, f"models[{model!r}].files[{name!r}]")
             if verify_files:
-                _validate_file_binding(
+                bound_path = _validate_file_binding(
                     binding, f"models[{model!r}].files[{name!r}]", project_root=project_root)
+                if bound_path.resolve() != (tokenizer_dir / name).resolve():
+                    raise InputGateError(f"tokenizer file path escapes its inventory for {model}")
             else:
                 if set(binding) != {"path", "sha256"}:
                     raise InputGateError(f"tokenizer file binding fields drifted for {model}")
@@ -327,47 +478,73 @@ def validate_exact_tokenizer_manifest(
                 _sha256(binding.get("sha256"), f"models[{model!r}].files[{name!r}].sha256")
             verified_files += 1
 
+        tokenizer = None
+        if verify_files:
+            tokenizer = (tokenizer_loader or _load_local_tokenizer)(tokenizer_dir)
+            if type(tokenizer).__name__ != tokenizer_class:
+                raise InputGateError(f"loaded tokenizer class drifted for {model}")
+            chat_template = getattr(tokenizer, "chat_template", None)
+            if not isinstance(chat_template, str) or not chat_template:
+                raise InputGateError(f"local tokenizer for {model} has no chat template")
+            observed_template_sha = hashlib.sha256(
+                chat_template.encode("utf-8")).hexdigest()
+            if observed_template_sha != declared_template_sha:
+                raise InputGateError(f"chat template hash drifted for {model}")
+
         expected_roles = expected_role_variants(protocol, model)
-        role_corpora = _object(entry.get("role_corpora"), f"models[{model!r}].role_corpora")
-        if set(role_corpora) != set(expected_roles):
-            raise InputGateError(f"role corpora for {model} do not match its billed roles")
-        for role, variants in expected_roles.items():
-            corpus = _object(role_corpora.get(role), f"models[{model!r}].role_corpora[{role!r}]")
-            expected_corpus_fields = {
-                "variant_ids", "transcript_count_per_variant",
-                "expected_rendered_prompt_count", "actual_rendered_prompt_count",
-                "rendered_corpus", "per_prompt_counts",
-            }
-            if set(corpus) != expected_corpus_fields:
-                raise InputGateError(f"role corpus fields drifted for {model}.{role}")
-            if corpus.get("variant_ids") != variants:
-                raise InputGateError(f"role variants drifted for {model}.{role}")
-            if corpus.get("transcript_count_per_variant") != REQUIRED_TRANSCRIPT_COUNT:
-                raise InputGateError(f"{model}.{role} must cover 492 transcripts per variant")
-            expected_prompt_count = REQUIRED_TRANSCRIPT_COUNT * len(variants)
-            if corpus.get("expected_rendered_prompt_count") != expected_prompt_count:
-                raise InputGateError(f"expected rendered-prompt count drifted for {model}.{role}")
-            if corpus.get("actual_rendered_prompt_count") != expected_prompt_count:
-                raise InputGateError(f"rendered prompts are incomplete for {model}.{role}")
-            if verify_files:
-                assert transcript_keys is not None
-                verified_prompts += _validate_role_corpus_files(
-                    model=model,
-                    role=role,
-                    variants=variants,
-                    transcript_keys=transcript_keys,
-                    corpus_entry=corpus,
-                    project_root=project_root,
-                )
-            else:
-                for file_field in ("rendered_corpus", "per_prompt_counts"):
-                    binding = _object(
-                        corpus.get(file_field), f"{model}.{role}.{file_field}")
-                    if set(binding) != {"path", "sha256"}:
-                        raise InputGateError(f"{model}.{role}.{file_field} fields drifted")
-                    _text(binding.get("path"), f"{model}.{role}.{file_field}.path")
-                    _sha256(binding.get("sha256"), f"{model}.{role}.{file_field}.sha256")
-                verified_prompts += expected_prompt_count
+        corpora = _object(entry.get("corpora"), f"models[{model!r}].corpora")
+        if set(corpora) != set(TRANSCRIPT_BUNDLE_COUNTS):
+            raise InputGateError(f"corpora for {model} must cover main and canary")
+        for dataset, required_count in TRANSCRIPT_BUNDLE_COUNTS.items():
+            role_corpora = _object(
+                corpora.get(dataset), f"models[{model!r}].corpora[{dataset!r}]")
+            if set(role_corpora) != set(expected_roles):
+                raise InputGateError(
+                    f"{dataset} role corpora for {model} do not match its billed roles")
+            for role, variants in expected_roles.items():
+                label = f"{model}.{dataset}.{role}"
+                corpus = _object(role_corpora.get(role), label)
+                expected_corpus_fields = {
+                    "variant_ids", "transcript_count_per_variant",
+                    "expected_rendered_prompt_count", "actual_rendered_prompt_count",
+                    "rendered_corpus", "per_prompt_counts",
+                }
+                if set(corpus) != expected_corpus_fields:
+                    raise InputGateError(f"role corpus fields drifted for {label}")
+                if corpus.get("variant_ids") != variants:
+                    raise InputGateError(f"role variants drifted for {label}")
+                if corpus.get("transcript_count_per_variant") != required_count:
+                    raise InputGateError(
+                        f"{label} must cover {required_count} transcripts per variant")
+                expected_prompt_count = required_count * len(variants)
+                if corpus.get("expected_rendered_prompt_count") != expected_prompt_count:
+                    raise InputGateError(f"expected rendered-prompt count drifted for {label}")
+                if corpus.get("actual_rendered_prompt_count") != expected_prompt_count:
+                    raise InputGateError(f"rendered prompts are incomplete for {label}")
+                if verify_files:
+                    assert prompt_bundle is not None
+                    assert tokenizer is not None
+                    verified_prompts += _validate_role_corpus_files(
+                        model=model,
+                        role=role,
+                        variants=variants,
+                        transcript_entries=transcript_entries_by_dataset[dataset],
+                        corpus_entry=corpus,
+                        project_root=project_root,
+                        protocol=protocol,
+                        prompt_bundle=prompt_bundle,
+                        world_documents=world_documents,
+                        tokenizer=tokenizer,
+                        dataset=dataset,
+                    )
+                else:
+                    for file_field in ("rendered_corpus", "per_prompt_counts"):
+                        binding = _object(corpus.get(file_field), f"{label}.{file_field}")
+                        if set(binding) != {"path", "sha256"}:
+                            raise InputGateError(f"{label}.{file_field} fields drifted")
+                        _text(binding.get("path"), f"{label}.{file_field}.path")
+                        _sha256(binding.get("sha256"), f"{label}.{file_field}.sha256")
+                    verified_prompts += expected_prompt_count
     return {
         "validation": "pass",
         "canonical_sha256": canonical_sha256(manifest),
@@ -376,6 +553,81 @@ def validate_exact_tokenizer_manifest(
         "verified_file_count": verified_files,
         "verified_rendered_prompt_count": verified_prompts,
         "local_files_checked": verify_files,
+    }
+
+
+def load_exact_context_index(
+    manifest: Mapping[str, Any],
+    *,
+    protocol: Mapping[str, Any],
+    project_root: str | Path,
+    tokenizer_loader: Callable[[Path], Any] | None = None,
+) -> dict[str, Any]:
+    """Validate the manifest, then load exact counts and transcript dimension lookups."""
+    validation = validate_exact_tokenizer_manifest(
+        manifest,
+        protocol=protocol,
+        project_root=project_root,
+        tokenizer_loader=tokenizer_loader,
+    )
+    root = Path(project_root)
+    transcript_keys: dict[tuple[str, str, str, int], str] = {}
+    for dataset, required_count in TRANSCRIPT_BUNDLE_COUNTS.items():
+        binding = _object(
+            _object(manifest["transcript_bundles"], "transcript_bundles").get(dataset),
+            f"transcript_bundles[{dataset!r}]",
+        )
+        bundle = _load_json(_resolve_path(str(binding["path"]), root))
+        entries = transcript_entries(
+            _object(bundle, f"{dataset} transcript bundle"), expected_count=required_count)
+        for transcript_key, entry in entries.items():
+            dimension_key = (
+                dataset,
+                str(entry["debater_model"]),
+                str(entry["question_id"]),
+                int(entry["transcript_index"]),
+            )
+            if dimension_key in transcript_keys:
+                raise InputGateError(
+                    f"{dataset} transcript dimensions are not unique: {dimension_key[1:]!r}")
+            transcript_keys[dimension_key] = transcript_key
+
+    prompt_tokens: dict[tuple[str, str, str, str, str], int] = {}
+    models = _object(manifest.get("models"), "models")
+    for model in protocol["roster"]["judges_final"]:
+        model_entry = _object(models.get(model), f"models[{model!r}]")
+        corpora = _object(model_entry.get("corpora"), f"models[{model!r}].corpora")
+        for dataset in TRANSCRIPT_BUNDLE_COUNTS:
+            role_corpora = _object(corpora.get(dataset), f"{model}.{dataset}")
+            for role, raw_corpus in role_corpora.items():
+                corpus = _object(raw_corpus, f"{model}.{dataset}.{role}")
+                rendered_binding = _object(
+                    corpus.get("rendered_corpus"), f"{model}.{dataset}.{role}.rendered")
+                counts_binding = _object(
+                    corpus.get("per_prompt_counts"), f"{model}.{dataset}.{role}.counts")
+                rendered_rows = _load_jsonl(
+                    _resolve_path(str(rendered_binding["path"]), root))
+                counts_by_prompt = {
+                    str(row["prompt_key"]): int(row["prompt_tokens"])
+                    for row in _load_jsonl(_resolve_path(str(counts_binding["path"]), root))
+                }
+                for row in rendered_rows:
+                    prompt_key = str(row["prompt_key"])
+                    index_key = (
+                        dataset,
+                        str(model),
+                        str(role),
+                        str(row["variant_id"]),
+                        str(row["transcript_key"]),
+                    )
+                    if index_key in prompt_tokens:
+                        raise InputGateError(f"duplicate exact-context index key: {index_key!r}")
+                    prompt_tokens[index_key] = counts_by_prompt[prompt_key]
+    return {
+        "tokenizer_manifest_canonical_sha256": canonical_sha256(manifest),
+        "validation": validation,
+        "transcript_keys": transcript_keys,
+        "prompt_tokens": prompt_tokens,
     }
 
 
@@ -403,6 +655,13 @@ def validate_price_snapshot(
 ) -> dict[str, Any]:
     """Require post-roster serverless availability and prices no more than 24 hours old."""
     phase3_plan.validate_protocol(protocol)
+    expected_top_fields = {
+        "schema_version", "provider", "verified_at_utc", "execution_authorized",
+        "raw_catalog", "models",
+    }
+    if set(snapshot) != expected_top_fields:
+        raise InputGateError(
+            f"price snapshot fields must be exactly {sorted(expected_top_fields)!r}")
     if snapshot.get("schema_version") != PRICE_SCHEMA_VERSION:
         raise InputGateError("unexpected price snapshot schema")
     if snapshot.get("execution_authorized") is not False:
@@ -410,6 +669,8 @@ def validate_price_snapshot(
     if snapshot.get("provider") != "Together":
         raise InputGateError("v3 price snapshot provider must be Together")
     verified_at = _timestamp(snapshot.get("verified_at_utc"), "verified_at_utc")
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
+        raise InputGateError("as_of must be timezone-aware")
     reference = as_of.astimezone(timezone.utc)
     age = reference - verified_at
     if age < timedelta(0) or age > max_age:
@@ -461,7 +722,7 @@ def validate_price_snapshot(
         for field in ("input_usd_per_million", "output_usd_per_million"):
             value = entry.get(field)
             if (isinstance(value, bool) or not isinstance(value, (int, float))
-                    or not math.isfinite(float(value)) or value < 0):
+                    or not math.isfinite(float(value)) or value <= 0):
                 raise InputGateError(f"invalid {field} for {model}")
             prices[field] = float(value)
         catalog_entry_sha = _sha256(

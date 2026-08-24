@@ -10,8 +10,11 @@ from typing import Any
 
 import pytest
 
+from rejudge import judge_loop, phase2_canary_gate
 from rejudge import phase3_v3_inputs as inputs
 from rejudge import phase3_v3_materialization as materialization
+from rejudge import phase3_v3_static_prompts as static_prompts
+from rejudge.config import ARMS, position_for
 from rejudge.phase2_execution import canonical_sha256
 
 from tests.test_phase3_v3_materialization import _resolution
@@ -31,36 +34,70 @@ def protocol():
 def _tokenizer_manifest(protocol):
     models = {}
     for model in protocol["roster"]["judges_final"]:
-        role_corpora = {}
-        for role, variants in inputs.expected_role_variants(protocol, model).items():
-            expected = 492 * len(variants)
-            role_corpora[role] = {
-                "variant_ids": variants,
-                "transcript_count_per_variant": 492,
-                "expected_rendered_prompt_count": expected,
-                "actual_rendered_prompt_count": expected,
-                "rendered_corpus": {"path": f"corpus/{model}/{role}.jsonl", "sha256": "3" * 64},
-                "per_prompt_counts": {"path": f"counts/{model}/{role}.jsonl", "sha256": "4" * 64},
-            }
+        corpora = {}
+        for dataset, transcript_count in inputs.TRANSCRIPT_BUNDLE_COUNTS.items():
+            role_corpora = {}
+            for role, variants in inputs.expected_role_variants(protocol, model).items():
+                expected = transcript_count * len(variants)
+                role_corpora[role] = {
+                    "variant_ids": variants,
+                    "transcript_count_per_variant": transcript_count,
+                    "expected_rendered_prompt_count": expected,
+                    "actual_rendered_prompt_count": expected,
+                    "rendered_corpus": {
+                        "path": f"corpus/{model}/{dataset}/{role}.jsonl",
+                        "sha256": "3" * 64,
+                    },
+                    "per_prompt_counts": {
+                        "path": f"counts/{model}/{dataset}/{role}.jsonl",
+                        "sha256": "4" * 64,
+                    },
+                }
+            corpora[dataset] = role_corpora
         models[model] = {
             "classification": "exact_provider_tokenizer",
             "repository": f"repository/{model}",
             "revision": "0123456789abcdef0123456789abcdef01234567",
             "provider_equivalence_evidence": "provider catalog exact repository mapping",
+            "tokenizer_directory": f"tokenizers/{model}",
+            "tokenizer_class": "FakeTokenizer",
             "chat_template_sha256": "1" * 64,
             "files": {
                 "tokenizer.json": {"path": f"tokenizers/{model}/tokenizer.json", "sha256": "2" * 64}
             },
-            "role_corpora": role_corpora,
+            "corpora": corpora,
         }
     return {
         "schema_version": inputs.TOKENIZER_SCHEMA_VERSION,
         "execution_authorized": False,
-        "source_transcript_bundle": {
-            "path": "bundle.json",
-            "canonical_sha256": "5" * 64,
-            "transcript_count": 492,
-            "transcript_keys_sha256": "6" * 64,
+        "protocol_canonical_sha256": canonical_sha256(protocol),
+        "prompt_bundle": {
+            "path": str(materialization.PROMPT_BUNDLE_PATH).replace("\\", "/"),
+            "canonical_sha256": materialization.PROMPT_BUNDLE_CANONICAL_SHA256,
+        },
+        "query_checker_prompt": {
+            "frozen_config": {
+                "path": str(materialization.CHECKER_CONFIG_PATH).replace("\\", "/"),
+                "canonical_sha256": materialization.CHECKER_CONFIG_CANONICAL_SHA256,
+            },
+            "validation_design": {
+                "path": str(
+                    materialization.CHECKER_VALIDATION_DESIGN_PATH).replace("\\", "/"),
+                "canonical_sha256": (
+                    materialization.CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256),
+            },
+            "system_prompt_sha256": static_prompts.CHECKER_SYSTEM_PROMPT_SHA256,
+            "user_template_sha256": static_prompts.CHECKER_USER_TEMPLATE_SHA256,
+        },
+        "world_documents": {},
+        "transcript_bundles": {
+            dataset: {
+                "path": f"{dataset}_bundle.json",
+                "canonical_sha256": "5" * 64,
+                "transcript_count": transcript_count,
+                "transcript_keys_sha256": "6" * 64,
+            }
+            for dataset, transcript_count in inputs.TRANSCRIPT_BUNDLE_COUNTS.items()
         },
         "models": models,
     }
@@ -72,12 +109,33 @@ def test_exact_tokenizer_shape_requires_every_model_role_variant_and_prompt(prot
         manifest, protocol=protocol, verify_files=False)
     assert report["verified_model_count"] == 4
     expected = sum(
-        492 * len(variants)
+        transcript_count * len(variants)
         for model in protocol["roster"]["judges_final"]
+        for transcript_count in inputs.TRANSCRIPT_BUNDLE_COUNTS.values()
         for variants in inputs.expected_role_variants(protocol, model).values()
     )
+    assert expected == 56_700
     assert report["verified_rendered_prompt_count"] == expected
     assert report["local_files_checked"] is False
+    judge = protocol["roster"]["judges_final"][0]
+    variants = inputs.expected_role_variants(protocol, judge)
+    assert len(variants["judge_query"]) == 8
+    assert len(variants["judge_verdict"]) == 10
+    assert len(variants["query_checker"]) == 32
+
+
+def test_five_judge_exact_corpus_arithmetic_includes_checker_source_variants():
+    protocol = materialization.materialize_protocol(
+        V2, DESIGN, _resolution(materialization.INCLUDED_OUTCOME))
+    expected = sum(
+        transcript_count * len(variants)
+        for model in protocol["roster"]["judges_final"]
+        for transcript_count in inputs.TRANSCRIPT_BUNDLE_COUNTS.values()
+        for variants in inputs.expected_role_variants(protocol, model).values()
+    )
+    checker = protocol["roster"]["query_checker"]
+    assert len(inputs.expected_role_variants(protocol, checker)["query_checker"]) == 40
+    assert expected == 70_740
 
 
 def test_exact_tokenizer_gate_rejects_proxy_missing_role_and_incomplete_corpus(protocol):
@@ -89,28 +147,68 @@ def test_exact_tokenizer_gate_rejects_proxy_missing_role_and_incomplete_corpus(p
             manifest, protocol=protocol, verify_files=False)
 
     manifest = _tokenizer_manifest(protocol)
-    del manifest["models"][model]["role_corpora"]["judge_query"]
+    del manifest["models"][model]["corpora"]["main"]["judge_query"]
     with pytest.raises(inputs.InputGateError, match="billed roles"):
         inputs.validate_exact_tokenizer_manifest(
             manifest, protocol=protocol, verify_files=False)
 
     manifest = _tokenizer_manifest(protocol)
-    manifest["models"][model]["role_corpora"]["judge_verdict"][
+    manifest["models"][model]["corpora"]["main"]["judge_verdict"][
         "actual_rendered_prompt_count"] -= 1
     with pytest.raises(inputs.InputGateError, match="incomplete"):
         inputs.validate_exact_tokenizer_manifest(
             manifest, protocol=protocol, verify_files=False)
 
 
-def test_role_corpus_files_require_exact_transcript_coverage_and_one_to_one_counts(tmp_path: Path):
-    model = "model"
+def test_role_corpus_files_recompute_prompts_and_exact_token_counts(protocol, tmp_path: Path):
+    class FakeTokenizer:
+        chat_template = "fake-template-v1"
+
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt):
+            assert add_generation_prompt is True
+            rendered = json.dumps(messages, sort_keys=True, separators=(",", ":"))
+            return list(rendered.encode("utf-8")) if tokenize else rendered
+
+    model = protocol["roster"]["judges_final"][0]
     role = "judge_verdict"
-    variant = "b0"
-    transcript_keys = [f"{index:064x}" for index in range(492)]
+    variant = "judge_verdict::b0::side0"
+    prompt_bundle = json.loads(
+        (ROOT / materialization.PROMPT_BUNDLE_PATH).read_text(encoding="utf-8"))
+    transcript_entries = {}
+    for index in range(492):
+        payload = {
+            "question_id": f"Q-{index:03d}",
+            "transcript_index": index,
+            "world": "test_world",
+            "question": f"Question {index}?",
+            "correct_answer": f"Correct {index}",
+            "wrong_answer": f"Wrong {index}",
+            "debate_transcript": [],
+            "debater_model": "debater",
+        }
+        entry = {
+            "question_id": payload["question_id"],
+            "debater_model": payload["debater_model"],
+            "transcript_index": index,
+            "transcript_sha256": canonical_sha256(payload),
+            "transcript_payload": payload,
+        }
+        transcript_entries[static_prompts.transcript_key(entry)] = entry
+
+    tokenizer = FakeTokenizer()
     rendered_rows = []
     count_rows = []
-    for index, transcript_key in enumerate(transcript_keys):
-        rendered_prompt = f"rendered prompt {index}"
+    for transcript_key, transcript_entry in transcript_entries.items():
+        messages = static_prompts.render_static_messages(
+            protocol=protocol,
+            prompt_bundle=prompt_bundle,
+            world_documents={"test_world": "World document"},
+            transcript_entry=transcript_entry,
+            billed_model=model,
+            role=role,
+            variant_id=variant,
+        )
+        rendered_prompt, prompt_tokens = static_prompts.render_chat_prompt(tokenizer, messages)
         rendered_sha = hashlib.sha256(rendered_prompt.encode("utf-8")).hexdigest()
         prompt_key = canonical_sha256({
             "model": model,
@@ -123,10 +221,9 @@ def test_role_corpus_files_require_exact_transcript_coverage_and_one_to_one_coun
             "prompt_key": prompt_key,
             "transcript_key": transcript_key,
             "variant_id": variant,
-            "rendered_prompt": rendered_prompt,
             "rendered_prompt_sha256": rendered_sha,
         })
-        count_rows.append({"prompt_key": prompt_key, "prompt_tokens": index + 1})
+        count_rows.append({"prompt_key": prompt_key, "prompt_tokens": prompt_tokens})
     rendered_path = tmp_path / "rendered.jsonl"
     counts_path = tmp_path / "counts.jsonl"
     rendered_path.write_text(
@@ -145,25 +242,75 @@ def test_role_corpus_files_require_exact_transcript_coverage_and_one_to_one_coun
         model=model,
         role=role,
         variants=[variant],
-        transcript_keys=transcript_keys,
+        transcript_entries=transcript_entries,
         corpus_entry=corpus,
         project_root=None,
+        protocol=protocol,
+        prompt_bundle=prompt_bundle,
+        world_documents={"test_world": "World document"},
+        tokenizer=tokenizer,
     ) == 492
 
-    count_rows[-1]["prompt_key"] = count_rows[0]["prompt_key"]
+    count_rows[-1]["prompt_tokens"] += 1
     counts_path.write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in count_rows),
         encoding="utf-8", newline="\n")
     corpus["per_prompt_counts"]["sha256"] = inputs.sha256_file(counts_path)
-    with pytest.raises(inputs.InputGateError, match="duplicate"):
+    with pytest.raises(inputs.InputGateError, match="exact tokenizer count mismatch"):
         inputs._validate_role_corpus_files(
             model=model,
             role=role,
             variants=[variant],
-            transcript_keys=transcript_keys,
+            transcript_entries=transcript_entries,
             corpus_entry=corpus,
             project_root=None,
+            protocol=protocol,
+            prompt_bundle=prompt_bundle,
+            world_documents={"test_world": "World document"},
+            tokenizer=tokenizer,
         )
+
+
+def test_static_query_checker_uses_the_live_frozen_runtime_prompt(protocol):
+    payload = {
+        "question_id": "Q-checker",
+        "transcript_index": 0,
+        "world": "test_world",
+        "question": "Question?",
+        "correct_answer": "Correct",
+        "wrong_answer": "Wrong",
+        "debate_transcript": [],
+        "debater_model": "debater",
+    }
+    transcript = {
+        "question_id": payload["question_id"],
+        "debater_model": payload["debater_model"],
+        "transcript_index": 0,
+        "transcript_sha256": canonical_sha256(payload),
+        "transcript_payload": payload,
+    }
+    source_judge = protocol["roster"]["judges_final"][0]
+    billed_model = protocol["roster"]["query_checker"]
+    prompt_bundle = json.loads(
+        (ROOT / materialization.PROMPT_BUNDLE_PATH).read_text(encoding="utf-8"))
+    messages = static_prompts.render_static_messages(
+        protocol=protocol,
+        prompt_bundle=prompt_bundle,
+        world_documents={},
+        transcript_entry=transcript,
+        billed_model=billed_model,
+        role="query_checker",
+        variant_id=f"query_checker::{source_judge}::sequential_b1::side0",
+    )
+    assert messages[0]["content"] == phase2_canary_gate.load_frozen_checker_prompt()
+    position_a_is_correct = position_for(
+        ARMS["clean"], payload["question_id"], payload["transcript_index"],
+        source_judge, 1,
+    )
+    candidate_a, candidate_b, _ = judge_loop._format_transcript(
+        payload, position_a_is_correct)
+    assert messages[1]["content"] == phase2_canary_gate.load_frozen_checker_user_template().format(
+        candidate_a=candidate_a, candidate_b=candidate_b, query="")
 
 
 def _price_snapshot(protocol, raw_path: Path, *, verified_at: str):

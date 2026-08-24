@@ -129,6 +129,11 @@ def test_manifest_rejects_authorization_and_roster_drift():
     with pytest.raises(run_manifest.RunManifestError):
         run_manifest.validate_run_manifest(changed)
 
+    changed = deepcopy(manifest)
+    changed["gpu_ordinal_or_not_used"] = 0
+    with pytest.raises(run_manifest.RunManifestError, match="GPU ordinal 1"):
+        run_manifest.validate_run_manifest(changed)
+
 
 def test_manifest_requires_protocol_path_binding():
     manifest, protocol, pin, tokenizer, prices = _manifest()
@@ -154,30 +159,33 @@ def test_manifest_builder_rejects_stale_prices_even_without_local_file_checks():
         _build_manifest(protocol, pin, tokenizer, prices)
 
 
-def test_finalize_requires_bit_identical_harness_hashes_and_all_output_hashes():
+def test_harness_must_pass_before_formal_outputs_can_be_finalized():
     manifest, *_ = _manifest()
     output_hashes = {path: "a" * 64 for path in manifest["planned_output_paths"]}
-    completed = run_manifest.finalize_run_manifest(
+    verified = run_manifest.record_harness_check(
         manifest,
-        output_sha256s=output_hashes,
         first_output_store_sha256="b" * 64,
         rerun_output_store_sha256="b" * 64,
     )
+    assert verified["status"] == "harness_verified"
+    assert all(value is None for value in verified["output_sha256s"].values())
+    completed = run_manifest.finalize_run_manifest(
+        verified, output_sha256s=output_hashes)
     assert completed["status"] == "complete"
     assert completed["run_id"] == manifest["run_id"]
 
     with pytest.raises(run_manifest.RunManifestError, match="not bit-identical"):
-        run_manifest.finalize_run_manifest(
+        run_manifest.record_harness_check(
             manifest,
-            output_sha256s=output_hashes,
             first_output_store_sha256="b" * 64,
             rerun_output_store_sha256="c" * 64,
         )
 
+    with pytest.raises(run_manifest.RunManifestError, match="harness-verified"):
+        run_manifest.finalize_run_manifest(manifest, output_sha256s=output_hashes)
+
     with pytest.raises(run_manifest.RunManifestError, match="keys"):
         run_manifest.finalize_run_manifest(
-            manifest,
+            verified,
             output_sha256s={},
-            first_output_store_sha256="b" * 64,
-            rerun_output_store_sha256="b" * 64,
         )

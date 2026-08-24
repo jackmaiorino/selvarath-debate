@@ -19,6 +19,10 @@ from rejudge.phase2_execution import canonical_sha256
 
 DESIGN_PATH = Path("rejudge/phase3_v3_successor_design_2026-08-23.json")
 V2_PROTOCOL_PATH = Path("rejudge/phase3_protocol_v2.json")
+PROMPT_BUNDLE_PATH = Path("rejudge/phase2_prompt_bundle.json")
+CHECKER_CONFIG_PATH = Path("rejudge/phase2_checker_frozen_config_2026-07-23.json")
+CHECKER_VALIDATION_DESIGN_PATH = Path(
+    "rejudge/phase2_checker_validation_design_2026-07-18.json")
 DEFAULT_PROTOCOL_OUTPUT_PATH = Path("rejudge/phase3_protocol_v3.json")
 DEFAULT_PROTOCOL_PIN_OUTPUT_PATH = Path("rejudge/phase3_protocol_v3_pin.json")
 
@@ -29,6 +33,11 @@ PIN_SCHEMA_VERSION = "phase3_v3_protocol_pin_v1"
 
 DESIGN_CANONICAL_SHA256 = phase3_plan.FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256
 V2_PROTOCOL_CANONICAL_SHA256 = phase3_plan.FROZEN_PROTOCOL_V2_CANONICAL_SHA256
+PROMPT_BUNDLE_CANONICAL_SHA256 = (
+    phase3_plan.FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256)
+CHECKER_CONFIG_CANONICAL_SHA256 = phase3_plan.FROZEN_CHECKER_CONFIG_CANONICAL_SHA256
+CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256 = (
+    phase3_plan.FROZEN_CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256)
 QWEN_DEADLINE_UTC = datetime(2026, 8, 29, tzinfo=timezone.utc)
 QWEN_EXPECTED_DEFERRED_CELLS = 192
 QWEN_STRICT_INVALID_DENOMINATOR = 96
@@ -374,6 +383,10 @@ def materialize_protocol(
             "canonical_json_sha256"][v2["sources"]["phase2_protocol"]],
         str(V2_PROTOCOL_PATH).replace("\\", "/"): V2_PROTOCOL_CANONICAL_SHA256,
         str(DESIGN_PATH).replace("\\", "/"): design_sha,
+        str(PROMPT_BUNDLE_PATH).replace("\\", "/"): PROMPT_BUNDLE_CANONICAL_SHA256,
+        str(CHECKER_CONFIG_PATH).replace("\\", "/"): CHECKER_CONFIG_CANONICAL_SHA256,
+        str(CHECKER_VALIDATION_DESIGN_PATH).replace("\\", "/"): (
+            CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256),
         resolution_path: resolution_sha,
         evidence_path: evidence["canonical_sha256"],
     }
@@ -426,6 +439,10 @@ def materialize_protocol(
             "phase2_protocol": v2["sources"]["phase2_protocol"],
             "phase3_protocol_v2": str(V2_PROTOCOL_PATH).replace("\\", "/"),
             "successor_design": str(DESIGN_PATH).replace("\\", "/"),
+            "prompt_bundle": str(PROMPT_BUNDLE_PATH).replace("\\", "/"),
+            "query_checker_frozen_config": str(CHECKER_CONFIG_PATH).replace("\\", "/"),
+            "query_checker_validation_design": str(
+                CHECKER_VALIDATION_DESIGN_PATH).replace("\\", "/"),
             "roster_resolution": resolution_path,
             "roster_resolution_evidence": evidence_path,
         },
@@ -476,13 +493,25 @@ def materialize_protocol(
             "execution_semantics": deepcopy(v2["decisions"]["execution_semantics"]),
             "launch_gates": _launch_gates(v2, design, roster_size),
             "spend": {
-                "status": "blocked_pending_fresh_successor_forecast",
+                "status": "canary_pending_separate_authorization_main_pending_forecast",
                 "stage_cap_usd": v2["decisions"]["spend"]["stage_cap_usd"],
                 "forecast_contract": deepcopy(design["forecast_contract"]),
-                "authorization_rule": (
-                    "a certified forecast and separate owner authorization are required before "
-                    "any successor-canary provider call"
-                ),
+                "authorization_rule": {
+                    "successor_canary": {
+                        "separate_owner_authorization_required": True,
+                        "certified_main_forecast_required": False,
+                        "dependency_reason": (
+                            "fresh successor-canary usage is an input to the main forecast"
+                        ),
+                    },
+                    "main": {
+                        "separate_owner_authorization_required": True,
+                        "certified_main_forecast_required": True,
+                        "forecast_input_requirement": (
+                            "fresh successor-canary usage ledger"
+                        ),
+                    },
+                },
             },
             "context_guard": deepcopy(v2["decisions"]["context_guard"]),
         },

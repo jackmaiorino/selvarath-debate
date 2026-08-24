@@ -78,6 +78,15 @@ FROZEN_PROTOCOL_V2_CANONICAL_SHA256 = (
 FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256 = (
     "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479"
 )
+FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256 = (
+    "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f"
+)
+FROZEN_CHECKER_CONFIG_CANONICAL_SHA256 = (
+    "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872"
+)
+FROZEN_CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256 = (
+    "4f9d3a34008234259503ce4e9b6d8152566ad7414b15e8c3d62135d892c7ed5f"
+)
 
 PHASE3_V3_BASE_JUDGES = (
     "google/gemma-4-31B-it",
@@ -727,6 +736,17 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             "rejudge/phase3_v3_successor_design_2026-08-23.json") != (
                 FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the owner-approved successor design")
+    if canonical_bindings.get("rejudge/phase2_prompt_bundle.json") != (
+            FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the exact reused prompt bundle")
+    if canonical_bindings.get(
+            "rejudge/phase2_checker_frozen_config_2026-07-23.json") != (
+                FROZEN_CHECKER_CONFIG_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the frozen query-checker configuration")
+    if canonical_bindings.get(
+            "rejudge/phase2_checker_validation_design_2026-07-18.json") != (
+                FROZEN_CHECKER_VALIDATION_DESIGN_CANONICAL_SHA256):
+        raise ProtocolValidationError("v3 must bind the frozen query-checker user template")
     resolution = _mapping(protocol.get("roster_resolution"), "roster_resolution")
     resolution_path = _non_empty_string(
         resolution.get("tracked_path"), "roster_resolution.tracked_path")
@@ -867,8 +887,40 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     if inventory.get("carry_forward_result_rows") != 0:
         raise ProtocolValidationError("v3 cannot carry v1 or v2 result rows")
 
+    spend = _mapping(decisions.get("spend"), "decisions.spend")
+    if spend.get("status") != (
+            "canary_pending_separate_authorization_main_pending_forecast"):
+        raise ProtocolValidationError("v3 spend status must preserve the two-stage boundary")
+    authorization_rule = _mapping(
+        spend.get("authorization_rule"), "decisions.spend.authorization_rule")
+    if set(authorization_rule) != {"successor_canary", "main"}:
+        raise ProtocolValidationError("v3 spend authorization stages drifted")
+    canary_authorization = _mapping(
+        authorization_rule.get("successor_canary"),
+        "decisions.spend.authorization_rule.successor_canary",
+    )
+    if canary_authorization.get("separate_owner_authorization_required") is not True:
+        raise ProtocolValidationError("v3 successor canary requires separate owner authorization")
+    if canary_authorization.get("certified_main_forecast_required") is not False:
+        raise ProtocolValidationError(
+            "v3 successor canary cannot depend on its downstream main forecast")
+    _non_empty_string(
+        canary_authorization.get("dependency_reason"),
+        "decisions.spend.authorization_rule.successor_canary.dependency_reason",
+    )
+    main_authorization = _mapping(
+        authorization_rule.get("main"), "decisions.spend.authorization_rule.main")
+    if main_authorization.get("separate_owner_authorization_required") is not True:
+        raise ProtocolValidationError("v3 main run requires separate owner authorization")
+    if main_authorization.get("certified_main_forecast_required") is not True:
+        raise ProtocolValidationError("v3 main run requires a certified forecast")
+    _non_empty_string(
+        main_authorization.get("forecast_input_requirement"),
+        "decisions.spend.authorization_rule.main.forecast_input_requirement",
+    )
+
     forecast = _mapping(
-        _mapping(decisions.get("spend"), "decisions.spend").get("forecast_contract"),
+        spend.get("forecast_contract"),
         "decisions.spend.forecast_contract",
     )
     for field in (
