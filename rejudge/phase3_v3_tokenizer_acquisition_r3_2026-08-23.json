@@ -1,0 +1,65 @@
+{
+ "schema_version": "phase3_v3_tokenizer_acquisition_v3",
+ "observed_at_utc": "2026-08-24T03:17:00Z",
+ "execution_authorized": false,
+ "provider_inference_calls": 0,
+ "provider_catalog": {
+  "path": "rejudge/phase3_provider_models_raw_r2_2026-08-23.json",
+  "canonical_sha256": "b1b3e99fd6a7697707f8c39e05663aa5dc4609fb0c62b2dddf19f63088e1b541",
+  "model_count": 279
+ },
+ "roster_amendment": {
+  "path": "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json",
+  "canonical_sha256": "44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58",
+  "removed_model": "Qwen/Qwen3.7-Max",
+  "added_model": "Qwen/Qwen3.5-397B-A17B"
+ },
+ "final_roster": {
+  "google/gemma-4-31B-it": {
+   "status": "exact_tokenizer_ready",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact",
+   "chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "status": "exact_tokenizer_ready_access_granted",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact",
+   "chat_template_sha256": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65"
+  },
+  "google/gemma-3n-E4B-it": {
+   "status": "exact_tokenizer_ready",
+   "repository": "google/gemma-3n-E4B-it",
+   "revision": "c1221e9c62e34a43ab7ffacd1be0ea71f126ef10",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it-exact",
+   "chat_template_sha256": "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001",
+   "provider_effective_template_sha256": "7bd8b0c39b1e6e291a418fb85f61b11cd58402ed87e30a941e0350370edf6ba3"
+  },
+  "Qwen/Qwen3.5-397B-A17B": {
+   "status": "exact_tokenizer_ready_owner_approved",
+   "repository": "Qwen/Qwen3.5-397B-A17B",
+   "revision": "8472618112abcbd45acbcdc58436aff4233c23f7",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B",
+   "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715"
+  }
+ },
+ "exact_corpus": {
+  "manifest_path": "rejudge/phase3_v3_exact_tokenizer_manifest_r3_2026-08-23.json",
+  "canonical_sha256": "b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127",
+  "tokenizer_file_count": 14,
+  "rendered_prompt_count": 56700,
+  "full_rerender_validation": "pass"
+ },
+ "supersedes": {
+  "manifest_path": "rejudge/phase3_v3_exact_tokenizer_manifest_r2_2026-08-23.json",
+  "canonical_sha256": "a6170c4fc43435bf39a12957445b6459a12cc5083a9309dbe14f9519c41157da",
+  "reason": "r2 included Hugging Face cache metadata; r3 binds tokenizer files only"
+ },
+ "remaining_owner_action": "separate exact-dollar authorization is still required before any paid canary",
+ "non_claims": [
+  "Tokenizer access and corpus validation do not prove endpoint response behavior.",
+  "This artifact authorizes no provider inference, canary, main run, GPU work, or spend."
+ ]
+}

@@ -1,0 +1,34 @@
+{
+ "schema_version": "phase3_v3_exact_tokenizer_spec_v1",
+ "execution_authorized": false,
+ "models": {
+  "google/gemma-4-31B-it": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-4-31B-it links directly to the same Hugging Face repository.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "provider_equivalence_evidence": "Together catalog entry meta-llama/Llama-3.3-70B-Instruct-Turbo links directly to this repository, and its exposed chat template has the same SHA-256 as the local revision.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact"
+  },
+  "google/gemma-3n-E4B-it": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "google/gemma-3n-E4B-it",
+   "revision": "c1221e9c62e34a43ab7ffacd1be0ea71f126ef10",
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-3n-E4B-it links directly to the same Hugging Face repository.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it-exact"
+  },
+  "Qwen/Qwen3.5-397B-A17B": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "Qwen/Qwen3.5-397B-A17B",
+   "revision": "8472618112abcbd45acbcdc58436aff4233c23f7",
+   "provider_equivalence_evidence": "Together catalog entry Qwen/Qwen3.5-397B-A17B links directly to the same Hugging Face repository, as bound by the owner-approved roster amendment.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B"
+  }
+ }
+}
