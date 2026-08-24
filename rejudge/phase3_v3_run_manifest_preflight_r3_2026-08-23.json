@@ -1,0 +1,49 @@
+{
+ "dependency_lock_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848",
+ "execution_authorized": false,
+ "final_roster": [
+  "google/gemma-4-31B-it",
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "google/gemma-3n-E4B-it",
+  "Qwen/Qwen3.5-397B-A17B"
+ ],
+ "git_commit": "935e25fc8432e245eeab334fe5ece7821ad471ef",
+ "gpu_ordinal_or_not_used": "not_used",
+ "harness_check": {
+  "first_output_store_sha256": null,
+  "rerun_output_store_sha256": null,
+  "seed_name": "harness",
+  "status": "pending"
+ },
+ "input_sha256s": {
+  "rejudge/phase3_protocol_v3_pin_r2.json": "20db4e6bcc098abe63ab78e62c0af37cd702f7e1dbfaa8f40567b949fc7e6620",
+  "rejudge/phase3_protocol_v3_r2.json": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+  "rejudge/phase3_v3_exact_tokenizer_manifest_r3_2026-08-23.json": "b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127",
+  "rejudge/phase3_v3_price_snapshot_r2_2026-08-23.json": "f87f73d4755da16c42a210b93aaa8e833f2a745136d70185ccb4df8ebc0383d5"
+ },
+ "linker_version_or_not_applicable": "not_applicable",
+ "output_sha256s": {
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_call_cache.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_canary_results.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_reviewer_decisions.jsonl": null,
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_usage.jsonl": null
+ },
+ "planned_output_paths": [
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_canary_results.jsonl",
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_reviewer_decisions.jsonl",
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_call_cache.jsonl",
+  "E:/selvarath-archive/phase3-v3-2026-08-23/phase3_usage.jsonl"
+ ],
+ "price_snapshot_sha256": "f87f73d4755da16c42a210b93aaa8e833f2a745136d70185ccb4df8ebc0383d5",
+ "protocol_sha256": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+ "python_version": "3.13.5",
+ "recorded_at_utc": "2026-08-24T03:21:00Z",
+ "run_id": "phase3-v3-b233b50fabe479f9",
+ "schema_version": "phase3_v3_run_manifest_v1",
+ "seeds": {
+  "analysis_bootstrap": 20260830,
+  "harness": 20260829
+ },
+ "status": "preflight",
+ "tokenizer_manifest_sha256": "b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127"
+}

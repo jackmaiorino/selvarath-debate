@@ -1,172 +1,137 @@
 # Phase 3 v3 successor handoff
 
-Status: the owner-approved offline successor implementation is complete on
-`codex/phase3-v3-successor` through `01ed987`. The authenticated Together catalog and price
-snapshot are captured, and two fixed-roster exact tokenizers are locally validated. The approved
-four-judge roster cannot yet satisfy its exact-tokenizer contract because Qwen 3.7 Max exposes
-no exact tokenizer. No run manifest exists. No provider inference call, archive write, GPU run,
-or paid spend occurred in this branch.
+Status: offline canary materialization is ready on branch
+`codex/phase3-v3-successor`. Jack approved replacing `Qwen/Qwen3.7-Max` with
+`Qwen/Qwen3.5-397B-A17B`, and Hugging Face access for Llama 3.3 is active. The final
+protocol, fresh prices, portable exact-tokenizer corpus, run manifest, and readiness report
+all validate. No provider inference, archive write, GPU run, or paid spend occurred.
+
+The final readiness report says:
+
+- `offline_canary_materialization_ready: true`
+- `paid_preflight_ready: true`
+- `canary_spend_authorized: false`
+- `main_authorization_ready: false`
+
+`paid_preflight_ready` means the offline inputs are complete enough to request a capped paid
+canary authorization. It is not authorization.
 
 Fable's original worktree remains untouched at
 `C:\Users\Jack\Dev\FailureModeExperiment\selvarath-debate`, branch `rerun-new-models`, HEAD
-`265ef526b2cecd415316ade4539ab1df1cd6fabb`. Its original untracked handoff files remain there.
+`265ef526b2cecd415316ade4539ab1df1cd6fabb`. Its nine original untracked handoff files remain
+there.
 
-## Fixed roster
+## Effective roster
 
-- Final judges: `google/gemma-4-31B-it`,
-  `meta-llama/Llama-3.3-70B-Instruct-Turbo`, `google/gemma-3n-E4B-it`, and
-  `Qwen/Qwen3.7-Max`.
-- `openai/gpt-oss-120b` remains excluded. Its 3/96 strict INVALID result failed the `<2%`
-  gate. Do not waive, retry, or replace it.
-- Jack reported that `Qwen/Qwen2.5-7B-Instruct-Turbo` was removed from Together. The exact
-  endpoint page currently labels it unavailable while Together's serverless table still lists
-  it. The resolution records that documentation conflict, treats the model as unavailable for
-  this project, and excludes it without replacement.
-- Final roster size is exactly four. Capability slope is estimate-and-plot only, with no
-  p-value.
-- Every v3 calibration, budget-smoke, and capability-anchor cell is fresh under the v3
-  identity. No v1 or v2 result row carries forward.
+- `google/gemma-4-31B-it`
+- `meta-llama/Llama-3.3-70B-Instruct-Turbo`
+- `google/gemma-3n-E4B-it`
+- `Qwen/Qwen3.5-397B-A17B`
 
-Bound artifacts:
+`Qwen/Qwen2.5-7B-Instruct-Turbo` remains excluded because its Together endpoint is no longer
+available. `openai/gpt-oss-120b` remains excluded after failing the frozen strict INVALID
+gate. Final roster size is four. Capability slope is estimate-and-plot only, with no p-value.
+No v1 or v2 result row carries into a v3 measurement slot.
 
-- Approved design: `rejudge/phase3_v3_successor_design_2026-08-23.json`, canonical SHA-256
-  `75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479`.
-- Provider observation:
-  `rejudge/phase3_v3_qwen2_5_provider_unavailability_2026-08-23.json`, canonical SHA-256
-  `ef64ffe1a55c704a9c96074b1ecad0ee1851257eebba8c9389203661bba545f3`.
-- Roster resolution: `rejudge/phase3_v3_roster_resolution_2026-08-23.json`, canonical SHA-256
-  `ef0cca2c6877e05f2a3c41727d2f538f04cb7382ff1379cb2523d450ff91d22e`.
-- Materialized protocol: `rejudge/phase3_protocol_v3.json`, canonical SHA-256
-  `f5367f9d3b176aba7f0a2d94e9d3f028920c6c52153c8b6b1ef35e98e61794fd`.
-- Protocol pin: `rejudge/phase3_protocol_v3_pin.json`, canonical SHA-256
-  `bef50d940466b3c2062f3047d3102b9c111d8242e0100d1e9c3cffbc93e40412`.
-- Authenticated provider catalog: `rejudge/phase3_provider_models_raw_2026-08-23.json`,
-  canonical SHA-256
+The original Qwen 3.7 protocol and tokenizer artifacts remain historical. Do not use them for
+execution. The effective protocol is r2 and the portable tokenizer manifest is r3.
+
+## Authoritative artifacts
+
+- Roster amendment:
+  `rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json`, canonical SHA-256
+  `44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58`.
+- Roster resolution: `rejudge/phase3_v3_roster_resolution_r2_2026-08-23.json`, canonical
+  SHA-256 `12449711abb2aab91249d65a9f9765339f381e13805ab209e83df3e371802d1d`.
+- Protocol: `rejudge/phase3_protocol_v3_r2.json`, canonical SHA-256
+  `1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e`.
+- Protocol pin: `rejudge/phase3_protocol_v3_pin_r2.json`, canonical SHA-256
+  `20db4e6bcc098abe63ab78e62c0af37cd702f7e1dbfaa8f40567b949fc7e6620`.
+- Post-resolution Together catalog:
+  `rejudge/phase3_provider_models_raw_r2_2026-08-23.json`, canonical SHA-256
   `b1b3e99fd6a7697707f8c39e05663aa5dc4609fb0c62b2dddf19f63088e1b541`.
-- Four-roster price snapshot: `rejudge/phase3_v3_price_snapshot_2026-08-23.json`, canonical
-  SHA-256 `5025daf763e09678e7a4dbcc64e0ad2eed5452f321cca047b6ee889805a1cec4`.
-- Tokenizer acquisition state: `rejudge/phase3_v3_tokenizer_acquisition_2026-08-23.json`,
-  canonical SHA-256
-  `89e6c57c0239388c8da4c059af2b231bbfba91df62644e9ed4750a4bb091d92e`.
+- Price snapshot: `rejudge/phase3_v3_price_snapshot_r2_2026-08-23.json`, canonical SHA-256
+  `f87f73d4755da16c42a210b93aaa8e833f2a745136d70185ccb4df8ebc0383d5`.
+- Portable tokenizer spec:
+  `rejudge/phase3_v3_exact_tokenizer_spec_r3_2026-08-23.json`, canonical SHA-256
+  `7aa1601d8fa3a95d03bc21312b1e32e891050cc93567f89d0795a02568e38241`.
+- Portable tokenizer manifest:
+  `rejudge/phase3_v3_exact_tokenizer_manifest_r3_2026-08-23.json`, canonical SHA-256
+  `b6958c1c6bb4db275e49e6444c8abb405d377ea0db7e9ccac16d133cd589b127`.
+- Tokenizer acquisition summary:
+  `rejudge/phase3_v3_tokenizer_acquisition_r3_2026-08-23.json`, canonical SHA-256
+  `b2d8d827abb8a8589218f513469e811f1c45baa84704ff3d82cec48a3ba984b8`.
+- Run manifest: `rejudge/phase3_v3_run_manifest_preflight_r3_2026-08-23.json`, canonical
+  SHA-256 `d000aa7369150d05abf08fac36610608ffab129aaa1fc7af2c483b10225ad3b6`.
+  Run ID is `phase3-v3-b233b50fabe479f9`; it binds Git commit
+  `935e25fc8432e245eeab334fe5ece7821ad471ef`.
+- Final readiness report: `rejudge/phase3_v3_successor_preflight_r5_2026-08-23.json`,
+  canonical SHA-256 `ea9a8cc2ac6e31ce0708eb68fce253705a5c4e21cd7692cbf2776cd6f8f76bf6`.
 
-## Completed implementation
+The r2 tokenizer manifest is superseded because it included Hugging Face cache metadata. The
+r3 manifest binds exactly 14 tokenizer files and is the only tokenizer manifest to use.
 
-- `72c0a5ebbd321893d55acb2d7ea26606a7c78f7a`: records separate reserved prompt and
-  completion tokens, including reasoning-model reservation release.
-- `dd573dc989eb4ea5e8d08b00ad7734d24b721557`: deterministic roster resolution, v3 protocol
-  and pin materialization, dynamic roster planning, and a non-authorizing run manifest.
-- `b819ef1c720d0784e25b7b8b5237f6385e705745`: zero-filled slot-role inputs plus exact
-  tokenizer and fresh-price gates.
-- `9a6ec79cf6535b5e0f935ffb73d7dee494aaefb2`: byte-identical end-to-end protocol
-  materialization test.
-- `6ad591ed6069757c66a5c7c9bbe380c2aa8c3b13`: exact offline corpus builder, live frozen
-  checker prompt binding, saved-catalog price builder, environment-captured run manifest, and
-  separate canary and main authorization.
-- `ce473fea099acb2a72dec586cb8f357bc75f15f0`: dynamic-history residuals and complete
-  main-grid cost forecast with actual billed-model pricing, U90 clustering, per-line cent
-  ceilings, transport multiplier, and cumulative spend.
-- `398b8d2629f3e968f9603371a313a73e5eb10029`: provider-unavailable roster outcome, owner
-  observation and resolution, fixed four-judge protocol and pin, and resolved preflight.
-- `649634b`: create-only authenticated Together catalog capture, fresh four-roster price
-  snapshot, exact-tokenizer acquisition findings, and refreshed preflight.
-- `01ed987`: authenticated Gemma 3n tokenizer acquisition and the pending Llama repository
-  review state.
+## Exact tokenizer state
 
-Important implementation invariants:
+- Gemma 4 repository `google/gemma-4-31B-it`, revision
+  `842da3794eaa0b77d5f08bae87a17459d91ff475`.
+- Llama repository `meta-llama/Llama-3.3-70B-Instruct`, revision
+  `6f6073b423013f6a7d4d9f39144961bfbfbc386b`. Its local chat-template SHA-256 exactly
+  matches Together's exposed template.
+- Gemma 3n repository `google/gemma-3n-E4B-it`, revision
+  `c1221e9c62e34a43ab7ffacd1be0ea71f126ef10`.
+- Qwen repository `Qwen/Qwen3.5-397B-A17B`, revision
+  `8472618112abcbd45acbcdc58436aff4233c23f7`.
 
-- The live checker uses the 5,612-character frozen runtime system prompt from
-  `phase2_checker_frozen_config_2026-07-23.json`.
-- Canary calls require separate owner authorization. Main calls require a certified
-  fresh-canary forecast and separate owner authorization.
-- The run manifest has an explicit `harness_verified` state. One seed must produce a
-  bit-identical output-store SHA-256 on rerun before formal measurement.
-- Any used GPU must be exclusive headless GPU ordinal 1. Provider-only work records
-  `not_used`.
-- Saved catalog prices must be strictly positive. Every new CLI artifact write is create-only.
+Together accepts consecutive user messages for Gemma 3n while the public template contains a
+role-validation guard. The local renderer removes only that guard for the one frozen template
+hash and preserves every message boundary. It matched all 20 sampled historical first-query
+prompt counts exactly and 19 of 20 sampled budget-zero verdict counts exactly; the remaining
+verdict differed by one token. The full corpus then passed a second render-and-count check over
+56,700 prompts.
 
-## Forecast contract
+Portable tokenizer directories and the corpus are intentionally ignored local inputs:
 
-The fixed roster produces 19,680 main judgment slots, 960 fresh canary slots, and 56,700 exact
-rendered static prompts. Every planned judgment slot contains `judge_query`, `judge_verdict`,
-`query_checker`, and `oracle_verification` rows. Uncalled roles and early-DONE paths are explicit
-zeros. Every attempt is counted. Success and charged malformed attempts use actual tokens,
-released-no-charge attempts use zero, and unknown charges require their full reserved input and
-output split.
+- `rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact`
+- `rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact`
+- `rejudge/output/phase3_v3_tokenizers/google--gemma-3n-E4B-it-exact`
+- `rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-397B-A17B`
+- `rejudge/output/phase3_v3_exact_tokenizer_corpus_r3_2026-08-23`
 
-The canary estimator computes per-question mean per slot, including zeros, followed by the
-central-90-percent upper endpoint across questions. The main projection adds dynamic and
-completion U90 to each exact main static context. It prices checker and oracle calls by their
-actual billed models, multiplies by 1.15, ceilings each model/source-judge/role/condition line to
-whole cents, and adds all actual and uncertain prior-stage spend.
+Frozen transcript bundles remain at
+`E:/selvarath-archive/phase3-materialization-2026-08-18/`. Preserve these local inputs when
+moving worktrees.
 
-## Verified state
+## Run identity and verification
 
-- Full repository regression: `2248 passed, 65 skipped`, exit code 0, 535.98 seconds.
-- Focused v3 regression: `61 passed`, exit code 0.
+The run manifest records seeds `harness=20260829` and `analysis_bootstrap=20260830`, GPU
+`not_used`, and four planned append-only canary stores under
+`E:/selvarath-archive/phase3-v3-2026-08-23/`. All output hashes remain null because no run has
+started. Its harness status is `pending`.
+
+Verification completed:
+
+- Protocol create/check cycle: bit-identical pass.
+- Focused v3 regression after the roster and tokenizer changes: 69 passed.
+- Full repository regression: 2,258 passed, 65 skipped in 501.87 seconds.
+- Final readiness-report and run-manifest regression: 20 passed.
 - Focused type analysis over every changed Python file: pass.
-- Protocol create/check cycle: byte-identical pass.
-- The prior repository-wide `ty` run still had 110 legacy diagnostics outside this lane. Every
-  file changed here is clean under focused `ty`.
-- Frozen main transcripts: 492, canonical SHA-256
-  `d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8`.
-- Frozen canary transcripts: 48, canonical SHA-256
-  `080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864`.
-- Ignored `data/transcripts.jsonl` remains byte-identical to Fable's preserved copy, SHA-256
-  `3ea8e7f68ebd6a50369ed924b99c34412094c93bc3dea4e60bdebbed9bf31887`.
-- Authenticated Together catalog retrieval returned 279 entries and all four fixed-roster model
-  IDs. This was one model-list request and zero inference calls.
-- `google/gemma-4-31B-it` exact tokenizer revision
-  `842da3794eaa0b77d5f08bae87a17459d91ff475` loads locally as `GemmaTokenizer` with the
-  required chat template.
-- `google/gemma-3n-E4B-it` exact tokenizer revision
-  `c1221e9c62e34a43ab7ffacd1be0ea71f126ef10` loads locally as `GemmaTokenizer` with the
-  required chat template.
-- `Qwen/Qwen3.5-397B-A17B` revision
-  `8472618112abcbd45acbcdc58436aff4233c23f7` is locally validated as a possible replacement,
-  but is not in the roster without Jack's approval.
-- Catalog-capture, price-materialization, and successor-preflight tests: `17 passed`.
-- Focused type analysis for the catalog and price lane: pass.
+- Tracked r3 tokenizer manifest replay: four models, 14 tokenizer files, 56,700 prompts, pass.
+- Fresh price snapshot: four required serverless models, pass.
 
-## Remaining blockers
+The price snapshot was retrieved at `2026-08-24T02:27:45.415224Z`. Refresh it if more than
+24 hours old and immediately before requesting paid main authorization.
 
-1. `Qwen/Qwen3.7-Max` is proprietary. Its authenticated catalog row exposes no repository,
-   tokenizer, chat template, BOS token, or EOS token, and Together exposes no tokenizer-count
-   endpoint. The approved exact non-proxy contract cannot be satisfied for this judge. Jack must
-   approve a roster replacement or a scientific contract amendment. The locally validated
-   replacement recommendation is `Qwen/Qwen3.5-397B-A17B`.
-2. Jack authenticated the local Hugging Face client and obtained Gemma 3n access. The submitted
-   request for `meta-llama/Llama-3.3-70B-Instruct-Turbo` remains under manual review by the
-   repository authors. Its exact tokenizer cannot be downloaded until they approve the request.
-3. The run manifest cannot be built until the final tokenizer manifest exists. If the roster
-   changes, rematerialize the protocol, catalog price snapshot, tokenizer corpus, and manifest.
-4. A fresh complete successor canary, exact usage ledger, and dynamic residual frame are absent.
-5. Jack has authorized neither successor-canary spend nor main spend.
+## Remaining sequence
 
-The historical v2 ledger's 149 unknown-charge rows remain unmodified. Their missing token split
-does not block v3: the v3 slot and residual frames consume only fresh successor-canary usage, and
-historical stages enter cumulative accounting through actual and uncertain spend totals. Never
-infer or retrofit the old split.
+1. Obtain Jack's separate authorization for the successor canary with an exact dollar cap.
+2. Under that cap, run one declared seed end to end twice and require a bit-identical output
+   store SHA-256. This is paid provider work and has not started.
+3. Record the harness pass, then run the fresh successor canary once.
+4. Build the exact dynamic-residual and cost forecast from the fresh canary ledger.
+5. Require all canary gates, an estimable L90, a certified forecast within the stage cap, and
+   separate owner main authorization before any main call.
 
-## Return sequence for Fable
-
-1. Obtain Jack's roster decision for Qwen 3.7 Max. Do not substitute a model silently.
-2. Wait for the Llama 3.3 repository authors to approve Jack's submitted access request, then
-   download its exact pinned tokenizer files.
-3. If Jack approves the replacement recommendation, rematerialize the v3 roster and protocol,
-   then rebuild the saved-catalog price snapshot for the new final roster.
-4. Run `scripts\phase3_v3_build_tokenizer_corpus.py` with both frozen transcript bundles and all
-   final exact tokenizers. Refresh prices whenever the 24-hour window expires and immediately
-   before paid authorization.
-5. Commit the bound inputs, then run `scripts\phase3_v3_build_run_manifest.py` from a clean
-   worktree. The manifest never authorizes execution.
-6. Ask Jack for separate successor-canary spend authorization and a stated canary cap.
-7. Under that authorization, run one seed end to end twice and require identical output-store
-   SHA-256s before formal canary measurement.
-8. Run the fresh canary once, then build the cost forecast from its exact result store, usage
-   ledger, contexts, prices, and cumulative spend segments.
-9. Require all canary gates, an estimable L90, a certified forecast within the stage cap, and
-   separate owner main authorization before any main provider call.
-
-Do not restart v2, infer the missing reservation split, carry old result rows into v3, accept
-third-party license terms for Jack, replace an unavailable judge without owner approval, or treat
-this offline implementation as spend authorization.
+Do not restart v2, infer the 149 historical missing reservation splits, carry old rows into v3,
+use the superseded r2 tokenizer manifest, run on a different Qwen model, or treat offline
+readiness as spend authorization.

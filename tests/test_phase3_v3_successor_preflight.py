@@ -21,6 +21,7 @@ from tests.test_phase3_v3_inputs import (  # noqa: E402
     _tokenizer_manifest,
 )
 from tests.test_phase3_v3_materialization import AMENDMENT, _resolution  # noqa: E402
+from tests.test_phase3_v3_run_manifest import _manifest as _run_manifest_fixture  # noqa: E402
 
 
 V2 = json.loads((REPO_ROOT / materialization.V2_PROTOCOL_PATH).read_text(encoding="utf-8"))
@@ -181,6 +182,22 @@ def test_price_snapshot_requires_all_models_serverless_and_younger_than_24_hours
             snapshot, protocol=protocol, as_of=stale_as_of)
 
 
+def test_run_manifest_validation_binds_all_offline_inputs():
+    manifest, protocol, pin, tokenizer, prices = _run_manifest_fixture()
+    report = preflight.validate_run_manifest(
+        manifest,
+        protocol=protocol,
+        protocol_pin=pin,
+        tokenizer_manifest=tokenizer,
+        price_snapshot=prices,
+        verify_external_files=False,
+    )
+    assert report["validation"] == "pass"
+    assert report["run_id"] == manifest["run_id"]
+    assert report["harness_status"] == "pending"
+    assert report["execution_authorized"] is False
+
+
 def test_live_v2_archive_diagnostic_is_read_only_and_not_paid_ready():
     if not preflight.ARCHIVE_DIR_DEFAULT.is_dir():
         pytest.skip("bound v2 archive is not mounted")
@@ -196,5 +213,6 @@ def test_live_v2_archive_diagnostic_is_read_only_and_not_paid_ready():
     assert artifact["historical_v2_usage_forecast_compatibility"][
         "missing_split_count"] == 149
     assert artifact["successor_design_ready"] is True
+    assert artifact["offline_canary_materialization_ready"] is False
     assert artifact["paid_preflight_ready"] is False
     assert artifact["main_authorization_ready"] is False

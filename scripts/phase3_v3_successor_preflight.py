@@ -21,7 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from rejudge import phase3_plan, phase3_v3_inputs  # noqa: E402
+from rejudge import phase3_plan, phase3_v3_inputs, phase3_v3_run_manifest  # noqa: E402
 from rejudge.phase2_execution import canonical_sha256  # noqa: E402
 from phase3_canary_closeout_v2 import (  # noqa: E402
     collect_packet_commits,
@@ -35,6 +35,7 @@ DESIGN_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_design_2026-0
 CLOSEOUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_canary_closeout_v2_2026-08-23.json"
 ARCHIVE_DIR_DEFAULT = Path("E:/selvarath-archive/phase3-v2-2026-08-21")
 PROTOCOL_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_protocol_v3_r2.json"
+PROTOCOL_PIN_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_protocol_v3_pin_r2.json"
 OUTPUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_preflight_2026-08-23.json"
 
 EXPECTED_DESIGN_CANONICAL_SHA256 = (
@@ -324,6 +325,32 @@ def validate_price_snapshot(
     )
 
 
+def validate_run_manifest(
+    manifest: Mapping[str, Any], *, protocol: Mapping[str, Any],
+    protocol_pin: Mapping[str, Any], tokenizer_manifest: Mapping[str, Any],
+    price_snapshot: Mapping[str, Any], project_root: Path | None = None,
+    verify_external_files: bool = True,
+) -> dict[str, Any]:
+    phase3_v3_run_manifest.validate_run_manifest(
+        manifest,
+        protocol=protocol,
+        protocol_pin=protocol_pin,
+        tokenizer_manifest=tokenizer_manifest,
+        price_snapshot=price_snapshot,
+        project_root=project_root,
+        verify_external_files=verify_external_files,
+    )
+    return {
+        "validation": "pass",
+        "canonical_sha256": canonical_sha256(manifest),
+        "run_id": manifest["run_id"],
+        "status": manifest["status"],
+        "git_commit": manifest["git_commit"],
+        "harness_status": manifest["harness_check"]["status"],
+        "execution_authorized": False,
+    }
+
+
 def historical_pace_diagnostic(
     *, closeout: Mapping[str, Any], archive_dir: Path, block_seconds: int,
     minimum_full_blocks: int,
@@ -360,7 +387,8 @@ def build_preflight(
     *, design_path: Path, closeout_path: Path, archive_dir: Path,
     protocol_path: Path | None = None,
     tokenizer_manifest_path: Path | None = None, price_snapshot_path: Path | None = None,
-    price_as_of: datetime | None = None,
+    price_as_of: datetime | None = None, protocol_pin_path: Path | None = None,
+    run_manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     design = validate_design(design_path)
     closeout = load_json_object(closeout_path)
@@ -402,6 +430,7 @@ def build_preflight(
             "execution_authorized": False,
         }
 
+    tokenizer_manifest: dict[str, Any] | None = None
     tokenizer_validation: dict[str, Any]
     if tokenizer_manifest_path is None:
         tokenizer_validation = {
@@ -415,6 +444,7 @@ def build_preflight(
         tokenizer_validation = validate_exact_tokenizer_manifest(
             tokenizer_manifest, protocol=protocol, project_root=REPO_ROOT)
 
+    price_snapshot: dict[str, Any] | None = None
     price_validation: dict[str, Any]
     if price_snapshot_path is None:
         price_validation = {
@@ -430,8 +460,32 @@ def build_preflight(
         price_validation = validate_price_snapshot(
             price_snapshot, protocol=protocol, as_of=price_as_of, project_root=REPO_ROOT)
 
-    blockers = ["successor run manifest is not materialized",
-                "fresh complete successor canary has not run"]
+    run_manifest_validation: dict[str, Any]
+    if run_manifest_path is None:
+        run_manifest_validation = {
+            "validation": "pending",
+            "reason": "no successor run manifest supplied",
+        }
+    else:
+        if protocol is None or tokenizer_manifest is None or price_snapshot is None:
+            raise ValueError(
+                "protocol, exact tokenizers, and prices are required to validate a run manifest")
+        if protocol_pin_path is None:
+            raise ValueError("protocol pin is required to validate a run manifest")
+        run_manifest = load_json_object(run_manifest_path)
+        protocol_pin = load_json_object(protocol_pin_path)
+        run_manifest_validation = validate_run_manifest(
+            run_manifest,
+            protocol=protocol,
+            protocol_pin=protocol_pin,
+            tokenizer_manifest=tokenizer_manifest,
+            price_snapshot=price_snapshot,
+            project_root=REPO_ROOT,
+            verify_external_files=False,
+        )
+        run_manifest_validation["path"] = run_manifest_path.as_posix()
+
+    blockers = ["fresh complete successor canary has not run"]
     if protocol is None:
         blockers[:0] = [
             "the fixed successor protocol and namespace were not supplied",
@@ -440,6 +494,20 @@ def build_preflight(
         blockers.append("exact provider-matched tokenizer corpus is absent")
     if price_validation["validation"] != "pass":
         blockers.append("fresh serverless availability and price snapshot is absent")
+    if run_manifest_validation["validation"] != "pass":
+        blockers.append("successor run manifest is not materialized")
+    elif run_manifest_validation["harness_status"] != "bit_identical_pass":
+        blockers.append("bit-identical one-seed harness check has not run")
+
+    offline_canary_materialization_ready = all([
+        protocol is not None,
+        tokenizer_validation["validation"] == "pass",
+        price_validation["validation"] == "pass",
+        run_manifest_validation["validation"] == "pass",
+        historical_pace["estimable"],
+    ])
+    if offline_canary_materialization_ready:
+        blockers.append("separate owner canary spend authorization is absent")
 
     return {
         "schema_version": "phase3_v3_successor_preflight_v1",
@@ -459,8 +527,11 @@ def build_preflight(
         "historical_v2_usage_forecast_compatibility": historical_usage_compatibility,
         "exact_tokenizer_manifest": tokenizer_validation,
         "price_snapshot": price_validation,
+        "run_manifest": run_manifest_validation,
         "successor_design_ready": historical_pace["estimable"],
-        "paid_preflight_ready": False,
+        "offline_canary_materialization_ready": offline_canary_materialization_ready,
+        "paid_preflight_ready": offline_canary_materialization_ready,
+        "canary_spend_authorized": False,
         "main_authorization_ready": False,
         "blockers": blockers,
         "non_claims": [
@@ -481,6 +552,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tokenizer-manifest", type=Path)
     parser.add_argument("--price-snapshot", type=Path)
     parser.add_argument("--price-as-of", type=str)
+    parser.add_argument("--protocol-pin", type=Path, default=PROTOCOL_PIN_PATH_DEFAULT)
+    parser.add_argument("--run-manifest", type=Path)
     parser.add_argument("--out", type=Path, default=OUTPUT_PATH_DEFAULT)
     args = parser.parse_args(argv)
     price_as_of = parse_timestamp(args.price_as_of) if args.price_as_of else None
@@ -493,6 +566,8 @@ def main(argv: list[str] | None = None) -> int:
             args.tokenizer_manifest.resolve() if args.tokenizer_manifest else None),
         price_snapshot_path=args.price_snapshot.resolve() if args.price_snapshot else None,
         price_as_of=price_as_of,
+        protocol_pin_path=args.protocol_pin.resolve() if args.protocol_pin else None,
+        run_manifest_path=args.run_manifest.resolve() if args.run_manifest else None,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8", newline="\n") as handle:
