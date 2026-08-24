@@ -1,0 +1,94 @@
+{
+ "schema_version": "phase3_v3_tokenizer_acquisition_v1",
+ "observed_at_utc": "2026-08-24T01:54:29.163861Z",
+ "execution_authorized": false,
+ "provider_inference_calls": 0,
+ "provider_catalog": {
+  "path": "rejudge/phase3_provider_models_raw_2026-08-23.json",
+  "canonical_sha256": "b1b3e99fd6a7697707f8c39e05663aa5dc4609fb0c62b2dddf19f63088e1b541",
+  "model_count": 279
+ },
+ "fixed_roster": {
+  "google/gemma-4-31B-it": {
+   "status": "exact_tokenizer_ready",
+   "catalog_entry_canonical_sha256": "0cb6fc8603f73f8ed35a3fc2783e41954462c7ed7f0ebdb7f6b7fc791f13d39a",
+   "provider_repository_mapping": "https://huggingface.co/api/models/google/gemma-4-31B-it",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "gated": false,
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it",
+   "tokenizer_class": "GemmaTokenizer",
+   "chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+   "files": {
+    "chat_template.jinja": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+    "tokenizer.json": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "tokenizer_config.json": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633"
+   }
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "status": "blocked_owner_license_access_required",
+   "catalog_entry_canonical_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
+   "provider_repository_mapping": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "gated": "manual",
+   "unauthenticated_tokenizer_download": "HTTP 401 GatedRepoError"
+  },
+  "google/gemma-3n-E4B-it": {
+   "status": "blocked_owner_license_access_required",
+   "catalog_entry_canonical_sha256": "548b1f85b41fecddfe9baf32c653347c73a9593d6eba634fee0b85753b377005",
+   "provider_repository_mapping": "https://huggingface.co/google/gemma-3n-E4B-it",
+   "repository": "google/gemma-3n-E4B-it",
+   "revision": "c1221e9c62e34a43ab7ffacd1be0ea71f126ef10",
+   "gated": "manual",
+   "unauthenticated_tokenizer_download": "HTTP 401 GatedRepoError"
+  },
+  "Qwen/Qwen3.7-Max": {
+   "status": "blocked_no_exact_tokenizer_exposed",
+   "catalog_entry_canonical_sha256": "826a19dcaf40815c734d055f3767fa827613da734059b87580d779fae9525f14",
+   "provider_repository_mapping": null,
+   "provider_chat_template": null,
+   "provider_bos_token": null,
+   "provider_eos_token": null,
+   "official_model_classification": "proprietary",
+   "exact_hugging_face_repository_matches": 0,
+   "together_sdk_tokenizer_or_count_endpoint": false,
+   "consequence": "The approved exact non-proxy tokenizer contract cannot be satisfied for this model from exposed provider metadata."
+  }
+ },
+ "replacement_candidate": {
+  "model": "Qwen/Qwen3.5-397B-A17B",
+  "status": "exact_tokenizer_locally_validated_owner_roster_decision_required",
+  "catalog_entry_canonical_sha256": "33b41f5eb22760ccfd187e56d09f6630c931e1e3981891f52710344b70fa5c0e",
+  "provider_repository_mapping": "https://huggingface.co/api/models/Qwen/Qwen3.5-397B-A17B",
+  "repository": "Qwen/Qwen3.5-397B-A17B",
+  "revision": "8472618112abcbd45acbcdc58436aff4233c23f7",
+  "gated": false,
+  "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/candidate--Qwen--Qwen3.5-397B-A17B",
+  "tokenizer_class": "Qwen2Tokenizer",
+  "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+  "input_usd_per_million": 0.6,
+  "output_usd_per_million": 3.6,
+  "context_length": 262144,
+  "files": {
+   "chat_template.jinja": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+   "tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+   "tokenizer_config.json": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8"
+  }
+ },
+ "historical_unknown_charge_disposition": {
+  "v2_missing_split_count": 149,
+  "action": "preserve_unmodified_and_do_not_infer",
+  "v3_forecast_use": "none",
+  "reason": "The v3 slot and dynamic residual frames consume only the fresh successor-canary usage ledger. Historical v2 ledgers enter cumulative accounting through actual and uncertain spend totals, not token splits."
+ },
+ "owner_actions_required": [
+  "Choose whether to replace Qwen/Qwen3.7-Max or amend the exact-tokenizer contract.",
+  "Grant Hugging Face access for the exact Gemma 3n and Llama 3.3 repositories."
+ ],
+ "non_claims": [
+  "Authenticated catalog presence is not a paid endpoint smoke test.",
+  "The replacement candidate is not part of the roster until Jack approves it.",
+  "This artifact authorizes no provider inference, canary, main run, GPU work, or spend."
+ ]
+}

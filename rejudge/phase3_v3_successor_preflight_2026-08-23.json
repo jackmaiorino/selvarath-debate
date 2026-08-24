@@ -2,8 +2,7 @@
  "blockers": [
   "successor run manifest is not materialized",
   "fresh complete successor canary has not run",
-  "exact provider-matched tokenizer corpus is absent",
-  "fresh serverless availability and price snapshot is absent"
+  "exact provider-matched tokenizer corpus is absent"
  ],
  "design": {
   "canonical_sha256": "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479",
@@ -234,8 +233,17 @@
  ],
  "paid_preflight_ready": false,
  "price_snapshot": {
-  "reason": "no fresh price snapshot supplied",
-  "validation": "pending"
+  "age_seconds": 0.0,
+  "canonical_sha256": "5025daf763e09678e7a4dbcc64e0ad2eed5452f321cca047b6ee889805a1cec4",
+  "raw_catalog_checked": true,
+  "required_models": [
+   "google/gemma-4-31B-it",
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "google/gemma-3n-E4B-it",
+   "Qwen/Qwen3.7-Max"
+  ],
+  "validation": "pass",
+  "verified_at_utc": "2026-08-24T01:50:28.628399Z"
  },
  "provider_calls_made": 0,
  "provisional_roster": [
