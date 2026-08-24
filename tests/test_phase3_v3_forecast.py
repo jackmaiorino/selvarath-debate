@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from rejudge import phase3_plan, phase3_v3_forecast as forecast
 from rejudge import phase3_v3_materialization as materialization
+from rejudge.phase2_execution import canonical_sha256
 
+from tests.test_phase3_v3_inputs import _price_snapshot
 from tests.test_phase3_v3_materialization import _resolution
 
 
@@ -29,15 +32,19 @@ def planned_cells(protocol):
     judge = protocol["roster"]["judges_final"][0]
     return [
         {
-            "cell_key": f"slot-{question}-{condition}",
+            "cell_key": f"slot-{question}-{condition}-side{side}",
             "kind": phase3_plan.CANARY_JUDGMENT_KIND,
             "condition": condition,
             "question_id": question,
             "judge_model": judge,
+            "debater_model": "debater",
+            "transcript_index": 0,
+            "replicate_index": side,
             "query_budget": 0 if condition == "b0" else 1,
         }
         for question in ("Q1", "Q2")
-        for condition in ("b0", "b1")
+        for condition in ("b0", "sequential_b1")
+        for side in (0, 1)
     ]
 
 
@@ -89,7 +96,8 @@ def _complete_usage(protocol, planned_cells):
             status="success", reserved_prompt=1000, reserved_completion=500,
             prompt=10 + index, completion=2 + index))
     q1_b1 = next(cell for cell in planned_cells
-                 if cell["question_id"] == "Q1" and cell["condition"] == "b1")
+                 if cell["question_id"] == "Q1"
+                 and cell["condition"] == "sequential_b1")
     events.extend(_attempt(
         "query-unknown", cell=q1_b1, role="judge_query", model=judge,
         status="unknown_charge", reserved_prompt=20, reserved_completion=30,
@@ -112,21 +120,49 @@ def _build(protocol, planned_cells, events):
         protocol=protocol,
         planned_cells=planned_cells,
         completed_cell_keys=[cell["cell_key"] for cell in planned_cells],
+        completed_results_sha256="e" * 64,
         usage_events=events,
         usage_ledger_sha256="f" * 64,
     )
 
 
+def _exact_context(frame):
+    transcript_keys = {}
+    prompt_tokens = {}
+    for record in frame["role_records"]:
+        dimension = (
+            "canary", record["debater_model"], record["question_id"],
+            record["transcript_index"],
+        )
+        transcript_key = f"transcript-{record['question_id']}"
+        transcript_keys[dimension] = transcript_key
+        impossible = record["query_budget"] == 0 and record["role"] in {
+            "judge_query", "query_checker", "oracle_verification",
+        }
+        if not impossible:
+            variant = forecast._static_variant_id(record)
+            prompt_tokens[(
+                "canary", record["billed_model"], record["role"], variant, transcript_key,
+            )] = 1
+    return {
+        "tokenizer_manifest_canonical_sha256": "a" * 64,
+        "validation": {"validation": "pass", "local_files_checked": True},
+        "transcript_keys": transcript_keys,
+        "prompt_tokens": prompt_tokens,
+    }
+
+
 def test_frame_materializes_every_slot_role_and_includes_zero_rows(protocol, planned_cells):
     artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
-    assert artifact["planned_judgment_slot_count"] == 4
-    assert artifact["role_record_count"] == 16
-    assert artifact["expected_role_record_count"] == 16
+    assert artifact["planned_judgment_slot_count"] == 8
+    assert artifact["role_record_count"] == 32
+    assert artifact["expected_role_record_count"] == 32
     assert artifact["execution_authorized"] is False
 
     q2_b1_query = next(
         record for record in artifact["role_records"]
-        if record["question_id"] == "Q2" and record["condition"] == "b1"
+        if record["question_id"] == "Q2" and record["condition"] == "sequential_b1"
+        and record["mirrored_side"] == 0
         and record["role"] == "judge_query")
     assert q2_b1_query["zero_filled"] is True
     assert q2_b1_query["prompt_tokens"] == 0
@@ -138,11 +174,13 @@ def test_unknown_charge_uses_full_split_and_success_uses_actual_tokens(protocol,
     artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
     q1_b1_query = next(
         record for record in artifact["role_records"]
-        if record["question_id"] == "Q1" and record["condition"] == "b1"
+        if record["question_id"] == "Q1" and record["condition"] == "sequential_b1"
+        and record["mirrored_side"] == 0
         and record["role"] == "judge_query")
     assert q1_b1_query["prompt_tokens"] == 25
     assert q1_b1_query["completion_tokens"] == 32
     assert q1_b1_query["attempt_count"] == 2
+    assert q1_b1_query["billed_attempt_count"] == 2
     assert q1_b1_query["unknown_charge_attempt_count"] == 1
     assert q1_b1_query["actual_token_attempt_count"] == 1
 
@@ -150,7 +188,8 @@ def test_unknown_charge_uses_full_split_and_success_uses_actual_tokens(protocol,
 def test_checker_and_oracle_are_priced_by_actual_billed_model(protocol, planned_cells):
     artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
     q1_b1 = [record for record in artifact["role_records"]
-             if record["question_id"] == "Q1" and record["condition"] == "b1"]
+             if record["question_id"] == "Q1" and record["condition"] == "sequential_b1"
+             and record["mirrored_side"] == 0]
     by_role = {record["role"]: record for record in q1_b1}
     assert by_role["query_checker"]["billed_model"] == protocol["roster"]["query_checker"]
     assert by_role["oracle_verification"]["billed_model"] == protocol["roster"]["oracle"]
@@ -161,7 +200,7 @@ def test_cluster_u90_keeps_all_zero_role_groups(protocol, planned_cells):
     artifact = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
     checker_b1 = next(
         group for group in artifact["clustered_u90"]
-        if group["role"] == "query_checker" and group["condition"] == "b1")
+        if group["role"] == "query_checker" and group["condition"] == "sequential_b1")
     assert checker_b1["question_count"] == 2
     assert checker_b1["metrics"]["prompt_tokens"]["mean"] == 0
     assert checker_b1["metrics"]["prompt_tokens"]["upper90"] == 0
@@ -205,6 +244,7 @@ def test_incomplete_slot_set_and_unmatched_reservations_block(protocol, planned_
             protocol=protocol,
             planned_cells=planned_cells,
             completed_cell_keys=[planned_cells[0]["cell_key"]],
+            completed_results_sha256="e" * 64,
             usage_events=events,
             usage_ledger_sha256="f" * 64,
         )
@@ -213,3 +253,152 @@ def test_incomplete_slot_set_and_unmatched_reservations_block(protocol, planned_
     unmatched.pop()
     with pytest.raises(forecast.ForecastInputError, match="unmatched reservation"):
         _build(protocol, planned_cells, unmatched)
+
+
+def test_dynamic_residual_subtracts_static_context_once_per_billed_attempt(
+    protocol, planned_cells,
+):
+    frame = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    residual = forecast.build_dynamic_residual_frame(
+        protocol=protocol,
+        slot_role_frame=frame,
+        exact_context_index=_exact_context(frame),
+    )
+    query = next(
+        record for record in residual["role_records"]
+        if record["question_id"] == "Q1"
+        and record["condition"] == "sequential_b1"
+        and record["mirrored_side"] == 0
+        and record["role"] == "judge_query"
+    )
+    assert query["static_prompt_tokens"] == 2
+    assert query["dynamic_prompt_tokens"] == 23
+    assert residual["execution_authorized"] is False
+
+
+def test_negative_dynamic_residual_blocks_forecast(protocol, planned_cells):
+    frame = _build(protocol, planned_cells, _complete_usage(protocol, planned_cells))
+    exact = _exact_context(frame)
+    exact["prompt_tokens"] = {
+        key: 100 for key in exact["prompt_tokens"]
+    }
+    with pytest.raises(forecast.ForecastInputError, match="negative dynamic-history"):
+        forecast.build_dynamic_residual_frame(
+            protocol=protocol,
+            slot_role_frame=frame,
+            exact_context_index=exact,
+        )
+
+
+def _full_projection_inputs(protocol, tmp_path: Path):
+    main_question_ids, _held_out = phase3_plan.load_reference_question_ids(protocol, ROOT)
+    cells = phase3_plan.enumerate_cells(
+        protocol, protocol["roster"]["judges_final"], main_question_ids)
+    transcript_keys = {}
+    for cell in cells:
+        if cell["kind"] != phase3_plan.MAIN_TRANSCRIPT_KIND:
+            continue
+        dimension = (
+            "main", cell["debater_model"], cell["question_id"], cell["transcript_index"],
+        )
+        transcript_keys[dimension] = f"transcript-{cell['cell_key']}"
+
+    tokenizer_sha = "a" * 64
+    prompt_tokens = {}
+    for cell in cells:
+        if cell["kind"] != phase3_plan.MAIN_JUDGMENT_KIND:
+            continue
+        dimensions = forecast._cell_dimensions(protocol, cell, str(cell["cell_key"]))
+        transcript_key = transcript_keys[(
+            "main", cell["debater_model"], cell["question_id"], cell["transcript_index"],
+        )]
+        variant = (
+            f"judge_verdict::{cell['condition']}::side{dimensions['mirrored_side']}")
+        prompt_tokens[(
+            "main", cell["judge_model"], "judge_verdict", variant, transcript_key,
+        )] = 100
+    exact = {
+        "tokenizer_manifest_canonical_sha256": tokenizer_sha,
+        "validation": {"validation": "pass", "local_files_checked": True},
+        "transcript_keys": transcript_keys,
+        "prompt_tokens": prompt_tokens,
+    }
+
+    estimators = []
+    for source_judge in protocol["roster"]["judges_final"]:
+        for condition in protocol["debate_grid"]["conditions"]:
+            for role in forecast.CALL_ROLES:
+                verdict = role == "judge_verdict"
+                estimators.append({
+                    "billed_model": forecast._billed_model(protocol, source_judge, role),
+                    "source_judge": source_judge,
+                    "role": role,
+                    "condition": condition["id"],
+                    "question_count": 2,
+                    "metrics": {
+                        "dynamic_prompt_tokens": {"upper90": 10.0 if verdict else 0.0},
+                        "completion_tokens": {"upper90": 5.0 if verdict else 0.0},
+                        "billed_attempt_count": {"upper90": 1.0 if verdict else 0.0},
+                    },
+                })
+    dynamic = {
+        "schema_version": forecast.DYNAMIC_SCHEMA_VERSION,
+        "execution_authorized": False,
+        "protocol_canonical_sha256": canonical_sha256(protocol),
+        "tokenizer_manifest_canonical_sha256": tokenizer_sha,
+        "clustered_u90": estimators,
+    }
+    prices = _price_snapshot(
+        protocol, tmp_path / "catalog.json", verified_at="2026-08-29T01:00:00Z")
+    return cells, exact, dynamic, prices
+
+
+def test_cost_forecast_prices_complete_main_grid_and_cumulative_spend(protocol, tmp_path: Path):
+    cells, exact, dynamic, prices = _full_projection_inputs(protocol, tmp_path)
+    result = forecast.build_cost_forecast(
+        protocol=protocol,
+        planned_main_cells=cells,
+        dynamic_residual_frame=dynamic,
+        exact_context_index=exact,
+        price_snapshot=prices,
+        price_as_of=datetime(2026, 8, 29, 2, tzinfo=timezone.utc),
+        cumulative_spend_segments=[{
+            "name": "v1-v2-and-successor-canary",
+            "ledger_sha256": "b" * 64,
+            "actual_spend_usd": 10.0,
+            "uncertain_spend_usd": 2.0,
+        }],
+        project_root=str(tmp_path),
+    )
+    assert result["certification"] == "pass"
+    assert result["execution_authorized"] is False
+    assert result["planned_main_judgment_slot_count"] == 19_680
+    assert len(result["line_items"]) == 80
+    assert result["projected_main_usd"] > 0
+    assert result["projected_stage_total_usd"] == pytest.approx(
+        result["projected_main_usd"] + 12.0)
+    assert all(
+        item["rounded_line_cost_usd"] == round(item["rounded_line_cost_usd"], 2)
+        for item in result["line_items"]
+    )
+
+
+def test_cost_forecast_blocks_missing_exact_main_context(protocol, tmp_path: Path):
+    cells, exact, dynamic, prices = _full_projection_inputs(protocol, tmp_path)
+    exact["prompt_tokens"].pop(next(iter(exact["prompt_tokens"])))
+    with pytest.raises(forecast.ForecastInputError, match="exact main static context"):
+        forecast.build_cost_forecast(
+            protocol=protocol,
+            planned_main_cells=cells,
+            dynamic_residual_frame=dynamic,
+            exact_context_index=exact,
+            price_snapshot=prices,
+            price_as_of=datetime(2026, 8, 29, 2, tzinfo=timezone.utc),
+            cumulative_spend_segments=[{
+                "name": "all-prior-ledgers",
+                "ledger_sha256": "b" * 64,
+                "actual_spend_usd": 0.0,
+                "uncertain_spend_usd": 0.0,
+            }],
+            project_root=str(tmp_path),
+        )
