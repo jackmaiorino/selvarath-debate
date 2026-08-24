@@ -1,0 +1,33 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v1",
+ "authorization_id": "phase3_v3_canary_authorization_r2_2026-08-24",
+ "authorizes": "Paid provider execution for the phase3-v3-07501cfa62bf55e5 one-seed reproducibility harness twice and, only after a bit-identical harness pass, one fresh successor canary. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r5_2026-08-24.json",
+  "run_manifest_canonical_sha256": "91a2660982ae200ba34efa662521b905d7be3d20590f096a93a746d887a5a6bd",
+  "run_id": "phase3-v3-07501cfa62bf55e5",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r2.json",
+  "protocol_canonical_sha256": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "incremental_cap_usd": 60,
+  "cap_applies_to": "all newly dispatched Together inference calls across both isolated harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "active Codex project session",
+  "exact_text": "Approved: phase3-v3-07501cfa62bf55e5 harness and successor canary, $60 USD incremental cap, no main spend",
+  "approved_on_date": "2026-08-24"
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-24T21:36:21.6764443Z",
+ "note": "Create-only authorization record. The run manifest and protocol remain non-authorizing artifacts."
+}
