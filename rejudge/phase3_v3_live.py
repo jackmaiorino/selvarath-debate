@@ -442,6 +442,19 @@ def _validate_runtime_toolchain(
             f"{expected_version!r}")
 
 
+def _authorization_recorded_at(authorization: Mapping[str, Any]) -> datetime:
+    raw = authorization.get("recorded_at_utc")
+    if not isinstance(raw, str):
+        raise Phase3V3LiveError("authorization has no recorded_at_utc timestamp")
+    try:
+        observed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise Phase3V3LiveError("authorization recorded_at_utc is invalid") from exc
+    if observed.tzinfo is None or observed.utcoffset() is None:
+        raise Phase3V3LiveError("authorization recorded_at_utc must be timezone-aware")
+    return observed
+
+
 def load_run_context(
     manifest_path: str | Path,
     authorization_path: str | Path,
@@ -461,9 +474,6 @@ def load_run_context(
     phase3_v3_run_manifest.validate_run_manifest(
         manifest, protocol=protocol, protocol_pin=pin, tokenizer_manifest=tokenizer,
         price_snapshot=prices, project_root=root, verify_external_files=True)
-    phase3_v3_inputs.validate_price_snapshot(
-        prices, protocol=protocol, as_of=datetime.now(timezone.utc), project_root=root,
-        verify_catalog=True)
     if verify_git:
         _verify_execution_code_commit(manifest, root)
     role_limits = _load_json(root / ROLE_LIMITS_RELATIVE_PATH)
@@ -475,6 +485,9 @@ def load_run_context(
     authorization = validate_authorization(
         _load_json(authorization_path), manifest, manifest_path=manifest_path,
         protocol=protocol)
+    phase3_v3_inputs.validate_price_snapshot(
+        prices, protocol=protocol, as_of=_authorization_recorded_at(authorization),
+        project_root=root, verify_catalog=True)
     context = {
         "root": root,
         "manifest_path": manifest_path,
@@ -497,6 +510,7 @@ def validate_authorization(
     authorization: Mapping[str, Any], manifest: Mapping[str, Any], *,
     manifest_path: Path, protocol: Mapping[str, Any],
 ) -> dict[str, Any]:
+    _authorization_recorded_at(authorization)
     if authorization.get("schema_version") != AUTHORIZATION_SCHEMA:
         raise Phase3V3LiveError("unsupported successor-canary authorization schema")
     if authorization.get("execution_authorized") is not True:
@@ -513,6 +527,8 @@ def validate_authorization(
         raise Phase3V3LiveError("authorization binds a different run-manifest path")
     if binds.get("protocol_canonical_sha256") != canonical_sha256(protocol):
         raise Phase3V3LiveError("authorization binds a different protocol")
+    if binds.get("protocol_tracked_path") != PROTOCOL_RELATIVE_PATH:
+        raise Phase3V3LiveError("authorization binds a different protocol path")
     seed_name = manifest["harness_check"]["seed_name"]
     if (binds.get("harness_seed_name") != seed_name
             or binds.get("harness_seed") != manifest["seeds"][seed_name]):
@@ -528,6 +544,12 @@ def validate_authorization(
             or scope.get("successor_canary_fresh_gate_slots") != EXPECTED_FRESH_GATE_ROWS
             or scope.get("gpu_ordinal_or_not_used") != "not_used"):
         raise Phase3V3LiveError("authorization scope differs from the successor canary")
+    expected_text = (
+        f"Approved: {manifest['run_id']} harness and successor canary, $60 USD incremental "
+        "cap, no main spend")
+    owner = authorization.get("owner_authorization") or {}
+    if owner.get("approver") != "Jack Maiorino" or owner.get("exact_text") != expected_text:
+        raise Phase3V3LiveError("authorization does not preserve the owner's exact approval")
     return dict(authorization)
 
 

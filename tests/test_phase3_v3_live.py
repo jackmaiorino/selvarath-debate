@@ -42,6 +42,38 @@ def _output_paths(archive: Path) -> dict[str, str]:
             **{key: (archive / name).as_posix() for key, name in names.items()}}
 
 
+def _authorization(manifest: dict, manifest_path: Path, protocol: dict) -> dict:
+    return {
+        "schema_version": phase3_v3_live.AUTHORIZATION_SCHEMA,
+        "execution_authorized": True,
+        "main_run_spend_authorized": False,
+        "recorded_at_utc": "2026-08-24T13:00:00Z",
+        "binds": {
+            "run_id": manifest["run_id"],
+            "run_manifest_canonical_sha256": phase3_v3_live.canonical_sha256(manifest),
+            "run_manifest_tracked_path": manifest_path.name,
+            "protocol_tracked_path": phase3_v3_live.PROTOCOL_RELATIVE_PATH,
+            "protocol_canonical_sha256": phase3_v3_live.canonical_sha256(protocol),
+            "harness_seed_name": "harness",
+            "harness_seed": 7,
+        },
+        "scope": {
+            "incremental_cap_usd": 60,
+            "harness_execution_count": 2,
+            "formal_successor_canary_execution_count": 1,
+            "successor_canary_fresh_gate_slots": 960,
+            "main_run_spend_authorized": False,
+            "gpu_ordinal_or_not_used": "not_used",
+        },
+        "owner_authorization": {
+            "approver": "Jack Maiorino",
+            "exact_text": (
+                f"Approved: {manifest['run_id']} harness and successor canary, $60 USD "
+                "incremental cap, no main spend"),
+        },
+    }
+
+
 def test_real_v3_role_limits_cover_every_billed_model_role():
     protocol = _protocol()
     role_limits = json.loads(
@@ -68,27 +100,8 @@ def test_authorization_rejects_any_main_scope(tmp_path: Path):
     }
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    authorization = {
-        "schema_version": phase3_v3_live.AUTHORIZATION_SCHEMA,
-        "execution_authorized": True,
-        "main_run_spend_authorized": False,
-        "binds": {
-            "run_id": manifest["run_id"],
-            "run_manifest_canonical_sha256": phase3_v3_live.canonical_sha256(manifest),
-            "run_manifest_tracked_path": manifest_path.name,
-            "protocol_canonical_sha256": phase3_v3_live.canonical_sha256(protocol),
-            "harness_seed_name": "harness",
-            "harness_seed": 7,
-        },
-        "scope": {
-            "incremental_cap_usd": 60,
-            "harness_execution_count": 2,
-            "formal_successor_canary_execution_count": 1,
-            "successor_canary_fresh_gate_slots": 960,
-            "main_run_spend_authorized": True,
-            "gpu_ordinal_or_not_used": "not_used",
-        },
-    }
+    authorization = _authorization(manifest, manifest_path, protocol)
+    authorization["scope"]["main_run_spend_authorized"] = True
     with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="prohibit main"):
         phase3_v3_live.validate_authorization(
             authorization, manifest, manifest_path=manifest_path, protocol=protocol)
@@ -103,28 +116,25 @@ def test_authorization_rejects_cap_other_than_exact_owner_limit(tmp_path: Path):
     }
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    authorization = {
-        "schema_version": phase3_v3_live.AUTHORIZATION_SCHEMA,
-        "execution_authorized": True,
-        "main_run_spend_authorized": False,
-        "binds": {
-            "run_id": manifest["run_id"],
-            "run_manifest_canonical_sha256": phase3_v3_live.canonical_sha256(manifest),
-            "run_manifest_tracked_path": manifest_path.name,
-            "protocol_canonical_sha256": phase3_v3_live.canonical_sha256(protocol),
-            "harness_seed_name": "harness",
-            "harness_seed": 7,
-        },
-        "scope": {
-            "incremental_cap_usd": 61,
-            "harness_execution_count": 2,
-            "formal_successor_canary_execution_count": 1,
-            "successor_canary_fresh_gate_slots": 960,
-            "main_run_spend_authorized": False,
-            "gpu_ordinal_or_not_used": "not_used",
-        },
-    }
+    authorization = _authorization(manifest, manifest_path, protocol)
+    authorization["scope"]["incremental_cap_usd"] = 61
     with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="must equal.*60.00"):
+        phase3_v3_live.validate_authorization(
+            authorization, manifest, manifest_path=manifest_path, protocol=protocol)
+
+
+def test_authorization_requires_exact_owner_text(tmp_path: Path):
+    protocol = _protocol()
+    manifest = {
+        "run_id": "phase3-v3-test",
+        "harness_check": {"seed_name": "harness"},
+        "seeds": {"harness": 7},
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    authorization = _authorization(manifest, manifest_path, protocol)
+    authorization["owner_authorization"]["exact_text"] = "approved generally"
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="exact approval"):
         phase3_v3_live.validate_authorization(
             authorization, manifest, manifest_path=manifest_path, protocol=protocol)
 
