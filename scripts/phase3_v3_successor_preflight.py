@@ -34,6 +34,7 @@ from phase3_canary_closeout_v2 import (  # noqa: E402
 DESIGN_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_design_2026-08-23.json"
 CLOSEOUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_canary_closeout_v2_2026-08-23.json"
 ARCHIVE_DIR_DEFAULT = Path("E:/selvarath-archive/phase3-v2-2026-08-21")
+PROTOCOL_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_protocol_v3.json"
 OUTPUT_PATH_DEFAULT = REPO_ROOT / "rejudge" / "phase3_v3_successor_preflight_2026-08-23.json"
 
 EXPECTED_DESIGN_CANONICAL_SHA256 = (
@@ -433,8 +434,7 @@ def build_preflight(
                 "fresh complete successor canary has not run"]
     if protocol is None:
         blockers[:0] = [
-            "Qwen2.5 deferral has not reached its recovery, deadline, or main-authorization boundary",
-            "full successor protocol and namespace are not materialized",
+            "the fixed successor protocol and namespace were not supplied",
         ]
     if tokenizer_validation["validation"] != "pass":
         blockers.append("exact provider-matched tokenizer corpus is absent")
@@ -477,7 +477,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--design", type=Path, default=DESIGN_PATH_DEFAULT)
     parser.add_argument("--closeout", type=Path, default=CLOSEOUT_PATH_DEFAULT)
     parser.add_argument("--archive-dir", type=Path, default=ARCHIVE_DIR_DEFAULT)
-    parser.add_argument("--protocol", type=Path)
+    parser.add_argument("--protocol", type=Path, default=PROTOCOL_PATH_DEFAULT)
     parser.add_argument("--tokenizer-manifest", type=Path)
     parser.add_argument("--price-snapshot", type=Path)
     parser.add_argument("--price-as-of", type=str)

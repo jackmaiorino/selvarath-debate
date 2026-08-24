@@ -25,14 +25,14 @@ def _stage_inputs(root: Path) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / relative_path, destination)
 
-    evidence = {"result": "synthetic_incomplete_at_deadline"}
+    evidence = {"result": "synthetic_provider_unavailable"}
     evidence_relative = Path("rejudge/e2e/roster_resolution_evidence.json")
     evidence_path = root / evidence_relative
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(
         json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
 
-    resolution = _resolution("excluded_deadline")
+    resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
     resolution_relative = Path("rejudge/e2e/roster_resolution.json")
     resolution["tracked_path"] = resolution_relative.as_posix()
     resolution["evidence"] = {

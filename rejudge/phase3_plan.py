@@ -73,8 +73,9 @@ FROZEN_PROTOCOL_V2_CANONICAL_SHA256 = (
 # v3 is materialized only after the conditional Qwen2.5 roster branch resolves. Its exact
 # protocol hash therefore cannot be pinned in source before that resolution exists. Instead,
 # the materializer binds the owner-approved successor design below, the immutable v2 protocol,
-# and the roster-resolution artifact, then records a content digest inside the generated
-# protocol. The small run manifest pins the generated protocol's full canonical hash.
+# and the roster-resolution artifact, including a provider-unavailability disposition when
+# needed, then records a content digest inside the generated protocol. The small run manifest
+# pins the generated protocol's full canonical hash.
 FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256 = (
     "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479"
 )
@@ -780,6 +781,7 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     elif len(judges) == 4:
         expected_outcome = {
             "excluded_recovery_fail", "excluded_deadline", "excluded_main_authorization",
+            "excluded_provider_unavailable",
         }
     else:
         raise ProtocolValidationError("v3 final roster must contain exactly 4 or 5 judges")

@@ -1,0 +1,28 @@
+{
+  "schema_version": "phase3_v3_roster_resolution_v2",
+  "resolution_id": "phase3_v3_qwen2_5_provider_unavailable_2026_08_23",
+  "tracked_path": "rejudge/phase3_v3_roster_resolution_2026-08-23.json",
+  "resolved_at_utc": "2026-08-24T01:04:55Z",
+  "outcome": "excluded_provider_unavailable",
+  "trigger": "provider_unavailability",
+  "qwen2_5": {
+    "model_id": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+    "completed_deferred_cells": 0,
+    "expected_deferred_cells": 192,
+    "strict_invalid_count": null,
+    "strict_invalid_denominator": 96,
+    "strict_invalid_gate_pass": null,
+    "structural_mirroring_gate_pass": null
+  },
+  "evidence": {
+    "tracked_path": "rejudge/phase3_v3_qwen2_5_provider_unavailability_2026-08-23.json",
+    "canonical_sha256": "ef64ffe1a55c704a9c96074b1ecad0ee1851257eebba8c9389203661bba545f3"
+  },
+  "final_roster": [
+    "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "google/gemma-3n-E4B-it",
+    "Qwen/Qwen3.7-Max"
+  ],
+  "execution_authorized": false
+}

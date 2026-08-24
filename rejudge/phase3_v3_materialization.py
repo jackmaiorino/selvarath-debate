@@ -1,9 +1,9 @@
 """Deterministic offline materialization for the Phase 3 v3 successor.
 
 The conditional Qwen2.5 branch must resolve before a v3 protocol can exist. This module accepts
-one evidence-bound resolution, validates that it follows the owner-approved branch rules, and
-produces one offline protocol plus one exact protocol pin. It has no network, credential,
-provider-call, authorization, or execution path.
+one evidence-bound resolution, including terminal provider unavailability, validates that it
+follows the owner-approved roster rules, and produces one offline protocol plus one exact
+protocol pin. It has no network, credential, provider-call, authorization, or execution path.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ DEFAULT_PROTOCOL_OUTPUT_PATH = Path("rejudge/phase3_protocol_v3.json")
 DEFAULT_PROTOCOL_PIN_OUTPUT_PATH = Path("rejudge/phase3_protocol_v3_pin.json")
 
 DESIGN_SCHEMA_VERSION = "phase3_v3_successor_design_v1"
-RESOLUTION_SCHEMA_VERSION = "phase3_v3_roster_resolution_v1"
+RESOLUTION_SCHEMA_VERSION = "phase3_v3_roster_resolution_v2"
 PROTOCOL_SCHEMA_VERSION = "phase3_plan_v3"
 PIN_SCHEMA_VERSION = "phase3_v3_protocol_pin_v1"
 
@@ -47,10 +47,12 @@ CONDITIONAL_JUDGE = phase3_plan.PHASE3_V3_CONDITIONAL_JUDGE
 EXCLUDED_JUDGE = phase3_plan.PHASE3_V3_EXCLUDED_JUDGE
 
 INCLUDED_OUTCOME = "included_recovery_pass"
+PROVIDER_UNAVAILABLE_OUTCOME = "excluded_provider_unavailable"
 EXCLUDED_OUTCOMES = frozenset({
     "excluded_recovery_fail",
     "excluded_deadline",
     "excluded_main_authorization",
+    PROVIDER_UNAVAILABLE_OUTCOME,
 })
 ALL_OUTCOMES = frozenset({INCLUDED_OUTCOME, *EXCLUDED_OUTCOMES})
 
@@ -231,6 +233,16 @@ def validate_roster_resolution(
             raise MaterializationError("Qwen2.5 inclusion requires both unchanged v2 gates")
         if outcome == "excluded_recovery_fail" and gates_pass:
             raise MaterializationError("passing Qwen2.5 recovery must use inclusion outcome")
+    elif outcome == PROVIDER_UNAVAILABLE_OUTCOME:
+        if trigger != "provider_unavailability":
+            raise MaterializationError(
+                "provider-unavailable exclusion requires trigger provider_unavailability")
+        if completed == expected_cells:
+            raise MaterializationError(
+                "a complete recovery must resolve through its gates before provider exclusion")
+        if invalid_count is not None or invalid_pass is not None or structural_pass is not None:
+            raise MaterializationError(
+                "provider-unavailable exclusion cannot claim incomplete recovery gate results")
     else:
         expected_trigger = (
             "deadline" if outcome == "excluded_deadline" else "main_authorization"
@@ -528,9 +540,9 @@ def materialize_protocol(
             "protocol_id": v2["protocol_id"],
             "canonical_sha256": V2_PROTOCOL_CANONICAL_SHA256,
             "reason": (
-                "the binding gpt-oss failure and conditional Qwen2.5 branch require a resolved "
-                "four- or five-judge identity, fresh canary rows, corrected forecast inputs, and "
-                "a new namespace"
+                "the binding gpt-oss failure and resolved Qwen2.5 disposition require a fixed "
+                "successor identity, fresh canary rows, corrected forecast inputs, and a new "
+                "namespace"
             ),
         },
         "non_claims": [

@@ -34,7 +34,9 @@ class FakeTokenizer:
 
 def _stage(tmp_path: Path):
     protocol = protocol_materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN,
+        _resolution(protocol_materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+    )
     prompt_path = tmp_path / protocol_materialization.PROMPT_BUNDLE_PATH
     prompt_path.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / protocol_materialization.PROMPT_BUNDLE_PATH, prompt_path)

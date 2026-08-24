@@ -1,7 +1,5 @@
 {
  "blockers": [
-  "Qwen2.5 deferral has not reached its recovery, deadline, or main-authorization boundary",
-  "full successor protocol and namespace are not materialized",
   "successor run manifest is not materialized",
   "fresh complete successor canary has not run",
   "exact provider-matched tokenizer corpus is absent",
@@ -247,11 +245,24 @@
   "Qwen/Qwen3.7-Max"
  ],
  "read_only_derivation": true,
- "resolved_final_roster": null,
+ "resolved_final_roster": [
+  "google/gemma-4-31B-it",
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "google/gemma-3n-E4B-it",
+  "Qwen/Qwen3.7-Max"
+ ],
  "schema_version": "phase3_v3_successor_preflight_v1",
  "successor_design_ready": true,
  "successor_protocol": {
-  "reason": "final roster resolution and v3 protocol are absent",
-  "validation": "pending"
+  "canonical_sha256": "f5367f9d3b176aba7f0a2d94e9d3f028920c6c52153c8b6b1ef35e98e61794fd",
+  "execution_authorized": false,
+  "final_roster": [
+   "google/gemma-4-31B-it",
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "google/gemma-3n-E4B-it",
+   "Qwen/Qwen3.7-Max"
+  ],
+  "path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-v3-codex/rejudge/phase3_protocol_v3.json",
+  "validation": "pass"
  }
 }

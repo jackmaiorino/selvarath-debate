@@ -28,7 +28,7 @@ DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf
 @pytest.fixture(scope="module")
 def protocol():
     return materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
 
 
 def _tokenizer_manifest(protocol):
@@ -370,12 +370,12 @@ def test_price_snapshot_rejects_pre_resolution_price_drift_and_unavailable_model
     protocol, tmp_path: Path,
 ):
     snapshot = _price_snapshot(
-        protocol, tmp_path / "catalog.json", verified_at="2026-08-28T23:59:59Z")
+        protocol, tmp_path / "catalog.json", verified_at="2026-08-24T01:04:54Z")
     with pytest.raises(inputs.InputGateError, match="predates"):
         inputs.validate_price_snapshot(
             snapshot,
             protocol=protocol,
-            as_of=datetime(2026, 8, 29, 1, tzinfo=timezone.utc),
+            as_of=datetime(2026, 8, 24, 2, tzinfo=timezone.utc),
         )
 
     snapshot = _price_snapshot(

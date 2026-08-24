@@ -29,7 +29,7 @@ DESIGN = json.loads((REPO_ROOT / materialization.DESIGN_PATH).read_text(encoding
 
 def _protocol():
     return materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
 
 
 def _utc(hour: int, minute: int = 0) -> datetime:

@@ -24,7 +24,7 @@ DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf
 @pytest.fixture(scope="module")
 def protocol():
     return materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
 
 
 @pytest.fixture

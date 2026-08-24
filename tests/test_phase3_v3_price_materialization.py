@@ -23,7 +23,9 @@ DESIGN = json.loads(
 
 def _protocol():
     return protocol_materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN,
+        _resolution(protocol_materialization.PROVIDER_UNAVAILABLE_OUTCOME),
+    )
 
 
 def _catalog(protocol):

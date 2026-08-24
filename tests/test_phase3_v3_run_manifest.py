@@ -23,7 +23,7 @@ DESIGN = json.loads((ROOT / materialization.DESIGN_PATH).read_text(encoding="utf
 
 def _artifacts():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
     pin = materialization.build_protocol_pin(
         protocol, protocol_tracked_path="rejudge/phase3_protocol_v3.json")
     tokenizer = _tokenizer_manifest(protocol)

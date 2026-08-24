@@ -46,6 +46,13 @@ def _resolution(outcome: str) -> dict:
         invalid_count = None
         invalid_pass = None
         structural_pass = None
+    elif outcome == materialization.PROVIDER_UNAVAILABLE_OUTCOME:
+        resolved_at = "2026-08-24T01:04:55Z"
+        trigger = "provider_unavailability"
+        completed = 0
+        invalid_count = None
+        invalid_pass = None
+        structural_pass = None
     else:
         raise AssertionError(outcome)
     assert recovery == (trigger == "recovery_completion")
@@ -118,12 +125,24 @@ def test_main_authorization_boundary_cannot_be_backdated_after_deadline():
         materialization.validate_roster_resolution(resolution, DESIGN)
 
 
+def test_provider_unavailable_requires_exact_trigger_and_incomplete_gate_claims():
+    resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
+    resolution["trigger"] = "deadline"
+    with pytest.raises(materialization.MaterializationError, match="provider_unavailability"):
+        materialization.validate_roster_resolution(resolution, DESIGN)
+
+    resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
+    resolution["qwen2_5"]["strict_invalid_count"] = 0
+    with pytest.raises(materialization.MaterializationError, match="cannot claim"):
+        materialization.validate_roster_resolution(resolution, DESIGN)
+
+
 def test_resolution_evidence_hash_is_verified_when_root_is_supplied(tmp_path: Path):
     evidence_path = tmp_path / "rejudge" / "evidence.json"
     evidence_path.parent.mkdir()
-    evidence = {"result": "incomplete_at_deadline"}
+    evidence = {"result": "provider_unavailable"}
     evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
-    resolution = _resolution("excluded_deadline")
+    resolution = _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME)
     resolution["evidence"] = {
         "tracked_path": "rejudge/evidence.json",
         "canonical_sha256": canonical_sha256(evidence),
@@ -137,7 +156,7 @@ def test_resolution_evidence_hash_is_verified_when_root_is_supplied(tmp_path: Pa
 @pytest.mark.parametrize(
     ("outcome", "expected_roster_size", "expected_main", "expected_canary"),
     [
-        ("excluded_deadline", 4, 19680, 960),
+        (materialization.PROVIDER_UNAVAILABLE_OUTCOME, 4, 19680, 960),
         (materialization.INCLUDED_OUTCOME, 5, 24600, 1200),
     ],
 )
@@ -173,7 +192,7 @@ def test_materialized_protocol_is_valid_and_matches_slot_arithmetic(
 
 def test_successor_canary_cannot_depend_on_its_downstream_main_forecast():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
     protocol["decisions"]["spend"]["authorization_rule"]["successor_canary"][
         "certified_main_forecast_required"] = True
     protocol["protocol_content_sha256"] = canonical_sha256({
@@ -189,14 +208,14 @@ def test_successor_canary_cannot_depend_on_its_downstream_main_forecast():
 
 def test_v3_candidate_roster_helper_rejects_nonfinal_size():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
     with pytest.raises(phase3_plan.PlanValidationError, match="resolved at exactly 4"):
         phase3_plan.candidate_roster_judges(protocol, 5)
 
 
 def test_protocol_content_digest_detects_tampering():
     protocol = materialization.materialize_protocol(
-        V2, DESIGN, _resolution("excluded_deadline"))
+        V2, DESIGN, _resolution(materialization.PROVIDER_UNAVAILABLE_OUTCOME))
     protocol["roster"]["replacement_policy"] = "quietly changed"
     with pytest.raises(phase3_plan.ProtocolValidationError, match="content digest drift"):
         phase3_plan.validate_protocol(protocol)

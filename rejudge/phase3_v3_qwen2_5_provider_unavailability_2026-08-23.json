@@ -1,0 +1,31 @@
+{
+  "schema_version": "phase3_v3_provider_availability_observation_v1",
+  "observation_id": "phase3_v3_qwen2_5_provider_unavailability_2026_08_23",
+  "observed_at_utc": "2026-08-24T01:04:55Z",
+  "model_id": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+  "owner_report": {
+    "reporter": "Jack Maiorino",
+    "channel": "active Codex project session",
+    "reported_on_date": "2026-08-23",
+    "statement": "Qwen 2.5 has been removed from together"
+  },
+  "official_sources": [
+    {
+      "url": "https://www.together.ai/models/qwen2-5-7b-instruct-turbo",
+      "observation": "The exact endpoint page is marked Launching soon and says the endpoint is not currently available."
+    },
+    {
+      "url": "https://docs.together.ai/docs/serverless/models",
+      "observation": "The serverless catalog table still lists the exact endpoint, contradicting the endpoint page and owner report."
+    }
+  ],
+  "documentation_consistency": "contradictory",
+  "operational_conclusion": "Treat the model as unavailable for the Phase 3 v3 serverless run and exclude it without replacement.",
+  "live_api_catalog_queried": false,
+  "provider_calls_made": 0,
+  "execution_authorized": false,
+  "non_claims": [
+    "This observation does not claim that Together's public documentation is internally consistent.",
+    "This observation does not authorize a provider call, tokenizer download, canary, main run, GPU use, or spend."
+  ]
+}
