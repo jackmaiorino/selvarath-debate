@@ -1,0 +1,69 @@
+{
+ "schema_version": "phase3_v3_policy_amendment_v1",
+ "amendment_id": "phase3_v3_amendment3_uncertain_tolerance_2026-08-25",
+ "decided_at_utc": "2026-08-25T18:56:00Z",
+ "classification": "execution-policy amendment (transport/accounting control plane); no scientific-protocol change",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "approved_on_date": "2026-08-25",
+  "basis": "standing blanket approval for in-phase amendments, granted in the owner's pickup message and reaffirmed by his 'go' for the successor canary under the same cap",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "go"
+  ],
+  "authority_note": "The independent Codex consult bound below concurred this amendment stays within in-phase operational authority (same $60 aggregate cap, fresh-row execution preserved, no scientific gate changed) and does not require waking the owner. Anything beyond it (row reuse, cap increase, protocol/roster/gate change, main spend, or a further successor after an uncertainty-ceiling trip) exceeds this authority and requires the owner."
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_uncertain_consult_2026-08-25.md",
+  "verdict_summary": "Option A: amend the uncertain-spend invariant and redo all 960 gate rows under a fresh identity. Ceiling $1.00 per run (not $5). Rerun the paid one-seed harness under amended code. Refresh the price snapshot at manifest freeze. Keep the zero-fresh-ledger launch rule. No reuse of rows, caches, or rulings from any halted identity. No automatic successor if the ceiling trips."
+ },
+ "defect_repaired": {
+  "halt_observation_path": "rejudge/phase3_v3_r9_uncertain_spend_halt_2026-08-25.json",
+  "halt_observation_canonical_sha256": "bda47615c351b81568cb82f05749e321b635d7fe284ba1b3871310ffb27553e7",
+  "summary": "The zero-uncertain launch validator was also applied per-pass, at resume, and at finalize, so the first billing-uncertain transport event after launch made the run unfinishable and unresumable while the in-run transport policy deliberately continued past such events."
+ },
+ "policy": {
+  "run_uncertain_ceiling_usd": 1.0,
+  "counts_fully_against_aggregate_cap": true,
+  "fresh_ledger_launch_rule": "unchanged: a new run-local ledger must be genesis-only with exactly zero actual, uncertain, and open-reservation exposure",
+  "live_ledger_rule": "a live or resumed v4-binding ledger may hold terminal unknown_charge events; their full reserved cost stays booked as uncertain spend, counts against the aggregate cap, and must not exceed the per-run ceiling; open reservations, charged-malformed responses, and returned-model drift remain refusals",
+  "dispatch_rule": "before every provider dispatch the client requires run_uncertain + proposed_worst_case_reservation <= ceiling and aggregate actual + uncertain + open reservations + proposed <= $60 cap",
+  "ceiling_trip_rule": "reaching the ceiling halts the run fail-closed for owner review; no successor identity is minted without the owner",
+  "final_report_rule": "the successor canary report labels accounting PASS_CLEAN or PASS_CONSERVATIVE_UNCERTAIN, lists every unknown_charge event with its completing success attempt, and clusters uncertain events by experimental condition"
+ },
+ "bindings": {
+  "role_limits": {
+   "path": "rejudge/phase3_v3_role_limits_r4_2026-08-25.json",
+   "canonical_sha256": "2126f9ec5a643120b01e4af4cdeb4855b3ab90cb2770a1eb6fd698c28742b599"
+  },
+  "execution_binding": {
+   "path": "rejudge/phase3_v3_execution_binding_r4_2026-08-25.json",
+   "canonical_sha256": "f48d30e75ad90e908060d8eb766c7b65709fbb68fddd8ac77d9ff56a29f13ad0"
+  },
+  "price_snapshot": {
+   "path": "rejudge/phase3_v3_price_snapshot_r5_2026-08-25.json",
+   "canonical_sha256": "4ac4b9312f0dadb3e8f807257606c3f3c25d36afa3c54a08274b726860fa91fe"
+  }
+ },
+ "science_unchanged": {
+  "protocol_path": "rejudge/phase3_protocol_v3_r3.json",
+  "protocol_canonical_sha256": "a884ccefc2e4b62c4c09882e5c66f36b86c7ad8d8cb1277d94579e36d79a7fb5",
+  "statement": "Protocol, roster, prompts, seeds, token limits, transport pins, reviewer instructions, cell plan, and every analysis gate are unchanged. All 960 gate rows will be generated fresh under the new identity; the 48 preseeded transcripts remain fixed protocol inputs."
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 4.977210709999999,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the execution-policy change and creation of a fresh successor identity.",
+  "Paid inference still requires a separate authorization containing the exact successor run identity.",
+  "This amendment does not authorize main spend, row or cache reuse, or any further successor after an uncertainty-ceiling trip."
+ ]
+}

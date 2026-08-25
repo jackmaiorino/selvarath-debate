@@ -70,8 +70,10 @@ AUTHORIZATION_SCHEMA_V2 = "phase3_v3_canary_authorization_v2"
 BINDING_SCHEMA = "phase3_v3_execution_binding_v1"
 BINDING_SCHEMA_V2 = "phase3_v3_execution_binding_v2"
 BINDING_SCHEMA_V3 = "phase3_v3_execution_binding_v3"
+BINDING_SCHEMA_V4 = "phase3_v3_execution_binding_v4"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
+ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
 EXPECTED_TRANSCRIPT_ROWS = 48
 EXPECTED_JUDGMENT_ROWS = 768
 EXPECTED_CAPABILITY_ROWS = 192
@@ -81,6 +83,13 @@ EXPECTED_HARNESS_EXECUTIONS = 2
 AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
 PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
 PRIOR_ACCOUNTED_SPEND_USD_R3 = 0.30985289000000005
+PRIOR_ACCOUNTED_SPEND_USD_R4 = 4.977210709999999
+# Per-run ceiling on unresolved billing-uncertain exposure (amendment 3, 2026-08-25,
+# Codex-set at $1.00: >10x the observed $0.0919 burst, ~15% of the expected run cost).
+# Uncertain spend always ALSO counts in full against the aggregate cap. Tripping the
+# ceiling is a fail-closed halt for owner review; it never auto-chains a successor.
+RUN_UNCERTAIN_CEILING_USD = 1.0
+R9_HALT_RELATIVE_PATH = "rejudge/phase3_v3_r9_uncertain_spend_halt_2026-08-25.json"
 NON_MANIFEST_OUTPUT_PATH_KEYS = frozenset({
     "archive_dir", "run_lock", "harness_verified_manifest", "final_manifest",
 })
@@ -300,7 +309,8 @@ def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
 
 def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str, Any]) -> None:
     schema_version = role_limits.get("schema_version")
-    if schema_version not in {ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2}:
+    if schema_version not in {
+            ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3}:
         raise Phase3V3LiveError("unsupported v3 role-limits schema")
     if role_limits.get("execution_authorized") is not False:
         raise Phase3V3LiveError("role limits cannot authorize execution")
@@ -339,7 +349,7 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     request = role_limits.get("request_settings") or {}
     if request.get("base_fields") != ["model", "messages", "temperature", "max_tokens", "seed"]:
         raise Phase3V3LiveError("base provider request fields drifted")
-    if schema_version == ROLE_LIMITS_SCHEMA_V2:
+    if schema_version in {ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3}:
         expected_streaming = {"google/gemma-4-31B-it": {"stream": True}}
         transport_fix = role_limits.get("qwen38_usage_transport_fix") or {}
         if transport_fix != {
@@ -351,6 +361,21 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
             "trigger_error": "streaming response ended without usage chunk",
         }:
             raise Phase3V3LiveError("Qwen3.8 usage-transport fix drifted")
+        if schema_version == ROLE_LIMITS_SCHEMA_V3:
+            tolerance = role_limits.get("uncertain_spend_tolerance") or {}
+            if tolerance != {
+                "run_uncertain_ceiling_usd": RUN_UNCERTAIN_CEILING_USD,
+                "counts_fully_against_aggregate_cap": True,
+                "halts_run_for_owner_review_when_exceeded": True,
+                "trigger_halt_path": R9_HALT_RELATIVE_PATH,
+                "trigger_halt_canonical_sha256": (
+                    "bda47615c351b81568cb82f05749e321b635d7fe284ba1b3871310ffb27553e7"),
+                "trigger_error": "usage ledger contains unresolved uncertain spend",
+            }:
+                raise Phase3V3LiveError("uncertain-spend tolerance policy drifted")
+        elif role_limits.get("uncertain_spend_tolerance") is not None:
+            raise Phase3V3LiveError(
+                "uncertain-spend tolerance requires the v3 role-limits schema")
     else:
         expected_streaming = {
             model: {"stream": True} for model in expected_reasoning}
@@ -393,7 +418,7 @@ def _validate_prior_attempt_accounting(
     binding: Mapping[str, Any], root: Path | None,
 ) -> dict[str, float]:
     schema_version = binding.get("schema_version")
-    if schema_version not in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}:
+    if schema_version not in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -406,7 +431,7 @@ def _validate_prior_attempt_accounting(
     if not isinstance(prior, Mapping):
         raise Phase3V3LiveError("aggregate execution binding has no prior-attempt accounting")
 
-    if schema_version == BINDING_SCHEMA_V3:
+    if schema_version in {BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -429,8 +454,23 @@ def _validate_prior_attempt_accounting(
                     "phase3_v3_usage.jsonl"),
             },
         )
+        frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R3
+        if schema_version == BINDING_SCHEMA_V4:
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-ab48e68863878f49",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r8_2026-08-25.json"),
+                    "halt_path": R9_HALT_RELATIVE_PATH,
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r3-qwen38-nonstream-2026-08-25/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
-            raise Phase3V3LiveError("prior-attempt chain must contain exactly two attempts")
+            raise Phase3V3LiveError(
+                f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
         totals = {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -478,10 +518,11 @@ def _validate_prior_attempt_accounting(
                     rel_tol=0.0, abs_tol=1e-15):
                 raise Phase3V3LiveError(f"prior-attempt total {field} drifted")
         if not math.isclose(
-                totals["accounted_spend_usd"], PRIOR_ACCOUNTED_SPEND_USD_R3,
+                totals["accounted_spend_usd"], frozen_carry,
                 rel_tol=0.0, abs_tol=1e-15):
-            raise Phase3V3LiveError("prior accounted spend differs from the frozen r3 carry")
-        expected_remaining = AUTHORIZED_INCREMENTAL_CAP_USD - PRIOR_ACCOUNTED_SPEND_USD_R3
+            raise Phase3V3LiveError(
+                "prior accounted spend differs from the frozen successor carry")
+        expected_remaining = AUTHORIZED_INCREMENTAL_CAP_USD - frozen_carry
         if not math.isclose(
                 float(prior.get("remaining_before_successor_usd", -1)), expected_remaining,
                 rel_tol=0.0, abs_tol=1e-12):
@@ -544,7 +585,7 @@ def _validate_execution_binding(
     *, root: Path | None = None,
 ) -> None:
     if binding.get("schema_version") not in {
-            BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}:
+            BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -608,7 +649,8 @@ def _validate_execution_binding(
         "reviewer_concurrency": 12,
         "transcript_generation_forbidden": True,
         ("shared_aggregate_cap_accounting"
-         if binding.get("schema_version") in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}
+         if binding.get("schema_version") in {
+             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -813,11 +855,30 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     path = context["paths"]["usage_ledger"]
     identity = binding.get("usage_ledger_identity")
     snapshot = api_client.load_chained_usage_ledger(path, expected_identity=identity)
-    if float(snapshot.summary["uncertain_spend_usd"]) != 0:
+    # Amendment 3 (2026-08-25, r9 halt evidence): under the v4 binding a LIVE run-local
+    # ledger may carry terminal unknown_charge events, whose reserved cost stays booked as
+    # uncertain spend, counts fully against the aggregate cap, and is bounded by the frozen
+    # per-run ceiling. A FRESH ledger (genesis only) must still be exactly zero. Earlier
+    # binding schemas keep the original zero-uncertain rule so sealed history validates
+    # under the policy it ran under.
+    tolerant = (
+        binding.get("schema_version") == BINDING_SCHEMA_V4
+        and int(snapshot.summary["events"]) > 0)
+    uncertain = float(snapshot.summary["uncertain_spend_usd"])
+    if tolerant:
+        if int(snapshot.summary["unmatched_reservations"]) != 0:
+            raise Phase3V3LiveError(
+                "usage ledger contains an open reservation; every ambiguous in-flight "
+                "attempt must reach a conservative terminal state before validation")
+        if uncertain > RUN_UNCERTAIN_CEILING_USD:
+            raise Phase3V3LiveError(
+                f"run-local uncertain spend ${uncertain:.8f} exceeds the frozen "
+                f"${RUN_UNCERTAIN_CEILING_USD:.2f} ceiling; owner review required")
+    elif uncertain != 0:
         raise Phase3V3LiveError("usage ledger contains unresolved uncertain spend")
     for event in _ledger_events(path):
         status = event.get("status")
-        if status == "unknown_charge":
+        if status == "unknown_charge" and not tolerant:
             raise Phase3V3LiveError("usage ledger contains an unknown charge")
         if status == "charged_malformed":
             raise Phase3V3LiveError("usage ledger contains a charged malformed response")
@@ -925,6 +986,17 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
         per_call_wall_clock_ceiling_seconds=float(
             transport["per_call_wall_clock_ceiling_seconds"]),
         require_returned_model_match=True,
+        **(
+            {
+                "run_uncertain_ceiling_usd": float(
+                    role_limits["uncertain_spend_tolerance"][
+                        "run_uncertain_ceiling_usd"]),
+                "initial_run_uncertain_spend_usd": float(
+                    accounting["successor_uncertain_spend_usd"]),
+            }
+            if context["binding"].get("schema_version") == BINDING_SCHEMA_V4
+            else {}
+        ),
     )
     resolving = RoleLimitResolvingClient(raw, role_limits["model_role_limits"])
     identity = f"{context['manifest']['run_id']}:{phase}"
@@ -1418,6 +1490,43 @@ def _paired_position_diagnostics(
     return report
 
 
+def _uncertain_event_report(
+    ledger_events: Sequence[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Summarize every terminal unknown_charge event for the final report (amendment 3).
+
+    Each entry names the cell it deferred and the success attempt that ultimately completed
+    that cell, so an auditor can confirm no measurement row depends on a billing-uncertain
+    call. The by-condition counts expose retry clustering by experimental arm (a
+    content-dependent failure pattern would otherwise hide a retry-selection effect).
+    """
+    success_by_cell: dict[str, str] = {}
+    for event in ledger_events:
+        if event.get("status") == "success":
+            cell = (event.get("metadata") or {}).get("cell_key")
+            if isinstance(cell, str):
+                success_by_cell[cell] = str(event.get("attempt_id"))
+    uncertain_events = [
+        {
+            "model": event.get("model"),
+            "cell_key": (event.get("metadata") or {}).get("cell_key"),
+            "condition": (event.get("metadata") or {}).get("condition"),
+            "attempt_id": event.get("attempt_id"),
+            "ts": event.get("ts"),
+            "reserved_cost_usd": event.get("cost_usd"),
+            "error": event.get("error"),
+            "completing_success_attempt_id": success_by_cell.get(
+                (event.get("metadata") or {}).get("cell_key")),
+        }
+        for event in ledger_events if event.get("status") == "unknown_charge"
+    ]
+    uncertain_by_condition: dict[str, int] = {}
+    for entry in uncertain_events:
+        key = str(entry["condition"])
+        uncertain_by_condition[key] = uncertain_by_condition.get(key, 0) + 1
+    return uncertain_events, uncertain_by_condition
+
+
 def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     harness_manifest = load_harness_manifest(context)
     plan = _canary_plan(context)
@@ -1463,6 +1572,15 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     paired_position = _paired_position_diagnostics(
         rows, plan, context["protocol"], question_bank,
         context["manifest"]["final_roster"])
+    tolerant_binding = context["binding"].get("schema_version") == BINDING_SCHEMA_V4
+    uncertain_events, uncertain_by_condition = _uncertain_event_report(
+        _ledger_events(context["paths"]["usage_ledger"]))
+    successor_uncertain = float(accounting["successor_uncertain_spend_usd"])
+    ledger_pass = (
+        float(accounting["aggregate_accounted_spend_usd"]) <= cap
+        and (successor_uncertain == 0
+             or (tolerant_binding and successor_uncertain <= RUN_UNCERTAIN_CEILING_USD))
+        and all(entry["completing_success_attempt_id"] for entry in uncertain_events))
     gates = {
         "completion": {"expected_rows": EXPECTED_TOTAL_ROWS,
                        "observed_rows": len(observed_keys), "pass": True},
@@ -1471,7 +1589,16 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
                                  "full": full_polarity, "b0": b0_polarity},
         "strict_invalid_per_judge": invalid,
         "ledger": {**accounting, "aggregate_cap_usd": cap,
-                   "pass": float(accounting["aggregate_accounted_spend_usd"]) <= cap},
+                   "run_uncertain_ceiling_usd": (
+                       RUN_UNCERTAIN_CEILING_USD if tolerant_binding else None),
+                   "accounting_label": (
+                       "PASS_CLEAN" if ledger_pass and successor_uncertain == 0
+                       else "PASS_CONSERVATIVE_UNCERTAIN" if ledger_pass
+                       else "FAIL"),
+                   "uncertain_event_count": len(uncertain_events),
+                   "uncertain_events": uncertain_events,
+                   "uncertain_events_by_condition": uncertain_by_condition,
+                   "pass": ledger_pass},
         "main_spend": {"authorized": False, "observed_main_usage_events": 0, "pass": True},
     }
     gate_failures = []
@@ -1479,6 +1606,8 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         gate_failures.append("structural_mirroring")
     if not all(entry["pass"] for entry in invalid.values()):
         gate_failures.append("strict_invalid_per_judge")
+    if not ledger_pass:
+        gate_failures.append("ledger")
 
     report = {
         "schema_version": "phase3_v3_successor_canary_report_v1",

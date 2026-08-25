@@ -1599,3 +1599,53 @@ def test_midstream_stream_failure_halts_under_halt_on_unknown_charge():
     with pytest.raises(ac.UnknownChargeHalt):
         c.complete(MSGS, "Qwen/Qwen3.7-Plus", 0.1, 1, 64)
     assert sdk.calls == 1                      # halted immediately; no retry burned a 2nd attempt
+
+
+# --- 7b. run_uncertain_ceiling_usd (amendment 3, 2026-08-25) -----------------------------------
+
+
+def _one_uncertain_charge_cost() -> float:
+    sdk = StubSDK(fail_times=99)
+    c = ac.RejudgeClient(
+        approved_cap_usd=10.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    return float(c.usage_events[-1]["cost_usd"])
+
+
+def test_run_uncertain_ceiling_halts_reservation_before_dispatch():
+    cost = _one_uncertain_charge_cost()
+    sdk = StubSDK(fail_times=99)
+    c = ac.RejudgeClient(
+        approved_cap_usd=10.0, _sdk_client=sdk, max_retries=3, _sleep=lambda s: None,
+        halt_on_unknown_charge=True, run_uncertain_ceiling_usd=1.5 * cost)
+    with pytest.raises(ac.UnknownChargeHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)          # accrues run-uncertain == cost
+    dispatched = sdk.calls
+    events = len(c.usage_events)
+    # The next identical reservation would project 2*cost > 1.5*cost, so it must be
+    # refused BEFORE dispatch, with no provider call and no ledger event.
+    with pytest.raises(ac.UncertainCeilingHalt):
+        c.complete(MSGS, "m", 0.1, 1, 64)
+    assert sdk.calls == dispatched
+    assert len(c.usage_events) == events
+
+
+def test_run_uncertain_ceiling_ignores_prior_aggregate_uncertain():
+    cost = _one_uncertain_charge_cost()
+    c = ac.RejudgeClient(
+        approved_cap_usd=10.0, _sdk_client=StubSDK(), _sleep=lambda s: None,
+        initial_uncertain_spend_usd=5.0, run_uncertain_ceiling_usd=1.5 * cost)
+    # Prior-attempt uncertain spend counts against the aggregate cap but must not
+    # consume the fresh run's own ceiling.
+    assert c.complete(MSGS, "m", 0.1, 1, 64) == "YES"
+
+
+def test_run_uncertain_ceiling_constructor_validation():
+    with pytest.raises(ValueError, match="finite positive"):
+        ac.RejudgeClient(approved_cap_usd=1.0, dry_run=True, run_uncertain_ceiling_usd=0)
+    with pytest.raises(ValueError, match="already exceeds"):
+        ac.RejudgeClient(
+            approved_cap_usd=1.0, dry_run=True, run_uncertain_ceiling_usd=0.5,
+            initial_run_uncertain_spend_usd=0.6)

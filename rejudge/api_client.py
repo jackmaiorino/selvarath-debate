@@ -90,6 +90,21 @@ class SdkTransportPinMismatchError(RuntimeError):
     """
 
 
+class UncertainCeilingHalt(RuntimeError):
+    """Raised at reservation time when run-local uncertain exposure would exceed its ceiling.
+
+    Only active when the client is constructed with ``run_uncertain_ceiling_usd``. The check
+    is ``run_uncertain + proposed_worst_case_reservation <= ceiling``, applied BEFORE any
+    provider dispatch, so a run that keeps accumulating billing-uncertain outcomes
+    (timeouts, 503-after-dispatch ambiguity) stops spending strictly before its unresolved
+    exposure can exceed the frozen per-run ceiling. Distinct from :class:`CapExceededError`
+    (the aggregate cap, which uncertain spend also counts against in full): tripping this
+    ceiling is a fail-closed run halt requiring owner review; it never auto-chains a
+    successor. Bound policy: phase3_v3 role-limits ``uncertain_spend_tolerance`` (amendment
+    3, 2026-08-25), trigger evidence rejudge/phase3_v3_r9_uncertain_spend_halt_2026-08-25.json.
+    """
+
+
 class WallClockCeilingExceededError(RuntimeError):
     """One provider attempt exceeded ``per_call_wall_clock_ceiling_seconds``.
 
@@ -799,7 +814,9 @@ class RejudgeClient:
                  http_timeout: Mapping[str, float] | None = None,
                  sdk_internal_max_retries: int | None = None,
                  per_call_wall_clock_ceiling_seconds: float | None = None,
-                 require_returned_model_match: bool = False):
+                 require_returned_model_match: bool = False,
+                 run_uncertain_ceiling_usd: float | None = None,
+                 initial_run_uncertain_spend_usd: float = 0.0):
         self.approved_cap_usd = float(approved_cap_usd)
         self.price_per_mtok = price_per_mtok
         self.model_prices = dict(model_prices or {})
@@ -814,6 +831,22 @@ class RejudgeClient:
         if self.initial_spend_usd + initial_uncertain_spend_usd > self.approved_cap_usd:
             raise ValueError(
                 "prior accounted spend exceeds the approved cumulative cap")
+        initial_run_uncertain_spend_usd = float(initial_run_uncertain_spend_usd)
+        if (not math.isfinite(initial_run_uncertain_spend_usd)
+                or initial_run_uncertain_spend_usd < 0):
+            raise ValueError(
+                "initial_run_uncertain_spend_usd must be a finite non-negative number")
+        if run_uncertain_ceiling_usd is not None:
+            run_uncertain_ceiling_usd = float(run_uncertain_ceiling_usd)
+            if not math.isfinite(run_uncertain_ceiling_usd) or run_uncertain_ceiling_usd <= 0:
+                raise ValueError(
+                    "run_uncertain_ceiling_usd must be a finite positive number")
+            if initial_run_uncertain_spend_usd > run_uncertain_ceiling_usd:
+                raise ValueError(
+                    "run-local uncertain spend already exceeds its ceiling; owner review "
+                    "required before constructing a live client")
+        self.run_uncertain_ceiling_usd = run_uncertain_ceiling_usd
+        self._run_uncertain_spend_usd = initial_run_uncertain_spend_usd
         self.dry_run = dry_run
         self.error_log_path = error_log_path
         self.usage_log_path = usage_log_path
@@ -1081,6 +1114,13 @@ class RejudgeClient:
                 raise CapExceededError(
                     f"projected spend ${projected:.4f} > approved cap "
                     f"${self.approved_cap_usd:.4f}")
+            if self.run_uncertain_ceiling_usd is not None:
+                projected_uncertain = self._run_uncertain_spend_usd + estimated_cost
+                if projected_uncertain > self.run_uncertain_ceiling_usd:
+                    raise UncertainCeilingHalt(
+                        f"projected run-uncertain exposure ${projected_uncertain:.4f} > "
+                        f"ceiling ${self.run_uncertain_ceiling_usd:.4f}; owner review "
+                        "required before any further dispatch")
             self._active_reservations_usd += estimated_cost
             self.total_tokens += prompt_tokens + completion_tokens
             try:
@@ -1121,6 +1161,7 @@ class RejudgeClient:
                 raise self._latch_accounting_error(ledger_exc) from ledger_exc
             self._active_reservations_usd -= estimated_cost
             self._uncertain_spend_usd += estimated_cost
+            self._run_uncertain_spend_usd += estimated_cost
             self.uncertain_tokens += estimated_tokens
 
     def _release_reservation(self, estimated_cost: float, estimated_tokens: int, *,

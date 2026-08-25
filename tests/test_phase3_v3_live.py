@@ -326,7 +326,7 @@ def test_recovery_binding_reports_the_halted_r2_ledger_without_rewriting_it():
         phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
 
 
-def test_nonstream_successor_binding_verifies_both_halted_ledgers_and_zero_fresh_ledger():
+def test_nonstream_successor_binding_verifies_both_halted_ledgers_and_sealed_r3_ledger():
     protocol = _recovery_protocol()
     binding = json.loads((
         ROOT / "rejudge/phase3_v3_execution_binding_r3_2026-08-25.json"
@@ -359,9 +359,12 @@ def test_nonstream_successor_binding_verifies_both_halted_ledgers_and_zero_fresh
     }, current)
     assert accounting["prior_accounted_spend_usd"] == pytest.approx(
         phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
-    assert accounting["successor_accounted_spend_usd"] == 0
+    # The r3 attempt ran and halted on 2026-08-25 (r9 halt record); its ledger is sealed
+    # with these totals and is carried as the third prior attempt of the v4 binding chain.
+    assert accounting["successor_accounted_spend_usd"] == pytest.approx(
+        4.6673578199999985)
     assert accounting["aggregate_accounted_spend_usd"] == pytest.approx(
-        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R4)
 
 
 def test_qwen38_nonstream_policy_keeps_reasoning_floor_but_removes_stream_pin():
@@ -440,3 +443,141 @@ def test_recovery_authorization_requires_aggregate_carry_text(tmp_path: Path):
             protocol_relative_path="rejudge/phase3_protocol_v3_r3.json",
             prior_accounted_spend_usd=prior,
         )
+
+
+# --- amendment 3 (2026-08-25): bounded uncertain-spend tolerance ------------------------------
+
+
+def _uncertain_binding():
+    return json.loads((
+        ROOT / "rejudge/phase3_v3_execution_binding_r4_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+
+
+def _chained_ledger(tmp_path: Path, events: list[dict]) -> tuple[Path, dict]:
+    path = tmp_path / "usage.jsonl"
+    identity = api_client.prepare_usage_ledger(path, allow_create=True)
+    snapshot = api_client.load_chained_usage_ledger(path)
+    sequence = snapshot.last_sequence
+    prev = snapshot.last_event_hash
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        for event in events:
+            sequence += 1
+            event = {**event, "ledger_id": identity["ledger_id"],
+                     "sequence": sequence, "prev_event_hash": prev}
+            event["event_hash"] = api_client._usage_event_hash(event)
+            prev = event["event_hash"]
+            handle.write(json.dumps(event, sort_keys=True) + "\n")
+    api_client._atomic_write_json(
+        api_client.usage_ledger_state_path(path),
+        api_client._usage_state_payload(identity, sequence, prev))
+    return path, dict(identity)
+
+
+def _reserved_event(attempt_id: str, cost: float, **overrides) -> dict:
+    return {"ts": "2026-08-25T20:00:00+00:00", "status": "reserved",
+            "attempt_id": attempt_id, "model": "m", "kind": "verdict", "seed": 1,
+            "attempt": 0, "prompt_tokens": None, "completion_tokens": None,
+            "reserved_prompt_tokens": 10, "reserved_completion_tokens": 10,
+            "estimated_tokens": 20, "cost_usd": cost, "metadata": {}, **overrides}
+
+
+def _unknown_event(attempt_id: str, cost: float, **overrides) -> dict:
+    return {**_reserved_event(attempt_id, cost), "status": "unknown_charge",
+            "error": "Request timed out.", **overrides}
+
+
+def _success_event(attempt_id: str, reserved: float, actual: float, **overrides) -> dict:
+    return {**_reserved_event(attempt_id, reserved), "status": "success",
+            "prompt_tokens": 10, "completion_tokens": 5, "cost_usd": actual,
+            "response_metadata": {"returned_model_id": "m"}, **overrides}
+
+
+def _ledger_context(tmp_path: Path, events: list[dict], binding: dict) -> dict:
+    path, identity = _chained_ledger(tmp_path, events)
+    binding = copy.deepcopy(binding)
+    binding["usage_ledger_identity"] = identity
+    return {"root": ROOT, "binding": binding, "paths": {"usage_ledger": path}}
+
+
+def test_uncertain_role_limits_pin_tolerance_policy():
+    protocol = _recovery_protocol()
+    role_limits = json.loads((
+        ROOT / "rejudge/phase3_v3_role_limits_r4_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    phase3_v3_live._validate_role_limits(role_limits, protocol)
+    drifted = copy.deepcopy(role_limits)
+    drifted["uncertain_spend_tolerance"]["run_uncertain_ceiling_usd"] = 5.0
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="tolerance policy drifted"):
+        phase3_v3_live._validate_role_limits(drifted, protocol)
+
+
+def test_v2_role_limits_refuse_a_smuggled_tolerance_block():
+    protocol = _recovery_protocol()
+    role_limits = json.loads((
+        ROOT / "rejudge/phase3_v3_role_limits_r3_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    smuggled = copy.deepcopy(role_limits)
+    smuggled["uncertain_spend_tolerance"] = {"run_uncertain_ceiling_usd": 1.0}
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="v3 role-limits schema"):
+        phase3_v3_live._validate_role_limits(smuggled, protocol)
+
+
+def test_v4_binding_verifies_three_sealed_ledgers_and_frozen_carry():
+    binding = _uncertain_binding()
+    totals = phase3_v3_live._validate_prior_attempt_accounting(binding, ROOT)
+    assert totals["accounted_spend_usd"] == pytest.approx(
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R4)
+    assert totals["uncertain_spend_usd"] == pytest.approx(0.23350102)
+
+
+def test_validate_ledger_v4_tolerates_bounded_unknown_charges(tmp_path: Path):
+    context = _ledger_context(tmp_path, [
+        _reserved_event("a1", 0.4), _unknown_event("a1", 0.4),
+        _reserved_event("a2", 0.3), _success_event("a2", 0.3, 0.2),
+    ], _uncertain_binding())
+    snapshot = phase3_v3_live.validate_ledger(context)
+    assert float(snapshot.summary["uncertain_spend_usd"]) == pytest.approx(0.4)
+
+
+def test_validate_ledger_v4_refuses_uncertain_above_ceiling(tmp_path: Path):
+    context = _ledger_context(tmp_path, [
+        _reserved_event("a1", 0.6), _unknown_event("a1", 0.6),
+        _reserved_event("a2", 0.5), _unknown_event("a2", 0.5),
+    ], _uncertain_binding())
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="exceeds the frozen"):
+        phase3_v3_live.validate_ledger(context)
+
+
+def test_validate_ledger_v4_refuses_open_reservation(tmp_path: Path):
+    context = _ledger_context(tmp_path, [
+        _reserved_event("a1", 0.3), _success_event("a1", 0.3, 0.2),
+        _reserved_event("a2", 0.3),
+    ], _uncertain_binding())
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="open reservation"):
+        phase3_v3_live.validate_ledger(context)
+
+
+def test_validate_ledger_v3_still_refuses_any_unknown_charge(tmp_path: Path):
+    binding = json.loads((
+        ROOT / "rejudge/phase3_v3_execution_binding_r3_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    context = _ledger_context(tmp_path, [
+        _reserved_event("a1", 0.01), _unknown_event("a1", 0.01),
+    ], binding)
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="unresolved uncertain"):
+        phase3_v3_live.validate_ledger(context)
+
+
+def test_uncertain_event_report_names_completing_attempts():
+    cell = "plan:kind:cell-1"
+    events = [
+        _reserved_event("a1", 0.4, metadata={"cell_key": cell, "condition": "b2"}),
+        _unknown_event("a1", 0.4, metadata={"cell_key": cell, "condition": "b2"}),
+        _reserved_event("a2", 0.4, metadata={"cell_key": cell, "condition": "b2"}),
+        _success_event("a2", 0.4, 0.2, metadata={"cell_key": cell, "condition": "b2"}),
+    ]
+    entries, by_condition = phase3_v3_live._uncertain_event_report(events)
+    assert len(entries) == 1
+    assert entries[0]["completing_success_attempt_id"] == "a2"
+    assert by_condition == {"b2": 1}

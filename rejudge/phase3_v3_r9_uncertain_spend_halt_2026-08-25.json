@@ -24,9 +24,9 @@
   "raw_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60",
   "last_event_sha256": "d0e5f4584708dc9c7c3ea4cffc483be6950f93e607bd6517246207b0c3fe214b",
   "event_count": 1775,
-  "actual_spend_usd": 4.5755016,
+  "actual_spend_usd": 4.575501599999998,
   "uncertain_spend_usd": 0.09185622,
-  "accounted_spend_usd": 4.66735782,
+  "accounted_spend_usd": 4.6673578199999985,
   "unmatched_reservations": 0
  },
  "uncertain_events": {
@@ -56,13 +56,13 @@
  "aggregate_accounting": {
   "cap_usd": 60.0,
   "prior_accounted_spend_usd": 0.30985289000000005,
-  "successor_accounted_spend_usd": 4.66735782,
-  "aggregate_accounted_spend_usd": 4.97721071,
+  "successor_accounted_spend_usd": 4.6673578199999985,
+  "aggregate_accounted_spend_usd": 4.977210709999999,
   "remaining_usd": 55.02278929
  },
  "execution_authorized": false,
  "main_run_spend_authorized": false,
- "successor_constraint": "Any retry must use a fresh run identity and ledger, preserve this archive read-only, carry $4.97721071 prior accounted spend, and remain separately documented with no main spend. A naive relaunch under unchanged code would hit the same inconsistency on the next billing-uncertain transport event, so the inconsistency must be resolved first; the resolution decision is being taken to a Codex consult before any code amendment.",
+ "successor_constraint": "Any retry must use a fresh run identity and ledger, preserve this archive read-only, carry the exact $4.977210709999999 prior accounted spend, and remain separately documented with no main spend. A naive relaunch under unchanged code would hit the same inconsistency on the next billing-uncertain transport event, so the inconsistency must be resolved first; the resolution decision is being taken to a Codex consult before any code amendment.",
  "non_claims": [
   "This observation does not authorize provider inference or reuse of partial measurement rows.",
   "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
