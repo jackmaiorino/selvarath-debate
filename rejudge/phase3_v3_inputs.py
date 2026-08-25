@@ -13,7 +13,10 @@ from rejudge.phase2_execution import canonical_sha256
 
 
 TOKENIZER_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_manifest_v4"
+TOKENIZER_SCHEMA_VERSION_V5 = "phase3_v3_exact_tokenizer_manifest_v5"
 PRICE_SCHEMA_VERSION = "phase3_v3_price_snapshot_v1"
+PRICE_SCHEMA_VERSION_V2 = "phase3_v3_price_snapshot_v2"
+PROVIDER_TEMPLATE_SCHEMA_VERSION = "phase3_v3_provider_chat_template_v1"
 TRANSCRIPT_BUNDLE_COUNTS = {"main": 492, "canary": 48}
 REQUIRED_TRANSCRIPT_COUNT = TRANSCRIPT_BUNDLE_COUNTS["main"]
 
@@ -261,6 +264,95 @@ def _load_local_tokenizer(path: Path) -> Any:
         raise InputGateError(f"could not load local tokenizer {path}: {exc}") from exc
 
 
+def validate_provider_chat_template_artifact(
+    artifact: Mapping[str, Any], *, model: str,
+    project_root: str | Path | None = None,
+) -> dict[str, str]:
+    """Bind a provider-exposed chat template to its raw catalog and public tokenizer."""
+    expected_fields = {
+        "schema_version", "artifact_id", "model_id", "provider", "observed_at_utc",
+        "raw_catalog", "hugging_face", "provider_chat_template",
+        "provider_chat_template_sha256", "match_status", "execution_authorized",
+        "provider_inference_calls", "non_claims",
+    }
+    if set(artifact) != expected_fields:
+        raise InputGateError("provider chat-template artifact fields drifted")
+    if artifact.get("schema_version") != PROVIDER_TEMPLATE_SCHEMA_VERSION:
+        raise InputGateError("unsupported provider chat-template artifact schema")
+    if artifact.get("model_id") != model or artifact.get("provider") != "Together":
+        raise InputGateError("provider chat-template artifact binds a different model")
+    if (artifact.get("execution_authorized") is not False
+            or artifact.get("provider_inference_calls") != 0):
+        raise InputGateError("provider chat-template artifact cannot authorize or record inference")
+    _text(artifact.get("artifact_id"), "provider template artifact_id")
+    _timestamp(artifact.get("observed_at_utc"), "provider template observed_at_utc")
+    if artifact.get("match_status") != "provider_template_explicit_override_required":
+        raise InputGateError("provider chat-template match status drifted")
+    non_claims = artifact.get("non_claims")
+    if (not isinstance(non_claims, list) or not non_claims
+            or not all(isinstance(item, str) and item for item in non_claims)):
+        raise InputGateError("provider chat-template non-claims are invalid")
+
+    template = _text(
+        artifact.get("provider_chat_template"), "provider_chat_template")
+    template_sha = _sha256(
+        artifact.get("provider_chat_template_sha256"),
+        "provider_chat_template_sha256",
+    )
+    if hashlib.sha256(template.encode("utf-8")).hexdigest() != template_sha:
+        raise InputGateError("provider chat-template content hash drifted")
+    if template_sha != static_prompts.QWEN38_PROVIDER_CHAT_TEMPLATE_SHA256:
+        raise InputGateError("provider chat-template is not the frozen Qwen 3.8 template")
+
+    hugging_face = _object(artifact.get("hugging_face"), "hugging_face")
+    if set(hugging_face) != {
+            "repository", "revision", "native_chat_template_sha256",
+            "tokenizer_json_sha256"}:
+        raise InputGateError("provider chat-template Hugging Face fields drifted")
+    repository = _text(hugging_face.get("repository"), "hugging_face.repository")
+    revision = _text(hugging_face.get("revision"), "hugging_face.revision")
+    native_sha = _sha256(
+        hugging_face.get("native_chat_template_sha256"),
+        "hugging_face.native_chat_template_sha256",
+    )
+    tokenizer_json_sha = _sha256(
+        hugging_face.get("tokenizer_json_sha256"),
+        "hugging_face.tokenizer_json_sha256",
+    )
+    if repository != model:
+        raise InputGateError("provider chat-template repository differs from its model")
+
+    raw = _object(artifact.get("raw_catalog"), "raw_catalog")
+    if set(raw) != {"path", "canonical_sha256", "catalog_entry_canonical_sha256"}:
+        raise InputGateError("provider chat-template raw-catalog fields drifted")
+    raw_path = _text(raw.get("path"), "raw_catalog.path")
+    raw_sha = _sha256(raw.get("canonical_sha256"), "raw_catalog.canonical_sha256")
+    entry_sha = _sha256(
+        raw.get("catalog_entry_canonical_sha256"),
+        "raw_catalog.catalog_entry_canonical_sha256",
+    )
+    if project_root is not None:
+        catalog = _load_json(_resolve_path(raw_path, project_root))
+        if canonical_sha256(catalog) != raw_sha:
+            raise InputGateError("provider chat-template raw catalog hash drifted")
+        entries = _catalog_entries(catalog)
+        matches = [entry for entry in entries if entry.get("id") == model]
+        if len(matches) != 1 or canonical_sha256(matches[0]) != entry_sha:
+            raise InputGateError("provider chat-template catalog entry drifted")
+        catalog_template = _object(
+            matches[0].get("config"), "provider model config").get("chat_template")
+        if catalog_template != template:
+            raise InputGateError("provider catalog chat template differs from the bound template")
+    return {
+        "template": template,
+        "provider_chat_template_sha256": template_sha,
+        "native_chat_template_sha256": native_sha,
+        "tokenizer_json_sha256": tokenizer_json_sha,
+        "repository": repository,
+        "revision": revision,
+    }
+
+
 def _validate_json_binding(
     binding: Mapping[str, Any], label: str, *, project_root: str | Path | None,
 ) -> tuple[Path, Mapping[str, Any]]:
@@ -285,15 +377,18 @@ def validate_exact_tokenizer_manifest(
 ) -> dict[str, Any]:
     """Re-render and re-tokenize every declared static prompt from bound local inputs."""
     phase3_plan.validate_protocol(protocol)
+    schema_version = manifest.get("schema_version")
     expected_top_fields = {
         "schema_version", "execution_authorized", "protocol_canonical_sha256",
         "prompt_bundle", "query_checker_prompt", "world_documents",
         "transcript_bundles", "models",
     }
+    if schema_version == TOKENIZER_SCHEMA_VERSION_V5:
+        expected_top_fields.add("provider_chat_templates")
     if set(manifest) != expected_top_fields:
         raise InputGateError(
             f"exact-tokenizer manifest fields must be exactly {sorted(expected_top_fields)!r}")
-    if manifest.get("schema_version") != TOKENIZER_SCHEMA_VERSION:
+    if schema_version not in {TOKENIZER_SCHEMA_VERSION, TOKENIZER_SCHEMA_VERSION_V5}:
         raise InputGateError("unexpected exact-tokenizer manifest schema")
     if manifest.get("execution_authorized") is not False:
         raise InputGateError("exact-tokenizer manifest cannot authorize execution")
@@ -424,8 +519,40 @@ def validate_exact_tokenizer_manifest(
             _text(binding.get("path"), f"world_documents[{world!r}].path")
             _sha256(binding.get("sha256"), f"world_documents[{world!r}].sha256")
 
-    models = _object(manifest.get("models"), "models")
     required_models = list(protocol["roster"]["judges_final"])
+    provider_templates: dict[str, Mapping[str, Any] | None] = {}
+    if schema_version == TOKENIZER_SCHEMA_VERSION_V5:
+        raw_provider_templates = _object(
+            manifest.get("provider_chat_templates"), "provider_chat_templates")
+        if not set(raw_provider_templates) <= set(required_models):
+            raise InputGateError("provider chat-template models differ from the final roster")
+        for model, raw_binding in raw_provider_templates.items():
+            binding = _object(
+                raw_binding, f"provider_chat_templates[{model!r}]")
+            if set(binding) != {"path", "canonical_sha256"}:
+                raise InputGateError(
+                    f"provider chat-template binding fields drifted for {model}")
+            path = _resolve_path(
+                _text(binding.get("path"), f"provider_chat_templates[{model!r}].path"),
+                project_root,
+            )
+            expected_sha = _sha256(
+                binding.get("canonical_sha256"),
+                f"provider_chat_templates[{model!r}].canonical_sha256",
+            )
+            if verify_files:
+                artifact = _object(
+                    _load_json(path), f"provider_chat_templates[{model!r}]")
+                if canonical_sha256(artifact) != expected_sha:
+                    raise InputGateError(
+                        f"provider chat-template artifact hash drifted for {model}")
+                validate_provider_chat_template_artifact(
+                    artifact, model=model, project_root=project_root)
+                provider_templates[model] = artifact
+            else:
+                provider_templates[model] = None
+
+    models = _object(manifest.get("models"), "models")
     if set(models) != set(required_models):
         raise InputGateError("exact-tokenizer models must equal the final billed-model roster")
     verified_files = 0
@@ -462,8 +589,13 @@ def validate_exact_tokenizer_manifest(
             rendering.get("mode"), f"models[{model!r}].chat_template_rendering.mode")
         if rendering_mode not in {
                 static_prompts.NATIVE_RENDERING_MODE,
-                static_prompts.GEMMA3N_PROVIDER_RENDERING_MODE}:
+                static_prompts.GEMMA3N_PROVIDER_RENDERING_MODE,
+                static_prompts.QWEN38_PROVIDER_RENDERING_MODE}:
             raise InputGateError(f"unsupported chat-template rendering mode for {model}")
+        if ((rendering_mode == static_prompts.QWEN38_PROVIDER_RENDERING_MODE)
+                != (model in provider_templates)):
+            raise InputGateError(
+                f"provider chat-template binding and rendering mode disagree for {model}")
         _sha256(
             rendering.get("effective_chat_template_sha256"),
             f"models[{model!r}].chat_template_rendering.effective_chat_template_sha256",
@@ -482,7 +614,8 @@ def validate_exact_tokenizer_manifest(
         if verify_files:
             observed_names = {
                 path.relative_to(tokenizer_dir).as_posix()
-                for path in tokenizer_dir.rglob("*") if path.is_file()
+                for path in tokenizer_dir.rglob("*")
+                if path.is_file() and ".cache" not in path.relative_to(tokenizer_dir).parts
             }
             if observed_names != declared_names:
                 raise InputGateError(f"tokenizer file inventory drifted for {model}")
@@ -509,6 +642,32 @@ def validate_exact_tokenizer_manifest(
             chat_template = getattr(tokenizer, "chat_template", None)
             if not isinstance(chat_template, str) or not chat_template:
                 raise InputGateError(f"local tokenizer for {model} has no chat template")
+            provider_artifact = provider_templates.get(model)
+            if provider_artifact is not None:
+                provider_template = validate_provider_chat_template_artifact(
+                    provider_artifact, model=model, project_root=project_root)
+                native_template_sha = hashlib.sha256(
+                    chat_template.encode("utf-8")).hexdigest()
+                if native_template_sha != provider_template[
+                        "native_chat_template_sha256"]:
+                    raise InputGateError(
+                        f"native chat template hash drifted before provider override for {model}")
+                tokenizer_json = _object(
+                    files.get("tokenizer.json"),
+                    f"models[{model!r}].files['tokenizer.json']",
+                )
+                if tokenizer_json.get("sha256") != provider_template[
+                        "tokenizer_json_sha256"]:
+                    raise InputGateError(
+                        f"tokenizer.json differs from provider-template evidence for {model}")
+                if entry.get("repository") != provider_template["repository"]:
+                    raise InputGateError(
+                        f"tokenizer repository differs from provider-template evidence for {model}")
+                if entry.get("revision") != provider_template["revision"]:
+                    raise InputGateError(
+                        f"tokenizer revision differs from provider-template evidence for {model}")
+                tokenizer.chat_template = provider_template["template"]
+                chat_template = tokenizer.chat_template
             observed_template_sha = hashlib.sha256(
                 chat_template.encode("utf-8")).hexdigest()
             if observed_template_sha != declared_template_sha:
@@ -682,14 +841,17 @@ def validate_price_snapshot(
 ) -> dict[str, Any]:
     """Require post-roster serverless availability and prices no more than 24 hours old."""
     phase3_plan.validate_protocol(protocol)
+    schema_version = snapshot.get("schema_version")
     expected_top_fields = {
         "schema_version", "provider", "verified_at_utc", "execution_authorized",
         "raw_catalog", "models",
     }
+    if schema_version == PRICE_SCHEMA_VERSION_V2:
+        expected_top_fields.add("raw_serverless_endpoints")
     if set(snapshot) != expected_top_fields:
         raise InputGateError(
             f"price snapshot fields must be exactly {sorted(expected_top_fields)!r}")
-    if snapshot.get("schema_version") != PRICE_SCHEMA_VERSION:
+    if schema_version not in {PRICE_SCHEMA_VERSION, PRICE_SCHEMA_VERSION_V2}:
         raise InputGateError("unexpected price snapshot schema")
     if snapshot.get("execution_authorized") is not False:
         raise InputGateError("price snapshot cannot authorize execution")
@@ -731,6 +893,53 @@ def validate_price_snapshot(
                 raise InputGateError(f"raw provider catalog has duplicate model id {model_id}")
             catalog_by_id[model_id] = entry
 
+    serverless_by_model: dict[str, Mapping[str, Any]] | None = None
+    if schema_version == PRICE_SCHEMA_VERSION_V2:
+        endpoint_binding = _object(
+            snapshot.get("raw_serverless_endpoints"), "raw_serverless_endpoints")
+        expected_endpoint_fields = {"path", "canonical_sha256", "endpoint_count"}
+        if set(endpoint_binding) != expected_endpoint_fields:
+            raise InputGateError(
+                "raw_serverless_endpoints fields must be exactly "
+                f"{sorted(expected_endpoint_fields)!r}")
+        endpoint_path_text = _text(
+            endpoint_binding.get("path"), "raw_serverless_endpoints.path")
+        endpoint_sha = _sha256(
+            endpoint_binding.get("canonical_sha256"),
+            "raw_serverless_endpoints.canonical_sha256",
+        )
+        endpoint_count = _positive_int(
+            endpoint_binding.get("endpoint_count"),
+            "raw_serverless_endpoints.endpoint_count",
+        )
+        if verify_catalog:
+            raw_endpoints = _load_json(
+                _resolve_path(endpoint_path_text, project_root))
+            if canonical_sha256(raw_endpoints) != endpoint_sha:
+                raise InputGateError(
+                    "raw serverless endpoint inventory canonical hash mismatch")
+            endpoint_entries = _catalog_entries(raw_endpoints)
+            if len(endpoint_entries) != endpoint_count:
+                raise InputGateError("raw serverless endpoint_count drifted")
+            serverless_by_model = {}
+            required_set = set(protocol["roster"]["judges_final"])
+            for model in required_set:
+                matches = [
+                    endpoint for endpoint in endpoint_entries
+                    if endpoint.get("model") == model and endpoint.get("name") == model
+                ]
+                if len(matches) != 1:
+                    raise InputGateError(
+                        f"required model must have exactly one exact serverless endpoint: {model}")
+                endpoint = matches[0]
+                if endpoint.get("type") != "serverless":
+                    raise InputGateError(
+                        f"required model endpoint is not serverless: {model}")
+                if endpoint.get("state") != "STARTED":
+                    raise InputGateError(
+                        f"required model serverless endpoint is not STARTED: {model}")
+                serverless_by_model[model] = endpoint
+
     models = _object(snapshot.get("models"), "models")
     required_models = list(protocol["roster"]["judges_final"])
     if set(models) != set(required_models):
@@ -741,6 +950,8 @@ def validate_price_snapshot(
             "serverless_available", "input_usd_per_million",
             "output_usd_per_million", "catalog_entry_sha256",
         }
+        if schema_version == PRICE_SCHEMA_VERSION_V2:
+            expected_fields.add("serverless_endpoint_entry_sha256")
         if set(entry) != expected_fields:
             raise InputGateError(f"price entry fields drifted for {model}")
         if entry.get("serverless_available") is not True:
@@ -754,6 +965,12 @@ def validate_price_snapshot(
             prices[field] = float(value)
         catalog_entry_sha = _sha256(
             entry.get("catalog_entry_sha256"), f"models[{model!r}].catalog_entry_sha256")
+        endpoint_entry_sha: str | None = None
+        if schema_version == PRICE_SCHEMA_VERSION_V2:
+            endpoint_entry_sha = _sha256(
+                entry.get("serverless_endpoint_entry_sha256"),
+                f"models[{model!r}].serverless_endpoint_entry_sha256",
+            )
         if verify_catalog:
             assert catalog_by_id is not None
             catalog_entry = catalog_by_id.get(model)
@@ -774,6 +991,11 @@ def validate_price_snapshot(
                         or not math.isclose(
                             prices[field], float(catalog_value), rel_tol=0.0, abs_tol=1e-12)):
                     raise InputGateError(f"snapshot price disagrees with raw catalog for {model}")
+            if schema_version == PRICE_SCHEMA_VERSION_V2:
+                assert serverless_by_model is not None
+                if canonical_sha256(serverless_by_model[model]) != endpoint_entry_sha:
+                    raise InputGateError(
+                        f"serverless endpoint entry hash mismatch for {model}")
     return {
         "validation": "pass",
         "canonical_sha256": canonical_sha256(snapshot),
@@ -781,4 +1003,6 @@ def validate_price_snapshot(
         "age_seconds": age.total_seconds(),
         "required_models": required_models,
         "raw_catalog_checked": verify_catalog,
+        "raw_serverless_endpoints_checked": (
+            verify_catalog and schema_version == PRICE_SCHEMA_VERSION_V2),
     }

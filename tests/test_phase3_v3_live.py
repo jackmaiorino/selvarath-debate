@@ -226,3 +226,136 @@ def test_capability_anchor_must_finish_before_any_judgment_row(tmp_path: Path):
     with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="before the capability"):
         phase3_v3_live._run_capability_anchor_before_judgments(
             context, plan=plan, capabilities=[], client=None, bundle={})
+
+
+def _recovery_protocol():
+    return phase3_plan.load_protocol(ROOT / "rejudge/phase3_protocol_v3_r3.json")
+
+
+def _recovery_binding():
+    return json.loads((
+        ROOT / "rejudge/phase3_v3_execution_binding_r2_2026-08-24.json"
+    ).read_text(encoding="utf-8"))
+
+
+def test_recovery_role_limits_cover_qwen38_and_exact_context():
+    protocol = _recovery_protocol()
+    role_limits = json.loads((
+        ROOT / "rejudge/phase3_v3_role_limits_r2_2026-08-24.json"
+    ).read_text(encoding="utf-8"))
+    phase3_v3_live._validate_role_limits(role_limits, protocol)
+    assert role_limits["reasoning_models"]["model_ids"][-1] == (
+        "Qwen/Qwen3.8-2.4T-A95B")
+    assert role_limits["context_ceilings"]["Qwen/Qwen3.8-2.4T-A95B"][
+        "context_length_tokens"] == 1_010_000
+
+
+def test_manifest_input_resolution_selects_recovery_artifacts():
+    paths = [
+        "rejudge/phase3_protocol_v3_r3.json",
+        "rejudge/phase3_protocol_v3_pin_r3.json",
+        "rejudge/phase3_v3_exact_tokenizer_manifest_r4_2026-08-24.json",
+        "rejudge/phase3_v3_price_snapshot_r4_2026-08-24.json",
+        "rejudge/phase3_v3_role_limits_r2_2026-08-24.json",
+        "rejudge/phase3_v3_execution_binding_r2_2026-08-24.json",
+    ]
+    resolved = phase3_v3_live._resolve_manifest_input_paths({
+        "input_sha256s": {path: "0" * 64 for path in paths}
+    })
+    assert resolved["protocol"].endswith("phase3_protocol_v3_r3.json")
+    assert resolved["execution_binding"].endswith(
+        "phase3_v3_execution_binding_r2_2026-08-24.json")
+
+
+def test_recovery_binding_verifies_prior_and_fresh_ledgers():
+    protocol = _recovery_protocol()
+    binding = _recovery_binding()
+    file_paths = [
+        str(value).replace("\\", "/")
+        for key, value in binding["paths"].items()
+        if key not in phase3_v3_live.NON_MANIFEST_OUTPUT_PATH_KEYS
+    ]
+    manifest = {
+        "planned_output_paths": file_paths,
+        "harness_check": {"seed_name": "harness"},
+        "seeds": {"harness": 20260829},
+        "final_roster": list(protocol["roster"]["judges_final"]),
+        "input_sha256s": {
+            phase3_v3_live.TRANSCRIPT_REPORT_RELATIVE_PATH:
+                binding["transcript_verification_report"]["canonical_sha256"],
+        },
+    }
+    phase3_v3_live._validate_execution_binding(
+        binding, manifest, protocol, root=ROOT)
+    current = api_client.load_chained_usage_ledger(
+        binding["paths"]["usage_ledger"],
+        expected_identity=binding["usage_ledger_identity"],
+    )
+    accounting = phase3_v3_live.aggregate_accounting_summary({
+        "root": ROOT,
+        "binding": binding,
+        "paths": {"usage_ledger": Path(binding["paths"]["usage_ledger"])},
+    }, current)
+    assert accounting["successor_accounted_spend_usd"] == 0
+    assert accounting["aggregate_accounted_spend_usd"] == pytest.approx(
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD)
+
+
+def test_recovery_authorization_requires_aggregate_carry_text(tmp_path: Path):
+    protocol = _recovery_protocol()
+    manifest = {
+        "run_id": "phase3-v3-recovery-test",
+        "harness_check": {"seed_name": "harness"},
+        "seeds": {"harness": 7},
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    prior = phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD
+    authorization = {
+        "schema_version": phase3_v3_live.AUTHORIZATION_SCHEMA_V2,
+        "execution_authorized": True,
+        "main_run_spend_authorized": False,
+        "recorded_at_utc": "2026-08-25T00:00:00Z",
+        "binds": {
+            "run_id": manifest["run_id"],
+            "run_manifest_canonical_sha256": phase3_v3_live.canonical_sha256(manifest),
+            "run_manifest_tracked_path": manifest_path.name,
+            "protocol_tracked_path": "rejudge/phase3_protocol_v3_r3.json",
+            "protocol_canonical_sha256": phase3_v3_live.canonical_sha256(protocol),
+            "harness_seed_name": "harness",
+            "harness_seed": 7,
+        },
+        "scope": {
+            "aggregate_cap_usd": 60,
+            "prior_accounted_spend_usd": prior,
+            "harness_execution_count": 2,
+            "formal_successor_canary_execution_count": 1,
+            "successor_canary_fresh_gate_slots": 960,
+            "main_run_spend_authorized": False,
+            "gpu_ordinal_or_not_used": "not_used",
+        },
+        "owner_authorization": {
+            "approver": "Jack Maiorino",
+            "exact_text": (
+                f"Approved: {manifest['run_id']} harness and successor canary, $60 USD "
+                f"aggregate cap including ${prior:.8f} prior accounted spend, no main spend"),
+        },
+    }
+    phase3_v3_live.validate_authorization(
+        authorization,
+        manifest,
+        manifest_path=manifest_path,
+        protocol=protocol,
+        protocol_relative_path="rejudge/phase3_protocol_v3_r3.json",
+        prior_accounted_spend_usd=prior,
+    )
+    authorization["scope"]["prior_accounted_spend_usd"] = 0
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="prior accounted spend"):
+        phase3_v3_live.validate_authorization(
+            authorization,
+            manifest,
+            manifest_path=manifest_path,
+            protocol=protocol,
+            protocol_relative_path="rejudge/phase3_protocol_v3_r3.json",
+            prior_accounted_spend_usd=prior,
+        )

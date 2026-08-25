@@ -216,6 +216,55 @@ def test_gemma3n_provider_rendering_bypasses_only_the_frozen_guard(
     assert count == len(rendered.encode("utf-8"))
 
 
+def test_exact_provider_template_is_used_without_native_template_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    provider_template = "provider-exact-template-v1"
+    monkeypatch.setattr(
+        static_prompts,
+        "QWEN38_PROVIDER_CHAT_TEMPLATE_SHA256",
+        hashlib.sha256(provider_template.encode("utf-8")).hexdigest(),
+    )
+
+    class ProviderTokenizer:
+        chat_template = provider_template
+
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt):
+            assert add_generation_prompt is True
+            rendered = provider_template + json.dumps(
+                messages, sort_keys=True, separators=(",", ":"))
+            return list(rendered.encode("utf-8")) if tokenize else rendered
+
+    tokenizer = ProviderTokenizer()
+    override, policy = static_prompts.chat_template_rendering_policy(tokenizer)
+    assert override is None
+    assert policy["mode"] == static_prompts.QWEN38_PROVIDER_RENDERING_MODE
+    rendered, count = static_prompts.render_chat_prompt(
+        tokenizer, [{"role": "user", "content": "question"}])
+    assert rendered.startswith(provider_template)
+    assert count == len(rendered.encode("utf-8"))
+
+
+def test_v5_manifest_requires_provider_binding_and_rendering_mode_agreement(protocol):
+    manifest = _tokenizer_manifest(protocol)
+    model = protocol["roster"]["judges_final"][0]
+    manifest["schema_version"] = inputs.TOKENIZER_SCHEMA_VERSION_V5
+    manifest["provider_chat_templates"] = {
+        model: {"path": "provider-template.json", "canonical_sha256": "7" * 64}
+    }
+    manifest["models"][model]["chat_template_rendering"]["mode"] = (
+        static_prompts.QWEN38_PROVIDER_RENDERING_MODE)
+    report = inputs.validate_exact_tokenizer_manifest(
+        manifest, protocol=protocol, verify_files=False)
+    assert report["verified_model_count"] == 4
+
+    manifest["models"][model]["chat_template_rendering"]["mode"] = (
+        static_prompts.NATIVE_RENDERING_MODE)
+    with pytest.raises(inputs.InputGateError, match="binding and rendering mode disagree"):
+        inputs.validate_exact_tokenizer_manifest(
+            manifest, protocol=protocol, verify_files=False)
+
+
 def test_role_corpus_files_recompute_prompts_and_exact_token_counts(protocol, tmp_path: Path):
     class FakeTokenizer:
         chat_template = "fake-template-v1"

@@ -30,6 +30,13 @@ def _load_json_object(path: Path, label: str) -> dict[str, Any]:
     return value
 
 
+def _load_json_value(path: Path, label: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RunManifestMaterializationError(f"could not read {label} {path}: {exc}") from exc
+
+
 def _relative_path(path: Path, root: Path, label: str) -> str:
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
@@ -123,7 +130,7 @@ def materialize_run_manifest(
             raise RunManifestMaterializationError(
                 f"duplicate run-manifest input path: {relative}")
         input_sha256s[relative] = canonical_sha256(
-            _load_json_object(extra_path, "extra input"))
+            _load_json_value(extra_path, "extra input"))
     observed_commit = git_commit
     if require_clean_git:
         if git_commit is not None:

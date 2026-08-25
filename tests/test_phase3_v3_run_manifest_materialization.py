@@ -96,3 +96,27 @@ def test_materializer_binds_additional_canonical_json_inputs(tmp_path: Path):
         python_version="3.12.11", verify_external_files=False,
         extra_input_paths=[extra_path], recorded_at_utc="2026-08-29T02:00:00Z")
     assert manifest["input_sha256s"]["rejudge/execution.json"] == canonical_sha256(extra)
+
+
+def test_materializer_accepts_raw_catalog_arrays_as_canonical_inputs(tmp_path: Path):
+    protocol, pin, tokenizer, prices = _artifacts()
+    protocol_path = _write(tmp_path / "rejudge/phase3_protocol_v3.json", protocol)
+    pin_path = _write(tmp_path / "rejudge/pin.json", pin)
+    tokenizer_path = _write(tmp_path / "rejudge/tokenizer.json", tokenizer)
+    prices_path = _write(tmp_path / "rejudge/prices.json", prices)
+    raw_catalog = [{"id": "model", "type": "chat"}]
+    raw_path = _write(tmp_path / "rejudge/raw_catalog.json", raw_catalog)
+    lock_path = tmp_path / "uv.lock"
+    lock_path.write_text("version = 1\n", encoding="utf-8")
+
+    manifest = materialization.materialize_run_manifest(
+        protocol_path=protocol_path, protocol_pin_path=pin_path,
+        tokenizer_manifest_path=tokenizer_path, price_snapshot_path=prices_path,
+        dependency_lock_path=lock_path, seeds={"harness": 11},
+        planned_output_paths=["E:/archive/results.jsonl"],
+        gpu_ordinal_or_not_used="not_used", harness_seed_name="harness",
+        project_root=tmp_path, require_clean_git=False, git_commit="1" * 40,
+        python_version="3.12.11", verify_external_files=False,
+        extra_input_paths=[raw_path], recorded_at_utc="2026-08-29T02:00:00Z")
+    assert manifest["input_sha256s"]["rejudge/raw_catalog.json"] == canonical_sha256(
+        raw_catalog)

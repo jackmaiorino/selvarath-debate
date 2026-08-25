@@ -1,0 +1,16 @@
+{
+ "schema_version": "phase3_v3_protocol_pin_v2",
+ "protocol_tracked_path": "rejudge/phase3_protocol_v3_r3.json",
+ "protocol_canonical_sha256": "a884ccefc2e4b62c4c09882e5c66f36b86c7ad8d8cb1277d94579e36d79a7fb5",
+ "protocol_content_sha256": "be4bc70627bea4a0ea4a4d67807fb71dff1582555df19621a18880c14df8529d",
+ "successor_design_canonical_sha256": "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479",
+ "successor_design_amendment_canonical_sha256": "44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58",
+ "roster_resolution_canonical_sha256": "36e0e8c96bbf5b76ffa1ee798829c504e60dfddaed5cf1a1488e1ee65f5f1e45",
+ "final_roster": [
+  "google/gemma-4-31B-it",
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "google/gemma-3n-E4B-it",
+  "Qwen/Qwen3.8-2.4T-A95B"
+ ],
+ "execution_authorized": false
+}

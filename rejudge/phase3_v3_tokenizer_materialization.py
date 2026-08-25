@@ -17,6 +17,7 @@ from rejudge.phase2_execution import canonical_sha256
 
 
 SPEC_SCHEMA_VERSION = "phase3_v3_exact_tokenizer_spec_v1"
+SPEC_SCHEMA_VERSION_V2 = "phase3_v3_exact_tokenizer_spec_v2"
 DEFAULT_MANIFEST_NAME = "exact_tokenizer_manifest.json"
 
 
@@ -56,10 +57,14 @@ def _load_local_tokenizer(path: Path) -> Any:
 
 def _validate_spec(
     spec: Mapping[str, Any], protocol: Mapping[str, Any], project_root: Path,
-) -> dict[str, dict[str, Any]]:
-    if set(spec) != {"schema_version", "execution_authorized", "models"}:
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    schema_version = spec.get("schema_version")
+    expected_fields = {"schema_version", "execution_authorized", "models"}
+    if schema_version == SPEC_SCHEMA_VERSION_V2:
+        expected_fields.add("provider_chat_templates")
+    if set(spec) != expected_fields:
         raise TokenizerMaterializationError("tokenizer spec fields drifted")
-    if spec.get("schema_version") != SPEC_SCHEMA_VERSION:
+    if schema_version not in {SPEC_SCHEMA_VERSION, SPEC_SCHEMA_VERSION_V2}:
         raise TokenizerMaterializationError("unexpected tokenizer spec schema")
     if spec.get("execution_authorized") is not False:
         raise TokenizerMaterializationError("tokenizer spec cannot authorize execution")
@@ -93,7 +98,41 @@ def _validate_spec(
                 f"local tokenizer directory does not exist: {tokenizer_directory}")
         normalized["local_tokenizer_directory"] = tokenizer_directory
         models[model] = normalized
-    return models
+    provider_templates: dict[str, dict[str, Any]] = {}
+    if schema_version == SPEC_SCHEMA_VERSION_V2:
+        raw_templates = _object(
+            spec.get("provider_chat_templates"), "provider_chat_templates")
+        if not set(raw_templates) <= set(required_models):
+            raise TokenizerMaterializationError(
+                "provider chat-template models differ from the final roster")
+        for model, raw_binding in raw_templates.items():
+            binding = _object(
+                raw_binding, f"provider_chat_templates[{model!r}]")
+            if set(binding) != {"path", "canonical_sha256"}:
+                raise TokenizerMaterializationError(
+                    f"provider chat-template binding fields drifted for {model}")
+            raw_path = Path(_text(
+                binding.get("path"), f"provider_chat_templates[{model!r}].path"))
+            path = raw_path if raw_path.is_absolute() else project_root / raw_path
+            artifact = _load_json_object(path, f"provider chat template for {model}")
+            expected_sha = _text(
+                binding.get("canonical_sha256"),
+                f"provider_chat_templates[{model!r}].canonical_sha256",
+            )
+            if canonical_sha256(artifact) != expected_sha:
+                raise TokenizerMaterializationError(
+                    f"provider chat-template artifact hash drifted for {model}")
+            try:
+                validated = phase3_v3_inputs.validate_provider_chat_template_artifact(
+                    artifact, model=model, project_root=project_root)
+            except phase3_v3_inputs.InputGateError as exc:
+                raise TokenizerMaterializationError(str(exc)) from exc
+            provider_templates[model] = {
+                "path": path,
+                "artifact": artifact,
+                "validated": validated,
+            }
+    return models, provider_templates
 
 
 def _load_json_object(path: Path, label: str) -> dict[str, Any]:
@@ -142,7 +181,7 @@ def build_exact_tokenizer_artifacts(
     if not worlds_dir.is_absolute():
         worlds_dir = root / worlds_dir
 
-    models = _validate_spec(tokenizer_spec, protocol, root)
+    models, provider_templates = _validate_spec(tokenizer_spec, protocol, root)
     prompt_bundle = _load_json_object(prompt_path, "prompt bundle")
     checker_config = _load_json_object(
         phase2_canary_gate.FROZEN_CONFIG_PATH, "query-checker frozen config")
@@ -189,9 +228,34 @@ def build_exact_tokenizer_artifacts(
             if not isinstance(chat_template, str) or not chat_template:
                 raise TokenizerMaterializationError(
                     f"local tokenizer for {model} has no chat template")
+            provider_template = provider_templates.get(model)
+            if provider_template is not None:
+                validated = provider_template["validated"]
+                native_template_sha = hashlib.sha256(
+                    chat_template.encode("utf-8")).hexdigest()
+                if native_template_sha != validated["native_chat_template_sha256"]:
+                    raise TokenizerMaterializationError(
+                        f"native chat template hash drifted before provider override for {model}")
+                if spec_entry["repository"] != validated["repository"]:
+                    raise TokenizerMaterializationError(
+                        f"provider-template repository drifted for {model}")
+                if spec_entry["revision"] != validated["revision"]:
+                    raise TokenizerMaterializationError(
+                        f"provider-template tokenizer revision drifted for {model}")
+                tokenizer_json_path = tokenizer_directory / "tokenizer.json"
+                if (not tokenizer_json_path.is_file()
+                        or phase3_v3_inputs.sha256_file(tokenizer_json_path)
+                        != validated["tokenizer_json_sha256"]):
+                    raise TokenizerMaterializationError(
+                        f"provider-template tokenizer.json drifted for {model}")
+                tokenizer.chat_template = validated["template"]
+                chat_template = tokenizer.chat_template
             _template_override, rendering_policy = (
                 static_prompts.chat_template_rendering_policy(tokenizer))
-            files = sorted(path for path in tokenizer_directory.rglob("*") if path.is_file())
+            files = sorted(
+                path for path in tokenizer_directory.rglob("*")
+                if path.is_file()
+                and ".cache" not in path.relative_to(tokenizer_directory).parts)
             if not files:
                 raise TokenizerMaterializationError(
                     f"local tokenizer directory for {model} has no files")
@@ -298,7 +362,9 @@ def build_exact_tokenizer_artifacts(
             }
 
         manifest = {
-            "schema_version": phase3_v3_inputs.TOKENIZER_SCHEMA_VERSION,
+            "schema_version": (
+                phase3_v3_inputs.TOKENIZER_SCHEMA_VERSION_V5
+                if provider_templates else phase3_v3_inputs.TOKENIZER_SCHEMA_VERSION),
             "execution_authorized": False,
             "protocol_canonical_sha256": canonical_sha256(protocol),
             "prompt_bundle": {
@@ -330,6 +396,14 @@ def build_exact_tokenizer_artifacts(
             },
             "models": manifest_models,
         }
+        if provider_templates:
+            manifest["provider_chat_templates"] = {
+                model: {
+                    "path": _portable_path(entry["path"], root),
+                    "canonical_sha256": canonical_sha256(entry["artifact"]),
+                }
+                for model, entry in provider_templates.items()
+            }
         phase3_v3_inputs.validate_exact_tokenizer_manifest(
             manifest,
             protocol=protocol,

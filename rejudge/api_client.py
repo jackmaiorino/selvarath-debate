@@ -1370,6 +1370,7 @@ class RejudgeClient:
     # fail-closed assertion against the exact three-model _PHASE2_REASONING_MODEL_ID_SET so the
     # manifest never hashes a different max_tokens than the provider actually receives.
     REASONING_MODEL_PREFIXES = ("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.7",
+                                "Qwen/Qwen3.8",
                                 "google/gemma-4", "openai/gpt-oss")
     REASONING_MAX_TOKENS_FLOOR = 4096
 

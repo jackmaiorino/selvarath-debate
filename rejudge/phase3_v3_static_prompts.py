@@ -27,12 +27,15 @@ GEMMA3N_CHAT_TEMPLATE_SHA256 = (
     "ac03dcb3b09726f1e50ac55ae58fc8d5930eadc3b3a12cb04286dc1d82ac8001")
 GEMMA3N_PROVIDER_EFFECTIVE_TEMPLATE_SHA256 = (
     "7bd8b0c39b1e6e291a418fb85f61b11cd58402ed87e30a941e0350370edf6ba3")
+QWEN38_PROVIDER_CHAT_TEMPLATE_SHA256 = (
+    "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041")
 _ROLE_ALTERNATION_GUARD = (
     '{{ raise_exception("Conversation roles must alternate '
     'user/assistant/user/assistant/...") }}'
 )
 NATIVE_RENDERING_MODE = "native_chat_template"
 GEMMA3N_PROVIDER_RENDERING_MODE = "provider_observed_role_guard_bypass_v1"
+QWEN38_PROVIDER_RENDERING_MODE = "provider_catalog_exact_chat_template_v1"
 
 
 class StaticPromptError(ValueError):
@@ -51,6 +54,16 @@ def chat_template_rendering_policy(tokenizer: Any) -> tuple[str | None, dict[str
     if not isinstance(template, str) or not template:
         raise StaticPromptError("tokenizer has no chat template")
     template_sha = hashlib.sha256(template.encode("utf-8")).hexdigest()
+    if template_sha == QWEN38_PROVIDER_CHAT_TEMPLATE_SHA256:
+        return None, {
+            "mode": QWEN38_PROVIDER_RENDERING_MODE,
+            "effective_chat_template_sha256": template_sha,
+            "evidence": (
+                "Together's bound serverless model catalog exposes this exact chat template; "
+                "the public tokenizer supplies the exact vocabulary but its native template "
+                "is not used"
+            ),
+        }
     if template_sha != GEMMA3N_CHAT_TEMPLATE_SHA256:
         return None, {
             "mode": NATIVE_RENDERING_MODE,

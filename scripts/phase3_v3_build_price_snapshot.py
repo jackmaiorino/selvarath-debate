@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--raw-catalog", type=Path, required=True)
+    parser.add_argument("--raw-serverless-endpoints", type=Path)
     parser.add_argument("--verified-at-utc", required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -33,10 +34,16 @@ def main(argv: list[str] | None = None) -> int:
             f"refusing to overwrite existing price snapshot: {output}")
     protocol = phase3_plan.load_protocol(args.protocol.resolve())
     raw_catalog_path = args.raw_catalog.resolve()
+    endpoint_path = (
+        args.raw_serverless_endpoints.resolve()
+        if args.raw_serverless_endpoints is not None else None)
     snapshot = materialization.build_price_snapshot(
         protocol=protocol,
         raw_catalog=_load_json(raw_catalog_path),
         raw_catalog_path=raw_catalog_path,
+        raw_serverless_endpoints=(
+            _load_json(endpoint_path) if endpoint_path is not None else None),
+        raw_serverless_endpoints_path=endpoint_path,
         verified_at_utc=args.verified_at_utc,
         project_root=REPO_ROOT,
     )

@@ -2,7 +2,8 @@
 
 This module has no main-run entry point. It executes exactly two isolated one-cell harness
 runs and, after their result stores hash identically, the 48-transcript, 768-judgment,
-192-capability successor canary. Every Together call shares one durable incremental-cap ledger.
+192-capability successor canary. Every Together call uses one durable successor ledger, with
+any bound prior-attempt accounting carried into the authorized aggregate cap.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import math
 import os
 import platform
 import random
@@ -64,7 +66,9 @@ TRANSCRIPT_REPORT_RELATIVE_PATH = "rejudge/phase3_transcript_verification_2026-0
 DEPENDENCY_LOCK_RELATIVE_PATH = "uv.lock"
 
 AUTHORIZATION_SCHEMA = "phase3_v3_canary_authorization_v1"
+AUTHORIZATION_SCHEMA_V2 = "phase3_v3_canary_authorization_v2"
 BINDING_SCHEMA = "phase3_v3_execution_binding_v1"
+BINDING_SCHEMA_V2 = "phase3_v3_execution_binding_v2"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 EXPECTED_TRANSCRIPT_ROWS = 48
 EXPECTED_JUDGMENT_ROWS = 768
@@ -73,21 +77,12 @@ EXPECTED_FRESH_GATE_ROWS = EXPECTED_JUDGMENT_ROWS + EXPECTED_CAPABILITY_ROWS
 EXPECTED_TOTAL_ROWS = EXPECTED_TRANSCRIPT_ROWS + EXPECTED_FRESH_GATE_ROWS
 EXPECTED_HARNESS_EXECUTIONS = 2
 AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
-EXPECTED_REASONING_MODELS = frozenset({
-    "google/gemma-4-31B-it",
-    "Qwen/Qwen3.5-397B-A17B",
-})
+PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
 NON_MANIFEST_OUTPUT_PATH_KEYS = frozenset({
     "archive_dir", "run_lock", "harness_verified_manifest", "final_manifest",
 })
 
-REQUIRED_INPUT_PATHS = frozenset({
-    PROTOCOL_RELATIVE_PATH,
-    PROTOCOL_PIN_RELATIVE_PATH,
-    TOKENIZER_MANIFEST_RELATIVE_PATH,
-    PRICE_SNAPSHOT_RELATIVE_PATH,
-    ROLE_LIMITS_RELATIVE_PATH,
-    EXECUTION_BINDING_RELATIVE_PATH,
+REQUIRED_COMMON_INPUT_PATHS = frozenset({
     PROMPT_BUNDLE_RELATIVE_PATH,
     CHECKER_CONFIG_RELATIVE_PATH,
     CHECKER_DESIGN_RELATIVE_PATH,
@@ -234,9 +229,48 @@ def _verify_execution_code_commit(manifest: Mapping[str, Any], root: Path) -> No
             "execution code differs from the git commit bound by the run manifest")
 
 
-def _validate_all_input_hashes(manifest: Mapping[str, Any], root: Path) -> None:
+def _resolve_manifest_input_paths(manifest: Mapping[str, Any]) -> dict[str, str]:
+    inputs = manifest.get("input_sha256s")
+    if not isinstance(inputs, Mapping):
+        raise Phase3V3LiveError("run manifest has no input_sha256s mapping")
+    paths = [str(path).replace("\\", "/") for path in inputs]
+
+    def select(label: str, predicate) -> str:
+        matches = [path for path in paths if predicate(Path(path).name)]
+        if len(matches) != 1:
+            raise Phase3V3LiveError(
+                f"run manifest must bind exactly one {label}; found {matches}")
+        return matches[0]
+
+    return {
+        "protocol": select(
+            "v3 protocol",
+            lambda name: name.startswith("phase3_protocol_v3_")
+            and not name.startswith("phase3_protocol_v3_pin_")),
+        "protocol_pin": select(
+            "v3 protocol pin",
+            lambda name: name.startswith("phase3_protocol_v3_pin_")),
+        "tokenizer_manifest": select(
+            "v3 exact-tokenizer manifest",
+            lambda name: name.startswith("phase3_v3_exact_tokenizer_manifest_")),
+        "price_snapshot": select(
+            "v3 price snapshot",
+            lambda name: name.startswith("phase3_v3_price_snapshot_")),
+        "role_limits": select(
+            "v3 role-limits artifact",
+            lambda name: name.startswith("phase3_v3_role_limits")),
+        "execution_binding": select(
+            "v3 execution binding",
+            lambda name: name.startswith("phase3_v3_execution_binding")),
+    }
+
+
+def _validate_all_input_hashes(
+    manifest: Mapping[str, Any], root: Path,
+) -> dict[str, str]:
     inputs = manifest["input_sha256s"]
-    missing = sorted(REQUIRED_INPUT_PATHS - set(inputs))
+    resolved = _resolve_manifest_input_paths(manifest)
+    missing = sorted(REQUIRED_COMMON_INPUT_PATHS - set(inputs))
     if missing:
         raise Phase3V3LiveError(f"run manifest is missing required input bindings: {missing}")
     for relative, expected in inputs.items():
@@ -246,6 +280,16 @@ def _validate_all_input_hashes(manifest: Mapping[str, Any], root: Path) -> None:
         if observed != expected:
             raise Phase3V3LiveError(
                 f"input hash drift for {relative}: observed {observed}, expected {expected}")
+    return resolved
+
+
+def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
+    roster = set(protocol["roster"]["judges_final"])
+    expected = {"google/gemma-4-31B-it"}
+    qwen = roster & {"Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.8-2.4T-A95B"}
+    if len(qwen) != 1:
+        raise Phase3V3LiveError("v3 roster must contain exactly one approved Qwen reasoner")
+    return frozenset(expected | qwen)
 
 
 def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str, Any]) -> None:
@@ -264,7 +308,8 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
         raise Phase3V3LiveError("role limits have no base_role_max_tokens")
     reasoning = set((role_limits.get("reasoning_models") or {}).get("model_ids") or ())
     floor = int((role_limits.get("reasoning_models") or {}).get("floor_max_tokens") or 0)
-    if reasoning != EXPECTED_REASONING_MODELS or floor != 4096:
+    expected_reasoning = _expected_reasoning_models(protocol)
+    if reasoning != expected_reasoning or floor != 4096:
         raise Phase3V3LiveError("reasoning-model roster or 4096-token floor drifted")
     required_roles: dict[str, set[str]] = {
         model: {"judge_query", "judge_verdict", "capability_qa"} for model in roster}
@@ -287,7 +332,7 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     request = role_limits.get("request_settings") or {}
     if request.get("base_fields") != ["model", "messages", "temperature", "max_tokens", "seed"]:
         raise Phase3V3LiveError("base provider request fields drifted")
-    if set(request.get("streaming_pinned_models") or {}) != EXPECTED_REASONING_MODELS:
+    if set(request.get("streaming_pinned_models") or {}) != expected_reasoning:
         raise Phase3V3LiveError("streaming model pins differ from the reasoning-model roster")
     if request.get("per_model_extra_fields") != {}:
         raise Phase3V3LiveError("unapproved per-model provider request fields are present")
@@ -322,10 +367,77 @@ def _binding_paths(binding: Mapping[str, Any]) -> dict[str, Path]:
             if name != "archive_dir"}
 
 
+def _validate_prior_attempt_accounting(
+    binding: Mapping[str, Any], root: Path | None,
+) -> dict[str, float]:
+    if binding.get("schema_version") != BINDING_SCHEMA_V2:
+        return {
+            "actual_spend_usd": 0.0,
+            "uncertain_spend_usd": 0.0,
+            "accounted_spend_usd": 0.0,
+        }
+    if root is None:
+        raise Phase3V3LiveError(
+            "v2 execution binding requires a project root for prior-attempt verification")
+    prior = binding.get("prior_attempt_accounting")
+    if not isinstance(prior, Mapping):
+        raise Phase3V3LiveError("v2 execution binding has no prior-attempt accounting")
+    if (prior.get("run_id") != "phase3-v3-07501cfa62bf55e5"
+            or prior.get("measurement_rows_reused") != 0
+            or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
+        raise Phase3V3LiveError("prior-attempt identity or aggregate cap drifted")
+    manifest_binding = prior.get("run_manifest") or {}
+    halt_binding = prior.get("halt_observation") or {}
+    for label, artifact, expected_path in (
+        ("prior run manifest", manifest_binding,
+         "rejudge/phase3_v3_run_manifest_preflight_r5_2026-08-24.json"),
+        ("halt observation", halt_binding,
+         "rejudge/phase3_v3_r5_provider_halt_2026-08-24.json"),
+    ):
+        if artifact.get("path") != expected_path:
+            raise Phase3V3LiveError(f"{label} path drifted")
+        payload = _load_json(root / expected_path)
+        if canonical_sha256(payload) != artifact.get("canonical_sha256"):
+            raise Phase3V3LiveError(f"{label} canonical hash drifted")
+
+    ledger = prior.get("usage_ledger") or {}
+    ledger_path = local_path(ledger.get("path"))
+    if not ledger_path.is_file() or _raw_sha256(ledger_path) != ledger.get("raw_sha256"):
+        raise Phase3V3LiveError("prior usage ledger raw hash drifted")
+    snapshot = api_client.load_chained_usage_ledger(ledger_path)
+    if snapshot.last_event_hash != ledger.get("last_event_sha256"):
+        raise Phase3V3LiveError("prior usage ledger tail hash drifted")
+    expected_summary = {
+        "actual_spend_usd": float(ledger.get("actual_spend_usd", -1)),
+        "uncertain_spend_usd": float(ledger.get("uncertain_spend_usd", -1)),
+        "accounted_spend_usd": float(ledger.get("accounted_spend_usd", -1)),
+    }
+    for field, expected in expected_summary.items():
+        if not math.isclose(
+                float(snapshot.summary[field]), expected, rel_tol=0.0, abs_tol=1e-15):
+            raise Phase3V3LiveError(f"prior usage ledger {field} drifted")
+    if (int(snapshot.summary["unmatched_reservations"])
+            != int(ledger.get("unmatched_reservations", -1))):
+        raise Phase3V3LiveError("prior usage ledger reservation count drifted")
+    if not math.isclose(
+            expected_summary["accounted_spend_usd"], PRIOR_ACCOUNTED_SPEND_USD,
+            rel_tol=0.0, abs_tol=1e-15):
+        raise Phase3V3LiveError("prior accounted spend differs from the frozen carry")
+    expected_remaining = AUTHORIZED_INCREMENTAL_CAP_USD - PRIOR_ACCOUNTED_SPEND_USD
+    if not math.isclose(
+            float(prior.get("remaining_before_successor_usd", -1)), expected_remaining,
+            rel_tol=0.0, abs_tol=1e-12):
+        raise Phase3V3LiveError("prior remaining aggregate cap drifted")
+    if local_path(binding["paths"]["usage_ledger"]).resolve() == ledger_path.resolve():
+        raise Phase3V3LiveError("successor and prior attempts cannot share a usage ledger")
+    return expected_summary
+
+
 def _validate_execution_binding(
     binding: Mapping[str, Any], manifest: Mapping[str, Any], protocol: Mapping[str, Any],
+    *, root: Path | None = None,
 ) -> None:
-    if binding.get("schema_version") != BINDING_SCHEMA:
+    if binding.get("schema_version") not in {BINDING_SCHEMA, BINDING_SCHEMA_V2}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -381,19 +493,23 @@ def _validate_execution_binding(
     if list(protocol["roster"]["judges_final"]) != list(manifest["final_roster"]):
         raise Phase3V3LiveError("execution binding loaded against a different roster")
     formal = binding.get("formal_execution") or {}
-    if formal != {
+    expected_formal = {
         "provider_max_workers": 1,
         "pending_payload_limit": 64,
         "reviewer_model": "gpt-5.6-sol",
         "reviewer_reasoning_effort": "high",
         "reviewer_concurrency": 12,
         "transcript_generation_forbidden": True,
-        "shared_incremental_cap_ledger": True,
-    }:
+        ("shared_aggregate_cap_accounting"
+         if binding.get("schema_version") == BINDING_SCHEMA_V2
+         else "shared_incremental_cap_ledger"): True,
+    }
+    if formal != expected_formal:
         raise Phase3V3LiveError("formal execution settings drifted")
     expected_state = api_client.usage_ledger_state_path(local_path(paths["usage_ledger"]))
     if local_path(paths["usage_state"]).resolve() != expected_state.resolve():
         raise Phase3V3LiveError("execution binding names the wrong usage-ledger state path")
+    _validate_prior_attempt_accounting(binding, root)
 
 
 def _validate_runtime_toolchain(
@@ -466,25 +582,27 @@ def load_run_context(
     root = Path(project_root).resolve()
     manifest_path = Path(manifest_path).resolve()
     manifest = _load_json(manifest_path)
-    _validate_all_input_hashes(manifest, root)
-    protocol = phase3_plan.load_protocol(root / PROTOCOL_RELATIVE_PATH)
-    pin = _load_json(root / PROTOCOL_PIN_RELATIVE_PATH)
-    tokenizer = _load_json(root / TOKENIZER_MANIFEST_RELATIVE_PATH)
-    prices = _load_json(root / PRICE_SNAPSHOT_RELATIVE_PATH)
+    input_paths = _validate_all_input_hashes(manifest, root)
+    protocol = phase3_plan.load_protocol(root / input_paths["protocol"])
+    pin = _load_json(root / input_paths["protocol_pin"])
+    tokenizer = _load_json(root / input_paths["tokenizer_manifest"])
+    prices = _load_json(root / input_paths["price_snapshot"])
     phase3_v3_run_manifest.validate_run_manifest(
         manifest, protocol=protocol, protocol_pin=pin, tokenizer_manifest=tokenizer,
         price_snapshot=prices, project_root=root, verify_external_files=True)
     if verify_git:
         _verify_execution_code_commit(manifest, root)
-    role_limits = _load_json(root / ROLE_LIMITS_RELATIVE_PATH)
+    role_limits = _load_json(root / input_paths["role_limits"])
     _validate_role_limits(role_limits, protocol)
     _validate_contexts_against_catalog(role_limits, prices, root)
-    binding = _load_json(root / EXECUTION_BINDING_RELATIVE_PATH)
-    _validate_execution_binding(binding, manifest, protocol)
+    binding = _load_json(root / input_paths["execution_binding"])
+    _validate_execution_binding(binding, manifest, protocol, root=root)
     _validate_runtime_toolchain(manifest, binding, root)
     authorization = validate_authorization(
         _load_json(authorization_path), manifest, manifest_path=manifest_path,
-        protocol=protocol)
+        protocol=protocol, protocol_relative_path=input_paths["protocol"],
+        prior_accounted_spend_usd=_validate_prior_attempt_accounting(binding, root)[
+            "accounted_spend_usd"])
     phase3_v3_inputs.validate_price_snapshot(
         prices, protocol=protocol, as_of=_authorization_recorded_at(authorization),
         project_root=root, verify_catalog=True)
@@ -498,6 +616,7 @@ def load_run_context(
         "price_snapshot": prices,
         "role_limits": role_limits,
         "binding": binding,
+        "input_paths": input_paths,
         "paths": _binding_paths(binding),
     }
     validate_ledger(context)
@@ -509,9 +628,12 @@ def load_run_context(
 def validate_authorization(
     authorization: Mapping[str, Any], manifest: Mapping[str, Any], *,
     manifest_path: Path, protocol: Mapping[str, Any],
+    protocol_relative_path: str = PROTOCOL_RELATIVE_PATH,
+    prior_accounted_spend_usd: float = 0.0,
 ) -> dict[str, Any]:
     _authorization_recorded_at(authorization)
-    if authorization.get("schema_version") != AUTHORIZATION_SCHEMA:
+    schema_version = authorization.get("schema_version")
+    if schema_version not in {AUTHORIZATION_SCHEMA, AUTHORIZATION_SCHEMA_V2}:
         raise Phase3V3LiveError("unsupported successor-canary authorization schema")
     if authorization.get("execution_authorized") is not True:
         raise Phase3V3LiveError("successor canary has no execution authorization")
@@ -527,24 +649,36 @@ def validate_authorization(
         raise Phase3V3LiveError("authorization binds a different run-manifest path")
     if binds.get("protocol_canonical_sha256") != canonical_sha256(protocol):
         raise Phase3V3LiveError("authorization binds a different protocol")
-    if binds.get("protocol_tracked_path") != PROTOCOL_RELATIVE_PATH:
+    if binds.get("protocol_tracked_path") != protocol_relative_path:
         raise Phase3V3LiveError("authorization binds a different protocol path")
     seed_name = manifest["harness_check"]["seed_name"]
     if (binds.get("harness_seed_name") != seed_name
             or binds.get("harness_seed") != manifest["seeds"][seed_name]):
         raise Phase3V3LiveError("authorization binds a different harness seed")
     scope = authorization.get("scope") or {}
-    cap = scope.get("incremental_cap_usd")
+    if schema_version == AUTHORIZATION_SCHEMA_V2:
+        cap = scope.get("aggregate_cap_usd")
+        if "incremental_cap_usd" in scope:
+            raise Phase3V3LiveError("aggregate authorization cannot reset an incremental cap")
+        if not math.isclose(
+                float(scope.get("prior_accounted_spend_usd", -1)),
+                prior_accounted_spend_usd, rel_tol=0.0, abs_tol=1e-15):
+            raise Phase3V3LiveError("authorization prior accounted spend drifted")
+    else:
+        cap = scope.get("incremental_cap_usd")
     if (isinstance(cap, bool) or not isinstance(cap, (int, float))
             or float(cap) != AUTHORIZED_INCREMENTAL_CAP_USD):
         raise Phase3V3LiveError(
-            f"authorization incremental cap must equal ${AUTHORIZED_INCREMENTAL_CAP_USD:.2f}")
+            f"authorization cap must equal ${AUTHORIZED_INCREMENTAL_CAP_USD:.2f}")
     if (scope.get("harness_execution_count") != EXPECTED_HARNESS_EXECUTIONS
             or scope.get("formal_successor_canary_execution_count") != 1
             or scope.get("successor_canary_fresh_gate_slots") != EXPECTED_FRESH_GATE_ROWS
             or scope.get("gpu_ordinal_or_not_used") != "not_used"):
         raise Phase3V3LiveError("authorization scope differs from the successor canary")
     expected_text = (
+        f"Approved: {manifest['run_id']} harness and successor canary, $60 USD aggregate "
+        f"cap including ${prior_accounted_spend_usd:.8f} prior accounted spend, no main spend"
+        if schema_version == AUTHORIZATION_SCHEMA_V2 else
         f"Approved: {manifest['run_id']} harness and successor canary, $60 USD incremental "
         "cap, no main spend")
     owner = authorization.get("owner_authorization") or {}
@@ -586,7 +720,49 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
                 raise Phase3V3LiveError(
                     f"usage ledger contains unresolved returned-model drift: requested "
                     f"{event.get('model')!r}, returned {returned!r}")
+    _validate_prior_attempt_accounting(
+        binding, Path(context["root"]) if context.get("root") is not None else None)
     return snapshot
+
+
+def _authorized_cap(context: Mapping[str, Any]) -> float:
+    scope = context["authorization"]["scope"]
+    key = (
+        "aggregate_cap_usd"
+        if context["authorization"].get("schema_version") == AUTHORIZATION_SCHEMA_V2
+        else "incremental_cap_usd")
+    return float(scope[key])
+
+
+def aggregate_accounting_summary(
+    context: Mapping[str, Any],
+    snapshot: api_client.UsageLedgerSnapshot | None = None,
+) -> dict[str, float | int]:
+    current = snapshot or validate_ledger(context)
+    prior = _validate_prior_attempt_accounting(
+        context["binding"],
+        Path(context["root"]) if context.get("root") is not None else None,
+    )
+    current_summary = current.summary
+    return {
+        "prior_actual_spend_usd": prior["actual_spend_usd"],
+        "prior_uncertain_spend_usd": prior["uncertain_spend_usd"],
+        "prior_accounted_spend_usd": prior["accounted_spend_usd"],
+        "successor_actual_spend_usd": float(current_summary["actual_spend_usd"]),
+        "successor_uncertain_spend_usd": float(current_summary["uncertain_spend_usd"]),
+        "successor_accounted_spend_usd": float(current_summary["accounted_spend_usd"]),
+        "aggregate_actual_spend_usd": (
+            prior["actual_spend_usd"] + float(current_summary["actual_spend_usd"])),
+        "aggregate_uncertain_spend_usd": (
+            prior["uncertain_spend_usd"]
+            + float(current_summary["uncertain_spend_usd"])),
+        "aggregate_accounted_spend_usd": (
+            prior["accounted_spend_usd"]
+            + float(current_summary["accounted_spend_usd"])),
+        "successor_events": int(current_summary["events"]),
+        "successor_unmatched_reservations": int(
+            current_summary["unmatched_reservations"]),
+    }
 
 
 def _model_prices(price_snapshot: Mapping[str, Any]) -> dict[str, dict[str, float]]:
@@ -601,14 +777,15 @@ def _model_prices(price_snapshot: Mapping[str, Any]) -> dict[str, dict[str, floa
 
 def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) -> Any:
     snapshot = validate_ledger(context)
+    accounting = aggregate_accounting_summary(context, snapshot)
     role_limits = context["role_limits"]
     request = role_limits["request_settings"]
     transport = request["transport"]
-    cap = float(context["authorization"]["scope"]["incremental_cap_usd"])
-    spent = float(snapshot.summary["accounted_spend_usd"])
+    cap = _authorized_cap(context)
+    spent = float(accounting["aggregate_accounted_spend_usd"])
     if spent >= cap:
         raise Phase3V3LiveError(
-            f"accounted incremental spend ${spent:.4f} has reached the ${cap:.2f} cap")
+            f"accounted aggregate spend ${spent:.4f} has reached the ${cap:.2f} cap")
     error_log = context["paths"]["formal_error_log"]
     error_log.parent.mkdir(parents=True, exist_ok=True)
     error_log.touch(exist_ok=True)
@@ -619,8 +796,9 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
         max_retries=int(transport["ledger_max_retries"]),
         model_prices=_model_prices(context["price_snapshot"]),
         strict_model_pricing=True,
-        initial_spend_usd=float(snapshot.summary["actual_spend_usd"]),
-        initial_uncertain_spend_usd=float(snapshot.summary["uncertain_spend_usd"]),
+        initial_spend_usd=float(accounting["aggregate_actual_spend_usd"]),
+        initial_uncertain_spend_usd=float(
+            accounting["aggregate_uncertain_spend_usd"]),
         usage_log_path=str(snapshot.path),
         _ledger_snapshot=snapshot,
         _accounting_factory_token=api_client._LIVE_ACCOUNTING_FACTORY_TOKEN,
@@ -694,7 +872,8 @@ def _harness_result_summary(
         "judge_model": selected["judge_model"],
         "result_store_sha256": _raw_sha256(results_path),
         "cache_sha256": _raw_sha256(cache_path),
-        "accounted_spend_usd": validate_ledger(context).summary["accounted_spend_usd"],
+        "accounted_spend_usd": aggregate_accounting_summary(context)[
+            "aggregate_accounted_spend_usd"],
         "resumed": resumed,
     }
 
@@ -774,7 +953,7 @@ def _ensure_formal_preseed(context: Mapping[str, Any]) -> None:
     if canonical_sha256(bundle) != transcript["canonical_sha256"]:
         raise Phase3V3LiveError("frozen canary transcript bundle hash drifted")
     result = preseed_canary(
-        protocol_path=context["root"] / PROTOCOL_RELATIVE_PATH,
+        protocol_path=context["root"] / context["input_paths"]["protocol"],
         project_root=context["root"],
         canary_bundle_path=bundle_path,
         verification_report_path=context["root"] / TRANSCRIPT_REPORT_RELATIVE_PATH,
@@ -977,12 +1156,14 @@ def drive_formal(
             "event": "formal_pass_complete", "recorded_at_utc": _utc_now(),
             "pass_index": pass_index, "completed_this_pass": outcome.completed,
             "planned_rows_complete": complete, "pending_labels": len(outcome.pending_payloads),
-            "accounted_spend_usd": validate_ledger(context).summary["accounted_spend_usd"],
+            "accounted_spend_usd": aggregate_accounting_summary(context)[
+                "aggregate_accounted_spend_usd"],
         })
+        spend = aggregate_accounting_summary(context)
         print(json.dumps({
             "pass": pass_index, "complete": complete, "planned": len(plan),
             "pending_labels": len(outcome.pending_payloads),
-            "spend_usd": validate_ledger(context).summary["accounted_spend_usd"],
+            "spend_usd": spend["aggregate_accounted_spend_usd"],
         }, sort_keys=True), flush=True)
         if complete == len(plan):
             report = audit_and_finalize(context)
@@ -1144,9 +1325,10 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         raise Phase3V3LiveError("formal result count differs from the 1,008-row canary")
     _usage_scope_check(context, plan)
     snapshot = validate_ledger(context)
-    cap = float(context["authorization"]["scope"]["incremental_cap_usd"])
-    if float(snapshot.summary["accounted_spend_usd"]) > cap:
-        raise Phase3V3LiveError("accounted spend exceeds the authorized incremental cap")
+    accounting = aggregate_accounting_summary(context, snapshot)
+    cap = _authorized_cap(context)
+    if float(accounting["aggregate_accounted_spend_usd"]) > cap:
+        raise Phase3V3LiveError("accounted spend exceeds the authorized aggregate cap")
     CallCache(
         context["paths"]["formal_cache"],
         execution_identity=f"{context['manifest']['run_id']}:formal")
@@ -1181,8 +1363,8 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
                                  "problems": polarity_problems,
                                  "full": full_polarity, "b0": b0_polarity},
         "strict_invalid_per_judge": invalid,
-        "ledger": {**snapshot.summary, "incremental_cap_usd": cap,
-                   "pass": float(snapshot.summary["accounted_spend_usd"]) <= cap},
+        "ledger": {**accounting, "aggregate_cap_usd": cap,
+                   "pass": float(accounting["aggregate_accounted_spend_usd"]) <= cap},
         "main_spend": {"authorized": False, "observed_main_usage_events": 0, "pass": True},
     }
     gate_failures = []
@@ -1225,7 +1407,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     _append_jsonl(context["paths"]["run_log"], {
         "event": "formal_audit_complete", "recorded_at_utc": _utc_now(),
         "gate_status": report["gate_status"], "gate_failures": gate_failures,
-        "accounted_spend_usd": snapshot.summary["accounted_spend_usd"],
+        "accounted_spend_usd": accounting["aggregate_accounted_spend_usd"],
     })
     output_hashes = {
         path: _raw_sha256(local_path(path)) for path in context["manifest"]["planned_output_paths"]}

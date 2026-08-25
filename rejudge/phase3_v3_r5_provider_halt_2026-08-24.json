@@ -1,0 +1,82 @@
+{
+ "schema_version": "phase3_v3_provider_halt_observation_v1",
+ "observation_id": "phase3_v3_r5_qwen3_5_provider_halt_2026-08-24",
+ "recorded_at_utc": "2026-08-24T22:32:21.489323Z",
+ "status": "formal_measurement_voided_by_environmental_interruption",
+ "attempt": {
+  "run_id": "phase3-v3-07501cfa62bf55e5",
+  "run_manifest": {
+   "path": "rejudge/phase3_v3_run_manifest_preflight_r5_2026-08-24.json",
+   "raw_sha256": "9dc960c2f6ba8ac4241f7ba3576b15fe921e1cfd934a152579f5845958636e75",
+   "canonical_sha256": "91a2660982ae200ba34efa662521b905d7be3d20590f096a93a746d887a5a6bd"
+  },
+  "protocol": {
+   "path": "rejudge/phase3_protocol_v3_r2.json",
+   "canonical_sha256": "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e"
+  },
+  "harness": {
+   "execution_count": 2,
+   "bit_identical": true,
+   "result_store_sha256": "202ca02129f2007033eb67d4e73f9378f62a5cbf996631e229fa5c6d076f7ed3"
+  }
+ },
+ "formal_measurement": {
+  "preseeded_transcript_rows": 48,
+  "completed_capability_rows": 144,
+  "completed_judgment_rows": 0,
+  "completed_capability_rows_by_model": {
+   "google/gemma-4-31B-it": 48,
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": 48,
+   "google/gemma-3n-E4B-it": 48,
+   "Qwen/Qwen3.5-397B-A17B": 0
+  },
+  "halted_model": "Qwen/Qwen3.5-397B-A17B",
+  "provider_error_code": "model_not_available",
+  "provider_state": "dedicated_endpoint_required",
+  "measurement_reuse_authorized": false
+ },
+ "archive_evidence": {
+  "usage_ledger": {
+   "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl",
+   "raw_sha256": "b583c2aed470543310c28061f725ba2b003ff60d405c5ac7f8db41ac4d1042ab",
+   "ledger_id": "ee18c88809d6459b9fc96e732641e6c7",
+   "last_event_sha256": "a8246f77f2b836d89c867e13c4c9ac201d934e96e57b4bfde816130194eed198",
+   "event_count": 294,
+   "actual_spend_usd": 0.16820809000000006,
+   "uncertain_spend_usd": 0.048904800000000005,
+   "accounted_spend_usd": 0.21711289000000006,
+   "unmatched_reservations": 0
+  },
+  "run_log": {
+   "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_run_log.jsonl",
+   "raw_sha256": "3515b861518baa43cadf46dcfd5104ee24f9e4dd711c81c6054aae05cddd0b92"
+  },
+  "formal_results": {
+   "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_canary_results.jsonl",
+   "raw_sha256": "9eb7415247e409439bf3603435e0a1937b3f3c46ee23dc2db608ed331e77f835",
+   "row_count": 192
+  },
+  "formal_decisions": {
+   "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_reviewer_decisions.jsonl",
+   "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "row_count": 0
+  },
+  "formal_cache": {
+   "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_call_cache.jsonl",
+   "raw_sha256": "0453457664195aa4be6b4059437e7923e62f92f7842b412f9f6a30abc0395a66",
+   "row_count": 144
+  }
+ },
+ "aggregate_cap_accounting": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 0.21711289000000006,
+  "remaining_cap_usd": 59.78288711,
+  "reset_on_successor": false
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting."
+ ]
+}

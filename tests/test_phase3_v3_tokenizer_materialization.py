@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 from pathlib import Path
 
@@ -150,3 +151,81 @@ def test_builder_rejects_proxy_spec_before_creating_output(tmp_path: Path):
             tokenizer_loader=lambda _path: FakeTokenizer(),
         )
     assert not output.exists()
+
+
+def test_builder_applies_bound_provider_template_and_ignores_hf_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+):
+    protocol, prompt_path, world_dir, source_paths, spec = _stage(tmp_path)
+    model = protocol["roster"]["judges_final"][0]
+    model_spec = spec["models"][model]
+    tokenizer_dir = tmp_path / model_spec["local_tokenizer_directory"]
+    cache_dir = tokenizer_dir / ".cache" / "huggingface"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "download.lock").write_text("metadata", encoding="utf-8")
+
+    native_template = FakeTokenizer.chat_template
+    provider_template = "provider-template-v1"
+    provider_sha = hashlib.sha256(provider_template.encode("utf-8")).hexdigest()
+    monkeypatch.setattr(
+        static_prompts, "QWEN38_PROVIDER_CHAT_TEMPLATE_SHA256", provider_sha)
+    catalog = [{"id": model, "config": {"chat_template": provider_template}}]
+    catalog_path = tmp_path / "provider_catalog.json"
+    catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+    tokenizer_json_path = tokenizer_dir / "tokenizer.json"
+    artifact = {
+        "schema_version": inputs.PROVIDER_TEMPLATE_SCHEMA_VERSION,
+        "artifact_id": "test-provider-template",
+        "model_id": model,
+        "provider": "Together",
+        "observed_at_utc": "2026-08-24T23:21:34Z",
+        "raw_catalog": {
+            "path": catalog_path.relative_to(tmp_path).as_posix(),
+            "canonical_sha256": canonical_sha256(catalog),
+            "catalog_entry_canonical_sha256": canonical_sha256(catalog[0]),
+        },
+        "hugging_face": {
+            "repository": model,
+            "revision": model_spec["revision"],
+            "native_chat_template_sha256": hashlib.sha256(
+                native_template.encode("utf-8")).hexdigest(),
+            "tokenizer_json_sha256": inputs.sha256_file(tokenizer_json_path),
+        },
+        "provider_chat_template": provider_template,
+        "provider_chat_template_sha256": provider_sha,
+        "match_status": "provider_template_explicit_override_required",
+        "execution_authorized": False,
+        "provider_inference_calls": 0,
+        "non_claims": ["test artifact does not authorize execution"],
+    }
+    artifact_path = tmp_path / "provider_template.json"
+    artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+    model_spec["repository"] = model
+    spec["schema_version"] = tokenizers.SPEC_SCHEMA_VERSION_V2
+    spec["provider_chat_templates"] = {
+        model: {
+            "path": artifact_path.relative_to(tmp_path).as_posix(),
+            "canonical_sha256": canonical_sha256(artifact),
+        }
+    }
+    monkeypatch.setattr(
+        static_prompts, "expected_role_variants",
+        lambda _protocol, _model: {"judge_verdict": ["judge_verdict::b0::side0"]},
+    )
+
+    result = tokenizers.build_exact_tokenizer_artifacts(
+        protocol=protocol,
+        tokenizer_spec=spec,
+        transcript_bundle_paths=source_paths,
+        prompt_bundle_path=prompt_path,
+        world_documents_directory=world_dir,
+        output_directory=tmp_path / "provider-output",
+        project_root=tmp_path,
+        tokenizer_loader=lambda _path: FakeTokenizer(),
+    )
+    manifest = result["manifest"]
+    assert manifest["schema_version"] == inputs.TOKENIZER_SCHEMA_VERSION_V5
+    assert manifest["models"][model]["chat_template_rendering"]["mode"] == (
+        static_prompts.QWEN38_PROVIDER_RENDERING_MODE)
+    assert not any(
+        ".cache" in name for name in manifest["models"][model]["files"])

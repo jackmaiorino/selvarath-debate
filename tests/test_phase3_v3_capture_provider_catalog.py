@@ -30,9 +30,20 @@ class _FakeModels:
         return self.entries
 
 
-class _FakeClient:
+class _FakeEndpoints:
     def __init__(self, entries):
+        self.entries = entries
+        self.calls = []
+
+    def list(self, **kwargs):
+        self.calls.append(kwargs)
+        return type("Response", (), {"data": self.entries})()
+
+
+class _FakeClient:
+    def __init__(self, entries, endpoints=()):
         self.models = _FakeModels(entries)
+        self.endpoints = _FakeEndpoints(endpoints)
 
 
 def test_capture_uses_only_model_list_and_complete_sdk_serialization():
@@ -41,6 +52,25 @@ def test_capture_uses_only_model_list_and_complete_sdk_serialization():
     assert capture.capture_catalog(client) == [{"id": "example/model", "link": None}]
     assert client.models.calls == 1
     assert model.kwargs == {
+        "mode": "json",
+        "use_api_names": True,
+        "exclude_unset": False,
+        "exclude_none": False,
+    }
+
+
+def test_capture_serverless_inventory_uses_exact_read_only_filter():
+    endpoint = _FakeModel({
+        "name": "example/model", "model": "example/model",
+        "type": "serverless", "state": "STARTED",
+    })
+    client = _FakeClient([], endpoints=[endpoint])
+    assert capture.capture_serverless_endpoints(client) == [{
+        "name": "example/model", "model": "example/model",
+        "type": "serverless", "state": "STARTED",
+    }]
+    assert client.endpoints.calls == [{"type": "serverless"}]
+    assert endpoint.kwargs == {
         "mode": "json",
         "use_api_names": True,
         "exclude_unset": False,

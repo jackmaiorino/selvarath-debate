@@ -82,6 +82,24 @@ FROZEN_SUCCESSOR_DESIGN_CANONICAL_SHA256 = (
 FROZEN_V3_ROSTER_AMENDMENT_CANONICAL_SHA256 = (
     "44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58"
 )
+FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256 = (
+    "1415949888eefdd995d2ae8c7870b0fd5949fcdfe5f3ea4ea4e6d3ec4c93038e"
+)
+FROZEN_V3_RECOVERY_AMENDMENT_CANONICAL_SHA256 = (
+    "ae27ed66e44b38d3e48883463e405603d7e52d8cc389beff43f2dfe91d7d334c"
+)
+FROZEN_V3_R5_HALT_OBSERVATION_CANONICAL_SHA256 = (
+    "36e0e8c96bbf5b76ffa1ee798829c504e60dfddaed5cf1a1488e1ee65f5f1e45"
+)
+FROZEN_V3R2_PROVIDER_CATALOG_CANONICAL_SHA256 = (
+    "e5734592091f9dc94fdd43100079a735b0c25a85c102dd550ba3727970908444"
+)
+FROZEN_V3R2_SERVERLESS_ENDPOINTS_CANONICAL_SHA256 = (
+    "0701dc10a50dd6cba8bf9333576f7d80d698182fce5dea246fb7198088302b3a"
+)
+FROZEN_V3R2_QWEN38_PROVIDER_TEMPLATE_CANONICAL_SHA256 = (
+    "71056ce80b3c50f6ceaf633236e566557b742f4ba95f540041ab8d0c55bd0ffb"
+)
 FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256 = (
     "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f"
 )
@@ -106,6 +124,14 @@ PHASE3_V3_BASE_JUDGES = (
 )
 PHASE3_V3_REPLACED_JUDGE = "Qwen/Qwen3.7-Max"
 PHASE3_V3_REPLACEMENT_JUDGE = "Qwen/Qwen3.5-397B-A17B"
+PHASE3_V3_RECOVERY_REPLACED_JUDGE = "Qwen/Qwen3.5-397B-A17B"
+PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE = "Qwen/Qwen3.8-2.4T-A95B"
+PHASE3_V3_RECOVERY_BASE_JUDGES = (
+    "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "google/gemma-3n-E4B-it",
+    PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE,
+)
 PHASE3_V3_CONDITIONAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 PHASE3_V3_EXCLUDED_JUDGE = "openai/gpt-oss-120b"
 
@@ -703,7 +729,11 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError("offline_planning_only must be true")
     if protocol.get("execution_authorized") is not False:
         raise ProtocolValidationError("execution_authorized must be false")
-    if protocol.get("protocol_id") != "phase3_budget_knob_2026_08_23_v3":
+    protocol_id = protocol.get("protocol_id")
+    recovery = protocol_id == "phase3_budget_knob_2026_08_24_v3r2"
+    if protocol_id not in {
+            "phase3_budget_knob_2026_08_23_v3",
+            "phase3_budget_knob_2026_08_24_v3r2"}:
         raise ProtocolValidationError("unexpected v3 protocol_id")
 
     content_digest = _sha256_string(
@@ -733,10 +763,12 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         "planning_cell_identity.roster_amendment_sha256",
     )
     namespace = _non_empty_string(protocol.get("cell_key_namespace"), "cell_key_namespace")
+    namespace_prefix = (
+        "phase3-budget-knob-2026-08-24-v3r2" if recovery
+        else "phase3-budget-knob-2026-08-23-v3")
     expected_namespace = (
-        "phase3-budget-knob-2026-08-23-v3."
-        f"rr-{resolution_sha[:12]}.ra-{amendment_sha[:12]}.qb-{question_bank_sha[:12]}"
-    )
+        f"{namespace_prefix}.rr-{resolution_sha[:12]}."
+        f"ra-{amendment_sha[:12]}.qb-{question_bank_sha[:12]}")
     if namespace != expected_namespace:
         raise ProtocolValidationError(
             "v3 namespace is not bound to roster resolution, amendment, and banks")
@@ -757,6 +789,25 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json") != (
                 FROZEN_V3_ROSTER_AMENDMENT_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the owner-approved roster amendment")
+    if recovery:
+        recovery_bindings = {
+            "rejudge/phase3_protocol_v3_r2.json": (
+                FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256),
+            "rejudge/phase3_v3_amendment2_qwen3_8_replacement_2026-08-24.json": (
+                FROZEN_V3_RECOVERY_AMENDMENT_CANONICAL_SHA256),
+            "rejudge/phase3_v3_r5_provider_halt_2026-08-24.json": (
+                FROZEN_V3_R5_HALT_OBSERVATION_CANONICAL_SHA256),
+            "rejudge/output/phase3_v3r2_provider_models_2026-08-24T2321Z.json": (
+                FROZEN_V3R2_PROVIDER_CATALOG_CANONICAL_SHA256),
+            "rejudge/output/phase3_v3r2_serverless_endpoints_2026-08-24T2321Z.json": (
+                FROZEN_V3R2_SERVERLESS_ENDPOINTS_CANONICAL_SHA256),
+            "rejudge/phase3_v3r2_qwen38_provider_chat_template_2026-08-24.json": (
+                FROZEN_V3R2_QWEN38_PROVIDER_TEMPLATE_CANONICAL_SHA256),
+        }
+        for path, expected_sha in recovery_bindings.items():
+            if canonical_bindings.get(path) != expected_sha:
+                raise ProtocolValidationError(
+                    f"v3 recovery source binding drifted for {path}")
     if canonical_bindings.get("rejudge/phase2_prompt_bundle.json") != (
             FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the exact reused prompt bundle")
@@ -777,17 +828,24 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         resolution.get("amendment_tracked_path"),
         "roster_resolution.amendment_tracked_path",
     )
-    if amendment_path != (
-            "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json"):
+    expected_amendment_path = (
+        "rejudge/phase3_v3_amendment2_qwen3_8_replacement_2026-08-24.json"
+        if recovery else
+        "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json")
+    if amendment_path != expected_amendment_path:
         raise ProtocolValidationError("v3 roster amendment path drifted")
     if canonical_bindings.get(amendment_path) != amendment_sha:
         raise ProtocolValidationError("v3 roster-amendment source binding drifted")
     if resolution.get("amendment_canonical_sha256") != amendment_sha:
         raise ProtocolValidationError("v3 roster amendment identity drifted")
     replacement = _mapping(resolution.get("replacement"), "roster_resolution.replacement")
-    if replacement.get("removed_model") != PHASE3_V3_REPLACED_JUDGE:
+    expected_removed = (
+        PHASE3_V3_RECOVERY_REPLACED_JUDGE if recovery else PHASE3_V3_REPLACED_JUDGE)
+    expected_added = (
+        PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE if recovery else PHASE3_V3_REPLACEMENT_JUDGE)
+    if replacement.get("removed_model") != expected_removed:
         raise ProtocolValidationError("v3 removed judge drifted")
-    if replacement.get("added_model") != PHASE3_V3_REPLACEMENT_JUDGE:
+    if replacement.get("added_model") != expected_added:
         raise ProtocolValidationError("v3 replacement judge drifted")
     if source_bindings.get("question_bank_bundle_sha256") != question_bank_sha:
         raise ProtocolValidationError("v3 question-bank binding drifted")
@@ -799,6 +857,8 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError("v3 canary spend must remain separately unauthorized")
     if authorization.get("main_run_spend_authorized") is not False:
         raise ProtocolValidationError("v3 main spend must remain separately unauthorized")
+    if recovery and authorization.get("amendment_record") != expected_amendment_path:
+        raise ProtocolValidationError("v3 recovery authorization record drifted")
 
     question_set = _mapping(protocol.get("question_set"), "question_set")
     if question_set.get("expected_main_question_count") != 82:
@@ -808,8 +868,12 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
 
     roster = _mapping(protocol.get("roster"), "roster")
     judges = _unique_strings(roster.get("judges_final"), "roster.judges_final")
-    if judges[:len(PHASE3_V3_BASE_JUDGES)] != list(PHASE3_V3_BASE_JUDGES):
+    expected_base_judges = (
+        PHASE3_V3_RECOVERY_BASE_JUDGES if recovery else PHASE3_V3_BASE_JUDGES)
+    if judges[:len(expected_base_judges)] != list(expected_base_judges):
         raise ProtocolValidationError("v3 final roster must preserve the four approved base judges")
+    if recovery and len(judges) != 4:
+        raise ProtocolValidationError("v3 recovery roster must contain exactly four judges")
     if len(judges) == 5:
         if judges[-1] != PHASE3_V3_CONDITIONAL_JUDGE:
             raise ProtocolValidationError("the only permitted fifth v3 judge is Qwen2.5")
@@ -973,8 +1037,13 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError("v3 exact-context corpus must contain 492 transcripts")
 
     supersedes = _mapping(protocol.get("supersedes"), "supersedes")
-    if supersedes.get("canonical_sha256") != FROZEN_PROTOCOL_V2_CANONICAL_SHA256:
-        raise ProtocolValidationError("v3 must supersede the immutable v2 pin")
+    expected_superseded_sha = (
+        FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256
+        if recovery else FROZEN_PROTOCOL_V2_CANONICAL_SHA256)
+    if supersedes.get("canonical_sha256") != expected_superseded_sha:
+        raise ProtocolValidationError("v3 superseded protocol binding drifted")
+    if recovery and supersedes.get("protocol_id") != "phase3_budget_knob_2026_08_23_v3":
+        raise ProtocolValidationError("v3 recovery supersedes the wrong protocol identity")
     _non_empty_string(supersedes.get("reason"), "supersedes.reason")
 
 

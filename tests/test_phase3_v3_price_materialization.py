@@ -40,6 +40,18 @@ def _catalog(protocol):
     ]
 
 
+def _endpoints(protocol):
+    return [
+        {
+            "model": model,
+            "name": model,
+            "type": "serverless",
+            "state": "STARTED",
+        }
+        for model in protocol["roster"]["judges_final"]
+    ]
+
+
 def test_builder_binds_saved_catalog_and_final_roster(tmp_path: Path):
     protocol = _protocol()
     catalog = _catalog(protocol)
@@ -101,6 +113,47 @@ def test_builder_rejects_zero_catalog_prices(tmp_path: Path):
             protocol=protocol,
             raw_catalog=catalog,
             raw_catalog_path=catalog_path,
+            verified_at_utc="2026-08-29T01:00:00Z",
+            project_root=tmp_path,
+        )
+
+
+def test_v2_builder_binds_exact_started_serverless_endpoint_inventory(tmp_path: Path):
+    protocol = _protocol()
+    catalog = _catalog(protocol)
+    endpoints = _endpoints(protocol)
+    catalog_path = tmp_path / "catalog.json"
+    endpoint_path = tmp_path / "endpoints.json"
+    catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+    endpoint_path.write_text(json.dumps(endpoints), encoding="utf-8")
+    snapshot = prices.build_price_snapshot(
+        protocol=protocol,
+        raw_catalog=catalog,
+        raw_catalog_path=catalog_path,
+        raw_serverless_endpoints=endpoints,
+        raw_serverless_endpoints_path=endpoint_path,
+        verified_at_utc="2026-08-29T01:00:00Z",
+        project_root=tmp_path,
+    )
+    assert snapshot["schema_version"] == inputs.PRICE_SCHEMA_VERSION_V2
+    assert snapshot["raw_serverless_endpoints"]["endpoint_count"] == 4
+    report = inputs.validate_price_snapshot(
+        snapshot,
+        protocol=protocol,
+        as_of=datetime(2026, 8, 29, 2, tzinfo=timezone.utc),
+        project_root=tmp_path,
+    )
+    assert report["raw_serverless_endpoints_checked"] is True
+
+    endpoints[0]["state"] = "STOPPED"
+    endpoint_path.write_text(json.dumps(endpoints), encoding="utf-8")
+    with pytest.raises(prices.PriceMaterializationError, match="not STARTED"):
+        prices.build_price_snapshot(
+            protocol=protocol,
+            raw_catalog=catalog,
+            raw_catalog_path=catalog_path,
+            raw_serverless_endpoints=endpoints,
+            raw_serverless_endpoints_path=endpoint_path,
             verified_at_utc="2026-08-29T01:00:00Z",
             project_root=tmp_path,
         )

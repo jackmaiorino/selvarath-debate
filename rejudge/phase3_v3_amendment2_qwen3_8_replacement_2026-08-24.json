@@ -1,0 +1,67 @@
+{
+ "schema_version": "phase3_v3_roster_amendment_v2",
+ "amendment_id": "phase3_v3_qwen3_5_serverless_replacement_2026_08_24",
+ "decided_at_utc": "2026-08-24T23:30:50.4708725Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "active Codex project session",
+  "approved_on_date": "2026-08-24",
+  "question": "Approve replacing Qwen 3.5 with Qwen 3.8 and minting a fresh successor identity under the same $60 cap with no main spend?",
+  "response": "approved"
+ },
+ "replacement": {
+  "removed_model": "Qwen/Qwen3.5-397B-A17B",
+  "added_model": "Qwen/Qwen3.8-2.4T-A95B",
+  "timing": "after the halted r5 measurement and before any successor provider inference",
+  "reason": "The removed model requires a dedicated endpoint and halted the prior measurement. The added model was listed as a STARTED serverless chat endpoint and has an exact public tokenizer plus a provider-exposed chat template bound below.",
+  "roster_size_change": 0,
+  "capability_slope_rule_change": "none"
+ },
+ "evidence": {
+  "halted_attempt": {
+   "path": "rejudge/phase3_v3_r5_provider_halt_2026-08-24.json",
+   "canonical_sha256": "36e0e8c96bbf5b76ffa1ee798829c504e60dfddaed5cf1a1488e1ee65f5f1e45"
+  },
+  "provider_catalog": {
+   "path": "rejudge/output/phase3_v3r2_provider_models_2026-08-24T2321Z.json",
+   "observed_at_utc": "2026-08-24T23:21:34.222175Z",
+   "canonical_sha256": "e5734592091f9dc94fdd43100079a735b0c25a85c102dd550ba3727970908444",
+   "added_model_entry_canonical_sha256": "a43a4b4b5e514c9485d79635cb53445e0910936d752eea083725b4fc902d5f02"
+  },
+  "serverless_endpoints": {
+   "path": "rejudge/output/phase3_v3r2_serverless_endpoints_2026-08-24T2321Z.json",
+   "observed_at_utc": "2026-08-24T23:21:34.222175Z",
+   "canonical_sha256": "0701dc10a50dd6cba8bf9333576f7d80d698182fce5dea246fb7198088302b3a",
+   "added_model_endpoint_canonical_sha256": "ccedab0a61708cb1dd68359c2f45da4054ce73999d562ac806ab0e0f86e46720",
+   "required_state": "STARTED",
+   "required_type": "serverless"
+  },
+  "provider_chat_template": {
+   "path": "rejudge/phase3_v3r2_qwen38_provider_chat_template_2026-08-24.json",
+   "canonical_sha256": "71056ce80b3c50f6ceaf633236e566557b742f4ba95f540041ab8d0c55bd0ffb"
+  },
+  "added_model_tokenizer": {
+   "repository": "Qwen/Qwen3.8-2.4T-A95B",
+   "revision": "207bd685a7e3696cfaff12ded7c6a7ea0f88c996",
+   "native_chat_template_sha256": "40ce34a5bcbc0231462740761215bc31a83882a8b3a4b6aa1c6e869b95945e4e",
+   "provider_chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+   "tokenizer_json_sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 0.21711289000000006,
+  "remaining_cap_usd": 59.78288711,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the roster replacement and creation of a fresh successor identity.",
+  "Paid inference still requires a separate authorization containing the exact successor run identity.",
+  "This amendment does not authorize main spend or reuse measurement rows from the halted attempt."
+ ]
+}

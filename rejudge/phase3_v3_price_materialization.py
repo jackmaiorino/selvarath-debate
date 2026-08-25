@@ -46,6 +46,8 @@ def build_price_snapshot(
     protocol: Mapping[str, Any],
     raw_catalog: Any,
     raw_catalog_path: str | Path,
+    raw_serverless_endpoints: Any | None = None,
+    raw_serverless_endpoints_path: str | Path | None = None,
     verified_at_utc: str,
     project_root: str | Path,
 ) -> dict[str, Any]:
@@ -64,6 +66,30 @@ def build_price_snapshot(
         raise PriceMaterializationError(str(exc)) from exc
     if canonical_sha256(catalog_on_disk) != canonical_sha256(raw_catalog):
         raise PriceMaterializationError("raw catalog argument differs from the bound file")
+
+    if ((raw_serverless_endpoints is None)
+            != (raw_serverless_endpoints_path is None)):
+        raise PriceMaterializationError(
+            "serverless endpoint inventory and path must be supplied together")
+    endpoint_path: Path | None = None
+    endpoint_entries: list[Mapping[str, Any]] | None = None
+    if raw_serverless_endpoints is not None:
+        endpoint_path = Path(raw_serverless_endpoints_path)  # type: ignore[arg-type]
+        if not endpoint_path.is_absolute():
+            endpoint_path = root / endpoint_path
+        if not endpoint_path.is_file():
+            raise PriceMaterializationError(
+                f"raw serverless endpoint file does not exist: {endpoint_path}")
+        try:
+            endpoints_on_disk = phase3_v3_inputs._load_json(endpoint_path)
+            endpoint_entries = phase3_v3_inputs._catalog_entries(
+                raw_serverless_endpoints)
+        except phase3_v3_inputs.InputGateError as exc:
+            raise PriceMaterializationError(str(exc)) from exc
+        if canonical_sha256(endpoints_on_disk) != canonical_sha256(
+                raw_serverless_endpoints):
+            raise PriceMaterializationError(
+                "raw serverless endpoint argument differs from the bound file")
 
     try:
         entries = phase3_v3_inputs._catalog_entries(raw_catalog)
@@ -88,7 +114,7 @@ def build_price_snapshot(
         pricing = entry.get("pricing")
         if not isinstance(pricing, Mapping):
             raise PriceMaterializationError(f"catalog pricing is absent for {model}")
-        models[model] = {
+        model_snapshot = {
             "serverless_available": True,
             "input_usd_per_million": _numeric_price(
                 pricing.get("input"), f"{model} input price"),
@@ -96,9 +122,28 @@ def build_price_snapshot(
                 pricing.get("output"), f"{model} output price"),
             "catalog_entry_sha256": canonical_sha256(entry),
         }
+        if endpoint_entries is not None:
+            matches = [
+                endpoint for endpoint in endpoint_entries
+                if endpoint.get("model") == model and endpoint.get("name") == model
+            ]
+            if len(matches) != 1:
+                raise PriceMaterializationError(
+                    f"required model must have exactly one exact serverless endpoint: {model}")
+            endpoint = matches[0]
+            if endpoint.get("type") != "serverless":
+                raise PriceMaterializationError(
+                    f"required model endpoint is not serverless: {model}")
+            if endpoint.get("state") != "STARTED":
+                raise PriceMaterializationError(
+                    f"required model serverless endpoint is not STARTED: {model}")
+            model_snapshot["serverless_endpoint_entry_sha256"] = canonical_sha256(endpoint)
+        models[model] = model_snapshot
 
     snapshot = {
-        "schema_version": phase3_v3_inputs.PRICE_SCHEMA_VERSION,
+        "schema_version": (
+            phase3_v3_inputs.PRICE_SCHEMA_VERSION_V2
+            if endpoint_entries is not None else phase3_v3_inputs.PRICE_SCHEMA_VERSION),
         "provider": "Together",
         "verified_at_utc": verified_at.isoformat().replace("+00:00", "Z"),
         "execution_authorized": False,
@@ -109,6 +154,13 @@ def build_price_snapshot(
         },
         "models": models,
     }
+    if endpoint_entries is not None:
+        assert endpoint_path is not None
+        snapshot["raw_serverless_endpoints"] = {
+            "path": _portable_path(endpoint_path, root),
+            "canonical_sha256": canonical_sha256(raw_serverless_endpoints),
+            "endpoint_count": len(endpoint_entries),
+        }
     try:
         phase3_v3_inputs.validate_price_snapshot(
             snapshot,

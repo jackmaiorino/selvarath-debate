@@ -1,0 +1,46 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "catalog_entry_sha256": "a43a4b4b5e514c9485d79635cb53445e0910936d752eea083725b4fc902d5f02",
+   "input_usd_per_million": 2.5,
+   "output_usd_per_million": 6.25,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "ccedab0a61708cb1dd68359c2f45da4054ce73999d562ac806ab0e0f86e46720"
+  },
+  "google/gemma-3n-E4B-it": {
+   "catalog_entry_sha256": "548b1f85b41fecddfe9baf32c653347c73a9593d6eba634fee0b85753b377005",
+   "input_usd_per_million": 0.060000000000000005,
+   "output_usd_per_million": 0.12000000000000001,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "6a192f8f88e6ffffa9f33348eb74a6d0e656822314f9fbec97faad18583397ca"
+  },
+  "google/gemma-4-31B-it": {
+   "catalog_entry_sha256": "0cb6fc8603f73f8ed35a3fc2783e41954462c7ed7f0ebdb7f6b7fc791f13d39a",
+   "input_usd_per_million": 0.39,
+   "output_usd_per_million": 0.9700000000000001,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "962a2c01779a82b8e69aa0d2f3975373e1ab02c0fe94b80d3e63e98e0d57ac35"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "catalog_entry_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
+   "input_usd_per_million": 1.0399999999999998,
+   "output_usd_per_million": 1.0399999999999998,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "f911e9a92c2936f0ae5512817074903cde75a1a0ec81d2e290bb693253602ba9"
+  }
+ },
+ "provider": "Together",
+ "raw_catalog": {
+  "canonical_sha256": "e5734592091f9dc94fdd43100079a735b0c25a85c102dd550ba3727970908444",
+  "model_count": 278,
+  "path": "rejudge/output/phase3_v3r2_provider_models_2026-08-24T2352Z.json"
+ },
+ "raw_serverless_endpoints": {
+  "canonical_sha256": "0701dc10a50dd6cba8bf9333576f7d80d698182fce5dea246fb7198088302b3a",
+  "endpoint_count": 161,
+  "path": "rejudge/output/phase3_v3r2_serverless_endpoints_2026-08-24T2352Z.json"
+ },
+ "schema_version": "phase3_v3_price_snapshot_v2",
+ "verified_at_utc": "2026-08-24T23:52:03.560789Z"
+}
