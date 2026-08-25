@@ -1,0 +1,46 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r5_2026-08-25",
+ "authorizes": "Paid provider execution for the phase3-v3-476792b58e273b48 one-seed reproducibility harness twice and, only after a bit-identical harness pass, one fresh successor canary under the amendment-3 uncertain-spend policy. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r10_2026-08-25.json",
+  "run_manifest_canonical_sha256": "a918efa03895c78853468d7f7b355ef2ad76fef6855c6136a99e2ed7332821ce",
+  "run_id": "phase3-v3-476792b58e273b48",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r3.json",
+  "protocol_canonical_sha256": "a884ccefc2e4b62c4c09882e5c66f36b86c7ad8d8cb1277d94579e36d79a7fb5",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 4.977210709999999,
+  "cap_applies_to": "the three halted predecessors' accounted spend plus all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "amendment_path": "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+  "codex_consult_path": "rejudge/phase3_v3_codex_uncertain_consult_2026-08-25.md",
+  "run_uncertain_ceiling_usd": 1.0,
+  "ceiling_trip_rule": "if this run halts on the uncertain-spend ceiling, no further successor is minted without the owner"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, owner pickup message and canary go of 2026-08-25",
+  "exact_text": "Approved: phase3-v3-476792b58e273b48 harness and successor canary, $60 USD aggregate cap including $4.97721071 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-25",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "Do you need to check in so often with me? Can you work autonomously through the night?",
+   "go"
+  ],
+  "approval_derivation": "The owner granted blanket approval for further amendments to this phase and said 'go' to running this same canary under the same $60 aggregate cap earlier on 2026-08-25. After that run's r9 environmental halt, the amendment-3 relaunch was vetted by the bound Codex consult as an in-phase transport/accounting repair within that standing authority. The exact_text above is the machine-binding string; the owner's literal words are preserved unedited in owner_verbatim. The owner did not retype the binding string himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-25T18:59:42.085880Z",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
