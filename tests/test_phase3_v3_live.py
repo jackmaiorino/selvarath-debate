@@ -259,12 +259,37 @@ def test_manifest_input_resolution_selects_recovery_artifacts():
         "rejudge/phase3_v3_role_limits_r2_2026-08-24.json",
         "rejudge/phase3_v3_execution_binding_r2_2026-08-24.json",
     ]
+    inputs = {path: str(index) * 64 for index, path in enumerate(paths, 1)}
     resolved = phase3_v3_live._resolve_manifest_input_paths({
-        "input_sha256s": {path: "0" * 64 for path in paths}
+        "input_sha256s": inputs,
+        "protocol_sha256": inputs[paths[0]],
+        "tokenizer_manifest_sha256": inputs[paths[2]],
+        "price_snapshot_sha256": inputs[paths[3]],
     })
     assert resolved["protocol"].endswith("phase3_protocol_v3_r3.json")
     assert resolved["execution_binding"].endswith(
         "phase3_v3_execution_binding_r2_2026-08-24.json")
+
+
+def test_manifest_input_resolution_uses_identity_hash_when_prior_protocol_is_bound():
+    successor = "rejudge/phase3_protocol_v3_r3.json"
+    prior = "rejudge/phase3_protocol_v3_r2.json"
+    inputs = {
+        successor: "a" * 64,
+        prior: "b" * 64,
+        "rejudge/phase3_protocol_v3_pin_r3.json": "c" * 64,
+        "rejudge/phase3_v3_exact_tokenizer_manifest_r4_2026-08-24.json": "d" * 64,
+        "rejudge/phase3_v3_price_snapshot_r4_2026-08-24.json": "e" * 64,
+        "rejudge/phase3_v3_role_limits_r2_2026-08-24.json": "f" * 64,
+        "rejudge/phase3_v3_execution_binding_r2_2026-08-24.json": "1" * 64,
+    }
+    resolved = phase3_v3_live._resolve_manifest_input_paths({
+        "input_sha256s": inputs,
+        "protocol_sha256": inputs[successor],
+        "tokenizer_manifest_sha256": "d" * 64,
+        "price_snapshot_sha256": "e" * 64,
+    })
+    assert resolved["protocol"] == successor
 
 
 def test_recovery_binding_verifies_prior_and_fresh_ledgers():

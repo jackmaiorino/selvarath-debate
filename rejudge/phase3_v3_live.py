@@ -236,7 +236,7 @@ def _resolve_manifest_input_paths(manifest: Mapping[str, Any]) -> dict[str, str]
     paths = [str(path).replace("\\", "/") for path in inputs]
 
     def select(label: str, predicate) -> str:
-        matches = [path for path in paths if predicate(Path(path).name)]
+        matches = [path for path in paths if predicate(path, Path(path).name)]
         if len(matches) != 1:
             raise Phase3V3LiveError(
                 f"run manifest must bind exactly one {label}; found {matches}")
@@ -245,23 +245,26 @@ def _resolve_manifest_input_paths(manifest: Mapping[str, Any]) -> dict[str, str]
     return {
         "protocol": select(
             "v3 protocol",
-            lambda name: name.startswith("phase3_protocol_v3_")
-            and not name.startswith("phase3_protocol_v3_pin_")),
+            lambda path, name: name.startswith("phase3_protocol_v3_")
+            and not name.startswith("phase3_protocol_v3_pin_")
+            and inputs[path] == manifest.get("protocol_sha256")),
         "protocol_pin": select(
             "v3 protocol pin",
-            lambda name: name.startswith("phase3_protocol_v3_pin_")),
+            lambda _path, name: name.startswith("phase3_protocol_v3_pin_")),
         "tokenizer_manifest": select(
             "v3 exact-tokenizer manifest",
-            lambda name: name.startswith("phase3_v3_exact_tokenizer_manifest_")),
+            lambda path, name: name.startswith("phase3_v3_exact_tokenizer_manifest_")
+            and inputs[path] == manifest.get("tokenizer_manifest_sha256")),
         "price_snapshot": select(
             "v3 price snapshot",
-            lambda name: name.startswith("phase3_v3_price_snapshot_")),
+            lambda path, name: name.startswith("phase3_v3_price_snapshot_")
+            and inputs[path] == manifest.get("price_snapshot_sha256")),
         "role_limits": select(
             "v3 role-limits artifact",
-            lambda name: name.startswith("phase3_v3_role_limits")),
+            lambda _path, name: name.startswith("phase3_v3_role_limits")),
         "execution_binding": select(
             "v3 execution binding",
-            lambda name: name.startswith("phase3_v3_execution_binding")),
+            lambda _path, name: name.startswith("phase3_v3_execution_binding")),
     }
 
 
