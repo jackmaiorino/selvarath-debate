@@ -1,0 +1,83 @@
+{
+ "schema_version": "phase3_v3_roster_amendment_v3",
+ "amendment_id": "phase3_v3_amendment4_gemma3n_replacement_2026-08-25",
+ "decided_at_utc": "2026-08-25T22:05:00Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-25",
+  "approved_on_date": "2026-08-25",
+  "question": "Together delisted the Gemma 3n judge from serverless mid-canary tonight (hash-pinned catalog evidence committed). I stopped the run at 614 of 1,008 rows since it could no longer complete; $8.17 of $60 is accounted, everything is sealed, and the new uncertain-spend tolerance worked perfectly through the provider trouble. Codex and I agree the roster call is yours: how should the canary continue?",
+  "selected_option": "Substitute + fallbacks (Recommended)",
+  "selected_option_description": "I screen for a small non-Gemma serverless judge under frozen admission gates (two catalog checks 24h apart, live probe, exact tokenizer/template match, weakness qualified by the 48 anchors), with gemma-4-E4B pre-approved as an ordered fallback so further churn needs no new ask. Preserves the weak-judge slot. New protocol identity, full redo, roughly $6 more, relaunch in about a day."
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_roster_consult_2026-08-25.md",
+  "note": "The consult ranked a genuinely small non-Gemma substitute first among substitution paths, required pre-approving two ordered candidates as separate identities with frozen admission gates, and confirmed the roster decision belongs to the owner. The authenticated catalog contains exactly one genuinely small non-Gemma serverless chat model, which fixes candidate 1."
+ },
+ "replacement": {
+  "removed_model": "google/gemma-3n-E4B-it",
+  "removal_cause": {
+   "halt_observation_path": "rejudge/phase3_v3_r11_gemma3n_delisting_halt_2026-08-25.json",
+   "halt_observation_canonical_sha256": "7cff6cc8604c17dad3ad67574cf1efe42ac1611db28b0148a74d58d8a3246618",
+   "summary": "Together removed the model from its serverless catalog mid-canary on 2026-08-25"
+  },
+  "ordered_candidates": [
+   {
+    "rank": 1,
+    "model_id": "Qwen/Qwen3.5-9B",
+    "notes": "the only genuinely small (9B) non-Gemma serverless chat model in the authenticated catalog; duplicates the Qwen family with Qwen3.8-2.4T-A95B across generations, the least-bad family overlap available; provider catalog exposes no chat template and links an FP8 provider mirror, so admission rests on the canonical Qwen repository tokenizer plus exact empirical prompt-token-count matching, the standard previously accepted for gemma-3n"
+   },
+   {
+    "rank": 2,
+    "model_id": "google/gemma-4-E4B-it",
+    "notes": "same E4B form factor as the removed judge; duplicates the Gemma-4 family with gemma-4-31B-it; used only if candidate 1 fails an admission gate"
+   }
+  ],
+  "fallback_rule": "candidates are tried strictly in order; moving to the next candidate before formal measurement requires no further owner round-trip; replacing a judge under an already-materialized protocol identity or after formal measurement begins is forbidden",
+  "roster_size_change": 0,
+  "capability_slope_rule_change": "none; the slope remains estimate-and-plot only"
+ },
+ "admission_gates_frozen": {
+  "catalog_presence": "exact model ID in the authenticated serverless catalog at two captures at least 24 hours apart, and again within 15 minutes of formal launch",
+  "live_completion": "one production-account serverless chat completion must succeed non-streaming with usage present; any dedicated-endpoint requirement or model_not_available response fails admission",
+  "price": "authenticated input/output prices captured in a fresh snapshot; confirmed aggregate spend + uncertain upper bounds + worst-case screening + worst-case successor canary must stay under the $60 aggregate cap",
+  "tokenizer": "exact public repository revision pinned with per-file hashes",
+  "chat_template": "every distinct protocol message shape rendered locally must match provider-reported prompt-token counts exactly, or with a documented constant off-by-one as previously accepted for gemma-3n",
+  "invalid_screening": "the frozen strict parser and thresholds apply unchanged to all substitute judgment cells in the successor canary before any main admission",
+  "weakness_qualification": "the substitute's 48-anchor point estimate must fall below every retained judge; otherwise it may proceed only as a non-weak roster under a further owner amendment",
+  "harness": "the one-seed bit-identical store check repeats under the new identity before formal spend"
+ },
+ "screening_allowance": {
+  "cap_usd": 2.0,
+  "purpose": "live completion probes and any admission re-probes for the ordered candidates; recorded per-probe with response IDs and usage; counted against the $60 aggregate cap as out-of-ledger screening spend listed in the successor authorization"
+ },
+ "evidence": {
+  "catalog_check_1": {
+   "path": "rejudge/output/phase3_v3r2_provider_models_2026-08-24T2321Z.json",
+   "observed_at_utc": "2026-08-24T23:21:34.222175Z",
+   "contains_candidates": true
+  },
+  "catalog_check_intermediate": {
+   "path": "rejudge/output/phase3_v3r4_provider_models_2026-08-25T2130Z.json",
+   "observed_at_utc": "2026-08-25T21:24:30.053720Z",
+   "contains_candidates": true,
+   "contains_removed_model": false
+  },
+  "catalog_check_2_pending": "a further capture no earlier than 2026-08-25T23:21:34Z completes the 24-hour requirement before launch"
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 8.167501109999998,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the roster replacement path and creation of a fresh successor identity.",
+  "Paid inference beyond the screening allowance still requires a separate authorization containing the exact successor run identity.",
+  "This amendment does not authorize main spend or reuse of measurement rows from any halted attempt."
+ ]
+}
