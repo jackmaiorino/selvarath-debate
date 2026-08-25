@@ -1,0 +1,35 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-25T00:46:36.1001665Z",
+ "run_id": "phase3-v3-b6c0bf895e78d216",
+ "status": "halted_before_harness_completion",
+ "cause": "Together completed the Qwen3.8 stream without a usage chunk; the strict client recorded an unknown charge and did not retry.",
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r7_2026-08-24.json",
+  "canonical_sha256": "a06b272288d9b9909308650193665fe56011a9faed434cebb4488da3526777c6"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24/phase3_v3_usage.jsonl",
+  "raw_sha256": "adfd086dcd9246673963191c1ebc41ada23a2c430fe0dea6c35484b3e08dd37d",
+  "last_event_sha256": "2191dc74346af0c8b9c5b63efd1fe9b315ff73d371d6fa4af5588d397854382d",
+  "actual_spend_usd": 0.0,
+  "uncertain_spend_usd": 0.09274,
+  "accounted_spend_usd": 0.09274,
+  "unmatched_reservations": 0
+ },
+ "execution": {
+  "provider_attempts": 1,
+  "harness_rows_committed": 0,
+  "formal_rows_committed": 0,
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "actual_spend_usd": 0.16820809000000006,
+  "uncertain_spend_usd": 0.1416448,
+  "accounted_spend_usd": 0.30985289000000005,
+  "remaining_usd": 59.69014711
+ },
+ "successor_constraint": "Any retry must use a fresh run identity and ledger, preserve this ledger read-only, carry $0.30985289 prior accounted spend, and remain separately authorized with no main spend."
+}

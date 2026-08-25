@@ -69,7 +69,9 @@ AUTHORIZATION_SCHEMA = "phase3_v3_canary_authorization_v1"
 AUTHORIZATION_SCHEMA_V2 = "phase3_v3_canary_authorization_v2"
 BINDING_SCHEMA = "phase3_v3_execution_binding_v1"
 BINDING_SCHEMA_V2 = "phase3_v3_execution_binding_v2"
+BINDING_SCHEMA_V3 = "phase3_v3_execution_binding_v3"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
+ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 EXPECTED_TRANSCRIPT_ROWS = 48
 EXPECTED_JUDGMENT_ROWS = 768
 EXPECTED_CAPABILITY_ROWS = 192
@@ -78,6 +80,7 @@ EXPECTED_TOTAL_ROWS = EXPECTED_TRANSCRIPT_ROWS + EXPECTED_FRESH_GATE_ROWS
 EXPECTED_HARNESS_EXECUTIONS = 2
 AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
 PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
+PRIOR_ACCOUNTED_SPEND_USD_R3 = 0.30985289000000005
 NON_MANIFEST_OUTPUT_PATH_KEYS = frozenset({
     "archive_dir", "run_lock", "harness_verified_manifest", "final_manifest",
 })
@@ -296,7 +299,8 @@ def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
 
 
 def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str, Any]) -> None:
-    if role_limits.get("schema_version") != ROLE_LIMITS_SCHEMA:
+    schema_version = role_limits.get("schema_version")
+    if schema_version not in {ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2}:
         raise Phase3V3LiveError("unsupported v3 role-limits schema")
     if role_limits.get("execution_authorized") is not False:
         raise Phase3V3LiveError("role limits cannot authorize execution")
@@ -335,8 +339,23 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     request = role_limits.get("request_settings") or {}
     if request.get("base_fields") != ["model", "messages", "temperature", "max_tokens", "seed"]:
         raise Phase3V3LiveError("base provider request fields drifted")
-    if set(request.get("streaming_pinned_models") or {}) != expected_reasoning:
-        raise Phase3V3LiveError("streaming model pins differ from the reasoning-model roster")
+    if schema_version == ROLE_LIMITS_SCHEMA_V2:
+        expected_streaming = {"google/gemma-4-31B-it": {"stream": True}}
+        transport_fix = role_limits.get("qwen38_usage_transport_fix") or {}
+        if transport_fix != {
+            "model_id": "Qwen/Qwen3.8-2.4T-A95B",
+            "stream": False,
+            "trigger_halt_path": "rejudge/phase3_v3_r7_provider_halt_2026-08-25.json",
+            "trigger_halt_canonical_sha256": (
+                "ffca5b11d855ed51ba37a33a4b31bc90d08e2bb05ae850d44400364e69495a08"),
+            "trigger_error": "streaming response ended without usage chunk",
+        }:
+            raise Phase3V3LiveError("Qwen3.8 usage-transport fix drifted")
+    else:
+        expected_streaming = {
+            model: {"stream": True} for model in expected_reasoning}
+    if request.get("streaming_pinned_models") != expected_streaming:
+        raise Phase3V3LiveError("streaming model pins differ from the frozen transport policy")
     if request.get("per_model_extra_fields") != {}:
         raise Phase3V3LiveError("unapproved per-model provider request fields are present")
     transport = request.get("transport") or {}
@@ -373,7 +392,8 @@ def _binding_paths(binding: Mapping[str, Any]) -> dict[str, Path]:
 def _validate_prior_attempt_accounting(
     binding: Mapping[str, Any], root: Path | None,
 ) -> dict[str, float]:
-    if binding.get("schema_version") != BINDING_SCHEMA_V2:
+    schema_version = binding.get("schema_version")
+    if schema_version not in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -381,10 +401,93 @@ def _validate_prior_attempt_accounting(
         }
     if root is None:
         raise Phase3V3LiveError(
-            "v2 execution binding requires a project root for prior-attempt verification")
+            "aggregate execution binding requires a project root for prior-attempt verification")
     prior = binding.get("prior_attempt_accounting")
     if not isinstance(prior, Mapping):
-        raise Phase3V3LiveError("v2 execution binding has no prior-attempt accounting")
+        raise Phase3V3LiveError("aggregate execution binding has no prior-attempt accounting")
+
+    if schema_version == BINDING_SCHEMA_V3:
+        if (prior.get("measurement_rows_reused") != 0
+                or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
+            raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
+        attempts = prior.get("attempts")
+        expected_attempts = (
+            {
+                "run_id": "phase3-v3-07501cfa62bf55e5",
+                "manifest_path": "rejudge/phase3_v3_run_manifest_preflight_r5_2026-08-24.json",
+                "halt_path": "rejudge/phase3_v3_r5_provider_halt_2026-08-24.json",
+                "ledger_path": (
+                    "E:/selvarath-archive/phase3-v3-successor-2026-08-24/"
+                    "phase3_v3_usage.jsonl"),
+            },
+            {
+                "run_id": "phase3-v3-b6c0bf895e78d216",
+                "manifest_path": "rejudge/phase3_v3_run_manifest_preflight_r7_2026-08-24.json",
+                "halt_path": "rejudge/phase3_v3_r7_provider_halt_2026-08-25.json",
+                "ledger_path": (
+                    "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24/"
+                    "phase3_v3_usage.jsonl"),
+            },
+        )
+        if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
+            raise Phase3V3LiveError("prior-attempt chain must contain exactly two attempts")
+        totals = {
+            "actual_spend_usd": 0.0,
+            "uncertain_spend_usd": 0.0,
+            "accounted_spend_usd": 0.0,
+        }
+        current_ledger = local_path(binding["paths"]["usage_ledger"]).resolve()
+        for attempt, expected in zip(attempts, expected_attempts, strict=True):
+            if attempt.get("run_id") != expected["run_id"]:
+                raise Phase3V3LiveError("prior-attempt chain identity drifted")
+            for label, key, expected_path in (
+                ("prior run manifest", "run_manifest", expected["manifest_path"]),
+                ("halt observation", "halt_observation", expected["halt_path"]),
+            ):
+                artifact = attempt.get(key) or {}
+                if artifact.get("path") != expected_path:
+                    raise Phase3V3LiveError(f"{label} path drifted")
+                payload = _load_json(root / expected_path)
+                if canonical_sha256(payload) != artifact.get("canonical_sha256"):
+                    raise Phase3V3LiveError(f"{label} canonical hash drifted")
+            ledger = attempt.get("usage_ledger") or {}
+            if ledger.get("path") != expected["ledger_path"]:
+                raise Phase3V3LiveError("prior usage ledger path drifted")
+            ledger_path = local_path(ledger["path"])
+            if ledger_path.resolve() == current_ledger:
+                raise Phase3V3LiveError("successor and prior attempts cannot share a usage ledger")
+            if not ledger_path.is_file() or _raw_sha256(ledger_path) != ledger.get("raw_sha256"):
+                raise Phase3V3LiveError("prior usage ledger raw hash drifted")
+            snapshot = api_client.load_chained_usage_ledger(ledger_path)
+            if snapshot.last_event_hash != ledger.get("last_event_sha256"):
+                raise Phase3V3LiveError("prior usage ledger tail hash drifted")
+            for field in totals:
+                expected_value = float(ledger.get(field, -1))
+                if not math.isclose(
+                        float(snapshot.summary[field]), expected_value,
+                        rel_tol=0.0, abs_tol=1e-15):
+                    raise Phase3V3LiveError(f"prior usage ledger {field} drifted")
+                totals[field] += expected_value
+            if (int(snapshot.summary["unmatched_reservations"])
+                    != int(ledger.get("unmatched_reservations", -1))):
+                raise Phase3V3LiveError("prior usage ledger reservation count drifted")
+        frozen_totals = prior.get("totals") or {}
+        for field, observed in totals.items():
+            if not math.isclose(
+                    float(frozen_totals.get(field, -1)), observed,
+                    rel_tol=0.0, abs_tol=1e-15):
+                raise Phase3V3LiveError(f"prior-attempt total {field} drifted")
+        if not math.isclose(
+                totals["accounted_spend_usd"], PRIOR_ACCOUNTED_SPEND_USD_R3,
+                rel_tol=0.0, abs_tol=1e-15):
+            raise Phase3V3LiveError("prior accounted spend differs from the frozen r3 carry")
+        expected_remaining = AUTHORIZED_INCREMENTAL_CAP_USD - PRIOR_ACCOUNTED_SPEND_USD_R3
+        if not math.isclose(
+                float(prior.get("remaining_before_successor_usd", -1)), expected_remaining,
+                rel_tol=0.0, abs_tol=1e-12):
+            raise Phase3V3LiveError("prior remaining aggregate cap drifted")
+        return totals
+
     if (prior.get("run_id") != "phase3-v3-07501cfa62bf55e5"
             or prior.get("measurement_rows_reused") != 0
             or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
@@ -440,7 +543,8 @@ def _validate_execution_binding(
     binding: Mapping[str, Any], manifest: Mapping[str, Any], protocol: Mapping[str, Any],
     *, root: Path | None = None,
 ) -> None:
-    if binding.get("schema_version") not in {BINDING_SCHEMA, BINDING_SCHEMA_V2}:
+    if binding.get("schema_version") not in {
+            BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -504,7 +608,7 @@ def _validate_execution_binding(
         "reviewer_concurrency": 12,
         "transcript_generation_forbidden": True,
         ("shared_aggregate_cap_accounting"
-         if binding.get("schema_version") == BINDING_SCHEMA_V2
+         if binding.get("schema_version") in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:

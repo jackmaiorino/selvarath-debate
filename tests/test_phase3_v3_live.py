@@ -292,7 +292,7 @@ def test_manifest_input_resolution_uses_identity_hash_when_prior_protocol_is_bou
     assert resolved["protocol"] == successor
 
 
-def test_recovery_binding_verifies_prior_and_fresh_ledgers():
+def test_recovery_binding_reports_the_halted_r2_ledger_without_rewriting_it():
     protocol = _recovery_protocol()
     binding = _recovery_binding()
     file_paths = [
@@ -321,9 +321,65 @@ def test_recovery_binding_verifies_prior_and_fresh_ledgers():
         "binding": binding,
         "paths": {"usage_ledger": Path(binding["paths"]["usage_ledger"])},
     }, current)
+    assert accounting["successor_accounted_spend_usd"] == pytest.approx(0.09274)
+    assert accounting["aggregate_accounted_spend_usd"] == pytest.approx(
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
+
+
+def test_nonstream_successor_binding_verifies_both_halted_ledgers_and_zero_fresh_ledger():
+    protocol = _recovery_protocol()
+    binding = json.loads((
+        ROOT / "rejudge/phase3_v3_execution_binding_r3_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    file_paths = [
+        str(value).replace("\\", "/")
+        for key, value in binding["paths"].items()
+        if key not in phase3_v3_live.NON_MANIFEST_OUTPUT_PATH_KEYS
+    ]
+    manifest = {
+        "planned_output_paths": file_paths,
+        "harness_check": {"seed_name": "harness"},
+        "seeds": {"harness": 20260829},
+        "final_roster": list(protocol["roster"]["judges_final"]),
+        "input_sha256s": {
+            phase3_v3_live.TRANSCRIPT_REPORT_RELATIVE_PATH:
+                binding["transcript_verification_report"]["canonical_sha256"],
+        },
+    }
+    phase3_v3_live._validate_execution_binding(
+        binding, manifest, protocol, root=ROOT)
+    current = api_client.load_chained_usage_ledger(
+        binding["paths"]["usage_ledger"],
+        expected_identity=binding["usage_ledger_identity"],
+    )
+    accounting = phase3_v3_live.aggregate_accounting_summary({
+        "root": ROOT,
+        "binding": binding,
+        "paths": {"usage_ledger": Path(binding["paths"]["usage_ledger"])},
+    }, current)
+    assert accounting["prior_accounted_spend_usd"] == pytest.approx(
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
     assert accounting["successor_accounted_spend_usd"] == 0
     assert accounting["aggregate_accounted_spend_usd"] == pytest.approx(
-        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD)
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R3)
+
+
+def test_qwen38_nonstream_policy_keeps_reasoning_floor_but_removes_stream_pin():
+    protocol = _recovery_protocol()
+    role_limits = json.loads((
+        ROOT / "rejudge/phase3_v3_role_limits_r3_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    phase3_v3_live._validate_role_limits(role_limits, protocol)
+    qwen = "Qwen/Qwen3.8-2.4T-A95B"
+    assert qwen in role_limits["reasoning_models"]["model_ids"]
+    assert qwen not in role_limits["request_settings"]["streaming_pinned_models"]
+    for role in role_limits["model_role_limits"][qwen].values():
+        assert role["effective_request_max_tokens"] == 4096
+
+    drifted = copy.deepcopy(role_limits)
+    drifted["request_settings"]["streaming_pinned_models"][qwen] = {"stream": True}
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="transport policy"):
+        phase3_v3_live._validate_role_limits(drifted, protocol)
 
 
 def test_recovery_authorization_requires_aggregate_carry_text(tmp_path: Path):
