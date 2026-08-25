@@ -1,0 +1,81 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-25T21:35:00Z",
+ "run_id": "phase3-v3-476792b58e273b48",
+ "status": "halted_by_orchestrator_after_roster_model_delisting",
+ "cause": "Together removed google/gemma-3n-E4B-it from its serverless catalog mid-run. The endpoint degraded from 21:11Z (repeated 500s, then 503s), and at 21:22:36Z returned 'model_not_available: Unable to access non-serverless model google/gemma-3n-E4B-it ... create and start a new dedicated endpoint'. A fresh authenticated catalog capture at 21:24:30Z contains no gemma-3n entry (model count fell 278 to 276 versus the 18:53Z capture bound by this run's manifest, which still contained it). With a roster judge unfillable, this run's 192 gemma-3n judgment cells cannot complete and the 1,008-row completion gate is unreachable, so every further pass would spend on an identity a roster amendment would void. The orchestrator stopped the driver at 21:23:53Z.",
+ "orchestrator_decision": {
+  "session": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "action": "external stop of the serial driver between-cells; one gemma-4-31B call was in flight and its reservation is held conservatively as uncertain spend",
+  "authority_basis": "in-phase cost-minimization under the standing delegation; the consequent ROSTER decision exceeds delegated authority per the amendment-3 authority note and is escalated to the owner",
+  "no_successor_without_owner": true
+ },
+ "delisting_evidence": {
+  "catalog_with_model": {
+   "path": "rejudge/output/phase3_v3r4_provider_models_2026-08-25T1853Z.json",
+   "retrieved_at_utc": "2026-08-25T18:53:46.011739Z",
+   "raw_sha256": "f301173f1a043b388107afade4a180f2cf3908904662abc07745a16d9d4fa189",
+   "model_count": 278,
+   "contains_gemma_3n": true
+  },
+  "catalog_without_model": {
+   "path": "rejudge/output/phase3_v3r4_provider_models_2026-08-25T2130Z.json",
+   "retrieved_at_utc": "2026-08-25T21:24:30.053720Z",
+   "raw_sha256": "3b353125b8eb8db5280bcd126f7ed405738aac50190a27821544339398b29b8d",
+   "canonical_sha256": "5cb0458c39c1bd5337f0ebf1b0f0804c12db31b42753c82502af02462d01f055",
+   "model_count": 276,
+   "contains_gemma_3n": false,
+   "serverless_endpoints_path": "rejudge/output/phase3_v3r4_serverless_endpoints_2026-08-25T2130Z.json",
+   "serverless_endpoints_raw_sha256": "d46fc347d757a752ec0b42dce405526d1529a4c2b8b62b01f1f832d1352bea97"
+  },
+  "note": "The catalog now lists google/gemma-4-E4B-it (same E4B form factor, newer family) where gemma-3n-E4B-it previously appeared."
+ },
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r10_2026-08-25.json",
+  "canonical_sha256": "a918efa03895c78853468d7f7b355ef2ad76fef6855c6136a99e2ed7332821ce"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r4-uncertain-tolerance-2026-08-25/phase3_v3_usage.jsonl",
+  "raw_sha256": "cbad43ba62d4f29613596357d4f15b25925240dcd84b898b84473cc82a703dd9",
+  "last_event_sha256": "f7bd8115e75144a060bb96512dd8624e71d76b5a345b362034f2b73fbce0fa78",
+  "event_count": 1175,
+  "actual_spend_usd": 3.1564756299999996,
+  "uncertain_spend_usd": 0.03381477000000001,
+  "accounted_spend_usd": 3.1902904,
+  "unmatched_reservations": 1,
+  "unmatched_reservation_note": "the single in-flight gemma-4-31B reservation ($0.01971195, 21:23:53Z) at the external stop; its full reserved cost is inside uncertain_spend_usd per the summarizer's conservative treatment"
+ },
+ "uncertain_events": {
+  "terminal_unknown_charge_count": 12,
+  "terminal_unknown_charge_usd": 0.01410282,
+  "models": "google/gemma-3n-E4B-it (500/503 bursts 21:11-21:22Z) and google/gemma-4-31B-it (one timeout)",
+  "run_uncertain_ceiling_usd": 1.0,
+  "ceiling_tripped": false
+ },
+ "execution": {
+  "harness": "bit_identical_pass (1de670e9f858184fc7f51359135d6b6c9a6eb3bfb9b80cb0be52835543fc4036)",
+  "formal_rows_committed": 614,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 422,
+  "gemma3n_judgment_rows_unfillable": "the remaining gemma-3n judgment cells cannot complete on serverless",
+  "reviewer_decisions_committed": 0,
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 4.977210709999999,
+  "this_run_accounted_spend_usd": 3.1902904,
+  "aggregate_accounted_spend_usd": 8.167501109999998,
+  "remaining_usd": 51.832498890000004
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "No successor identity may be minted before the owner decides the roster question (drop gemma-3n to a three-judge roster, substitute a serverless replacement, or otherwise). Any successor must use a fresh identity and ledger, preserve this archive read-only, carry the exact $8.167501109999998 aggregate accounted spend, reuse no measurement rows, and remain separately authorized with no main spend.",
+ "non_claims": [
+  "This observation does not authorize provider inference, a roster change, or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "No gate, threshold, prompt, seed, or protocol element is altered by this record."
+ ]
+}
