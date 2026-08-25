@@ -1,0 +1,51 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r6_2026-08-25",
+ "authorizes": "Paid provider execution for the phase3-v3-120ce58628620fce one-seed reproducibility harness twice and, only after a bit-identical harness pass, one fresh successor canary on the amendment-4 roster (Qwen3.5-9B in the weak-judge slot) under the amendment-3 uncertain-spend policy. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r12_2026-08-25.json",
+  "run_manifest_canonical_sha256": "b212a4abbd86e88d9f0c32d4a43e0fe25723a06bcc3ae15079fc4c7664f305a3",
+  "run_id": "phase3-v3-120ce58628620fce",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 8.167501109999998,
+  "cap_applies_to": "the four halted predecessors' accounted spend, the recorded out-of-ledger screening probes (est. $0.00007), and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "roster_amendment_path": "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+  "policy_amendment_path": "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+  "codex_consults": [
+   "rejudge/phase3_v3_codex_uncertain_consult_2026-08-25.md",
+   "rejudge/phase3_v3_codex_roster_consult_2026-08-25.md"
+  ],
+  "admission_evidence": "rejudge/phase3_v3_qwen35_9b_screening_2026-08-25.json",
+  "catalog_double_check": "2026-08-24T23:21:34Z and 2026-08-25T23:23:02Z captures both contain the full roster with serverless STARTED endpoints; a launch-adjacent recheck precedes the formal drive",
+  "ceiling_trip_rule": "if this run halts on the uncertain-spend ceiling, no further successor is minted without the owner"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-25",
+  "exact_text": "Approved: phase3-v3-120ce58628620fce harness and successor canary, $60 USD aggregate cap including $8.16750111 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-25",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "go",
+   "Substitute + fallbacks (Recommended)"
+  ],
+  "approval_derivation": "After the gemma-3n delisting halted the prior canary, the owner selected the recommended 'Substitute + fallbacks' option from the decision menu, which described this exact path: screened substitute under frozen admission gates, gemma-4-E4B ordered fallback, new protocol identity, full redo, same $60 aggregate cap, no main spend. That selection plus his standing blanket amendment approval authorizes this identity. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-25T23:27:27.619236Z",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
