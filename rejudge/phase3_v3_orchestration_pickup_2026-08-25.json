@@ -1,0 +1,45 @@
+{
+ "schema_version": "phase3_v3_orchestration_pickup_v1",
+ "record_id": "phase3_v3_orchestration_pickup_2026-08-25",
+ "recorded_at_utc": "2026-08-25T11:55:00Z",
+ "successor_orchestrator": {
+  "session": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "claims": "sole orchestration of the phase3-v3-ab48e68863878f49 harness and successor canary",
+  "predecessor": "Codex project session (ended); its final state is the handoff quoted below",
+  "single_orchestrator_rule": "per the 2026-08-11 ownership protocol: claimed non-silently via this dated record plus the project memory update; sibling sessions must read this record and stand down"
+ },
+ "owner_instruction_verbatim": [
+  "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+  "Do you need to check in so often with me? Can you work autonomously through the night?"
+ ],
+ "handoff_summary_quoted_from_owner_message": "The approved run halted safely after one Qwen3.8 stream omitted usage. No retry or canary call occurred. Together documents usage as nullable in its chat-completions response. A fully validated successor is ready: Run: phase3-v3-ab48e68863878f49, Prior accounted spend: $0.30985289, Tests: 226 passed, New ledger: zero spend.",
+ "environment_verification": {
+  "no_live_run_processes": "verified 2026-08-25: no python run processes on Windows (only VS Code LSP servers) and none in WSL",
+  "worktree": "selvarath-debate-v3-codex, branch codex/phase3-v3-successor, clean at 8bbbe50a7caafca8f1ea6a9ee9299f8b97dbbbec",
+  "execution_code_vs_bound_commit": "manifest r8 binds ca6c82ccd94e64e1cbf831fd466b3be560fa39cf; HEAD adds only the manifest itself; the driver verifies execution-code paths against the bound commit at every invocation",
+  "toolchain": "Python 3.13.5, together 2.7.0, codex-cli 0.149.0 all match the r3 execution binding; TOGETHER_API_KEY present",
+  "tests": "tests/test_phase3_v3_live.py 15 passed; all phase3_v3-selected tests 99 passed; full-suite rerun launched and recorded before formal drive",
+  "together_docs_check": "docs.together.ai/reference/chat-completions confirms UsageData is nullable (nullable in streaming chunks and nullable in the non-streaming response schema), matching the r7 halt cause and the non-streaming fix rationale"
+ },
+ "predecessor_attempt_seal": {
+  "action": "both halted predecessor archives set read-only as a physical seal on top of the existing hash-chain seal",
+  "archives": [
+   "E:/selvarath-archive/phase3-v3-successor-2026-08-24",
+   "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24"
+  ],
+  "audit_basis": "prior-attempt ledgers, halt records, and manifests are hash-pinned in phase3_v3_execution_binding_r3_2026-08-25.json and re-verified by the driver at every launch; totals $0.16820809 actual + $0.14164480 uncertain = $0.30985289 accounted, independently recomputed from both ledgers"
+ },
+ "authorization_reference": {
+  "path": "rejudge/phase3_v3_canary_authorization_r4_2026-08-25.json",
+  "approval_provenance": "the owner did not retype the requested binding string; his verbatim pickup message quoted the predecessor's exact request and granted blanket approval for further amendments to this phase plus autonomous continuation; see owner_authorization in the r4 record"
+ },
+ "scope_reaffirmed": {
+  "aggregate_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 0.30985289000000005,
+  "main_run_spend_authorized": false
+ },
+ "non_claims": [
+  "This record authorizes nothing; spend authority lives only in the r4 authorization record.",
+  "This record does not alter any frozen protocol, roster, or gate."
+ ]
+}
