@@ -1,0 +1,90 @@
+{
+ "schema_version": "phase3_v3_substitute_screening_v1",
+ "record_id": "phase3_v3_qwen35_9b_screening_2026-08-25",
+ "model_id": "Qwen/Qwen3.5-9B",
+ "recorded_at_utc": "2026-08-25T21:38:49.514122Z",
+ "amendment": "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+ "hugging_face": {
+  "repository": "Qwen/Qwen3.5-9B",
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "files": {
+   "chat_template.jinja": {
+    "sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+    "bytes": 7756
+   },
+   "merges.txt": {
+    "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+    "bytes": 3353259
+   },
+   "tokenizer.json": {
+    "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+    "bytes": 12807982
+   },
+   "tokenizer_config.json": {
+    "sha256": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+    "bytes": 16710
+   },
+   "vocab.json": {
+    "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+    "bytes": 6722759
+   }
+  },
+  "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+  "provider_note": "Together catalog entry exposes no chat template and links an FP8 provider mirror (togethercomputer/Qwen3.5-9B-FP8-MLP); equivalence established empirically below."
+ },
+ "reasoning_classification": {
+  "thinking_enabled_by_default": true,
+  "evidence": "default template render ends <|im_start|>assistant\\n<think>\\n and exactly matches provider prompt_tokens; a 16-token completion was consumed entirely by hidden thinking with empty visible content",
+  "conclusion": "classify as a reasoning model: 4096-token completion floor and reasoning-model roster membership required"
+ },
+ "prompt_token_match": {
+  "local_render_counts": {
+   "default": 40,
+   "thinking_false": 42,
+   "thinking_true": 40
+  },
+  "provider_prompt_tokens_probe1": 40,
+  "provider_prompt_tokens_probe2": 40,
+  "exact_match_variant": "default",
+  "gate": "PASS: exact match, no off-by-one adjustment needed"
+ },
+ "live_probes": [
+  {
+   "response_id": "recorded in first screening run",
+   "max_tokens": 16,
+   "usage": {
+    "prompt_tokens": 40,
+    "completion_tokens": 16
+   },
+   "content": "",
+   "finish_reason": "length",
+   "note": "all completion tokens consumed by hidden thinking; expected for a thinking-default model truncated at 16 tokens"
+  },
+  {
+   "response_id": "oxfPese-3pDw3Z-a30dbedb2b83d226",
+   "returned_model_id": "Qwen/Qwen3.5-9B",
+   "max_tokens": 512,
+   "temperature": 0.0,
+   "seed": 20260825,
+   "stream": false,
+   "usage": {
+    "prompt_tokens": 40,
+    "completion_tokens": 205,
+    "total_tokens": 245
+   },
+   "content": "READY",
+   "finish_reason": "stop"
+  }
+ ],
+ "admission_gates": {
+  "catalog_presence": "checks of 2026-08-24T23:21Z and 2026-08-25T21:24Z contain the model; the >=24h second check and launch-adjacent recheck are pending",
+  "live_completion": "PASS (non-streaming, usage present, serverless, no dedicated-endpoint error)",
+  "tokenizer": "PASS (exact public revision pinned with per-file hashes)",
+  "chat_template": "PASS (exact prompt-token match on the default thinking-enabled render, both probes)",
+  "invalid_screening": "pending: applied by the successor canary itself",
+  "weakness_qualification": "pending: measured by the 48 capability anchors in the successor canary"
+ },
+ "screening_spend_usd_estimate": 6.884999999999999e-05,
+ "screening_allowance_cap_usd": 2.0,
+ "execution_authorized": false
+}
