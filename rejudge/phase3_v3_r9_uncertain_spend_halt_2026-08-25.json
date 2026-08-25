@@ -1,0 +1,71 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-25T18:50:00Z",
+ "run_id": "phase3-v3-ab48e68863878f49",
+ "status": "halted_during_formal_drive_after_pass_2_provider_work",
+ "cause": "Together's google/gemma-4-31B-it endpoint degraded between 2026-08-25T17:06:03Z and 18:17:47Z, producing six transport-uncertain attempts (five request timeouts and one HTTP 503). The strict client recorded each as unknown_charge with its reserved cost held as uncertain spend, deferred the affected cells, and the run continued; every affected cell later completed successfully under a fresh reservation. At the end of formal pass 2, the driver's per-pass accounting (drive_formal -> aggregate_accounting_summary -> validate_ledger) re-applied the zero-uncertain-spend launch rule to the now-live ledger and refused: 'usage ledger contains unresolved uncertain spend'. The driver exited fail-closed at 2026-08-25T18:28:54Z after the pass's final provider call reached its terminal ledger event.",
+ "defect_analysis": {
+  "classification": "harness control-plane inconsistency, not a provider or science defect",
+  "detail": "Two frozen policies conflict: (1) the in-run transport policy (halt_on_unknown_charge=True at the call level, cell deferral and retry at the run level) deliberately continues the run past billing-uncertain transport failures, holding their reserved cost against the cap; (2) validate_ledger, written as a launch-time gate for a zero-spend fresh ledger, is also invoked by per-pass accounting and by every subsequent driver invocation, and it requires uncertain_spend_usd == 0 and refuses any unknown_charge event. Consequence: the first billing-uncertain transport event after launch makes the run unfinishable and unresumable, with the halt deferred to the next per-pass accounting boundary. Pass 1 survived only because its accounting ran at 17:00:50Z, before the first uncertain event at 17:06:03Z.",
+  "evidence": {
+   "pass_1_complete_utc": "2026-08-25T17:00:50.214467Z",
+   "first_uncertain_event_utc": "2026-08-25T17:06:03.564035+00:00",
+   "review_wave_1": "64/64 committed clean at 17:05:42Z",
+   "no_pass_2_log_row": "run_log ends at pass 1; the pass-2 stdout row was never printed and the wave-2 worklist was never exported",
+   "driver_stderr": "REFUSED/HALTED: Phase3V3LiveError: usage ledger contains unresolved uncertain spend"
+  }
+ },
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r8_2026-08-25.json",
+  "canonical_sha256": "43775c3dfe0964d043c642019b48f8a94fd7662f46bf8629ee5039eadf255911"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r3-qwen38-nonstream-2026-08-25/phase3_v3_usage.jsonl",
+  "raw_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60",
+  "last_event_sha256": "d0e5f4584708dc9c7c3ea4cffc483be6950f93e607bd6517246207b0c3fe214b",
+  "event_count": 1775,
+  "actual_spend_usd": 4.5755016,
+  "uncertain_spend_usd": 0.09185622,
+  "accounted_spend_usd": 4.66735782,
+  "unmatched_reservations": 0
+ },
+ "uncertain_events": {
+  "count": 6,
+  "model": "google/gemma-4-31B-it",
+  "errors": "5x 'Request timed out.', 1x 'Error code: 503 service_unavailable'",
+  "window_utc": "2026-08-25T17:06:03Z to 2026-08-25T18:17:47Z",
+  "attempt_ids": [
+   "145823ff9805441caac9ddfc1134a590",
+   "3a82242d99264219b1a8b7db04fe2a75",
+   "284240e5982c4e89a6e6f2f19f1f894e",
+   "16789b07288d40fe8c090cd25c6a59ec"
+  ],
+  "attempt_ids_note": "first four listed; the 18:07 timeout and 18:17 503 attempt ids are in the sealed ledger; all six are terminal unknown_charge events with reserved cost held as uncertain"
+ },
+ "execution": {
+  "harness": "bit_identical_pass (ca85f918f1681c8199bf17185c9008a72d3107e9beb555c8f1920b4d002f323b)",
+  "formal_rows_committed": 674,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 434,
+  "pending_label_cells_with_completed_provider_work": 64,
+  "reviewer_decisions_committed": 64,
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 0.30985289000000005,
+  "successor_accounted_spend_usd": 4.66735782,
+  "aggregate_accounted_spend_usd": 4.97721071,
+  "remaining_usd": 55.02278929
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "Any retry must use a fresh run identity and ledger, preserve this archive read-only, carry $4.97721071 prior accounted spend, and remain separately documented with no main spend. A naive relaunch under unchanged code would hit the same inconsistency on the next billing-uncertain transport event, so the inconsistency must be resolved first; the resolution decision is being taken to a Codex consult before any code amendment.",
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "No measurement row, gate, threshold, prompt, seed, or roster element is altered by this record."
+ ]
+}
