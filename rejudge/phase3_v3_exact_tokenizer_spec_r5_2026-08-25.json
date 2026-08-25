@@ -1,0 +1,40 @@
+{
+ "schema_version": "phase3_v3_exact_tokenizer_spec_v2",
+ "execution_authorized": false,
+ "provider_chat_templates": {
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "path": "rejudge/phase3_v3r2_qwen38_provider_chat_template_2026-08-24.json",
+   "canonical_sha256": "71056ce80b3c50f6ceaf633236e566557b742f4ba95f540041ab8d0c55bd0ffb"
+  }
+ },
+ "models": {
+  "google/gemma-4-31B-it": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-4-31B-it links directly to the same Hugging Face repository.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "provider_equivalence_evidence": "Together catalog entry meta-llama/Llama-3.3-70B-Instruct-Turbo links directly to this repository, and its exposed chat template has the same SHA-256 as the local revision.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact"
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "Qwen/Qwen3.8-2.4T-A95B",
+   "revision": "207bd685a7e3696cfaff12ded7c6a7ea0f88c996",
+   "provider_equivalence_evidence": "The owner-approved serverless replacement is bound to the exact public tokenizer revision and Together's exact provider-exposed chat template.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact"
+  },
+  "Qwen/Qwen3.5-9B": {
+   "classification": "exact_provider_tokenizer",
+   "repository": "Qwen/Qwen3.5-9B",
+   "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+   "provider_equivalence_evidence": "The owner-approved amendment-4 substitute. Together's catalog exposes no chat template for it and links an FP8 provider mirror, so equivalence is established empirically: the screening record phase3_v3_qwen35_9b_screening_2026-08-25 shows the default thinking-enabled native-template render exactly matching provider prompt-token counts on both live probes.",
+   "local_tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact"
+  }
+ }
+}

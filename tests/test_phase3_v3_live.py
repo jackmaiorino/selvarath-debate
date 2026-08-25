@@ -581,3 +581,51 @@ def test_uncertain_event_report_names_completing_attempts():
     assert len(entries) == 1
     assert entries[0]["completing_success_attempt_id"] == "a2"
     assert by_condition == {"b2": 1}
+
+
+# --- amendment 4 (2026-08-25): Qwen3.5-9B weak-slot substitution ------------------------------
+
+
+def _recovery2_protocol():
+    return phase3_plan.load_protocol(ROOT / "rejudge/phase3_protocol_v3_r4.json")
+
+
+def _recovery2_binding():
+    return json.loads((
+        ROOT / "rejudge/phase3_v3_execution_binding_r5_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+
+
+def test_recovery2_role_limits_classify_qwen35_9b_as_reasoning():
+    protocol = _recovery2_protocol()
+    role_limits = json.loads((
+        ROOT / "rejudge/phase3_v3_role_limits_r5_2026-08-25.json"
+    ).read_text(encoding="utf-8"))
+    phase3_v3_live._validate_role_limits(role_limits, protocol)
+    assert "Qwen/Qwen3.5-9B" in role_limits["reasoning_models"]["model_ids"]
+    assert role_limits["context_ceilings"]["Qwen/Qwen3.5-9B"][
+        "context_length_tokens"] == 262_144
+    assert role_limits["model_role_limits"]["Qwen/Qwen3.5-9B"]["judge_verdict"][
+        "effective_request_max_tokens"] == 4096
+
+
+def test_v5_binding_verifies_four_sealed_ledgers_and_frozen_carry():
+    binding = _recovery2_binding()
+    totals = phase3_v3_live._validate_prior_attempt_accounting(binding, ROOT)
+    assert totals["accounted_spend_usd"] == pytest.approx(
+        phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R5)
+
+
+def test_validate_ledger_v5_keeps_the_bounded_uncertain_tolerance(tmp_path: Path):
+    context = _ledger_context(tmp_path, [
+        _reserved_event("a1", 0.4), _unknown_event("a1", 0.4),
+        _reserved_event("a2", 0.3), _success_event("a2", 0.3, 0.2),
+    ], _recovery2_binding())
+    snapshot = phase3_v3_live.validate_ledger(context)
+    assert float(snapshot.summary["uncertain_spend_usd"]) == pytest.approx(0.4)
+    context = _ledger_context(tmp_path / "over", [
+        _reserved_event("a1", 0.6), _unknown_event("a1", 0.6),
+        _reserved_event("a2", 0.5), _unknown_event("a2", 0.5),
+    ], _recovery2_binding())
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="exceeds the frozen"):
+        phase3_v3_live.validate_ledger(context)

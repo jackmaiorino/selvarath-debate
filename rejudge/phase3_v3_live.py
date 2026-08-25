@@ -71,6 +71,7 @@ BINDING_SCHEMA = "phase3_v3_execution_binding_v1"
 BINDING_SCHEMA_V2 = "phase3_v3_execution_binding_v2"
 BINDING_SCHEMA_V3 = "phase3_v3_execution_binding_v3"
 BINDING_SCHEMA_V4 = "phase3_v3_execution_binding_v4"
+BINDING_SCHEMA_V5 = "phase3_v3_execution_binding_v5"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
@@ -84,6 +85,7 @@ AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
 PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
 PRIOR_ACCOUNTED_SPEND_USD_R3 = 0.30985289000000005
 PRIOR_ACCOUNTED_SPEND_USD_R4 = 4.977210709999999
+PRIOR_ACCOUNTED_SPEND_USD_R5 = 8.167501109999998
 # Per-run ceiling on unresolved billing-uncertain exposure (amendment 3, 2026-08-25,
 # Codex-set at $1.00: >10x the observed $0.0919 burst, ~15% of the expected run cost).
 # Uncertain spend always ALSO counts in full against the aggregate cap. Tripping the
@@ -304,7 +306,12 @@ def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
     qwen = roster & {"Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.8-2.4T-A95B"}
     if len(qwen) != 1:
         raise Phase3V3LiveError("v3 roster must contain exactly one approved Qwen reasoner")
-    return frozenset(expected | qwen)
+    # The amendment-4 weak-slot substitute renders thinking-on by default (screening record
+    # phase3_v3_qwen35_9b_screening_2026-08-25: the default template ends in an opened
+    # <think> block and exactly matches provider prompt-token counts), so it carries the
+    # same 4096-token reasoning floor as the other thinking models.
+    small_qwen = roster & {"Qwen/Qwen3.5-9B"}
+    return frozenset(expected | qwen | small_qwen)
 
 
 def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str, Any]) -> None:
@@ -418,7 +425,8 @@ def _validate_prior_attempt_accounting(
     binding: Mapping[str, Any], root: Path | None,
 ) -> dict[str, float]:
     schema_version = binding.get("schema_version")
-    if schema_version not in {BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
+    if schema_version not in {
+            BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -431,7 +439,7 @@ def _validate_prior_attempt_accounting(
     if not isinstance(prior, Mapping):
         raise Phase3V3LiveError("aggregate execution binding has no prior-attempt accounting")
 
-    if schema_version in {BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
+    if schema_version in {BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -455,7 +463,7 @@ def _validate_prior_attempt_accounting(
             },
         )
         frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R3
-        if schema_version == BINDING_SCHEMA_V4:
+        if schema_version in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -468,6 +476,20 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
+        if schema_version == BINDING_SCHEMA_V5:
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-476792b58e273b48",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r10_2026-08-25.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r11_gemma3n_delisting_halt_2026-08-25.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r4-uncertain-tolerance-2026-08-25/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -585,7 +607,8 @@ def _validate_execution_binding(
     *, root: Path | None = None,
 ) -> None:
     if binding.get("schema_version") not in {
-            BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}:
+            BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
+            BINDING_SCHEMA_V5}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -650,7 +673,7 @@ def _validate_execution_binding(
         "transcript_generation_forbidden": True,
         ("shared_aggregate_cap_accounting"
          if binding.get("schema_version") in {
-             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4}
+             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -862,7 +885,7 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     # binding schemas keep the original zero-uncertain rule so sealed history validates
     # under the policy it ran under.
     tolerant = (
-        binding.get("schema_version") == BINDING_SCHEMA_V4
+        binding.get("schema_version") in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
@@ -994,7 +1017,8 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
                 "initial_run_uncertain_spend_usd": float(
                     accounting["successor_uncertain_spend_usd"]),
             }
-            if context["binding"].get("schema_version") == BINDING_SCHEMA_V4
+            if context["binding"].get("schema_version") in {
+                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
             else {}
         ),
     )
@@ -1572,7 +1596,8 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     paired_position = _paired_position_diagnostics(
         rows, plan, context["protocol"], question_bank,
         context["manifest"]["final_roster"])
-    tolerant_binding = context["binding"].get("schema_version") == BINDING_SCHEMA_V4
+    tolerant_binding = context["binding"].get("schema_version") in {
+        BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
     uncertain_events, uncertain_by_condition = _uncertain_event_report(
         _ledger_events(context["paths"]["usage_ledger"]))
     successor_uncertain = float(accounting["successor_uncertain_spend_usd"])

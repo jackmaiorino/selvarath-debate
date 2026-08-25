@@ -1,0 +1,723 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.5-9B": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/canary/judge_query.counts.jsonl",
+       "sha256": "dd5131f937e5ed73c9fff7f1697608d82472895dc51fefd3c206930531a47441"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/canary/judge_query.rendered.jsonl",
+       "sha256": "11c887a1ec94d129a6b6f5ed2a6ca11dd675258815e7fefd0789e44e5e732a46"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/canary/judge_verdict.counts.jsonl",
+       "sha256": "b21dfcf9c0c89df1d63df66a6771fa3632f361b85544470fe856bd88f9279eca"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/canary/judge_verdict.rendered.jsonl",
+       "sha256": "1ff14029aaecbbd7d604289f08451bf25d080827e82c5fce9ce335f4182d7cb2"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/main/judge_query.counts.jsonl",
+       "sha256": "c645c657cb2dc8813f8fe501b8f93a837bb00987a91500f126b72b3c6e499bc1"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/main/judge_query.rendered.jsonl",
+       "sha256": "f1ec45e3d4d98d0022ee13180f250a927dee4f1b65a269c9041212dddfa5ee82"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/main/judge_verdict.counts.jsonl",
+       "sha256": "72a32ca9a3ff27815381601898d140d3133e7e561d6294d2df24b2794aa59fc0"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.5-9B/main/judge_verdict.rendered.jsonl",
+       "sha256": "f3c41b33a322f589ce22b968a59d57a904a9b4935963d302a6354fb168ba9cd2"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    "chat_template.jinja": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact/chat_template.jinja",
+     "sha256": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715"
+    },
+    "merges.txt": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact/merges.txt",
+     "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact/tokenizer.json",
+     "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact/tokenizer_config.json",
+     "sha256": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8"
+    },
+    "vocab.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact/vocab.json",
+     "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+   },
+   "provider_equivalence_evidence": "The owner-approved amendment-4 substitute. Together's catalog exposes no chat template for it and links an FP8 provider mirror, so equivalence is established empirically: the screening record phase3_v3_qwen35_9b_screening_2026-08-25 shows the default thinking-enabled native-template render exactly matching provider prompt-token counts on both live probes.",
+   "repository": "Qwen/Qwen3.5-9B",
+   "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+   "tokenizer_class": "Qwen2Tokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.5-9B-exact"
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+    "evidence": "Together's bound serverless model catalog exposes this exact chat template; the public tokenizer supplies the exact vocabulary but its native template is not used",
+    "mode": "provider_catalog_exact_chat_template_v1"
+   },
+   "chat_template_sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/canary/judge_query.counts.jsonl",
+       "sha256": "77a8c1341d336cc6c68ab3defc54f8277bbc4f8c6855e2fdf1c16eb360c62464"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/canary/judge_query.rendered.jsonl",
+       "sha256": "d2d2e4d4a32a19967e5d0cc936b248cc41a1647e52e3e3742bab2d919b1a8810"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/canary/judge_verdict.counts.jsonl",
+       "sha256": "42c31c86d73fbb1aca6a0d429935b312e73d973297113fa01dd6032fa9fdd874"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/canary/judge_verdict.rendered.jsonl",
+       "sha256": "c704950253289045a5ced79f11e4d34b18749d0ab5fc1dfaf16d4bf60bf266d1"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/main/judge_query.counts.jsonl",
+       "sha256": "27dd7a6694a9c59bbd6635b3fb02c31540e7f7f44548c259bc3c213718bed993"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/main/judge_query.rendered.jsonl",
+       "sha256": "c7ae53431f31b83c4c359ed341af03acbada08b7668fa6180198bf5be8349153"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/main/judge_verdict.counts.jsonl",
+       "sha256": "3006932634f641f600181e6ec0db98ac6809654f79d51c4fbeb9081740a9752f"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/Qwen--Qwen3.8-2.4T-A95B/main/judge_verdict.rendered.jsonl",
+       "sha256": "6c613c3f93a3b195570621ab7d8fcb515facd66c3c1d10229e71760e5b2c9129"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    "config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/config.json",
+     "sha256": "4e3819548967e319ab435d044a3a331dbe3b078590ce822e9d74b79430533987"
+    },
+    "generation_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/generation_config.json",
+     "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+    },
+    "merges.txt": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/merges.txt",
+     "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/tokenizer.json",
+     "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/tokenizer_config.json",
+     "sha256": "a4a70308585bebf75f240af83d569586dbcce75626ec324e2f4fe82a72153623"
+    },
+    "vocab.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact/vocab.json",
+     "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+    }
+   },
+   "provider_equivalence_evidence": "The owner-approved serverless replacement is bound to the exact public tokenizer revision and Together's exact provider-exposed chat template.",
+   "repository": "Qwen/Qwen3.8-2.4T-A95B",
+   "revision": "207bd685a7e3696cfaff12ded7c6a7ea0f88c996",
+   "tokenizer_class": "Qwen2Tokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/Qwen--Qwen3.8-2.4T-A95B-exact"
+  },
+  "google/gemma-4-31B-it": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/judge_query.counts.jsonl",
+       "sha256": "a8e9dfdd09744136cf388ea993dd4baa86550844c22ed9195e2c64564b731815"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/judge_query.rendered.jsonl",
+       "sha256": "275b82fd80df11158fa0fa670b151dc612c03f257c5126c7ff1ad4634de814be"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/judge_verdict.counts.jsonl",
+       "sha256": "260cf49f8e6e10eb78475b5de46b611865b96081d7ddad04d1fd2a9f837345ab"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/judge_verdict.rendered.jsonl",
+       "sha256": "8069f612b4ed8a88d8d793b44e286a2cedd3f5a980f3dbc74602a404444f881f"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "query_checker": {
+      "actual_rendered_prompt_count": 1536,
+      "expected_rendered_prompt_count": 1536,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/query_checker.counts.jsonl",
+       "sha256": "dd21965a77222b85ad230b446fb1140647234b0b586601b15271fbeaabd7556b"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/canary/query_checker.rendered.jsonl",
+       "sha256": "615c36164241ccc6f3df2ccf74f3fa43f0c2ea8ab442bd2fe505f98602b6a39b"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b8::side1"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/judge_query.counts.jsonl",
+       "sha256": "12c2049933cec22fb11f450ba34f0d5beee77cb7c524250dfdc3aeead50c54b0"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/judge_query.rendered.jsonl",
+       "sha256": "dbeddea51262821bb9f15de5f7b503b0d0e2beb696478768d9a314d1655f1f35"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/judge_verdict.counts.jsonl",
+       "sha256": "cc6d836036aadbb08fa2698b7a3547f4bf79488276328f134d10237168ad33a8"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/judge_verdict.rendered.jsonl",
+       "sha256": "fb6f051f19bdc03827d4fc5be7fdb6be13b8cb4879f4320f070334d01b74cacc"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "query_checker": {
+      "actual_rendered_prompt_count": 15744,
+      "expected_rendered_prompt_count": 15744,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/query_checker.counts.jsonl",
+       "sha256": "13f11f679808db675686c1b1919536a608a2a2c6c8b942d92a0002e8f1627ac2"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/google--gemma-4-31B-it/main/query_checker.rendered.jsonl",
+       "sha256": "5c16dabbb9b6ef097e64fc3ad08f1b2d2762c476c1c67c4674da284576bf731b"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b1::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b2::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b4::side1",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side0",
+       "query_checker::google/gemma-4-31B-it::sequential_b8::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b1::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b2::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b4::side1",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side0",
+       "query_checker::meta-llama/Llama-3.3-70B-Instruct-Turbo::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.5-9B::sequential_b8::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b1::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b1::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b4::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b4::side1",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b8::side0",
+       "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b8::side1"
+      ]
+     }
+    }
+   },
+   "files": {
+    "chat_template.jinja": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact/chat_template.jinja",
+     "sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact/tokenizer.json",
+     "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact/tokenizer_config.json",
+     "sha256": "9f4fec4b1dc6ecddf8f4a92e9caea5971c0e67d81309f3f9066a2bee8c362633"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry google/gemma-4-31B-it links directly to the same Hugging Face repository.",
+   "repository": "google/gemma-4-31B-it",
+   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "tokenizer_class": "GemmaTokenizer",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/google--gemma-4-31B-it-exact"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "chat_template_rendering": {
+    "effective_chat_template_sha256": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+    "evidence": "the tokenizer's native chat template is applied without modification",
+    "mode": "native_chat_template"
+   },
+   "chat_template_sha256": "e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65",
+   "classification": "exact_provider_tokenizer",
+   "corpora": {
+    "canary": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 384,
+      "expected_rendered_prompt_count": 384,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_query.counts.jsonl",
+       "sha256": "a62cfaf5d2399b225720ba7004a6489933f73bf3796273d4248eafe234b21c15"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_query.rendered.jsonl",
+       "sha256": "ff3534c934d12486541d56041b681efd9af66eda01978d924fc1435194975b0c"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 480,
+      "expected_rendered_prompt_count": 480,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_verdict.counts.jsonl",
+       "sha256": "b12410c4b95583691aac8db37a23dc2eb9ae331b51aeca1e9542bbfd3a43d0c9"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/judge_verdict.rendered.jsonl",
+       "sha256": "bfd3ceb1016309fffb9a2e4ba446f0a04ef1056796dbda49ecfd9f0da2cac94a"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "oracle_verification": {
+      "actual_rendered_prompt_count": 48,
+      "expected_rendered_prompt_count": 48,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/oracle_verification.counts.jsonl",
+       "sha256": "4c602838523cd03e26c95f299e6bee3c05f1a32039db25de3d28e6d0b32ab53a"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/canary/oracle_verification.rendered.jsonl",
+       "sha256": "ca5b0431013990b418b7cd312292c01f3b2bc18fad7f626c2a13851e062030ce"
+      },
+      "transcript_count_per_variant": 48,
+      "variant_ids": [
+       "oracle_verification"
+      ]
+     }
+    },
+    "main": {
+     "judge_query": {
+      "actual_rendered_prompt_count": 3936,
+      "expected_rendered_prompt_count": 3936,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_query.counts.jsonl",
+       "sha256": "9fff46464b4f15bb15b400a25d5880375e08f24a4f1037e2a8bd1a8bcdaf3ae5"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_query.rendered.jsonl",
+       "sha256": "3dbec4c3f9f4c558989756cd977c5e8e5bcb96b8835a4ab2fb8724c5fbee9c2d"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_query::sequential_b1::side0",
+       "judge_query::sequential_b1::side1",
+       "judge_query::sequential_b2::side0",
+       "judge_query::sequential_b2::side1",
+       "judge_query::sequential_b4::side0",
+       "judge_query::sequential_b4::side1",
+       "judge_query::sequential_b8::side0",
+       "judge_query::sequential_b8::side1"
+      ]
+     },
+     "judge_verdict": {
+      "actual_rendered_prompt_count": 4920,
+      "expected_rendered_prompt_count": 4920,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_verdict.counts.jsonl",
+       "sha256": "8885186e4ff5e9dcf656ede4cd795f1f57da248da8c0e73ea26254cb1213d204"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/judge_verdict.rendered.jsonl",
+       "sha256": "56513f664db20933ebb3b84052c46248aba3b77c9f448d0a7e5b4229138f7526"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "judge_verdict::b0::side0",
+       "judge_verdict::b0::side1",
+       "judge_verdict::sequential_b1::side0",
+       "judge_verdict::sequential_b1::side1",
+       "judge_verdict::sequential_b2::side0",
+       "judge_verdict::sequential_b2::side1",
+       "judge_verdict::sequential_b4::side0",
+       "judge_verdict::sequential_b4::side1",
+       "judge_verdict::sequential_b8::side0",
+       "judge_verdict::sequential_b8::side1"
+      ]
+     },
+     "oracle_verification": {
+      "actual_rendered_prompt_count": 492,
+      "expected_rendered_prompt_count": 492,
+      "per_prompt_counts": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/oracle_verification.counts.jsonl",
+       "sha256": "0a4b9350a4caec021ad4cab1c149f4eee74531d1b19b534e2548e4517082281d"
+      },
+      "rendered_corpus": {
+       "path": "rejudge/output/phase3_v3_exact_tokenizer_corpus_r5_2026-08-25/meta-llama--Llama-3.3-70B-Instruct-Turbo/main/oracle_verification.rendered.jsonl",
+       "sha256": "5da63dc0d402b0c6d8f02b48f9eabc164d79402f2bdd22ba6708b3089ffb56ec"
+      },
+      "transcript_count_per_variant": 492,
+      "variant_ids": [
+       "oracle_verification"
+      ]
+     }
+    }
+   },
+   "files": {
+    "special_tokens_map.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/special_tokens_map.json",
+     "sha256": "b7455f0e8f00539108837bfa586c4fbf424e31f8717819a6798be74bef813d05"
+    },
+    "tokenizer.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/tokenizer.json",
+     "sha256": "6b9e4e7fb171f92fd137b777cc2714bf87d11576700a1dcd7a399e7bbe39537b"
+    },
+    "tokenizer_config.json": {
+     "path": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact/tokenizer_config.json",
+     "sha256": "5c756ad6048c884974a331963ae3c3e1624b548a11174dadda02a69041c87352"
+    }
+   },
+   "provider_equivalence_evidence": "Together catalog entry meta-llama/Llama-3.3-70B-Instruct-Turbo links directly to this repository, and its exposed chat template has the same SHA-256 as the local revision.",
+   "repository": "meta-llama/Llama-3.3-70B-Instruct",
+   "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+   "tokenizer_class": "TokenizersBackend",
+   "tokenizer_directory": "rejudge/output/phase3_v3_tokenizers/meta-llama--Llama-3.3-70B-Instruct-exact"
+  }
+ },
+ "prompt_bundle": {
+  "canonical_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+  "path": "rejudge/phase2_prompt_bundle.json"
+ },
+ "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+ "provider_chat_templates": {
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "canonical_sha256": "71056ce80b3c50f6ceaf633236e566557b742f4ba95f540041ab8d0c55bd0ffb",
+   "path": "rejudge/phase3_v3r2_qwen38_provider_chat_template_2026-08-24.json"
+  }
+ },
+ "query_checker_prompt": {
+  "frozen_config": {
+   "canonical_sha256": "8e674eddbb22ba73ee5a4ae4f359f1630cf4cd65c5f5d98cb70312dc868b9872",
+   "path": "rejudge/phase2_checker_frozen_config_2026-07-23.json"
+  },
+  "system_prompt_sha256": "ecb22b55af091a2dc35c3f46e145db9c6796b2517a83dfec8682b75eb58e7428",
+  "user_template_sha256": "72e588cdf325c14193b421d4a4b2a2e2a3957b1afe04e510ab54201fab08d168",
+  "validation_design": {
+   "canonical_sha256": "4f9d3a34008234259503ce4e9b6d8152566ad7414b15e8c3d62135d892c7ed5f",
+   "path": "rejudge/phase2_checker_validation_design_2026-07-18.json"
+  }
+ },
+ "schema_version": "phase3_v3_exact_tokenizer_manifest_v5",
+ "transcript_bundles": {
+  "canary": {
+   "canonical_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864",
+   "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+   "transcript_count": 48,
+   "transcript_keys_sha256": "7a6ef05510f6ab1ff7b212416a4ca6942ed5150a59efa815c7721ea015e26948"
+  },
+  "main": {
+   "canonical_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+   "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+   "transcript_count": 492,
+   "transcript_keys_sha256": "01b9c88c28e0604345bb2c0d9f710b6c986989eedc66d78ba76d63d4bead21cc"
+  }
+ },
+ "world_documents": {
+  "carath_norn": {
+   "path": "world_specs/carath_norn.txt",
+   "sha256": "17a9eaf339e52aa60b2ddabba438a369cb22580c0e28672b0cc0cef6da01c543"
+  },
+  "selvarath": {
+   "path": "world_specs/selvarath.txt",
+   "sha256": "59b79aa4bd0ff47ea2ee339a5e5808fba184f498c2a00df1946d5dbfee0533e3"
+  },
+  "vethun_sarak": {
+   "path": "world_specs/vethun_sarak.txt",
+   "sha256": "eaf3ed57a2ee758d713a2b1a81f163fa3e6a5eb837c3be6ad2c367bb7e5d7fa2"
+  }
+ }
+}

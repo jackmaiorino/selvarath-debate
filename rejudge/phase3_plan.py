@@ -135,6 +135,36 @@ PHASE3_V3_RECOVERY_BASE_JUDGES = (
 PHASE3_V3_CONDITIONAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 PHASE3_V3_EXCLUDED_JUDGE = "openai/gpt-oss-120b"
 
+# Second recovery generation (2026-08-25): Together delisted gemma-3n-E4B from serverless
+# mid-canary (r11 halt observation). The owner-approved amendment 4 substitutes the only
+# genuinely small non-Gemma serverless chat model in the authenticated catalog.
+FROZEN_PROTOCOL_V3_R3_CANONICAL_SHA256 = (
+    "a884ccefc2e4b62c4c09882e5c66f36b86c7ad8d8cb1277d94579e36d79a7fb5"
+)
+FROZEN_V3_RECOVERY2_AMENDMENT_CANONICAL_SHA256 = (
+    "80c4b7ce5da8bffb31bf9172b557e4c4075b31f74248643beda7740e92e8b715"
+)
+FROZEN_V3_R11_HALT_OBSERVATION_CANONICAL_SHA256 = (
+    "7cff6cc8604c17dad3ad67574cf1efe42ac1611db28b0148a74d58d8a3246618"
+)
+FROZEN_V3R4_PROVIDER_CATALOG_CANONICAL_SHA256 = (
+    "5cb0458c39c1bd5337f0ebf1b0f0804c12db31b42753c82502af02462d01f055"
+)
+FROZEN_V3R4_SERVERLESS_ENDPOINTS_CANONICAL_SHA256 = (
+    "f04b9f8fd88c6c17f69b980374a870df8986b5a18ddb8b682e17bacd820e77e8"
+)
+FROZEN_QWEN35_9B_SCREENING_CANONICAL_SHA256 = (
+    "a5b28589b5855cd1a1dee90a2ff46afb65461fa953fa7d7714fd209f3041b116"
+)
+PHASE3_V3_RECOVERY2_REPLACED_JUDGE = "google/gemma-3n-E4B-it"
+PHASE3_V3_RECOVERY2_REPLACEMENT_JUDGE = "Qwen/Qwen3.5-9B"
+PHASE3_V3_RECOVERY2_BASE_JUDGES = (
+    "google/gemma-4-31B-it",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    PHASE3_V3_RECOVERY2_REPLACEMENT_JUDGE,
+    "Qwen/Qwen3.8-2.4T-A95B",
+)
+
 # make_cell_key is reused verbatim from phase2_plan, never copy-pasted; re-exported here so
 # callers (and tests) can address it as phase3_plan.make_cell_key, matching phase2_plan's own
 # module-level surface.
@@ -730,10 +760,15 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     if protocol.get("execution_authorized") is not False:
         raise ProtocolValidationError("execution_authorized must be false")
     protocol_id = protocol.get("protocol_id")
-    recovery = protocol_id == "phase3_budget_knob_2026_08_24_v3r2"
+    recovery2 = protocol_id == "phase3_budget_knob_2026_08_25_v3r4"
+    # recovery2 documents fold in and re-bind everything the first recovery bound, so every
+    # `recovery` requirement below applies to them too; recovery2-specific expectations are
+    # selected first where the two generations differ.
+    recovery = protocol_id == "phase3_budget_knob_2026_08_24_v3r2" or recovery2
     if protocol_id not in {
             "phase3_budget_knob_2026_08_23_v3",
-            "phase3_budget_knob_2026_08_24_v3r2"}:
+            "phase3_budget_knob_2026_08_24_v3r2",
+            "phase3_budget_knob_2026_08_25_v3r4"}:
         raise ProtocolValidationError("unexpected v3 protocol_id")
 
     content_digest = _sha256_string(
@@ -764,7 +799,8 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     )
     namespace = _non_empty_string(protocol.get("cell_key_namespace"), "cell_key_namespace")
     namespace_prefix = (
-        "phase3-budget-knob-2026-08-24-v3r2" if recovery
+        "phase3-budget-knob-2026-08-25-v3r4" if recovery2
+        else "phase3-budget-knob-2026-08-24-v3r2" if recovery
         else "phase3-budget-knob-2026-08-23-v3")
     expected_namespace = (
         f"{namespace_prefix}.rr-{resolution_sha[:12]}."
@@ -808,6 +844,25 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             if canonical_bindings.get(path) != expected_sha:
                 raise ProtocolValidationError(
                     f"v3 recovery source binding drifted for {path}")
+    if recovery2:
+        recovery2_bindings = {
+            "rejudge/phase3_protocol_v3_r3.json": (
+                FROZEN_PROTOCOL_V3_R3_CANONICAL_SHA256),
+            "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json": (
+                FROZEN_V3_RECOVERY2_AMENDMENT_CANONICAL_SHA256),
+            "rejudge/phase3_v3_r11_gemma3n_delisting_halt_2026-08-25.json": (
+                FROZEN_V3_R11_HALT_OBSERVATION_CANONICAL_SHA256),
+            "rejudge/output/phase3_v3r4_provider_models_2026-08-25T2130Z.json": (
+                FROZEN_V3R4_PROVIDER_CATALOG_CANONICAL_SHA256),
+            "rejudge/output/phase3_v3r4_serverless_endpoints_2026-08-25T2130Z.json": (
+                FROZEN_V3R4_SERVERLESS_ENDPOINTS_CANONICAL_SHA256),
+            "rejudge/phase3_v3_qwen35_9b_screening_2026-08-25.json": (
+                FROZEN_QWEN35_9B_SCREENING_CANONICAL_SHA256),
+        }
+        for path, expected_sha in recovery2_bindings.items():
+            if canonical_bindings.get(path) != expected_sha:
+                raise ProtocolValidationError(
+                    f"v3 recovery2 source binding drifted for {path}")
     if canonical_bindings.get("rejudge/phase2_prompt_bundle.json") != (
             FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the exact reused prompt bundle")
@@ -829,6 +884,8 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         "roster_resolution.amendment_tracked_path",
     )
     expected_amendment_path = (
+        "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json"
+        if recovery2 else
         "rejudge/phase3_v3_amendment2_qwen3_8_replacement_2026-08-24.json"
         if recovery else
         "rejudge/phase3_v3_amendment1_qwen3_7_replacement_2026-08-23.json")
@@ -840,9 +897,13 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError("v3 roster amendment identity drifted")
     replacement = _mapping(resolution.get("replacement"), "roster_resolution.replacement")
     expected_removed = (
-        PHASE3_V3_RECOVERY_REPLACED_JUDGE if recovery else PHASE3_V3_REPLACED_JUDGE)
+        PHASE3_V3_RECOVERY2_REPLACED_JUDGE if recovery2
+        else PHASE3_V3_RECOVERY_REPLACED_JUDGE if recovery
+        else PHASE3_V3_REPLACED_JUDGE)
     expected_added = (
-        PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE if recovery else PHASE3_V3_REPLACEMENT_JUDGE)
+        PHASE3_V3_RECOVERY2_REPLACEMENT_JUDGE if recovery2
+        else PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE if recovery
+        else PHASE3_V3_REPLACEMENT_JUDGE)
     if replacement.get("removed_model") != expected_removed:
         raise ProtocolValidationError("v3 removed judge drifted")
     if replacement.get("added_model") != expected_added:
@@ -869,7 +930,9 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     roster = _mapping(protocol.get("roster"), "roster")
     judges = _unique_strings(roster.get("judges_final"), "roster.judges_final")
     expected_base_judges = (
-        PHASE3_V3_RECOVERY_BASE_JUDGES if recovery else PHASE3_V3_BASE_JUDGES)
+        PHASE3_V3_RECOVERY2_BASE_JUDGES if recovery2
+        else PHASE3_V3_RECOVERY_BASE_JUDGES if recovery
+        else PHASE3_V3_BASE_JUDGES)
     if judges[:len(expected_base_judges)] != list(expected_base_judges):
         raise ProtocolValidationError("v3 final roster must preserve the four approved base judges")
     if recovery and len(judges) != 4:
@@ -1038,11 +1101,17 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
 
     supersedes = _mapping(protocol.get("supersedes"), "supersedes")
     expected_superseded_sha = (
-        FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256
-        if recovery else FROZEN_PROTOCOL_V2_CANONICAL_SHA256)
+        FROZEN_PROTOCOL_V3_R3_CANONICAL_SHA256 if recovery2
+        else FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256 if recovery
+        else FROZEN_PROTOCOL_V2_CANONICAL_SHA256)
     if supersedes.get("canonical_sha256") != expected_superseded_sha:
         raise ProtocolValidationError("v3 superseded protocol binding drifted")
-    if recovery and supersedes.get("protocol_id") != "phase3_budget_knob_2026_08_23_v3":
+    expected_superseded_id = (
+        "phase3_budget_knob_2026_08_24_v3r2" if recovery2
+        else "phase3_budget_knob_2026_08_23_v3" if recovery
+        else None)
+    if (expected_superseded_id is not None
+            and supersedes.get("protocol_id") != expected_superseded_id):
         raise ProtocolValidationError("v3 recovery supersedes the wrong protocol identity")
     _non_empty_string(supersedes.get("reason"), "supersedes.reason")
 
