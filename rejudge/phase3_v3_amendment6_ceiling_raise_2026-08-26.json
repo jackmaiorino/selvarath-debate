@@ -1,0 +1,58 @@
+{
+ "schema_version": "phase3_v3_policy_amendment_v1",
+ "amendment_id": "phase3_v3_amendment6_ceiling_raise_2026-08-26",
+ "decided_at_utc": "2026-08-26T16:45:00Z",
+ "classification": "execution-policy amendment raising the per-run uncertain-spend ceiling for a fresh successor; no scientific-protocol change",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-26",
+  "approved_on_date": "2026-08-26",
+  "selected_option": "Raise ceiling to $2.50 (Recommended)",
+  "selected_option_description": "One-line successor amendment, Codex-vetted before launch: same everything, per-run uncertain ceiling $2.50 (about 20 expensive-model timeouts, 4% of the $60 cap, still fully counted against it). Robust to today's provider weather. Full redo ~$7, finishes this evening."
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_ceiling_consult_2026-08-26.md",
+  "verdict_summary": "No blockers; $2.50 ratified. Flat ceiling preferred over a per-model sub-bound (a Qwen-specific bound would be an earlier hidden abort threshold with no protection beyond the unchanged $60 aggregate-exposure inequality). Report additions: uncertain reservations by model including held in-flight and refused admissions; booked-at-decision-time versus later billing resolution, never revising sealed history; reconcile the 12 timed-out calls against provider billing, addendum permitted; bind predecessor stop hash, owner choice, schema revision, fresh identity, exact opening aggregate; state checker_malformed was zero and unrelated."
+ },
+ "trigger": {
+  "halt_observation_path": "rejudge/phase3_v3_r15_uncertain_ceiling_stop_2026-08-26.json",
+  "halt_observation_canonical_sha256": "2a3d7551ad63a166cd105221c9e149e7048fa144807d8ed83688384cfdabbc14",
+  "summary": "A day-long Qwen3.8 timeout burst booked ~$0.93 of worst-case reservations as uncertain, functionally tripping the $1.00 ceiling; the run was stopped at 738/1,008 rows since mid-run relaxation is forbidden."
+ },
+ "policy": {
+  "run_uncertain_ceiling_usd": 2.5,
+  "rationale": "covers roughly 20 Qwen3.8-scale timeouts (3x the observed worst burst), ~35% of the expected ~$7 run cost, 4% of the $60 aggregate cap; the aggregate-exposure dispatch inequality and full counting of uncertain spend against the cap are unchanged",
+  "scope": "applies only to fresh successors under role-limits schema v4; historical schema revisions keep their $1.00 pin so sealed history validates under its own policy; all amendment-3 and amendment-5 rules (halt for owner review, no mid-run relaxation, no auto-successor, terminal-halt disposition and bounds) continue unchanged",
+  "billing_reconciliation": "the successor canary report labels every uncertain figure as booked-at-decision-time; the 12 predecessor timed-out calls are to be reconciled against Together billing records, as an addendum if billing lags, never revising sealed history"
+ },
+ "bindings": {
+  "role_limits": {
+   "path": "rejudge/phase3_v3_role_limits_r6_2026-08-26.json",
+   "canonical_sha256": "21797f6270b40b5a35567f90845ebe97588b79cdd8ef741e050b67e5c80f62cb"
+  },
+  "execution_binding": {
+   "path": "rejudge/phase3_v3_execution_binding_r7_2026-08-26.json",
+   "canonical_sha256": "04a858852a6456e8548f756124d8d99500ecc7e1201ac5b0100d7c817c2c331a"
+  }
+ },
+ "science_unchanged": {
+  "protocol_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "statement": "Protocol, roster, prompts, seeds, token limits, checker configuration, transport pins, reviewer instructions, cell plan, and every analysis gate are unchanged. All 960 gate rows are generated fresh under the new identity."
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 21.663206619999986,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the ceiling change and creation of a fresh successor identity.",
+  "Paid inference still requires a separate authorization containing the exact successor run identity.",
+  "Any further ceiling increase, row reuse, model substitution, retry-policy change, or aggregate-cap change requires new owner approval."
+ ]
+}

@@ -73,9 +73,11 @@ BINDING_SCHEMA_V3 = "phase3_v3_execution_binding_v3"
 BINDING_SCHEMA_V4 = "phase3_v3_execution_binding_v4"
 BINDING_SCHEMA_V5 = "phase3_v3_execution_binding_v5"
 BINDING_SCHEMA_V6 = "phase3_v3_execution_binding_v6"
+BINDING_SCHEMA_V7 = "phase3_v3_execution_binding_v7"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
+ROLE_LIMITS_SCHEMA_V4 = "phase3_v3_role_limits_v4"
 EXPECTED_TRANSCRIPT_ROWS = 48
 EXPECTED_JUDGMENT_ROWS = 768
 EXPECTED_CAPABILITY_ROWS = 192
@@ -88,6 +90,11 @@ PRIOR_ACCOUNTED_SPEND_USD_R3 = 0.30985289000000005
 PRIOR_ACCOUNTED_SPEND_USD_R4 = 4.977210709999999
 PRIOR_ACCOUNTED_SPEND_USD_R5 = 8.167501109999998
 PRIOR_ACCOUNTED_SPEND_USD_R6 = 14.726113819999991
+PRIOR_ACCOUNTED_SPEND_USD_R7 = 21.663206619999986
+# Amendment 6 (2026-08-26): the owner-selected raised per-run uncertain ceiling for the
+# post-ceiling-trip successor (role-limits schema v4). Historical schema revisions keep
+# their $1.00 pin so sealed history validates under its own policy.
+RUN_UNCERTAIN_CEILING_USD_V4 = 2.5
 # Amendment 5 (2026-08-26, Codex-set): frozen terminal-halt disposition bounds. A record
 # names one judgment cell whose frozen checker returned an unparseable response (the
 # temperature-0 nondeterminism the phase-2 missing-data policy already decides); the cell is
@@ -331,7 +338,8 @@ def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
 def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str, Any]) -> None:
     schema_version = role_limits.get("schema_version")
     if schema_version not in {
-            ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3}:
+            ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3,
+            ROLE_LIMITS_SCHEMA_V4}:
         raise Phase3V3LiveError("unsupported v3 role-limits schema")
     if role_limits.get("execution_authorized") is not False:
         raise Phase3V3LiveError("role limits cannot authorize execution")
@@ -370,7 +378,8 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     request = role_limits.get("request_settings") or {}
     if request.get("base_fields") != ["model", "messages", "temperature", "max_tokens", "seed"]:
         raise Phase3V3LiveError("base provider request fields drifted")
-    if schema_version in {ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3}:
+    if schema_version in {
+            ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3, ROLE_LIMITS_SCHEMA_V4}:
         expected_streaming = {"google/gemma-4-31B-it": {"stream": True}}
         transport_fix = role_limits.get("qwen38_usage_transport_fix") or {}
         if transport_fix != {
@@ -392,6 +401,20 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
                 "trigger_halt_canonical_sha256": (
                     "bda47615c351b81568cb82f05749e321b635d7fe284ba1b3871310ffb27553e7"),
                 "trigger_error": "usage ledger contains unresolved uncertain spend",
+            }:
+                raise Phase3V3LiveError("uncertain-spend tolerance policy drifted")
+        elif schema_version == ROLE_LIMITS_SCHEMA_V4:
+            tolerance = role_limits.get("uncertain_spend_tolerance") or {}
+            if tolerance != {
+                "run_uncertain_ceiling_usd": RUN_UNCERTAIN_CEILING_USD_V4,
+                "counts_fully_against_aggregate_cap": True,
+                "halts_run_for_owner_review_when_exceeded": True,
+                "owner_choice": "Raise ceiling to $2.50 (Recommended)",
+                "trigger_halt_path": (
+                    "rejudge/phase3_v3_r15_uncertain_ceiling_stop_2026-08-26.json"),
+                "trigger_halt_canonical_sha256": (
+                    "2a3d7551ad63a166cd105221c9e149e7048fa144807d8ed83688384cfdabbc14"),
+                "trigger_error": "run-local uncertain spend exceeds the frozen ceiling",
             }:
                 raise Phase3V3LiveError("uncertain-spend tolerance policy drifted")
         elif role_limits.get("uncertain_spend_tolerance") is not None:
@@ -441,7 +464,7 @@ def _validate_prior_attempt_accounting(
     schema_version = binding.get("schema_version")
     if schema_version not in {
             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
-            BINDING_SCHEMA_V6}:
+            BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -455,7 +478,8 @@ def _validate_prior_attempt_accounting(
         raise Phase3V3LiveError("aggregate execution binding has no prior-attempt accounting")
 
     if schema_version in {
-            BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
+            BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
+            BINDING_SCHEMA_V7}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -479,7 +503,9 @@ def _validate_prior_attempt_accounting(
             },
         )
         frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R3
-        if schema_version in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
+        if schema_version in {
+                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
+                BINDING_SCHEMA_V7}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -492,7 +518,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
-        if schema_version in {BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
+        if schema_version in {BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-476792b58e273b48",
@@ -506,7 +532,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
-        if schema_version == BINDING_SCHEMA_V6:
+        if schema_version in {BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-120ce58628620fce",
@@ -520,6 +546,20 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R6
+        if schema_version == BINDING_SCHEMA_V7:
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-3382c17bc4b33909",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r14_2026-08-26.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r15_uncertain_ceiling_stop_2026-08-26.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r6-checker-disposition-2026-08-26/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R7
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -638,7 +678,7 @@ def _validate_execution_binding(
 ) -> None:
     if binding.get("schema_version") not in {
             BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
-            BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
+            BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -704,7 +744,7 @@ def _validate_execution_binding(
         ("shared_aggregate_cap_accounting"
          if binding.get("schema_version") in {
              BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
-             BINDING_SCHEMA_V6}
+             BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -917,18 +957,21 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     # under the policy it ran under.
     tolerant = (
         binding.get("schema_version") in {
-            BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
+            BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
+        ceiling = float(
+            ((context.get("role_limits") or {}).get("uncertain_spend_tolerance") or {})
+            .get("run_uncertain_ceiling_usd", RUN_UNCERTAIN_CEILING_USD))
         if int(snapshot.summary["unmatched_reservations"]) != 0:
             raise Phase3V3LiveError(
                 "usage ledger contains an open reservation; every ambiguous in-flight "
                 "attempt must reach a conservative terminal state before validation")
-        if uncertain > RUN_UNCERTAIN_CEILING_USD:
+        if uncertain > ceiling:
             raise Phase3V3LiveError(
                 f"run-local uncertain spend ${uncertain:.8f} exceeds the frozen "
-                f"${RUN_UNCERTAIN_CEILING_USD:.2f} ceiling; owner review required")
+                f"${ceiling:.2f} ceiling; owner review required")
     elif uncertain != 0:
         raise Phase3V3LiveError("usage ledger contains unresolved uncertain spend")
     for event in _ledger_events(path):
@@ -1050,7 +1093,8 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
                     accounting["successor_uncertain_spend_usd"]),
             }
             if context["binding"].get("schema_version") in {
-                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
+                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
+                BINDING_SCHEMA_V7}
             else {}
         ),
     )
@@ -1849,14 +1893,23 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         rows, plan, context["protocol"], question_bank,
         context["manifest"]["final_roster"])
     tolerant_binding = context["binding"].get("schema_version") in {
-        BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
+        BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7}
+    run_ceiling = float(
+        ((context.get("role_limits") or {}).get("uncertain_spend_tolerance") or {})
+        .get("run_uncertain_ceiling_usd", RUN_UNCERTAIN_CEILING_USD))
     uncertain_events, uncertain_by_condition = _uncertain_event_report(
         _ledger_events(context["paths"]["usage_ledger"]))
+    uncertain_by_model: dict[str, dict[str, float | int]] = {}
+    for entry in uncertain_events:
+        model_entry = uncertain_by_model.setdefault(
+            str(entry["model"]), {"events": 0, "reserved_usd": 0.0})
+        model_entry["events"] += 1
+        model_entry["reserved_usd"] += float(entry["reserved_cost_usd"] or 0.0)
     successor_uncertain = float(accounting["successor_uncertain_spend_usd"])
     ledger_pass = (
         float(accounting["aggregate_accounted_spend_usd"]) <= cap
         and (successor_uncertain == 0
-             or (tolerant_binding and successor_uncertain <= RUN_UNCERTAIN_CEILING_USD))
+             or (tolerant_binding and successor_uncertain <= run_ceiling))
         and all(entry["completing_success_attempt_id"] for entry in uncertain_events))
     gates = {
         "completion": {
@@ -1890,7 +1943,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         "strict_invalid_per_judge": invalid,
         "ledger": {**accounting, "aggregate_cap_usd": cap,
                    "run_uncertain_ceiling_usd": (
-                       RUN_UNCERTAIN_CEILING_USD if tolerant_binding else None),
+                       run_ceiling if tolerant_binding else None),
                    "accounting_label": (
                        "PASS_CLEAN" if ledger_pass and successor_uncertain == 0
                        else "PASS_CONSERVATIVE_UNCERTAIN" if ledger_pass
@@ -1898,6 +1951,12 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
                    "uncertain_event_count": len(uncertain_events),
                    "uncertain_events": uncertain_events,
                    "uncertain_events_by_condition": uncertain_by_condition,
+                   "uncertain_events_by_model": uncertain_by_model,
+                   "uncertain_accounting_basis": (
+                       "every figure is the worst-case reservation BOOKED at decision "
+                       "time; provider billing reconciliation may later mark events "
+                       "confirmed billed, credited, or unresolved in an addendum, and "
+                       "never revises sealed history"),
                    "pass": ledger_pass},
         "main_spend": {"authorized": False, "observed_main_usage_events": 0, "pass": True},
     }
