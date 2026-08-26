@@ -1,0 +1,66 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-26T07:50:00Z",
+ "run_id": "phase3-v3-120ce58628620fce",
+ "status": "halted_on_checker_malformed_without_disposition_machinery",
+ "cause": "In formal pass 3 one canary judgment cell halted the driver with checker_malformed: the gemma-4-31B query-checker call for cell phase3-budget-knob-2026-08-25-v3r4.rr-7cff6cc8604c.ra-80c4b7ce5da8.qb-d9e52c3339ab:phase3_canary_debate_judgment:abdde916621f1cf1a72695a00122e1aa14685dfc1de8a1e68f1cd033419fbc39 returned finish_reason=length with exactly 4096 completion tokens (the reasoning-model effective cap), spending its entire budget on hidden thinking without emitting a verdict token. The per-call cache memoises responses by design, so the cell can never complete within this identity. The frozen phase-2 missing-data policy pre-decides the disposition (terminal exclusion from execution convergence, counts INVALID in the primary, reported at close-out), but the v3 driver never implemented the terminal-halts exclusion machinery its phase-2 predecessor had, so the run is unfinishable without a code amendment, which forces a fresh manifest identity.",
+ "signature_evidence": {
+  "checker_model": "google/gemma-4-31B-it",
+  "ledger_events_for_cell": "reserved judge_query (Llama) 07:28:39Z, success ct=26 finish=stop; reserved query_checker (gemma-4) 07:28:42Z, success ct=4096 finish=length 07:30:23Z",
+  "finish_reason": "length",
+  "completion_tokens": 4096,
+  "cached_checker_row": "absent (classification raised before a checker cache row was written)",
+  "class": "temperature-0 provider nondeterminism making one checker response unparseable; phase-2 measured 0.27-0.6% of checker calls (empty-string variant); tonight ~1 in ~700 checker calls (thinking-overrun variant)",
+  "driver_stderr": "REFUSED/HALTED: Phase3V3LiveError: formal pass halted at ...:phase3_canary_debate_judgment:abdde916... : checker_malformed"
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_checker_consult_2026-08-26.md",
+  "verdict_summary": "Ratified the disposition amendment with corrections: seal this run, fresh identity, no row carry (a retroactive equivalence rule is refused); evidence-bound terminal records that reject unplanned cells, duplicates, missing evidence, or cells with result rows; audit must partition every planned cell exactly once as completed / terminal INVALID / causally excluded, with mirror-unit exclusion as an analysis overlay (independent partner cells keep executing); stop bounds 20 unique terminal cells, 4% of mirror units, and concentration triggers, never relaxable mid-run; checker-truncation diagnostic pre-registered for canary and main reporting; all within standing in-phase authority."
+ },
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r12_2026-08-25.json",
+  "canonical_sha256": "b212a4abbd86e88d9f0c32d4a43e0fe25723a06bcc3ae15079fc4c7664f305a3"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r5-qwen35-9b-2026-08-25/phase3_v3_usage.jsonl",
+  "raw_sha256": "64a6604c9f44c7077a9edf955e4690b59b62952c9a459197a8dba8507804eda7",
+  "last_event_sha256": "55ebc8d6d09bcdd8569333909c5d657e8c0359f80079bcde9c2ccfd17620546c",
+  "event_count": 2508,
+  "actual_spend_usd": 6.360223539999993,
+  "uncertain_spend_usd": 0.19838917000000003,
+  "accounted_spend_usd": 6.558612709999993,
+  "unmatched_reservations": 0
+ },
+ "execution": {
+  "harness": "bit_identical_pass (a6467db0a87238e4e6035afb33e3fabd269e78957df1605c4223d547011cc4be)",
+  "formal_rows_committed": 736,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 496,
+  "reviewer_decisions_committed": 128,
+  "weakness_qualification": "PASSED on the 48 anchors (tolerant accuracy: Qwen3.5-9B 0.708 < Llama 0.979 = Qwen3.8 0.979 < gemma-4 1.000); strict-parse footnote: ties Llama at 0.708",
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "uncertain_events": {
+  "terminal_unknown_charge_count": 13,
+  "terminal_unknown_charge_usd": 0.19838917000000003,
+  "run_uncertain_ceiling_usd": 1.0,
+  "ceiling_tripped": false
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 8.167501109999998,
+  "this_run_accounted_spend_usd": 6.558612709999993,
+  "aggregate_accounted_spend_usd": 14.726113819999991,
+  "remaining_usd": 45.27388618000001
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "The successor must use a fresh run identity, ledger, cache, and result store under the amendment-5 disposition machinery, preserve this archive read-only, carry the exact $14.726113819999991 aggregate accounted spend, reuse no measurement rows (a retroactive carry-forward equivalence rule was considered and refused by the Codex consult; a prospective rule may be put to the owner for future successors), and remain separately documented with no main spend.",
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "The checker's frozen configuration, prompt, model, parser, and token caps are unchanged; changing any of them requires the owner."
+ ]
+}
