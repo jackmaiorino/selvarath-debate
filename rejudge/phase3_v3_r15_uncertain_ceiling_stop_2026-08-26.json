@@ -1,0 +1,60 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-26T16:15:00Z",
+ "run_id": "phase3-v3-3382c17bc4b33909",
+ "status": "halted_by_orchestrator_at_uncertain_spend_ceiling",
+ "cause": "Together's Qwen/Qwen3.8-2.4T-A95B endpoint produced a timeout burst through 2026-08-26 (seven request timeouts 09:21Z-16:01Z, each booking its ~$0.12 worst-case reservation as uncertain spend under the amendment-3 policy), plus five smaller uncertain events on other judges. Run-local uncertain exposure reached $0.92929979 of the frozen $1.00 per-run ceiling, past the point where a Qwen3.8 reservation (~$0.12) can be admitted, so the run could no longer converge. The frozen amendment-3/5 rule forbids relaxing a bound mid-run, so the orchestrator stopped the driver at 16:0xZ to avoid further spend on an identity that cannot complete. The ceiling behaved exactly as designed: it bounded unresolved billing exposure and stopped the run for owner review.",
+ "orchestrator_decision": {
+  "session": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "action": "external stop of the serial driver; one in-flight reservation at the stop is held conservatively as uncertain by the ledger summarizer",
+  "owner_review": "the owner chose 'Raise ceiling to $2.50' from the decision menu at ~16:10Z; a successor amendment implements it after a Codex consult"
+ },
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r14_2026-08-26.json",
+  "canonical_sha256": "c350b2266b32bd79ffc3f91e8d155b05b7a1f550e608f942d8f8892607e4538e"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r6-checker-disposition-2026-08-26/phase3_v3_usage.jsonl",
+  "event_count": 2355,
+  "actual_spend_usd": 6.007793009999994,
+  "uncertain_spend_usd": 0.92929979,
+  "accounted_spend_usd": 6.937092799999994,
+  "unmatched_reservations": 1,
+  "unmatched_reservation_note": "the single in-flight call at the external stop; its full reserved cost is inside uncertain_spend_usd per the summarizer's conservative treatment",
+  "raw_sha256_note": "raw and tail hashes are computed and bound by the successor binding builder from the sealed file"
+ },
+ "execution": {
+  "harness": "bit_identical_pass (fa8a9f8061280e3ccc7865e97e57b490bd582875681252b091228a2739756754)",
+  "formal_rows_committed": 738,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 498,
+  "reviewer_decisions_committed": 128,
+  "terminal_halt_records": 0,
+  "checker_malformed_events": 0,
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "uncertain_events": {
+  "count": 12,
+  "usd": 0.92929979,
+  "breakdown": "7x Qwen3.8 timeouts (~$0.10-0.13 each), 4x gemma-4 timeouts (~$0.02), 1x Llama 503 (~$0.008); plus the in-flight stop reservation",
+  "run_uncertain_ceiling_usd": 1.0,
+  "ceiling_tripped_functionally": "dispatch refusals for Qwen3.8 begin at uncertain >= ~$0.88; the run was stopped at $0.93"
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 14.726113819999991,
+  "this_run_accounted_spend_usd": 6.937092799999994,
+  "aggregate_accounted_spend_usd": 21.663206619999986,
+  "remaining_usd": 38.336793380000014
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "The successor must use a fresh run identity, ledger, cache, and result store under an owner-approved raised uncertain ceiling ($2.50, chosen by the owner from the decision menu, Codex-vetted before launch), preserve this archive read-only, carry the exact $21.663206619999986 aggregate accounted spend, reuse no measurement rows, and remain separately documented with no main spend.",
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "No gate, threshold, prompt, seed, checker behavior, or protocol element is altered by this record; the ceiling change applies only to a fresh successor identity."
+ ]
+}
