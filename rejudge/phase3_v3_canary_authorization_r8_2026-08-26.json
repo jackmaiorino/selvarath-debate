@@ -1,0 +1,58 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r8_2026-08-26",
+ "authorizes": "Paid provider execution for the phase3-v3-0407589edb2d8a6b one-seed reproducibility harness twice and, only after a bit-identical harness pass, one fresh successor canary on the amendment-4 roster under the amendment-6 $2.50 per-run uncertain ceiling, the amendment-5 terminal-halt disposition, and the amendment-3 uncertain-spend policy. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r16_2026-08-26.json",
+  "run_manifest_canonical_sha256": "bdb23d45338dfbb8abfebb10904db9e964209841d1a0851f5eaf1eb22187e487",
+  "run_id": "phase3-v3-0407589edb2d8a6b",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 21.663206619999986,
+  "cap_applies_to": "the six halted predecessors' accounted spend, the recorded out-of-ledger screening probes (est. $0.00007), and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "policy_amendment_paths": [
+   "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+   "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json",
+   "rejudge/phase3_v3_amendment6_ceiling_raise_2026-08-26.json"
+  ],
+  "codex_consults": [
+   "rejudge/phase3_v3_codex_uncertain_consult_2026-08-25.md",
+   "rejudge/phase3_v3_codex_roster_consult_2026-08-25.md",
+   "rejudge/phase3_v3_codex_checker_consult_2026-08-26.md",
+   "rejudge/phase3_v3_codex_ceiling_consult_2026-08-26.md"
+  ],
+  "predecessor_stop": {
+   "path": "rejudge/phase3_v3_r15_uncertain_ceiling_stop_2026-08-26.json",
+   "canonical_sha256": "2a3d7551ad63a166cd105221c9e149e7048fa144807d8ed83688384cfdabbc14"
+  }
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-26",
+  "exact_text": "Approved: phase3-v3-0407589edb2d8a6b harness and successor canary, $60 USD aggregate cap including $21.66320662 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-26",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "Substitute + fallbacks (Recommended)",
+   "Raise ceiling to $2.50 (Recommended)"
+  ],
+  "approval_derivation": "The owner selected the $2.50-ceiling successor with a full fresh redo from the decision menu after the r15 ceiling stop; the bound Codex consult ratified the value and implementation. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-26T17:31:53.474381Z",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
