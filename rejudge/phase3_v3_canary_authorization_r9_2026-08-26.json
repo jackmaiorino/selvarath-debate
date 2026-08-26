@@ -1,0 +1,53 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r9_2026-08-26",
+ "authorizes": "Paid provider execution for the phase3-v3-25d73d86c66a1e42 one-seed reproducibility harness twice and, only after a bit-identical harness pass and a passing off-peak large-request availability probe, one fresh successor canary on the amendment-4 roster under the amendment-6 $2.50 per-run uncertain ceiling and the amendment-5 terminal-halt disposition. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r18_2026-08-26.json",
+  "run_manifest_canonical_sha256": "cf0da692875e7ea17c169aa51193d5bd2cd880f781f416421c0d1f624cb9c337",
+  "run_id": "phase3-v3-25d73d86c66a1e42",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 25.406553089999985,
+  "cap_applies_to": "the seven halted predecessors' accounted spend, the recorded out-of-ledger screening and availability probes (est. under $0.01), and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "policy_amendment_paths": [
+   "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+   "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json",
+   "rejudge/phase3_v3_amendment6_ceiling_raise_2026-08-26.json"
+  ],
+  "predecessor_stop": {
+   "path": "rejudge/phase3_v3_r17_evening_capacity_stop_2026-08-26.json"
+  },
+  "off_peak_gate": "the formal drive launches only after a realistically-shaped Qwen3.8 probe succeeds, polling from approximately 2026-08-27T06:00Z per the owner's menu choice; the harness may run earlier since it exercises Qwen3.5-9B"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-26",
+  "exact_text": "Approved: phase3-v3-25d73d86c66a1e42 harness and successor canary, $60 USD aggregate cap including $25.40655309 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-26",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "Substitute + fallbacks (Recommended)",
+   "Raise ceiling to $2.50 (Recommended)",
+   "Off-peak overnight retry (Recommended)"
+  ],
+  "approval_derivation": "The owner selected the off-peak overnight retry with unchanged policies from the decision menu after the r17 stop. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-26T22:10:26.215522Z",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
