@@ -1,0 +1,53 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r7_2026-08-26",
+ "authorizes": "Paid provider execution for the phase3-v3-3382c17bc4b33909 one-seed reproducibility harness twice and, only after a bit-identical harness pass, one fresh successor canary on the amendment-4 roster under the amendment-3 uncertain-spend policy and the amendment-5 terminal-halt disposition. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r14_2026-08-26.json",
+  "run_manifest_canonical_sha256": "c350b2266b32bd79ffc3f91e8d155b05b7a1f550e608f942d8f8892607e4538e",
+  "run_id": "phase3-v3-3382c17bc4b33909",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260829
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 14.726113819999991,
+  "cap_applies_to": "the five halted predecessors' accounted spend, the recorded out-of-ledger screening probes (est. $0.00007), and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 960,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "policy_amendment_paths": [
+   "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+   "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json"
+  ],
+  "codex_consults": [
+   "rejudge/phase3_v3_codex_uncertain_consult_2026-08-25.md",
+   "rejudge/phase3_v3_codex_roster_consult_2026-08-25.md",
+   "rejudge/phase3_v3_codex_checker_consult_2026-08-26.md"
+  ],
+  "terminal_disposition_rule": "checker_malformed halts stop for orchestrator review; dispositions resume the SAME identity with the cell excluded under the frozen bounds; crossing any bound requires the owner"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, standing approvals of 2026-08-25",
+  "exact_text": "Approved: phase3-v3-3382c17bc4b33909 harness and successor canary, $60 USD aggregate cap including $14.72611382 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-26",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "go",
+   "Substitute + fallbacks (Recommended)"
+  ],
+  "approval_derivation": "The owner's decision-menu selection authorized the amendment-4 roster path including the full redo, and his standing blanket amendment approval covers the amendment-5 control-plane repair, which the bound Codex consult confirmed implements an already-frozen missing-data rule within in-phase authority. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-26T07:56:12.937724Z",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
