@@ -72,6 +72,7 @@ BINDING_SCHEMA_V2 = "phase3_v3_execution_binding_v2"
 BINDING_SCHEMA_V3 = "phase3_v3_execution_binding_v3"
 BINDING_SCHEMA_V4 = "phase3_v3_execution_binding_v4"
 BINDING_SCHEMA_V5 = "phase3_v3_execution_binding_v5"
+BINDING_SCHEMA_V6 = "phase3_v3_execution_binding_v6"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
@@ -86,6 +87,19 @@ PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
 PRIOR_ACCOUNTED_SPEND_USD_R3 = 0.30985289000000005
 PRIOR_ACCOUNTED_SPEND_USD_R4 = 4.977210709999999
 PRIOR_ACCOUNTED_SPEND_USD_R5 = 8.167501109999998
+PRIOR_ACCOUNTED_SPEND_USD_R6 = 14.726113819999991
+# Amendment 5 (2026-08-26, Codex-set): frozen terminal-halt disposition bounds. A record
+# names one judgment cell whose frozen checker returned an unparseable response (the
+# temperature-0 nondeterminism the phase-2 missing-data policy already decides); the cell is
+# excluded from execution convergence, counts INVALID in the primary, and its whole mirror
+# unit leaves the paired polarity analyses. Crossing any bound stops the run for owner
+# review and may never be relaxed mid-run.
+TERMINAL_HALTS_SCHEMA = "phase3_v3_terminal_halts_v1"
+MAX_TERMINAL_JUDGMENT_CELLS = 20
+MAX_AFFECTED_MIRROR_UNIT_FRACTION = 0.04
+CONCENTRATION_MIN_CELLS = 5
+CONCENTRATION_RATE = 0.02
+CONCENTRATION_RATIO = 3.0
 # Per-run ceiling on unresolved billing-uncertain exposure (amendment 3, 2026-08-25,
 # Codex-set at $1.00: >10x the observed $0.0919 burst, ~15% of the expected run cost).
 # Uncertain spend always ALSO counts in full against the aggregate cap. Tripping the
@@ -426,7 +440,8 @@ def _validate_prior_attempt_accounting(
 ) -> dict[str, float]:
     schema_version = binding.get("schema_version")
     if schema_version not in {
-            BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
+            BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
+            BINDING_SCHEMA_V6}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -439,7 +454,8 @@ def _validate_prior_attempt_accounting(
     if not isinstance(prior, Mapping):
         raise Phase3V3LiveError("aggregate execution binding has no prior-attempt accounting")
 
-    if schema_version in {BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
+    if schema_version in {
+            BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -463,7 +479,7 @@ def _validate_prior_attempt_accounting(
             },
         )
         frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R3
-        if schema_version in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}:
+        if schema_version in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -476,7 +492,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
-        if schema_version == BINDING_SCHEMA_V5:
+        if schema_version in {BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-476792b58e273b48",
@@ -490,6 +506,20 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
+        if schema_version == BINDING_SCHEMA_V6:
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-120ce58628620fce",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r12_2026-08-25.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r13_checker_malformed_halt_2026-08-26.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r5-qwen35-9b-2026-08-25/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R6
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -608,7 +638,7 @@ def _validate_execution_binding(
 ) -> None:
     if binding.get("schema_version") not in {
             BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
-            BINDING_SCHEMA_V5}:
+            BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -673,7 +703,8 @@ def _validate_execution_binding(
         "transcript_generation_forbidden": True,
         ("shared_aggregate_cap_accounting"
          if binding.get("schema_version") in {
-             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
+             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
+             BINDING_SCHEMA_V6}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -885,7 +916,8 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     # binding schemas keep the original zero-uncertain rule so sealed history validates
     # under the policy it ran under.
     tolerant = (
-        binding.get("schema_version") in {BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
+        binding.get("schema_version") in {
+            BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
@@ -1018,7 +1050,7 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
                     accounting["successor_uncertain_spend_usd"]),
             }
             if context["binding"].get("schema_version") in {
-                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
+                BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
             else {}
         ),
     )
@@ -1306,6 +1338,21 @@ def drive_formal(
     bundle = _load_json(context["root"] / PROMPT_BUNDLE_RELATIVE_PATH)
     judgments, capabilities = phase3_runner.resolve_canary_cells(
         plan, protocol=context["protocol"], bundle=bundle)
+    partition = terminal_partition(
+        context,
+        load_terminal_halt_records(context, CellResultStore(formal_results)))
+    terminal_cells = partition["terminal_cells"]
+    if terminal_cells:
+        judgments = [
+            cell for cell in judgments
+            if str(cell["cell_key"]) not in terminal_cells]
+        _append_jsonl(context["paths"]["run_log"], {
+            "event": "terminal_halt_exclusions_loaded",
+            "recorded_at_utc": _utc_now(),
+            "excluded_cell_count": len(terminal_cells),
+            "affected_mirror_units": len(partition["affected_units"]),
+        })
+    convergence_target = len(plan) - len(terminal_cells)
     expected_codex = context["binding"]["toolchain"]["reviewer_cli"]["binary"]
     expected_concurrency = int(
         context["binding"]["formal_execution"]["reviewer_concurrency"])
@@ -1368,7 +1415,7 @@ def drive_formal(
             "pending_labels": len(outcome.pending_payloads),
             "spend_usd": spend["aggregate_accounted_spend_usd"],
         }, sort_keys=True), flush=True)
-        if complete == len(plan):
+        if complete == convergence_target:
             report = audit_and_finalize(context)
             return report
         if outcome.pending_payloads:
@@ -1400,17 +1447,27 @@ def _usage_scope_check(context: Mapping[str, Any], plan: Sequence[Mapping[str, A
 
 def _invalid_gate(
     store: CellResultStore, plan: Sequence[Mapping[str, Any]], roster: Sequence[str],
+    terminal_cells: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     b0 = [cell for cell in plan if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND
           and cell["condition"] == "b0"]
     report = {}
     for judge in roster:
         cells = [cell for cell in b0 if cell["judge_model"] == judge]
-        invalid = sum(
-            store.get(str(cell["cell_key"]))["verdict_strict"]["verdict"] is None
-            for cell in cells)
+        invalid = 0
+        terminal_invalid = 0
+        for cell in cells:
+            key = str(cell["cell_key"])
+            if key in terminal_cells:
+                # Frozen missing-data policy: a terminally halted cell counts INVALID
+                # (which counts wrong); it never has a result row to parse.
+                invalid += 1
+                terminal_invalid += 1
+                continue
+            invalid += store.get(key)["verdict_strict"]["verdict"] is None
         report[judge] = {
             "slots": len(cells), "invalid": invalid,
+            "terminal_invalid": terminal_invalid,
             "integer_gate": "invalid <= 1", "pass": len(cells) == 96 and invalid <= 1,
         }
     return report
@@ -1551,18 +1608,204 @@ def _uncertain_event_report(
     return uncertain_events, uncertain_by_condition
 
 
+def load_terminal_halt_records(
+    context: Mapping[str, Any], store: CellResultStore,
+    *, records_directory: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """Load, validate, and bound the append-only terminal-halt dispositions for this run.
+
+    Never a discretionary skip list (amendment 5, Codex-corrected): every record must bind
+    this exact run identity, name a planned judgment cell with no result row, carry the
+    checker-failure evidence, and cite the frozen missing-data policy. Records for other run
+    identities are prior-attempt evidence and are ignored here.
+    """
+    root = Path(context["root"])
+    directory = (
+        Path(records_directory) if records_directory is not None else root / "rejudge")
+    run_id = str(context["manifest"]["run_id"])
+    plan_by_key = {str(cell["cell_key"]): cell for cell in _canary_plan(context)}
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in sorted(directory.glob("phase3_v3_terminal_halts_*.json")):
+        record = _load_json(path)
+        if not isinstance(record, dict) or record.get("run_id") != run_id:
+            continue
+        if record.get("schema_version") != TERMINAL_HALTS_SCHEMA:
+            raise Phase3V3LiveError(f"unsupported terminal-halts schema in {path.name}")
+        cell_key = str(record.get("cell_key"))
+        cell = plan_by_key.get(cell_key)
+        if cell is None or cell["kind"] != phase3_plan.CANARY_JUDGMENT_KIND:
+            raise Phase3V3LiveError(
+                f"terminal-halt record {path.name} names an unplanned or non-judgment cell")
+        if record.get("reason") != "checker_malformed":
+            raise Phase3V3LiveError(
+                f"terminal-halt record {path.name} names a reason outside the frozen "
+                "disposition")
+        evidence = record.get("evidence") or {}
+        for field in ("ledger_attempt_id", "ledger_event_sha256", "finish_reason",
+                      "completion_tokens", "parse_failure"):
+            if evidence.get(field) in (None, ""):
+                raise Phase3V3LiveError(
+                    f"terminal-halt record {path.name} is missing evidence field {field}")
+        for field in ("reviewer", "recorded_at_utc", "frozen_policy_citation"):
+            if not record.get(field):
+                raise Phase3V3LiveError(
+                    f"terminal-halt record {path.name} is missing {field}")
+        if cell_key in seen:
+            raise Phase3V3LiveError(
+                f"duplicate terminal-halt records name cell {cell_key}")
+        if cell_key in set(store._results):
+            raise Phase3V3LiveError(
+                "a terminally halted cell already has a result row; the disposition "
+                f"in {path.name} is stale")
+        seen.add(cell_key)
+        records.append(dict(record))
+    if len(records) > MAX_TERMINAL_JUDGMENT_CELLS:
+        raise Phase3V3LiveError(
+            f"{len(records)} terminal judgment cells exceed the frozen bound of "
+            f"{MAX_TERMINAL_JUDGMENT_CELLS}; owner review required")
+    return records
+
+
+def _mirror_unit_index(
+    context: Mapping[str, Any],
+) -> tuple[dict[str, tuple], dict[tuple, list[str]]]:
+    protocol = context["protocol"]
+    judges = list(context["manifest"]["final_roster"])
+    _main, held_out = phase3_plan.load_reference_question_ids(
+        protocol, context["root"])
+    plan_index = phase3_polarity_verify.build_plan_index(protocol, judges, held_out)
+    replicates = phase3_polarity_verify.condition_replicates(protocol)
+    unit_of: dict[str, tuple] = {}
+    cells_of: dict[tuple, list[str]] = {}
+    for cell_key, cell in plan_index.items():
+        reps = int(replicates[str(cell["condition"])])
+        within = int(cell["replicate_index"]) % reps
+        unit = (str(cell["question_id"]), str(cell["judge_model"]),
+                str(cell["debater_model"]), cell.get("transcript_index"),
+                str(cell["condition"]), within)
+        unit_of[cell_key] = unit
+        cells_of.setdefault(unit, []).append(cell_key)
+    return unit_of, cells_of
+
+
+def terminal_partition(
+    context: Mapping[str, Any], records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Partition support: terminal cells, their mirror-unit overlay, and the stop bounds."""
+    plan = _canary_plan(context)
+    plan_by_key = {str(cell["cell_key"]): cell for cell in plan}
+    judgment_cells = [
+        cell for cell in plan if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND]
+    terminal = frozenset(str(record["cell_key"]) for record in records)
+    unit_of, cells_of = _mirror_unit_index(context)
+    affected_units = {unit_of[key] for key in terminal}
+    affected_cells = frozenset(
+        key for unit in affected_units for key in cells_of[unit])
+    total_units = len(cells_of)
+    if total_units and len(affected_units) / total_units > (
+            MAX_AFFECTED_MIRROR_UNIT_FRACTION):
+        raise Phase3V3LiveError(
+            f"{len(affected_units)} affected mirror units exceed the frozen "
+            f"{MAX_AFFECTED_MIRROR_UNIT_FRACTION:.0%} bound; owner review required")
+    for group_field in ("judge_model", "condition"):
+        exposure: dict[str, int] = {}
+        hits: dict[str, int] = {}
+        for cell in judgment_cells:
+            group = str(cell[group_field])
+            exposure[group] = exposure.get(group, 0) + 1
+        for key in terminal:
+            group = str(plan_by_key[key][group_field])
+            hits[group] = hits.get(group, 0) + 1
+        for group, count in hits.items():
+            if count < CONCENTRATION_MIN_CELLS:
+                continue
+            rate = count / exposure[group]
+            complement_hits = sum(hits.values()) - count
+            complement_exposure = sum(exposure.values()) - exposure[group]
+            complement_rate = (
+                complement_hits / complement_exposure if complement_exposure else 0.0)
+            if rate > CONCENTRATION_RATE or rate > CONCENTRATION_RATIO * complement_rate:
+                raise Phase3V3LiveError(
+                    f"terminal-cell concentration bound crossed for {group_field}="
+                    f"{group}; owner review required")
+    return {
+        "terminal_cells": terminal,
+        "affected_unit_cells": affected_cells,
+        "affected_units": affected_units,
+        "total_mirror_units": total_units,
+        "causally_excluded": frozenset(),
+    }
+
+
+def _checker_truncation_diagnostic(
+    context: Mapping[str, Any], plan: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Pre-registered checker diagnostic (amendment 5): truncation rates and clustering."""
+    plan_by_key = {str(cell["cell_key"]): cell for cell in plan}
+    total = 0
+    length_calls: list[dict[str, Any]] = []
+    by: dict[str, dict[str, dict[str, int]]] = {"judge_model": {}, "condition": {}}
+    bands: dict[str, dict[str, int]] = {}
+    for event in _ledger_events(context["paths"]["usage_ledger"]):
+        metadata = event.get("metadata") or {}
+        if metadata.get("call_role") != "query_checker" or event.get("status") != "success":
+            continue
+        total += 1
+        response_metadata = event.get("response_metadata") or {}
+        is_length = response_metadata.get("finish_reason") == "length"
+        prompt_tokens = event.get("prompt_tokens") or 0
+        band = ("<2k" if prompt_tokens < 2048 else "2-4k" if prompt_tokens < 4096
+                else "4-8k" if prompt_tokens < 8192 else ">=8k")
+        band_entry = bands.setdefault(band, {"checker_calls": 0, "length": 0})
+        band_entry["checker_calls"] += 1
+        band_entry["length"] += int(is_length)
+        cell = plan_by_key.get(metadata.get("cell_key"))
+        if is_length:
+            length_calls.append({
+                "cell_key": metadata.get("cell_key"),
+                "completion_tokens": event.get("completion_tokens"),
+                "ts": event.get("ts"),
+            })
+        if cell is not None:
+            for group_field in ("judge_model", "condition"):
+                group = str(cell[group_field])
+                entry = by[group_field].setdefault(
+                    group, {"checker_calls": 0, "length": 0})
+                entry["checker_calls"] += 1
+                entry["length"] += int(is_length)
+    return {
+        "checker_calls_total": total,
+        "finish_length_calls": length_calls,
+        "finish_length_count": len(length_calls),
+        "finish_length_rate": (len(length_calls) / total) if total else None,
+        "by_judge": by["judge_model"],
+        "by_condition": by["condition"],
+        "by_prompt_token_band": bands,
+        "non_claim": (
+            "truncation is not assumed missing completely at random; difficult or "
+            "lengthy cases may be likelier to trigger it"),
+    }
+
+
 def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     harness_manifest = load_harness_manifest(context)
     plan = _canary_plan(context)
     store = CellResultStore(context["paths"]["formal_results"])
+    terminal_records = load_terminal_halt_records(context, store)
+    partition = terminal_partition(context, terminal_records)
+    terminal_cells = partition["terminal_cells"]
     expected_keys = {str(cell["cell_key"]) for cell in plan}
     observed_keys = set(store._results)
-    if observed_keys != expected_keys:
+    # Amendment 5: every planned cell is partitioned exactly once as completed, terminal
+    # INVALID, or causally excluded (the loader guarantees terminal cells have no rows).
+    if observed_keys != expected_keys - terminal_cells:
         raise Phase3V3LiveError(
-            f"formal result set differs from plan: missing={len(expected_keys - observed_keys)}, "
-            f"extra={len(observed_keys - expected_keys)}")
-    if len(observed_keys) != EXPECTED_TOTAL_ROWS:
-        raise Phase3V3LiveError("formal result count differs from the 1,008-row canary")
+            "formal result set differs from plan minus frozen exclusions: "
+            f"missing={len((expected_keys - terminal_cells) - observed_keys)}, "
+            f"extra={len(observed_keys - (expected_keys - terminal_cells))}")
+    if len(observed_keys) + len(terminal_cells) != EXPECTED_TOTAL_ROWS:
+        raise Phase3V3LiveError("formal partition does not cover the 1,008-row canary")
     _usage_scope_check(context, plan)
     snapshot = validate_ledger(context)
     accounting = aggregate_accounting_summary(context, snapshot)
@@ -1578,26 +1821,35 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     _main_ids, held_out = phase3_plan.load_reference_question_ids(
         context["protocol"], context["root"])
     question_bank = phase3_polarity_verify._load_question_bank()
+    # Amendment 5 mirror overlay: an affected mirror unit contributes nothing to the paired
+    # polarity analyses; its independent partner rows keep their primary outcomes and stay
+    # in the result store untouched.
+    polarity_rows = [
+        row for row in rows
+        if row.get("cell_key") not in partition["affected_unit_cells"]]
     full_polarity = phase3_polarity_verify.verify(
-        rows, protocol=context["protocol"], judges=context["manifest"]["final_roster"],
+        polarity_rows, protocol=context["protocol"],
+        judges=context["manifest"]["final_roster"],
         held_out_ids=held_out, question_bank=question_bank)
     b0_keys = {
         str(cell["cell_key"]) for cell in plan
         if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND and cell["condition"] == "b0"}
-    b0_rows = [row for row in rows if row.get("cell_key") in b0_keys]
+    b0_rows = [row for row in polarity_rows if row.get("cell_key") in b0_keys]
     b0_polarity = phase3_polarity_verify.verify(
         b0_rows, protocol=context["protocol"], judges=context["manifest"]["final_roster"],
         held_out_ids=held_out, question_bank=question_bank)
     polarity_problems = phase3_orchestrator_support.evaluate_polarity_gate(
         full_polarity, b0_polarity)
-    invalid = _invalid_gate(store, plan, context["manifest"]["final_roster"])
+    invalid = _invalid_gate(
+        store, plan, context["manifest"]["final_roster"],
+        terminal_cells=terminal_cells)
     capability = _capability_anchor_diagnostics(
         store, plan, context["manifest"]["final_roster"])
     paired_position = _paired_position_diagnostics(
         rows, plan, context["protocol"], question_bank,
         context["manifest"]["final_roster"])
     tolerant_binding = context["binding"].get("schema_version") in {
-        BINDING_SCHEMA_V4, BINDING_SCHEMA_V5}
+        BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6}
     uncertain_events, uncertain_by_condition = _uncertain_event_report(
         _ledger_events(context["paths"]["usage_ledger"]))
     successor_uncertain = float(accounting["successor_uncertain_spend_usd"])
@@ -1607,10 +1859,33 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
              or (tolerant_binding and successor_uncertain <= RUN_UNCERTAIN_CEILING_USD))
         and all(entry["completing_success_attempt_id"] for entry in uncertain_events))
     gates = {
-        "completion": {"expected_rows": EXPECTED_TOTAL_ROWS,
-                       "observed_rows": len(observed_keys), "pass": True},
+        "completion": {
+            "expected_rows": EXPECTED_TOTAL_ROWS,
+            "observed_rows": len(observed_keys),
+            "terminal_invalid_rows": len(terminal_cells),
+            "causally_excluded_rows": len(partition["causally_excluded"]),
+            "partition_exact": True,
+            "label": ("PASS_WITH_FROZEN_EXCLUSIONS" if terminal_cells else "PASS"),
+            "terminal_records": [
+                {"cell_key": record["cell_key"], "reason": record["reason"],
+                 "recorded_at_utc": record["recorded_at_utc"],
+                 "reviewer": record["reviewer"]}
+                for record in terminal_records],
+            "pass": True},
         "structural_mirroring": {"pass": not polarity_problems,
                                  "problems": polarity_problems,
+                                 "mirror_unit_overlay": {
+                                     "total_planned_units": partition[
+                                         "total_mirror_units"],
+                                     "affected_units": len(partition["affected_units"]),
+                                     "retained_units": (
+                                         partition["total_mirror_units"]
+                                         - len(partition["affected_units"])),
+                                     "note": (
+                                         "affected units are excluded from the paired "
+                                         "polarity analyses as complete units; their "
+                                         "independent partner rows keep their primary "
+                                         "outcomes")},
                                  "full": full_polarity, "b0": b0_polarity},
         "strict_invalid_per_judge": invalid,
         "ledger": {**accounting, "aggregate_cap_usd": cap,
@@ -1645,6 +1920,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         "diagnostics": {
             "capability_anchor_by_judge": capability,
             "paired_position_by_judge": paired_position,
+            "checker_truncation": _checker_truncation_diagnostic(context, plan),
             "capability_slope_inference": "estimate_and_plot_only_no_p_value",
             "configuration_selection_pace": {
                 "status": "not_evaluated_by_canary_closeout",

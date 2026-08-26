@@ -629,3 +629,153 @@ def test_validate_ledger_v5_keeps_the_bounded_uncertain_tolerance(tmp_path: Path
     ], _recovery2_binding())
     with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="exceeds the frozen"):
         phase3_v3_live.validate_ledger(context)
+
+
+# --- amendment 5 (2026-08-26): terminal-halt disposition machinery ----------------------------
+
+
+def _r4_context():
+    protocol = _recovery2_protocol()
+    return {
+        "root": ROOT,
+        "protocol": protocol,
+        "manifest": {"run_id": "phase3-v3-test-terminal",
+                     "final_roster": list(protocol["roster"]["judges_final"])},
+    }
+
+
+def _judgment_cell(context):
+    plan = phase3_v3_live._canary_plan(context)
+    return next(cell for cell in plan
+                if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND)
+
+
+def _terminal_record(cell_key: str, run_id: str = "phase3-v3-test-terminal") -> dict:
+    return {
+        "schema_version": phase3_v3_live.TERMINAL_HALTS_SCHEMA,
+        "run_id": run_id,
+        "cell_key": cell_key,
+        "reason": "checker_malformed",
+        "evidence": {
+            "ledger_attempt_id": "a" * 32,
+            "ledger_event_sha256": "b" * 64,
+            "finish_reason": "length",
+            "completion_tokens": 4096,
+            "parse_failure": "no verdict token in a length-truncated thinking response",
+        },
+        "reviewer": "orchestrator session test",
+        "recorded_at_utc": "2026-08-26T08:00:00Z",
+        "frozen_policy_citation": (
+            "phase-2 missing-data policy: terminal exclusion, counts INVALID, "
+            "reported at close-out"),
+    }
+
+
+def _write_record(directory: Path, name: str, record: dict) -> None:
+    (directory / name).write_text(json.dumps(record), encoding="utf-8")
+
+
+def _empty_store(tmp_path: Path) -> CellResultStore:
+    return CellResultStore(tmp_path / "results.jsonl")
+
+
+def test_terminal_halt_loader_accepts_an_evidence_bound_record(tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _terminal_record(str(cell["cell_key"])))
+    records = phase3_v3_live.load_terminal_halt_records(
+        context, _empty_store(tmp_path), records_directory=tmp_path)
+    assert len(records) == 1
+    partition = phase3_v3_live.terminal_partition(context, records)
+    assert str(cell["cell_key"]) in partition["terminal_cells"]
+    # The mirror overlay covers the whole unit: the terminal cell plus its partner side.
+    assert len(partition["affected_unit_cells"]) >= 2
+    assert partition["terminal_cells"] <= partition["affected_unit_cells"]
+
+
+def test_terminal_halt_loader_ignores_records_for_other_runs(tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _terminal_record(str(cell["cell_key"]), run_id="phase3-v3-other"))
+    records = phase3_v3_live.load_terminal_halt_records(
+        context, _empty_store(tmp_path), records_directory=tmp_path)
+    assert records == []
+
+
+def test_terminal_halt_loader_rejects_unplanned_cells(tmp_path: Path):
+    context = _r4_context()
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _terminal_record("not-a-planned-cell"))
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="unplanned"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=tmp_path)
+
+
+def test_terminal_halt_loader_rejects_missing_evidence(tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    record = _terminal_record(str(cell["cell_key"]))
+    record["evidence"].pop("finish_reason")
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json", record)
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="evidence field"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=tmp_path)
+
+
+def test_terminal_halt_loader_rejects_a_cell_with_a_result_row(tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    store = _empty_store(tmp_path)
+    store.record(str(cell["cell_key"]), {"placeholder": True})
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _terminal_record(str(cell["cell_key"])))
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="stale"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, store, records_directory=tmp_path)
+
+
+def test_terminal_halt_loader_rejects_duplicates_and_enforces_the_bound(tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _terminal_record(str(cell["cell_key"])))
+    _write_record(tmp_path, "phase3_v3_terminal_halts_002.json",
+                  _terminal_record(str(cell["cell_key"])))
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="duplicate"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=tmp_path)
+    plan = phase3_v3_live._canary_plan(context)
+    judgment_keys = [str(entry["cell_key"]) for entry in plan
+                     if entry["kind"] == phase3_plan.CANARY_JUDGMENT_KIND]
+    bound_dir = tmp_path / "bound"
+    bound_dir.mkdir()
+    for index, key in enumerate(
+            judgment_keys[:phase3_v3_live.MAX_TERMINAL_JUDGMENT_CELLS + 1]):
+        _write_record(bound_dir, f"phase3_v3_terminal_halts_{index:03d}.json",
+                      _terminal_record(key))
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="frozen bound"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=bound_dir)
+
+
+def test_invalid_gate_counts_terminal_cells_as_invalid(tmp_path: Path):
+    context = _r4_context()
+    plan = phase3_v3_live._canary_plan(context)
+    roster = context["manifest"]["final_roster"]
+    b0 = [cell for cell in plan if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND
+          and cell["condition"] == "b0"]
+    store = _empty_store(tmp_path)
+    terminal_cell = b0[0]
+    for cell in b0:
+        if cell is terminal_cell:
+            continue
+        store.record(str(cell["cell_key"]),
+                     {"verdict_strict": {"verdict": "A"}})
+    report = phase3_v3_live._invalid_gate(
+        store, b0, roster, terminal_cells=frozenset({str(terminal_cell["cell_key"])}))
+    judge = str(terminal_cell["judge_model"])
+    assert report[judge]["terminal_invalid"] == 1
+    assert report[judge]["invalid"] >= 1
+

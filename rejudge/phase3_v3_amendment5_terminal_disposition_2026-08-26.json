@@ -1,0 +1,57 @@
+{
+ "schema_version": "phase3_v3_policy_amendment_v1",
+ "amendment_id": "phase3_v3_amendment5_terminal_disposition_2026-08-26",
+ "decided_at_utc": "2026-08-26T08:20:00Z",
+ "classification": "execution-policy amendment implementing the frozen missing-data disposition; no scientific-protocol change",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "approved_on_date": "2026-08-25",
+  "basis": "standing blanket approval for in-phase amendments; the bound Codex consult confirmed this implements an already-frozen missing-data rule and requires no owner sign-off",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase"
+  ],
+  "authority_note": "Owner sign-off remains required for row carry-forward, any checker-behavior change (token cap, thinking, prompt, model, parser, retries), allowing incomplete units into paired analyses, changing terminal INVALID treatment, relaxing a crossed bound mid-run, or altering main-run science."
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_checker_consult_2026-08-26.md",
+  "verdict_summary": "Ratified with corrections, all implemented: seal the halted run and redo under a fresh identity with no row carry; evidence-bound terminal records that reject unplanned cells, duplicates, missing evidence, and cells with result rows; exact three-way audit partition (completed / terminal INVALID / causally excluded); mirror-unit exclusion as an analysis overlay with independent partner cells continuing; stop bounds never relaxable mid-run; pre-registered checker-truncation diagnostic; checker behavior unchanged."
+ },
+ "defect_repaired": {
+  "halt_observation_path": "rejudge/phase3_v3_r13_checker_malformed_halt_2026-08-26.json",
+  "summary": "The v3 driver had no terminal-halt disposition machinery, so a single unparseable frozen-checker response (temperature-0 provider nondeterminism, memoised by the per-call cache) made a run unfinishable despite the frozen phase-2 missing-data policy pre-deciding the disposition."
+ },
+ "policy": {
+  "record_schema": "phase3_v3_terminal_halts_v1: append-only single-record files binding run identity, planned judgment cell, checker ledger evidence (attempt id, event hash, finish_reason, completion tokens, parse failure), reviewer, timestamp, and the frozen-policy citation; the loader rejects unplanned cells, non-enumerated reasons, duplicates, missing evidence, and any cell that has a result row",
+  "halt_review_resume": "checker_malformed still halts the run every time; the orchestrator verifies the signature, appends the record, and resumes the SAME identity with the cell excluded; disposition is never automatic",
+  "audit_partition": "every planned cell is partitioned exactly once as completed, terminal INVALID (counts wrong in the strict per-judge gate), or causally excluded (UPSTREAM_TERMINAL_EXCLUDED; empty for the v3 canary's independent cells); completion labels itself PASS_WITH_FROZEN_EXCLUSIONS when any exclusion exists",
+  "mirror_overlay": "the terminal cell's entire mirror unit is excluded from the paired polarity analyses; independent partner cells keep executing and keep their primary outcomes; the overlay reports planned, affected, and retained unit counts",
+  "stop_bounds": {
+   "max_unique_terminal_judgment_cells": 20,
+   "max_affected_mirror_unit_fraction": 0.04,
+   "concentration": "any judge or condition with >= 5 terminal cells whose exposure-normalized rate exceeds 2% or three times the complementary rate",
+   "rule": "crossing any bound stops the run for owner review; bounds may never be relaxed mid-run and never convert missing data into success"
+  },
+  "checker_diagnostic": "pre-registered for canary and main reporting: all finish_reason=length checker calls, the exact terminal signature, overall and per-judge/condition/prompt-token-band rates, terminal and affected-unit counts, with an explicit non-claim that truncation is missing completely at random"
+ },
+ "science_unchanged": {
+  "protocol_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "statement": "Protocol, roster, prompts, seeds, token limits, checker configuration, transport pins, reviewer instructions, cell plan, and every analysis gate are unchanged. All 960 gate rows are generated fresh under the new identity."
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 14.726113819999991,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the execution-policy change and creation of a fresh successor identity.",
+  "Paid inference still requires a separate authorization containing the exact successor run identity.",
+  "This amendment does not authorize main spend, row or cache reuse, checker-behavior changes, or relaxation of any crossed stop bound."
+ ]
+}
