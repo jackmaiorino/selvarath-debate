@@ -1,0 +1,60 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-26T22:20:00Z",
+ "run_id": "phase3-v3-0407589edb2d8a6b",
+ "status": "halted_by_orchestrator_at_raised_uncertain_ceiling",
+ "cause": "Together's Qwen/Qwen3.8-2.4T-A95B serverless endpoint entered a sustained evening capacity crunch (US evening 2026-08-26: rejections and timeouts every few minutes from 19:23Z onward, 'Too many requests in flight' 503s and instant 429s on large requests while small probes passed). Each rejection booked its ~$0.12 worst-case reservation as uncertain under the amendment-3 policy, filling the amendment-6 $2.50 ceiling. The orchestrator stopped the driver at 22:04Z as run-local uncertain crossed the Qwen3.8 dispatch-refusal threshold, at which point the identity could no longer converge. Contrast bound into the timing analysis: the same roster ran 08:24Z-16:01Z with only two Qwen3.8 timeouts in five hours, so this is a time-of-day capacity problem, not a policy problem.",
+ "orchestrator_decision": {
+  "session": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+  "action": "external stop of the wrapper and serial driver at the refusal threshold; one in-flight reservation is held conservatively as uncertain by the ledger summarizer",
+  "owner_review": "the owner chose 'Off-peak overnight retry (Recommended)' from the decision menu at ~22:15Z: successor minted tonight, launch gated on a passing large-request probe from ~06:00Z 2026-08-27, same $2.50 ceiling, no policy changes"
+ },
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r16_2026-08-26.json",
+  "canonical_sha256": "bdb23d45338dfbb8abfebb10904db9e964209841d1a0851f5eaf1eb22187e487"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r7-raised-ceiling-2026-08-26/phase3_v3_usage.jsonl",
+  "event_count": 691,
+  "actual_spend_usd": 1.3422268199999996,
+  "uncertain_spend_usd": 2.40111965,
+  "accounted_spend_usd": 3.7433464699999996,
+  "unmatched_reservations": 1,
+  "unmatched_reservation_note": "the single in-flight call at the external stop; its full reserved cost is inside uncertain_spend_usd per the summarizer's conservative treatment",
+  "raw_sha256_note": "raw and tail hashes are computed and bound by the successor binding builder from the sealed file"
+ },
+ "execution": {
+  "harness": "bit_identical_pass (bb7504695d35bf429ca25b6924ead7b64603cf608506df0f474676495cf65afe)",
+  "formal_rows_committed": 368,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 128,
+  "reviewer_decisions_committed": 0,
+  "terminal_halt_records": 0,
+  "checker_malformed_events": 0,
+  "main_rows_committed": 0,
+  "retry_dispatched": false
+ },
+ "uncertain_events": {
+  "count": 24,
+  "usd": 2.40111965,
+  "breakdown": "predominantly Qwen3.8 429/503 rejections and timeouts (~$0.10-0.13 reservations each) through the 19:23Z-22:02Z crunch, plus small gemma-4 and Llama events including one gemma-4 streaming usage-chunk omission; plus the in-flight stop reservation",
+  "run_uncertain_ceiling_usd": 2.5,
+  "ceiling_disposition": "stopped at the dispatch-refusal threshold rather than at exhaustion, per the r6-attempt cost-minimization lesson"
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 21.663206619999986,
+  "this_run_accounted_spend_usd": 3.7433464699999996,
+  "aggregate_accounted_spend_usd": 25.406553089999985,
+  "remaining_usd": 34.593446910000015
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "The successor must use a fresh run identity, ledger, cache, and result store under the unchanged amendment-6 policies, preserve this archive read-only, carry the exact $25.406553089999985 aggregate accounted spend, reuse no measurement rows, launch only after a passing large-request availability probe in the owner-approved off-peak window, and remain separately documented with no main spend.",
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "No gate, threshold, prompt, seed, checker behavior, ceiling value, or protocol element is altered by this record."
+ ]
+}

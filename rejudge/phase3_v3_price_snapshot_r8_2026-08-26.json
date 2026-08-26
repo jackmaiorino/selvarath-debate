@@ -1,0 +1,46 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.5-9B": {
+   "catalog_entry_sha256": "20f4d066ca8afc9b6aa5da9f0f6387bbc987683df5fe701a901a5b25f8d57065",
+   "input_usd_per_million": 0.17,
+   "output_usd_per_million": 0.25,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "a5fb8384d932a057185dd476d290ea06a7b8a245555711d82a60cede53e3c42f"
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "catalog_entry_sha256": "a43a4b4b5e514c9485d79635cb53445e0910936d752eea083725b4fc902d5f02",
+   "input_usd_per_million": 2.5,
+   "output_usd_per_million": 6.25,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "ccedab0a61708cb1dd68359c2f45da4054ce73999d562ac806ab0e0f86e46720"
+  },
+  "google/gemma-4-31B-it": {
+   "catalog_entry_sha256": "0cb6fc8603f73f8ed35a3fc2783e41954462c7ed7f0ebdb7f6b7fc791f13d39a",
+   "input_usd_per_million": 0.39,
+   "output_usd_per_million": 0.9700000000000001,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "962a2c01779a82b8e69aa0d2f3975373e1ab02c0fe94b80d3e63e98e0d57ac35"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "catalog_entry_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
+   "input_usd_per_million": 1.0399999999999998,
+   "output_usd_per_million": 1.0399999999999998,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "f911e9a92c2936f0ae5512817074903cde75a1a0ec81d2e290bb693253602ba9"
+  }
+ },
+ "provider": "Together",
+ "raw_catalog": {
+  "canonical_sha256": "f129765ccf10b6fb25c42596e51cbe775e597b75469621a2e2dd183cf1fe531a",
+  "model_count": 276,
+  "path": "rejudge/output/phase3_v3r8_provider_models_2026-08-26T2204Z.json"
+ },
+ "raw_serverless_endpoints": {
+  "canonical_sha256": "4aa3bb176e656c1c2dc49ce2b5f819e09c26e60d354b87bf79d8aa8d06e551a3",
+  "endpoint_count": 158,
+  "path": "rejudge/output/phase3_v3r8_serverless_endpoints_2026-08-26T2204Z.json"
+ },
+ "schema_version": "phase3_v3_price_snapshot_v2",
+ "verified_at_utc": "2026-08-26T22:04:24.332345Z"
+}
