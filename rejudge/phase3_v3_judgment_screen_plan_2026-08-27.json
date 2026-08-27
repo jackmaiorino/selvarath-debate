@@ -1,0 +1,54 @@
+{
+ "schema_version": "phase3_v3_judgment_screen_plan_v1",
+ "plan_id": "phase3_v3_judgment_screen_plan_2026-08-27",
+ "recorded_at_utc": "2026-08-27T13:05:00Z",
+ "purpose": "Stage-1 triage of judgment-shaped and checker-shaped completion viability per configured judge, after the r21 empty-verdict discovery. An operational blocker screen, not a certification of low invalid rates.",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-27",
+  "selected_option": "Screen, select, rebuild (Recommended)",
+  "stage_1_ceiling_note": "the owner-approved option quoted ~$1-3 for screening; this stage-1 triage is bounded at $2.50 hard; stage-2 confirmation ceilings are presented separately after triage results"
+ },
+ "codex_basis": "rejudge/phase3_v3_codex_empty_verdict_consult_2026-08-27.md; a further Codex review of this frozen plan precedes any paid call",
+ "admission_unit": "model x serving mode x role x thinking mode x max_tokens",
+ "configurations_stage_1": [
+  {"id": "qwen38-verdict-8192", "model": "Qwen/Qwen3.8-2.4T-A95B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "qwen35_9b-verdict-8192", "model": "Qwen/Qwen3.5-9B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "gemma4-verdict-4096", "model": "google/gemma-4-31B-it", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming (screening transport; the canary pins gemma-4 streaming, recorded as a difference)"},
+  {"id": "gemma4-checker-4096", "model": "google/gemma-4-31B-it", "role": "query_checker", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming"},
+  {"id": "llama-verdict-512", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "role": "judge_verdict", "thinking": "none (non-thinking model)", "max_tokens": 512, "serving": "serverless non-streaming"}
+ ],
+ "probe_construction": {
+  "source": "real protocol-composed prompts over the frozen MAIN transcript bundle (E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json, canonical binding via the r5 exact-tokenizer manifest), rendered by rejudge.phase3_v3_static_prompts.render_static_messages with the exact frozen prompt bundle and templates",
+  "selection": "per configuration, the 24 highest exact-token-count prompts (upper tail): judge_verdict from the model's main-corpus judge_verdict counts (deterministic sort: count desc, prompt_key asc); query_checker by rendering checker prompts over the same transcripts and counting with the gemma-4 exact tokenizer at selection time",
+  "integrity": "each re-rendered judge_verdict prompt's sha256 must equal the corpus row's rendered_prompt_sha256 before dispatch; any mismatch aborts the screen unspent",
+  "seeds": "per-probe deterministic seed = first 8 hex digits of sha256(prompt_key) as int; temperature 0",
+  "canary_isolation": "no canary-bundle transcript or held-out question is used; screening outputs enter no canary or main store and are never pooled with measurements"
+ },
+ "acceptance_stage_1": {
+  "verdict_roles": "invalid = empty visible content OR strict parser (rejudge.parsers.parse_both -> strict verdict None); reject the configuration on the FIRST invalid; pass requires 0 of 24 invalid AND no completion consuming more than 80% of the candidate max_tokens",
+  "checker_role": "invalid = rejudge.phase2_query_gate.parse_checker_output raising MalformedCheckerOutput on the verbatim provider text (the frozen adapter applies no normalization); same 0-of-24 and 80% rules",
+  "label": "stage-1 pass is an operational triage only; stage-2 0-of-96 confirmation (separately authorized) is required for admission, and even that is an operational blocker screen, not a certification of a <=0.3% true rate"
+ },
+ "blinding": "the runner logs validity booleans, finish_reason, token counts, and response sha256 only; verdict direction and response text are never logged or inspected during selection",
+ "spend": {
+  "stage_1_ceiling_usd": 2.5,
+  "worst_case_table_usd": {
+   "qwen38-verdict-8192": "24 x (~7k prompt x $2.50/M + 8192 x $6.25/M) ~= $1.65",
+   "qwen35_9b-verdict-8192": "~$0.08",
+   "gemma4-verdict-4096": "~$0.16",
+   "gemma4-checker-4096": "~$0.16",
+   "llama-verdict-512": "~$0.19"
+  },
+  "enforcement": "the runner reserves each call's worst case before dispatch and refuses any dispatch that would take the running reservation total over the ceiling; early rejection (first invalid) stops that configuration's remaining probes",
+  "usage_log": "rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl (per-call reserved and actual costs from the r8 price snapshot); out-of-canary-ledger per the amendment-4 screening precedent, reported in the successor authorization"
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This plan authorizes stage-1 triage calls only, within the $2.50 ceiling, after the bound Codex review.",
+  "No result row, gate, roster, budget, or protocol element is changed by this plan.",
+  "Stage-1 passes admit nothing; admission requires the separately authorized stage-2 confirmation."
+ ]
+}
