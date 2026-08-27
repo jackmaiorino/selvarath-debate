@@ -197,8 +197,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume:
             probes = [probe for probe in probes
                       if (config_id, probe["prompt_key"]) not in evaluated]
-        print(f"[{config_id}] {len(probes)} probes rendered; "
-              f"max prompt {max(p['prompt_tokens_exact'] for p in probes)} tokens")
+        if probes:
+            print(f"[{config_id}] {len(probes)} probes rendered; "
+                  f"max prompt {max(p['prompt_tokens_exact'] for p in probes)} tokens")
+        else:
+            print(f"[{config_id}] all probes already evaluated")
         if args.dry_run:
             outcome["verdict"] = "dry_run"
             continue
