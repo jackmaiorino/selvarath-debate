@@ -1,0 +1,68 @@
+{
+ "schema_version": "phase3_v3_judgment_screen_results_v1",
+ "record_id": "phase3_v3_judgment_screen_results_2026-08-27",
+ "recorded_at_utc": "2026-08-27T18:20:00Z",
+ "plan": "rejudge/phase3_v3_judgment_screen_plan_2026-08-27.json",
+ "raw_logs": {
+  "results": "rejudge/output/phase3_v3_screen_results_2026-08-27.jsonl",
+  "usage": "rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl",
+  "screening_bank_sha256": "3ea8e7f68ebd6a50369ed924b99c34412094c93bc3dea4e60bdebbed9bf31887"
+ },
+ "stage_1": {
+  "verdicts": {
+   "qwen38-verdict-8192": "PASS_stage1 (24/24 valid, 0 over 80% cap)",
+   "qwen35_9b-verdict-8192": "REJECTED_first_invalid (probe 0 empty, finish_reason=length, completion_tokens=8192)",
+   "gemma4-verdict-4096": "PASS_stage1 (24/24 valid)",
+   "gemma4-checker-4096": "PASS_stage1 (24/24 valid)",
+   "llama-verdict-512": "PASS_stage1 (24/24 valid)"
+  }
+ },
+ "stage_2": {
+  "verdicts": {
+   "qwen38-verdict-8192-confirm": {
+    "verdict": "REJECTED_cap_utilization",
+    "detail": "96/96 probes valid, every finish_reason=stop, 0 invalid; 1 completion of 7653 tokens exceeded 80% of the 8192 cap (6553). Completion distribution: p50=1278, p90=2551, max=7653."
+   },
+   "gemma4-verdict-4096-confirm": {
+    "verdict": "REJECTED_cap_utilization",
+    "detail": "96/96 probes valid, every finish_reason=stop, 0 invalid; 2 completions (3407, 3580) exceeded 80% of the 4096 cap (3276). Distribution: p50=1352, p90=2139, max=3580."
+   },
+   "gemma4-checker-4096-confirm": {
+    "verdict": "PASS_stage2",
+    "detail": "96/96 valid, max completion 1889 of 4096 (46%)."
+   },
+   "llama-verdict-512-confirm": {
+    "verdict": "PASS_stage2",
+    "detail": "96/96 valid, max completion 207 of 512 (40%)."
+   },
+   "gemma4e4b-verdict-8192-triage": {
+    "verdict": "INCOMPLETE_batch_transport",
+    "detail": "probe 0 failed all 3 attempts with Together 400 'Unable to access non-serverless model google/gemma-4-E4B-it'. The model is not serverless-servable at all; a dedicated endpoint is out of scope. Candidate excluded on transport evidence, not on judgment quality."
+   },
+   "qwen35_9b-verdict-16384-triage": {
+    "verdict": "REJECTED_first_invalid",
+    "detail": "probe 0 (longest prompt) emitted 16384 tokens with finish_reason=length and no parseable verdict. With 8192-cap stage-1 rejection and 16384-cap rejection, the model's thinking on these judgment prompts is degenerate, not merely under-budgeted. Candidate definitively excluded."
+   }
+  },
+  "spend_usd": {
+   "stage_2_reserved": 7.0798,
+   "stage_2_actual_settled": 2.4557,
+   "stage_2_uncertain": 0.0281,
+   "uncertain_note": "three E4B attempts logged actual_usd null; provider 400 client rejections bill nothing, but the reserved worst case (3 x 0.00936) is carried as uncertain per the conservative convention",
+   "all_screening_reserved": 9.0864,
+   "all_screening_actual_settled": 3.0954,
+   "envelope_check": "stage-2 reservations 7.08 within the 14.00 stage envelope; every per-config ceiling respected"
+  },
+  "interpretation": {
+   "headroom_rule_reading": "Both thinking-verdict rejections are HEADROOM failures, not validity failures: 192/192 combined probes produced parseable verdicts with finish_reason=stop. The 80% rule exists because a 96-probe sample of a 22k-call run will see longer tails; completions near cap at n=96 imply truncation-driven invalids at scale.",
+   "implied_fix": "Re-screen the same two models at raised caps (each raised cap is a NEW admission unit under the frozen unit definition, so a paper-only re-labeling is not permitted): Qwen3.8 verdict at 16384 (observed max 7653 = 47% of 16384) and gemma-4-31B verdict at 8192 (observed max 3580 = 44% of 8192).",
+   "weak_slot": "No fourth-judge candidate remains: gemma-3n delisted, Qwen3.5-9B degenerate at both 8192 and 16384, gemma-4-E4B not serverless-servable. The roster question reduces to N=3 (gemma-4-31B, Llama-3.3-70B-Turbo, Qwen3.8) conditional on the raised-cap re-screens passing."
+  }
+ },
+ "no_admission_claim": "This record admits nothing. Admission requires a stage-2 (or stage-3 raised-cap) PASS for each configuration actually pinned in the successor protocol, and the roster change to N=3 requires owner approval.",
+ "non_claims": [
+  "No canary or main spend is authorized by this record.",
+  "Screening outputs enter no measurement store.",
+  "The 0-of-96 screens bound operational viability only; they certify no invalid-rate."
+ ]
+}
