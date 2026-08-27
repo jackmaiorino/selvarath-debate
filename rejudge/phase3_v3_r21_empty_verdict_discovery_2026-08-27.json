@@ -1,0 +1,28 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-27T11:50:00Z",
+ "observation_id": "phase3_v3_r21_empty_verdict_discovery_2026-08-27",
+ "status": "final_four_judge_attempt_canceled_before_formal_spend",
+ "discovery": "Thinking-model judges routinely exhaust the frozen 4,096-token reasoning-model effective completion cap on canary judgment prompts and return EMPTY visible content (ledger: finish_reason=length, full billing, empty text). Empty-verdict rates on the complete 96-slot b0 coverage in the r6-archive run: Qwen/Qwen3.5-9B 91/96 (95%), Qwen/Qwen3.8-2.4T-A95B 7/96 (7%), google/gemma-4-31B-it 1/96, meta-llama/Llama-3.3-70B-Instruct-Turbo (non-thinking) 0/96. Corroborated in the r7 and r8 archive stores (Qwen3.5-9B 52/91 and 87/130 overall; Qwen3.8 3/71 and 8/118). The frozen strict INVALID gate (per judge, b0, invalid <= 1 of 96) therefore fails Qwen3.5-9B by ~90 and Qwen3.8 by ~6 in every configuration attempted this week: no attempt could have passed its gates regardless of provider weather. The r13 checker_malformed event was the same mechanism on gemma-4's checker role. Capability anchors and admission screening probes used short prompts that fit within the cap, which is why the amendment-4 gates and the weakness qualification never caught it.",
+ "trigger": "Run phase3-v3-534667eded4165df's first harness execution returned an empty response on its Qwen3.5-9B cell; the caching layer refuses to memoise empties by frozen doctrine, run_harness recorded the result row anyway and then failed its own completeness check, wedging the identity at $0.001 spend and prompting the first verdict-text inspection of the sealed stores.",
+ "orchestrator_accountability": "Two process failures by the orchestrator session are recorded plainly: (1) the amendment-4 admission gates screened catalog presence, live completion, tokenizer equivalence, price, and anchor-based weakness, but never a judgment-SHAPED call, so a judge unable to emit verdicts within the frozen budget was admitted; (2) the three sealed result stores contained the empty-verdict evidence for roughly a day before any verdict-text inspection occurred.",
+ "actions_taken": [
+  "The owner-approved final four-judge attempt (amendment 7) is NOT launched: proceeding would knowingly spend ~$10 accounted on a run that fails known gates. Amendment 7's conditional N=3 successor is also moot as constituted, since its roster includes Qwen/Qwen3.5-9B.",
+  "Run phase3-v3-534667eded4165df is sealed as wedged with $0.001043 spend (one empty harness response; identity-terminal under the run_harness completeness check).",
+  "A Codex consult on the remedy space (raised verdict budgets with judgment-shaped screening, re-rostering to judges that fit the budget, or both) is bound alongside; the owner decides next steps.",
+  "The INVALID gate is not loosened and invalid verdicts are not regenerated, per the frozen rules."
+ ],
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 30.526558439999988,
+  "wedged_r9_identity_spend_usd_approx": 0.001,
+  "no_formal_spend_occurred": true
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing and changes no gate, budget, roster, or protocol element.",
+  "Empty-verdict rates are completion-rate evidence under the frozen 4,096 cap, not judge-quality evidence conditioned on completion.",
+  "The sealed stores remain immutable; every figure here is recomputable from them."
+ ]
+}
