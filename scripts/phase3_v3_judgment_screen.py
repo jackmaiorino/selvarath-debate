@@ -42,6 +42,35 @@ CEILING_USD = 2.5
 PROBES_PER_CONFIGURATION = 24
 CAP_UTILIZATION_LIMIT = 0.80
 
+# Stage 2 (owner-approved 2026-08-27): 0-of-96 distribution-matched confirmation for the
+# stage-1 passers plus 24-probe upper-tail triage of the two weak-slot candidates. Every
+# stage-2 configuration carries its own reservation ceiling; the stage envelope is $14.
+STAGE2_CEILING_USD = 14.0
+STAGE2_CONFIRMATION_PROBES = 96
+STAGE2_CONFIGURATIONS = [
+    {"id": "qwen38-verdict-8192-confirm", "model": "Qwen/Qwen3.8-2.4T-A95B",
+     "role": "judge_verdict", "max_tokens": 8192, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 8.0},
+    {"id": "gemma4-verdict-4096-confirm", "model": "google/gemma-4-31B-it",
+     "role": "judge_verdict", "max_tokens": 4096, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 3.0},
+    {"id": "gemma4-checker-4096-confirm", "model": "google/gemma-4-31B-it",
+     "role": "query_checker", "max_tokens": 4096, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 1.5},
+    {"id": "llama-verdict-512-confirm", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+     "role": "judge_verdict", "max_tokens": 512, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 1.0},
+    {"id": "gemma4e4b-verdict-8192-triage", "model": "google/gemma-4-E4B-it",
+     "role": "judge_verdict", "max_tokens": 8192, "probes": 24, "mode": "upper_tail",
+     "config_ceiling_usd": 0.5,
+     "compose_as": "Qwen/Qwen3.8-2.4T-A95B", "count_with": "google/gemma-4-31B-it",
+     "price_as": "google/gemma-4-31B-it",
+     "note": "catalog lists E4B unpriced; reservations assume gemma-4-31B rates"},
+    {"id": "qwen35_9b-verdict-16384-triage", "model": "Qwen/Qwen3.5-9B",
+     "role": "judge_verdict", "max_tokens": 16384, "probes": 24, "mode": "upper_tail",
+     "config_ceiling_usd": 0.3},
+]
+
 MODEL_DIRS = {
     "Qwen/Qwen3.8-2.4T-A95B": "Qwen--Qwen3.8-2.4T-A95B",
     "Qwen/Qwen3.5-9B": "Qwen--Qwen3.5-9B",
@@ -84,6 +113,9 @@ def main(argv: list[str] | None = None) -> int:
                             help="select and render everything; no provider calls")
     parser_cli.add_argument("--resume", action="store_true",
                             help="skip probes already evaluated in the results log")
+    parser_cli.add_argument("--stage", type=int, default=1, choices=(1, 2),
+                            help="1 = triage of the plan's configurations; "
+                                 "2 = owner-approved confirmation plus weak-slot triage")
     args = parser_cli.parse_args(argv)
 
     plan = _load_json(PLAN_PATH)
@@ -122,10 +154,16 @@ def main(argv: list[str] | None = None) -> int:
     summary: dict[str, dict] = {}
 
     def build_probes(configuration: dict) -> list[dict]:
-        """Render every candidate prompt for this configuration and keep the top 24 by
-        exact token count (deterministic tie-break on the probe id)."""
+        """Render every candidate prompt for this configuration, then select either the
+        upper tail (top-N by exact token count) or a deterministic distribution-matched
+        stride sample of N across the full length ordering, excluding probes already
+        evaluated in earlier stages. Tie-breaks on the probe id everywhere."""
         model = configuration["model"]
         role = configuration["role"]
+        compose_as = configuration.get("compose_as", model)
+        count_with = configuration.get("count_with", model)
+        probe_count = int(configuration.get("probes", PROBES_PER_CONFIGURATION))
+        mode = configuration.get("mode", "upper_tail")
         if role == "query_checker":
             variants = [
                 "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side0",
@@ -141,9 +179,9 @@ def main(argv: list[str] | None = None) -> int:
                 messages = phase3_v3_static_prompts.render_static_messages(
                     protocol=protocol, prompt_bundle=prompt_bundle,
                     world_documents=world_documents, transcript_entry=entry,
-                    billed_model=model, role=render_role, variant_id=variant)
+                    billed_model=compose_as, role=render_role, variant_id=variant)
                 text, token_count = phase3_v3_static_prompts.render_chat_prompt(
-                    tokenizers[model], messages)
+                    tokenizers[count_with], messages)
                 probe_id = hashlib.sha256(
                     f"{model}|{render_role}|{variant}|{entry['transcript_sha256']}".encode(
                         "utf-8")).hexdigest()
@@ -155,7 +193,20 @@ def main(argv: list[str] | None = None) -> int:
                 })
         candidates.sort(
             key=lambda probe: (-probe["prompt_tokens_exact"], probe["prompt_key"]))
-        return candidates[:PROBES_PER_CONFIGURATION]
+        fresh = [probe for probe in candidates
+                 if (configuration["id"], probe["prompt_key"]) not in evaluated
+                 and not any((prior_config, probe["prompt_key"]) in evaluated
+                             for prior_config in stage1_alias.get(
+                                 configuration["id"], ()))]
+        if mode == "upper_tail":
+            return fresh[:probe_count]
+        # Distribution-matched: a deterministic stride sample across the full length
+        # ordering, so confirmation covers the whole prompt-length distribution rather
+        # than only the tail.
+        if len(fresh) <= probe_count:
+            return fresh
+        stride = len(fresh) / probe_count
+        return [fresh[int(index * stride)] for index in range(probe_count)]
 
     client = None
     if not args.dry_run:
@@ -167,9 +218,14 @@ def main(argv: list[str] | None = None) -> int:
         # client's per-call wall-clock ceiling territory.
         client = Together(timeout=900.0)
 
+    stage1_alias = {
+        configuration["id"]: (configuration["id"].rsplit("-confirm", 1)[0],)
+        for configuration in STAGE2_CONFIGURATIONS
+        if configuration["id"].endswith("-confirm")
+    }
     evaluated: set[tuple[str, str]] = set()
     prior_tallies: dict[str, dict[str, int]] = {}
-    if args.resume and RESULTS_LOG.exists():
+    if RESULTS_LOG.exists():
         for line in RESULTS_LOG.read_text(encoding="utf-8").splitlines():
             row = json.loads(line)
             evaluated.add((row["config"], row["prompt_key"]))
@@ -180,11 +236,17 @@ def main(argv: list[str] | None = None) -> int:
             tally["invalid"] += int(bool(row["invalid"]))
             tally["over_80pct_cap"] += int(bool(row["over_80pct_cap"]))
 
-    for configuration in plan["configurations_stage_1"]:
+    stage_ceiling = CEILING_USD if args.stage == 1 else STAGE2_CEILING_USD
+    configurations = (
+        plan["configurations_stage_1"] if args.stage == 1 else STAGE2_CONFIGURATIONS)
+    for configuration in configurations:
         config_id = configuration["id"]
         model = configuration["model"]
         max_tokens = int(configuration["max_tokens"])
-        price = prices[model]
+        price = prices[configuration.get("price_as", model)]
+        config_ceiling = float(
+            configuration.get("config_ceiling_usd", stage_ceiling))
+        config_reserved = 0.0
         probes = build_probes(configuration)
         carried = prior_tallies.get(
             config_id, {"probes_dispatched": 0, "invalid": 0, "over_80pct_cap": 0})
@@ -209,11 +271,13 @@ def main(argv: list[str] | None = None) -> int:
             reservation = (
                 probe["prompt_tokens_exact"] * price["input_usd_per_million"]
                 + max_tokens * price["output_usd_per_million"]) / 1_000_000
-            if reserved_total + reservation > CEILING_USD:
+            if (reserved_total + reservation > stage_ceiling
+                    or config_reserved + reservation > config_ceiling):
                 outcome["verdict"] = "ceiling_stop"
                 print(f"[{config_id}] ceiling stop at probe {index}")
                 break
             reserved_total += reservation
+            config_reserved += reservation
             seed = int(hashlib.sha256(
                 probe["prompt_key"].encode("utf-8")).hexdigest()[:8], 16)
             started = _utc_now()
@@ -283,10 +347,12 @@ def main(argv: list[str] | None = None) -> int:
             if over_cap:
                 outcome["over_80pct_cap"] += 1
         if outcome["verdict"] == "pending":
-            if outcome["probes_dispatched"] < PROBES_PER_CONFIGURATION:
+            target = int(configuration.get("probes", PROBES_PER_CONFIGURATION))
+            if outcome["probes_dispatched"] < target:
                 outcome["verdict"] = "INCOMPLETE_batch"
             elif outcome["over_80pct_cap"] == 0:
-                outcome["verdict"] = "PASS_stage1"
+                outcome["verdict"] = (
+                    "PASS_stage1" if args.stage == 1 else "PASS_stage2")
             else:
                 outcome["verdict"] = "REJECTED_cap_utilization"
         print(f"[{config_id}] {outcome}")

@@ -54,7 +54,14 @@
    "stage_1_ceiling_usd": 2.5
   }
  },
- "execution_authorized_beyond_stage_1": false,
+ "stage_2": {
+  "authorized": true,
+  "owner_approval": "the owner's 'Confirm passers + triage weak candidates (Recommended)' selection of 2026-08-27, made on the stage-1 results ($0.64 actual; passers qwen38-verdict-8192, gemma4-verdict-4096, gemma4-checker-4096, llama-verdict-512; qwen35_9b-verdict-8192 rejected)",
+  "content": "0-of-96 distribution-matched confirmation per stage-1 passer (stride-sampled across the full prompt-length ordering, excluding stage-1 probes) plus 24-probe upper-tail triage of google/gemma-4-E4B-it at 8192 (composed via a registry model, counted and reserved at gemma-4-31B rates since the catalog lists E4B unpriced) and Qwen/Qwen3.5-9B at 16384",
+  "ceilings_usd": {"stage_envelope": 14.0, "qwen38-verdict-8192-confirm": 8.0, "gemma4-verdict-4096-confirm": 3.0, "gemma4-checker-4096-confirm": 1.5, "llama-verdict-512-confirm": 1.0, "gemma4e4b-verdict-8192-triage": 0.5, "qwen35_9b-verdict-16384-triage": 0.3},
+  "admission_rule": "a configuration is admissible for the canary rebuild only with a stage-2 PASS (all probes evaluated, 0 invalid, none over 80% cap utilization); weak-slot triage passers additionally require their own 0-of-96 confirmation before admission; if no weak candidate survives, the rebuild proceeds as N=3 under a separately owner-approved scope amendment"
+ },
+ "execution_authorized_beyond_stage_2": false,
  "canary_spend_authorized": false,
  "main_spend_authorized": false,
  "non_claims": [
