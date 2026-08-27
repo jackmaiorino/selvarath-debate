@@ -105,7 +105,7 @@ def build_price_snapshot(
         catalog_by_id[model_id] = entry
 
     models: dict[str, Any] = {}
-    for model in protocol["roster"]["judges_final"]:
+    for model in phase3_v3_inputs.billed_model_registry(protocol):
         entry = catalog_by_id.get(model)
         if entry is None:
             raise PriceMaterializationError(f"required model is absent from raw catalog: {model}")

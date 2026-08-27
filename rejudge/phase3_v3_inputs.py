@@ -106,6 +106,18 @@ def expected_role_variants(protocol: Mapping[str, Any], model: str) -> dict[str,
         raise InputGateError(str(exc)) from exc
 
 
+def billed_model_registry(protocol: Mapping[str, Any]) -> list[str]:
+    """Every billed model in the protocol registry, in registry order.
+
+    This is the coverage set for tokenizer, price-snapshot, and serverless-endpoint
+    validation. It equals ``roster.judges_final`` for every protocol before r5, where
+    gemma-4 first serves checker-only without holding a judge seat, so sealed history
+    validates unchanged.
+    """
+    registry = _object(protocol.get("model_registry"), "protocol.model_registry")
+    return list(_object(registry.get("models"), "protocol.model_registry.models"))
+
+
 def transcript_entries(
     bundle: Mapping[str, Any], *, expected_count: int,
 ) -> dict[str, Mapping[str, Any]]:
@@ -519,7 +531,7 @@ def validate_exact_tokenizer_manifest(
             _text(binding.get("path"), f"world_documents[{world!r}].path")
             _sha256(binding.get("sha256"), f"world_documents[{world!r}].sha256")
 
-    required_models = list(protocol["roster"]["judges_final"])
+    required_models = billed_model_registry(protocol)
     provider_templates: dict[str, Mapping[str, Any] | None] = {}
     if schema_version == TOKENIZER_SCHEMA_VERSION_V5:
         raw_provider_templates = _object(
@@ -780,7 +792,7 @@ def load_exact_context_index(
 
     prompt_tokens: dict[tuple[str, str, str, str, str], int] = {}
     models = _object(manifest.get("models"), "models")
-    for model in protocol["roster"]["judges_final"]:
+    for model in billed_model_registry(protocol):
         model_entry = _object(models.get(model), f"models[{model!r}]")
         corpora = _object(model_entry.get("corpora"), f"models[{model!r}].corpora")
         for dataset in TRANSCRIPT_BUNDLE_COUNTS:
@@ -922,7 +934,7 @@ def validate_price_snapshot(
             if len(endpoint_entries) != endpoint_count:
                 raise InputGateError("raw serverless endpoint_count drifted")
             serverless_by_model = {}
-            required_set = set(protocol["roster"]["judges_final"])
+            required_set = set(billed_model_registry(protocol))
             for model in required_set:
                 matches = [
                     endpoint for endpoint in endpoint_entries
@@ -941,7 +953,7 @@ def validate_price_snapshot(
                 serverless_by_model[model] = endpoint
 
     models = _object(snapshot.get("models"), "models")
-    required_models = list(protocol["roster"]["judges_final"])
+    required_models = billed_model_registry(protocol)
     if set(models) != set(required_models):
         raise InputGateError("price snapshot models must equal the final billed-model roster")
     for model in required_models:

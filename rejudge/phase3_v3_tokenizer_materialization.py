@@ -69,9 +69,16 @@ def _validate_spec(
     if spec.get("execution_authorized") is not False:
         raise TokenizerMaterializationError("tokenizer spec cannot authorize execution")
     raw_models = _object(spec.get("models"), "models")
-    required_models = list(protocol["roster"]["judges_final"])
+    # The covered set is every BILLED model (the protocol registry), not only the judge
+    # roster: under the r5 protocol gemma-4 serves checker-only, and its checker prompts
+    # need the same exact-token coverage. For every earlier protocol the registry keys
+    # equal judges_final, so sealed history validates unchanged.
+    required_models = list(_object(
+        _object(protocol.get("model_registry"), "protocol.model_registry").get("models"),
+        "protocol.model_registry.models"))
     if set(raw_models) != set(required_models):
-        raise TokenizerMaterializationError("tokenizer spec models must equal the final roster")
+        raise TokenizerMaterializationError(
+            "tokenizer spec models must equal the billed-model registry")
     models: dict[str, dict[str, Any]] = {}
     expected_fields = {
         "classification", "repository", "revision", "provider_equivalence_evidence",
@@ -220,7 +227,7 @@ def build_exact_tokenizer_artifacts(
     try:
         manifest_models: dict[str, Any] = {}
         used_slugs: set[str] = set()
-        for model in protocol["roster"]["judges_final"]:
+        for model in models:
             spec_entry = models[model]
             tokenizer_directory = Path(spec_entry["local_tokenizer_directory"])
             tokenizer = loader(tokenizer_directory)
