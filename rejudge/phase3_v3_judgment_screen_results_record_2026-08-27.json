@@ -59,6 +59,26 @@
    "weak_slot": "No fourth-judge candidate remains: gemma-3n delisted, Qwen3.5-9B degenerate at both 8192 and 16384, gemma-4-E4B not serverless-servable. The roster question reduces to N=3 (gemma-4-31B, Llama-3.3-70B-Turbo, Qwen3.8) conditional on the raised-cap re-screens passing."
   }
  },
+ "stage_3": {
+  "content": "owner-approved raised-cap re-screens, 96 fresh distribution-matched probes each, zero overlap with any earlier stage's probes (verified from the per-row prompt keys)",
+  "verdicts": {
+   "qwen38-verdict-16384": {
+    "verdict": "PASS_stage3",
+    "detail": "96/96 parseable, every finish_reason=stop, max completion 6,215 = 38% of cap (p50 1,245, p90 2,604, p95 3,274). Across all 216 probes at three caps Qwen3.8 always terminated; its tail (~6-8k) is genuinely bounded. ADMITTED for judge_verdict at 16,384."
+   },
+   "gemma4-verdict-8192": {
+    "verdict": "REJECTED_cap_utilization",
+    "detail": "95/96 finished (stop) at <= 2,686 tokens (p50 1,408, p95 2,538); ONE probe (prompt 3,133 tokens) ran away to finish_reason=length at the full 8,192. The truncated output still contained a parseable strict verdict, so invalid=0; the headroom rule rejected the configuration.",
+    "mechanism_finding": "Rare runaway generation mode, per-prompt deterministic at temperature 0: corroborated by the sealed r6-archive store (exactly 1/96 gemma-4 b0 verdicts EMPTY at the old 4,096 cap), the r13 checker halt (finish=length ct=4,096, all thinking, no verdict), and 120 truncation-free verdict probes at 4,096 across stages 1-2 (max 3,580). Approximately 1% of judgment prompts trigger unbounded generation that no cap contains; where the runaway starts decides whether a verdict still parses. gemma-4 therefore has NO passing judge_verdict configuration (4,096 rejected at stage 2, 8,192 at stage 3); its query_checker configuration keeps its stage-2 PASS.",
+    "codex_ruling": "rejudge/phase3_v3_codex_stage3_gemma_consult_2026-08-27.md: a post-hoc exemption would be gate-weakening; judge runaway is prompt-dependent missingness in the measured endpoint, not bounded orchestration failure; the canary INVALID gate has ~75% pass probability against a 1% mechanism and so cannot rescue it; ruled N=2 (Llama + Qwen3.8) with gemma-4 checker-only, replacement-judge screening as the N=3-preserving alternative, owner decides"
+   }
+  },
+  "spend_usd": {
+   "stage_3_reserved": 11.5263,
+   "stage_3_actual_settled": 1.9964,
+   "all_screening_actual_settled": 5.0919
+  }
+ },
  "no_admission_claim": "This record admits nothing. Admission requires a stage-2 (or stage-3 raised-cap) PASS for each configuration actually pinned in the successor protocol, and the roster change to N=3 requires owner approval.",
  "non_claims": [
   "No canary or main spend is authorized by this record.",
