@@ -82,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
     parser_cli = argparse.ArgumentParser(description=__doc__)
     parser_cli.add_argument("--dry-run", action="store_true",
                             help="select and render everything; no provider calls")
+    parser_cli.add_argument("--resume", action="store_true",
+                            help="skip probes already evaluated in the results log")
     args = parser_cli.parse_args(argv)
 
     plan = _load_json(PLAN_PATH)
@@ -159,7 +161,24 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         from together import Together
 
-        client = Together()
+        # Thinking-model generations at 4-8k completion tokens legitimately run for
+        # minutes; the SDK default read timeout misclassifies them as transport failures
+        # (the first live batch lost 10 probes to exactly that). 900s mirrors the canary
+        # client's per-call wall-clock ceiling territory.
+        client = Together(timeout=900.0)
+
+    evaluated: set[tuple[str, str]] = set()
+    prior_tallies: dict[str, dict[str, int]] = {}
+    if args.resume and RESULTS_LOG.exists():
+        for line in RESULTS_LOG.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            evaluated.add((row["config"], row["prompt_key"]))
+            tally = prior_tallies.setdefault(
+                row["config"], {"probes_dispatched": 0, "invalid": 0,
+                                "over_80pct_cap": 0})
+            tally["probes_dispatched"] += 1
+            tally["invalid"] += int(bool(row["invalid"]))
+            tally["over_80pct_cap"] += int(bool(row["over_80pct_cap"]))
 
     for configuration in plan["configurations_stage_1"]:
         config_id = configuration["id"]
@@ -167,9 +186,17 @@ def main(argv: list[str] | None = None) -> int:
         max_tokens = int(configuration["max_tokens"])
         price = prices[model]
         probes = build_probes(configuration)
-        outcome = {"probes_dispatched": 0, "invalid": 0, "over_80pct_cap": 0,
-                   "verdict": "pending"}
+        carried = prior_tallies.get(
+            config_id, {"probes_dispatched": 0, "invalid": 0, "over_80pct_cap": 0})
+        outcome = {**carried, "verdict": "pending"}
         summary[config_id] = outcome
+        if args.resume and outcome["invalid"] > 0:
+            outcome["verdict"] = "REJECTED_first_invalid"
+            print(f"[{config_id}] already rejected in a prior batch")
+            continue
+        if args.resume:
+            probes = [probe for probe in probes
+                      if (config_id, probe["prompt_key"]) not in evaluated]
         print(f"[{config_id}] {len(probes)} probes rendered; "
               f"max prompt {max(p['prompt_tokens_exact'] for p in probes)} tokens")
         if args.dry_run:
