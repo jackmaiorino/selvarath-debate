@@ -1,0 +1,157 @@
+﻿# Codex consults: judgment-screen plan conformance (2026-08-27)
+
+Two one-shot consults, gpt-5.6-sol. First review raised four blockers; the revision resolved them ('no blockers').
+
+## Review 1 brief
+
+```
+One-shot consult. Review the FROZEN stage-1 screening plan below before its first paid call, per your empty-verdict verdict this morning (same selvarath phase-3 canary; owner approved screen-select-rebuild). Dry run: all five configurations render 24 hash-verified upper-tail probes; max verdict prompt ~4.9k tokens; total worst-case reservation ~$2.00 under the $2.50 ceiling. Answer with numbered blockers or 'no blockers', briefly; this is a conformance check of the plan against your own specification, not a strategy re-litigation.
+
+PLAN:
+{
+ "schema_version": "phase3_v3_judgment_screen_plan_v1",
+ "plan_id": "phase3_v3_judgment_screen_plan_2026-08-27",
+ "recorded_at_utc": "2026-08-27T13:05:00Z",
+ "purpose": "Stage-1 triage of judgment-shaped and checker-shaped completion viability per configured judge, after the r21 empty-verdict discovery. An operational blocker screen, not a certification of low invalid rates.",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-27",
+  "selected_option": "Screen, select, rebuild (Recommended)",
+  "stage_1_ceiling_note": "the owner-approved option quoted ~$1-3 for screening; this stage-1 triage is bounded at $2.50 hard; stage-2 confirmation ceilings are presented separately after triage results"
+ },
+ "codex_basis": "rejudge/phase3_v3_codex_empty_verdict_consult_2026-08-27.md; a further Codex review of this frozen plan precedes any paid call",
+ "admission_unit": "model x serving mode x role x thinking mode x max_tokens",
+ "configurations_stage_1": [
+  {"id": "qwen38-verdict-8192", "model": "Qwen/Qwen3.8-2.4T-A95B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "qwen35_9b-verdict-8192", "model": "Qwen/Qwen3.5-9B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "gemma4-verdict-4096", "model": "google/gemma-4-31B-it", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming (screening transport; the canary pins gemma-4 streaming, recorded as a difference)"},
+  {"id": "gemma4-checker-4096", "model": "google/gemma-4-31B-it", "role": "query_checker", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming"},
+  {"id": "llama-verdict-512", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "role": "judge_verdict", "thinking": "none (non-thinking model)", "max_tokens": 512, "serving": "serverless non-streaming"}
+ ],
+ "probe_construction": {
+  "source": "real protocol-composed prompts over the frozen MAIN transcript bundle (E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json, canonical binding via the r5 exact-tokenizer manifest), rendered by rejudge.phase3_v3_static_prompts.render_static_messages with the exact frozen prompt bundle and templates",
+  "selection": "per configuration, the 24 highest exact-token-count prompts (upper tail): judge_verdict from the model's main-corpus judge_verdict counts (deterministic sort: count desc, prompt_key asc); query_checker by rendering checker prompts over the same transcripts and counting with the gemma-4 exact tokenizer at selection time",
+  "integrity": "each re-rendered judge_verdict prompt's sha256 must equal the corpus row's rendered_prompt_sha256 before dispatch; any mismatch aborts the screen unspent",
+  "seeds": "per-probe deterministic seed = first 8 hex digits of sha256(prompt_key) as int; temperature 0",
+  "canary_isolation": "no canary-bundle transcript or held-out question is used; screening outputs enter no canary or main store and are never pooled with measurements"
+ },
+ "acceptance_stage_1": {
+  "verdict_roles": "invalid = empty visible content OR strict parser (rejudge.parsers.parse_both -> strict verdict None); reject the configuration on the FIRST invalid; pass requires 0 of 24 invalid AND no completion consuming more than 80% of the candidate max_tokens",
+  "checker_role": "invalid = rejudge.phase2_query_gate.parse_checker_output raising MalformedCheckerOutput on the verbatim provider text (the frozen adapter applies no normalization); same 0-of-24 and 80% rules",
+  "label": "stage-1 pass is an operational triage only; stage-2 0-of-96 confirmation (separately authorized) is required for admission, and even that is an operational blocker screen, not a certification of a <=0.3% true rate"
+ },
+ "blinding": "the runner logs validity booleans, finish_reason, token counts, and response sha256 only; verdict direction and response text are never logged or inspected during selection",
+ "spend": {
+  "stage_1_ceiling_usd": 2.5,
+  "worst_case_table_usd": {
+   "qwen38-verdict-8192": "24 x (~7k prompt x $2.50/M + 8192 x $6.25/M) ~= $1.65",
+   "qwen35_9b-verdict-8192": "~$0.08",
+   "gemma4-verdict-4096": "~$0.16",
+   "gemma4-checker-4096": "~$0.16",
+   "llama-verdict-512": "~$0.19"
+  },
+  "enforcement": "the runner reserves each call's worst case before dispatch and refuses any dispatch that would take the running reservation total over the ceiling; early rejection (first invalid) stops that configuration's remaining probes",
+  "usage_log": "rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl (per-call reserved and actual costs from the r8 price snapshot); out-of-canary-ledger per the amendment-4 screening precedent, reported in the successor authorization"
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This plan authorizes stage-1 triage calls only, within the $2.50 ceiling, after the bound Codex review.",
+  "No result row, gate, roster, budget, or protocol element is changed by this plan.",
+  "Stage-1 passes admit nothing; admission requires the separately authorized stage-2 confirmation."
+ ]
+}
+
+```
+
+## Review 1 verdict
+
+1. Authority: `execution_authorized` is false while the plan claims authorization after review. It also omits the required aggregate $60 binding. No paid dispatch is authorized.
+
+2. Probe source: the plan uses the MAIN transcript bundle, not the independently seeded screening bank required by the specification.
+
+3. Checker integrity: the runner selects by verdict-token ordering, then substitutes checker messages without re-sorting or hashing them. The checker probes are not verified upper-tail checker prompts.
+
+4. Complete-batch rule: transport errors are skipped, allowing `PASS_stage1` with fewer than 24 evaluated probes. The specification requires 24 completed valid probes.
+
+
+
+
+## Review 2 brief
+
+```
+One-shot re-check, brief. Your four blockers on the stage-1 screen plan are resolved as follows: (1) stage_1_execution block added with owner basis and the $60 aggregate binding; (2) probe source is now the INDEPENDENT pilot bank (data/transcripts.jsonl, 318 real pilot debates untouched by any phase-3 measurement input; bank sha256 recorded per result row; limitation noted that its length distribution approximates the main bundle's); (3) the checker upper tail is selected by checker-prompt token counts over query_checker::sequential_b2 variants; (4) a probe that cannot complete within 3 bounded transport retries makes the batch INCOMPLETE, never a pass. Revised dry run: five configurations x 24 hash-recorded probes; verdict upper tails ~3.6k tokens, checker ~1.5k; worst-case reservations ~$1.7 under the $2.50 ceiling. Reply 'no blockers' or numbered blockers only.
+
+REVISED PLAN:
+{
+ "schema_version": "phase3_v3_judgment_screen_plan_v1",
+ "plan_id": "phase3_v3_judgment_screen_plan_2026-08-27",
+ "recorded_at_utc": "2026-08-27T13:05:00Z",
+ "purpose": "Stage-1 triage of judgment-shaped and checker-shaped completion viability per configured judge, after the r21 empty-verdict discovery. An operational blocker screen, not a certification of low invalid rates.",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-27",
+  "selected_option": "Screen, select, rebuild (Recommended)",
+  "stage_1_ceiling_note": "the owner-approved option quoted ~$1-3 for screening; this stage-1 triage is bounded at $2.50 hard; stage-2 confirmation ceilings are presented separately after triage results"
+ },
+ "codex_basis": "rejudge/phase3_v3_codex_empty_verdict_consult_2026-08-27.md; a further Codex review of this frozen plan precedes any paid call",
+ "admission_unit": "model x serving mode x role x thinking mode x max_tokens",
+ "configurations_stage_1": [
+  {"id": "qwen38-verdict-8192", "model": "Qwen/Qwen3.8-2.4T-A95B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "qwen35_9b-verdict-8192", "model": "Qwen/Qwen3.5-9B", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 8192, "serving": "serverless non-streaming"},
+  {"id": "gemma4-verdict-4096", "model": "google/gemma-4-31B-it", "role": "judge_verdict", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming (screening transport; the canary pins gemma-4 streaming, recorded as a difference)"},
+  {"id": "gemma4-checker-4096", "model": "google/gemma-4-31B-it", "role": "query_checker", "thinking": "provider-default on", "max_tokens": 4096, "serving": "serverless non-streaming"},
+  {"id": "llama-verdict-512", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "role": "judge_verdict", "thinking": "none (non-thinking model)", "max_tokens": 512, "serving": "serverless non-streaming"}
+ ],
+ "probe_construction": {
+  "source": "real protocol-composed prompts over the INDEPENDENT screening bank: the original pilot's 318 transcripts (data/transcripts.jsonl, file sha256 recorded in every result row), which no phase-3 measurement input (main bundle, canary bundle, held-out questions) touches; rendered by rejudge.phase3_v3_static_prompts.render_static_messages with the exact frozen prompt bundle and templates",
+  "selection": "per configuration, render EVERY candidate prompt (both mirrored sides; judge_verdict::b0 variants for verdict roles, query_checker::sequential_b2 variants for the checker role) with the model's exact tokenizer, then keep the 24 highest exact-token-count prompts (deterministic sort: count desc, probe id asc); the checker upper tail is selected by CHECKER prompt token counts, never by verdict-prompt ordering",
+  "integrity": "every dispatched probe's rendered prompt sha256 and the screening-bank file sha256 are recorded per result row; renders are deterministic from the frozen bank, protocol, and templates",
+  "seeds": "per-probe deterministic seed = first 8 hex digits of sha256(probe id) as int; temperature 0",
+  "canary_isolation": "no phase-3 measurement transcript or held-out question is used; screening outputs enter no canary or main store and are never pooled with measurements",
+  "limitation": "the pilot bank's length distribution approximates but does not equal the regenerated main bundle's; upper-tail selection is relative to the pilot bank and is reported as such"
+ },
+ "acceptance_stage_1": {
+  "verdict_roles": "invalid = empty visible content OR strict parser (rejudge.parsers.parse_both -> strict verdict None); reject the configuration on the FIRST invalid; pass requires ALL 24 probes evaluated with 0 invalid AND no completion consuming more than 80% of the candidate max_tokens; a probe that cannot complete within 3 bounded transport retries makes the batch INCOMPLETE, which is never a pass",
+  "checker_role": "invalid = rejudge.phase2_query_gate.parse_checker_output raising MalformedCheckerOutput on the verbatim provider text (the frozen adapter applies no normalization); same 0-of-24 and 80% rules",
+  "label": "stage-1 pass is an operational triage only; stage-2 0-of-96 confirmation (separately authorized) is required for admission, and even that is an operational blocker screen, not a certification of a <=0.3% true rate"
+ },
+ "blinding": "the runner logs validity booleans, finish_reason, token counts, and response sha256 only; verdict direction and response text are never logged or inspected during selection",
+ "spend": {
+  "stage_1_ceiling_usd": 2.5,
+  "worst_case_table_usd": {
+   "qwen38-verdict-8192": "24 x (~7k prompt x $2.50/M + 8192 x $6.25/M) ~= $1.65",
+   "qwen35_9b-verdict-8192": "~$0.08",
+   "gemma4-verdict-4096": "~$0.16",
+   "gemma4-checker-4096": "~$0.16",
+   "llama-verdict-512": "~$0.19"
+  },
+  "enforcement": "the runner reserves each call's worst case before dispatch and refuses any dispatch that would take the running reservation total over the ceiling; early rejection (first invalid) stops that configuration's remaining probes",
+  "usage_log": "rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl (per-call reserved and actual costs from the r8 price snapshot); out-of-canary-ledger per the amendment-4 screening precedent, reported in the successor authorization"
+ },
+ "stage_1_execution": {
+  "authorized": true,
+  "basis": "the owner's 'Screen, select, rebuild (Recommended)' selection of 2026-08-27 plus the resolved blockers of the bound Codex conformance review (probe-source independence, checker-specific upper-tail selection, complete-batch rule, and this authorization binding)",
+  "aggregate_cap_binding": {
+   "cap_usd": 60.0,
+   "prior_accounted_spend_usd": 30.526558439999988,
+   "stage_1_reservations_count_against_cap": true,
+   "stage_1_ceiling_usd": 2.5
+  }
+ },
+ "execution_authorized_beyond_stage_1": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This plan authorizes stage-1 triage calls only, within the $2.50 ceiling, after the bound Codex review.",
+  "No result row, gate, roster, budget, or protocol element is changed by this plan.",
+  "Stage-1 passes admit nothing; admission requires the separately authorized stage-2 confirmation."
+ ]
+}
+
+```
+
+## Review 2 verdict
+
+no blockers
