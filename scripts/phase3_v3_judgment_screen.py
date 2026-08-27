@@ -71,6 +71,23 @@ STAGE2_CONFIGURATIONS = [
      "config_ceiling_usd": 0.3},
 ]
 
+# Stage 3 (owner-approved 2026-08-27 "Full path (Recommended)"): raised-cap re-screen of
+# the two thinking-verdict models. Each raised cap is a NEW admission unit under the
+# frozen definition, so each gets its own fresh distribution-matched 0-of-96
+# confirmation, excluding every probe used by the model's earlier stages (Codex ruling:
+# fresh probes, not reuse, so the confirmation is not adaptive to observed failures).
+STAGE3_CEILING_USD = 12.5
+STAGE3_CONFIGURATIONS = [
+    {"id": "qwen38-verdict-16384", "model": "Qwen/Qwen3.8-2.4T-A95B",
+     "role": "judge_verdict", "max_tokens": 16384, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 11.2,
+     "exclude_prior": ("qwen38-verdict-8192", "qwen38-verdict-8192-confirm")},
+    {"id": "gemma4-verdict-8192", "model": "google/gemma-4-31B-it",
+     "role": "judge_verdict", "max_tokens": 8192, "probes": 96, "mode": "distribution",
+     "config_ceiling_usd": 1.3,
+     "exclude_prior": ("gemma4-verdict-4096", "gemma4-verdict-4096-confirm")},
+]
+
 MODEL_DIRS = {
     "Qwen/Qwen3.8-2.4T-A95B": "Qwen--Qwen3.8-2.4T-A95B",
     "Qwen/Qwen3.5-9B": "Qwen--Qwen3.5-9B",
@@ -113,9 +130,10 @@ def main(argv: list[str] | None = None) -> int:
                             help="select and render everything; no provider calls")
     parser_cli.add_argument("--resume", action="store_true",
                             help="skip probes already evaluated in the results log")
-    parser_cli.add_argument("--stage", type=int, default=1, choices=(1, 2),
+    parser_cli.add_argument("--stage", type=int, default=1, choices=(1, 2, 3),
                             help="1 = triage of the plan's configurations; "
-                                 "2 = owner-approved confirmation plus weak-slot triage")
+                                 "2 = owner-approved confirmation plus weak-slot triage; "
+                                 "3 = owner-approved raised-cap re-screen")
     args = parser_cli.parse_args(argv)
 
     plan = _load_json(PLAN_PATH)
@@ -223,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
         for configuration in STAGE2_CONFIGURATIONS
         if configuration["id"].endswith("-confirm")
     }
+    for configuration in STAGE3_CONFIGURATIONS:
+        stage1_alias[configuration["id"]] = tuple(configuration["exclude_prior"])
     evaluated: set[tuple[str, str]] = set()
     prior_tallies: dict[str, dict[str, int]] = {}
     if RESULTS_LOG.exists():
@@ -236,9 +256,11 @@ def main(argv: list[str] | None = None) -> int:
             tally["invalid"] += int(bool(row["invalid"]))
             tally["over_80pct_cap"] += int(bool(row["over_80pct_cap"]))
 
-    stage_ceiling = CEILING_USD if args.stage == 1 else STAGE2_CEILING_USD
-    configurations = (
-        plan["configurations_stage_1"] if args.stage == 1 else STAGE2_CONFIGURATIONS)
+    stage_ceiling = {
+        1: CEILING_USD, 2: STAGE2_CEILING_USD, 3: STAGE3_CEILING_USD}[args.stage]
+    configurations = {
+        1: plan["configurations_stage_1"], 2: STAGE2_CONFIGURATIONS,
+        3: STAGE3_CONFIGURATIONS}[args.stage]
     for configuration in configurations:
         config_id = configuration["id"]
         model = configuration["model"]
@@ -351,8 +373,7 @@ def main(argv: list[str] | None = None) -> int:
             if outcome["probes_dispatched"] < target:
                 outcome["verdict"] = "INCOMPLETE_batch"
             elif outcome["over_80pct_cap"] == 0:
-                outcome["verdict"] = (
-                    "PASS_stage1" if args.stage == 1 else "PASS_stage2")
+                outcome["verdict"] = f"PASS_stage{args.stage}"
             else:
                 outcome["verdict"] = "REJECTED_cap_utilization"
         print(f"[{config_id}] {outcome}")

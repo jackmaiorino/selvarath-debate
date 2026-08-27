@@ -61,7 +61,20 @@
   "ceilings_usd": {"stage_envelope": 14.0, "qwen38-verdict-8192-confirm": 8.0, "gemma4-verdict-4096-confirm": 3.0, "gemma4-checker-4096-confirm": 1.5, "llama-verdict-512-confirm": 1.0, "gemma4e4b-verdict-8192-triage": 0.5, "qwen35_9b-verdict-16384-triage": 0.3},
   "admission_rule": "a configuration is admissible for the canary rebuild only with a stage-2 PASS (all probes evaluated, 0 invalid, none over 80% cap utilization); weak-slot triage passers additionally require their own 0-of-96 confirmation before admission; if no weak candidate survives, the rebuild proceeds as N=3 under a separately owner-approved scope amendment"
  },
- "execution_authorized_beyond_stage_2": false,
+ "stage_3": {
+  "authorized": true,
+  "owner_approval": "the owner's 'Full path (Recommended)' selection of 2026-08-27, made on the stage-2 results record; the selection also approves, conditional on both stage-3 passes, the N=3 rebuild (gemma-4-31B verdict@8192 + checker@4096, Llama-3.3-70B verdict@512, Qwen3.8 verdict@16384) under a fresh identity and its run to convergence, with off-peak launch and all existing controls",
+  "codex_basis": "rejudge/phase3_v3_codex_stage2_results_consult_2026-08-27.md (no blockers; fresh probes not reuse; 16384 over 12288; weak slot closed at N=3)",
+  "content": "raised-cap re-screen of the two thinking-verdict models; each raised cap is a NEW admission unit under the frozen unit definition, so each receives a fresh distribution-matched 0-of-96 confirmation drawn from probes never used by that model's earlier stages",
+  "configurations": [
+   {"id": "qwen38-verdict-16384", "model": "Qwen/Qwen3.8-2.4T-A95B", "role": "judge_verdict", "max_tokens": 16384, "excludes": ["qwen38-verdict-8192", "qwen38-verdict-8192-confirm"]},
+   {"id": "gemma4-verdict-8192", "model": "google/gemma-4-31B-it", "role": "judge_verdict", "max_tokens": 8192, "excludes": ["gemma4-verdict-4096", "gemma4-verdict-4096-confirm"]}
+  ],
+  "ceilings_usd": {"stage_envelope": 12.5, "qwen38-verdict-16384": 11.2, "gemma4-verdict-8192": 1.3},
+  "expected_actual_usd": "~2.2 (observed generation lengths are cap-independent below truncation)",
+  "acceptance": "same rules as stage 2: all 96 probes evaluated, 0 invalid, none over 80% of the NEW cap; an unevaluable probe makes the batch INCOMPLETE, never a pass"
+ },
+ "execution_authorized_beyond_stage_3": false,
  "canary_spend_authorized": false,
  "main_spend_authorized": false,
  "non_claims": [
