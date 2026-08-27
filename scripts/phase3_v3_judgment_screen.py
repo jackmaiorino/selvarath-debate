@@ -1,10 +1,12 @@
 """Stage-1 judgment-shaped completion triage (frozen plan phase3_v3_judgment_screen_plan).
 
-Renders real protocol-composed upper-tail prompts from the frozen MAIN transcript bundle,
-calls each configured judge non-streaming at its candidate max_tokens, and records validity
-telemetry only (finish reason, token counts, empty status, parser validity, response hash).
-Verdict direction and response text are never logged. Rejects a configuration on its first
-invalid probe. Hard $2.50 reservation ceiling; refuses dispatch beyond it.
+Renders real protocol-composed upper-tail prompts from the INDEPENDENT screening bank (the
+original pilot's 318 transcripts in data/transcripts.jsonl, which no phase-3 measurement
+input touches), calls each configured judge non-streaming at its candidate max_tokens, and
+records validity telemetry only (finish reason, token counts, empty status, parser
+validity, response hash). Verdict direction and response text are never logged. Rejects a
+configuration on its first invalid probe; a batch that cannot evaluate all 24 probes within
+the bounded transport retries is INCOMPLETE, never a pass. Hard $2.50 reservation ceiling.
 """
 from __future__ import annotations
 
@@ -23,6 +25,9 @@ from rejudge import parsers, phase3_plan, phase3_v3_inputs, phase3_v3_static_pro
 from rejudge.phase2_query_gate import MalformedCheckerOutput, parse_checker_output  # noqa: E402
 
 PLAN_PATH = REPO_ROOT / "rejudge/phase3_v3_judgment_screen_plan_2026-08-27.json"
+SCREEN_BANK_PATH = REPO_ROOT / "data/transcripts.jsonl"
+TRANSPORT_RETRIES = 3
+TRANSPORT_BACKOFF_SECONDS = 30
 PROTOCOL_PATH = REPO_ROOT / "rejudge/phase3_protocol_v3_r4.json"
 PROMPT_BUNDLE_PATH = REPO_ROOT / "rejudge/phase2_prompt_bundle.json"
 PRICE_SNAPSHOT_PATH = REPO_ROOT / "rejudge/phase3_v3_price_snapshot_r8_2026-08-26.json"
@@ -85,10 +90,24 @@ def main(argv: list[str] | None = None) -> int:
     prices = _load_json(PRICE_SNAPSHOT_PATH)["models"]
     world_documents = _world_documents()
 
-    bundle = _load_json(MAIN_BUNDLE)
-    by_key = dict(phase3_v3_inputs.transcript_entries(
-        bundle, expected_count=phase3_v3_inputs.TRANSCRIPT_BUNDLE_COUNTS["main"]))
-    print(f"main transcripts indexed: {len(by_key)}")
+    from rejudge.phase2_execution import canonical_sha256
+
+    bank_bytes = SCREEN_BANK_PATH.read_bytes()
+    bank_sha256 = hashlib.sha256(bank_bytes).hexdigest()
+    entries: list[dict] = []
+    for line in bank_bytes.decode("utf-8").splitlines():
+        if not line.strip():
+            continue
+        payload = json.loads(line)
+        entries.append({
+            "debater_model": payload["debater_model"],
+            "question_id": payload["question_id"],
+            "transcript_index": payload["transcript_index"],
+            "transcript_sha256": canonical_sha256(payload),
+            "transcript_payload": payload,
+        })
+    print(f"independent screening bank: {len(entries)} pilot transcripts, "
+          f"sha256 {bank_sha256[:16]}")
 
     from transformers import AutoTokenizer
 
@@ -101,60 +120,40 @@ def main(argv: list[str] | None = None) -> int:
     summary: dict[str, dict] = {}
 
     def build_probes(configuration: dict) -> list[dict]:
+        """Render every candidate prompt for this configuration and keep the top 24 by
+        exact token count (deterministic tie-break on the probe id)."""
         model = configuration["model"]
         role = configuration["role"]
-        corpus_dir = CORPUS_ROOT / MODEL_DIRS[model] / "main"
-        counts: dict[str, int] = {}
-        for line in (corpus_dir / "judge_verdict.counts.jsonl").read_text(
-                encoding="utf-8").splitlines():
-            row = json.loads(line)
-            counts[row["prompt_key"]] = int(row["prompt_tokens"])
-        meta: dict[str, dict] = {}
-        for line in (corpus_dir / "judge_verdict.rendered.jsonl").read_text(
-                encoding="utf-8").splitlines():
-            row = json.loads(line)
-            meta[row["prompt_key"]] = row
-        ordered = sorted(counts, key=lambda key: (-counts[key], key))
-        probes = []
-        for prompt_key in ordered:
-            if len(probes) >= PROBES_PER_CONFIGURATION:
-                break
-            row = meta[prompt_key]
-            entry = by_key.get(row["transcript_key"])
-            if entry is None:
-                raise SystemExit(f"transcript missing for corpus key {row['transcript_key']}")
-            variant = row["variant_id"]
-            _prefix, condition_id, side_token = variant.split("::")
-            if role == "query_checker" and condition_id == "b0":
-                continue  # checker calls exist only under non-zero query budgets
-            messages = phase3_v3_static_prompts.render_static_messages(
-                protocol=protocol, prompt_bundle=prompt_bundle,
-                world_documents=world_documents, transcript_entry=entry,
-                billed_model=model, role="judge_verdict", variant_id=variant)
-            text, token_count = phase3_v3_static_prompts.render_chat_prompt(
-                tokenizers[model], messages)
-            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-            if digest != row["rendered_prompt_sha256"]:
-                raise SystemExit(
-                    f"rendered prompt hash mismatch for {prompt_key}: screen aborted unspent")
-            if role == "query_checker":
-                # The checker prompt embeds the mirrored positions; the source judge names
-                # whose query stream is checked and is prompt-shape-neutral. Recorded.
-                checker_variant = (
-                    f"query_checker::Qwen/Qwen3.8-2.4T-A95B::{condition_id}::{side_token}")
+        if role == "query_checker":
+            variants = [
+                "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side0",
+                "query_checker::Qwen/Qwen3.8-2.4T-A95B::sequential_b2::side1",
+            ]
+            render_role = "query_checker"
+        else:
+            variants = ["judge_verdict::b0::side0", "judge_verdict::b0::side1"]
+            render_role = "judge_verdict"
+        candidates = []
+        for entry in entries:
+            for variant in variants:
                 messages = phase3_v3_static_prompts.render_static_messages(
                     protocol=protocol, prompt_bundle=prompt_bundle,
                     world_documents=world_documents, transcript_entry=entry,
-                    billed_model=model, role="query_checker",
-                    variant_id=checker_variant)
-                _text, token_count = phase3_v3_static_prompts.render_chat_prompt(
+                    billed_model=model, role=render_role, variant_id=variant)
+                text, token_count = phase3_v3_static_prompts.render_chat_prompt(
                     tokenizers[model], messages)
-                variant = checker_variant
-            probes.append({
-                "prompt_key": prompt_key, "variant_id": variant,
-                "messages": messages, "prompt_tokens_exact": token_count,
-            })
-        return probes
+                probe_id = hashlib.sha256(
+                    f"{model}|{render_role}|{variant}|{entry['transcript_sha256']}".encode(
+                        "utf-8")).hexdigest()
+                candidates.append({
+                    "prompt_key": probe_id, "variant_id": variant,
+                    "messages": messages, "prompt_tokens_exact": token_count,
+                    "rendered_prompt_sha256": hashlib.sha256(
+                        text.encode("utf-8")).hexdigest(),
+                })
+        candidates.sort(
+            key=lambda probe: (-probe["prompt_tokens_exact"], probe["prompt_key"]))
+        return candidates[:PROBES_PER_CONFIGURATION]
 
     client = None
     if not args.dry_run:
@@ -188,18 +187,29 @@ def main(argv: list[str] | None = None) -> int:
             seed = int(hashlib.sha256(
                 probe["prompt_key"].encode("utf-8")).hexdigest()[:8], 16)
             started = _utc_now()
-            try:
-                response = client.chat.completions.create(
-                    model=model, messages=probe["messages"], max_tokens=max_tokens,
-                    temperature=0.0, seed=seed)
-            except Exception as exc:  # noqa: BLE001 - transport failures are recorded, not retried
-                _append(USAGE_LOG, {
-                    "ts": started, "config": config_id, "prompt_key": probe["prompt_key"],
-                    "reserved_usd": reservation, "actual_usd": None,
-                    "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
-                outcome.setdefault("transport_errors", 0)
-                outcome["transport_errors"] += 1
-                continue
+            response = None
+            for attempt in range(TRANSPORT_RETRIES):
+                try:
+                    response = client.chat.completions.create(
+                        model=model, messages=probe["messages"], max_tokens=max_tokens,
+                        temperature=0.0, seed=seed)
+                    break
+                except Exception as exc:  # noqa: BLE001 - bounded transport retry
+                    _append(USAGE_LOG, {
+                        "ts": _utc_now(), "config": config_id,
+                        "prompt_key": probe["prompt_key"], "attempt": attempt,
+                        "reserved_usd": reservation, "actual_usd": None,
+                        "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
+                    if attempt + 1 < TRANSPORT_RETRIES:
+                        import time
+
+                        time.sleep(TRANSPORT_BACKOFF_SECONDS)
+            if response is None:
+                # A probe that cannot complete within the bounded retries makes the
+                # batch INCOMPLETE: fewer than 24 evaluated probes is never a pass.
+                outcome["verdict"] = "INCOMPLETE_batch_transport"
+                print(f"[{config_id}] INCOMPLETE at probe {index}: transport exhausted")
+                break
             usage = response.usage
             text = response.choices[0].message.content or ""
             finish = str(response.choices[0].finish_reason)
@@ -224,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
             over_cap = usage.completion_tokens > CAP_UTILIZATION_LIMIT * max_tokens
             _append(RESULTS_LOG, {
                 "ts": started, "config": config_id, "prompt_key": probe["prompt_key"],
+                "variant_id": probe["variant_id"],
+                "rendered_prompt_sha256": probe["rendered_prompt_sha256"],
+                "screen_bank_sha256": bank_sha256,
                 "prompt_tokens": usage.prompt_tokens,
                 "completion_tokens": usage.completion_tokens,
                 "finish_reason": finish, "empty": empty, "parse_valid": parse_valid,
@@ -240,9 +253,12 @@ def main(argv: list[str] | None = None) -> int:
             if over_cap:
                 outcome["over_80pct_cap"] += 1
         if outcome["verdict"] == "pending":
-            outcome["verdict"] = (
-                "PASS_stage1" if outcome["over_80pct_cap"] == 0
-                else "REJECTED_cap_utilization")
+            if outcome["probes_dispatched"] < PROBES_PER_CONFIGURATION:
+                outcome["verdict"] = "INCOMPLETE_batch"
+            elif outcome["over_80pct_cap"] == 0:
+                outcome["verdict"] = "PASS_stage1"
+            else:
+                outcome["verdict"] = "REJECTED_cap_utilization"
         print(f"[{config_id}] {outcome}")
 
     print(json.dumps({"reserved_total_usd": round(reserved_total, 4),

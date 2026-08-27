@@ -19,14 +19,15 @@
   {"id": "llama-verdict-512", "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "role": "judge_verdict", "thinking": "none (non-thinking model)", "max_tokens": 512, "serving": "serverless non-streaming"}
  ],
  "probe_construction": {
-  "source": "real protocol-composed prompts over the frozen MAIN transcript bundle (E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json, canonical binding via the r5 exact-tokenizer manifest), rendered by rejudge.phase3_v3_static_prompts.render_static_messages with the exact frozen prompt bundle and templates",
-  "selection": "per configuration, the 24 highest exact-token-count prompts (upper tail): judge_verdict from the model's main-corpus judge_verdict counts (deterministic sort: count desc, prompt_key asc); query_checker by rendering checker prompts over the same transcripts and counting with the gemma-4 exact tokenizer at selection time",
-  "integrity": "each re-rendered judge_verdict prompt's sha256 must equal the corpus row's rendered_prompt_sha256 before dispatch; any mismatch aborts the screen unspent",
-  "seeds": "per-probe deterministic seed = first 8 hex digits of sha256(prompt_key) as int; temperature 0",
-  "canary_isolation": "no canary-bundle transcript or held-out question is used; screening outputs enter no canary or main store and are never pooled with measurements"
+  "source": "real protocol-composed prompts over the INDEPENDENT screening bank: the original pilot's 318 transcripts (data/transcripts.jsonl, file sha256 recorded in every result row), which no phase-3 measurement input (main bundle, canary bundle, held-out questions) touches; rendered by rejudge.phase3_v3_static_prompts.render_static_messages with the exact frozen prompt bundle and templates",
+  "selection": "per configuration, render EVERY candidate prompt (both mirrored sides; judge_verdict::b0 variants for verdict roles, query_checker::sequential_b2 variants for the checker role) with the model's exact tokenizer, then keep the 24 highest exact-token-count prompts (deterministic sort: count desc, probe id asc); the checker upper tail is selected by CHECKER prompt token counts, never by verdict-prompt ordering",
+  "integrity": "every dispatched probe's rendered prompt sha256 and the screening-bank file sha256 are recorded per result row; renders are deterministic from the frozen bank, protocol, and templates",
+  "seeds": "per-probe deterministic seed = first 8 hex digits of sha256(probe id) as int; temperature 0",
+  "canary_isolation": "no phase-3 measurement transcript or held-out question is used; screening outputs enter no canary or main store and are never pooled with measurements",
+  "limitation": "the pilot bank's length distribution approximates but does not equal the regenerated main bundle's; upper-tail selection is relative to the pilot bank and is reported as such"
  },
  "acceptance_stage_1": {
-  "verdict_roles": "invalid = empty visible content OR strict parser (rejudge.parsers.parse_both -> strict verdict None); reject the configuration on the FIRST invalid; pass requires 0 of 24 invalid AND no completion consuming more than 80% of the candidate max_tokens",
+  "verdict_roles": "invalid = empty visible content OR strict parser (rejudge.parsers.parse_both -> strict verdict None); reject the configuration on the FIRST invalid; pass requires ALL 24 probes evaluated with 0 invalid AND no completion consuming more than 80% of the candidate max_tokens; a probe that cannot complete within 3 bounded transport retries makes the batch INCOMPLETE, which is never a pass",
   "checker_role": "invalid = rejudge.phase2_query_gate.parse_checker_output raising MalformedCheckerOutput on the verbatim provider text (the frozen adapter applies no normalization); same 0-of-24 and 80% rules",
   "label": "stage-1 pass is an operational triage only; stage-2 0-of-96 confirmation (separately authorized) is required for admission, and even that is an operational blocker screen, not a certification of a <=0.3% true rate"
  },
@@ -43,7 +44,17 @@
   "enforcement": "the runner reserves each call's worst case before dispatch and refuses any dispatch that would take the running reservation total over the ceiling; early rejection (first invalid) stops that configuration's remaining probes",
   "usage_log": "rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl (per-call reserved and actual costs from the r8 price snapshot); out-of-canary-ledger per the amendment-4 screening precedent, reported in the successor authorization"
  },
- "execution_authorized": false,
+ "stage_1_execution": {
+  "authorized": true,
+  "basis": "the owner's 'Screen, select, rebuild (Recommended)' selection of 2026-08-27 plus the resolved blockers of the bound Codex conformance review (probe-source independence, checker-specific upper-tail selection, complete-batch rule, and this authorization binding)",
+  "aggregate_cap_binding": {
+   "cap_usd": 60.0,
+   "prior_accounted_spend_usd": 30.526558439999988,
+   "stage_1_reservations_count_against_cap": true,
+   "stage_1_ceiling_usd": 2.5
+  }
+ },
+ "execution_authorized_beyond_stage_1": false,
  "canary_spend_authorized": false,
  "main_spend_authorized": false,
  "non_claims": [
