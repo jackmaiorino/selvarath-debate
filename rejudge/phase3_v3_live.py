@@ -76,16 +76,30 @@ BINDING_SCHEMA_V6 = "phase3_v3_execution_binding_v6"
 BINDING_SCHEMA_V7 = "phase3_v3_execution_binding_v7"
 BINDING_SCHEMA_V8 = "phase3_v3_execution_binding_v8"
 BINDING_SCHEMA_V9 = "phase3_v3_execution_binding_v9"
+BINDING_SCHEMA_V10 = "phase3_v3_execution_binding_v10"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
 ROLE_LIMITS_SCHEMA_V4 = "phase3_v3_role_limits_v4"
 ROLE_LIMITS_SCHEMA_V5 = "phase3_v3_role_limits_v5"
+ROLE_LIMITS_SCHEMA_V6 = "phase3_v3_role_limits_v6"
+# Amendment 8 (2026-08-27): screened, headroom-verified verdict budgets for the two
+# thinking judges (0-of-96 judgment-shaped screens at these exact caps; the 80% headroom
+# rule failed both models at their old caps despite 96/96 parseable verdicts). They apply
+# to judge_verdict and batch_verdict only; every other role keeps the 4,096 reasoning
+# floor or its non-reasoning base limit.
+JUDGMENT_BUDGET_RAISE_V6 = {
+    "Qwen/Qwen3.8-2.4T-A95B": 16384,
+    "google/gemma-4-31B-it": 8192,
+}
+JUDGMENT_BUDGET_RAISE_ROLES = ("judge_verdict", "batch_verdict")
 EXPECTED_TRANSCRIPT_ROWS = 48
-EXPECTED_JUDGMENT_ROWS = 768
-EXPECTED_CAPABILITY_ROWS = 192
-EXPECTED_FRESH_GATE_ROWS = EXPECTED_JUDGMENT_ROWS + EXPECTED_CAPABILITY_ROWS
-EXPECTED_TOTAL_ROWS = EXPECTED_TRANSCRIPT_ROWS + EXPECTED_FRESH_GATE_ROWS
+# Fresh gate rows scale with the resolved roster (192 judgment + 48 capability-anchor rows
+# per judge; the 48 preseeded canary transcripts are roster-independent), so every row-count
+# check derives its expectation from the protocol via _expected_row_counts rather than
+# assuming the original four-judge inventory.
+EXPECTED_JUDGMENT_ROWS_PER_JUDGE = 192
+EXPECTED_CAPABILITY_ROWS_PER_JUDGE = 48
 EXPECTED_HARNESS_EXECUTIONS = 2
 AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
 PRIOR_ACCOUNTED_SPEND_USD = 0.21711289000000006
@@ -96,6 +110,11 @@ PRIOR_ACCOUNTED_SPEND_USD_R6 = 14.726113819999991
 PRIOR_ACCOUNTED_SPEND_USD_R7 = 21.663206619999986
 PRIOR_ACCOUNTED_SPEND_USD_R8 = 25.406553089999985
 PRIOR_ACCOUNTED_SPEND_USD_R9 = 30.526558439999988
+# R10 carry (2026-08-27): R9 plus the wedged final-four-judge identity's sealed ledger
+# (run phase3-v3-534667eded4165df, two events, $0.00130943 accounted, computed via
+# load_chained_usage_ledger against the read-only r9 archive). The r21 empty-verdict
+# discovery record is that identity's terminal observation; no formal spend occurred.
+PRIOR_ACCOUNTED_SPEND_USD_R10 = 30.527867869999987
 # Amendment 7 (2026-08-27): the owner-approved final four-judge attempt runs under a $5.00
 # per-run uncertain ceiling (role-limits schema v5, Codex-ratified as sufficient under an
 # r19-like stationary drip by linear projection, with no claim across weather regimes).
@@ -330,6 +349,25 @@ def _validate_all_input_hashes(
     return resolved
 
 
+def _expected_row_counts(protocol: Mapping[str, Any]) -> dict[str, int]:
+    """Per-kind canary row expectations derived from the resolved roster.
+
+    The protocol validator already cross-checks its own canary_slot_inventory against
+    len(judges_final); this derives the same arithmetic for the driver's row-count gates
+    so a roster amendment cannot silently desynchronize the two.
+    """
+    roster_size = len(protocol["roster"]["judges_final"])
+    judgment = EXPECTED_JUDGMENT_ROWS_PER_JUDGE * roster_size
+    capability = EXPECTED_CAPABILITY_ROWS_PER_JUDGE * roster_size
+    return {
+        "transcript": EXPECTED_TRANSCRIPT_ROWS,
+        "judgment": judgment,
+        "capability": capability,
+        "fresh_gate": judgment + capability,
+        "total": EXPECTED_TRANSCRIPT_ROWS + judgment + capability,
+    }
+
+
 def _expected_reasoning_models(protocol: Mapping[str, Any]) -> frozenset[str]:
     roster = set(protocol["roster"]["judges_final"])
     expected = {"google/gemma-4-31B-it"}
@@ -348,7 +386,7 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     schema_version = role_limits.get("schema_version")
     if schema_version not in {
             ROLE_LIMITS_SCHEMA, ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3,
-            ROLE_LIMITS_SCHEMA_V4, ROLE_LIMITS_SCHEMA_V5}:
+            ROLE_LIMITS_SCHEMA_V4, ROLE_LIMITS_SCHEMA_V5, ROLE_LIMITS_SCHEMA_V6}:
         raise Phase3V3LiveError("unsupported v3 role-limits schema")
     if role_limits.get("execution_authorized") is not False:
         raise Phase3V3LiveError("role limits cannot authorize execution")
@@ -378,6 +416,10 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
         for role, entry in model_limits.items():
             expected_base = int(base[role])
             expected_effective = max(expected_base, floor) if model in reasoning else expected_base
+            if (schema_version == ROLE_LIMITS_SCHEMA_V6
+                    and role in JUDGMENT_BUDGET_RAISE_ROLES
+                    and model in JUDGMENT_BUDGET_RAISE_V6):
+                expected_effective = JUDGMENT_BUDGET_RAISE_V6[model]
             if (int(entry.get("base_role_max_tokens", -1)) != expected_base
                     or int(entry.get("effective_request_max_tokens", -1)) != expected_effective):
                 raise Phase3V3LiveError(f"role limit drift for ({model}, {role})")
@@ -389,7 +431,7 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
         raise Phase3V3LiveError("base provider request fields drifted")
     if schema_version in {
             ROLE_LIMITS_SCHEMA_V2, ROLE_LIMITS_SCHEMA_V3, ROLE_LIMITS_SCHEMA_V4,
-            ROLE_LIMITS_SCHEMA_V5}:
+            ROLE_LIMITS_SCHEMA_V5, ROLE_LIMITS_SCHEMA_V6}:
         expected_streaming = {"google/gemma-4-31B-it": {"stream": True}}
         transport_fix = role_limits.get("qwen38_usage_transport_fix") or {}
         if transport_fix != {
@@ -441,6 +483,36 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
                 "trigger_error": "run-local uncertain spend exceeds the frozen ceiling",
             }:
                 raise Phase3V3LiveError("uncertain-spend tolerance policy drifted")
+        elif schema_version == ROLE_LIMITS_SCHEMA_V6:
+            tolerance = role_limits.get("uncertain_spend_tolerance") or {}
+            if tolerance != {
+                "run_uncertain_ceiling_usd": RUN_UNCERTAIN_CEILING_USD_V5,
+                "counts_fully_against_aggregate_cap": True,
+                "halts_run_for_owner_review_when_exceeded": True,
+                "owner_choice": "Last 4-judge try, N=3 fallback (Recommended)",
+                "carried_from": "phase3_v3_role_limits_v5 (amendment 7)",
+                "trigger_halt_path": (
+                    "rejudge/phase3_v3_r19_offpeak_pause_stop_2026-08-27.json"),
+                "trigger_halt_canonical_sha256": (
+                    "40ae2fe7940e5280ba73c1229f25f771678ade3c37a9e2267bc4860faefad531"),
+                "trigger_error": "run-local uncertain spend exceeds the frozen ceiling",
+            }:
+                raise Phase3V3LiveError("uncertain-spend tolerance policy drifted")
+            results_sha = phase3_plan.FROZEN_JUDGMENT_SCREEN_RESULTS_CANONICAL_SHA256
+            if results_sha is None:
+                raise Phase3V3LiveError(
+                    "v6 role limits require the frozen judgment-screen results binding, "
+                    "which is not frozen yet")
+            raise_spec = role_limits.get("judgment_budget_raise") or {}
+            if raise_spec != {
+                "roles": list(JUDGMENT_BUDGET_RAISE_ROLES),
+                "model_effective_request_max_tokens": dict(JUDGMENT_BUDGET_RAISE_V6),
+                "owner_choice": "Full path (Recommended)",
+                "evidence_path": (
+                    "rejudge/phase3_v3_judgment_screen_results_record_2026-08-27.json"),
+                "evidence_canonical_sha256": results_sha,
+            }:
+                raise Phase3V3LiveError("judgment-budget raise policy drifted")
         elif role_limits.get("uncertain_spend_tolerance") is not None:
             raise Phase3V3LiveError(
                 "uncertain-spend tolerance requires the v3 role-limits schema")
@@ -488,7 +560,8 @@ def _validate_prior_attempt_accounting(
     schema_version = binding.get("schema_version")
     if schema_version not in {
             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
-            BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+            BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
+            BINDING_SCHEMA_V10}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -503,7 +576,7 @@ def _validate_prior_attempt_accounting(
 
     if schema_version in {
             BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
-            BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+            BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -529,7 +602,8 @@ def _validate_prior_attempt_accounting(
         frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R3
         if schema_version in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
-                BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+                BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
+                BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -544,7 +618,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
         if schema_version in {
                 BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-                BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+                BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-476792b58e273b48",
@@ -560,7 +634,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
         if schema_version in {
                 BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-                BINDING_SCHEMA_V9}:
+                BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-120ce58628620fce",
@@ -574,7 +648,9 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R6
-        if schema_version in {BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+        if schema_version in {
+                BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
+                BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-3382c17bc4b33909",
@@ -588,7 +664,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R7
-        if schema_version in {BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}:
+        if schema_version in {BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-0407589edb2d8a6b",
@@ -602,7 +678,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R8
-        if schema_version == BINDING_SCHEMA_V9:
+        if schema_version in {BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-25d73d86c66a1e42",
@@ -616,6 +692,25 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R9
+        if schema_version == BINDING_SCHEMA_V10:
+            # The ninth chained attempt never launched formally: its identity wedged at
+            # the harness's first Qwen3.5-9B cell (empty response, completeness check),
+            # which became the r21 empty-verdict discovery. That observation record is
+            # the identity's terminal disposition; the sealed archive ledger carries the
+            # two harness events.
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-534667eded4165df",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r20_2026-08-27.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r21_empty_verdict_discovery_2026-08-27.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R10
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -735,7 +830,7 @@ def _validate_execution_binding(
     if binding.get("schema_version") not in {
             BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
             BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-            BINDING_SCHEMA_V9}:
+            BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -764,11 +859,12 @@ def _validate_execution_binding(
     if any(not path.startswith(archive) for path in file_paths):
         raise Phase3V3LiveError("every successor output must stay under its archive directory")
     inventory = binding.get("inventory") or {}
+    expected_rows = _expected_row_counts(protocol)
     if inventory != {
-        "canary_transcript_rows": EXPECTED_TRANSCRIPT_ROWS,
-        "fresh_judgment_rows": EXPECTED_JUDGMENT_ROWS,
-        "fresh_capability_rows": EXPECTED_CAPABILITY_ROWS,
-        "fresh_gate_rows": EXPECTED_FRESH_GATE_ROWS,
+        "canary_transcript_rows": expected_rows["transcript"],
+        "fresh_judgment_rows": expected_rows["judgment"],
+        "fresh_capability_rows": expected_rows["capability"],
+        "fresh_gate_rows": expected_rows["fresh_gate"],
         "main_rows": 0,
     }:
         raise Phase3V3LiveError("execution-binding canary inventory drifted")
@@ -801,7 +897,8 @@ def _validate_execution_binding(
         ("shared_aggregate_cap_accounting"
          if binding.get("schema_version") in {
              BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
-             BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}
+             BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
+             BINDING_SCHEMA_V10}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -972,7 +1069,8 @@ def validate_authorization(
             f"authorization cap must equal ${AUTHORIZED_INCREMENTAL_CAP_USD:.2f}")
     if (scope.get("harness_execution_count") != EXPECTED_HARNESS_EXECUTIONS
             or scope.get("formal_successor_canary_execution_count") != 1
-            or scope.get("successor_canary_fresh_gate_slots") != EXPECTED_FRESH_GATE_ROWS
+            or scope.get("successor_canary_fresh_gate_slots") != (
+                _expected_row_counts(protocol)["fresh_gate"])
             or scope.get("gpu_ordinal_or_not_used") != "not_used"):
         raise Phase3V3LiveError("authorization scope differs from the successor canary")
     expected_text = (
@@ -1015,7 +1113,7 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     tolerant = (
         binding.get("schema_version") in {
             BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}
+            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
@@ -1152,7 +1250,8 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
             }
             if context["binding"].get("schema_version") in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
-                BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}
+                BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
+                BINDING_SCHEMA_V10}
             else {}
         ),
     )
@@ -1395,7 +1494,8 @@ def _run_capability_anchor_before_judgments(
             f"capability phase halted at {outcome.halted_cell_key}: "
             f"{outcome.halted_reason}")
     observed_after = set(CellResultStore(context["paths"]["formal_results"])._results)
-    if len(capability_keys) != EXPECTED_CAPABILITY_ROWS or not capability_keys <= observed_after:
+    if (len(capability_keys) != _expected_row_counts(context["protocol"])["capability"]
+            or not capability_keys <= observed_after):
         raise Phase3V3LiveError("capability anchor did not reach exact completion")
     _append_jsonl(context["paths"]["run_log"], {
         "event": "capability_anchor_frozen_before_judgments",
@@ -1431,10 +1531,11 @@ def drive_formal(
             phase3_plan.CAPABILITY_ANCHOR_KIND,
         )
     }
+    expected_rows = _expected_row_counts(context["protocol"])
     if counts != {
-        phase3_plan.CANARY_TRANSCRIPT_KIND: EXPECTED_TRANSCRIPT_ROWS,
-        phase3_plan.CANARY_JUDGMENT_KIND: EXPECTED_JUDGMENT_ROWS,
-        phase3_plan.CAPABILITY_ANCHOR_KIND: EXPECTED_CAPABILITY_ROWS,
+        phase3_plan.CANARY_TRANSCRIPT_KIND: expected_rows["transcript"],
+        phase3_plan.CANARY_JUDGMENT_KIND: expected_rows["judgment"],
+        phase3_plan.CAPABILITY_ANCHOR_KIND: expected_rows["capability"],
     }:
         raise Phase3V3LiveError(f"formal canary plan inventory drifted: {counts}")
     bundle = _load_json(context["root"] / PROMPT_BUNDLE_RELATIVE_PATH)
@@ -1906,8 +2007,10 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
             "formal result set differs from plan minus frozen exclusions: "
             f"missing={len((expected_keys - terminal_cells) - observed_keys)}, "
             f"extra={len(observed_keys - (expected_keys - terminal_cells))}")
-    if len(observed_keys) + len(terminal_cells) != EXPECTED_TOTAL_ROWS:
-        raise Phase3V3LiveError("formal partition does not cover the 1,008-row canary")
+    expected_total_rows = _expected_row_counts(context["protocol"])["total"]
+    if len(observed_keys) + len(terminal_cells) != expected_total_rows:
+        raise Phase3V3LiveError(
+            f"formal partition does not cover the {expected_total_rows}-row canary")
     _usage_scope_check(context, plan)
     snapshot = validate_ledger(context)
     accounting = aggregate_accounting_summary(context, snapshot)
@@ -1952,7 +2055,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         context["manifest"]["final_roster"])
     tolerant_binding = context["binding"].get("schema_version") in {
         BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9}
+        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}
     run_ceiling = float(
         ((context.get("role_limits") or {}).get("uncertain_spend_tolerance") or {})
         .get("run_uncertain_ceiling_usd", RUN_UNCERTAIN_CEILING_USD))
@@ -1972,7 +2075,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         and all(entry["completing_success_attempt_id"] for entry in uncertain_events))
     gates = {
         "completion": {
-            "expected_rows": EXPECTED_TOTAL_ROWS,
+            "expected_rows": expected_total_rows,
             "observed_rows": len(observed_keys),
             "terminal_invalid_rows": len(terminal_cells),
             "causally_excluded_rows": len(partition["causally_excluded"]),
