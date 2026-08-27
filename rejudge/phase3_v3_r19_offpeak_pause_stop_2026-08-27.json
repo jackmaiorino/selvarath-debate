@@ -1,0 +1,52 @@
+{
+ "schema_version": "phase3_v3_provider_halt_v2",
+ "recorded_at_utc": "2026-08-27T09:50:00Z",
+ "run_id": "phase3-v3-25d73d86c66a1e42",
+ "status": "halted_by_orchestrator_below_ceiling_and_rendered_unresumable_by_the_stop",
+ "cause": "The off-peak retry ran well (568/1,008 rows in 3.5h, Qwen3.8 completing ~91% of calls) but Qwen3.8 timeouts persisted at ~4/hour, each booking its ~$0.12 reservation as uncertain. At $2.20 of the $2.50 ceiling the orchestrator stopped the run intending to preserve below-threshold resume headroom for a calmer window. The stop caught one in-flight call, leaving a dangling reservation (held conservatively as uncertain, total $2.33968367, unmatched_reservations=1). The resume validator refuses any open reservation, so the stop itself rendered this identity unresumable. A natural threshold halt would have left a technically resumable identity with near-zero practical headroom; both paths end in a successor. Orchestrator lesson recorded: external stops of the serial driver can only be identity-terminal; never stop mid-flight expecting to resume.",
+ "run_manifest": {
+  "path": "rejudge/phase3_v3_run_manifest_preflight_r18_2026-08-26.json",
+  "canonical_sha256": "cf0da692875e7ea17c169aa51193d5bd2cd880f781f416421c0d1f624cb9c337"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r8-offpeak-2026-08-27/phase3_v3_usage.jsonl",
+  "event_count": 1085,
+  "actual_spend_usd": 2.780321680000001,
+  "uncertain_spend_usd": 2.33968367,
+  "accounted_spend_usd": 5.120005350000001,
+  "unmatched_reservations": 1,
+  "raw_sha256_note": "raw and tail hashes are computed and bound by any successor binding builder from the sealed file"
+ },
+ "execution": {
+  "harness": "bit_identical_pass (22b14ecd996fba4916f9a7862ea30b9eb362553639fbc516edf6bf7eb78fea4d)",
+  "formal_rows_committed": 568,
+  "planned_rows": 1008,
+  "capability_rows_complete": 192,
+  "judgment_rows_complete": 328,
+  "reviewer_decisions_committed": 64,
+  "terminal_halt_records": 0,
+  "checker_malformed_events": 0,
+  "main_rows_committed": 0
+ },
+ "provider_weather_evidence": {
+  "off_peak_window": "06:03-09:35Z 2026-08-27",
+  "qwen38_timeouts": "~13 at ~4/hour, ~$0.12 reservation each; ~91% of Qwen3.8 calls succeeded between them",
+  "prior_windows": "08:24-16:01Z 2026-08-26: 2 timeouts in 5h (calm); 19:23-22:02Z 2026-08-26: rejections every few minutes (crunch)",
+  "attribution": "Qwen/Qwen3.8-2.4T-A95B is the dominant instability across three failure shapes this week: the r7 stream-usage omission, the evening capacity crunch, and the persistent timeout drip; its large reservations also dominate uncertain-spend accrual"
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd": 25.406553089999985,
+  "this_run_accounted_spend_usd": 5.120005350000001,
+  "aggregate_accounted_spend_usd": 30.526558439999986,
+  "remaining_usd": 29.473441560000014
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "successor_constraint": "No successor identity is minted before the owner's strategy decision; a Codex consult on the completion strategy (calm-window retry, ceiling raise, or dropping Qwen3.8 under the pre-declared N=3 contingency) is bound alongside. Any successor carries the exact $30.526558439999986 aggregate accounted spend, reuses no measurement rows, and remains separately documented with no main spend.",
+ "non_claims": [
+  "This observation does not authorize provider inference or reuse of partial measurement rows.",
+  "The halted archive and ledger remain immutable evidence for aggregate cap accounting.",
+  "No gate, threshold, prompt, seed, checker behavior, ceiling value, or protocol element is altered by this record."
+ ]
+}
