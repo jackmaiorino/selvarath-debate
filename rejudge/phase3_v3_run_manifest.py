@@ -233,10 +233,13 @@ def validate_run_manifest(
         raise RunManifestError(
             "gpu_ordinal_or_not_used must be not_used or exclusive headless GPU ordinal 1")
     roster = manifest.get("final_roster")
-    if (not isinstance(roster, list) or len(roster) not in {4, 5}
+    # 2 joined the permitted sizes with the amendment-8 N=2 rebuild; the protocol
+    # validator enforces the exact roster per protocol generation, so this stays a
+    # coarse shape check.
+    if (not isinstance(roster, list) or len(roster) not in {2, 4, 5}
             or not all(isinstance(model, str) and model for model in roster)
             or len(roster) != len(set(roster))):
-        raise RunManifestError("final_roster must contain four or five unique model IDs")
+        raise RunManifestError("final_roster must contain 2, 4, or 5 unique model IDs")
     protocol_sha = _sha256(manifest.get("protocol_sha256"), "protocol_sha256")
     tokenizer_sha = _sha256(
         manifest.get("tokenizer_manifest_sha256"), "tokenizer_manifest_sha256")
