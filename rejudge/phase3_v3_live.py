@@ -83,14 +83,16 @@ ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
 ROLE_LIMITS_SCHEMA_V4 = "phase3_v3_role_limits_v4"
 ROLE_LIMITS_SCHEMA_V5 = "phase3_v3_role_limits_v5"
 ROLE_LIMITS_SCHEMA_V6 = "phase3_v3_role_limits_v6"
-# Amendment 8 (2026-08-27): screened, headroom-verified verdict budgets for the two
-# thinking judges (0-of-96 judgment-shaped screens at these exact caps; the 80% headroom
-# rule failed both models at their old caps despite 96/96 parseable verdicts). They apply
-# to judge_verdict and batch_verdict only; every other role keeps the 4,096 reasoning
-# floor or its non-reasoning base limit.
+# Amendment 8 (2026-08-27): the screened, headroom-verified verdict budget for the one
+# admitted thinking judge (0-of-96 judgment-shaped screen at this exact cap, every probe
+# finish_reason=stop, max completion 38% of cap). gemma-4-31B failed verdict admission at
+# every screened cap (rare per-prompt-deterministic runaway; Codex ruled a post-hoc
+# exemption gate-weakening) and keeps ONLY its screened checker role, so it takes no
+# verdict budget at all under the v6 schema. The raise applies to judge_verdict and
+# batch_verdict only; every other role keeps the 4,096 reasoning floor or its
+# non-reasoning base limit.
 JUDGMENT_BUDGET_RAISE_V6 = {
     "Qwen/Qwen3.8-2.4T-A95B": 16384,
-    "google/gemma-4-31B-it": 8192,
 }
 JUDGMENT_BUDGET_RAISE_ROLES = ("judge_verdict", "batch_verdict")
 EXPECTED_TRANSCRIPT_ROWS = 48
@@ -393,8 +395,17 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
     if role_limits.get("protocol_id") != protocol.get("protocol_id"):
         raise Phase3V3LiveError("role limits bind a different protocol")
     roster = set(protocol["roster"]["judges_final"])
+    checker_model = str(protocol["roster"]["query_checker"])
+    oracle_model = str(protocol["roster"]["oracle"])
+    # Under the v6 schema a service model (checker or oracle) may serve WITHOUT holding a
+    # judge seat (amendment 8 keeps gemma-4 checker-only after its verdict exclusion), so
+    # the limits table covers roster judges plus service models. Earlier schemas keep the
+    # exact-roster rule they ran under.
+    expected_models = (
+        roster | {checker_model, oracle_model}
+        if schema_version == ROLE_LIMITS_SCHEMA_V6 else roster)
     limits = role_limits.get("model_role_limits")
-    if not isinstance(limits, Mapping) or set(limits) != roster:
+    if not isinstance(limits, Mapping) or set(limits) != expected_models:
         raise Phase3V3LiveError("role-limits model set differs from the final roster")
     base = role_limits.get("base_role_max_tokens")
     if not isinstance(base, Mapping):
@@ -406,8 +417,14 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
         raise Phase3V3LiveError("reasoning-model roster or 4096-token floor drifted")
     required_roles: dict[str, set[str]] = {
         model: {"judge_query", "judge_verdict", "capability_qa"} for model in roster}
-    required_roles[str(protocol["roster"]["query_checker"])].add("query_checker")
-    required_roles[str(protocol["roster"]["oracle"])].add("oracle")
+    required_roles.setdefault(checker_model, set()).add("query_checker")
+    required_roles.setdefault(oracle_model, set()).add("oracle")
+    if schema_version == ROLE_LIMITS_SCHEMA_V6:
+        for model in expected_models - roster:
+            extra = set(limits[model]) - required_roles.get(model, set())
+            if extra:
+                raise Phase3V3LiveError(
+                    f"non-judge service model {model} may not hold limits for {sorted(extra)}")
     for model, roles in required_roles.items():
         model_limits = limits[model]
         if not roles <= set(model_limits):
@@ -424,7 +441,7 @@ def _validate_role_limits(role_limits: Mapping[str, Any], protocol: Mapping[str,
                     or int(entry.get("effective_request_max_tokens", -1)) != expected_effective):
                 raise Phase3V3LiveError(f"role limit drift for ({model}, {role})")
     contexts = role_limits.get("context_ceilings")
-    if not isinstance(contexts, Mapping) or set(contexts) != roster:
+    if not isinstance(contexts, Mapping) or set(contexts) != expected_models:
         raise Phase3V3LiveError("context ceilings differ from the final roster")
     request = role_limits.get("request_settings") or {}
     if request.get("base_fields") != ["model", "messages", "temperature", "max_tokens", "seed"]:

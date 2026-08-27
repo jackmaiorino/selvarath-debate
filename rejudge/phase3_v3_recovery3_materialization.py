@@ -1,12 +1,15 @@
-"""Deterministic offline materialization for the N=3 raised-budget successor identity.
+"""Deterministic offline materialization for the N=2 raised-budget successor identity.
 
 Third recovery generation (2026-08-27): the r21 empty-verdict discovery showed thinking
 judges exhausting the frozen 4,096-token effective completion cap on judgment-shaped
 prompts, which structurally failed the strict INVALID gate in every four-judge attempt.
-The owner-approved amendment 8 closes the unfillable weak slot (a removal, not a
-substitution: Qwen3.5-9B is degenerate at both screened caps, gemma-4-E4B is not
-serverless-servable, gemma-3n remains delisted) and raises the two thinking judges'
-verdict budgets to their screened, headroom-verified caps. This module mirrors
+Judgment-shaped screening then established: the weak slot is unfillable (Qwen3.5-9B
+degenerate at 8,192 and 16,384; gemma-4-E4B not serverless-servable; gemma-3n delisted);
+Qwen3.8 is genuinely bounded and admitted at a screened 16,384 verdict budget; and
+gemma-4-31B carries a rare per-prompt-deterministic runaway mode that no cap contains,
+failing verdict admission at every screened cap while passing its checker role 0-of-96.
+Codex ruled a post-hoc exemption gate-weakening, so the owner-approved amendment 8
+rebuilds N=2 (Llama + Qwen3.8) with gemma-4 retained checker-only. This module mirrors
 :mod:`rejudge.phase3_v3_recovery2_materialization` for that event.
 """
 from __future__ import annotations
@@ -23,7 +26,7 @@ from rejudge.phase2_execution import canonical_sha256
 
 
 PRIOR_PROTOCOL_PATH = Path("rejudge/phase3_protocol_v3_r4.json")
-AMENDMENT_PATH = Path("rejudge/phase3_v3_amendment8_n3_roster_2026-08-27.json")
+AMENDMENT_PATH = Path("rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json")
 DISCOVERY_PATH = Path("rejudge/phase3_v3_r21_empty_verdict_discovery_2026-08-27.json")
 SCREEN_PLAN_PATH = Path("rejudge/phase3_v3_judgment_screen_plan_2026-08-27.json")
 SCREEN_RESULTS_PATH = Path(
@@ -35,15 +38,18 @@ PRIOR_PROTOCOL_CANONICAL_SHA256 = phase3_plan.FROZEN_PROTOCOL_V3_R4_CANONICAL_SH
 DISCOVERY_CANONICAL_SHA256 = phase3_plan.FROZEN_V3_R21_DISCOVERY_CANONICAL_SHA256
 SCREEN_PLAN_CANONICAL_SHA256 = phase3_plan.FROZEN_JUDGMENT_SCREEN_PLAN_CANONICAL_SHA256
 
-REMOVED_MODEL = phase3_plan.PHASE3_V3_RECOVERY3_REMOVED_JUDGE
+REMOVED_MODELS = phase3_plan.PHASE3_V3_RECOVERY3_REMOVED_JUDGES
+CHECKER_ONLY_MODEL = phase3_plan.PHASE3_V3_RECOVERY3_CHECKER_ONLY_MODEL
 FINAL_ROSTER = phase3_plan.PHASE3_V3_RECOVERY3_BASE_JUDGES
 # R9 carry plus the wedged ninth identity's sealed ledger ($0.00130943, run
 # phase3-v3-534667eded4165df), matching phase3_v3_live.PRIOR_ACCOUNTED_SPEND_USD_R10.
 PRIOR_ACCOUNTED_SPEND_USD = 30.527867869999987
-APPROVAL_OPTION = "Full path (Recommended)"
+APPROVAL_OPTIONS = (
+    "Full path (Recommended)",
+    "N=2 rebuild (Codex ruling)",
+)
 VERDICT_BUDGET_RAISE = {
     "Qwen/Qwen3.8-2.4T-A95B": 16384,
-    "google/gemma-4-31B-it": 8192,
 }
 JUDGMENT_SLOTS_PER_JUDGE = 4920
 CANARY_JUDGMENT_SLOTS_PER_JUDGE = 192
@@ -60,7 +66,7 @@ def _amendment_canonical_sha256() -> str:
     if frozen is None:
         raise Recovery3MaterializationError(
             "recovery3 amendment binding is not frozen yet; author amendment 8 from the "
-            "stage-3 evidence and freeze its hash in phase3_plan first")
+            "screening evidence and freeze its hash in phase3_plan first")
     return frozen
 
 
@@ -68,7 +74,7 @@ def _screen_results_canonical_sha256() -> str:
     frozen = phase3_plan.FROZEN_JUDGMENT_SCREEN_RESULTS_CANONICAL_SHA256
     if frozen is None:
         raise Recovery3MaterializationError(
-            "judgment-screen results binding is not frozen yet; append the stage-3 "
+            "judgment-screen results binding is not frozen yet; record the stage-3 "
             "section and freeze its hash in phase3_plan first")
     return frozen
 
@@ -127,6 +133,18 @@ def validate_discovery_observation(
                 f"wedged ninth-identity ledger is missing: {ledger_path}")
 
 
+def _require_screen_verdict(
+    results: Mapping[str, Any], stage: str, config_id: str, expected_verdict: str,
+) -> None:
+    stage_obj = _object(results.get(stage), f"screen results {stage}")
+    verdicts = _object(stage_obj.get("verdicts"), f"{stage} verdicts")
+    entry = verdicts.get(config_id)
+    verdict = entry.get("verdict") if isinstance(entry, Mapping) else entry
+    if not isinstance(verdict, str) or not verdict.startswith(expected_verdict):
+        raise Recovery3MaterializationError(
+            f"screen verdict for {config_id} is not {expected_verdict}")
+
+
 def validate_amendment(
     amendment: Mapping[str, Any], *, project_root: str | Path | None = None,
 ) -> None:
@@ -136,11 +154,12 @@ def validate_amendment(
         raise Recovery3MaterializationError("unsupported recovery3 amendment schema")
     owner = _object(amendment.get("owner_approval"), "amendment owner approval")
     if (owner.get("approver") != "Jack Maiorino"
-            or owner.get("selected_option") != APPROVAL_OPTION):
+            or tuple(owner.get("selected_options") or ()) != APPROVAL_OPTIONS):
         raise Recovery3MaterializationError("recovery3 owner approval drifted")
     change = _object(amendment.get("roster_change"), "amendment roster change")
-    if (change.get("removed_model") != REMOVED_MODEL
+    if (change.get("removed_models") != list(REMOVED_MODELS)
             or "added_model" not in change or change.get("added_model") is not None
+            or change.get("checker_only_model") != CHECKER_ONLY_MODEL
             or change.get("final_roster") != list(FINAL_ROSTER)
             or change.get("final_size") != len(FINAL_ROSTER)):
         raise Recovery3MaterializationError("recovery3 roster change drifted")
@@ -182,19 +201,14 @@ def validate_amendment(
         results = _bound_json(
             root, SCREEN_RESULTS_PATH, _screen_results_canonical_sha256(),
             "judgment screen results record")
-        stage3 = _object(
-            _object(results, "screen results").get("stage_3"),
-            "screen results stage_3")
-        verdicts = _object(stage3.get("verdicts"), "stage-3 verdicts")
-        for config_id, model in (
-            ("qwen38-verdict-16384", "Qwen/Qwen3.8-2.4T-A95B"),
-            ("gemma4-verdict-8192", "google/gemma-4-31B-it"),
-        ):
-            entry = _object(verdicts.get(config_id), f"stage-3 verdict {config_id}")
-            if entry.get("verdict") != "PASS_stage3":
-                raise Recovery3MaterializationError(
-                    f"stage-3 screen for {model} did not pass; the raised budget is "
-                    "not admissible")
+        # The admitted configurations must have passed at their exact pinned caps, and the
+        # exclusions must be recorded as the failures they are: no silent rehabilitation.
+        _require_screen_verdict(results, "stage_3", "qwen38-verdict-16384", "PASS_stage3")
+        _require_screen_verdict(
+            results, "stage_2", "gemma4-checker-4096-confirm", "PASS_stage2")
+        _require_screen_verdict(results, "stage_2", "llama-verdict-512-confirm", "PASS_stage2")
+        _require_screen_verdict(
+            results, "stage_3", "gemma4-verdict-8192", "REJECTED_cap_utilization")
 
 
 def materialize_recovery3_protocol(
@@ -205,7 +219,7 @@ def materialize_recovery3_protocol(
     project_root: str | Path | None = None,
     verify_archive: bool = False,
 ) -> dict[str, Any]:
-    """Create a fresh non-authorizing N=3 protocol by removing the unfillable weak slot."""
+    """Create a fresh non-authorizing N=2 protocol by removing both inadmissible judges."""
     phase3_plan.validate_protocol(prior_protocol)
     if canonical_sha256(prior_protocol) != PRIOR_PROTOCOL_CANONICAL_SHA256:
         raise Recovery3MaterializationError("prior v3 r4 protocol canonical hash drifted")
@@ -256,7 +270,11 @@ def materialize_recovery3_protocol(
         SCREEN_PLAN_PATH.as_posix(): SCREEN_PLAN_CANONICAL_SHA256,
         SCREEN_RESULTS_PATH.as_posix(): _screen_results_canonical_sha256(),
     })
-    protocol["model_registry"]["models"].pop(REMOVED_MODEL)
+    registry = protocol["model_registry"]["models"]
+    registry.pop("Qwen/Qwen3.5-9B")
+    # gemma-4 keeps ONLY the checker role it passed 0-of-96; it holds no judge seat and
+    # bills nothing else.
+    registry[CHECKER_ONLY_MODEL] = {"billed_roles": ["query_checker"]}
     protocol["roster_resolution"] = {
         "tracked_path": DISCOVERY_PATH.as_posix(),
         "canonical_sha256": discovery_sha,
@@ -265,17 +283,21 @@ def materialize_recovery3_protocol(
         "amendment_tracked_path": AMENDMENT_PATH.as_posix(),
         "amendment_canonical_sha256": amendment_sha,
         "replacement": {
-            "removed_model": REMOVED_MODEL,
+            "removed_models": list(REMOVED_MODELS),
             "added_model": None,
+            "checker_only_model": CHECKER_ONLY_MODEL,
         },
     }
     protocol["roster"]["judges_final"] = list(FINAL_ROSTER)
     protocol["roster"]["final_size"] = len(FINAL_ROSTER)
     protocol["roster"]["replacement_policy"] = (
-        "the weak slot is CLOSED on completion-infeasibility evidence bound above; no "
-        "replacement judge exists in the authenticated serverless catalog and none may be "
-        "admitted after successor materialization. The weak-judge science dimension is a "
-        "disclosed scope reduction reported in the final report.")
+        "both removals are CLOSED on completion-infeasibility evidence bound above: the "
+        "weak slot has no admissible serverless candidate, and gemma-4-31B failed verdict "
+        "admission at every screened cap (rare per-prompt-deterministic runaway) while "
+        "keeping only its screened checker role. No judge may be admitted after successor "
+        "materialization. The two-judge roster is a disclosed scope reduction: every "
+        "judge-aggregation, disagreement, and diversity claim in the analysis and report "
+        "is limited to two judges (one thinking, one non-thinking) and says so.")
     arithmetic = protocol["debate_grid"]["slot_arithmetic"]
     arithmetic["final_roster_size"] = len(FINAL_ROSTER)
     arithmetic["total_judgment_slots"] = JUDGMENT_SLOTS_PER_JUDGE * len(FINAL_ROSTER)
@@ -295,15 +317,17 @@ def materialize_recovery3_protocol(
         "canonical_sha256": PRIOR_PROTOCOL_CANONICAL_SHA256,
         "reason": (
             "the r21 discovery showed thinking judges exhausting the frozen 4,096-token "
-            "verdict cap on judgment prompts, failing the strict INVALID gate in every "
-            "four-judge configuration; the owner-approved amendment 8 closes the "
-            "unfillable weak slot and raises the screened verdict budgets")
+            "verdict cap on judgment prompts; screening admitted Qwen3.8 at 16,384, found "
+            "the weak slot unfillable, and excluded gemma-4's verdict role on a runaway "
+            "mode no cap contains (Codex ruled a post-hoc exemption gate-weakening), so "
+            "the owner-approved amendment 8 rebuilds N=2 with gemma-4 checker-only")
     }
     protocol["non_claims"] = [
         "This protocol does not authorize provider calls, canary spend, main spend, or GPU work.",
         "No measurement row from any halted attempt satisfies a recovery canary slot.",
         "The prior accounted spend remains charged against the same 60 USD aggregate cap.",
         "Judgment-screen passes are operational blocker screens, not invalid-rate certifications.",
+        "Two-judge results support no claim about judge-diversity effects beyond the pair measured.",
     ]
     protocol.pop("protocol_content_sha256", None)
     protocol["protocol_content_sha256"] = canonical_sha256(protocol)

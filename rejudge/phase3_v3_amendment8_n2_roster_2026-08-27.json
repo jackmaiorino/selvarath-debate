@@ -1,0 +1,83 @@
+{
+ "schema_version": "phase3_v3_roster_amendment_v4",
+ "amendment_id": "phase3_v3_amendment8_n2_roster_2026-08-27",
+ "decided_at_utc": "2026-08-27T23:27:13Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menus of 2026-08-27",
+  "selected_options": [
+   "Full path (Recommended)",
+   "N=2 rebuild (Codex ruling)"
+  ],
+  "content": "the owner first approved the full screened-rebuild path on the stage-2 results ('Full path (Recommended)': stage-3 re-screen, then rebuild with screened caps under a fresh identity and run to convergence); after stage 3 excluded gemma-4's verdict role on the runaway mechanism, the owner selected 'N=2 rebuild (Codex ruling)': judges Llama-3.3-70B + Qwen3.8, gemma-4 retained checker-only, rebuild and run under the same controls",
+  "prior_selections": [
+   "Screen, select, rebuild (Recommended)",
+   "Confirm passers + triage weak candidates (Recommended)"
+  ]
+ },
+ "roster_change": {
+  "removed_models": [
+   "Qwen/Qwen3.5-9B",
+   "google/gemma-4-31B-it"
+  ],
+  "added_model": null,
+  "checker_only_model": "google/gemma-4-31B-it",
+  "final_roster": [
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+   "Qwen/Qwen3.8-2.4T-A95B"
+  ],
+  "final_size": 2,
+  "weak_slot_disposition": "closed on completion-infeasibility evidence: Qwen/Qwen3.5-9B emits no verdict within 8,192 (stage 1) or 16,384 (stage-3 triage, finish_reason=length at the full cap) completion tokens on judgment-shaped prompts; google/gemma-4-E4B-it is not serverless-servable (Together 400 on every attempt); google/gemma-3n-E4B-it remains delisted.",
+  "gemma4_disposition": "excluded from judge_verdict on a rare per-prompt-deterministic runaway mode: one of 96 fresh stage-3 probes ran to finish_reason=length at the full 8,192 cap (prompt 3,133 tokens, others all <= 2,686), corroborated by the sealed r6-archive 1/96 empty b0 verdict at 4,096 and the r13 checker truncation halt. It failed the frozen headroom rule at 4,096 (stage 2) and 8,192 (stage 3). Codex ruled a post-hoc exemption gate-weakening (deterministic triggers make INVALID cells non-exchangeable across conditions; the canary INVALID gate has ~75% pass probability against a 1% mechanism). gemma-4 keeps ONLY its query_checker role, which passed 0-of-96 at 4,096 with max completion 46% of cap, still protected by the amendment-5 terminal-halt disposition and its frozen stop bounds.",
+  "science_disclosure": "the judge roster shrinks to two (one thinking, one non-thinking). Every judge-aggregation, disagreement, and diversity claim is limited accordingly in the analysis and final report; the weak-judge dimension is lost for phase 3."
+ },
+ "verdict_budget_raise": {
+  "roles": [
+   "judge_verdict",
+   "batch_verdict"
+  ],
+  "model_effective_request_max_tokens": {
+   "Qwen/Qwen3.8-2.4T-A95B": 16384
+  },
+  "unchanged": "judge_query and capability_qa keep the 4,096 reasoning floor; the gemma-4 query_checker keeps 4,096 under its stage-2 0-of-96 pass; Llama-3.3-70B keeps every non-reasoning base limit",
+  "evidence": "qwen38-verdict-16384 passed its stage-3 0-of-96 at exactly this cap: 96/96 parseable, every finish_reason=stop, max completion 6,215 = 38% of cap; across 216 probes at three caps Qwen3.8 always terminated"
+ },
+ "codex_basis": {
+  "verdicts": "empty-verdict consult (screen-select-rebuild); screen-plan conformance reviews (blockers resolved, then no blockers); stage-2 results consult (no blockers; fresh probes; 16,384 over 12,288; weak slot closed); stage-3 consult (post-hoc gemma-4 exemption ruled gate-weakening; technical ruling N=2 with gemma-4 checker-only)",
+  "file_sha256": {
+   "rejudge/phase3_v3_codex_empty_verdict_consult_2026-08-27.md": "71aebdc9b5d0ce75181569ca229d366e546f68562f815b7f22a5740c4ba04b16",
+   "rejudge/phase3_v3_codex_screen_plan_consults_2026-08-27.md": "3ec20635a742e6ea8fee1077e310045c22a1eb0a58fb0cd72f2046ac03653679",
+   "rejudge/phase3_v3_codex_stage2_results_consult_2026-08-27.md": "ddfd4ce1049ced17a485d7dcaf7389e8f3db1da4083b6cafdc1a8962f82b0a89",
+   "rejudge/phase3_v3_codex_stage3_gemma_consult_2026-08-27.md": "8e54a6be694bb5e2125632326481223023c76531ab374b6da30b4841d517cec0"
+  }
+ },
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r21_empty_verdict_discovery_2026-08-27.json": "e9ea382e1bcbcd15e3b0ef29c494d7e81f58c872d14046eccf44566122be2505",
+   "rejudge/phase3_v3_judgment_screen_plan_2026-08-27.json": "96f8d21ed6336837f578283f6da06d36f471885c302e3f0396b383fc0c5366a3",
+   "rejudge/phase3_v3_judgment_screen_results_record_2026-08-27.json": "07b99686c742a985b3953356acdd519c9a1b8095c4f3580fe32a18e5c9022432"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 30.527867869999987,
+  "prior_accounted_note": "the eight-attempt v9 carry (30.526558439999988) plus the wedged ninth identity's sealed ledger (0.00130943, run phase3-v3-534667eded4165df)",
+  "screening_out_of_ledger_usd": {
+   "settled_actual": 5.09188935,
+   "unresolved_reserved_uncertain": 0.00936428,
+   "note": "judgment-screening provider calls ran outside the canary ledgers per the amendment-4 screening precedent; they count against the 60 USD aggregate cap in the successor authorization's arithmetic and are reported in the final report"
+  },
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call, canary spend, or main spend.",
+  "No measurement row from any prior attempt satisfies a successor slot.",
+  "The screening passes are operational blocker screens, not invalid-rate certifications.",
+  "gemma-4's exclusion is a screening outcome, not a claim about its judgment quality conditioned on completion.",
+  "Two-judge results support no claim about judge-diversity effects beyond the pair measured."
+ ]
+}

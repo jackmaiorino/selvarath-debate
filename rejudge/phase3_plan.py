@@ -168,11 +168,14 @@ PHASE3_V3_RECOVERY2_BASE_JUDGES = (
 # Third recovery generation (2026-08-27): the r21 empty-verdict discovery showed thinking
 # judges exhausting the frozen 4,096-token effective completion cap on judgment-shaped
 # prompts (finish_reason=length, empty visible content), which structurally failed the
-# strict INVALID gate in every four-judge attempt. The owner-approved amendment 8 closes
-# the unfillable weak slot (Qwen3.5-9B degenerate at 8,192 AND 16,384; gemma-4-E4B not
-# serverless-servable; gemma-3n delisted) and raises the two thinking judges' verdict
-# budgets to their screened, headroom-verified caps. Judgment-screening evidence lives in
-# the bound screen plan and results record.
+# strict INVALID gate in every four-judge attempt. Judgment-shaped screening then found:
+# the weak slot unfillable (Qwen3.5-9B degenerate at 8,192 AND 16,384; gemma-4-E4B not
+# serverless-servable; gemma-3n delisted); Qwen3.8 genuinely bounded and admitted at a
+# screened 16,384 verdict budget; and gemma-4-31B carrying a rare per-prompt-deterministic
+# runaway mode that no cap contains, failing verdict admission at every screened cap while
+# passing its checker role 0-of-96. Codex ruled a post-hoc exemption gate-weakening, so
+# the owner-approved amendment 8 rebuilds N=2 (Llama + Qwen3.8) with gemma-4 checker-only.
+# Judgment-screening evidence lives in the bound screen plan and results record.
 FROZEN_PROTOCOL_V3_R4_CANONICAL_SHA256 = (
     "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20"
 )
@@ -182,18 +185,23 @@ FROZEN_V3_R21_DISCOVERY_CANONICAL_SHA256 = (
 FROZEN_JUDGMENT_SCREEN_PLAN_CANONICAL_SHA256 = (
     "96f8d21ed6336837f578283f6da06d36f471885c302e3f0396b383fc0c5366a3"
 )
-# The two bindings below freeze only after the stage-3 raised-cap screens complete and
-# amendment 8 is authored from their evidence; until then every recovery3 validation
-# fails closed on the None sentinels. Values are inserted from computed output only,
-# never hand-typed.
-FROZEN_V3_RECOVERY3_AMENDMENT_CANONICAL_SHA256: str | None = None
-FROZEN_JUDGMENT_SCREEN_RESULTS_CANONICAL_SHA256: str | None = None
-PHASE3_V3_RECOVERY3_REMOVED_JUDGE = "Qwen/Qwen3.5-9B"
-PHASE3_V3_RECOVERY3_BASE_JUDGES = (
+# Both values below were frozen from the amendment-8 builder's computed output after the
+# stage-3 screens completed; they were never hand-typed.
+FROZEN_V3_RECOVERY3_AMENDMENT_CANONICAL_SHA256: str | None = (
+    "dfdff7a1d2f893a37dab5816c442608191e357a0add44acb20797a9d112dbd50"
+)
+FROZEN_JUDGMENT_SCREEN_RESULTS_CANONICAL_SHA256: str | None = (
+    "07b99686c742a985b3953356acdd519c9a1b8095c4f3580fe32a18e5c9022432"
+)
+PHASE3_V3_RECOVERY3_REMOVED_JUDGES = (
+    "Qwen/Qwen3.5-9B",
     "google/gemma-4-31B-it",
+)
+PHASE3_V3_RECOVERY3_BASE_JUDGES = (
     "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "Qwen/Qwen3.8-2.4T-A95B",
 )
+PHASE3_V3_RECOVERY3_CHECKER_ONLY_MODEL = "google/gemma-4-31B-it"
 
 # make_cell_key is reused verbatim from phase2_plan, never copy-pasted; re-exported here so
 # callers (and tests) can address it as phase3_plan.make_cell_key, matching phase2_plan's own
@@ -906,7 +914,7 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         recovery3_bindings = {
             "rejudge/phase3_protocol_v3_r4.json": (
                 FROZEN_PROTOCOL_V3_R4_CANONICAL_SHA256),
-            "rejudge/phase3_v3_amendment8_n3_roster_2026-08-27.json": (
+            "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json": (
                 FROZEN_V3_RECOVERY3_AMENDMENT_CANONICAL_SHA256),
             "rejudge/phase3_v3_r21_empty_verdict_discovery_2026-08-27.json": (
                 FROZEN_V3_R21_DISCOVERY_CANONICAL_SHA256),
@@ -940,7 +948,7 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         "roster_resolution.amendment_tracked_path",
     )
     expected_amendment_path = (
-        "rejudge/phase3_v3_amendment8_n3_roster_2026-08-27.json"
+        "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json"
         if recovery3 else
         "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json"
         if recovery2 else
@@ -954,26 +962,31 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     if resolution.get("amendment_canonical_sha256") != amendment_sha:
         raise ProtocolValidationError("v3 roster amendment identity drifted")
     replacement = _mapping(resolution.get("replacement"), "roster_resolution.replacement")
-    expected_removed = (
-        PHASE3_V3_RECOVERY3_REMOVED_JUDGE if recovery3
-        else PHASE3_V3_RECOVERY2_REPLACED_JUDGE if recovery2
-        else PHASE3_V3_RECOVERY_REPLACED_JUDGE if recovery
-        else PHASE3_V3_REPLACED_JUDGE)
-    # recovery3 is a removal, not a substitution: the weak slot closed on completion-
-    # infeasibility evidence with no admissible serverless candidate, so added_model is
-    # explicitly None rather than a judge.
-    expected_added = (
-        None if recovery3
-        else PHASE3_V3_RECOVERY2_REPLACEMENT_JUDGE if recovery2
-        else PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE if recovery
-        else PHASE3_V3_REPLACEMENT_JUDGE)
-    if replacement.get("removed_model") != expected_removed:
-        raise ProtocolValidationError("v3 removed judge drifted")
     if recovery3:
+        # recovery3 is a double removal, not a substitution: the weak slot closed on
+        # completion-infeasibility evidence and gemma-4 failed verdict admission at every
+        # screened cap (rare deterministic runaway; it keeps ONLY its screened checker
+        # role), with no admissible serverless candidate added.
+        if replacement.get("removed_models") != list(PHASE3_V3_RECOVERY3_REMOVED_JUDGES):
+            raise ProtocolValidationError("v3 recovery3 removed judges drifted")
         if "added_model" not in replacement or replacement.get("added_model") is not None:
             raise ProtocolValidationError("v3 recovery3 must record an explicit removal")
-    elif replacement.get("added_model") != expected_added:
-        raise ProtocolValidationError("v3 replacement judge drifted")
+        if replacement.get("checker_only_model") != (
+                PHASE3_V3_RECOVERY3_CHECKER_ONLY_MODEL):
+            raise ProtocolValidationError("v3 recovery3 checker-only retention drifted")
+    else:
+        expected_removed = (
+            PHASE3_V3_RECOVERY2_REPLACED_JUDGE if recovery2
+            else PHASE3_V3_RECOVERY_REPLACED_JUDGE if recovery
+            else PHASE3_V3_REPLACED_JUDGE)
+        expected_added = (
+            PHASE3_V3_RECOVERY2_REPLACEMENT_JUDGE if recovery2
+            else PHASE3_V3_RECOVERY_REPLACEMENT_JUDGE if recovery
+            else PHASE3_V3_REPLACEMENT_JUDGE)
+        if replacement.get("removed_model") != expected_removed:
+            raise ProtocolValidationError("v3 removed judge drifted")
+        if replacement.get("added_model") != expected_added:
+            raise ProtocolValidationError("v3 replacement judge drifted")
     if source_bindings.get("question_bank_bundle_sha256") != question_bank_sha:
         raise ProtocolValidationError("v3 question-bank binding drifted")
 
@@ -1004,9 +1017,9 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError(
             "v3 final roster must preserve the approved base judges in order")
     if recovery3:
-        if len(judges) != 3:
+        if len(judges) != 2:
             raise ProtocolValidationError(
-                "v3 recovery3 roster must contain exactly three judges")
+                "v3 recovery3 roster must contain exactly two judges")
         expected_outcome = "excluded_completion_infeasible"
     elif recovery and len(judges) != 4:
         raise ProtocolValidationError("v3 recovery roster must contain exactly four judges")
