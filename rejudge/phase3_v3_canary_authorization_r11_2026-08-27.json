@@ -1,0 +1,56 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r11_2026-08-27",
+ "authorizes": "Paid provider execution for the phase3-v3-5cc134ec5730dfaf one-seed reproducibility harness twice and, only after a bit-identical harness pass and a passing realistically-shaped Qwen3.8 availability probe, one fresh N=2 successor canary on the amendment-8 roster (judges Llama-3.3-70B + Qwen3.8 at its screened 16384 verdict budget; gemma-4 checker-only) under the carried $5.00 per-run uncertain ceiling and the amendment-5 terminal-halt disposition. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r22_2026-08-27.json",
+  "run_manifest_canonical_sha256": "012792dd2fc4bbfc50bda3782b78931d738b29d97b7728f9e3c37c9bc64ef63c",
+  "run_id": "phase3-v3-5cc134ec5730dfaf",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r5.json",
+  "protocol_canonical_sha256": "6e7f686e349f77c65b56c862221e27f8068f410f056c6f0764f97fd54e260e2d",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260831
+ },
+ "scope": {
+  "aggregate_cap_usd": 60,
+  "prior_accounted_spend_usd": 30.527867869999987,
+  "cap_applies_to": "the nine terminal predecessors' accounted spend, the recorded out-of-ledger judgment screening ($5.09 settled + $0.01 held uncertain, per the amendment-8 record) and availability probes, and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 480,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "policy_amendment_paths": [
+   "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+   "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json",
+   "rejudge/phase3_v3_amendment6_ceiling_raise_2026-08-26.json",
+   "rejudge/phase3_v3_amendment7_final_attempt_2026-08-27.json",
+   "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json"
+  ],
+  "predecessor_stop": {
+   "path": "rejudge/phase3_v3_r21_empty_verdict_discovery_2026-08-27.json"
+  },
+  "off_peak_gate": "the formal drive launches only after a realistically-shaped Qwen3.8 probe succeeds immediately before launch, per the owner's off-peak-launch approval; the harness exercises a Qwen3.8 capability cell and may run first"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menus of 2026-08-27",
+  "exact_text": "Approved: phase3-v3-5cc134ec5730dfaf harness and successor canary, $60 USD aggregate cap including $30.52786787 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-27",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "Screen, select, rebuild (Recommended)",
+   "Confirm passers + triage weak candidates (Recommended)",
+   "Full path (Recommended)",
+   "N=2 rebuild (Codex ruling)"
+  ],
+  "approval_derivation": "The owner approved the full screened-rebuild path on the stage-2 results ('Full path (Recommended)': re-screen, then rebuild under a fresh identity and run to convergence), and after stage 3 excluded gemma-4's verdict role, selected 'N=2 rebuild (Codex ruling)' from the roster menu. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-27T23:54:35.154212+00:00",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
