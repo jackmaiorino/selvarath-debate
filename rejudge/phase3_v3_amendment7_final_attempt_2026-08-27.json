@@ -1,0 +1,66 @@
+{
+ "schema_version": "phase3_v3_policy_amendment_v1",
+ "amendment_id": "phase3_v3_amendment7_final_attempt_2026-08-27",
+ "decided_at_utc": "2026-08-27T10:45:00Z",
+ "classification": "execution-policy amendment: one final four-judge attempt at a $5.00 per-run uncertain ceiling, with a conditionally pre-authorized N=3 successor and a frozen stop policy; no scientific-protocol change to the four-judge attempt",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-27",
+  "approved_on_date": "2026-08-27",
+  "selected_option": "Last 4-judge try, N=3 fallback (Recommended)",
+  "selected_option_description": "Codex's modified plan: one final calm-gated attempt at a $5 ceiling, with the N=3 successor pre-authorized to fire automatically only on objective Qwen3.8 triggers (ceiling filled by its reservations, delisting, dedicated-only). One attempt each, reported separately, combined worst case ~$18 more (ledger to ~$48.50 of $60)."
+ },
+ "codex_consult": {
+  "path": "rejudge/phase3_v3_codex_strategy_consult_2026-08-27.md",
+  "verdict_summary": "Modified D then conditional C: honest cost framing (expected accounted ~$9.4-10.4, max ~$11.5 for the four-judge attempt); $5 flat ceiling ratified as sufficient under an r19-like stationary drip by linear projection with no cross-regime completion claim and no further raise within the identity; conditional N=3 pre-authorization is sound with objective triggers, one attempt, separate identities and reporting, no pooling; a successful attempt does not qualify serverless Qwen3.8 for the main run; stop policy frozen; main-run viability section specified."
+ },
+ "four_judge_attempt": {
+  "run_uncertain_ceiling_usd": 5.0,
+  "role_limits": {
+   "path": "rejudge/phase3_v3_role_limits_r7_2026-08-27.json",
+   "canonical_sha256": "962bb2655aad96e369194de3518525ad8ee99b03ff5e8b27090837ee5edbb1e7"
+  },
+  "execution_binding": {
+   "path": "rejudge/phase3_v3_execution_binding_r9_2026-08-27.json",
+   "canonical_sha256": "4ab41785e611f5c7b355632399c6a6a4124600a102b670456ed59a35682b46fd"
+  },
+  "launch_gate": "shaped large-request Qwen3.8 probe must pass immediately before the formal drive; launch targeted inside the demonstrated-calm mid-day UTC band",
+  "no_further_ceiling_raise_within_identity": true
+ },
+ "conditional_n3_successor": {
+  "authorized": true,
+  "roster": ["google/gemma-4-31B-it", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "Qwen/Qwen3.5-9B"],
+  "triggers": [
+   "the four-judge attempt's $5.00 ceiling is filled predominantly by Qwen3.8-tagged reservations",
+   "Qwen/Qwen3.8-2.4T-A95B is delisted from the serverless catalog or converted to dedicated-only"
+  ],
+  "non_triggers": "an external stop, host failure, controller defect, ambiguous cause, or another judge failing returns to the owner instead",
+  "rules": "a fresh N=3 protocol identity and manifest, built at trigger time; no row carry or pooling with any predecessor; the four-judge attempt and the N=3 canary are reported separately with no shared completion claim; exactly one N=3 attempt is authorized and any failure of it returns to the owner; it retains a $2.50 per-run uncertain ceiling",
+  "combined_envelope": "the four-judge attempt (max ~$11.5 accounted) plus one N=3 attempt (~$4 actual + $2.50 ceiling) may take the ledger from $30.53 to at most ~$48.5 of the $60 aggregate cap; manifest-derived maxima bind at each authorization"
+ },
+ "frozen_stop_policy": {
+  "text": "An external stop is identity-terminal. A planned pause is resumable only after the wrapper records a quiescent checkpoint with no active request, no open reservation, all responses and dispositions durably committed, and the next cycle boundary recorded; stop intent is latched and honored at that boundary. Any kill, host shutdown, ambiguous checkpoint, or inability to drain forbids resume. Sufficient orchestrator availability for the conservative run duration is required before launch.",
+  "note": "ratified by the owner's approval of this amendment; the current wrapper has no quiescent-checkpoint mechanism, so under this policy every external stop remains identity-terminal until one is built and separately reviewed"
+ },
+ "main_run_viability_reporting": "the successor canary report and closeout must carry the Codex-specified Qwen3.8 serverless stability section: per-window request denominators and outcomes, latency and uncertain-dollar rates, request shape, per-cause categories (r7 resolved integration; r15/r17 availability; r19 drip evidence censored at 568/1,008 by the external stop), calm/drip/crunch projections onto planned main-run call counts without independence or SLA claims, and the conclusion that the unchanged serverless route is not yet qualified for a multi-day main run under the current contracts",
+ "science_unchanged": {
+  "protocol_path": "rejudge/phase3_protocol_v3_r4.json",
+  "protocol_canonical_sha256": "128fa5ddc2dc6604c7dc9a05923e385d285b40374a344deeff0c68c4fd82aa20",
+  "statement": "The four-judge attempt changes no protocol, roster, prompt, seed, token limit, checker behavior, or analysis gate. The conditional N=3 successor is a roster and scope change and is authorized by the owner's selection above; its protocol is materialized only at trigger time."
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 30.526558439999988,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "successor_identity_authorized": true,
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment approves the ceiling, the conditional N=3 decision tree, and the frozen stop policy; paid inference still requires per-identity authorizations.",
+  "A successful four-judge canary does not qualify unchanged serverless Qwen3.8 for the main run.",
+  "Any further ceiling increase within an identity, second N=3 attempt, row reuse, or main spend requires new owner approval."
+ ]
+}

@@ -1,0 +1,251 @@
+{
+ "schema_version": "phase3_v3_execution_binding_v9",
+ "binding_id": "phase3_v3_execution_binding_r9_2026-08-27",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "paths": {
+  "archive_dir": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27",
+  "harness_1_results": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/harness_1_results.jsonl",
+  "harness_1_cache": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/harness_1_call_cache.jsonl",
+  "harness_2_results": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/harness_2_results.jsonl",
+  "harness_2_cache": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/harness_2_call_cache.jsonl",
+  "formal_results": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_canary_results.jsonl",
+  "formal_decisions": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_reviewer_decisions.jsonl",
+  "formal_cache": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_call_cache.jsonl",
+  "usage_ledger": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl",
+  "usage_state": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl.state.json",
+  "formal_error_log": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_error_log.jsonl",
+  "run_log": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_run_log.jsonl",
+  "reviewer_worklist": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/reviewer_worklist.json",
+  "reviewer_index": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/reviewer_index.jsonl",
+  "harness_verified_manifest": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_run_manifest_harness_verified.json",
+  "final_manifest": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_run_manifest_complete.json",
+  "final_report": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_successor_canary_report.json",
+  "run_lock": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_run.lock"
+ },
+ "usage_ledger_identity": {
+  "schema_version": 1,
+  "ledger_id": "ae4bd4a9f86b48b59b54d18604e02859",
+  "ledger_path": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl",
+  "state_path": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl.state.json"
+ },
+ "prior_attempt_accounting": {
+  "aggregate_cap_usd": 60.0,
+  "measurement_rows_reused": 0,
+  "attempts": [
+   {
+    "run_id": "phase3-v3-07501cfa62bf55e5",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r5_2026-08-24.json",
+     "canonical_sha256": "91a2660982ae200ba34efa662521b905d7be3d20590f096a93a746d887a5a6bd"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r5_provider_halt_2026-08-24.json",
+     "canonical_sha256": "36e0e8c96bbf5b76ffa1ee798829c504e60dfddaed5cf1a1488e1ee65f5f1e45"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl",
+     "raw_sha256": "b583c2aed470543310c28061f725ba2b003ff60d405c5ac7f8db41ac4d1042ab",
+     "last_event_sha256": "a8246f77f2b836d89c867e13c4c9ac201d934e96e57b4bfde816130194eed198",
+     "actual_spend_usd": 0.16820809000000006,
+     "uncertain_spend_usd": 0.048904800000000005,
+     "accounted_spend_usd": 0.21711289000000006,
+     "unmatched_reservations": 0
+    }
+   },
+   {
+    "run_id": "phase3-v3-b6c0bf895e78d216",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r7_2026-08-24.json",
+     "canonical_sha256": "a06b272288d9b9909308650193665fe56011a9faed434cebb4488da3526777c6"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r7_provider_halt_2026-08-25.json",
+     "canonical_sha256": "ffca5b11d855ed51ba37a33a4b31bc90d08e2bb05ae850d44400364e69495a08"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24/phase3_v3_usage.jsonl",
+     "raw_sha256": "adfd086dcd9246673963191c1ebc41ada23a2c430fe0dea6c35484b3e08dd37d",
+     "last_event_sha256": "2191dc74346af0c8b9c5b63efd1fe9b315ff73d371d6fa4af5588d397854382d",
+     "actual_spend_usd": 0.0,
+     "uncertain_spend_usd": 0.09274,
+     "accounted_spend_usd": 0.09274,
+     "unmatched_reservations": 0
+    }
+   },
+   {
+    "run_id": "phase3-v3-ab48e68863878f49",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r8_2026-08-25.json",
+     "canonical_sha256": "43775c3dfe0964d043c642019b48f8a94fd7662f46bf8629ee5039eadf255911"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r9_uncertain_spend_halt_2026-08-25.json",
+     "canonical_sha256": "bda47615c351b81568cb82f05749e321b635d7fe284ba1b3871310ffb27553e7"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r3-qwen38-nonstream-2026-08-25/phase3_v3_usage.jsonl",
+     "raw_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60",
+     "last_event_sha256": "d0e5f4584708dc9c7c3ea4cffc483be6950f93e607bd6517246207b0c3fe214b",
+     "actual_spend_usd": 4.575501599999998,
+     "uncertain_spend_usd": 0.09185622,
+     "accounted_spend_usd": 4.6673578199999985,
+     "unmatched_reservations": 0
+    }
+   },
+   {
+    "run_id": "phase3-v3-476792b58e273b48",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r10_2026-08-25.json",
+     "canonical_sha256": "a918efa03895c78853468d7f7b355ef2ad76fef6855c6136a99e2ed7332821ce"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r11_gemma3n_delisting_halt_2026-08-25.json",
+     "canonical_sha256": "7cff6cc8604c17dad3ad67574cf1efe42ac1611db28b0148a74d58d8a3246618"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r4-uncertain-tolerance-2026-08-25/phase3_v3_usage.jsonl",
+     "raw_sha256": "cbad43ba62d4f29613596357d4f15b25925240dcd84b898b84473cc82a703dd9",
+     "last_event_sha256": "f7bd8115e75144a060bb96512dd8624e71d76b5a345b362034f2b73fbce0fa78",
+     "actual_spend_usd": 3.1564756299999996,
+     "uncertain_spend_usd": 0.03381477000000001,
+     "accounted_spend_usd": 3.1902904,
+     "unmatched_reservations": 1
+    }
+   },
+   {
+    "run_id": "phase3-v3-120ce58628620fce",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r12_2026-08-25.json",
+     "canonical_sha256": "b212a4abbd86e88d9f0c32d4a43e0fe25723a06bcc3ae15079fc4c7664f305a3"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r13_checker_malformed_halt_2026-08-26.json",
+     "canonical_sha256": "c25e78498c3adb5eab3c86428062d996329d7076c454b9647a7623f256c36710"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r5-qwen35-9b-2026-08-25/phase3_v3_usage.jsonl",
+     "raw_sha256": "64a6604c9f44c7077a9edf955e4690b59b62952c9a459197a8dba8507804eda7",
+     "last_event_sha256": "55ebc8d6d09bcdd8569333909c5d657e8c0359f80079bcde9c2ccfd17620546c",
+     "actual_spend_usd": 6.360223539999993,
+     "uncertain_spend_usd": 0.19838917000000003,
+     "accounted_spend_usd": 6.558612709999993,
+     "unmatched_reservations": 0
+    }
+   },
+   {
+    "run_id": "phase3-v3-3382c17bc4b33909",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r14_2026-08-26.json",
+     "canonical_sha256": "c350b2266b32bd79ffc3f91e8d155b05b7a1f550e608f942d8f8892607e4538e"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r15_uncertain_ceiling_stop_2026-08-26.json",
+     "canonical_sha256": "2a3d7551ad63a166cd105221c9e149e7048fa144807d8ed83688384cfdabbc14"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r6-checker-disposition-2026-08-26/phase3_v3_usage.jsonl",
+     "raw_sha256": "c5d5229de09016c51c817a3f97c170339963381bdeca55025a16d322425b3632",
+     "last_event_sha256": "e01b4d8ec96d7e980432caa55630275a59feb5ccdc0e11b8f9081cebb6783615",
+     "actual_spend_usd": 6.007793009999994,
+     "uncertain_spend_usd": 0.92929979,
+     "accounted_spend_usd": 6.937092799999994,
+     "unmatched_reservations": 1
+    }
+   },
+   {
+    "run_id": "phase3-v3-0407589edb2d8a6b",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r16_2026-08-26.json",
+     "canonical_sha256": "bdb23d45338dfbb8abfebb10904db9e964209841d1a0851f5eaf1eb22187e487"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r17_evening_capacity_stop_2026-08-26.json",
+     "canonical_sha256": "545671f8f641b54bd1415c2a2b192de0e1320c98929e030f6a3e9d66c8c24691"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r7-raised-ceiling-2026-08-26/phase3_v3_usage.jsonl",
+     "raw_sha256": "261feae2a1c1435b511dae363fe77e47202a20987997e4ad541f156d2b023aff",
+     "last_event_sha256": "da1267e7a09d51f1758bb0751bc5d66ba02dbd259d5af9f10830a034cd13b64b",
+     "actual_spend_usd": 1.3422268199999996,
+     "uncertain_spend_usd": 2.40111965,
+     "accounted_spend_usd": 3.7433464699999996,
+     "unmatched_reservations": 1
+    }
+   },
+   {
+    "run_id": "phase3-v3-25d73d86c66a1e42",
+    "run_manifest": {
+     "path": "rejudge/phase3_v3_run_manifest_preflight_r18_2026-08-26.json",
+     "canonical_sha256": "cf0da692875e7ea17c169aa51193d5bd2cd880f781f416421c0d1f624cb9c337"
+    },
+    "halt_observation": {
+     "path": "rejudge/phase3_v3_r19_offpeak_pause_stop_2026-08-27.json",
+     "canonical_sha256": "40ae2fe7940e5280ba73c1229f25f771678ade3c37a9e2267bc4860faefad531"
+    },
+    "usage_ledger": {
+     "path": "E:/selvarath-archive/phase3-v3r8-offpeak-2026-08-27/phase3_v3_usage.jsonl",
+     "raw_sha256": "531f440cc27af6353283d10660aa5035714ab3e670484a7ee77dab3b302182b1",
+     "last_event_sha256": "73610e7814f46afa3a33e000c5c33d1681e5ed924e66929dd73bd9fbffb786d5",
+     "actual_spend_usd": 2.780321680000001,
+     "uncertain_spend_usd": 2.33968367,
+     "accounted_spend_usd": 5.120005350000001,
+     "unmatched_reservations": 1
+    }
+   }
+  ],
+  "totals": {
+   "actual_spend_usd": 24.390750369999985,
+   "uncertain_spend_usd": 6.1358080699999995,
+   "accounted_spend_usd": 30.526558439999988
+  },
+  "remaining_before_successor_usd": 29.473441560000012
+ },
+ "canary_transcript_bundle": {
+  "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_canary_2026-08-18.json",
+  "canonical_sha256": "080baac5c53b96f295dbcf39025ac6bf4d742edd62372def1c416e90b0a03864"
+ },
+ "transcript_verification_report": {
+  "tracked_path": "rejudge/phase3_transcript_verification_2026-08-18.json",
+  "canonical_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb"
+ },
+ "harness": {
+  "seed_name": "harness",
+  "seed": 20260829,
+  "selection_method": "random.Random(seed).choice over capability cells sorted by cell_key",
+  "selected_capability_cell_key": "phase3-budget-knob-2026-08-25-v3r4.rr-7cff6cc8604c.ra-80c4b7ce5da8.qb-d9e52c3339ab:phase3_capability_qa:cf17b97e01160eab08898c89df62033cc6d693e422d956bd37c4623745e2ffc0",
+  "selected_question_id": "CN-023",
+  "selected_judge_model": "Qwen/Qwen3.5-9B",
+  "execution_count": 2,
+  "cache_isolation": "one fresh call cache per execution",
+  "comparison": "raw SHA-256 of each one-row CellResultStore must match exactly"
+ },
+ "formal_execution": {
+  "provider_max_workers": 1,
+  "pending_payload_limit": 64,
+  "reviewer_model": "gpt-5.6-sol",
+  "reviewer_reasoning_effort": "high",
+  "reviewer_concurrency": 12,
+  "transcript_generation_forbidden": true,
+  "shared_aggregate_cap_accounting": true
+ },
+ "toolchain": {
+  "provider_sdk": {
+   "package": "together",
+   "version": "2.7.0"
+  },
+  "reviewer_cli": {
+   "binary": "codex.cmd",
+   "version_output": "codex-cli 0.149.0"
+  },
+  "linker_version_or_not_applicable": "not_applicable"
+ },
+ "inventory": {
+  "canary_transcript_rows": 48,
+  "fresh_judgment_rows": 768,
+  "fresh_capability_rows": 192,
+  "fresh_gate_rows": 960,
+  "main_rows": 0
+ },
+ "note": "This binding carries all eight halted attempts under one aggregate cap and gives the owner-approved final four-judge attempt a new zero-spend ledger under the $5.00 per-run uncertain ceiling (role-limits r7, amendment 7). The pre-authorized N=3 fallback fires only on the objective Qwen3.8 triggers named in amendment 7 and uses its own fresh identity with separate reporting. It cannot authorize inference."
+}
