@@ -27,8 +27,16 @@ while ($true) {
     $lastError = ""
     if (Test-Path $ErrorLog) { $lastError = (Get-Content $ErrorLog -Tail 1) }
     $isUnknownChargeHalt = $stderrText -match "UnknownChargeHalt"
+    # checker_outage wraps ANY checker-call exception including ordinary transients
+    # (phase2_query_gate's own comment). Under the delegated transport-only relaunch
+    # authority, a checker_outage whose latest error-log line carries a matching
+    # transient provider error resumes like any other transport failure; a
+    # checker_outage WITHOUT such evidence still stops for orchestrator review, and
+    # checker_malformed / checker_unresolved are never matched here at all. First
+    # exercised 2026-08-28 (run 5cdeb74a: a Llama-checker 503 halted a full drive).
+    $isCheckerOutage = $stderrText -match ": checker_outage"
     $isTransient = $lastError -match $transient
-    if (-not ($isUnknownChargeHalt -and $isTransient)) {
+    if (-not (($isUnknownChargeHalt -or $isCheckerOutage) -and $isTransient)) {
         Write-Host "NON-TRANSIENT HALT (exit $code): orchestrator review required"
         Write-Host ("stderr: " + $stderrText.Trim())
         Write-Host ("last error-log line: " + $lastError)
