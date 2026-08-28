@@ -1563,9 +1563,13 @@ def drive_formal(
         load_terminal_halt_records(context, CellResultStore(formal_results)))
     terminal_cells = partition["terminal_cells"]
     if terminal_cells:
+        # judgments holds phase3_runner.ResolvedCell objects (attribute access), not the
+        # plan's dict cells. The first live exercise of this exclusion path (run
+        # 5cc134ec5730dfaf, r23) wedged on dict indexing here; the regression test drives
+        # this filter with real resolved cells.
         judgments = [
             cell for cell in judgments
-            if str(cell["cell_key"]) not in terminal_cells]
+            if str(cell.cell_key) not in terminal_cells]
         _append_jsonl(context["paths"]["run_log"], {
             "event": "terminal_halt_exclusions_loaded",
             "recorded_at_utc": _utc_now(),

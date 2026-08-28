@@ -1,0 +1,47 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-28T01:05:00Z",
+ "observation_id": "phase3_v3_r23_exclusion_filter_defect_2026-08-28",
+ "run_id": "phase3-v3-5cc134ec5730dfaf",
+ "status": "halted_by_control_plane_defect_identity_terminal",
+ "defect": "The amendment-5 drive-time terminal-cell exclusion filter indexed phase3_runner.ResolvedCell objects like the plan's dict cells (TypeError: 'ResolvedCell' object is not subscriptable). Every prior run carried zero terminal cells, so run 5cc134ec5730dfaf's resumption after its first checker_malformed disposition (terminal record 001) was the FIRST live exercise of the path, and every future invocation of this identity would hit the same defect. Under the frozen execution-code-binding policy (any change to EXECUTION_CODE_PATHS forces a fresh identity) the identity is unresumable once the fix lands, exactly the r9-precedent class: a control-plane inconsistency discovered live, resolved by full redo under a fresh identity with no row reuse.",
+ "run_state_at_halt": {
+  "harness": "bit_identical_pass (86853bd10438602521a7ad377719fe3c52d8ebfd1fe762e151e67e47d6ca19f4, both executions)",
+  "shaped_probe": "passed (finish=stop, 6763 of 16384 completion tokens)",
+  "formal_rows_complete": 336,
+  "planned_rows": 528,
+  "review_passes_complete": 1,
+  "terminal_halt_records": ["rejudge/phase3_v3_terminal_halts_001_2026-08-28.json"],
+  "controls_note": "the checker_malformed disposition itself worked as ratified: the halt was caught fail-closed, the evidence-bound record was written, and the defect surfaced only in the resumption filter"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r10-n2-2026-08-27/phase3_v3_usage.jsonl",
+  "events": 764,
+  "actual_spend_usd": 4.102221599999998,
+  "uncertain_spend_usd": 0.020467199999999998,
+  "accounted_spend_usd": 4.122688799999998,
+  "unmatched_reservations": 0,
+  "last_event_sha256": "dab55c0c0a2077fd9120aa22ce686d77d714df32514344e3c76ae013db0f4740",
+  "note": "zero open reservations: the TypeError struck during resumption setup, before any dispatch, so the ledger closed clean"
+ },
+ "fix": {
+  "content": "one-line attribute-access correction in the drive_formal exclusion filter (cell.cell_key) plus a regression test driving the exact filtering expression with real ResolvedCell objects (tests/test_phase3_v3_terminal_exclusion_filter.py)",
+  "bound_to_this_record": true,
+  "policy_change": "none: the amendment-5 disposition, its bounds, and every gate are unchanged; only defective mechanism code is repaired"
+ },
+ "successor": "a fresh N=2 identity under the same amendment-8 roster, role limits r8, and protocol r5; binding v11 chains this run as the tenth terminal attempt; the terminal-halts record 001 is prior-attempt evidence only and does not transfer (the successor's own cells are fresh)",
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd_before_this_run": 30.527867869999987,
+  "this_run_accounted_spend_usd": 4.122688799999998,
+  "prior_accounted_spend_usd_after_this_run": 34.650556669999986
+ },
+ "precedent": "rejudge/phase3_v3_r9_uncertain_spend_halt_2026-08-25.json and its amendment-3 remedy (Codex-ratified full redo under a fresh identity for a live-discovered control-plane inconsistency); no policy question is open here, so no fresh consult was spent",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing and changes no gate, budget, roster, or protocol element.",
+  "No measurement row from this identity satisfies any successor slot.",
+  "The 336 completed rows remain sealed in the archive as evidence only."
+ ]
+}
