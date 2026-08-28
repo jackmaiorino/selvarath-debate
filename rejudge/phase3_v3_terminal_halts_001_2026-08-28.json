@@ -1,0 +1,23 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_001_2026-08-28",
+ "run_id": "phase3-v3-5cc134ec5730dfaf",
+ "cell_key": "phase3-budget-knob-2026-08-27-v3r5.rr-e9ea382e1bcb.ra-dfdff7a1d2f8.qb-d9e52c3339ab:phase3_canary_debate_judgment:27cf7cbe7ff4eaafd0246e68e7cbf1b5c251b519ce0febddf98387763c8d9729",
+ "reason": "checker_malformed",
+ "evidence": {
+  "ledger_attempt_id": "1862612752cf44b1a90e98c0b4122160",
+  "ledger_event_sha256": "dab55c0c0a2077fd9120aa22ce686d77d714df32514344e3c76ae013db0f4740",
+  "ledger_sequences": [763, 764],
+  "model": "google/gemma-4-31B-it",
+  "call_role": "query_checker",
+  "finish_reason": "length",
+  "completion_tokens": 4096,
+  "parse_failure": "MalformedCheckerOutput on the verbatim provider text: the frozen checker consumed its entire 4096-token effective budget thinking and emitted no verdict token (the r13 signature, the same rare per-prompt-deterministic gemma-4 runaway documented in the judgment-screen results record and disclosed for the checker role in amendment 8)",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-5 halt-review-resume procedure and the 2026-07-19 standing in-phase delegation; signature verified against sealed ledger events 763-764 before this record was written",
+ "recorded_at_utc": "2026-08-28T00:48:00Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json (canonical dd33f286bb20c00c7fc595e983b56d8dd7c0fbb735f35f50f3b6659d8f293a49): a checker_malformed judgment cell is excluded from execution convergence, counts INVALID in the primary, and its whole mirror unit leaves the paired polarity analyses; stop bounds (>20 unique terminal cells, >4% affected mirror units, concentration) are never relaxable mid-run",
+ "disposition_notes": "First terminal cell of run phase3-v3-5cc134ec5730dfaf (bound: 20). The cell's checker output is memoized by frozen doctrine, so the cell is unfillable within this identity; resumption continues every other cell under the same identity per amendment 5.",
+ "execution_authorized": false
+}
