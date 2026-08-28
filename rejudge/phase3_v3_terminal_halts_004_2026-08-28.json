@@ -1,0 +1,23 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_004_2026-08-28",
+ "run_id": "phase3-v3-d5836a2141cb3736",
+ "cell_key": "phase3-budget-knob-2026-08-27-v3r5.rr-e9ea382e1bcb.ra-dfdff7a1d2f8.qb-d9e52c3339ab:phase3_canary_debate_judgment:4d6dc12be5215edf82be77742a6ae4016f0d5d0781dcc6e770c20b06ca0e9d91",
+ "reason": "checker_malformed",
+ "evidence": {
+  "ledger_attempt_id": "eff3eee1bf0f40f0ba623f06372ee6fb",
+  "ledger_event_sha256": "8528b9d6b3594ea95fc9552daa9e27122ccce2b48bbaf28d41d19be56add90a7",
+  "ledger_sequences": [1223, 1224],
+  "model": "google/gemma-4-31B-it",
+  "call_role": "query_checker",
+  "finish_reason": "length",
+  "completion_tokens": 4096,
+  "parse_failure": "MalformedCheckerOutput on the verbatim provider text: the frozen checker consumed its entire 4096-token effective budget thinking and emitted no verdict token (the r13 signature; the disclosed per-prompt-deterministic gemma-4 runaway)",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-5 halt-review-resume procedure and the 2026-07-19 standing in-phase delegation; signature verified against sealed ledger events 1223-1224 before this record was written",
+ "recorded_at_utc": "2026-08-28T02:35:00Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json (canonical dd33f286bb20c00c7fc595e983b56d8dd7c0fbb735f35f50f3b6659d8f293a49): a checker_malformed judgment cell is excluded from execution convergence, counts INVALID in the primary, and its whole mirror unit leaves the paired polarity analyses; stop bounds (>20 unique terminal cells, >4% affected mirror units, concentration) are never relaxable mid-run",
+ "disposition_notes": "Third terminal cell of run phase3-v3-d5836a2141cb3736 (bound: 20). Three of ~192 checker-bearing sequential_b2 cells (~1.6%) remains under the 2% concentration rate; a FIFTH sequential_b2 terminal cell would cross the frozen concentration bound (>=5 cells at >2%) and requires owner review before any further resumption. The run advanced 338 -> 371 rows between the second and third events.",
+ "execution_authorized": false
+}
