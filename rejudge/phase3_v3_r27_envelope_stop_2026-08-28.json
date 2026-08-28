@@ -1,0 +1,40 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-28T17:45:00Z",
+ "observation_id": "phase3_v3_r27_envelope_stop_2026-08-28",
+ "run_id": "phase3-v3-7a8a34fb544d8c2a",
+ "status": "stopped_by_orchestrator_envelope_exhaustion_identity_terminal_under_raise",
+ "trigger": "A day-long Qwen3.8 capacity crunch (32 timeout/503 events, 12:19-17:02Z, each booking its reserved cost as uncertain) consumed $4.60 of the $5.00 per-run uncertain ceiling while total phase commitment reached ~$55.7 of the $60 aggregate cap. Finishing the remaining ~195 rows needs $4-5.5 more: infeasible under BOTH frozen envelopes. The final halt was a checker_outage transport wrap on judgment cell 14fea4687056b8ca947b0b43cf46f0b98967df986c3fdedfa1002cfd683ada51 (its judge_query succeeded and is cached; NO checker ledger event, no memoized response, no result row: nothing poisoned; the Llama checker had executed zero production calls because b2 gating begins in pass 2).",
+ "run_state_at_stop": {
+  "rows_complete": 333,
+  "planned_rows": 528,
+  "review_passes_complete": 1,
+  "pending_labels": 64,
+  "terminal_halt_records": [],
+  "checker_malformed_events": 0,
+  "controls_note": "the amendment-5 machinery was never exercised: ZERO checker_malformed events in 333 rows under the r6 protocol; the harness was bit-identical and the shaped probe passed before launch"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r12-llamachecker-2026-08-28/phase3_v3_usage.jsonl",
+  "events": 786,
+  "actual_spend_usd": 3.317451469999998,
+  "uncertain_spend_usd": 4.602845000000001,
+  "accounted_spend_usd": 7.920296469999999,
+  "unmatched_reservations": 0
+ },
+ "aggregate_accounting": {
+  "cap_usd_at_stop": 60.0,
+  "prior_accounted_spend_usd_before_this_run": 42.53125933,
+  "this_run_accounted_spend_usd": 7.920296469999999,
+  "prior_accounted_spend_usd_if_terminal": 50.451555799999994,
+  "screening_out_of_ledger_usd": 5.23608743
+ },
+ "disposition": "The owner selected 'Extend ~$5, finish it' (menu, 2026-08-28): aggregate cap to $65 and per-run uncertain ceiling to $7.50. Under the frozen rules the ceiling is pinned in a manifest-bound artifact and the cap in execution code, so the raise is identity-terminal for this run (the amendment-6 and amendment-7 precedents each took fresh identities); the finish executes as a fresh thirteenth attempt on the UNCHANGED r6 protocol at approximately the cost of resuming, inside the approved $65. Codex conformance: no blockers ($7.50 ~ 52 timeout events of headroom at today's observed rate; no additional launch condition beyond the shaped-probe calm-window gate).",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing; amendment 10 and the r14 authorization carry the owner's approval.",
+  "No measurement row from this identity satisfies any successor slot.",
+  "The 333 completed rows remain sealed as evidence only."
+ ]
+}

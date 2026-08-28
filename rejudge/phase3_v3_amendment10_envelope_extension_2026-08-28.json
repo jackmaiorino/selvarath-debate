@@ -1,0 +1,53 @@
+{
+ "schema_version": "phase3_v3_envelope_amendment_v1",
+ "amendment_id": "phase3_v3_amendment10_envelope_extension_2026-08-28",
+ "decided_at_utc": "2026-08-28T18:57:11Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-28",
+  "selected_option": "Extend ~$5, finish it",
+  "content": "approve up to $65 aggregate and a per-run uncertain ceiling of $7.50, resume in the next calm window, and run to convergence (~90% odds quoted for ~$4-5.5 more)",
+  "mechanics_disclosure": "under the frozen rules the ceiling is pinned in a manifest-bound role-limits artifact and the cap in execution code, so the raise is identity-terminal for run phase3-v3-7a8a34fb544d8c2a (the amendment-6 and amendment-7 precedents each took fresh identities); the finish executes as a fresh thirteenth attempt on the UNCHANGED r6 protocol, at approximately the cost of resuming, inside the approved $65"
+ },
+ "changes": {
+  "aggregate_cap_usd": {
+   "from": 60.0,
+   "to": 65.0,
+   "note": "owner's new money, ~$5, within the remaining grant"
+  },
+  "run_uncertain_ceiling_usd": {
+   "from": 5.0,
+   "to": 7.5,
+   "note": "~52 timeout-event headroom at the worst observed drip rate; role-limits schema v7"
+  },
+  "science_changes": "none: protocol r6, roster, checker, gates, bounds, and the pre-registered disparity diagnostic are unchanged"
+ },
+ "codex_basis": {
+  "verdict": "no blockers; $7.50 reasonable under the controlling $65 cap (~52 events at the observed rate); no launch condition beyond the shaped-probe calm-window gate (a minimum-hour hold lacks evidentiary value and a mid-run checkpoint adds operational selection behavior)",
+  "file_sha256": {
+   "rejudge/phase3_v3_codex_amendment10_consult_2026-08-28.md": "df77a25717cfbebad6b77af9f529cf3b7ab50aafdecc4e35542a7b9ccc8bbe06"
+  }
+ },
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r27_envelope_stop_2026-08-28.json": "10cd9cb2df1807b2b64af55678d688beafd53d962bfd6b8191d3e430ba73c730",
+   "rejudge/phase3_v3_amendment9_llama_checker_2026-08-28.json": "ec73ee30588c5f282ac655c8c6e37859554809591051405ae350c1dec1b33b1f"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 65.0,
+  "prior_accounted_spend_usd": 50.451555799999994,
+  "prior_accounted_note": "the eleven-attempt v12 carry (42.53125933) plus the r27-stopped twelfth identity's sealed ledger (7.920296469999999, run phase3-v3-7a8a34fb544d8c2a)",
+  "screening_out_of_ledger_usd": 5.23608743,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call; the r14 authorization carries execution approval.",
+  "No measurement row from any prior attempt satisfies a successor slot.",
+  "No gate, bound, roster, or protocol element changes; only the two budget envelopes."
+ ]
+}
