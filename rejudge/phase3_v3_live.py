@@ -2072,6 +2072,81 @@ def _checker_truncation_diagnostic(
     }
 
 
+def _fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
+    """Two-sided Fisher exact p for the 2x2 table [[a, b], [c, d]], no SciPy needed.
+
+    Conditional on the margins, sums the hypergeometric probability of every table at
+    most as probable as the observed one (with a small relative tolerance, the standard
+    convention).
+    """
+    import math
+
+    row1, row2 = a + b, c + d
+    col1 = a + c
+    total = row1 + row2
+
+    def probability(x: int) -> float:
+        return (math.comb(row1, x) * math.comb(row2, col1 - x)
+                / math.comb(total, col1))
+
+    observed = probability(a)
+    lower = max(0, col1 - row2)
+    upper = min(col1, row1)
+    return min(1.0, sum(
+        probability(x) for x in range(lower, upper + 1)
+        if probability(x) <= observed * (1 + 1e-9)))
+
+
+def _checker_origin_disparity(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Amendment-9 pre-registered diagnostic: checker rejection rates by originating judge.
+
+    The admitted checker shares a model family with one judge, so its decisions could
+    favor errors characteristic of that family. Reported always; interpretation of the
+    treatment effect is marked BLOCKED when the two-sided Fisher exact p is below 0.05
+    AND the absolute rejection-rate difference is at least 10 percentage points. Never
+    halts the run.
+    """
+    tallies: dict[str, dict[str, int]] = {}
+    for row in rows:
+        result = row if "gate_events" in row else row.get("result") or row
+        for event in result.get("gate_events", []) or []:
+            decision = event.get("checker_decision")
+            if decision not in ("allow", "reject"):
+                continue
+            judge = str(result.get("judge_model"))
+            tally = tallies.setdefault(judge, {"allow": 0, "reject": 0})
+            tally[decision] += 1
+    judges = sorted(tallies)
+    report: dict[str, Any] = {
+        "by_originating_judge": {
+            judge: {
+                **tallies[judge],
+                "rejection_rate": (
+                    tallies[judge]["reject"]
+                    / max(1, tallies[judge]["allow"] + tallies[judge]["reject"])),
+            }
+            for judge in judges},
+        "rule": (
+            "interpretation blocked iff two-sided Fisher exact p < 0.05 AND absolute "
+            "rejection-rate difference >= 10 percentage points (amendment 9, "
+            "pre-registered before any successor call)"),
+    }
+    if len(judges) == 2:
+        first, second = (tallies[judge] for judge in judges)
+        p_value = _fisher_exact_two_sided(
+            first["reject"], first["allow"], second["reject"], second["allow"])
+        rate = lambda t: t["reject"] / max(1, t["allow"] + t["reject"])  # noqa: E731
+        difference = abs(rate(first) - rate(second))
+        report["fisher_exact_two_sided_p"] = p_value
+        report["absolute_rate_difference"] = difference
+        report["treatment_effect_interpretation_blocked"] = bool(
+            p_value < 0.05 and difference >= 0.10)
+    else:
+        report["treatment_effect_interpretation_blocked"] = None
+        report["note"] = "diagnostic requires exactly two originating judges"
+    return report
+
+
 def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
     harness_manifest = load_harness_manifest(context)
     plan = _canary_plan(context)
@@ -2223,6 +2298,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
             "capability_anchor_by_judge": capability,
             "paired_position_by_judge": paired_position,
             "checker_truncation": _checker_truncation_diagnostic(context, plan),
+            "checker_origin_disparity": _checker_origin_disparity(rows),
             "capability_slope_inference": "estimate_and_plot_only_no_p_value",
             "configuration_selection_pace": {
                 "status": "not_evaluated_by_canary_closeout",

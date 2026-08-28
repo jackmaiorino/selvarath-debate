@@ -1,0 +1,14 @@
+{
+ "schema_version": "phase3_v3_protocol_pin_v2",
+ "protocol_tracked_path": "rejudge/phase3_protocol_v3_r6.json",
+ "protocol_canonical_sha256": "e366147d54f65d9c033f94fc7f8dfd2803c3d147a326212a8dd36c5f84b7ef85",
+ "protocol_content_sha256": "ba2726b171ac1c6f3149115066bef2c8b16563405f147622a38d05771e423b64",
+ "successor_design_canonical_sha256": "75c1790a54d7a6ca780839f8a1efe4ca5a5db9aee075d4c473be516004cc0479",
+ "successor_design_amendment_canonical_sha256": "44f082a459cd22e5c8586043e18f781e624ebb487c0f7fa074087f9930136b58",
+ "roster_resolution_canonical_sha256": "e9ea382e1bcbcd15e3b0ef29c494d7e81f58c872d14046eccf44566122be2505",
+ "final_roster": [
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "Qwen/Qwen3.8-2.4T-A95B"
+ ],
+ "execution_authorized": false
+}
