@@ -1,0 +1,149 @@
+{
+ "schema_version": "phase3_v3_role_limits_v7",
+ "artifact_id": "phase3_v3_role_limits_r10_2026-08-28",
+ "protocol_id": "phase3_budget_knob_2026_08_28_v3r6",
+ "status": "frozen_pending_manifest_binding",
+ "execution_authorized": false,
+ "base_role_max_tokens": {
+  "debater_turn": 512,
+  "judge_query": 256,
+  "oracle": 32,
+  "judge_verdict": 512,
+  "batch_verdict": 512,
+  "query_checker": 16,
+  "capability_qa": 32
+ },
+ "reasoning_models": {
+  "model_ids": [
+   "Qwen/Qwen3.8-2.4T-A95B"
+  ],
+  "floor_max_tokens": 4096
+ },
+ "model_role_limits": {
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 256
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 512
+   },
+   "oracle": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 32
+   },
+   "query_checker": {
+    "base_role_max_tokens": 16,
+    "effective_request_max_tokens": 16
+   }
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "judge_query": {
+    "base_role_max_tokens": 256,
+    "effective_request_max_tokens": 4096
+   },
+   "judge_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 16384
+   },
+   "batch_verdict": {
+    "base_role_max_tokens": 512,
+    "effective_request_max_tokens": 16384
+   },
+   "capability_qa": {
+    "base_role_max_tokens": 32,
+    "effective_request_max_tokens": 4096
+   }
+  }
+ },
+ "context_ceilings": {
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "context_length_tokens": 131072,
+   "source": "Together serverless model catalog"
+  },
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "context_length_tokens": 1010000,
+   "source": "Together serverless model catalog captured 2026-08-24T23:52:03.560789Z"
+  }
+ },
+ "request_settings": {
+  "base_fields": [
+   "model",
+   "messages",
+   "temperature",
+   "max_tokens",
+   "seed"
+  ],
+  "streaming_pinned_models": {},
+  "per_model_extra_fields": {},
+  "reasoning_control_note": "Gemma 4 and Qwen3.8 use their default provider reasoning behavior. No unverified reasoning-control request field is sent.",
+  "transport": {
+   "http_timeout": {
+    "connect": 10,
+    "read": 120,
+    "write": 60,
+    "pool": 60
+   },
+   "ledger_max_retries": 2,
+   "ledger_max_attempts": 3,
+   "sdk_internal_max_retries": 0,
+   "per_call_wall_clock_ceiling_seconds": 1200
+  },
+  "response_metadata_to_persist": [
+   "request_fields_sha256",
+   "returned_model_id",
+   "response_id",
+   "finish_reason",
+   "system_fingerprint_if_present",
+   "prompt_tokens",
+   "completion_tokens",
+   "reasoning_tokens_if_returned"
+  ],
+  "returned_model_policy": "require exact equality with the requested model ID; missing or different returned_model_id halts after the charged event is durably reconciled"
+ },
+ "qwen38_usage_transport_fix": {
+  "model_id": "Qwen/Qwen3.8-2.4T-A95B",
+  "stream": false,
+  "trigger_halt_path": "rejudge/phase3_v3_r7_provider_halt_2026-08-25.json",
+  "trigger_halt_canonical_sha256": "ffca5b11d855ed51ba37a33a4b31bc90d08e2bb05ae850d44400364e69495a08",
+  "trigger_error": "streaming response ended without usage chunk"
+ },
+ "fixed_vs_r2": "Only Qwen3.8 transport changes from stream true to an ordinary non-streaming response. Its model ID, prompt, seed, sampling, reasoning classification, 4096-token floor, context ceiling, prices, and every analysis gate remain unchanged. Gemma 4 remains streaming.",
+ "uncertain_spend_tolerance": {
+  "run_uncertain_ceiling_usd": 7.5,
+  "counts_fully_against_aggregate_cap": true,
+  "halts_run_for_owner_review_when_exceeded": true,
+  "owner_choice": "Extend ~$5, finish it",
+  "trigger_halt_path": "rejudge/phase3_v3_r27_envelope_stop_2026-08-28.json",
+  "trigger_halt_canonical_sha256": "10cd9cb2df1807b2b64af55678d688beafd53d962bfd6b8191d3e430ba73c730",
+  "trigger_error": "run-local uncertain spend exceeds the frozen ceiling"
+ },
+ "fixed_vs_r3": "Only the uncertain-spend policy changes: a live run-local ledger may now carry terminal unknown_charge events whose reserved cost is held as uncertain spend, counted fully against the 60 USD aggregate cap and bounded by the 1.00 USD per-run ceiling above; reaching the ceiling halts the run fail-closed for owner review and never auto-chains a successor. Every token limit, transport pin, price input, model ID, seed, prompt, and analysis gate is unchanged from r3.",
+ "fixed_vs_r4": "Only the roster substitution changes: the delisted google/gemma-3n-E4B-it entries are replaced by Qwen/Qwen3.5-9B, which renders thinking-on by default (screening record phase3_v3_qwen35_9b_screening_2026-08-25) and therefore joins the reasoning roster with the 4096-token floor and non-streaming transport. Every other limit, pin, and the amendment-3 uncertain-spend tolerance are unchanged from r4.",
+ "fixed_vs_r5": "Only the per-run uncertain-spend ceiling changes, from 1.00 to 2.50 USD, selected by the owner from the decision menu after the 2026-08-26 Qwen3.8 timeout burst tripped the 1.00 ceiling, and ratified by the bound Codex consult (flat ceiling preferred over a per-model sub-bound). Uncertain spend still counts fully against the 60 USD aggregate cap. Every other limit, pin, and policy is unchanged from r5.",
+ "fixed_vs_r6": "Only the per-run uncertain-spend ceiling changes, from 2.50 to 5.00 USD, for the owner-approved final four-judge attempt (Codex-ratified as sufficient under an r19-like stationary drip by linear projection, ~28% margin, with no completion claim across weather regimes and no further raise permitted within the identity). Uncertain spend still counts fully against the 60 USD aggregate cap. Every other limit, pin, and policy is unchanged from r6.",
+ "judgment_budget_raise": {
+  "roles": [
+   "judge_verdict",
+   "batch_verdict"
+  ],
+  "model_effective_request_max_tokens": {
+   "Qwen/Qwen3.8-2.4T-A95B": 16384
+  },
+  "owner_choice": "Full path (Recommended)",
+  "evidence_path": "rejudge/phase3_v3_judgment_screen_results_record_2026-08-27.json",
+  "evidence_canonical_sha256": "07b99686c742a985b3953356acdd519c9a1b8095c4f3580fe32a18e5c9022432"
+ },
+ "fixed_vs_r7": "Three changes, all from the owner-approved amendment 8 on the judgment-screening evidence: (1) Qwen/Qwen3.5-9B leaves every table (it emits no verdict within 8192 or 16384 completion tokens on judgment-shaped prompts); (2) google/gemma-4-31B-it is stripped to its screened query_checker role only (its judge_verdict failed the frozen headroom rule at every screened cap on a rare per-prompt-deterministic runaway mode; Codex ruled a post-hoc exemption gate-weakening); (3) Qwen3.8's judge_verdict and batch_verdict effective request budgets rise to the screened 16384 (0-of-96 at that exact cap, every probe finish_reason=stop, max completion 38% of cap). The gemma-4 checker keeps 4096 under its own stage-2 0-of-96 pass, every transport pin holds, and the amendment-7 5.00 USD uncertain ceiling carries unchanged.",
+ "fixed_vs_r8": "Two changes, both from the owner-approved amendment 9 on the r25 evidence: (1) google/gemma-4-31B-it leaves every table (its checker role reached the frozen concentration bound at a 4.3% per-call live-query runaway rate, after its verdict role had already failed every screened cap), ending its streaming pin with its last billed call; (2) meta-llama/Llama-3.3-70B-Instruct-Turbo gains the query_checker role at the frozen 16-token budget (non-reasoning, no floor), exactly the configuration its 0-of-96 live-query screen ran at. The Qwen3.8 16384 verdict budget, the amendment-7 5.00 USD uncertain ceiling, and every other pin are unchanged from r8.",
+ "fixed_vs_r9": "Only the per-run uncertain-spend ceiling changes, from 5.00 to 7.50 USD, selected by the owner from the 2026-08-28 decision menu (amendment 10) after a day-long Qwen3.8 capacity crunch exhausted the prior ceiling's margin with the run 63% complete, and ratified by the bound Codex consult (~52 timeout events of headroom at the worst observed drip rate; the $65 aggregate cap remains the controlling envelope). Every token limit, transport pin, model table, screened budget, and the amendment-9 checker substitution are unchanged from r9."
+}
