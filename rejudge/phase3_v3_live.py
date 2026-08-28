@@ -77,6 +77,7 @@ BINDING_SCHEMA_V7 = "phase3_v3_execution_binding_v7"
 BINDING_SCHEMA_V8 = "phase3_v3_execution_binding_v8"
 BINDING_SCHEMA_V9 = "phase3_v3_execution_binding_v9"
 BINDING_SCHEMA_V10 = "phase3_v3_execution_binding_v10"
+BINDING_SCHEMA_V11 = "phase3_v3_execution_binding_v11"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
@@ -117,6 +118,10 @@ PRIOR_ACCOUNTED_SPEND_USD_R9 = 30.526558439999988
 # load_chained_usage_ledger against the read-only r9 archive). The r21 empty-verdict
 # discovery record is that identity's terminal observation; no formal spend occurred.
 PRIOR_ACCOUNTED_SPEND_USD_R10 = 30.527867869999987
+# R11 carry (2026-08-28): R10 plus the first N=2 attempt's sealed ledger (run
+# phase3-v3-5cc134ec5730dfaf, $4.1226888 accounted, zero open reservations), which went
+# identity-terminal on the r23 exclusion-filter defect after 336 clean rows.
+PRIOR_ACCOUNTED_SPEND_USD_R11 = 34.650556669999986
 # Amendment 7 (2026-08-27): the owner-approved final four-judge attempt runs under a $5.00
 # per-run uncertain ceiling (role-limits schema v5, Codex-ratified as sufficient under an
 # r19-like stationary drip by linear projection, with no claim across weather regimes).
@@ -578,7 +583,7 @@ def _validate_prior_attempt_accounting(
     if schema_version not in {
             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
             BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-            BINDING_SCHEMA_V10}:
+            BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -593,7 +598,8 @@ def _validate_prior_attempt_accounting(
 
     if schema_version in {
             BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
-            BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+            BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
+            BINDING_SCHEMA_V11}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != AUTHORIZED_INCREMENTAL_CAP_USD):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -620,7 +626,7 @@ def _validate_prior_attempt_accounting(
         if schema_version in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10}:
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -635,7 +641,8 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R4
         if schema_version in {
                 BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-                BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+                BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
+                BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-476792b58e273b48",
@@ -651,7 +658,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
         if schema_version in {
                 BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-                BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+                BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-120ce58628620fce",
@@ -667,7 +674,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R6
         if schema_version in {
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10}:
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-3382c17bc4b33909",
@@ -681,7 +688,9 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R7
-        if schema_version in {BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+        if schema_version in {
+                BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
+                BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-0407589edb2d8a6b",
@@ -695,7 +704,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R8
-        if schema_version in {BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+        if schema_version in {BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-25d73d86c66a1e42",
@@ -709,7 +718,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R9
-        if schema_version == BINDING_SCHEMA_V10:
+        if schema_version in {BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
             # The ninth chained attempt never launched formally: its identity wedged at
             # the harness's first Qwen3.5-9B cell (empty response, completeness check),
             # which became the r21 empty-verdict discovery. That observation record is
@@ -728,6 +737,23 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R10
+        if schema_version == BINDING_SCHEMA_V11:
+            # The tenth chained attempt: the first N=2 canary (harness-verified, 336
+            # clean rows, one ratified checker_malformed disposition) went identity-
+            # terminal when its resumption exposed the r23 exclusion-filter defect.
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-5cc134ec5730dfaf",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r22_2026-08-27.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r23_exclusion_filter_defect_2026-08-28.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r10-n2-2026-08-27/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R11
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -847,7 +873,7 @@ def _validate_execution_binding(
     if binding.get("schema_version") not in {
             BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
             BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-            BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}:
+            BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -915,7 +941,7 @@ def _validate_execution_binding(
          if binding.get("schema_version") in {
              BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
              BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-             BINDING_SCHEMA_V10}
+             BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -1130,7 +1156,7 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     tolerant = (
         binding.get("schema_version") in {
             BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}
+            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
@@ -1268,7 +1294,7 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
             if context["binding"].get("schema_version") in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10}
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}
             else {}
         ),
     )
@@ -2076,7 +2102,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         context["manifest"]["final_roster"])
     tolerant_binding = context["binding"].get("schema_version") in {
         BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10}
+        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11}
     run_ceiling = float(
         ((context.get("role_limits") or {}).get("uncertain_spend_tolerance") or {})
         .get("run_uncertain_ceiling_usd", RUN_UNCERTAIN_CEILING_USD))
