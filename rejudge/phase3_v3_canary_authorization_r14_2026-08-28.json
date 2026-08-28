@@ -1,0 +1,60 @@
+{
+ "schema_version": "phase3_v3_canary_authorization_v2",
+ "authorization_id": "phase3_v3_canary_authorization_r14_2026-08-28",
+ "authorizes": "Paid provider execution for the phase3-v3-5cdeb74a8f8f1742 one-seed reproducibility harness twice and, only after a bit-identical harness pass and a passing realistically-shaped Qwen3.8 availability probe, one fresh successor canary on the UNCHANGED amendment-9 r6 protocol (judges Llama-3.3-70B + Qwen3.8@16384; checker Llama@16; gemma-4 excluded) under the amendment-10 $7.50 per-run uncertain ceiling and $65 aggregate cap. This authorization excludes every main-run call.",
+ "binds": {
+  "run_manifest_tracked_path": "rejudge/phase3_v3_run_manifest_preflight_r28_2026-08-28.json",
+  "run_manifest_canonical_sha256": "eaf751fe5199dfe89b28f7babf045ad3469e7815072ca6639f7eb73f4fe0669c",
+  "run_id": "phase3-v3-5cdeb74a8f8f1742",
+  "protocol_tracked_path": "rejudge/phase3_protocol_v3_r6.json",
+  "protocol_canonical_sha256": "e366147d54f65d9c033f94fc7f8dfd2803c3d147a326212a8dd36c5f84b7ef85",
+  "harness_seed_name": "harness",
+  "harness_seed": 20260837
+ },
+ "scope": {
+  "aggregate_cap_usd": 65.0,
+  "prior_accounted_spend_usd": 50.451555799999994,
+  "cap_applies_to": "the twelve terminal predecessors' accounted spend, the recorded out-of-ledger screening ($5.24 settled) and availability probes, and all newly dispatched Together inference calls across both isolated successor harness executions and the successor canary",
+  "harness_execution_count": 2,
+  "formal_successor_canary_execution_count": 1,
+  "successor_canary_fresh_gate_slots": 480,
+  "main_run_spend_authorized": false,
+  "gpu_ordinal_or_not_used": "not_used"
+ },
+ "amendment_basis": {
+  "policy_amendment_paths": [
+   "rejudge/phase3_v3_amendment3_uncertain_tolerance_2026-08-25.json",
+   "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json",
+   "rejudge/phase3_v3_amendment6_ceiling_raise_2026-08-26.json",
+   "rejudge/phase3_v3_amendment7_final_attempt_2026-08-27.json",
+   "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json",
+   "rejudge/phase3_v3_amendment9_llama_checker_2026-08-28.json",
+   "rejudge/phase3_v3_amendment10_envelope_extension_2026-08-28.json"
+  ],
+  "predecessor_stop": {
+   "path": "rejudge/phase3_v3_r27_envelope_stop_2026-08-28.json"
+  },
+  "off_peak_gate": "the formal drive launches only after a realistically-shaped Qwen3.8 probe succeeds immediately before launch (Codex: no additional condition beyond this gate)"
+ },
+ "owner_authorization": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menus of 2026-08-27 and 2026-08-28",
+  "exact_text": "Approved: phase3-v3-5cdeb74a8f8f1742 harness and successor canary, $65 USD aggregate cap including $50.45155580 prior accounted spend, no main spend",
+  "approved_on_date": "2026-08-28",
+  "owner_verbatim": [
+   "Pickup work on this project where codex left off. I approve all future amendments to this phase",
+   "Screen, select, rebuild (Recommended)",
+   "Confirm passers + triage weak candidates (Recommended)",
+   "Full path (Recommended)",
+   "N=2 rebuild (Codex ruling)",
+   "Llama checker (Codex B)",
+   "Extend ~$5, finish it"
+  ],
+  "approval_derivation": "The owner selected 'Extend ~$5, finish it' (2026-08-28): up to $65 aggregate and a $7.50 per-run uncertain ceiling to finish the interrupted final run. Under the frozen rules the raise is identity-terminal for the interrupted run, so the finish executes as this fresh identity on the unchanged r6 protocol at approximately the same cost, disclosed in amendment 10 and Codex-checked with no blockers. The exact_text above is the machine-binding string; the owner did not retype it himself."
+ },
+ "execution_authorized": true,
+ "main_run_spend_authorized": false,
+ "recorded_at_utc": "2026-08-28T19:04:00.558082+00:00",
+ "note": "Create-only authorization record minted by the successor orchestrator session. The run manifest and protocol remain non-authorizing artifacts."
+}
