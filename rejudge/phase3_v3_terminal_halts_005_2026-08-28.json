@@ -1,0 +1,24 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_005_2026-08-28",
+ "run_id": "phase3-v3-d5836a2141cb3736",
+ "cell_key": "phase3-budget-knob-2026-08-27-v3r5.rr-e9ea382e1bcb.ra-dfdff7a1d2f8.qb-d9e52c3339ab:phase3_canary_debate_judgment:1373d5f055344adfbfb6427e86bd91961c3066c5449da3310f748389b24b973a",
+ "reason": "checker_malformed",
+ "evidence": {
+  "ledger_attempt_id": "aede882fdac54e33a95b0a4ab8bc48c3",
+  "ledger_event_sha256": "16ab1b039614a37a2a119815fc44fc5bfbf34e036be4231175c077a1da826b41",
+  "ledger_sequences": [1325, 1326],
+  "model": "google/gemma-4-31B-it",
+  "call_role": "query_checker",
+  "finish_reason": "length",
+  "completion_tokens": 4096,
+  "parse_failure": "MalformedCheckerOutput on the verbatim provider text: the frozen checker consumed its entire 4096-token effective budget thinking and emitted no verdict token (the r13 signature; the disclosed per-prompt-deterministic gemma-4 runaway)",
+  "healthy_sibling_call": "the SAME cell's first checker call (ledger sequences 977-978, attempt 9793fdb539ff4442977d469b9b084e93) completed at 597 tokens with finish_reason=stop: the runaway attaches to the individual checker PROMPT (this cell's second query), not to the cell wholesale, refining the mechanism to a per-call rate of 4 runaway calls across ~384 potential sequential_b2 checker calls (~1.0%), exactly the screening-modeled rate",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-5 halt-review-resume procedure and the 2026-07-19 standing in-phase delegation; signature verified against sealed ledger events 977-978 and 1325-1326 before this record was written",
+ "recorded_at_utc": "2026-08-28T03:00:00Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json (canonical dd33f286bb20c00c7fc595e983b56d8dd7c0fbb735f35f50f3b6659d8f293a49): a checker_malformed judgment cell is excluded from execution convergence, counts INVALID in the primary, and its whole mirror unit leaves the paired polarity analyses; stop bounds (>20 unique terminal cells, >4% affected mirror units, concentration) are never relaxable mid-run",
+ "disposition_notes": "Fourth terminal cell of run phase3-v3-d5836a2141cb3736 (bound: 20). By cells: 4 of ~192 sequential_b2 cells (2.08%) with the concentration bound's 5-cell minimum not yet reached; a FIFTH sequential_b2 terminal cell crosses the frozen concentration bound and requires owner review before any further resumption. The run advanced 371 -> 384 rows and completed a review wave between the third and fourth events.",
+ "execution_authorized": false
+}
