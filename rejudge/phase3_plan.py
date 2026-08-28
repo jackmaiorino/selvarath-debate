@@ -203,6 +203,38 @@ PHASE3_V3_RECOVERY3_BASE_JUDGES = (
 )
 PHASE3_V3_RECOVERY3_CHECKER_ONLY_MODEL = "google/gemma-4-31B-it"
 
+# Fourth recovery generation (2026-08-28): the r25 concentration-bound stop measured
+# gemma-4's checker runaway at 4.3% per call on LIVE judge queries (vs 0-of-96 on
+# pilot-composed screening probes: the trigger is prompt-content-dependent), so the b2
+# condition cannot converge under the frozen gemma-4 checker at all. Codex ruled B > C
+# > A: substitute Llama (non-thinking, structurally immune) as checker, admitted by a
+# 0-of-96 screen on hash-verified LIVE-query probes including every known runaway
+# trigger. The checker prompts, parser, decoding, and gate semantics stay the frozen
+# phase-2 artifacts; only the executing model changes, disclosed as an adaptive
+# operational-validity substitution with a pre-registered judge-origin disparity
+# diagnostic. gemma-4 leaves the billed registry entirely.
+FROZEN_PROTOCOL_V3_R5_CANONICAL_SHA256 = (
+    "6e7f686e349f77c65b56c862221e27f8068f410f056c6f0764f97fd54e260e2d"
+)
+FROZEN_V3_R25_STOP_CANONICAL_SHA256 = (
+    "95c485fb0a545ecfc7bc375e2d17f62b2558eefb1f19ec72603feed8e73d76d1"
+)
+FROZEN_LLAMA_CHECKER_SCREEN_PLAN_CANONICAL_SHA256 = (
+    "ec460456bf4ccde4e98980cf028ed10fa2c7e3628244ca014ec922906ac8b77f"
+)
+FROZEN_LLAMA_CHECKER_SCREEN_BANK_CANONICAL_SHA256 = (
+    "0037140455a31b5c515b627ab29e96c256aa4976a3fdb67b5b91cf5c536e3021"
+)
+FROZEN_LLAMA_CHECKER_SCREEN_RESULTS_CANONICAL_SHA256 = (
+    "401006c2ba4e681235ad12dad44d62df509cab6490ed3a955f244e3b6d8d22c8"
+)
+# Frozen from the amendment-9 builder's computed output; never hand-typed.
+FROZEN_V3_RECOVERY4_AMENDMENT_CANONICAL_SHA256: str | None = (
+    "ec73ee30588c5f282ac655c8c6e37859554809591051405ae350c1dec1b33b1f"
+)
+PHASE3_V3_RECOVERY4_REMOVED_CHECKER = "google/gemma-4-31B-it"
+PHASE3_V3_RECOVERY4_CHECKER_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+
 # make_cell_key is reused verbatim from phase2_plan, never copy-pasted; re-exported here so
 # callers (and tests) can address it as phase3_plan.make_cell_key, matching phase2_plan's own
 # module-level surface.
@@ -798,17 +830,19 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     if protocol.get("execution_authorized") is not False:
         raise ProtocolValidationError("execution_authorized must be false")
     protocol_id = protocol.get("protocol_id")
-    recovery3 = protocol_id == "phase3_budget_knob_2026_08_27_v3r5"
+    recovery4 = protocol_id == "phase3_budget_knob_2026_08_28_v3r6"
     # Each recovery generation folds in and re-binds everything its predecessors bound, so
     # every `recovery` requirement below applies to all of them; generation-specific
     # expectations are selected newest-first where the generations differ.
+    recovery3 = protocol_id == "phase3_budget_knob_2026_08_27_v3r5" or recovery4
     recovery2 = protocol_id == "phase3_budget_knob_2026_08_25_v3r4" or recovery3
     recovery = protocol_id == "phase3_budget_knob_2026_08_24_v3r2" or recovery2
     if protocol_id not in {
             "phase3_budget_knob_2026_08_23_v3",
             "phase3_budget_knob_2026_08_24_v3r2",
             "phase3_budget_knob_2026_08_25_v3r4",
-            "phase3_budget_knob_2026_08_27_v3r5"}:
+            "phase3_budget_knob_2026_08_27_v3r5",
+            "phase3_budget_knob_2026_08_28_v3r6"}:
         raise ProtocolValidationError("unexpected v3 protocol_id")
     if recovery3 and (
             FROZEN_V3_RECOVERY3_AMENDMENT_CANONICAL_SHA256 is None
@@ -816,6 +850,10 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         raise ProtocolValidationError(
             "recovery3 bindings are not frozen yet: the stage-3 screening evidence and "
             "amendment 8 must exist before any r5 protocol can validate")
+    if recovery4 and FROZEN_V3_RECOVERY4_AMENDMENT_CANONICAL_SHA256 is None:
+        raise ProtocolValidationError(
+            "recovery4 bindings are not frozen yet: amendment 9 must exist before any "
+            "r6 protocol can validate")
 
     content_digest = _sha256_string(
         protocol.get("protocol_content_sha256"), "protocol_content_sha256")
@@ -845,7 +883,8 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
     )
     namespace = _non_empty_string(protocol.get("cell_key_namespace"), "cell_key_namespace")
     namespace_prefix = (
-        "phase3-budget-knob-2026-08-27-v3r5" if recovery3
+        "phase3-budget-knob-2026-08-28-v3r6" if recovery4
+        else "phase3-budget-knob-2026-08-27-v3r5" if recovery3
         else "phase3-budget-knob-2026-08-25-v3r4" if recovery2
         else "phase3-budget-knob-2026-08-24-v3r2" if recovery
         else "phase3-budget-knob-2026-08-23-v3")
@@ -927,6 +966,25 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             if canonical_bindings.get(path) != expected_sha:
                 raise ProtocolValidationError(
                     f"v3 recovery3 source binding drifted for {path}")
+    if recovery4:
+        recovery4_bindings = {
+            "rejudge/phase3_protocol_v3_r5.json": (
+                FROZEN_PROTOCOL_V3_R5_CANONICAL_SHA256),
+            "rejudge/phase3_v3_amendment9_llama_checker_2026-08-28.json": (
+                FROZEN_V3_RECOVERY4_AMENDMENT_CANONICAL_SHA256),
+            "rejudge/phase3_v3_r25_concentration_bound_stop_2026-08-28.json": (
+                FROZEN_V3_R25_STOP_CANONICAL_SHA256),
+            "rejudge/phase3_v3_llama_checker_screen_plan_2026-08-28.json": (
+                FROZEN_LLAMA_CHECKER_SCREEN_PLAN_CANONICAL_SHA256),
+            "rejudge/phase3_v3_llama_checker_screen_bank_2026-08-28.json": (
+                FROZEN_LLAMA_CHECKER_SCREEN_BANK_CANONICAL_SHA256),
+            "rejudge/phase3_v3_llama_checker_screen_results_record_2026-08-28.json": (
+                FROZEN_LLAMA_CHECKER_SCREEN_RESULTS_CANONICAL_SHA256),
+        }
+        for path, expected_sha in recovery4_bindings.items():
+            if canonical_bindings.get(path) != expected_sha:
+                raise ProtocolValidationError(
+                    f"v3 recovery4 source binding drifted for {path}")
     if canonical_bindings.get("rejudge/phase2_prompt_bundle.json") != (
             FROZEN_PHASE2_PROMPT_BUNDLE_CANONICAL_SHA256):
         raise ProtocolValidationError("v3 must bind the exact reused prompt bundle")
@@ -948,6 +1006,8 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         "roster_resolution.amendment_tracked_path",
     )
     expected_amendment_path = (
+        "rejudge/phase3_v3_amendment9_llama_checker_2026-08-28.json"
+        if recovery4 else
         "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json"
         if recovery3 else
         "rejudge/phase3_v3_amendment4_gemma3n_replacement_2026-08-25.json"
@@ -966,12 +1026,25 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
         # recovery3 is a double removal, not a substitution: the weak slot closed on
         # completion-infeasibility evidence and gemma-4 failed verdict admission at every
         # screened cap (rare deterministic runaway; it keeps ONLY its screened checker
-        # role), with no admissible serverless candidate added.
+        # role), with no admissible serverless candidate added. recovery4 then ends even
+        # the checker retention: the r25 stop measured gemma-4's runaway at 4.3% per call
+        # on live queries, so the Llama-admitted checker substitution replaces it and
+        # gemma-4 leaves the billed registry entirely.
         if replacement.get("removed_models") != list(PHASE3_V3_RECOVERY3_REMOVED_JUDGES):
             raise ProtocolValidationError("v3 recovery3 removed judges drifted")
         if "added_model" not in replacement or replacement.get("added_model") is not None:
             raise ProtocolValidationError("v3 recovery3 must record an explicit removal")
-        if replacement.get("checker_only_model") != (
+        if recovery4:
+            if ("checker_only_model" not in replacement
+                    or replacement.get("checker_only_model") is not None):
+                raise ProtocolValidationError(
+                    "v3 recovery4 must record the ended checker-only retention")
+            if replacement.get("checker_substitution") != {
+                "removed_checker": PHASE3_V3_RECOVERY4_REMOVED_CHECKER,
+                "added_checker": PHASE3_V3_RECOVERY4_CHECKER_MODEL,
+            }:
+                raise ProtocolValidationError("v3 recovery4 checker substitution drifted")
+        elif replacement.get("checker_only_model") != (
                 PHASE3_V3_RECOVERY3_CHECKER_ONLY_MODEL):
             raise ProtocolValidationError("v3 recovery3 checker-only retention drifted")
     else:
@@ -1021,6 +1094,10 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
             raise ProtocolValidationError(
                 "v3 recovery3 roster must contain exactly two judges")
         expected_outcome = "excluded_completion_infeasible"
+        if recovery4 and str(roster.get("query_checker")) != (
+                PHASE3_V3_RECOVERY4_CHECKER_MODEL):
+            raise ProtocolValidationError(
+                "v3 recovery4 roster must pin the admitted Llama checker")
     elif recovery and len(judges) != 4:
         raise ProtocolValidationError("v3 recovery roster must contain exactly four judges")
     elif len(judges) == 5:
@@ -1188,14 +1265,16 @@ def _validate_protocol_v3(protocol: Mapping[str, Any]) -> None:
 
     supersedes = _mapping(protocol.get("supersedes"), "supersedes")
     expected_superseded_sha = (
-        FROZEN_PROTOCOL_V3_R4_CANONICAL_SHA256 if recovery3
+        FROZEN_PROTOCOL_V3_R5_CANONICAL_SHA256 if recovery4
+        else FROZEN_PROTOCOL_V3_R4_CANONICAL_SHA256 if recovery3
         else FROZEN_PROTOCOL_V3_R3_CANONICAL_SHA256 if recovery2
         else FROZEN_PROTOCOL_V3_R2_CANONICAL_SHA256 if recovery
         else FROZEN_PROTOCOL_V2_CANONICAL_SHA256)
     if supersedes.get("canonical_sha256") != expected_superseded_sha:
         raise ProtocolValidationError("v3 superseded protocol binding drifted")
     expected_superseded_id = (
-        "phase3_budget_knob_2026_08_25_v3r4" if recovery3
+        "phase3_budget_knob_2026_08_27_v3r5" if recovery4
+        else "phase3_budget_knob_2026_08_25_v3r4" if recovery3
         else "phase3_budget_knob_2026_08_24_v3r2" if recovery2
         else "phase3_budget_knob_2026_08_23_v3" if recovery
         else None)

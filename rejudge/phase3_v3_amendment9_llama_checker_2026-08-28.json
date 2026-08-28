@@ -1,0 +1,75 @@
+{
+ "schema_version": "phase3_v3_checker_amendment_v1",
+ "amendment_id": "phase3_v3_amendment9_llama_checker_2026-08-28",
+ "decided_at_utc": "2026-08-28T11:40:51Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-28",
+  "selected_option": "Llama checker (Codex B)",
+  "content": "after the r25 concentration-bound stop, the owner selected the Codex-ruled B path: screen Llama as checker on live-query probes including all known runaway triggers (~$0.5 ceiling); on pass, this amendment, a fresh identity, and a rerun (~$6-8); automatic fallback to stop-and-report had the screen failed",
+  "prior_selections": [
+   "Screen, select, rebuild (Recommended)",
+   "Confirm passers + triage weak candidates (Recommended)",
+   "Full path (Recommended)",
+   "N=2 rebuild (Codex ruling)"
+  ]
+ },
+ "checker_substitution": {
+  "removed_checker": "google/gemma-4-31B-it",
+  "added_checker": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "frozen_unchanged": [
+   "system_prompt",
+   "user_template",
+   "parser",
+   "temperature",
+   "seed",
+   "gate_semantics"
+  ],
+  "max_tokens": 16,
+  "max_tokens_note": "the frozen base query_checker budget; Llama is non-reasoning so no floor applies, and its screen ran at exactly this value",
+  "gemma4_disposition": "fully excluded from the billed registry: its verdict role failed the frozen headroom rule at every screened cap, and its checker role reached the frozen concentration bound at a live-query runaway rate of 4.3% per call (5 of 117 calls, r25), four times the pilot-composed screening rate: the trigger is prompt-content-dependent",
+  "admission_evidence": "0-of-96 on hash-verified LIVE-query probes (every probe byte-proven identical to a production checker request from the two sealed N=2 identities), judge-balanced 48/48, including successful parsed completion on ALL 6 known runaway triggers; screening results record bound below"
+ },
+ "judge_origin_disparity_diagnostic": {
+  "purpose": "the admitted checker validates judge queries and shares a model family with one judge; checker decisions could favor errors characteristic of that family. Pre-registered here, before any successor call, per the Codex ruling.",
+  "measure": "in the successor canary audit, checker rejection rate by originating judge (meta-llama/Llama-3.3-70B-Instruct-Turbo vs Qwen/Qwen3.8-2.4T-A95B), over every executed checker call, with counts",
+  "blocking_rule": "if the two-sided Fisher exact p-value is below 0.05 AND the absolute rejection-rate difference is at least 10 percentage points, the audit report marks the treatment-effect interpretation BLOCKED; the gate is reported either way and never halts the run",
+  "reported_in": "successor canary audit report",
+  "screening_baseline": "at screening: 9/48 rejects on Qwen-originated queries vs 14/48 on Llama-originated (direction OPPOSITE the self-favoring concern, Fisher p ~ 0.33, not significant)"
+ },
+ "codex_basis": {
+  "verdicts": "checker-options consult: ruling B > C > A with D refused; blockers honored: exact production configuration screened, 0-of-96 plus every known trigger, deterministic judge-balanced selection frozen before execution, no prompt/parser/threshold changes after outputs, disparity diagnostic pre-registered, stopped identity terminal, stop-and-report fallback if the screen failed",
+  "file_sha256": {
+   "rejudge/phase3_v3_codex_checker_options_consult_2026-08-28.md": "1e7ea6ecc46985f85c85b8dc366f46e0e348405ba1140f243911f2f9ff4fa678"
+  }
+ },
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r25_concentration_bound_stop_2026-08-28.json": "95c485fb0a545ecfc7bc375e2d17f62b2558eefb1f19ec72603feed8e73d76d1",
+   "rejudge/phase3_v3_llama_checker_screen_plan_2026-08-28.json": "ec460456bf4ccde4e98980cf028ed10fa2c7e3628244ca014ec922906ac8b77f",
+   "rejudge/phase3_v3_llama_checker_screen_bank_2026-08-28.json": "0037140455a31b5c515b627ab29e96c256aa4976a3fdb67b5b91cf5c536e3021",
+   "rejudge/phase3_v3_llama_checker_screen_results_record_2026-08-28.json": "401006c2ba4e681235ad12dad44d62df509cab6490ed3a955f244e3b6d8d22c8",
+   "rejudge/phase3_v3_amendment8_n2_roster_2026-08-27.json": "dfdff7a1d2f893a37dab5816c442608191e357a0add44acb20797a9d112dbd50"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 60.0,
+  "prior_accounted_spend_usd": 42.53125933,
+  "prior_accounted_note": "the ten-attempt v11 carry (34.650556669999986) plus the r25-stopped second N=2 identity's sealed ledger (7.880702660000008, run phase3-v3-d5836a2141cb3736)",
+  "screening_out_of_ledger_usd": {
+   "settled_actual": 5.23608743,
+   "note": "all judgment screening (stages 1-3) plus the Llama checker screen, out-of-canary-ledger per the amendment-4 precedent; counted against the 60 USD aggregate cap in the successor authorization's arithmetic"
+  },
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call, canary spend, or main spend.",
+  "No measurement row from any prior attempt satisfies a successor slot.",
+  "The checker screen certifies no error rate; it is an operational blocker screen.",
+  "The checker substitution is an adaptive operational-validity change, disclosed as such in every report."
+ ]
+}
