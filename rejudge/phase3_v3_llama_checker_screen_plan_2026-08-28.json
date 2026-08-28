@@ -1,0 +1,46 @@
+{
+ "schema_version": "phase3_v3_llama_checker_screen_plan_v1",
+ "plan_id": "phase3_v3_llama_checker_screen_plan_2026-08-28",
+ "recorded_at_utc": "2026-08-28T04:05:00Z",
+ "purpose": "Admission screen for meta-llama/Llama-3.3-70B-Instruct-Turbo in the query_checker role, on LIVE-QUERY-shaped probes, after the r25 concentration-bound stop established that gemma-4's checker runaway rate is prompt-content-dependent (4.3% per call on live queries vs 0-of-96 on pilot-composed probes). An operational blocker screen, not an error-rate certification.",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-28",
+  "selected_option": "Llama checker (Codex B)",
+  "content": "screen Llama as checker on live-query probes including all known trigger prompts; on pass, amendment 9 + fresh identity + rerun; automatic fallback to stop-and-report if the screen fails"
+ },
+ "codex_basis": "rejudge/phase3_v3_codex_checker_options_consult_2026-08-28.md: ruling B > C > A with blockers: screen the exact production configuration; require 0-of-96 valid parsed completions plus successful completion on every known trigger; freeze a deterministic judge-balanced selection before executing Llama; no prompt, parser, or threshold changes after seeing outputs; predeclare the judge-origin disparity diagnostic; treat the stopped identity as terminal; if Llama fails, stop rather than shop for another checker",
+ "probe_bank": {
+  "path": "rejudge/phase3_v3_llama_checker_screen_bank_2026-08-28.json",
+  "construction": "every gemma-4 checker call actually executed across the two sealed N=2 identities, recomposed deterministically from the frozen checker system prompt, the frozen user template, offline-composed candidates, and the live judge query from the sealed call caches; every entry verified byte-exactly against a production request hash (117 via call-cache request_sha256, 6 runaway calls via ledger request_fields_sha256 with gemma's pinned streaming flag); zero unmatched",
+  "counts": {"entries": 123, "by_originating_judge": {"meta-llama/Llama-3.3-70B-Instruct-Turbo": 67, "Qwen/Qwen3.8-2.4T-A95B": 56}, "runaway_triggers": 6},
+  "evidence_reuse_boundary": "sealed-archive queries are development evidence for screening only; no predecessor verdict, outcome, or measurement row is reused in any successor measurement"
+ },
+ "selection": "ALL 6 verified runaway-trigger probes plus a deterministic judge-balanced complement to 96 total: within each originating-judge stratum, entries sorted by probe_id ascending, stride-sampled to 45 per judge from the completed calls (90 total), frozen before any Llama call is dispatched",
+ "production_configuration": {
+  "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+  "system_prompt_and_user_template": "the frozen phase-2 checker artifacts, unchanged (phase2_checker_frozen_config_2026-07-23, phase2_checker_validation_design_2026-07-18)",
+  "temperature_and_seed": "the frozen checker configuration's decoding values, unchanged",
+  "max_tokens": 16,
+  "max_tokens_note": "the frozen base query_checker budget; Llama is non-reasoning so no floor applies, exactly what the successor role-limits artifact will pin",
+  "serving": "serverless non-streaming"
+ },
+ "acceptance": "PASS requires all 96 probes evaluated with 0 invalid (invalid = empty OR rejudge.phase2_query_gate.parse_checker_output raising MalformedCheckerOutput on the verbatim text OR finish_reason != stop), including successful parsed completion on ALL 6 runaway triggers; a probe that cannot complete within 3 bounded transport retries makes the batch INCOMPLETE, never a pass; any failure = stop-and-report per the owner's approved fallback",
+ "post_screen_freeze": "no prompt, parser, or threshold change is permitted after Llama outputs are seen; the screen result feeds only the admit/stop decision",
+ "predeclared_canary_diagnostic": "the successor canary's audit reports checker rejection rates separately by originating judge; a large Llama-vs-Qwen acceptance disparity blocks interpretation of the treatment effect (exact comparison pre-registered in amendment 9)",
+ "spend": {
+  "ceiling_usd": 0.5,
+  "estimate_usd": "~0.2 (96 calls, ~1-2k prompt tokens, 16 completion tokens at Llama serverless rates)",
+  "accounting": "out-of-canary-ledger screening per the amendment-4 precedent, reported in the successor authorization",
+  "usage_log": "rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl",
+  "results_log": "rejudge/output/phase3_v3_llama_checker_screen_results_2026-08-28.jsonl"
+ },
+ "execution_authorized_within_ceiling": true,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This plan authorizes the 96 screening calls only, within the $0.50 ceiling.",
+  "A pass admits the Llama checker configuration for the amendment-9 rebuild and certifies no error rate.",
+  "No gate, bound, roster, budget, or protocol element changes here."
+ ]
+}
