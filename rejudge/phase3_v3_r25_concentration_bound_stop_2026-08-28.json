@@ -1,0 +1,48 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-28T03:20:00Z",
+ "observation_id": "phase3_v3_r25_concentration_bound_stop_2026-08-28",
+ "run_id": "phase3-v3-d5836a2141cb3736",
+ "status": "stopped_at_frozen_concentration_bound_owner_review_required",
+ "trigger": "A FIFTH unique sequential_b2 judgment cell (65339dc789ff0340f952cfa75191910e911895baa19ac1e6a3be018cf0e13a32) reached checker_malformed (gemma-4 query_checker, ledger sequences 1415-1416, finish_reason=length, completion_tokens=4096, no result row; its sibling first-query checker call at sequences 1061-1062 completed healthily at 2,612 tokens). Five unique terminal cells in one condition at 5/192 = 2.6% crosses the amendment-5 concentration bound (>=5 cells in a judge/condition at >2%), which is frozen as never relaxable mid-run: the run stops for owner review and this record does not resume it.",
+ "material_finding": {
+  "observed_rate": "5 runaway calls across 117 executed checker calls = 4.3% per call, roughly FOUR TIMES the ~1% the judgment screening measured on pilot-bank-shaped probes (gemma4-checker 0-of-96 at stage 2, max completion 46% of cap)",
+  "content_dependence": "the canary's checker prompts embed LIVE judge queries composed mid-debate by Qwen3.8 and Llama, a different content distribution from the screening bank's protocol-composed probes; the runaway rate is prompt-content-dependent, so the screening pass under-predicted the operational rate (P(0-of-96 at 4.3%) is about 1.5%, so sampling luck alone is an unlikely full explanation)",
+  "projection": "at the observed per-call rate the full 192-cell sequential_b2 condition projects roughly 13-16 terminal cells, which would also cross the 4% affected-mirror-unit bound; the run could not have converged within the frozen bounds even absent the concentration stop",
+  "mechanism": "the same per-prompt-deterministic gemma-4 runaway that excluded its judge_verdict role (amendment 8), now measured at operational scale in its retained checker role"
+ },
+ "run_state_at_stop": {
+  "rows_complete": 394,
+  "planned_rows": 528,
+  "terminal_records": [
+   "rejudge/phase3_v3_terminal_halts_002_2026-08-28.json",
+   "rejudge/phase3_v3_terminal_halts_003_2026-08-28.json",
+   "rejudge/phase3_v3_terminal_halts_004_2026-08-28.json",
+   "rejudge/phase3_v3_terminal_halts_005_2026-08-28.json"
+  ],
+  "fifth_cell_disposition": "documented here only; no terminal-halt record is written for it because the bound forbids the resumption such a record would serve"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r11-n2-2026-08-28/phase3_v3_usage.jsonl",
+  "events": 1416,
+  "actual_spend_usd": 5.6543376600000075,
+  "uncertain_spend_usd": 2.226365,
+  "accounted_spend_usd": 7.880702660000008,
+  "unmatched_reservations": 0,
+  "uncertain_note": "the uncertain component is the familiar Qwen3.8 timeout-drip reservations (well under the $5.00 ceiling); the stop was the concentration bound, not spend"
+ },
+ "aggregate_accounting": {
+  "cap_usd": 60.0,
+  "prior_accounted_spend_usd_before_this_run": 34.650556669999986,
+  "this_run_accounted_spend_usd": 7.880702660000008,
+  "prior_accounted_spend_usd_if_terminal": 42.53125933
+ },
+ "decision_owed_to_owner": "whether phase 3 proceeds at all, and if so how the checker role is made viable (the b2 condition cannot run under the frozen gemma-4 checker at the observed rate); a Codex consult on the option space is bound alongside; every path except full stop requires a fresh identity",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing, resumes nothing, and changes no gate, bound, roster, or protocol element.",
+  "The 394 completed rows remain sealed as evidence only; no measurement row transfers to any successor.",
+  "The rate comparison is descriptive; no claim is made that the screening protocol was misdesigned, only that its probe distribution under-covered live-query content."
+ ]
+}
