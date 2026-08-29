@@ -35,9 +35,9 @@
   "cap_usd": 65.0,
   "prior_accounted_spend_usd_before_this_run": 50.451555799999994,
   "this_run_accounted_spend_usd": 4.20509917,
-  "prior_accounted_spend_usd_if_terminal": 54.65665497,
+  "prior_accounted_spend_usd_if_terminal": 54.65665496999999,
   "screening_out_of_ledger_usd": 5.23608743,
-  "remaining_under_cap_usd": 5.107257859999997,
+  "remaining_under_cap_usd": 5.1072576000000085,
   "feasibility_note": "a fourteenth full attempt is estimated at $6-7.3 and does NOT fit the remaining $5.11; the owner decides whether to extend again or stop"
  },
  "execution_authorized": false,

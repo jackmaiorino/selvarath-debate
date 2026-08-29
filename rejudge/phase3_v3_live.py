@@ -146,7 +146,7 @@ PRIOR_ACCOUNTED_SPEND_USD_R12 = 42.53125933
 PRIOR_ACCOUNTED_SPEND_USD_R13 = 50.451555799999994
 # R14 carry (2026-08-29): R13 plus the r29-terminal thirteenth identity's sealed ledger
 # (run phase3-v3-5cdeb74a8f8f1742, $4.20509917 accounted, zero open reservations).
-PRIOR_ACCOUNTED_SPEND_USD_R14 = 54.65665497
+PRIOR_ACCOUNTED_SPEND_USD_R14 = 54.65665496999999
 # Amendment 7 (2026-08-27): the owner-approved final four-judge attempt runs under a $5.00
 # per-run uncertain ceiling (role-limits schema v5, Codex-ratified as sufficient under an
 # r19-like stationary drip by linear projection, with no claim across weather regimes).
