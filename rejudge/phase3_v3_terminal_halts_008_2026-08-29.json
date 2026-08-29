@@ -1,0 +1,20 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_008_2026-08-29",
+ "run_id": "phase3-v3-82c8f75feba42a9e",
+ "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:f1441bdae71a15b4b8f6de2d14689190caa6fe5a4a82f1359d5aeb8162be43a5",
+ "reason": "replay_divergence",
+ "evidence": {
+  "mismatched_cache_sequence": 1119,
+  "mismatched_request_sha256": "89eae9f7a60eda4ae606966b01e82f04ec06dacbe0ff2a8142197ae56617caa4",
+  "divergent_cache_sequence": 1543,
+  "unmemoized_ledger_sequences": [2686, 3140],
+  "provenance": "Multi-generation divergence, orchestrator-reviewed under the amendment-12 review fallback because the pattern-gated extractor correctly refused it: the cell (a four-query-slot cell, the same key that wedged predecessor run aec7f6c00b8dde94) carries cached rows from at least three generations (old block seq 907-1320 with oracles at 1119 and 1319; a cached DEGENERATE special-token judge-query response at seq 1543; ledger successes at 16:37Z whose query responses were refused memoization as visible-empty token spam), plus unmemoized 4096-truncated judge queries at ledger 2686 and 3140. The judge model's generation on this cell's prompts is degenerating (truncations and special-token spam), so relaunch re-dispatches repeatedly produce divergent histories and CallReplayMismatch has now been raised on this cell three times across two identities. IMPRECISION DISCLOSURE: the exact colliding cache key cannot be identified without instrumenting frozen execution code (the halt records only the exception class); mismatched_cache_sequence above cites the first old-generation oracle row and divergent_cache_sequence the cached degenerate row as the provable members of the inconsistent provenance graph. Every other fact above is mechanically verifiable from the hash-chained cache and ledger.",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5: manual review per amendment 12's refusal path after scripts/phase3_v3_dispose_replay_divergence.py declined both decidable shapes; no retry-shopping occurred or is permitted",
+ "recorded_at_utc": "2026-08-29T17:05:00Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment12_replay_divergence_2026-08-29.json (canonical 541d8b64c27a48284513b2837b5a73030a9e7445e7db953f6d6f1cb2f7d4955a): whole-mirror-unit exclusion, INVALID in the primary, CUMULATIVE amendment-5 bounds never relaxable, no bound-raising amendment",
+ "disposition_notes": "Terminal cell 3 of 20 (cumulative bound) for this run. The recurrence of this exact cell key across two independent identities strengthens the content-correlation disclosure: this cell's prompts deterministically drive the judge into degenerate generation, and the report must flag it in the missingness analysis.",
+ "execution_authorized": false
+}
