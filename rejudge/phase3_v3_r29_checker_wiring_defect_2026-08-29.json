@@ -1,0 +1,50 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-29T05:40:00Z",
+ "observation_id": "phase3_v3_r29_checker_wiring_defect_2026-08-29",
+ "run_id": "phase3-v3-5cdeb74a8f8f1742",
+ "status": "halted_by_control_plane_defect_identity_terminal",
+ "defect": "The amendment-9 checker substitution was never wired into the execution path: FrozenCheckerAdapter targets the model named in the frozen phase-2 checker configuration (google/gemma-4-31B-it) rather than the model the protocol roster resolves for the query_checker role. Amendment 9 removed gemma-4 from the role-limits tables entirely, so under protocols r6 every b2 cell's checker call failed deterministically client-side BEFORE any ledger reservation, surfacing as checker_outage. The strict client's per-model guards (context ceilings, price coverage, role-limit resolution over the r9/r10 tables) refuse a gemma-4 call in a registry that no longer bills gemma-4, which is those guards working; the defect was the adapter asking for gemma-4 at all.",
+ "orchestrator_accountability": [
+  "The live-query admission screen called the substitute model DIRECTLY rather than through the production adapter and client stack, so it validated the model and prompts but not the integration layer. Codex's blocker ('screen the exact production configuration, including cap, parser, templates, and toolchain') was honored for configuration values and not for the executing code path.",
+  "Run 7a8a34fb544d8c2a's two checker_outage halts on 2026-08-28 were THIS defect, misattributed by the orchestrator to provider weather: the first had no ledger events for the halted cell (which should have been decisive), the second coincided with an unrelated Llama 503 in the error log that made the transport story look confirmed.",
+  "The wrapper's checker_outage-transient extension (commit 8fd203d) then classified the deterministic failure as weather against a STALE error-log line, producing 48 blind relaunches over ~9 hours. No provider spend resulted (the failure is pre-reservation) but a night was lost and the misclassification is a control failure in itself; the wrapper now requires transient evidence no older than 15 minutes.",
+  "The reproducibility harness exercises one capability cell and no checker call, so neither harness pass could catch a checker-path defect. Two identities (7a8a34fb, 5cdeb74a) shipped with it."
+ ],
+ "fix": {
+  "content": "FrozenCheckerAdapter accepts model/max_tokens overrides; phase2_canary_execute derives them from the protocol roster's query_checker and the bound role-limits artifact whenever a phase-3 role-limits context is present. For every phase-2 call site and every protocol through r5 the derivation resolves to the config model at its historical budget, so sealed history is byte-identical. Regression tests drive the derivation from the committed r6 protocol and r10 role limits (Llama at 16 tokens) and pin the phase-2 default.",
+  "commit_bound": "5464e31",
+  "policy_change": "none: prompts, parser, decoding, gate semantics, and every budget stay frozen; the executing model now follows the protocol roster as amendment 9 always intended"
+ },
+ "run_state_at_halt": {
+  "rows_complete": 336,
+  "planned_rows": 528,
+  "harness": "bit_identical_pass",
+  "checker_malformed_events": 0,
+  "note": "pass 1 was fully healthy; the identity is terminal only because the fix touches EXECUTION_CODE_PATHS"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r13-extended-2026-08-28/phase3_v3_usage.jsonl",
+  "events": 720,
+  "actual_spend_usd": 3.83169459,
+  "uncertain_spend_usd": 0.37340458000000004,
+  "accounted_spend_usd": 4.20509917,
+  "unmatched_reservations": 0
+ },
+ "aggregate_accounting": {
+  "cap_usd": 65.0,
+  "prior_accounted_spend_usd_before_this_run": 50.451555799999994,
+  "this_run_accounted_spend_usd": 4.20509917,
+  "prior_accounted_spend_usd_if_terminal": 54.65665497,
+  "screening_out_of_ledger_usd": 5.23608743,
+  "remaining_under_cap_usd": 5.107257859999997,
+  "feasibility_note": "a fourteenth full attempt is estimated at $6-7.3 and does NOT fit the remaining $5.11; the owner decides whether to extend again or stop"
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing and changes no gate, bound, roster, or protocol element.",
+  "No measurement row from this identity satisfies any successor slot.",
+  "The 336 completed rows remain sealed as evidence only."
+ ]
+}
