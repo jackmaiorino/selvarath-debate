@@ -1,0 +1,20 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_006_2026-08-29",
+ "run_id": "phase3-v3-82c8f75feba42a9e",
+ "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:49e892e5bcfc8444369b4b892270c2a32e7bf7f3dadcd8cfbff6a363de4d8109",
+ "reason": "replay_divergence",
+ "evidence": {
+  "mismatched_cache_sequence": 672,
+  "mismatched_request_sha256": "6e4ae3c37339360a3538d69fd1f273457f04fb069425c84c27ca5c94490f5c78",
+  "divergent_cache_sequence": 943,
+  "unmemoized_ledger_sequences": [701, 702, 1033, 1034, 1383, 1384],
+  "provenance": "The cell's first judge query truncated at the 4,096 query cap on THREE separate dispatches (ledger success events 702, 1034, 1384, each completion_tokens=4096, each refused memoization by the frozen empty-response doctrine); the gate's retry succeeded once and was cached (cache seq 501, slot 0 attempt 2, the 'Sarak Dominion' claim) with the oracle row (cache seq 672) embedding that claim. A later relaunch re-dispatched the unmemoized first query, which the provider non-deterministically completed cleanly (ledger 1931-1932, ct 2873; cached at cache seq 943 as slot 0 attempt 1, the DIFFERENT 'Kemari Assembly' claim); the fresh path's checker was cached (seq 1187) and its oracle recomposition permanently mismatches cached row 672. The predicate is purely mechanical: call identities, cache sequences, and request hashes above.",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-12 disposition and the 2026-07-19 standing in-phase delegation; evidence verified against the live archive's hash-chained cache and ledger before this record was written; no retry-shopping occurred or is permitted",
+ "recorded_at_utc": "2026-08-29T16:25:00Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment12_replay_divergence_2026-08-29.json (canonical 541d8b64c27a48284513b2837b5a73030a9e7445e7db953f6d6f1cb2f7d4955a): a replay-divergence judgment cell is excluded from execution convergence, counts INVALID in the primary, and its whole mirror unit leaves the paired polarity analyses; bounds are CUMULATIVE with every terminal reason (>20 unique terminal cells, >4% affected mirror units, concentration) and are never relaxable mid-run; exceeding them fails the completion gate with no further amendment permitted",
+ "disposition_notes": "First terminal cell of run phase3-v3-82c8f75feba42a9e and the first live use of the amendment-12 disposition (cumulative bound: 1 of 20). The thrice-repeated truncation of the same prompt strengthens the content-dependence disclosure: this prompt is truncation-prone, and the missingness is partly content-correlated as amendment 12 requires reporting.",
+ "execution_authorized": false
+}
