@@ -284,10 +284,17 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext, *,
         checker_max_tokens_override = None
         if context.role_limits is not None:
             checker_model_override = str(context.protocol["roster"]["query_checker"])
-            checker_entry = context.role_limits["model_role_limits"][
-                checker_model_override]["query_checker"]
-            checker_max_tokens_override = int(
-                checker_entry["effective_request_max_tokens"])
+            checker_entry = (
+                context.role_limits.get("model_role_limits", {})
+                .get(checker_model_override, {}).get("query_checker"))
+            # Artifacts that predate a dedicated query_checker entry (and the synthetic
+            # fixtures modeled on them) keep the adapter's own frozen resolution; the
+            # MODEL override is unconditional because targeting the wrong model is the
+            # r29 defect class, and a missing table for the right model fails loudly in
+            # the strict client rather than silently rerouting.
+            checker_max_tokens_override = (
+                int(checker_entry["effective_request_max_tokens"])
+                if checker_entry else None)
         query_gate = CanaryQueryGate(
             candidate_a=position_a, candidate_b=position_b, total_slots=cell.query_budget,
             checker=FrozenCheckerAdapter(
