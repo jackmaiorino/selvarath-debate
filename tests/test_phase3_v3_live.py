@@ -713,6 +713,61 @@ def test_terminal_halt_loader_rejects_unplanned_cells(tmp_path: Path):
             context, _empty_store(tmp_path), records_directory=tmp_path)
 
 
+def _replay_divergence_record(cell_key: str) -> dict:
+    record = _terminal_record(cell_key)
+    record["reason"] = "replay_divergence"
+    record["evidence"] = {
+        "mismatched_cache_sequence": 905,
+        "mismatched_request_sha256": "c" * 64,
+        "divergent_cache_sequence": 1094,
+        "unmemoized_ledger_sequences": [1867, 1868],
+        "provenance": (
+            "unmemoized truncated judge query re-dispatched non-deterministically "
+            "after a relaunch; downstream oracle cache row embeds the superseded claim"),
+    }
+    record["frozen_policy_citation"] = (
+        "amendment 12: replay_divergence terminal disposition under the cumulative "
+        "amendment-5 bounds")
+    return record
+
+
+def test_terminal_halt_loader_accepts_an_amendment12_replay_divergence_record(
+        tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json",
+                  _replay_divergence_record(str(cell["cell_key"])))
+    records = phase3_v3_live.load_terminal_halt_records(
+        context, _empty_store(tmp_path), records_directory=tmp_path)
+    assert len(records) == 1
+    partition = phase3_v3_live.terminal_partition(context, records)
+    assert str(cell["cell_key"]) in partition["terminal_cells"]
+
+
+def test_terminal_halt_loader_rejects_replay_divergence_without_mechanical_evidence(
+        tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    record = _replay_divergence_record(str(cell["cell_key"]))
+    del record["evidence"]["mismatched_request_sha256"]
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json", record)
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="missing evidence"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=tmp_path)
+
+
+def test_terminal_halt_loader_still_rejects_reasons_outside_the_frozen_disposition(
+        tmp_path: Path):
+    context = _r4_context()
+    cell = _judgment_cell(context)
+    record = _terminal_record(str(cell["cell_key"]))
+    record["reason"] = "verdict_truncation"
+    _write_record(tmp_path, "phase3_v3_terminal_halts_001.json", record)
+    with pytest.raises(phase3_v3_live.Phase3V3LiveError, match="outside the frozen"):
+        phase3_v3_live.load_terminal_halt_records(
+            context, _empty_store(tmp_path), records_directory=tmp_path)
+
+
 def test_terminal_halt_loader_rejects_missing_evidence(tmp_path: Path):
     context = _r4_context()
     cell = _judgment_cell(context)
