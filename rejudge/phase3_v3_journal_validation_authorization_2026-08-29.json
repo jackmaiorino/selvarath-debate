@@ -4,7 +4,8 @@
  "plan": "rejudge/phase3_v3_journal_validation_plan_2026-08-29.json",
  "aggregate_cap_usd": 2.0,
  "uncertain_ceiling_usd": 1.0,
- "owner_approved": false,
- "owner_approval_provenance": "PENDING: awaiting Jack's explicit approval of the $2.00 journal-validation run; the driver refuses --live while owner_approved is false",
- "recorded_at_utc": "2026-08-29T19:35:00Z"
+ "owner_approved": true,
+ "owner_approval_provenance": "Jack, 2026-08-29, decision-menu selection 'Approve, run it (Recommended)' answering: 'The $2.00 journal validation run is ready (VS-019 terminal cells + controls, kill/resume/replay, ~$0.30 expected). Approve it?' in orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5",
+ "recorded_at_utc": "2026-08-29T19:35:00Z",
+ "approved_at_utc": "2026-08-29T19:55:00Z"
 }
