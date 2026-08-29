@@ -1,0 +1,32 @@
+{
+ "execution_authorized": false,
+ "models": {
+  "Qwen/Qwen3.8-2.4T-A95B": {
+   "catalog_entry_sha256": "a43a4b4b5e514c9485d79635cb53445e0910936d752eea083725b4fc902d5f02",
+   "input_usd_per_million": 2.5,
+   "output_usd_per_million": 6.25,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "ccedab0a61708cb1dd68359c2f45da4054ce73999d562ac806ab0e0f86e46720"
+  },
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+   "catalog_entry_sha256": "faa1fc0355b8295f257a409923f0153d05c9233cc1234eead5834552364d30fb",
+   "input_usd_per_million": 1.0399999999999998,
+   "output_usd_per_million": 1.0399999999999998,
+   "serverless_available": true,
+   "serverless_endpoint_entry_sha256": "f911e9a92c2936f0ae5512817074903cde75a1a0ec81d2e290bb693253602ba9"
+  }
+ },
+ "provider": "Together",
+ "raw_catalog": {
+  "canonical_sha256": "dc7d989a8e83a2a9868c45fd9980fdb6328967f1e6f445a53bd842b62219be23",
+  "model_count": 277,
+  "path": "rejudge/output/phase3_v3r15_provider_models_2026-08-29T1310Z.json"
+ },
+ "raw_serverless_endpoints": {
+  "canonical_sha256": "fadbb24b2a7a59e4aa7688d7b531590386a1cf07dc7d2200f50edf8881ac6ac6",
+  "endpoint_count": 155,
+  "path": "rejudge/output/phase3_v3r15_serverless_endpoints_2026-08-29T1310Z.json"
+ },
+ "schema_version": "phase3_v3_price_snapshot_v2",
+ "verified_at_utc": "2026-08-29T13:10:32Z"
+}
