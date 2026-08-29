@@ -26,15 +26,16 @@ REPORT = ARCHIVE / "phase3_v3_successor_canary_report.json"
 OUT = ARCHIVE / "phase3_v3_cost_checkpoints.jsonl"
 POLL_SECONDS = 120
 
-# (name, condition, threshold count)
+# (name, condition, threshold count). The canary's judgment inventory is 192 core b0
+# rows plus 48 rows per smoke condition (24 per judge for b1/b2/b4/b8), 384 total.
 BOUNDARIES = [
-    ("b2_complete", "sequential_b2", 96),
-    ("b4_complete", "sequential_b4", 96),
+    ("b2_complete", "sequential_b2", 48),
+    ("b4_complete", "sequential_b4", 48),
     ("b8_early", "sequential_b8", 8),
     ("b8_midpoint", "sequential_b8", 24),
 ]
-PLANNED = {"b0": 192, "sequential_b1": 96, "sequential_b2": 96,
-           "sequential_b4": 96, "sequential_b8": 96}
+PLANNED = {"b0": 192, "sequential_b1": 48, "sequential_b2": 48,
+           "sequential_b4": 48, "sequential_b8": 48}
 
 
 def census() -> dict[str, int]:
