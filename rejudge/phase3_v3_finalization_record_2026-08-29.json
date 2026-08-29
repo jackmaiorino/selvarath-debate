@@ -1,0 +1,269 @@
+{
+ "schema_version": "phase3_v3_finalization_record_v1",
+ "record_id": "phase3_v3_finalization_record_2026-08-29",
+ "run_id": "phase3-v3-82c8f75feba42a9e",
+ "recorded_at_utc": "2026-08-29T18:35:00Z",
+ "archive_path": "E:\\selvarath-archive\\phase3-v3r15-clean-2026-08-29",
+ "archive_file_manifest": {
+  "harness_1_call_cache.jsonl": {
+   "sha256": "1e75ac97ae495fc1f760c87ed150aed5de1ffd29dca59a56d8698bd468c9de74",
+   "bytes": 521
+  },
+  "harness_1_results.jsonl": {
+   "sha256": "1fadb01dfd0d2ad24e1d24f45a9b5aef66f4319e82c5d514e3c35a6030186b4a",
+   "bytes": 921
+  },
+  "harness_2_call_cache.jsonl": {
+   "sha256": "cf17bcf8c3357d4a93b28b1e910dbfc45602f2a65c5ee11351a0611c2a914dbf",
+   "bytes": 521
+  },
+  "harness_2_results.jsonl": {
+   "sha256": "1fadb01dfd0d2ad24e1d24f45a9b5aef66f4319e82c5d514e3c35a6030186b4a",
+   "bytes": 921
+  },
+  "phase3_v3_call_cache.jsonl": {
+   "sha256": "7655854a9a8eda5f1900bea8b71ea32a1e33fb1fdd98de7dedae0948f60f19e5",
+   "bytes": 1717937
+  },
+  "phase3_v3_canary_results.jsonl": {
+   "sha256": "ce5264c58ed7a63aed3396877bab9ddf1af56d0d6786660e75c3b535fffb0456",
+   "bytes": 15496071
+  },
+  "phase3_v3_cost_checkpoints.jsonl": {
+   "sha256": "5003c61c7f56560c071cd870085931f9633251bb5266595c319ec02388fffd12",
+   "bytes": 745
+  },
+  "phase3_v3_error_log.jsonl": {
+   "sha256": "b61f21100306135b92176d045157c4aea46c2260ff097d87d5b639023b1c014e",
+   "bytes": 1690
+  },
+  "phase3_v3_reviewer_decisions.jsonl": {
+   "sha256": "9d1beff1aa9d63fb8530ab7840e20782097cc165bef2b31a81b56cad106e1b83",
+   "bytes": 382637
+  },
+  "phase3_v3_run.lock": {
+   "sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+   "bytes": 1
+  },
+  "phase3_v3_run_log.jsonl": {
+   "sha256": "cb19c1bc0491496793e56d5e406325fc64cc9a87358f56ee01f254145044b4ad",
+   "bytes": 7908
+  },
+  "phase3_v3_run_manifest_complete.json": {
+   "sha256": "9af7dae80e27ef54904ae658669af1dd1f7e7a8b058ad9fc4a4da4d8cb8c957a",
+   "bytes": 17585
+  },
+  "phase3_v3_run_manifest_harness_verified.json": {
+   "sha256": "2d41e5ea4439eb4e91fce0493d386673c5d815c10f96fdc2b4bcb5270157545d",
+   "bytes": 16725
+  },
+  "phase3_v3_successor_canary_report.json": {
+   "sha256": "2d9b34e7806d726c0aa9006784e76fdfe74f60f556cb4248e5c7d520a4cf6d27",
+   "bytes": 16956
+  },
+  "phase3_v3_usage.jsonl": {
+   "sha256": "cd057c85488ce1b5c663465a10ca73a927476695dd60a7c1b04782f2659874d5",
+   "bytes": 6179411
+  },
+  "phase3_v3_usage.jsonl.state.json": {
+   "sha256": "6900ba71cfb0f2c0b6110a764db252251c77eb49ea8bc20640af1594abfec31d",
+   "bytes": 191
+  },
+  "reviewer_index.jsonl": {
+   "sha256": "fc1158778de616e2029ddd877e2554d55cc810b70fd81757e58f88efc9bfe994",
+   "bytes": 5570
+  },
+  "reviewer_worklist.json": {
+   "sha256": "ec2188cc803e1ce6d84ab2476704923d2809918448ad6c86cc7d9ded02c22afe",
+   "bytes": 24750
+  }
+ },
+ "report_sha256": "2d9b34e7806d726c0aa9006784e76fdfe74f60f556cb4248e5c7d520a4cf6d27",
+ "gate_status": "pass",
+ "formal_status": "complete",
+ "completion": {
+  "causally_excluded_rows": 0,
+  "expected_rows": 528,
+  "label": "PASS_WITH_FROZEN_EXCLUSIONS",
+  "observed_rows": 525,
+  "partition_exact": true,
+  "pass": true,
+  "terminal_invalid_rows": 3,
+  "terminal_records": [
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:49e892e5bcfc8444369b4b892270c2a32e7bf7f3dadcd8cfbff6a363de4d8109",
+    "reason": "replay_divergence",
+    "recorded_at_utc": "2026-08-29T16:25:00Z",
+    "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-12 disposition and the 2026-07-19 standing in-phase delegation; evidence verified against the live archive's hash-chained cache and ledger before this record was written; no retry-shopping occurred or is permitted"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7ba37609634ff64df87d4c2b2a09c50c54b605af8739760035cf9e5bfc173229",
+    "reason": "replay_divergence",
+    "recorded_at_utc": "2026-08-29T16:26:12.876281Z",
+    "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-12 disposition; evidence mechanically extracted and pattern-gated by scripts/phase3_v3_dispose_replay_divergence.py; no retry-shopping"
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:f1441bdae71a15b4b8f6de2d14689190caa6fe5a4a82f1359d5aeb8162be43a5",
+    "reason": "replay_divergence",
+    "recorded_at_utc": "2026-08-29T17:05:00Z",
+    "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5: manual review per amendment 12's refusal path after scripts/phase3_v3_dispose_replay_divergence.py declined both decidable shapes; no retry-shopping occurred or is permitted"
+   }
+  ]
+ },
+ "ledger_accounting": {
+  "accounting_label": "PASS_CONSERVATIVE_UNCERTAIN",
+  "aggregate_accounted_spend_usd": 84.38130485000003,
+  "aggregate_actual_spend_usd": 66.36017534000004,
+  "aggregate_cap_usd": 94.0,
+  "aggregate_uncertain_spend_usd": 18.02112951,
+  "pass": true,
+  "prior_accounted_spend_usd": 64.82614253,
+  "prior_actual_spend_usd": 50.051277680000005,
+  "prior_uncertain_spend_usd": 14.774864850000002,
+  "run_uncertain_ceiling_usd": 7.5,
+  "successor_accounted_spend_usd": 19.555162320000033,
+  "successor_actual_spend_usd": 16.30889766000003,
+  "successor_events": 5188,
+  "successor_uncertain_spend_usd": 3.2462646600000005,
+  "successor_unmatched_reservations": 0,
+  "uncertain_accounting_basis": "every figure is the worst-case reservation BOOKED at decision time; provider billing reconciliation may later mark events confirmed billed, credited, or unresolved in an addendum, and never revises sealed history",
+  "uncertain_event_count": 11,
+  "uncertain_events": [
+   {
+    "attempt_id": "d632127d3dc24272beea4724e2c87523",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:2b2fdf47cf75628aad6f27a65109005f2722324c71d923eb6b6b24ce30366b3a",
+    "completing_success_attempt_id": "e8d42893c1f6423caf61f00aa8289a6a",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T14:12:26.382394+00:00"
+   },
+   {
+    "attempt_id": "d8da149733b04f74a9a2b2e95113b635",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7866e1b213043996c31077648182520a3d671f7c6469921c135a209e3a1bb1fc",
+    "completing_success_attempt_id": "78e27631511c4c44bb110f7ac311cf45",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.356275,
+    "ts": "2026-08-29T14:21:24.930979+00:00"
+   },
+   {
+    "attempt_id": "fbbb183b762447429b5d5cf028ae4b27",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7eb669c4c4ea6584840d4e075ace34a19272c38704afa8419ace5c8f6fc0152c",
+    "completing_success_attempt_id": "9012500f74df41d2bd866c4a0296059d",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T14:23:48.583146+00:00"
+   },
+   {
+    "attempt_id": "c269fbd432414bd1bd0a8c0739e51285",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:2b2fdf47cf75628aad6f27a65109005f2722324c71d923eb6b6b24ce30366b3a",
+    "completing_success_attempt_id": "e8d42893c1f6423caf61f00aa8289a6a",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T14:54:24.393281+00:00"
+   },
+   {
+    "attempt_id": "ed2fb5ae5cfd423abc69b0ad0f364b6e",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7eb669c4c4ea6584840d4e075ace34a19272c38704afa8419ace5c8f6fc0152c",
+    "completing_success_attempt_id": "9012500f74df41d2bd866c4a0296059d",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T14:56:30.446669+00:00"
+   },
+   {
+    "attempt_id": "acbe48a1700c40adb1e470a7b92b7cdb",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:2b2fdf47cf75628aad6f27a65109005f2722324c71d923eb6b6b24ce30366b3a",
+    "completing_success_attempt_id": "e8d42893c1f6423caf61f00aa8289a6a",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T15:18:02.126094+00:00"
+   },
+   {
+    "attempt_id": "60b2de0d2e5a41ceae852ce5168b1d2f",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7eb669c4c4ea6584840d4e075ace34a19272c38704afa8419ace5c8f6fc0152c",
+    "completing_success_attempt_id": "9012500f74df41d2bd866c4a0296059d",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3524725,
+    "ts": "2026-08-29T15:20:02.355323+00:00"
+   },
+   {
+    "attempt_id": "8850e51bd1c947f4a3b4546c7760baf5",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:d1300446f92fe6f381cae07178d65629c391fb1304d283e33c8284998b194770",
+    "completing_success_attempt_id": "3bd49b7aa4a146a1b450f3db88b372d8",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.3612125,
+    "ts": "2026-08-29T15:47:02.888841+00:00"
+   },
+   {
+    "attempt_id": "c2d198e3b9954152a4f71eb6a878fd35",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:c56fd83c4f98f709a5c034b04fe21e65959a99b982922585f3d3c9ae85541aa6",
+    "completing_success_attempt_id": "c320a1574dae4a7fa31b12c3c420ef2d",
+    "condition": "sequential_b2",
+    "error": "Error code: 503 - {'id': 'oyAHySf-4YNCb4-a32ceff9d8432f97', 'error': {'message': 'Service unavailable', 'type': 'service_unavailable', 'param': None, 'code': None}}",
+    "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "reserved_cost_usd": 0.00698152,
+    "ts": "2026-08-29T16:29:56.436276+00:00"
+   },
+   {
+    "attempt_id": "93a92035f57a487d8828808091f7f998",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:fb8fca670fe8df324ad7f92a9d39449ac6fc1406546eb598a7a7d3cb87cd43d4",
+    "completing_success_attempt_id": "b085277f710b444381cab4cb7c926923",
+    "condition": null,
+    "error": "Error code: 503 - {'id': 'oyAZ1FG-4YNCb4-a32d37937c0d51aa', 'error': {'message': 'Service unavailable', 'type': 'service_unavailable', 'param': None, 'code': None}}",
+    "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "reserved_cost_usd": 0.025990639999999995,
+    "ts": "2026-08-29T17:18:49.206531+00:00"
+   },
+   {
+    "attempt_id": "2f7b76e003fa40f0a898097ef9c9a857",
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:27ea62fdd231c726643d8f9d6d274ad5eff3413098835ad6bb9f075ab71a2c9f",
+    "completing_success_attempt_id": "c07493122d1a4ff6999e8b4f0b13d03a",
+    "condition": null,
+    "error": "Request timed out.",
+    "model": "Qwen/Qwen3.8-2.4T-A95B",
+    "reserved_cost_usd": 0.38097,
+    "ts": "2026-08-29T17:55:58.975419+00:00"
+   }
+  ],
+  "uncertain_events_by_condition": {
+   "None": 10,
+   "sequential_b2": 1
+  },
+  "uncertain_events_by_model": {
+   "Qwen/Qwen3.8-2.4T-A95B": {
+    "events": 9,
+    "reserved_usd": 3.2132925000000006
+   },
+   "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+    "events": 2,
+    "reserved_usd": 0.03297215999999999
+   }
+  }
+ },
+ "terminal_halt_records": [
+  "phase3_v3_terminal_halts_006_2026-08-29.json",
+  "phase3_v3_terminal_halts_007_2026-08-29.json",
+  "phase3_v3_terminal_halts_008_2026-08-29.json"
+ ],
+ "non_claims": [
+  "This successor canary is an engineering and eligibility gate, not main-run evidence for the budget-effect estimands.",
+  "No main-run provider call is authorized or executed by this adapter.",
+  "Configuration-selection pace is not estimable unless the frozen eight-full-hour review window requirement is independently met."
+ ],
+ "sealed_by": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5; archive set read-only after this manifest was computed"
+}
