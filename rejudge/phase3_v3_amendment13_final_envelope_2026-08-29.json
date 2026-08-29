@@ -1,0 +1,46 @@
+{
+ "schema_version": "phase3_v3_envelope_amendment_v1",
+ "amendment_id": "phase3_v3_amendment13_final_envelope_2026-08-29",
+ "decided_at_utc": "2026-08-29T13:03:49Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-29",
+  "selected_option": "Clean re-run, ~$100 final",
+  "content": "one truly final all-in ceiling of $100 including the $5.24 out-of-ledger screening, funding a fifteenth identity that re-runs all 528 rows with the amendment-12 disposition in place; approved after the orchestrator disclosed both the structural cost-model error (all prior estimates missed the b4/b8 tail) and that the earlier $88 recommendation rested on an infeasible resume"
+ },
+ "changes": {
+  "aggregate_cap_usd": {
+   "from": 68.0,
+   "to": 94.0,
+   "note": "in-ledger enforced value; with the $5.24 screening the all-in maximum is $99.24, inside the owner's $100"
+  },
+  "finality": "no further envelope amendment is permitted in this phase; if the fifteenth identity cannot converge within this envelope, the phase stops and reports per the Codex endgame consult's fenced-analysis rules",
+  "run_uncertain_ceiling_usd": "unchanged at 7.50 (role-limits r10 carries forward)",
+  "science_changes": "none beyond amendment 12"
+ },
+ "codex_basis": {
+  "file_sha256": {
+   "rejudge/phase3_v3_codex_endgame_consult_2026-08-29.md": "41019d8e0750d981623b7f1e5345ff4b957ce482983b647762f55046b54c32aa"
+  }
+ },
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r31_replay_divergence_stop_2026-08-29.json": "d7d815feb9685c1ef9a59b4043ed741b0be908170d4a9ea153e9efe247141b23"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 94.0,
+  "prior_accounted_spend_usd": 64.82614253,
+  "prior_accounted_note": "the thirteen-attempt v14 carry (54.65665496999999) plus the r31-terminal fourteenth identity's sealed ledger (10.16948756000001, run phase3-v3-aec7f6c00b8dde94)",
+  "screening_out_of_ledger_usd": 5.23608743,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call; the r16 authorization carries execution approval.",
+  "No measurement row from any prior attempt satisfies a successor slot."
+ ]
+}

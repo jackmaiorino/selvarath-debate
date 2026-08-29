@@ -1,0 +1,51 @@
+{
+ "schema_version": "phase3_v3_incident_observation_v1",
+ "recorded_at_utc": "2026-08-29T14:40:00Z",
+ "observation_id": "phase3_v3_r31_replay_divergence_stop_2026-08-29",
+ "run_id": "phase3-v3-aec7f6c00b8dde94",
+ "status": "halted_replay_divergence_identity_terminal_under_amendment_12",
+ "trigger": "Judgment cell f1441bdae71a15b4b8f6de2d14689190caa6fe5a4a82f1359d5aeb8162be43a5 is permanently wedged on CallReplayMismatch. Reconstructed mechanism, fully evidence-bound: (1) execution 1 (ledger seq 1867-1876): the cell's first judge query truncated at the 4,096 query cap (seq 1868, completion_tokens=4096) and was refused memoization per the frozen empty-response doctrine; the gate's free retry succeeded (seq 1870, ct 3274, cached at call-cache seq 903 as slot 0 attempt 2) and downstream calls were cached (checker seq 904, oracle seq 905 embedding the RETRY's claim, second-slot query seq 906); (2) after a transport relaunch, execution 2 (ledger seq 2253-2256) re-dispatched the unmemoized first query and the provider NON-DETERMINISTICALLY produced a clean 1,132-token claim from the same prompt and seed (cached at seq 1094 as slot 0 attempt 1); the path lawfully diverged (fresh checker cached at seq 1095), and the oracle recomposition for the attempt-1 claim permanently mismatches the cached oracle row built from the attempt-2 claim. The cache integrity guard is functioning exactly as designed; the cell has no valid completable path in this identity.",
+ "cost_model_correction": "All prior canary cost estimates extrapolated runs that died before the budget-smoke tail. This run priced the tail from observation: b0 cells mean $0.013 (n=192), sequential_b2 cells mean $0.047 (n=41), scaling roughly linearly in query budget. The remaining 102 rows were 7 b2 + 47 b4 + 48 b8 cells, projecting ~$13-16 to finish and exposing that every prior full-run estimate (from $6-8 through $16) undercounted structurally. The MAIN run must be repriced from these observed b4/b8 costs before any main authorization (Codex blocker).",
+ "identity_terminal_because": "Disposing of a replay-divergence cell requires extending the terminal-record loader's frozen reason set (execution code), and any EXECUTION_CODE_PATHS change forces a fresh identity with no row reuse. Resuming this identity without the change re-halts at the same cell with zero new rows, deterministically. The consult that recommended an $88 finish assumed resumability; the orchestrator's brief omitted the loader detail, and the owner was re-asked with corrected numbers.",
+ "owner_decision": "'Clean re-run, ~$100 final' (menu, 2026-08-29): amendment 12 frozen first, then a fifteenth identity re-runs all 528 rows with the loader extension, the amendment-12 disposition, outcome-blind cost checkpoints, and a truly final all-in ceiling.",
+ "sealed_at_risk_cells": {
+  "purpose": "the Codex-required sealed list of divergence-affected and at-risk cell identities in THIS identity's stores, frozen before any continuation decision; the successor identity starts with fresh stores, and this list is disclosure evidence for the report",
+  "diverged": [
+   "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:f1441bdae71a15b4b8f6de2d14689190caa6fe5a4a82f1359d5aeb8162be43a5"
+  ],
+  "at_risk_uncommitted_with_unmemoized_truncated_calls": [
+   "6e3593d63d56", "8e04508ae832", "d1300446f92f", "e5897913ed16",
+   "2551114d8c92", "6c8884075265", "ff102a087b95"
+  ],
+  "at_risk_note": "short suffixes of the seven uncommitted cells whose ledgers show truncated query/verdict successes absent from the call cache; full keys recoverable deterministically from the sealed archive"
+ },
+ "run_state_at_stop": {
+  "rows_complete": 426,
+  "planned_rows": 528,
+  "rows_by_condition": {"preseeded_transcripts": 48, "capability_qa": 96, "b0": 192, "sequential_b1": 48, "sequential_b2": 41, "sequential_b4": 1},
+  "checker_malformed_events": 0,
+  "llama_checker_note": "the amendment-9 Llama checker executed at scale in production for the first time: parsed 2-token verdicts throughout, zero malformed events, disparity telemetry accumulated; the r29 fix is production-proven"
+ },
+ "usage_ledger": {
+  "path": "E:/selvarath-archive/phase3-v3r14-final-2026-08-29/phase3_v3_usage.jsonl",
+  "events": 2256,
+  "actual_spend_usd": 8.75351256000001,
+  "uncertain_spend_usd": 1.415975,
+  "accounted_spend_usd": 10.16948756000001,
+  "unmatched_reservations": 0
+ },
+ "aggregate_accounting": {
+  "prior_accounted_spend_usd_before_this_run": 54.65665496999999,
+  "this_run_accounted_spend_usd": 10.16948756000001,
+  "prior_accounted_spend_usd_if_terminal": 64.82614253,
+  "screening_out_of_ledger_usd": 5.23608743,
+  "owner_final_envelope": "one final all-in ceiling of $100 including screening; the successor authorization enforces an in-ledger cap of $94 so the all-in total cannot exceed $99.24"
+ },
+ "execution_authorized": false,
+ "main_run_spend_authorized": false,
+ "non_claims": [
+  "This observation authorizes nothing; amendments 12-13 and the r16 authorization carry the approvals.",
+  "No measurement row from this identity satisfies any successor slot.",
+  "The 426 completed rows remain sealed as evidence only; the fenced-analysis rights over them, if the successor also fails, follow the Codex endgame consult verbatim."
+ ]
+}

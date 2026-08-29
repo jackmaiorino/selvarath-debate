@@ -1,0 +1,57 @@
+{
+ "schema_version": "phase3_v3_terminal_disposition_amendment_v1",
+ "amendment_id": "phase3_v3_amendment12_replay_divergence_2026-08-29",
+ "decided_at_utc": "2026-08-29T13:03:49Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menus of 2026-08-29",
+  "selected_options": [
+   "Fund to $88 all-in, finish",
+   "Clean re-run, ~$100 final"
+  ],
+  "content": "the owner approved the Codex-ratified replay_divergence disposition as part of the funded finish, then re-approved it within the corrected clean-re-run plan after the orchestrator disclosed that the disposition requires an execution-code change forcing a fresh identity"
+ },
+ "disposition": {
+  "new_terminal_reason": "replay_divergence",
+  "mechanical_predicate": "a cell whose re-execution raises CallReplayMismatch: a cached call row for the cell (identified by call identity: cell_key, call_role, slot, attempt) whose request_sha256 differs from the deterministic recomposition, where the divergence provenance is an earlier same-cell provider call that was refused memoization (truncated/empty) and re-dispatched non-deterministically after a relaunch. Evidence bound per record: the mismatching cached row's cache sequence and request_sha256, the divergent fresh row's cache sequence, and the unmemoized originating ledger sequences. No semantic or treatment-result judgment enters the predicate.",
+  "rules": [
+   "disposal only after ACTUAL divergence (CallReplayMismatch raised); at-risk cells are never preemptively discarded",
+   "the whole mirror unit leaves the paired analyses, exactly as amendment 5 disposes checker_malformed units",
+   "no imputation, no pass/reject classification, and no reuse of any mismatched cached response",
+   "the amendment-5 bounds are CUMULATIVE across all terminal reasons: >20 unique terminal cells, >4% affected mirror units, or concentration (>=5 cells in a judge/condition at >2% or 3x complement) stops the run for owner review and is never relaxable mid-run",
+   "if the cumulative bound is exceeded, the completion gate FAILS; no further amendment may raise the bound",
+   "no repeated replay attempts intended to obtain a response version that happens to match the cache (retry-shopping is forbidden)",
+   "the audit reports exact terminal counts by condition and arm, disclosing that truncation propensity makes the missingness partly content-correlated",
+   "the converged result is described as terminally RESOLVED rows, never observed rows; the valid-observation count is reported separately"
+  ],
+  "codex_distinction": "ratified as an integrity disposition, not the previously rejected verdict-truncation exemption: replay_divergence identifies a unit with an internally inconsistent provenance graph where no valid observation exists to classify; the guard proves invalidity without proving the missingness ignorable, which is why the full amendment-5 bounds and disclosures apply"
+ },
+ "cost_checkpoints": {
+  "purpose": "outcome-blind operational checkpoints so the b4/b8 estimate error cannot compound silently again",
+  "points": [
+   "sequential_b2 complete",
+   "sequential_b4 complete",
+   "8 b8 cells complete",
+   "24 b8 cells complete"
+  ],
+  "content": "cumulative in-ledger spend and a revised bottom-up finish forecast, logged to the archive; checkpoints never alter inclusion, analysis, or condition ordering; the authorized ceiling remains the only administrative stop rule"
+ },
+ "codex_basis": {
+  "file_sha256": {
+   "rejudge/phase3_v3_codex_endgame_consult_2026-08-29.md": "41019d8e0750d981623b7f1e5345ff4b957ce482983b647762f55046b54c32aa"
+  }
+ },
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r31_replay_divergence_stop_2026-08-29.json": "d7d815feb9685c1ef9a59b4043ed741b0be908170d4a9ea153e9efe247141b23",
+   "rejudge/phase3_v3_amendment5_terminal_disposition_2026-08-26.json": "dd33f286bb20c00c7fc595e983b56d8dd7c0fbb735f35f50f3b6659d8f293a49"
+  }
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call and changes no analysis gate, bound value, roster, or budget.",
+  "It adds one mechanically-gated terminal reason under the existing amendment-5 machinery and bounds."
+ ]
+}
