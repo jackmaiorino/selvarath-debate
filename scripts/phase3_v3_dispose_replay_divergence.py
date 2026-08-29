@@ -71,7 +71,7 @@ def main() -> int:
         if r["call_role"] == "judge_query" and r["attempt"] == 1 and r["slot"] == 0
         and old_retry_query and r["sequence"] > old_retry_query[0]["sequence"]]
 
-    if not (unmemoized and old_oracle and old_retry_query and divergent_attempt1):
+    if not (unmemoized and old_retry_query and divergent_attempt1):
         print("REFUSED: evidence does not match the amendment-12 pattern; "
               "orchestrator review required")
         print(json.dumps({
@@ -81,8 +81,26 @@ def main() -> int:
             "divergent_attempt1": [r["sequence"] for r in divergent_attempt1]}))
         return 2
 
-    mismatched = old_oracle[0]
     divergent = divergent_attempt1[0]
+    # The collision point follows mechanically from the NEW generation's cached checker
+    # token (orchestration state, not an outcome field): an allow proceeds to the oracle
+    # and collides with the old-generation oracle row; a reject consumes the retry and
+    # collides with the old-generation retry-query row. Anything else is refused for
+    # orchestrator review rather than guessed.
+    new_checkers = [r for r in mine
+                    if r["call_role"] == "query_checker"
+                    and r["sequence"] > divergent["sequence"]]
+    checker_token = new_checkers[-1]["response"].strip() if new_checkers else None
+    if checker_token == "allow" and old_oracle:
+        mismatched = old_oracle[0]
+    elif checker_token == "reject":
+        mismatched = old_retry_query[0]
+    else:
+        print("REFUSED: new-generation checker state does not yield a mechanical "
+              "collision point; orchestrator review required")
+        print(json.dumps({"checker_token": checker_token,
+                          "old_oracle": [r["sequence"] for r in old_oracle]}))
+        return 2
     index = len(existing) + 1
     stamp = datetime.now(timezone.utc)
     out = REPO_ROOT / (
