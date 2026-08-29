@@ -26,7 +26,7 @@
  },
  "aggregate_cap": {
   "approved_cap_usd": 68.0,
-  "prior_accounted_spend_usd": 54.65665497,
+  "prior_accounted_spend_usd": 54.65665496999999,
   "prior_accounted_note": "the twelve-attempt v13 carry (50.451555799999994) plus the r29-terminal thirteenth identity's sealed ledger (4.20509917, run phase3-v3-5cdeb74a8f8f1742)",
   "screening_out_of_ledger_usd": 5.23608743,
   "reset_on_successor": false,
