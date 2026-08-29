@@ -178,13 +178,18 @@ def _preseed_transcripts(cells: list) -> dict[str, dict]:
 
 
 def _build_live_inner(role_limits: dict, price_snapshot: dict, ledger_path: Path,
-                      error_log: Path, prior_spend: float, prior_uncertain: float,
-                      prior_run_uncertain: float):
+                      error_log: Path):
     request = role_limits["request_settings"]
     transport = request["transport"]
     error_log.parent.mkdir(parents=True, exist_ok=True)
     error_log.touch(exist_ok=True)
-    snapshot = api_client.prepare_usage_ledger(ledger_path, allow_create=True)
+    # prepare_usage_ledger only creates the genesis (and refuses once paid events exist);
+    # every client construction, including resume phases, loads the validated chain.
+    if not ledger_path.exists():
+        api_client.prepare_usage_ledger(ledger_path, allow_create=True)
+    snapshot = api_client.load_chained_usage_ledger(ledger_path)
+    prior_spend = float(snapshot.summary["actual_spend_usd"])
+    prior_uncertain = float(snapshot.summary["uncertain_spend_usd"])
     raw = api_client.RejudgeClient(
         approved_cap_usd=AGGREGATE_CAP_USD,
         dry_run=False,
@@ -217,27 +222,17 @@ def _build_live_inner(role_limits: dict, price_snapshot: dict, ledger_path: Path
             transport["per_call_wall_clock_ceiling_seconds"]),
         require_returned_model_match=True,
         run_uncertain_ceiling_usd=UNCERTAIN_CEILING_USD,
-        initial_run_uncertain_spend_usd=prior_run_uncertain,
+        initial_run_uncertain_spend_usd=prior_uncertain,
     )
     return RoleLimitResolvingClient(raw, role_limits["model_role_limits"])
 
 
-def _ledger_totals(ledger_path: Path) -> tuple[float, float, float]:
-    actual = uncertain = 0.0
-    events = 0
+def _ledger_totals(ledger_path: Path) -> tuple[float, float, int]:
     if not ledger_path.exists():
         return 0.0, 0.0, 0
-    for line in ledger_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        event = json.loads(line)
-        events += 1
-        cost = float(event.get("cost_usd") or 0.0)
-        if event.get("status") == "success":
-            actual += cost
-        elif event.get("status") == "unknown_charge":
-            uncertain += cost
-    return actual, uncertain, events
+    summary = api_client.load_chained_usage_ledger(ledger_path).summary
+    return (float(summary["actual_spend_usd"]), float(summary["uncertain_spend_usd"]),
+            int(summary["events"]))
 
 
 def _run_cell_phases(cell, *, context_template: dict, journal_path: Path,
@@ -352,11 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         VALIDATION_DIR / "journal_validation_decisions.jsonl")
 
     def live_inner_factory():
-        actual, uncertain, _events = _ledger_totals(ledger_path)
-        return _build_live_inner(
-            role_limits, price_snapshot, ledger_path, error_log,
-            prior_spend=actual, prior_uncertain=uncertain,
-            prior_run_uncertain=uncertain)
+        return _build_live_inner(role_limits, price_snapshot, ledger_path, error_log)
 
     context_template = {
         "protocol": protocol, "bundle": bundle, "role_limits": role_limits,
