@@ -1,0 +1,24 @@
+{
+ "schema_version": "phase3_v3_terminal_halts_v1",
+ "record_id": "phase3_v3_terminal_halts_007_2026-08-29",
+ "run_id": "phase3-v3-82c8f75feba42a9e",
+ "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_canary_debate_judgment:7ba37609634ff64df87d4c2b2a09c50c54b605af8739760035cf9e5bfc173229",
+ "reason": "replay_divergence",
+ "evidence": {
+  "mismatched_cache_sequence": 518,
+  "mismatched_request_sha256": "3c501c0c19853319c7aa14044ba3a32a77df39851e84b9fd727c1168203f24b0",
+  "divergent_cache_sequence": 948,
+  "unmemoized_ledger_sequences": [
+   718,
+   1070,
+   1432
+  ],
+  "provenance": "mechanically extracted per amendment 12: judge query truncated at the 4096 cap on 3 unmemoized dispatch(es); the gate's cached retry generation includes the oracle row above; a post-relaunch re-dispatch completed non-deterministically (divergent cache row above) so the oracle recomposition permanently mismatches",
+  "result_row_absent_verified": true
+ },
+ "reviewer": "orchestrator session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5 under the amendment-12 disposition; evidence mechanically extracted and pattern-gated by scripts/phase3_v3_dispose_replay_divergence.py; no retry-shopping",
+ "recorded_at_utc": "2026-08-29T16:26:12.876281Z",
+ "frozen_policy_citation": "rejudge/phase3_v3_amendment12_replay_divergence_2026-08-29.json (canonical 541d8b64c27a48284513b2837b5a73030a9e7445e7db953f6d6f1cb2f7d4955a): whole-mirror-unit exclusion, INVALID in the primary, CUMULATIVE amendment-5 bounds never relaxable, no bound-raising amendment",
+ "disposition_notes": "terminal cell 2 of 20 (cumulative bound) for this run; content-correlation disclosed per amendment 12",
+ "execution_authorized": false
+}
