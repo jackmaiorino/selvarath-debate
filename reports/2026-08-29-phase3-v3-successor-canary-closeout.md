@@ -6,7 +6,7 @@ Date: 2026-08-29. Run: `phase3-v3-82c8f75feba42a9e` (fifteenth and final identit
 
 The canary CONVERGED and PASSED. Completion label `PASS_WITH_FROZEN_EXCLUSIONS`: 525 of 528 expected rows, with 3 judgment cells terminally resolved under the amendment-12 replay-divergence disposition (cumulative bound used: 3 of 20). All frozen gates pass: strict-invalid (0 of 96 slots per judge, gate allows 1), structural mirroring (no problems), ledger (`PASS_CONSERVATIVE_UNCERTAIN`), main-spend (zero, as always). `formal_status: complete`, `gate_failures: []`. Report sha256 in the finalization record; result store `ce5264c5...`, ledger `cd057c85...`.
 
-This qualifies the engineering pipeline for a main-run ask. It is not main-run evidence for the budget-effect estimands, and no main-run call is authorized (see Non-claims).
+Qualification claim, per the 2026-08-29 Codex methods review (`rejudge/phase3_v3_codex_closeout_consult_2026-08-29.md`): this makes the project ELIGIBLE TO REQUEST FUNDING AND COMPLETE LAUNCH VALIDATION for a main run. It does NOT demonstrate main-execution readiness, because the observed missingness is content-correlated and judge-concentrated (next section). It is not main-run evidence for the budget-effect estimands, and no main-run call is authorized (see Non-claims).
 
 ## Scope disclosure: a two-judge canary
 
@@ -14,6 +14,8 @@ The pre-registered v3 design had four verdict judges. This run has two: `Qwen/Qw
 
 - `gemma-4` was removed from all verdict and checker roles after a per-prompt-deterministic thinking runaway: on live production queries it burned unbounded thinking tokens on 4.3% of calls (versus about 1% on the pilot probes used for admission screening). The screening blind spot is content-dependence: probe prompts did not contain the triggering content, so probe-based admission passed a model that fails on production traffic. Future admissions must screen on production-distribution inputs (the Llama checker admission below did exactly this).
 - The fourth judge was removed earlier in the v3 line for verdict-budget runaways that role-limit caps could not bound safely (record trail in amendments 8 and prior incident records).
+
+Codex review conditions on this scope: main-run claims must be stated per named model endpoint and version, with no generalization to judge scale or frontier models. Judge results are reported separately unless both judges use semantically equivalent parsing. The tolerant parser must be confirmed frozen, deterministic, and syntax-only (no substantive repair of answers) before Llama participates in any pooled primary analysis; otherwise Llama is secondary. This confirmation is a pre-main checklist item.
 
 ## Checker substitution
 
@@ -33,9 +35,15 @@ All three terminally resolved cells are the same question, VS-019, clean arm, Qw
 
 Mechanism (amendment 12): VS-019's prompts reproducibly drive the Qwen judge into degenerate generation, truncating at the 4,096 query cap or emitting special-token spam. Truncated and empty responses are refused memoization by frozen doctrine, so a mid-cell relaunch re-dispatches them; the provider completes them non-deterministically at temperature 0 with a fixed seed; the new path diverges from cached downstream rows and the cache-integrity guard halts the cell permanently (`CallReplayMismatch`). Cell f1441bda wedged the predecessor identity too, so the content-correlation replicates across independent runs.
 
-Consequences for a main run: missingness of this type is content-correlated, not random, and concentrates in one judge and (here) one question. The frozen bounds (20 cumulative terminal cells, 4% mirror units, concentration) held with large margin in the canary, but the main run has 82 questions and 9,840 slots; if even two or three questions behave like VS-019, terminal counts scale by roughly 41x per affected cell type. The main-run ask should present this as the principal execution risk, and the analysis plan already treats such cells as INVALID with whole-mirror-unit exclusion from paired analyses.
+### Question-clustered scenario analysis (Codex launch condition)
 
-Also banked as a science observation: a frontier-scale judge (Qwen3.8, 2.4T) exhibits question-specific deterministic degeneration that a 70B model does not, on identical prompts.
+The crude rate looks alarming naively extrapolated: 3/528 canary rows scales to about 56/9,840 main slots, nearly three times the frozen 20-cell bound. But the cells are clustered, so the right unit is the question. Census of 4,096-cap query truncations (the necessary precondition): 3 of 24 canary questions triggered them for the Qwen judge (VS-019: 13 truncations, SEL-030: 4, CN-021: 1), zero for Llama. A terminal cell requires BOTH a truncation-prone prompt AND a mid-cell relaunch afterwards; only VS-019 crossed both, and only because this run was relaunched repeatedly.
+
+At main scale each (question, judge, condition) has 12 slots. Exposure per VS-019-class question is about 48 sequential Qwen slots; at the canary's conditional terminal rate under relaunch-heavy operation (3 of 16 exposed VS-019 slots, about 19%), one such question yields roughly 9 terminal cells and two put the run at the frozen bound. With 1 to 3 truncation-prone questions per 24 observed, the main run's 82 questions plausibly contain several. Conclusion: disclosure plus the frozen INVALID and whole-mirror-unit analysis plan is NOT sufficient on its own; main-run completion is robust only if the divergence mechanism itself is removed. We do NOT propose pre-screening questions (outcome-correlated selection); the mitigation is mechanical (next paragraph).
+
+Required pre-main mitigation (Codex-specified, to be frozen before any main launch): an immutable request-level journal. Persist every dispatched request key and raw response before downstream processing; never overwrite a committed response or regenerate a completed request on resume; resolve ambiguous dispatch completion as INVALID rather than redispatching; commit the assembled cell atomically once all request records exist. Rejected alternatives: memoize-first-successful-retry (selects among nondeterministic generations) and whole-cell single-dispatch (converts recoverable interruptions into exclusions). The mechanism must be validated on VS-019 plus ordinary controls with demonstrated crash/resume equivalence before freezing. This is harness validation, not a science change, but it touches EXECUTION_CODE_PATHS and therefore forces a fresh identity and its own review.
+
+Supportable science observation (wording per Codex; the earlier scale-causal framing is withdrawn): the Qwen3.8 endpoint showed recurrent, question-specific degeneration on VS-019 under the tested configuration; the Llama-3.3-70B endpoint did not show that failure in observed attempts. No claim about model scale as the cause, and "deterministic" is wrong in the strict sense since redispatches of the same prompt sometimes completed cleanly.
 
 ## Diagnostics (descriptive, no gate consequence)
 
@@ -79,11 +87,11 @@ At observed per-slot costs:
 | actual subtotal | | $573.60 |
 | conservative-accounted (+19.9% observed uncertain overhead) | | about $688 |
 
-Read: roughly $575 actual, budget about $700 under the same conservative uncertain-spend accounting this phase used. b4 plus b8 are 63% of judgment cost. This estimate is grounded in the full tail (all 48 b8 slots completed), unlike every earlier extrapolation. It excludes: transcript generation (phase 3 reuses frozen transcripts, so $0), reruns of wasted identities (canary history suggests budgeting a contingency), and any capability-anchor expansion beyond canary scale. Against the roughly $7k grant remainder this is affordable but is the largest single spend of the project; it requires a fresh owner authorization and a Codex methods consult, and remains blocked by the review-window requirement above.
+Read: roughly $575 actual as a planning mean, about $688 conservative-accounted. Codex's review treats this as a mean, not a ceiling (48 observations per stratum are thin for tail costs, and slots within a question are not independent), and attaches a 25% execution reserve: RECOMMENDED CAP $875. A discarded late identity is a separate risk class that could approach another full run's cost; it is NOT absorbed by the reserve and requires explicit owner reauthorization if it happens. b4 plus b8 are 63% of judgment cost. The estimate is grounded in the full tail (all 48 b8 slots completed), unlike every earlier extrapolation, and excludes transcript generation (phase 3 reuses frozen transcripts, so $0) and capability-anchor expansion beyond canary scale. Against the roughly $7k grant remainder $875 is affordable but is the largest single spend of the project; it requires a fresh owner authorization and a dedicated Codex main-protocol consult, and remains blocked by the review-window requirement above.
 
 ## Qwen3.8 serverless viability
 
-Qwen3.8-2.4T on Together serverless is viable as a judge with the frozen role-limit regime: 16,384 verdict budget (amendment schema v6) produced zero verdict truncations and zero invalid verdicts in 96 slots. Its failure mode is not capacity but content-triggered degeneration (VS-019 above) at the query stage, plus provider non-determinism at temperature 0 with a fixed seed (same prompt truncates then completes on re-dispatch). Any protocol that memoizes calls must treat serverless Qwen replies as non-replayable and plan dispositions accordingly.
+Qwen3.8-2.4T on Together serverless is viable as a judge with the frozen role-limit regime: 16,384 verdict budget (amendment schema v6) produced zero verdict truncations and zero invalid verdicts in 96 slots. Its failure mode is not capacity but recurrent content-triggered degeneration at the query stage (VS-019 and, less severely, SEL-030 and CN-021), plus provider non-determinism at temperature 0 with a fixed seed (the same prompt truncates on one dispatch and completes on another). Any protocol that memoizes calls must treat serverless Qwen replies as non-replayable; the request-level journal above is the required consequence.
 
 ## Together billing reconciliation (addendum pending)
 
@@ -104,8 +112,14 @@ Verbatim from the sealed report: this successor canary is an engineering and eli
 
 ## What remains before the main-run ask
 
+Per the Codex close-out review (all blocking):
+
 1. Owner methods review of this close-out and the two-judge scope.
-2. The frozen eight-full-hour configuration-review windows (pace requirement), independently met and documented.
-3. Codex methods consult on the main-run ask with this repricing.
-4. Owner spend authorization (about $700 conservative) plus a contingency policy for VS-019-class content-driven terminal cells at main scale.
-5. Together billing reconciliation addendum.
+2. Request-level journal mitigation: built, validated on VS-019 plus ordinary controls with crash/resume equivalence demonstrated, then frozen (execution-code change, fresh identity).
+3. The frozen eight-full-hour configuration-review windows (pace requirement), independently met and documented.
+4. Tolerant-parser confirmation (frozen, deterministic, syntax-only) for the pooled-analysis question.
+5. Dedicated Codex methods consult on the main protocol itself.
+6. Owner spend authorization at the $875 recommended cap, with discarded-identity reauthorization explicit.
+7. Together billing reconciliation addendum.
+
+Codex signed: the formal canary gate result and a conditional main-run funding ask. Codex did not sign: an unconditional readiness claim, a $700 all-in budget, or the earlier scale-causal science wording (all corrected above).
