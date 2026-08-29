@@ -124,15 +124,27 @@ class FrozenCheckerAdapter:
     silently change the configuration's observed error rate.
     """
 
-    def __init__(self, client, *, request_metadata: dict | None = None) -> None:
+    def __init__(self, client, *, request_metadata: dict | None = None,
+                 model_override: str | None = None,
+                 max_tokens_override: int | None = None) -> None:
         config = _load(FROZEN_CONFIG_PATH)["configuration"]
         self._client = client
-        self._model = config["model"]
+        # The executing model comes from the frozen phase-2 configuration unless the
+        # caller's protocol resolves the query_checker role to another model (amendment 9
+        # substituted Llama after gemma-4's live-query runaway). Every phase-2 call site
+        # and every phase-3 protocol through r5 resolves to the config model itself, so
+        # the override is an identity function for all sealed history. Run
+        # phase3-v3-5cdeb74a8f8f1742 (r29) wedged because this adapter kept targeting
+        # the config model after the substitution: the prompts, parser, and decoding
+        # stay frozen; the MODEL must follow the protocol roster.
+        self._model = model_override or config["model"]
         self._temperature = config["decoding"]["temperature"]
         self._seed = config["decoding"]["seed"]
         self._system = load_frozen_checker_prompt()
         self._user_template = load_frozen_checker_user_template()
-        self._max_tokens = resolve_checker_max_tokens()
+        self._max_tokens = (
+            max_tokens_override if max_tokens_override is not None
+            else resolve_checker_max_tokens())
         self._request_metadata = dict(request_metadata or {})
 
     def __call__(self, request: CheckerRequest) -> str:

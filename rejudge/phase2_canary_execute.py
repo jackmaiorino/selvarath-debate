@@ -276,11 +276,25 @@ def _run_judgment_loop(cell: ResolvedCell, context: CellContext, *,
             max_response_bytes = judge_loop.visible_history_cap_bytes(
                 judge_loop.judge_query_effective_max_tokens(
                     context.role_limits, str(cell.judge_model)))
+        # Amendment 9 fix (r29): the checker MODEL follows the protocol roster, not the
+        # frozen phase-2 config, whenever a phase-3 role-limits artifact is present. For
+        # every phase-2 call site (role_limits None) and every protocol through r5 the
+        # resolved model equals the config model, so sealed history is byte-identical.
+        checker_model_override = None
+        checker_max_tokens_override = None
+        if context.role_limits is not None:
+            checker_model_override = str(context.protocol["roster"]["query_checker"])
+            checker_entry = context.role_limits["model_role_limits"][
+                checker_model_override]["query_checker"]
+            checker_max_tokens_override = int(
+                checker_entry["effective_request_max_tokens"])
         query_gate = CanaryQueryGate(
             candidate_a=position_a, candidate_b=position_b, total_slots=cell.query_budget,
             checker=FrozenCheckerAdapter(
                 context.client,
-                request_metadata={"cell_key": cell.cell_key, "condition": cell.condition}),
+                request_metadata={"cell_key": cell.cell_key, "condition": cell.condition},
+                model_override=checker_model_override,
+                max_tokens_override=checker_max_tokens_override),
             dual_gate=DualGate(context.decision_store, context.reviewer),
             rejection_payload=rejection_payload,
             no_query_payload=no_query_payload,

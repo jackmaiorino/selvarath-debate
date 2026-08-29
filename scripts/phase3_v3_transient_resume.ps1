@@ -36,7 +36,18 @@ while ($true) {
     # exercised 2026-08-28 (run 5cdeb74a: a Llama-checker 503 halted a full drive).
     $isCheckerOutage = $stderrText -match ": checker_outage"
     $isTransient = $lastError -match $transient
-    if (-not (($isUnknownChargeHalt -or $isCheckerOutage) -and $isTransient)) {
+    # The transient evidence must be FRESH: on 2026-08-28 a deterministic pre-dispatch
+    # checker failure produced no new error-log lines, and a stale transient line from
+    # hours earlier kept classifying every relaunch as weather (48 blind relaunches).
+    # An error line older than 15 minutes is evidence of nothing about this halt.
+    $isRecent = $false
+    if ($lastError -match '"ts": "([0-9T:\.\-\+]+)"') {
+        try {
+            $errorAge = ([DateTime]::UtcNow - ([DateTimeOffset]::Parse($Matches[1]).UtcDateTime)).TotalMinutes
+            $isRecent = ($errorAge -ge -5 -and $errorAge -le 15)
+        } catch { $isRecent = $false }
+    }
+    if (-not (($isUnknownChargeHalt -or $isCheckerOutage) -and $isTransient -and $isRecent)) {
         Write-Host "NON-TRANSIENT HALT (exit $code): orchestrator review required"
         Write-Host ("stderr: " + $stderrText.Trim())
         Write-Host ("last error-log line: " + $lastError)
