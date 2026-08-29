@@ -1,0 +1,43 @@
+{
+ "schema_version": "phase3_v3_envelope_amendment_v1",
+ "amendment_id": "phase3_v3_amendment11_final_extension_2026-08-29",
+ "decided_at_utc": "2026-08-29T10:09:05Z",
+ "owner_approval": {
+  "approver": "Jack Maiorino",
+  "channel": "Claude Code session 3cf5f3a5-3285-4fbd-9cf1-16e43f5458c5, decision menu of 2026-08-29",
+  "selected_option": "Extend ~$3, run it",
+  "content": "approve a $68 aggregate cap for the fourteenth attempt after the r29 checker-wiring defect (the orchestrator's own integration bug, disclosed with its full accountability chain) consumed the amendment-10 margin; before any real spend one live checker call runs through the actual production adapter stack to prove the integration; launch in a calm window"
+ },
+ "changes": {
+  "aggregate_cap_usd": {
+   "from": 65.0,
+   "to": 68.0,
+   "note": "owner's new money, ~$3, within the remaining grant"
+  },
+  "run_uncertain_ceiling_usd": "unchanged at 7.50 (role-limits r10 carries forward; only $0.37 was consumed under calm-window gating)",
+  "science_changes": "none: protocol r6, roster, checker substitution, gates, bounds, and diagnostics all unchanged; the only code change is the r29 fix making the checker model follow the protocol roster, regression-tested with sealed history byte-identical"
+ },
+ "codex_basis": "no fresh consult: this is a pure envelope bump structurally identical to the Codex-ratified amendment 10, with no open policy question; the r29 record and its fix commit are bound below",
+ "source_bindings": {
+  "canonical_json_sha256": {
+   "rejudge/phase3_v3_r29_checker_wiring_defect_2026-08-29.json": "01431d8b1e54e61b9cd5ecfaa32d6da2ce692369fbef3754694120015b1f5728",
+   "rejudge/phase3_v3_amendment10_envelope_extension_2026-08-28.json": "e2edc996a13ce1f74c1d87ecd9770b1034ba884391352445524a44498bcca9e2"
+  }
+ },
+ "aggregate_cap": {
+  "approved_cap_usd": 68.0,
+  "prior_accounted_spend_usd": 54.65665497,
+  "prior_accounted_note": "the twelve-attempt v13 carry (50.451555799999994) plus the r29-terminal thirteenth identity's sealed ledger (4.20509917, run phase3-v3-5cdeb74a8f8f1742)",
+  "screening_out_of_ledger_usd": 5.23608743,
+  "reset_on_successor": false,
+  "main_run_spend_authorized": false
+ },
+ "execution_authorized": false,
+ "canary_spend_authorized": false,
+ "main_spend_authorized": false,
+ "non_claims": [
+  "This amendment authorizes no provider call; the r15 authorization carries execution approval.",
+  "No measurement row from any prior attempt satisfies a successor slot.",
+  "No gate, bound, roster, or protocol element changes; only the aggregate envelope."
+ ]
+}

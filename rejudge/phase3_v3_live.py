@@ -80,6 +80,7 @@ BINDING_SCHEMA_V10 = "phase3_v3_execution_binding_v10"
 BINDING_SCHEMA_V11 = "phase3_v3_execution_binding_v11"
 BINDING_SCHEMA_V12 = "phase3_v3_execution_binding_v12"
 BINDING_SCHEMA_V13 = "phase3_v3_execution_binding_v13"
+BINDING_SCHEMA_V14 = "phase3_v3_execution_binding_v14"
 ROLE_LIMITS_SCHEMA = "phase3_v3_role_limits_v1"
 ROLE_LIMITS_SCHEMA_V2 = "phase3_v3_role_limits_v2"
 ROLE_LIMITS_SCHEMA_V3 = "phase3_v3_role_limits_v3"
@@ -112,6 +113,9 @@ AUTHORIZED_INCREMENTAL_CAP_USD = 60.0
 # thirteenth attempt after weather exhausted both frozen envelopes with the run 63%
 # complete. Historical bindings and authorizations keep their $60 pin.
 AUTHORIZED_AGGREGATE_CAP_USD_V13 = 65.0
+# Amendment 11 (2026-08-29): the owner extended the envelope to $68 for the fourteenth
+# attempt after the r29 checker-wiring defect consumed the amendment-10 margin.
+AUTHORIZED_AGGREGATE_CAP_USD_V14 = 68.0
 # Amendment 10 per-run uncertain ceiling for role-limits schema v7 (~52 timeout events
 # of headroom at the worst observed drip rate; Codex: no blockers, no extra gates).
 RUN_UNCERTAIN_CEILING_USD_V7 = 7.5
@@ -140,6 +144,9 @@ PRIOR_ACCOUNTED_SPEND_USD_R12 = 42.53125933
 # R13 carry (2026-08-28): R12 plus the r27-stopped Llama-checker identity's sealed
 # ledger (run phase3-v3-7a8a34fb544d8c2a, $7.92029647 accounted, zero open reservations).
 PRIOR_ACCOUNTED_SPEND_USD_R13 = 50.451555799999994
+# R14 carry (2026-08-29): R13 plus the r29-terminal thirteenth identity's sealed ledger
+# (run phase3-v3-5cdeb74a8f8f1742, $4.20509917 accounted, zero open reservations).
+PRIOR_ACCOUNTED_SPEND_USD_R14 = 54.65665497
 # Amendment 7 (2026-08-27): the owner-approved final four-judge attempt runs under a $5.00
 # per-run uncertain ceiling (role-limits schema v5, Codex-ratified as sufficient under an
 # r19-like stationary drip by linear projection, with no claim across weather regimes).
@@ -641,7 +648,7 @@ def _validate_prior_attempt_accounting(
     if schema_version not in {
             BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
             BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-            BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+            BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
         return {
             "actual_spend_usd": 0.0,
             "uncertain_spend_usd": 0.0,
@@ -657,10 +664,12 @@ def _validate_prior_attempt_accounting(
     if schema_version in {
             BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
             BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
-            BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+            BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
         if (prior.get("measurement_rows_reused") != 0
                 or float(prior.get("aggregate_cap_usd", -1)) != (
-                    AUTHORIZED_AGGREGATE_CAP_USD_V13
+                    AUTHORIZED_AGGREGATE_CAP_USD_V14
+                    if schema_version == BINDING_SCHEMA_V14
+                    else AUTHORIZED_AGGREGATE_CAP_USD_V13
                     if schema_version == BINDING_SCHEMA_V13
                     else AUTHORIZED_INCREMENTAL_CAP_USD)):
             raise Phase3V3LiveError("prior-attempt aggregate cap or row-reuse policy drifted")
@@ -687,7 +696,7 @@ def _validate_prior_attempt_accounting(
         if schema_version in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-ab48e68863878f49",
@@ -703,7 +712,7 @@ def _validate_prior_attempt_accounting(
         if schema_version in {
                 BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
                 BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
-                BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+                BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-476792b58e273b48",
@@ -719,7 +728,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R5
         if schema_version in {
                 BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-                BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+                BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-120ce58628620fce",
@@ -735,7 +744,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R6
         if schema_version in {
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-3382c17bc4b33909",
@@ -751,7 +760,7 @@ def _validate_prior_attempt_accounting(
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R7
         if schema_version in {
                 BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10,
-                BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+                BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-0407589edb2d8a6b",
@@ -765,7 +774,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R8
-        if schema_version in {BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+        if schema_version in {BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             expected_attempts = expected_attempts + (
                 {
                     "run_id": "phase3-v3-25d73d86c66a1e42",
@@ -779,7 +788,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R9
-        if schema_version in {BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+        if schema_version in {BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             # The ninth chained attempt never launched formally: its identity wedged at
             # the harness's first Qwen3.5-9B cell (empty response, completeness check),
             # which became the r21 empty-verdict discovery. That observation record is
@@ -798,7 +807,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R10
-        if schema_version in {BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+        if schema_version in {BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             # The tenth chained attempt: the first N=2 canary (harness-verified, 336
             # clean rows, one ratified checker_malformed disposition) went identity-
             # terminal when its resumption exposed the r23 exclusion-filter defect.
@@ -815,7 +824,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R11
-        if schema_version in {BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+        if schema_version in {BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             # The eleventh chained attempt: the second N=2 canary reached 394 clean rows
             # and stopped at the frozen amendment-5 concentration bound when gemma-4's
             # checker runaway hit five sequential_b2 cells (r25 record). The stop bound
@@ -833,7 +842,7 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R12
-        if schema_version == BINDING_SCHEMA_V13:
+        if schema_version in {BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
             # The twelfth chained attempt: the Llama-checker identity drove 333 clean
             # rows (zero checker_malformed) but a day-long capacity crunch exhausted the
             # $5 uncertain ceiling's margin while the aggregate cap neared $60, so the
@@ -852,6 +861,24 @@ def _validate_prior_attempt_accounting(
                 },
             )
             frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R13
+        if schema_version == BINDING_SCHEMA_V14:
+            # The thirteenth chained attempt: 336 clean rows, then the r29 checker-wiring
+            # defect (the amendment-9 substitution never reached the execution path)
+            # made every b2 checker call fail pre-reservation; the fix touches execution
+            # code, so the identity is terminal.
+            expected_attempts = expected_attempts + (
+                {
+                    "run_id": "phase3-v3-5cdeb74a8f8f1742",
+                    "manifest_path": (
+                        "rejudge/phase3_v3_run_manifest_preflight_r28_2026-08-28.json"),
+                    "halt_path": (
+                        "rejudge/phase3_v3_r29_checker_wiring_defect_2026-08-29.json"),
+                    "ledger_path": (
+                        "E:/selvarath-archive/phase3-v3r13-extended-2026-08-28/"
+                        "phase3_v3_usage.jsonl"),
+                },
+            )
+            frozen_carry = PRIOR_ACCOUNTED_SPEND_USD_R14
         if not isinstance(attempts, list) or len(attempts) != len(expected_attempts):
             raise Phase3V3LiveError(
                 f"prior-attempt chain must contain exactly {len(expected_attempts)} attempts")
@@ -907,7 +934,9 @@ def _validate_prior_attempt_accounting(
             raise Phase3V3LiveError(
                 "prior accounted spend differs from the frozen successor carry")
         expected_remaining = (
-            AUTHORIZED_AGGREGATE_CAP_USD_V13
+            AUTHORIZED_AGGREGATE_CAP_USD_V14
+            if schema_version == BINDING_SCHEMA_V14
+            else AUTHORIZED_AGGREGATE_CAP_USD_V13
             if schema_version == BINDING_SCHEMA_V13
             else AUTHORIZED_INCREMENTAL_CAP_USD) - frozen_carry
         if not math.isclose(
@@ -974,7 +1003,7 @@ def _validate_execution_binding(
     if binding.get("schema_version") not in {
             BINDING_SCHEMA, BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4,
             BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8,
-            BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}:
+            BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}:
         raise Phase3V3LiveError("unsupported v3 execution-binding schema")
     if binding.get("execution_authorized") is not False:
         raise Phase3V3LiveError("execution binding cannot authorize execution")
@@ -1042,7 +1071,7 @@ def _validate_execution_binding(
          if binding.get("schema_version") in {
              BINDING_SCHEMA_V2, BINDING_SCHEMA_V3, BINDING_SCHEMA_V4, BINDING_SCHEMA_V5,
              BINDING_SCHEMA_V6, BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-             BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}
+             BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}
          else "shared_incremental_cap_ledger"): True,
     }
     if formal != expected_formal:
@@ -1209,7 +1238,8 @@ def validate_authorization(
         cap = scope.get("incremental_cap_usd")
     if (isinstance(cap, bool) or not isinstance(cap, (int, float))
             or float(cap) not in {
-                AUTHORIZED_INCREMENTAL_CAP_USD, AUTHORIZED_AGGREGATE_CAP_USD_V13}):
+                AUTHORIZED_INCREMENTAL_CAP_USD, AUTHORIZED_AGGREGATE_CAP_USD_V13,
+                AUTHORIZED_AGGREGATE_CAP_USD_V14}):
         # $65 became a valid cap only with the owner's amendment 10; authorizations
         # recorded before it all carry the original $60 envelope.
         raise Phase3V3LiveError(
@@ -1262,7 +1292,7 @@ def validate_ledger(context: Mapping[str, Any]) -> api_client.UsageLedgerSnapsho
     tolerant = (
         binding.get("schema_version") in {
             BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}
+            BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}
         and int(snapshot.summary["events"]) > 0)
     uncertain = float(snapshot.summary["uncertain_spend_usd"])
     if tolerant:
@@ -1400,7 +1430,7 @@ def build_client(context: Mapping[str, Any], *, cache_path: Path, phase: str) ->
             if context["binding"].get("schema_version") in {
                 BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6,
                 BINDING_SCHEMA_V7, BINDING_SCHEMA_V8, BINDING_SCHEMA_V9,
-                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}
+                BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}
             else {}
         ),
     )
@@ -2283,7 +2313,7 @@ def audit_and_finalize(context: Mapping[str, Any]) -> dict[str, Any]:
         context["manifest"]["final_roster"])
     tolerant_binding = context["binding"].get("schema_version") in {
         BINDING_SCHEMA_V4, BINDING_SCHEMA_V5, BINDING_SCHEMA_V6, BINDING_SCHEMA_V7,
-        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13}
+        BINDING_SCHEMA_V8, BINDING_SCHEMA_V9, BINDING_SCHEMA_V10, BINDING_SCHEMA_V11, BINDING_SCHEMA_V12, BINDING_SCHEMA_V13, BINDING_SCHEMA_V14}
     run_ceiling = float(
         ((context.get("role_limits") or {}).get("uncertain_spend_tolerance") or {})
         .get("run_uncertain_ceiling_usd", RUN_UNCERTAIN_CEILING_USD))
