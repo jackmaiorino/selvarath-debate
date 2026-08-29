@@ -1,0 +1,35 @@
+{
+ "schema_version": "phase3_v3_journal_validation_plan_v1",
+ "record_id": "phase3_v3_journal_validation_plan_2026-08-29",
+ "purpose": "Codex close-out review condition C (rejudge/phase3_v3_codex_closeout_consult_2026-08-29.md): exercise the request-level journal on VS-019 plus ordinary controls and demonstrate crash/resume equivalence live, before freezing the mechanism for any main run.",
+ "driver": "scripts/phase3_v3_journal_validation.py",
+ "mechanism_under_test": "rejudge/request_journal.py (RequestJournal + JournalingClient + find_ambiguous_dispatches), offline-proven by tests/test_request_journal.py (9 tests)",
+ "cells": [
+  {"question_id": "VS-019", "query_budget": 2, "judge": "Qwen/Qwen3.8-2.4T-A95B", "source": "terminal-halt record 006's exact cell key", "kill_after_live_calls": 3},
+  {"question_id": "VS-019", "query_budget": 4, "judge": "Qwen/Qwen3.8-2.4T-A95B", "source": "terminal-halt record 008's exact cell key", "kill_after_live_calls": 5},
+  {"question_id": "SEL-010", "query_budget": 2, "judge": "Qwen/Qwen3.8-2.4T-A95B", "source": "deterministic control: first sorted non-VS-019 b2 cell for this judge", "kill_after_live_calls": 2},
+  {"question_id": "CN-021", "query_budget": 2, "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo", "source": "deterministic control: first sorted non-VS-019 b2 cell for this judge", "kill_after_live_calls": 2}
+ ],
+ "phases_per_cell": ["KILL: simulated process death after the frozen number of live dispatches", "RESUME: fresh objects over the same journal file, run to completion", "REPLAY: full re-drive over a poisoned client that fails on any dispatch"],
+ "pass_criteria": [
+  "resume dispatches exactly the never-journaled requests (journal growth equals resume live-call count)",
+  "replay makes zero provider calls",
+  "replay record is byte-identical to the resumed record modulo created_at",
+  "any journaled visibly-empty response is consumed by the frozen retry-then-block ladder (cell still completes with a parseable verdict or a counted invalid)"
+ ],
+ "spend_governance": {
+  "aggregate_cap_usd": 2.0,
+  "uncertain_ceiling_usd": 1.0,
+  "ledger": "E:/selvarath-archive/phase3-v3-journal-validation-2026-08-29/journal_validation_usage.jsonl",
+  "estimate_usd": "~0.30 actual (two b2 cells, one b4 cell, one control, plus partial re-execution after kills)",
+  "authorization_required": "rejudge/phase3_v3_journal_validation_authorization_2026-08-29.json with owner_approved true; the driver refuses --live without it"
+ },
+ "disclosures": [
+  "the reviewer is a constant ALLOW for validation only; the live Llama checker runs unmodified at its frozen 16-token budget",
+  "cell identities reuse protocol r6 derivations for trigger fidelity; the sealed canary archive is opened read-only for transcript preseeds and nothing is reconciled back into it",
+  "validation rows are engineering artifacts and never enter any analysis store",
+  "the settle-then-crash ambiguity window is validated OFFLINE only (tests/test_request_journal.py::test_ambiguous_dispatch_detection); deliberately inducing it against live billing is not reliably possible"
+ ],
+ "execution_authorized": false,
+ "recorded_at_utc": "2026-08-29T19:35:00Z"
+}

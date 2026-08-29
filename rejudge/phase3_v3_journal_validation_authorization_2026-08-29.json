@@ -1,0 +1,10 @@
+{
+ "schema_version": "phase3_v3_journal_validation_authorization_v1",
+ "record_id": "phase3_v3_journal_validation_authorization_2026-08-29",
+ "plan": "rejudge/phase3_v3_journal_validation_plan_2026-08-29.json",
+ "aggregate_cap_usd": 2.0,
+ "uncertain_ceiling_usd": 1.0,
+ "owner_approved": false,
+ "owner_approval_provenance": "PENDING: awaiting Jack's explicit approval of the $2.00 journal-validation run; the driver refuses --live while owner_approved is false",
+ "recorded_at_utc": "2026-08-29T19:35:00Z"
+}
