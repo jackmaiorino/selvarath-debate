@@ -1,7 +1,12 @@
 # Phase 3 reviewer-capacity enable review
 
-Date: 2026-08-30. Status: read-only implementation review. No reviewer dispatch or external
-execution occurred, and `--run` remains hard-disabled.
+Date: 2026-08-30. Status: implementation review with all identified code gaps closed. No
+reviewer dispatch or external execution occurred. The public `--run` route is wired, but it
+cannot pass admission until the owner key is ratified and pinned and an exact short-lived
+180-dispatch authorization is signed.
+
+The findings below record the initial review state. The implementation updates at the end of
+this report are authoritative for current readiness.
 
 ## Findings
 

@@ -1,12 +1,12 @@
 # Phase 3 main offline closure and next gates
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
-capacity-foundation, billing-inventory, authenticated billing-capture foundation,
-process-reset reconciliation, runtime account-binding implementation, runtime response-policy
-implementation, and offline hardening work complete. Production remains blocked on external
-authority, provider enablement, materialized approved-account evidence, authoritative source
-selection, and fresh measurement. This document authorizes no external execution, reviewer
-dispatch, provider call, or spend.
+capacity execution, billing inventory, authenticated billing-capture foundation,
+process-reset reconciliation, runtime account binding, runtime response policy, and offline
+hardening work complete. Production remains blocked on exact owner ratification, provider
+billing-usage enablement, materialized approved-account evidence, fresh reviewer-capacity
+measurement, a certified forecast and stage cap, and exact signed execution authority. This
+document authorizes no external execution, reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -55,6 +55,22 @@ Verification on the resulting tree:
   passed.
 
 No paid call, external reviewer call, production launch, or push occurred during this closure.
+
+## Current completion matrix
+
+| Requirement | Current state | Exact next gate |
+|---|---|---|
+| Frozen scientific design and analysis | Complete offline. The finalization admission and confirmatory analysis handoff are implemented and tested. | Regenerate only against the exact final source commit and frozen production inputs. |
+| Production driver and crash-consistent stores | Complete offline. Provider calls, reviewer releases, finalization, recovery, and in-run freshness checks fail closed. | None before external evidence is available. |
+| Runtime price and reviewer-usage policies | Bound in code to raw SHA-256 `88714908541e9957d6150186adad4a23c87876de7c7cf5654c9c585e8f14cd8d` and `8e22e89ce2a816aca5008160f846e0085661813d853ae4e9e380cbcf260f5251`. | Jack ratifies the exact policy files and 59,040-dispatch ceiling. |
+| Billing source inventory | Complete offline: 17 measurement ledgers, one separate journal-validation ledger, and two auxiliary screens proposed as non-authoritative side evidence. | Jack ratifies completeness and disjointness, then Together enables `/v1/billing/usage` for authenticated capture. |
+| Owner signing identity | One public-key candidate and fingerprint are identified. No private key is stored or accessible in the repository. | Jack selects the fingerprint, then the public key constants are pinned in a clean commit. |
+| Reviewer-capacity execution code | Complete offline. Fixed production wiring, per-child reservations, crash audit, signature checks, and v6 main provenance admission are tested. | After key pinning, rebuild the exact manifest and obtain a separate signed 180-dispatch authorization. |
+| Reviewer-capacity workload | Cohort 1 is materialized as 180 packets in three 60-packet waves with empty dispatch history. | Run once only after the separate capacity authorization exists. |
+| Provider billing reconciliation | Not materialized. Read-only `/v1/whoami` succeeds for the proposed account, while `/v1/billing/usage` returns 404. | Together enables the endpoint, then capture and reconcile the ratified source set. |
+| Certified forecast and stage cap | Not materialized. The protocol's `$450` cap and the canary-derived `$875` proposal are unresolved. | Recompute from fresh prices, billing reconciliation, and passing capacity evidence, then ratify one cap. |
+| Final exact-source harness, manifest, and main authorization | Not materialized for the eventual clean execution commit. Existing fake-only and readiness specimens are non-authorizing. | Regenerate after all upstream evidence is fixed, then sign the v6 authorization. |
+| Phase 3 production run | Not authorized or started. | Dedicated final methods review and separate explicit signed launch authority. |
 
 ## Offline harness milestone
 
@@ -356,12 +372,13 @@ mechanism is required for these two response rules. Verification on this success
 
 ## Remaining production blockers
 
-The remaining items require owner decisions, internal contract reconciliation, or fresh
-external evidence. The already closed main request provenance, reviewer provenance, and
-reviewer-closeout crash consistency remain intact. The new capacity lane is deliberately not
-enabled. The exact current decisions and non-execution ratification text are consolidated in
-`reports/2026-08-30-phase3-main-owner-decision-brief.md`. The remaining capacity implementation
-gaps and minimal closure contract are in
+The remaining items require owner decisions or fresh external evidence. The already closed main
+request provenance, reviewer provenance, reviewer-closeout crash consistency, capacity execution
+wiring, and v6 capacity-to-main provenance join remain intact. The capacity lane is deliberately
+non-authorizing until an exact signed authorization exists. The exact current decisions and
+non-execution ratification text are consolidated in
+`reports/2026-08-30-phase3-main-owner-decision-brief.md`. The capacity implementation review and
+its completed closure contract are in
 `reports/2026-08-30-phase3-main-capacity-enable-review.md`:
 
 1. Jack's public signing key and fingerprint are not pinned. The private key must remain outside
@@ -369,12 +386,12 @@ gaps and minimal closure contract are in
 2. The protocol still fixes a $450 stage cap while the sealed canary supports a proposed $875
    planning cap. One value must be ratified after a fresh certified forecast.
 3. Together billing-usage beta access is not enabled for the selected organization. No live
-   authenticated capture, settlement watermark, or v5 signed approved-account selection exists.
+   authenticated capture, settlement watermark, or v6 signed approved-account selection exists.
    The binding mechanism is complete; an authoritative, disjoint predecessor-ledger inventory
    remains open.
-4. The representative reviewer-capacity preflight has a frozen plan and a verified fake-only
-   execution foundation, but no authorized external measurement result. Real dispatch remains
-   hard-disabled.
+4. The representative reviewer-capacity preflight has a frozen plan, materialized cohort-1
+   workload, and verified production execution wiring, but no authorized external measurement
+   result. Admission remains locked by the unpinned owner key and absent signed authorization.
 5. Fresh prices, capacity evidence, billing evidence, forecast, regenerated exact-source
    harness receipt, exact manifest, and detached owner authorization have not been
    materialized for a production identity.
@@ -405,10 +422,10 @@ cross-wave continuity, final store targets, and the complete packet tree.
    needs a post-void settlement watermark.
 3. Ratify or amend the tracked price-change and reviewer-usage policy candidates, then bind
    their exact hashes, the 59,040 reviewer ceiling, and the required response text in the final
-   v5 authorization. Pin Jack's public signing key and fingerprint.
-4. Close the capacity real-enable gaps and request a separate bounded authorization for the
-   representative reviewer-capacity preflight. Do not treat this report, the existing plan,
-   or fake-only tests as dispatch authority.
+   v6 authorization. Pin Jack's public signing key and fingerprint.
+4. Rebuild the capacity execution manifest at the clean key-pinning commit and request a separate
+   bounded authorization for the representative reviewer-capacity preflight. Do not treat this
+   report, the existing plan, the materialized workload, or offline tests as dispatch authority.
 5. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
    forecast.
 6. Use the certified forecast to ratify one exact stage cap. Regenerate the harness receipt at
