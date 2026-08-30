@@ -2,22 +2,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from rejudge import phase3_main_reviewer_commit as reviewer_commit
 from rejudge import phase3_main_reviewer_provenance as reviewer_provenance
 from rejudge.phase2_canary_live import (
     SUBAGENT_PAYLOAD_SEPARATOR,
     compose_subagent_prompt,
 )
-from rejudge.phase2_dual_gate import DualGateDecisionStore, parse_reviewer_output, payload_hash
+from rejudge.phase2_dual_gate import parse_reviewer_output, payload_hash
 from rejudge.phase3_main_reviewer_provenance import (
     MainReviewerProvenanceError,
     verify_main_reviewer_provenance,
 )
+from rejudge.phase3_v3_live import RunLease
 from scripts import codex_reviewer_batch
 from scripts import phase3_main_review_capacity_preflight as capacity_preflight
 
@@ -532,9 +535,10 @@ def _build_fixture(
     reviewer_index_path = tmp_path / "reviewer_index.jsonl"
     reviewer_worklist_path = tmp_path / "reviewer_worklist.json"
     decisions_path = tmp_path / "decisions.jsonl"
-    decision_values: list[dict[str, Any]] = []
+    reviewer_index_path.write_bytes(b"")
+    decisions_path.write_bytes(b"")
+    run_lease_path = (tmp_path / "reviewer-run.lock").resolve()
     expected_payloads: list[str] = []
-    wave_rows = []
     last_worklist: dict[str, Any] | None = None
     for wave_position, (wave, specs) in enumerate(waves):
         worklist = _worklist(specs)
@@ -617,6 +621,7 @@ def _build_fixture(
         )
         dispatch_guard_raw_sha = _raw_sha(dispatch_guard_raw)
         rulings = []
+        commit_entries = []
         counts = {"parsed": 0, "malformed": 0, "reviewer_error": 0}
         for position, (spec, item, index_item) in enumerate(
             zip(specs, items, index_items), 1
@@ -656,11 +661,8 @@ def _build_fixture(
                     "raw_output": synthetic,
                     "evidence": evidence,
                 }
-                decision = {
+                commit_entry = {
                     "payload_sha256": payload,
-                    "label": None,
-                    "clause": None,
-                    "rationale": None,
                     "raw_output": synthetic,
                     "status": "reviewer_error",
                 }
@@ -673,19 +675,16 @@ def _build_fixture(
                     "tool_uses": spec.get("tool_uses", 0),
                     "evidence": evidence,
                 }
-                label, clause, rationale = parse_reviewer_output(raw_output)
+                label, _clause, _rationale = parse_reviewer_output(raw_output)
                 status = "parsed" if label is not None else "malformed"
-                decision = {
+                commit_entry = {
                     "payload_sha256": payload,
-                    "label": label,
-                    "clause": clause,
-                    "rationale": rationale,
                     "raw_output": raw_output,
-                    "status": status,
+                    "prompt_sha256": item["subagent_prompt_sha256"],
                 }
                 counts[status] += 1
             rulings.append(ruling_row)
-            decision_values.append(decision)
+            commit_entries.append(commit_entry)
         rulings_raw = "".join(
             json.dumps(row, ensure_ascii=False) + "\n" for row in rulings
         ).encode("utf-8")
@@ -694,8 +693,8 @@ def _build_fixture(
             datetime(2029, 1, 1, tzinfo=timezone.utc)
             + timedelta(minutes=wave_position + 1)
         ).isoformat()
-        wave_rows.append({
-            "schema_version": "phase3_main_reviewer_wave_v3",
+        wave_row = {
+            "schema_version": reviewer_commit.REVIEWER_WAVE_SCHEMA,
             "run_id": RUN_ID,
             "manifest_canonical_sha256": MANIFEST_SHA,
             "authorization_canonical_sha256": authorization_sha,
@@ -719,26 +718,38 @@ def _build_fixture(
             "reviewer_concurrency": CONCURRENCY,
             "reviewer_cli_resolved_path": cli_path,
             "commit_counts": counts,
-        })
-    reviewer_index_path.write_bytes("".join(
-        json.dumps(row, ensure_ascii=True, sort_keys=True) + "\n" for row in wave_rows
-    ).encode("utf-8"))
+            "run_lease_path": run_lease_path.as_posix(),
+        }
+        wave_row["wave_commit_transaction_id"] = (
+            reviewer_commit.derive_wave_commit_transaction_id(
+                run_id=RUN_ID,
+                manifest_canonical_sha256=MANIFEST_SHA,
+                wave=wave,
+                run_lease_path=run_lease_path,
+                evidence_bindings=(
+                    reviewer_commit.evidence_bindings_from_wave_row(wave_row)),
+            )
+        )
+        ordered_entries = (
+            list(reversed(commit_entries)) if reverse_decisions else commit_entries)
+        with RunLease(run_lease_path) as held_lease:
+            committed = reviewer_commit.commit_reviewer_wave(
+                transaction_directory=packet_dir,
+                decision_store_path=decisions_path,
+                reviewer_index_path=reviewer_index_path,
+                run_id=RUN_ID,
+                manifest_canonical_sha256=MANIFEST_SHA,
+                wave=wave,
+                run_lease_path=run_lease_path,
+                held_run_lease=held_lease,
+                worklist=worklist,
+                entries=ordered_entries,
+                reviewer_index_row=wave_row,
+            )
+        assert committed.commit_counts == counts
     if last_worklist is None:
         last_worklist = _worklist([])
     _write_json(reviewer_worklist_path, last_worklist, indent=1)
-    store = DualGateDecisionStore(decisions_path)
-    ordered_decisions = list(reversed(decision_values)) if reverse_decisions else decision_values
-    for value in ordered_decisions:
-        store.commit(
-            value["payload_sha256"],
-            value["label"],
-            value["clause"],
-            value["rationale"],
-            value["raw_output"],
-            value["status"],
-        )
-    if not decisions_path.exists():
-        decisions_path.touch()
     return {
         "reviewer_index_path": reviewer_index_path,
         "reviewer_worklist_path": reviewer_worklist_path,
@@ -819,6 +830,89 @@ def test_verifies_exact_waves_with_gaps_and_decision_semantics(tmp_path):
             "expected_capacity_dispatch_history_raw_sha256"],
     }
     assert len(result["review_packets_tree_canonical_sha256"]) == 64
+
+
+@pytest.mark.parametrize(
+    ("artifact", "match"),
+    [
+        ("intent", "wave commit intent is unavailable"),
+        ("receipt", "wave commit receipt is unavailable"),
+    ],
+)
+def test_rejects_a_missing_wave_commit_artifact(tmp_path, artifact, match):
+    inputs = _build_fixture(tmp_path)
+    packet_dir = next(Path(inputs["review_packets_root"]).glob("wave-*"))
+    transaction_paths = reviewer_commit.reviewer_wave_transaction_paths(packet_dir)
+    getattr(transaction_paths, artifact).unlink()
+
+    with pytest.raises(MainReviewerProvenanceError, match=match):
+        verify_main_reviewer_provenance(**inputs)
+
+
+@pytest.mark.parametrize(
+    ("store_name", "match"),
+    [
+        ("decisions", "decision prior state is discontinuous"),
+        ("reviewer_index", "index prior state is discontinuous"),
+    ],
+)
+def test_rejects_cross_wave_transaction_discontinuity(
+    tmp_path, monkeypatch, store_name, match,
+):
+    inputs = _build_fixture(tmp_path, waves=[
+        (1, [{
+            "query": "The threshold is 24 votes.",
+            "candidate_a": "24.",
+            "candidate_b": "30.",
+            "raw_output": CLEAN_OUTPUT,
+            "commands": [],
+        }]),
+        (3, [{
+            "query": "The council meets in Month 3.",
+            "candidate_a": "Month 3.",
+            "candidate_b": "Month 6.",
+            "raw_output": MALFORMED_OUTPUT,
+            "commands": [],
+        }]),
+    ])
+    original = reviewer_commit.validate_reviewer_wave_commit
+
+    def discontinuous(**kwargs):
+        result = original(**kwargs)
+        if kwargs["wave"] != 3:
+            return result
+        binding = replace(
+            getattr(result, store_name),
+            prior_raw_sha256="0" * 64,
+        )
+        return replace(result, **{store_name: binding})
+
+    monkeypatch.setattr(
+        reviewer_commit, "validate_reviewer_wave_commit", discontinuous)
+
+    with pytest.raises(MainReviewerProvenanceError, match=match):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_transaction_binds_the_exact_raw_reviewer_index_row(
+    tmp_path, monkeypatch,
+):
+    inputs = _build_fixture(tmp_path)
+    original = reviewer_commit.validate_reviewer_wave_commit
+
+    def wrong_row_bytes(**kwargs):
+        result = original(**kwargs)
+        binding = replace(
+            result.reviewer_index,
+            append_bytes=result.reviewer_index.append_bytes + b" ",
+        )
+        return replace(result, reviewer_index=binding)
+
+    monkeypatch.setattr(
+        reviewer_commit, "validate_reviewer_wave_commit", wrong_row_bytes)
+
+    with pytest.raises(MainReviewerProvenanceError, match="exact index row bytes"):
+        verify_main_reviewer_provenance(**inputs)
 
 
 def _rewrite_single_wave_guard(inputs: dict[str, Any], mutate) -> None:
@@ -936,10 +1030,19 @@ def test_reviewer_wave_recorded_times_are_strictly_increasing(tmp_path):
                 "commands": [],
             }]),
         ],
-        wave_recorded_at_utcs=[
-            "2029-01-01T00:01:00+00:00",
-            "2029-01-01T00:01:00+00:00",
-        ],
+    )
+    index_path = Path(inputs["reviewer_index_path"])
+    rows = [
+        json.loads(line)
+        for line in index_path.read_text(encoding="utf-8").splitlines()
+    ]
+    rows[1]["recorded_at_utc"] = rows[0]["recorded_at_utc"]
+    index_path.write_text(
+        "".join(
+            json.dumps(row, ensure_ascii=True, sort_keys=True) + "\n"
+            for row in rows
+        ),
+        encoding="utf-8",
     )
 
     with pytest.raises(
@@ -1320,14 +1423,14 @@ def test_invocation_cli_and_deadline_are_bound(tmp_path):
 
 def test_wave_numbers_may_skip_but_may_not_repeat_or_descend(tmp_path):
     inputs = _build_fixture(tmp_path, waves=[
-        (2, [{
+        (1, [{
             "query": "The threshold is 24 votes.",
             "candidate_a": "24.",
             "candidate_b": "30.",
             "raw_output": CLEAN_OUTPUT,
             "commands": [],
         }]),
-        (1, [{
+        (2, [{
             "query": "The council meets in Month 3.",
             "candidate_a": "Month 3.",
             "candidate_b": "Month 6.",
@@ -1335,6 +1438,9 @@ def test_wave_numbers_may_skip_but_may_not_repeat_or_descend(tmp_path):
             "commands": [],
         }]),
     ])
+    index_path = Path(inputs["reviewer_index_path"])
+    rows = index_path.read_bytes().splitlines(keepends=True)
+    index_path.write_bytes(b"".join(reversed(rows)))
 
     with pytest.raises(MainReviewerProvenanceError, match="strictly increasing"):
         verify_main_reviewer_provenance(**inputs)

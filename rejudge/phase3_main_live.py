@@ -37,6 +37,7 @@ from rejudge import (
     phase3_main_finalization,
     phase3_main_manifest,
     phase3_main_reviewer_provenance,
+    phase3_main_reviewer_commit,
     phase3_main_runner,
     phase3_plan,
     phase3_runner,
@@ -48,12 +49,11 @@ from rejudge.phase2_canary_execute import GenerationForbiddenError
 from rejudge.phase2_canary_live import (
     RoleLimitResolvingClient,
     _PauseModeReviewer,
-    commit_decisions_into,
     export_reviewer_worklist,
 )
 from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_canary_runner import run_canary
-from rejudge.phase2_dual_gate import DualGateDecisionStore
+from rejudge.phase2_dual_gate import parse_reviewer_output
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.request_journal import JournalingClient, RequestJournal, find_ambiguous_dispatches
 from scripts import (
@@ -67,7 +67,7 @@ from scripts.phase3_preseed_transcripts import _rows_for_bundle, _verify_bundle_
 IDENTITY_START_SCHEMA = "phase3_main_identity_start_v1"
 IDENTITY_COMPLETE_SCHEMA = "phase3_main_identity_complete_v1"
 AUTHORIZATION_CONSUMED_SCHEMA = "phase3_main_authorization_consumed_v2"
-REVIEWER_WAVE_SCHEMA = "phase3_main_reviewer_wave_v3"
+REVIEWER_WAVE_SCHEMA = phase3_main_reviewer_commit.REVIEWER_WAVE_SCHEMA
 REVIEWER_PROMPT_SCHEMA = "phase2_reviewer_prompt_v1"
 ANALYSIS_RESULT_SCHEMA = "phase3_main_analysis_results_v1"
 ANALYSIS_RESULT_FIELDS = frozenset({
@@ -125,7 +125,6 @@ PRODUCTION_EXECUTION_BLOCKERS = (
     "the signed run has no authorized response to in-run provider price changes",
     "Codex reviewer usage has no separately ratified spend accounting",
     "fresh reviewer capacity evidence has not been authorized or measured",
-    "reviewer decision and wave-index closeout is not crash-consistent",
 )
 
 
@@ -1952,7 +1951,7 @@ def run_main(
     _require_production_execution_unblocked()
     identity = prepared.identity
     paths = identity.paths
-    with phase3_v3_live.RunLease(paths.lease):
+    with phase3_v3_live.RunLease(paths.lease) as held_run_lease:
         phase3_main_runner._assert_fresh_identity(paths)
         _validate_launch_freshness(prepared)
         _revalidate_authenticated_authorization(prepared)
@@ -2005,13 +2004,22 @@ def run_main(
                 billing_validation, prepared.manifest)
             raw_client = _construct_provider_client(prepared, snapshot)
             client = JournalingClient(raw_client, journal)
-            return _drive_and_finalize(prepared, client)
+            return _drive_and_finalize(
+                prepared,
+                client,
+                held_run_lease=held_run_lease,
+            )
         finally:
             phase3_main_runner._restore_start_evidence(
                 paths, active_marker=active, identity_binding=binding)
 
 
-def _drive_and_finalize(prepared: PreparedMainRun, client: Any) -> dict[str, Any]:
+def _drive_and_finalize(
+    prepared: PreparedMainRun,
+    client: Any,
+    *,
+    held_run_lease: phase3_v3_live.RunLease,
+) -> dict[str, Any]:
     """Drive serial provider work, same-process review waves, and exact closeout."""
     identity = prepared.identity
     paths = identity.paths
@@ -2113,7 +2121,11 @@ def _drive_and_finalize(prepared: PreparedMainRun, client: Any) -> dict[str, Any
             return _finalize_main(prepared, terminal_store)
         if outcome.pending_payloads:
             _review_wave_same_process(
-                prepared, outcome.pending_payloads, wave=pass_index)
+                prepared,
+                outcome.pending_payloads,
+                wave=pass_index,
+                held_run_lease=held_run_lease,
+            )
             continue
         if outcome.completed == 0:
             raise Phase3MainLiveError(
@@ -2180,9 +2192,18 @@ def _review_wave_same_process(
     pending_payloads: Sequence[Mapping[str, Any]],
     *,
     wave: int,
+    held_run_lease: phase3_v3_live.RunLease,
 ) -> None:
     """Dispatch a bound reviewer wave and commit it without re-entering the run lease."""
     paths = prepared.identity.paths
+    try:
+        phase3_main_reviewer_commit.require_held_run_lease(
+            held_run_lease,
+            expected_path=paths.lease,
+        )
+    except phase3_main_reviewer_commit.ReviewerWaveCommitError as exc:
+        raise Phase3MainLiveError(
+            "reviewer wave requires the exact held formal run lease") from exc
     current_authorization = _revalidate_authenticated_authorization(prepared)
     capacity_plan, capacity_validation = _revalidate_capacity_snapshot(prepared)
     worklist = export_reviewer_worklist(
@@ -2528,32 +2549,72 @@ def _review_wave_same_process(
     ):
         raise Phase3MainLiveError(
             "reviewer wave evidence tree changed before decision commit")
-    counts = commit_decisions_into(
-        DualGateDecisionStore(paths.decisions), worklist, commit_entries)
-    _append_jsonl(paths.reviewer_index, {
-        "schema_version": REVIEWER_WAVE_SCHEMA,
-        "run_id": prepared.identity.run_id,
-        "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+    evidence_bindings = {
         "authorization_canonical_sha256": canonical_sha256(current_authorization),
         "authorization_raw_sha256": prepared.authorization_raw_sha256,
         "authorization_signature_raw_sha256": (
             prepared.authorization_signature_raw_sha256),
         "capacity_plan_raw_sha256": str(
             prepared.manifest["input_bindings"]["capacity_plan"]["sha256"]),
-        "wave": wave,
-        "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
-        "payload_count": len(items),
-        "packet_directory": packet_dir.resolve().as_posix(),
         "worklist_snapshot_raw_sha256": hashlib.sha256(worklist_raw).hexdigest(),
         "packet_index_raw_sha256": _raw_sha256(packet_index_path),
         "dispatch_guard_raw_sha256": dispatch_guard_raw_sha256,
         "rulings_raw_sha256": hashlib.sha256(rulings_raw).hexdigest(),
+    }
+    transaction_id = phase3_main_reviewer_commit.derive_wave_commit_transaction_id(
+        run_id=prepared.identity.run_id,
+        manifest_canonical_sha256=prepared.identity.manifest_sha256,
+        wave=wave,
+        run_lease_path=paths.lease,
+        evidence_bindings=evidence_bindings,
+    )
+    reviewer_error_count = sum(
+        entry.get("status") == "reviewer_error" for entry in commit_entries)
+    parsed_count = sum(
+        entry.get("status") != "reviewer_error"
+        and parse_reviewer_output(str(entry["raw_output"]))[0] is not None
+        for entry in commit_entries
+    )
+    wave_row = {
+        "schema_version": REVIEWER_WAVE_SCHEMA,
+        "run_id": prepared.identity.run_id,
+        "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+        **evidence_bindings,
+        "wave": wave,
+        "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+        "payload_count": len(items),
+        "packet_directory": packet_dir.resolve().as_posix(),
         "reviewer_model": expected_model,
         "reviewer_reasoning_effort": expected_effort,
         "reviewer_concurrency": int(runtime["reviewer_concurrency"]),
         "reviewer_cli_resolved_path": expected_cli_path,
-        "commit_counts": counts,
-    })
+        "commit_counts": {
+            "parsed": parsed_count,
+            "malformed": len(commit_entries) - parsed_count - reviewer_error_count,
+            "reviewer_error": reviewer_error_count,
+        },
+        "run_lease_path": paths.lease.resolve().as_posix(),
+        "wave_commit_transaction_id": transaction_id,
+    }
+    committed = phase3_main_reviewer_commit.commit_reviewer_wave(
+        transaction_directory=packet_dir,
+        decision_store_path=paths.decisions,
+        reviewer_index_path=paths.reviewer_index,
+        run_id=prepared.identity.run_id,
+        manifest_canonical_sha256=prepared.identity.manifest_sha256,
+        wave=wave,
+        run_lease_path=paths.lease,
+        held_run_lease=held_run_lease,
+        worklist=worklist,
+        entries=commit_entries,
+        reviewer_index_row=wave_row,
+    )
+    if (
+        committed.wave_commit_transaction_id != transaction_id
+        or committed.commit_counts != wave_row["commit_counts"]
+    ):
+        raise Phase3MainLiveError(
+            "reviewer wave transaction result differs from its prepared row")
 
 
 def _finalize_main(

@@ -335,7 +335,7 @@ def test_production_blockers_exclude_closed_provenance_work():
     assert any("owner signing key" in item for item in blockers)
     assert any("provider-authenticated billing" in item for item in blockers)
     assert any("reviewer capacity evidence" in item for item in blockers)
-    assert any("wave-index closeout" in item for item in blockers)
+    assert not any("wave-index closeout" in item for item in blockers)
 
 
 def test_launch_freshness_failure_precedes_identity_consumption(
@@ -1716,6 +1716,38 @@ def test_reviewer_loop_uses_measured_wave_and_covers_worst_case_payloads():
         phase3_main_live._reviewer_loop_contract(plan)
 
 
+def test_reviewer_wave_rejects_an_unheld_lease_before_any_boundary_work(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    paths = prepared.identity.paths
+    unopened = phase3_main_live.phase3_v3_live.RunLease(paths.lease)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization",
+        lambda *_args: pytest.fail("unheld lease reached authorization revalidation"),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("unheld lease reached reviewer subprocess"),
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="exact held formal run lease",
+    ):
+        phase3_main_live._review_wave_same_process(
+            prepared,
+            [{"payload_sha256": "d" * 64}],
+            wave=1,
+            held_run_lease=unopened,
+        )
+
+    assert not paths.review_packets_root.exists()
+    assert not paths.lease.exists()
+
+
 @pytest.mark.parametrize("mutate_invocation_evidence", [False, True])
 def test_reviewer_wave_uses_the_capacity_bound_cli_path(
     tmp_path, inventory, monkeypatch, mutate_invocation_evidence,
@@ -1947,31 +1979,58 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
         "validate_invocation_evidence",
         fake_validate,
     )
-    commits = []
+    paths.decisions.touch()
+    paths.reviewer_index.touch()
 
-    def fake_commit(*args, **kwargs):
-        commits.append((args, kwargs))
-        return {
-            "parsed": 1,
-            "malformed": 0,
-            "reviewer_error": 0,
-        }
-
-    monkeypatch.setattr(
-        phase3_main_live, "commit_decisions_into", fake_commit)
-
-    if mutate_invocation_evidence:
-        with pytest.raises(
-            phase3_main_live.Phase3MainLiveError,
-            match="reviewer wave evidence tree changed before decision commit",
-        ):
+    with phase3_main_live.phase3_v3_live.RunLease(paths.lease) as held_run_lease:
+        if mutate_invocation_evidence:
+            with pytest.raises(
+                phase3_main_live.Phase3MainLiveError,
+                match="reviewer wave evidence tree changed before decision commit",
+            ):
+                phase3_main_live._review_wave_same_process(
+                    prepared,
+                    [{"payload_sha256": payload_sha}],
+                    wave=1,
+                    held_run_lease=held_run_lease,
+                )
+        else:
             phase3_main_live._review_wave_same_process(
-                prepared, [{"payload_sha256": payload_sha}], wave=1)
-        assert commits == []
+                prepared,
+                [{"payload_sha256": payload_sha}],
+                wave=1,
+                held_run_lease=held_run_lease,
+            )
+    packet_dir = next(paths.review_packets_root.iterdir())
+    if mutate_invocation_evidence:
+        assert paths.decisions.read_bytes() == b""
+        assert paths.reviewer_index.read_bytes() == b""
+        assert not (
+            packet_dir / phase3_main_live.phase3_main_reviewer_commit.WAVE_COMMIT_INTENT
+        ).exists()
+        assert not (
+            packet_dir / phase3_main_live.phase3_main_reviewer_commit.WAVE_COMMIT_RECEIPT
+        ).exists()
     else:
-        phase3_main_live._review_wave_same_process(
-            prepared, [{"payload_sha256": payload_sha}], wave=1)
-        assert len(commits) == 1
+        decisions = [
+            json.loads(line)
+            for line in paths.decisions.read_text(encoding="utf-8").splitlines()
+        ]
+        reviewer_index = [
+            json.loads(line)
+            for line in paths.reviewer_index.read_text(encoding="utf-8").splitlines()
+        ]
+        assert len(decisions) == 1
+        assert decisions[0]["payload_sha256"] == payload_sha
+        assert len(reviewer_index) == 1
+        assert reviewer_index[0]["schema_version"] == (
+            phase3_main_live.phase3_main_reviewer_commit.REVIEWER_WAVE_SCHEMA)
+        assert (
+            packet_dir / phase3_main_live.phase3_main_reviewer_commit.WAVE_COMMIT_INTENT
+        ).is_file()
+        assert (
+            packet_dir / phase3_main_live.phase3_main_reviewer_commit.WAVE_COMMIT_RECEIPT
+        ).is_file()
     command = captured["command"]
     assert command[command.index("--codex") + 1] == cli_path.as_posix()
     assert command[command.index("--not-after-utc") + 1] == (
@@ -2065,24 +2124,21 @@ def test_two_packet_guard_abort_cannot_commit_main_decisions_or_wave(
         )
 
     monkeypatch.setattr(phase3_main_live.subprocess, "run", fake_batch)
-    monkeypatch.setattr(
-        phase3_main_live,
-        "commit_decisions_into",
-        lambda *args, **kwargs: pytest.fail("guard-aborted wave reached decision commit"),
-    )
-
-    with pytest.raises(
-        phase3_main_live.Phase3MainLiveError,
-        match="reviewer wave 1 failed with exit 3",
-    ):
-        phase3_main_live._review_wave_same_process(
-            prepared,
-            [{"payload_sha256": payload_sha} for payload_sha in payloads],
-            wave=1,
-        )
+    with phase3_main_live.phase3_v3_live.RunLease(paths.lease) as held_run_lease:
+        with pytest.raises(
+            phase3_main_live.Phase3MainLiveError,
+            match="reviewer wave 1 failed with exit 3",
+        ):
+            phase3_main_live._review_wave_same_process(
+                prepared,
+                [{"payload_sha256": payload_sha} for payload_sha in payloads],
+                wave=1,
+                held_run_lease=held_run_lease,
+            )
 
     assert not paths.decisions.exists()
     assert not paths.reviewer_index.exists()
+    assert not list(paths.review_packets_root.rglob("WAVE_COMMIT_*.json"))
 
 
 def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
@@ -2219,7 +2275,7 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
     monkeypatch.setattr(phase3_main_live, "_construct_provider_client", fake_factory)
     monkeypatch.setattr(
         phase3_main_live, "_drive_and_finalize",
-        lambda _prepared, _client: {"status": "test-complete"})
+        lambda _prepared, _client, **_kwargs: {"status": "test-complete"})
 
     assert phase3_main_live.run_main("manifest", "authorization") == {
         "status": "test-complete"}

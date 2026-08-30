@@ -27,37 +27,17 @@ from rejudge.phase2_dual_gate import (
     parse_reviewer_output,
     payload_hash,
 )
+from rejudge import phase3_main_reviewer_commit
 from scripts import codex_reviewer_batch, phase3_main_review_capacity_preflight
 from scripts.codex_reviewer_batch import validate_invocation_evidence
 
 
-REVIEWER_WAVE_SCHEMA = "phase3_main_reviewer_wave_v3"
+REVIEWER_WAVE_SCHEMA = phase3_main_reviewer_commit.REVIEWER_WAVE_SCHEMA
 REVIEWER_PROVENANCE_STATUS = "reviewer_provenance_verified"
 REVIEWER_FAILURE_POLICY_SCHEMA = "phase3_main_reviewer_failure_policy_v1"
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_WAVE_FIELDS = frozenset({
-    "schema_version",
-    "run_id",
-    "manifest_canonical_sha256",
-    "authorization_canonical_sha256",
-    "authorization_raw_sha256",
-    "authorization_signature_raw_sha256",
-    "capacity_plan_raw_sha256",
-    "wave",
-    "recorded_at_utc",
-    "payload_count",
-    "packet_directory",
-    "worklist_snapshot_raw_sha256",
-    "packet_index_raw_sha256",
-    "dispatch_guard_raw_sha256",
-    "rulings_raw_sha256",
-    "reviewer_model",
-    "reviewer_reasoning_effort",
-    "reviewer_concurrency",
-    "reviewer_cli_resolved_path",
-    "commit_counts",
-})
+_WAVE_FIELDS = phase3_main_reviewer_commit.REVIEWER_INDEX_ROW_FIELDS
 _COMMIT_COUNT_FIELDS = frozenset({"parsed", "malformed", "reviewer_error"})
 _WORKLIST_FIELDS = frozenset({"frozen_prompt_sha256", "separator", "items"})
 _WORKLIST_ITEM_FIELDS = frozenset({
@@ -197,21 +177,31 @@ def _strict_json(raw: bytes, *, subject: str) -> dict[str, Any]:
     return cast(dict[str, Any], value)
 
 
-def _strict_jsonl(raw: bytes, *, subject: str) -> list[dict[str, Any]]:
+def _strict_jsonl_material(
+    raw: bytes,
+    *,
+    subject: str,
+) -> tuple[list[dict[str, Any]], list[bytes]]:
     try:
-        text = raw.decode("utf-8")
+        raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise MainReviewerProvenanceError(f"{subject} is not UTF-8") from exc
-    if not text:
-        return []
-    if not text.endswith("\n"):
+    if not raw:
+        return [], []
+    if not raw.endswith(b"\n"):
         raise MainReviewerProvenanceError(f"{subject} lacks its final newline")
+    raw_lines = [part + b"\n" for part in raw[:-1].split(b"\n")]
     rows: list[dict[str, Any]] = []
-    for line_number, line in enumerate(text.splitlines(), 1):
-        if not line:
+    for line_number, line in enumerate(raw_lines, 1):
+        if line in {b"\n", b"\r\n"}:
             raise MainReviewerProvenanceError(
                 f"{subject} contains a blank row at line {line_number}")
-        rows.append(_strict_json(line.encode("utf-8"), subject=f"{subject} line {line_number}"))
+        rows.append(_strict_json(line, subject=f"{subject} line {line_number}"))
+    return rows, raw_lines
+
+
+def _strict_jsonl(raw: bytes, *, subject: str) -> list[dict[str, Any]]:
+    rows, _raw_lines = _strict_jsonl_material(raw, subject=subject)
     return rows
 
 
@@ -1122,11 +1112,15 @@ def _validate_packet_tree(
     evidence_dirs: set[Path],
     dispatch_guard_path: Path,
 ) -> None:
+    transaction_paths = phase3_main_reviewer_commit.reviewer_wave_transaction_paths(
+        packet_dir)
     expected_files = packet_files | evidence_files | {
         packet_dir / "WORKLIST.json",
         packet_dir / "INDEX.json",
         packet_dir / "rulings.jsonl",
         dispatch_guard_path,
+        transaction_paths.intent,
+        transaction_paths.receipt,
     }
     actual_files: set[Path] = set()
     actual_dirs: set[Path] = set()
@@ -1332,8 +1326,34 @@ def verify_main_reviewer_provenance(
         raise MainReviewerProvenanceError(
             "expected reviewer payload set exceeds the capacity-plan maximum")
 
-    reviewer_index_raw = _read_stable(Path(reviewer_index_path), subject="reviewer index")
-    wave_rows = _strict_jsonl(reviewer_index_raw, subject="reviewer index")
+    reviewer_index_file = Path(reviewer_index_path)
+    decision_store_file = Path(decisions_path)
+    reviewer_index_raw = _read_stable(reviewer_index_file, subject="reviewer index")
+    wave_rows, wave_row_raws = _strict_jsonl_material(
+        reviewer_index_raw, subject="reviewer index")
+    # Validate the index spine before reopening any transaction. Otherwise a later
+    # malformed row could make an earlier transaction report a prefix mismatch and
+    # obscure the actual wave-order or timestamp defect.
+    indexed_wave = 0
+    indexed_recorded_at: datetime | None = None
+    for row_number, row in enumerate(wave_rows, 1):
+        _require_fields(row, _WAVE_FIELDS, subject=f"reviewer index row {row_number}")
+        if row.get("schema_version") != REVIEWER_WAVE_SCHEMA:
+            raise MainReviewerProvenanceError("unsupported reviewer wave schema")
+        wave = _require_positive_int(row.get("wave"), field="reviewer wave")
+        if wave <= indexed_wave or wave > max_passes:
+            raise MainReviewerProvenanceError(
+                "reviewer waves must be strictly increasing, unique, and within max_passes")
+        recorded_at = _require_utc_datetime(
+            row.get("recorded_at_utc"), field="reviewer wave recorded_at_utc")
+        if indexed_recorded_at is not None and recorded_at <= indexed_recorded_at:
+            raise MainReviewerProvenanceError(
+                "reviewer wave recorded times must be strictly increasing")
+        if recorded_at > expected_finalization_recorded_at:
+            raise MainReviewerProvenanceError(
+                "reviewer wave was recorded after finalization")
+        indexed_wave = wave
+        indexed_recorded_at = recorded_at
     seen_packet_dirs: set[Path] = set()
     seen_payloads: set[str] = set()
     expected_decisions: list[dict[str, Any]] = []
@@ -1341,6 +1361,13 @@ def verify_main_reviewer_provenance(
     prior_wave_recorded_at: datetime | None = None
     total_counts = {"parsed": 0, "malformed": 0, "reviewer_error": 0}
     last_worklist_raw: bytes | None = None
+    expected_run_lease_path: Path | None = None
+    empty_raw_sha256 = _raw_sha256(b"")
+    expected_decision_raw_sha256 = empty_raw_sha256
+    expected_decision_byte_count = 0
+    expected_decision_tail = (-1, "genesis")
+    expected_index_raw_sha256 = empty_raw_sha256
+    expected_index_byte_count = 0
     for row_number, row in enumerate(wave_rows, 1):
         _require_fields(row, _WAVE_FIELDS, subject=f"reviewer index row {row_number}")
         if row.get("schema_version") != REVIEWER_WAVE_SCHEMA:
@@ -1362,6 +1389,18 @@ def verify_main_reviewer_provenance(
             if row.get(field) != expected:
                 raise MainReviewerProvenanceError(
                     f"reviewer index row {row_number} {field} drifted")
+        run_lease_text = _require_text(
+            row.get("run_lease_path"), field="reviewer wave run_lease_path")
+        run_lease_path = Path(run_lease_text)
+        if not run_lease_path.is_absolute():
+            raise MainReviewerProvenanceError(
+                "reviewer wave run lease path must be absolute")
+        run_lease_path = run_lease_path.resolve()
+        if expected_run_lease_path is None:
+            expected_run_lease_path = run_lease_path
+        elif run_lease_path != expected_run_lease_path:
+            raise MainReviewerProvenanceError(
+                "reviewer waves bind different run lease paths")
         wave_recorded_at = _require_utc_datetime(
             row.get("recorded_at_utc"), field="reviewer wave recorded_at_utc")
         if (
@@ -1518,6 +1557,90 @@ def verify_main_reviewer_provenance(
         if sum(actual_counts.values()) != payload_count:
             raise MainReviewerProvenanceError("reviewer wave committed count drifted")
         expected_decisions.extend(wave_decisions)
+        try:
+            transaction = (
+                phase3_main_reviewer_commit.validate_reviewer_wave_commit(
+                    transaction_directory=packet_dir,
+                    decision_store_path=decision_store_file,
+                    reviewer_index_path=reviewer_index_file,
+                    run_id=expected_run_id,
+                    manifest_canonical_sha256=(
+                        expected_manifest_canonical_sha256),
+                    wave=wave,
+                    run_lease_path=run_lease_path,
+                    evidence_bindings=(
+                        phase3_main_reviewer_commit
+                        .evidence_bindings_from_wave_row(row)),
+                )
+            )
+        except phase3_main_reviewer_commit.ReviewerWaveCommitError as exc:
+            raise MainReviewerProvenanceError(
+                f"reviewer wave {wave} commit transaction failed: {exc}") from exc
+
+        transaction_id = _require_sha256(
+            row.get("wave_commit_transaction_id"),
+            field="wave_commit_transaction_id",
+        )
+        if transaction.wave_commit_transaction_id != transaction_id:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction ID drifted")
+        if transaction.commit_counts != actual_counts:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction commit counts drifted")
+        if transaction.reviewer_index_row != row:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction index row drifted")
+        wave_row_raw = wave_row_raws[row_number - 1]
+        if transaction.reviewer_index.append_bytes != wave_row_raw:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction does not bind the exact index row bytes")
+
+        decision_delta = transaction.decisions
+        decision_prior_tail = decision_delta.prior_tail
+        decision_target_tail = decision_delta.target_tail
+        if decision_prior_tail is None or decision_target_tail is None:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction omits its decision chain tails")
+        if (
+            decision_delta.prior_raw_sha256 != expected_decision_raw_sha256
+            or decision_delta.prior_byte_count != expected_decision_byte_count
+            or (
+                decision_prior_tail.sequence,
+                decision_prior_tail.event_hash,
+            ) != expected_decision_tail
+        ):
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction decision prior state is discontinuous")
+        if decision_target_tail.sequence != len(expected_decisions) - 1:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction decision target sequence drifted")
+
+        index_delta = transaction.reviewer_index
+        if index_delta.prior_tail is not None or index_delta.target_tail is not None:
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction gives the unchained index a decision tail")
+        if (
+            index_delta.prior_raw_sha256 != expected_index_raw_sha256
+            or index_delta.prior_byte_count != expected_index_byte_count
+        ):
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction index prior state is discontinuous")
+        expected_index_byte_count += len(wave_row_raw)
+        expected_index_prefix = reviewer_index_raw[:expected_index_byte_count]
+        if (
+            index_delta.target_byte_count != expected_index_byte_count
+            or index_delta.target_raw_sha256 != _raw_sha256(expected_index_prefix)
+        ):
+            raise MainReviewerProvenanceError(
+                "reviewer wave transaction index target state drifted")
+
+        expected_decision_raw_sha256 = decision_delta.target_raw_sha256
+        expected_decision_byte_count = decision_delta.target_byte_count
+        expected_decision_tail = (
+            decision_target_tail.sequence,
+            decision_target_tail.event_hash,
+        )
+        expected_index_raw_sha256 = index_delta.target_raw_sha256
         _validate_packet_tree(
             packet_dir,
             packet_files=packet_files,
@@ -1552,7 +1675,23 @@ def verify_main_reviewer_provenance(
         raise MainReviewerProvenanceError(
             "final reviewer worklist differs from the last wave snapshot")
 
-    _validate_decisions(Path(decisions_path), expected_decisions)
+    final_decision_raw = _read_stable(
+        decision_store_file, subject="final review decision store")
+    if (
+        len(final_decision_raw) != expected_decision_byte_count
+        or _raw_sha256(final_decision_raw) != expected_decision_raw_sha256
+        or expected_decision_tail[0] != len(expected_decisions) - 1
+    ):
+        raise MainReviewerProvenanceError(
+            "final review decision store differs from the transaction chain target")
+    if (
+        len(reviewer_index_raw) != expected_index_byte_count
+        or _raw_sha256(reviewer_index_raw) != expected_index_raw_sha256
+    ):
+        raise MainReviewerProvenanceError(
+            "final reviewer index differs from the transaction chain target")
+
+    _validate_decisions(decision_store_file, expected_decisions)
     tree_sha = review_packets_tree_canonical_sha256(root)
     if _raw_sha256(_read_stable(
         Path(capacity_result_path), subject="capacity result final snapshot",
@@ -1570,6 +1709,11 @@ def verify_main_reviewer_provenance(
     ) != reviewer_index_raw:
         raise MainReviewerProvenanceError(
             "reviewer index changed while reviewer provenance was validated")
+    if _read_stable(
+        decision_store_file, subject="review decision store final snapshot",
+    ) != final_decision_raw:
+        raise MainReviewerProvenanceError(
+            "review decision store changed while reviewer provenance was validated")
     if _read_stable(
         Path(reviewer_worklist_path), subject="final reviewer worklist final snapshot",
     ) != final_worklist_raw:

@@ -13,9 +13,10 @@ from rejudge import api_client, judge_loop
 from rejudge import phase2_canary_execute, phase2_canary_live
 from rejudge import phase3_main_finalization as finalization
 from rejudge import phase3_main_provider_provenance as provider_provenance
+from rejudge import phase3_main_reviewer_commit as reviewer_commit
 from rejudge import phase3_main_reviewer_provenance as reviewer_provenance
 from rejudge import phase3_main_manifest, phase3_main_runner
-from rejudge import phase3_main_transcript_provenance, phase3_runner
+from rejudge import phase3_main_transcript_provenance, phase3_runner, phase3_v3_live
 from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_call_cache import request_fingerprint
 from rejudge.phase2_canary_execute import CellContext, execute_cell
@@ -665,6 +666,7 @@ def _write_reviewer_artifacts(
     *,
     tmp_path: Path,
     reviewer_payloads: list[dict],
+    decision_store_path: Path,
     reviewer_input_paths: dict[str, Path],
     reviewer_input_raw_sha256s: dict[str, str],
     capacity_evidence_inputs: dict,
@@ -677,8 +679,8 @@ def _write_reviewer_artifacts(
     review_packets_root_path = (
         tmp_path / phase3_main_manifest.OUTPUT_FILENAMES["review_packets_root"])
     review_packets_root_path.mkdir()
+    reviewer_index_path.write_bytes(b"")
     if not reviewer_payloads:
-        reviewer_index_path.write_text("", encoding="utf-8")
         phase2_canary_live.export_reviewer_worklist(
             [], frozen_prompt, reviewer_worklist_path)
         return reviewer_index_path, reviewer_worklist_path, review_packets_root_path
@@ -800,23 +802,34 @@ def _write_reviewer_artifacts(
     )
     phase2_canary_live.export_reviewer_worklist(
         reviewer_payloads, frozen_prompt, reviewer_worklist_path)
-    wave_row = {
-        "schema_version": reviewer_provenance.REVIEWER_WAVE_SCHEMA,
-        "run_id": RUN_ID,
-        "manifest_canonical_sha256": MANIFEST_SHA256,
+    evidence_bindings = {
         "authorization_canonical_sha256": AUTHORIZATION_SHA256,
         "authorization_raw_sha256": AUTHORIZATION_RAW_SHA256,
         "authorization_signature_raw_sha256": AUTHORIZATION_SIGNATURE_RAW_SHA256,
         "capacity_plan_raw_sha256": reviewer_input_raw_sha256s["capacity_plan"],
+        "worklist_snapshot_raw_sha256": _raw_sha256(
+            packet_dir / "WORKLIST.json"),
+        "packet_index_raw_sha256": _raw_sha256(index_path),
+        "dispatch_guard_raw_sha256": dispatch_guard_raw_sha256,
+        "rulings_raw_sha256": _raw_sha256(rulings_path),
+    }
+    run_lease_path = (tmp_path / "fixture_main_run.lock").resolve()
+    transaction_id = reviewer_commit.derive_wave_commit_transaction_id(
+        run_id=RUN_ID,
+        manifest_canonical_sha256=MANIFEST_SHA256,
+        wave=1,
+        run_lease_path=run_lease_path,
+        evidence_bindings=evidence_bindings,
+    )
+    wave_row = {
+        "schema_version": reviewer_commit.REVIEWER_WAVE_SCHEMA,
+        "run_id": RUN_ID,
+        "manifest_canonical_sha256": MANIFEST_SHA256,
+        **evidence_bindings,
         "wave": 1,
         "recorded_at_utc": "2026-08-29T13:00:02Z",
         "payload_count": len(reviewer_payloads),
         "packet_directory": packet_dir.resolve().as_posix(),
-        "worklist_snapshot_raw_sha256": _raw_sha256(
-            packet_dir / "WORKLIST.json"),
-        "packet_index_raw_sha256": _raw_sha256(index_path),
-        "rulings_raw_sha256": _raw_sha256(rulings_path),
-        "dispatch_guard_raw_sha256": dispatch_guard_raw_sha256,
         "reviewer_model": REVIEWER_MODEL,
         "reviewer_reasoning_effort": REVIEWER_REASONING_EFFORT,
         "reviewer_concurrency": REVIEWER_CONCURRENCY,
@@ -827,11 +840,33 @@ def _write_reviewer_artifacts(
             "malformed": 0,
             "reviewer_error": 0,
         },
+        "run_lease_path": run_lease_path.as_posix(),
+        "wave_commit_transaction_id": transaction_id,
     }
-    reviewer_index_path.write_text(
-        json.dumps(wave_row, ensure_ascii=True, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    commit_entries = [
+        {
+            "payload_sha256": row["payload_sha256"],
+            "raw_output": row["raw_output"],
+            "prompt_sha256": row["prompt_sha256"],
+        }
+        for row in ruling_rows
+    ]
+    with phase3_v3_live.RunLease(run_lease_path) as held_run_lease:
+        committed = reviewer_commit.commit_reviewer_wave(
+            transaction_directory=packet_dir,
+            decision_store_path=decision_store_path,
+            reviewer_index_path=reviewer_index_path,
+            run_id=RUN_ID,
+            manifest_canonical_sha256=MANIFEST_SHA256,
+            wave=1,
+            run_lease_path=run_lease_path,
+            held_run_lease=held_run_lease,
+            worklist=worklist,
+            entries=commit_entries,
+            reviewer_index_row=wave_row,
+        )
+    assert committed.wave_commit_transaction_id == transaction_id
+    assert committed.commit_counts == wave_row["commit_counts"]
     return reviewer_index_path, reviewer_worklist_path, review_packets_root_path
 
 
@@ -1475,6 +1510,10 @@ def _complete_finalization_inputs(
         query_responses=query_responses,
         checker_response=checker_response,
     )
+    # The execution fixture needs the decisions to complete the judgment. The formal
+    # output store is then rebuilt through the same crash-consistent wave transaction
+    # used by the live path so finalization audits its intent and receipt as well.
+    review_path.write_bytes(b"")
     result_rows.append((str(observed_cell["cell_key"]), judgment_result))
     _write_result_store(result_path, result_rows)
     ledger_path = tmp_path / phase3_main_manifest.OUTPUT_FILENAMES["usage_ledger"]
@@ -1505,6 +1544,7 @@ def _complete_finalization_inputs(
     ) = _write_reviewer_artifacts(
         tmp_path=tmp_path,
         reviewer_payloads=reviewer_payloads,
+        decision_store_path=review_path.resolve(),
         reviewer_input_paths=reviewer_input_paths,
         reviewer_input_raw_sha256s=reviewer_input_raw_sha256s,
         capacity_evidence_inputs=capacity_evidence_inputs,
@@ -2178,6 +2218,30 @@ def test_finalization_admits_done_retry_after_first_query_rejection(
     assert record["reviewer_provenance"]["reviewer_wave_count"] == 1
     assert record["reviewer_provenance"]["reviewed_payload_count"] == 1
     assert record["reviewer_provenance"]["parsed_decision_count"] == 1
+    reviewer_index_row = json.loads(
+        Path(build_inputs["artifact_paths"]["reviewer_index"])
+        .read_text(encoding="utf-8")
+        .strip()
+    )
+    assert reviewer_index_row["schema_version"] == reviewer_commit.REVIEWER_WAVE_SCHEMA
+    packet_dir = Path(reviewer_index_row["packet_directory"])
+    transaction_paths = reviewer_commit.reviewer_wave_transaction_paths(packet_dir)
+    intent = json.loads(transaction_paths.intent.read_text(encoding="utf-8"))
+    receipt = json.loads(transaction_paths.receipt.read_text(encoding="utf-8"))
+    assert intent["schema_version"] == reviewer_commit.INTENT_SCHEMA
+    assert receipt["schema_version"] == reviewer_commit.RECEIPT_SCHEMA
+    assert intent["wave_commit_transaction_id"] == reviewer_index_row[
+        "wave_commit_transaction_id"
+    ]
+    assert receipt["wave_commit_transaction_id"] == reviewer_index_row[
+        "wave_commit_transaction_id"
+    ]
+    review_packets_root = Path(build_inputs["review_packets_root_path"])
+    assert record["reviewer_provenance"][
+        "review_packets_tree_canonical_sha256"
+    ] == reviewer_provenance.review_packets_tree_canonical_sha256(
+        review_packets_root
+    )
 
 
 def test_finalization_rejects_reviewer_guard_from_earlier_authorization_window(

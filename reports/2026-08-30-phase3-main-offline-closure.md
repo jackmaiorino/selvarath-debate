@@ -1,18 +1,19 @@
 # Phase 3 main offline closure and next gates
 
-Date: 2026-08-30. Status: offline provenance, finalization, and analysis closure complete;
-one crash-consistency implementation blocker remains. This document authorizes no external
-execution, reviewer dispatch, provider call, or spend.
+Date: 2026-08-30. Status: offline provenance, finalization, analysis, and reviewer-closeout
+closure complete. Production remains blocked on external authority and fresh evidence. This
+document authorizes no external execution, reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
 
 ## Outcome
 
-Commits `d9d6db6` and `8299c52` provide the blocked Phase 3 main driver, exact manifest and
-signed-authorization validation, provider and reviewer dispatch guards, complete transcript
-and request reconstruction, finalization admission, and confirmatory-analysis handoff. The
-public paid path remains hard-blocked before formal state mutation.
+Commits `d9d6db6`, `8299c52`, and `f8a1798` provide the blocked Phase 3 main driver, exact
+manifest and signed-authorization validation, provider and reviewer dispatch guards, complete
+transcript and request reconstruction, finalization admission, confirmatory-analysis handoff,
+and current readiness gates. The public paid path remains hard-blocked before formal state
+mutation.
 
 The closure adds these properties:
 
@@ -29,17 +30,23 @@ The closure adds these properties:
   exclusive durable reservation and subprocess release.
 - Reviewer finalization independently validates the worklist, packet tree, guard, reservation,
   invocation evidence, zero-tool-use rule, decisions, and wave index.
+- Reviewer decisions and the wave index now close through one v4 transaction. A durable intent
+  binds both prior and target stores before either append; a receipt records exact completion.
+- Offline recovery can append only an exact missing local suffix under the exact run lease. Its
+  command requires an independently supplied formal artifact root and pre-existing lease, and
+  has no reviewer, provider, subprocess, callback, or network surface.
 - The finalization admission is rebuilt from bound artifacts before analysis, and final
   boundary inputs are reopened after analysis before completion is recorded.
 
-Independent read-only audits found one remaining P1: reviewer decision and wave-index closeout
-does not yet satisfy the frozen crash-consistency requirement. They found no other P0 or P1
-issue in the external-dispatch boundary or writer-reader schema path. Verification completed
-on the committed provenance implementation:
+Independent read-only audits initially found two recovery P1s: intent-selected paths could
+escape the formal artifact root, and recovery reloaded the intent after its post-lock hash
+check. Both were fixed before closure. The final adversarial review found no remaining P0 or P1
+in the reviewer-closeout transaction, live wiring, provenance join, or finalization binding.
+Verification on the resulting tree:
 
-- Integrated closure: 353 passed.
-- Expanded closure: 841 passed, 1 skipped.
-- Full repository: 2,760 passed, 65 skipped in 586.31 seconds.
+- Reviewer-closeout integration: 188 passed.
+- Full repository: 2,807 passed, 65 skipped in 514.98 seconds.
+- Post-closure blocker-list reconciliation: 57 live-driver tests passed.
 - Static compilation, whitespace checks, JSON parsing, and the repository no-em-dash rule:
   passed.
 
@@ -47,8 +54,8 @@ No paid call, external reviewer call, production launch, or push occurred during
 
 ## Remaining production blockers
 
-The first seven items are external authority or fresh-evidence gates. The eighth is the one
-remaining offline implementation blocker. None is missing request or reviewer provenance:
+All remaining items require owner authority or fresh external evidence. None is missing
+request provenance, reviewer provenance, or reviewer-closeout crash consistency:
 
 1. Jack's public signing key and fingerprint are not pinned. The private key must remain outside
    the repository and inaccessible to Codex.
@@ -63,28 +70,27 @@ remaining offline implementation blocker. None is missing request or reviewer pr
 7. Fresh prices, capacity evidence, billing evidence, forecast, two-run harness receipt, exact
    manifest, and detached owner authorization have not been materialized for a production
    identity.
-8. Reviewer decisions are fsynced before the corresponding wave index. A process death can
-   therefore leave a durable decision prefix without its provenance row. Finalization rejects
-   that state, but it does not satisfy the frozen requirement that decision stores remain
-   crash-consistent.
 
 ## Crash-consistency closure
 
-No-resume prevents a partial wave from contaminating a clean finalization, but it does not
-supersede the protocol's separate crash-consistency requirement. The next offline implementation
-must make decision and wave-index closeout recoverable without repeating external work.
+The frozen crash-consistency requirement is now implemented. Each reviewer wave persists an
+immutable intent containing the exact decision and index append bytes, their prior and target
+hashes and byte counts, the decision-chain tails, evidence hashes, transaction ID, and lease
+path. It then appends and fsyncs decisions, appends and fsyncs the index row, and atomically
+publishes a completion receipt.
 
-The safe design is local closeout only: persist an exact per-wave intent before either store is
-changed, bind the prior and target bytes and chain tails for both stores, append and fsync the
-decision suffix, append and fsync the index suffix, then persist an immutable completion receipt.
-Recovery may append only a missing exact suffix under the existing run lease. It must never
-truncate, overwrite, construct a provider client, or dispatch a provider or reviewer.
+Recovery accepts only a strict prior-to-target prefix, never truncates or overwrites, and never
+repeats external work. The standalone command additionally derives the only permitted store
+paths from an independently supplied formal artifact root, requires the existing formal lease,
+rejects linked path components, and carries the exact intent loaded under that lease through
+the append operation. Provenance validates every intent and receipt, exact raw index row,
+cross-wave continuity, final store targets, and the complete packet tree.
 
 ## Next sequence
 
-1. Implement and fault-test the local reviewer closeout transaction, then materialize the
-   two-execution offline harness receipt from the exact resulting commit. The harness uses a
-   module-owned fake and requires no provider, reviewer, or spend authorization.
+1. Materialize the two-execution offline harness receipt from the exact commit containing this
+   closure. The harness uses a module-owned fake and requires no provider, reviewer, or spend
+   authorization. Rerun it if execution code changes before the production manifest is built.
 2. Obtain the owner-supplied Together billing-console evidence and decide the authoritative
    account, predecessor-ledger, and one-attempt consumption sources.
 3. Ratify the price-change rule, reviewer usage treatment, and one exact stage cap. Then pin
