@@ -46,8 +46,12 @@ does not count as this ratification.
 
 1. Together must enable `/v1/billing/usage` for the selected organization. The current read-only
    recheck returned 404 at provider time `Sun, 30 Aug 2026 20:03:33 GMT`, while `/v1/whoami`
-   returned 200. After enablement, a fresh authenticated account identity, complete billing
-   capture, and settlement watermark must be materialized.
+   returned 200. A second strict recheck at local observation time
+   `2026-08-30T21:10:57.7301504Z` again confirmed the selected account hash before returning the
+   specific not-enabled error, and published zero files. The paste-ready support request is
+   `reports/2026-08-30-together-billing-usage-enablement-request.md`. After enablement, a fresh
+   authenticated account identity, complete billing capture, and settlement watermark must be
+   materialized.
 2. The 180-dispatch reviewer-capacity preflight requires a fresh execution manifest and a separate
    short-lived signed authorization. After the exact manifest exists, the capacity CLI can write
    a reviewable non-authorizing draft with `--write-unsigned-authorization`; it cannot sign,
