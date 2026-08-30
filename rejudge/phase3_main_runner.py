@@ -21,9 +21,10 @@ execute arbitrary Python, and Python monkeypatching or filesystem access can byp
 object boundaries. This module is not a security sandbox. Entry refuses a recorded identity
 within its canonical root while its start evidence remains. The binding is crash and
 accidental-deletion durable while the lease is held, not tamper-proof after return. The live
-driver adds a persistent external identity and authorization-consumption registry, requires a
-validated new manifest and output paths, and verifies separate exact owner authorization before
-constructing a provider client.
+driver adds a persistent single-shot identity registry, requires a validated new manifest and
+output paths, and verifies separate exact owner authorization before constructing a provider
+client. Environmental interruption voids that identity and a separately authorized successor
+must bind its predecessor archive and billing evidence.
 
 ``MainRunIdentity.manifest_sha256`` is a typed offline binding, not a substitute for manifest
 validation. The live driver validates the small main manifest and derives its canonical SHA-256
@@ -45,7 +46,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, TypeVar
 
-from rejudge import api_client, phase3_plan
+from rejudge import api_client, durable_fs, phase3_plan
 from rejudge.phase3_v3_live import RunLease
 from rejudge.request_journal import (
     JournalingClient,
@@ -477,14 +478,71 @@ def build_canonical_main_inventory(project_root: str | Path) -> MainInventory:
     return build_main_inventory(protocol, root)
 
 
-def _fsync_parent_directory(path: Path) -> None:
+def _fsync_directory(directory: Path) -> None:
+    """Durably flush one directory on platforms with a documented directory fsync."""
+    directory = Path(directory)
     if os.name == "nt":
+        # Windows does not document FlushFileBuffers for directory handles. Callers
+        # that need durable namespace publication must use the write-through move
+        # primitive below instead of treating a successful directory flush as proof.
         return
-    descriptor = os.open(path.parent, os.O_RDONLY)
+    descriptor = os.open(directory, os.O_RDONLY)
     try:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def _fsync_parent_directory(path: Path) -> None:
+    _fsync_directory(Path(path).parent)
+
+
+def _windows_move_write_through(
+    source: Path,
+    destination: Path,
+    *,
+    replace_existing: bool,
+) -> None:
+    """Move one same-directory stage and wait for documented disk persistence."""
+    durable_fs.windows_move_write_through(
+        source, destination, replace_existing=replace_existing)
+
+
+def _windows_move_no_replace_write_through(source: Path, destination: Path) -> None:
+    """Write-through move one stage while refusing an existing destination."""
+    _windows_move_write_through(
+        source, destination, replace_existing=False)
+
+
+def _publish_exclusive_durable_bytes(path: Path, expected: bytes) -> None:
+    """Publish fsynced bytes without replacement using the platform namespace primitive."""
+    if os.name != "nt":
+        with path.open("xb") as handle:
+            written = handle.write(expected)
+            if written != len(expected):
+                raise OSError(f"could not completely write {path}")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_parent_directory(path)
+    else:
+        descriptor, raw_temp = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".publish.tmp", dir=path.parent)
+        temp = Path(raw_temp)
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                written = handle.write(expected)
+                if written != len(expected):
+                    raise OSError(f"could not completely stage {path}")
+                handle.flush()
+                os.fsync(handle.fileno())
+            _windows_move_no_replace_write_through(temp, path)
+        finally:
+            try:
+                temp.unlink()
+            except FileNotFoundError:
+                pass
+    if path.read_bytes() != expected:
+        raise OSError(f"published bytes drifted at {path}")
 
 
 def _assert_fresh_identity(paths: MainRunPaths) -> None:
@@ -518,11 +576,7 @@ def _write_active_marker(identity: MainRunIdentity, paths: MainRunPaths) -> byte
     }
     encoded = (json.dumps(payload, sort_keys=True, ensure_ascii=True) + "\n").encode("utf-8")
     try:
-        with paths.active_marker.open("xb") as handle:
-            handle.write(encoded)
-            handle.flush()
-            os.fsync(handle.fileno())
-        _fsync_parent_directory(paths.active_marker)
+        _publish_exclusive_durable_bytes(paths.active_marker, encoded)
     except FileExistsError as exc:
         raise MainIdentityInterrupted(
             f"main identity already started at {paths.active_marker}; it cannot resume") from exc
@@ -547,11 +601,7 @@ def _write_identity_binding(
     """Persist root start evidence after the active marker starts the identity."""
     encoded = _identity_binding_bytes(identity)
     try:
-        with paths.identity_binding.open("xb") as handle:
-            handle.write(encoded)
-            handle.flush()
-            os.fsync(handle.fileno())
-        _fsync_parent_directory(paths.identity_binding)
+        _publish_exclusive_durable_bytes(paths.identity_binding, encoded)
     except FileExistsError as exc:
         raise MainIdentityInterrupted(
             f"main artifact root already has identity binding {paths.identity_binding}") from exc
@@ -574,8 +624,12 @@ def _restore_durable_exact(path: Path, expected: bytes) -> None:
             handle.write(expected)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp, path)
-        _fsync_parent_directory(path)
+        if os.name == "nt":
+            _windows_move_write_through(
+                temp, path, replace_existing=True)
+        else:
+            os.replace(temp, path)
+            _fsync_parent_directory(path)
         if path.read_bytes() != expected:
             raise MainIdentityInterrupted(
                 f"could not restore exact main start evidence at {path}")

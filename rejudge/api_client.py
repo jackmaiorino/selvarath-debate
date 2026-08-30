@@ -21,6 +21,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from rejudge import durable_fs
+
 
 LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD = (
     "logical_dispatch_authorized_at_utc")
@@ -355,22 +357,65 @@ def _usage_event_hash(event: dict) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def _fsync_parent_directory(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _publish_new_fsynced_bytes(path: Path, raw: bytes) -> None:
+    """Publish one new fsynced file without replacing a concurrent destination."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, raw_temp = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".publish.tmp", dir=path.parent)
+    temp = Path(raw_temp)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            written = stream.write(raw)
+            if written != len(raw):
+                raise OSError(f"could not completely stage {path}")
+            stream.flush()
+            os.fsync(stream.fileno())
+        if os.name == "nt":
+            durable_fs.windows_move_write_through(
+                temp, path, replace_existing=False)
+        else:
+            os.link(temp, path)
+            _fsync_parent_directory(path)
+        if path.read_bytes() != raw:
+            raise OSError(f"published bytes drifted at {path}")
+    finally:
+        try:
+            temp.unlink()
+            _fsync_parent_directory(path)
+        except FileNotFoundError:
+            pass
+
+
 def _atomic_write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    raw = (json.dumps(payload, sort_keys=True, indent=2) + "\n").encode("utf-8")
     fd, raw_temp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     temp = Path(raw_temp)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-            stream.write(json.dumps(payload, sort_keys=True, indent=2) + "\n")
+        with os.fdopen(fd, "wb") as stream:
+            written = stream.write(raw)
+            if written != len(raw):
+                raise OSError(f"could not completely stage {path}")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temp, path)
-        if os.name != "nt":
-            descriptor = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
+        if os.name == "nt":
+            durable_fs.windows_move_write_through(
+                temp, path, replace_existing=True)
+        else:
+            os.replace(temp, path)
+            _fsync_parent_directory(path)
+        if path.read_bytes() != raw:
+            raise OSError(f"published bytes drifted at {path}")
     finally:
         try:
             temp.unlink()
@@ -643,10 +688,10 @@ def prepare_usage_ledger(
         }
         genesis["event_hash"] = _usage_event_hash(genesis)
         try:
-            with ledger.open("x", encoding="utf-8", newline="\n") as stream:
-                stream.write(json.dumps(genesis, sort_keys=True) + "\n")
-                stream.flush()
-                os.fsync(stream.fileno())
+            _publish_new_fsynced_bytes(
+                ledger,
+                (json.dumps(genesis, sort_keys=True) + "\n").encode("utf-8"),
+            )
         except FileExistsError:
             pass
     elif ledger.stat().st_size == 0:

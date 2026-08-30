@@ -3,8 +3,8 @@
 The public preparation path is read-only. It derives the exact main inventory and validates
 every bound input before accepting a separate, active owner authorization. The public run path
 has no client, factory, path, concurrency, cap, or resume injection points. It acquires one
-persistent registry lease, consumes the identity, creates fresh formal stores, and only then
-constructs the private provider client.
+persistent registry lease, creates and binds fresh formal stores, constructs the private provider
+client without dispatch, and records the identity start immediately before formal work.
 
 Importing this module and calling :func:`load_prepared_main` cannot create a provider client or
 mutate formal output state. The public paid path also refuses before formal state mutation until
@@ -20,6 +20,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -64,9 +65,54 @@ from scripts import (
 from scripts.phase3_preseed_transcripts import _rows_for_bundle, _verify_bundle_hash
 
 
-IDENTITY_START_SCHEMA = "phase3_main_identity_start_v1"
+IDENTITY_START_SCHEMA = "phase3_main_identity_start_v3"
 IDENTITY_COMPLETE_SCHEMA = "phase3_main_identity_complete_v1"
-AUTHORIZATION_CONSUMED_SCHEMA = "phase3_main_authorization_consumed_v2"
+IDENTITY_START_FIELDS = frozenset({
+    "schema_version",
+    "status",
+    "run_id",
+    "manifest_canonical_sha256",
+    "manifest_identity_sha256",
+    "authorization_id",
+    "authorization_canonical_sha256",
+    "authorization_raw_sha256",
+    "authorization_signature_raw_sha256",
+    "artifact_root",
+    "usage_ledger_schema_version",
+    "usage_ledger_id",
+    "usage_ledger_path",
+    "usage_ledger_state_path",
+    "usage_ledger_identity_canonical_sha256",
+    "usage_ledger_genesis_event_hash",
+    "usage_ledger_genesis_raw_sha256",
+    "usage_ledger_genesis_state_raw_sha256",
+    "recorded_at_utc",
+})
+IDENTITY_VOID_SCHEMA = "phase3_main_identity_void_v2"
+IDENTITY_VOID_FIELDS = frozenset({
+    "schema_version",
+    "status",
+    "run_id",
+    "manifest_canonical_sha256",
+    "manifest_identity_sha256",
+    "artifact_root",
+    "start_record_path",
+    "start_record_raw_sha256",
+    "usage_ledger_path",
+    "usage_ledger_raw_sha256",
+    "usage_ledger_state_path",
+    "usage_ledger_state_raw_sha256",
+    "usage_ledger_identity_canonical_sha256",
+    "usage_ledger_genesis_event_hash",
+    "reason_code",
+    "recorded_at_utc",
+})
+ENVIRONMENTAL_INTERRUPTION_REASONS = frozenset({
+    "host_failure",
+    "network_outage",
+    "power_loss",
+    "provider_outage",
+})
 REVIEWER_WAVE_SCHEMA = phase3_main_reviewer_commit.REVIEWER_WAVE_SCHEMA
 REVIEWER_PROMPT_SCHEMA = "phase2_reviewer_prompt_v1"
 ANALYSIS_RESULT_SCHEMA = "phase3_main_analysis_results_v1"
@@ -119,9 +165,9 @@ PRODUCTION_EXECUTION_BLOCKERS = (
     "the owner signing key is not pinned",
     "the protocol cap and proposed main cap are not ratified to one value",
     "provider-authenticated billing evidence is not implemented",
+    "environmental-successor provider settlement finality is not implemented",
     "the runtime credential is not bound to the reconciled provider account",
     "predecessor-ledger completeness has no independent authoritative inventory",
-    "one-attempt consumption has no non-resettable external authority store",
     "the signed run has no authorized response to in-run provider price changes",
     "Codex reviewer usage has no separately ratified spend accounting",
     "fresh reviewer capacity evidence has not been authorized or measured",
@@ -761,6 +807,19 @@ def _build_reviewer_dispatch_guard(
     if not isinstance(capacity_host_identity, str) or not capacity_host_identity:
         raise Phase3MainLiveError(
             "reviewer dispatch guard lacks the capacity host identity")
+    reviewer_cli_wrapper_sha = reviewer_configuration.get(
+        "reviewer_cli_wrapper_raw_sha256")
+    reviewer_cli_wrapper_byte_count = reviewer_configuration.get(
+        "reviewer_cli_wrapper_byte_count")
+    if (
+        not isinstance(reviewer_cli_wrapper_sha, str)
+        or len(reviewer_cli_wrapper_sha) != 64
+        or isinstance(reviewer_cli_wrapper_byte_count, bool)
+        or not isinstance(reviewer_cli_wrapper_byte_count, int)
+        or reviewer_cli_wrapper_byte_count < 0
+    ):
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard lacks the measured CLI wrapper identity")
     batch_runner_path = (
         prepared.project_root / "scripts" / "codex_reviewer_batch.py").resolve()
     loaded_runner_path, runner_sha, runner_bytes = (
@@ -800,10 +859,8 @@ def _build_reviewer_dispatch_guard(
         ),
         "reviewer_cli_wrapper": _reviewer_guard_artifact_binding(
             cli_path,
-            expected_raw_sha256=str(
-                reviewer_configuration.get("reviewer_cli_wrapper_raw_sha256")),
-            expected_byte_count=int(
-                reviewer_configuration.get("reviewer_cli_wrapper_byte_count")),
+            expected_raw_sha256=reviewer_cli_wrapper_sha,
+            expected_byte_count=reviewer_cli_wrapper_byte_count,
             label="reviewer CLI wrapper",
         ),
         "worklist_snapshot": _reviewer_guard_artifact_binding(
@@ -1467,6 +1524,12 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         )
     )
     _require_clean_pre_main_billing(billing_validation, prepared.manifest)
+    _validate_environmental_restart(
+        manifest_validation=prepared.manifest_validation,
+        billing_record=billing_record,
+        billing_validation=billing_validation,
+        project_root=prepared.project_root,
+    )
     phase3_main_manifest.validate_main_manifest(
         prepared.manifest,
         project_root=prepared.project_root,
@@ -1523,12 +1586,189 @@ def _require_clean_pre_main_billing(
             and validation.get("within_conservative_envelope") is not True
         )
         or _decimal_number(
+            validation.get("provider_delta_usd"), "provider predecessor spend")
+        > _decimal_number(
+            validation.get("accounted_spend_usd"), "accounted predecessor spend")
+        or _decimal_number(
             validation.get("accounted_spend_usd"), "accounted predecessor spend")
         != _decimal_number(
             manifest["spend"]["prior_reconciled_usd"], "manifest predecessor spend")
     ):
         raise Phase3MainLiveError(
             "pre-main billing reconciliation is not closed at the manifest upper bound")
+
+
+def _validate_environmental_restart(
+    *,
+    manifest_validation: Mapping[str, Any],
+    billing_record: Mapping[str, Any],
+    billing_validation: Mapping[str, Any],
+    project_root: Path,
+) -> None:
+    """Bind a successor to one real void record and its reconciled predecessor ledger."""
+    restart = manifest_validation.get("restart")
+    if not isinstance(restart, Mapping):
+        raise Phase3MainLiveError("main manifest restart validation is missing")
+    if restart.get("mode") == phase3_main_manifest.RESTART_MODE_INITIAL:
+        if restart.get("predecessor") is not None:
+            raise Phase3MainLiveError("initial main identity unexpectedly has a predecessor")
+        return
+    if restart.get("mode") != phase3_main_manifest.RESTART_MODE_ENVIRONMENTAL_SUCCESSOR:
+        raise Phase3MainLiveError("main manifest restart mode is unsupported")
+    predecessor = restart.get("predecessor")
+    if not isinstance(predecessor, Mapping):
+        raise Phase3MainLiveError("environmental successor predecessor binding is missing")
+
+    void_path = Path(predecessor["void_record_path"])
+    if _raw_sha256(void_path) != predecessor["void_record_raw_sha256"]:
+        raise Phase3MainLiveError("environmental predecessor void record bytes drifted")
+    void = _load_strict_object(void_path, "environmental predecessor void record")
+    if set(void) != IDENTITY_VOID_FIELDS:
+        raise Phase3MainLiveError("environmental predecessor void record fields drifted")
+    predecessor_run_id = str(predecessor["run_id"])
+    predecessor_manifest_sha = str(predecessor["manifest_canonical_sha256"])
+    predecessor_identity_sha = str(predecessor["manifest_identity_sha256"])
+    predecessor_root = Path(predecessor["artifact_root"])
+    usage_ledger_path = Path(predecessor["usage_ledger_path"]).resolve()
+    usage_ledger_state_path = api_client.usage_ledger_state_path(
+        usage_ledger_path).resolve()
+    expected_stem = f"{predecessor_run_id}-{predecessor_manifest_sha}"
+    start_path = Path(str(void.get("start_record_path", ""))).resolve()
+    expected_start_path = void_path.with_name(f"{expected_stem}.started.json").resolve()
+    if (
+        void_path.name != f"{expected_stem}.voided.json"
+        or start_path != expected_start_path
+        or void.get("schema_version") != IDENTITY_VOID_SCHEMA
+        or void.get("status") != "voided_environmental_interruption"
+        or void.get("run_id") != predecessor_run_id
+        or void.get("manifest_canonical_sha256") != predecessor_manifest_sha
+        or void.get("manifest_identity_sha256") != predecessor_identity_sha
+        or void.get("artifact_root") != predecessor_root.as_posix()
+        or void.get("usage_ledger_path") != usage_ledger_path.as_posix()
+        or void.get("usage_ledger_raw_sha256") != predecessor["usage_ledger_raw_sha256"]
+        or void.get("usage_ledger_state_path") != usage_ledger_state_path.as_posix()
+        or void.get("reason_code") not in ENVIRONMENTAL_INTERRUPTION_REASONS
+    ):
+        raise Phase3MainLiveError("environmental predecessor void record binding drifted")
+    try:
+        expected_start_sha = str(void["start_record_raw_sha256"])
+        if (
+            len(expected_start_sha) != 64
+            or any(character not in "0123456789abcdef" for character in expected_start_sha)
+            or _raw_sha256(start_path) != expected_start_sha
+        ):
+            raise Phase3MainLiveError(
+                "environmental predecessor start record binding drifted")
+        start = _load_strict_object(start_path, "environmental predecessor start record")
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            "environmental predecessor start record is unavailable") from exc
+    if set(start) != IDENTITY_START_FIELDS or (
+        start.get("schema_version") != IDENTITY_START_SCHEMA
+        or start.get("status") != "started_single_shot"
+        or start.get("run_id") != predecessor_run_id
+        or start.get("manifest_canonical_sha256") != predecessor_manifest_sha
+        or start.get("manifest_identity_sha256") != predecessor_identity_sha
+        or start.get("artifact_root") != predecessor_root.as_posix()
+        or start.get("authorization_id") != predecessor["authorization_id"]
+        or start.get("authorization_canonical_sha256")
+        != predecessor["authorization_canonical_sha256"]
+        or start.get("authorization_raw_sha256")
+        != predecessor["authorization_raw_sha256"]
+        or start.get("authorization_signature_raw_sha256")
+        != predecessor["authorization_signature_raw_sha256"]
+    ):
+        raise Phase3MainLiveError("environmental predecessor start record semantics drifted")
+    _, ledger_raw, ledger_state_raw = _load_stable_start_bound_ledger(
+        start, expected_ledger_path=usage_ledger_path)
+    if (
+        hashlib.sha256(ledger_raw).hexdigest()
+        != predecessor["usage_ledger_raw_sha256"]
+        or void.get("usage_ledger_state_raw_sha256")
+        != hashlib.sha256(ledger_state_raw).hexdigest()
+        or void.get("usage_ledger_identity_canonical_sha256")
+        != start.get("usage_ledger_identity_canonical_sha256")
+        or void.get("usage_ledger_genesis_event_hash")
+        != start.get("usage_ledger_genesis_event_hash")
+    ):
+        raise Phase3MainLiveError(
+            "environmental predecessor usage-ledger provenance drifted")
+    start_time = phase3_main_manifest._utc(  # noqa: SLF001
+        start.get("recorded_at_utc"), "environmental predecessor start recorded_at_utc")
+    void_time = phase3_main_manifest._utc(  # noqa: SLF001
+        void.get("recorded_at_utc"), "environmental predecessor void recorded_at_utc")
+    successor_time = manifest_validation.get("recorded_at_utc")
+    if not isinstance(successor_time, datetime):
+        raise Phase3MainLiveError("successor manifest recorded_at validation is missing")
+    if not start_time <= void_time <= successor_time:
+        raise Phase3MainLiveError(
+            "environmental predecessor and successor timestamps are out of order")
+    billing_scope = billing_validation.get("billing_scope")
+    if not isinstance(billing_scope, Mapping):
+        raise Phase3MainLiveError(
+            "environmental successor billing validation omits its scope")
+    billing_window_start = phase3_main_manifest._utc(  # noqa: SLF001
+        billing_scope.get("window_start_utc"),
+        "environmental successor billing window_start_utc",
+    )
+    billing_window_end = phase3_main_manifest._utc(  # noqa: SLF001
+        billing_scope.get("window_end_utc"),
+        "environmental successor billing window_end_utc",
+    )
+    if billing_window_start > start_time or billing_window_end < void_time:
+        raise Phase3MainLiveError(
+            "environmental successor billing window does not cover the predecessor lifetime")
+    settlement = billing_validation.get("provider_settlement")
+    settlement_fields = {
+        "status",
+        "account_identity_sha256",
+        "finalized_through_utc",
+    }
+    if not isinstance(settlement, Mapping) or set(settlement) != settlement_fields:
+        raise Phase3MainLiveError(
+            "environmental successor lacks provider-authenticated settlement finality")
+    if settlement.get("status") != "provider_authenticated_finalized":
+        raise Phase3MainLiveError(
+            "environmental successor provider settlement is not finalized")
+    settlement_account = phase3_main_manifest._sha256(  # noqa: SLF001
+        settlement.get("account_identity_sha256"),
+        "environmental successor settlement account_identity_sha256",
+    )
+    billing_account = phase3_main_manifest._sha256(  # noqa: SLF001
+        billing_scope.get("account_identity_sha256"),
+        "environmental successor billing account_identity_sha256",
+    )
+    finalized_through = phase3_main_manifest._utc(  # noqa: SLF001
+        settlement.get("finalized_through_utc"),
+        "environmental successor settlement finalized_through_utc",
+    )
+    if (
+        settlement_account != billing_account
+        or finalized_through <= void_time
+        or billing_window_end <= finalized_through
+    ):
+        raise Phase3MainLiveError(
+            "environmental successor settlement does not cover the predecessor account "
+            "through a post-void billing window")
+
+    matched_ledgers = []
+    raw_ledgers = billing_record.get("ledgers")
+    if not isinstance(raw_ledgers, list):
+        raise Phase3MainLiveError("billing reconciliation omits its ledger rows")
+    for row in raw_ledgers:
+        if not isinstance(row, Mapping):
+            continue
+        candidate = Path(str(row.get("path", "")))
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+        if (
+            candidate.resolve() == usage_ledger_path
+            and row.get("raw_sha256") == predecessor["usage_ledger_raw_sha256"]
+        ):
+            matched_ledgers.append(row)
+    if len(matched_ledgers) != 1:
+        raise Phase3MainLiveError(
+            "billing reconciliation does not cover the exact environmental predecessor ledger")
 
 
 def _validate_cost_forecast(
@@ -1732,6 +1972,12 @@ def load_prepared_main(
     billing_validation = phase3_main_billing_reconciliation.validate_billing_reconciliation(
         billing_record, project_root=root, as_of=now)
     _require_clean_pre_main_billing(billing_validation, manifest)
+    _validate_environmental_restart(
+        manifest_validation=manifest_validation,
+        billing_record=billing_record,
+        billing_validation=billing_validation,
+        project_root=root,
+    )
 
     dynamic_frame = _load_bound_input_object(
         manifest, input_paths, "dynamic_residual_frame", "dynamic residual frame")
@@ -1872,68 +2118,556 @@ def _identity_complete_path(identity: phase3_main_runner.MainRunIdentity) -> Pat
     )
 
 
-def _authorization_consumed_path(prepared: PreparedMainRun) -> Path:
-    registry = prepared.identity.identity_registry_root
+def _identity_void_path(identity: phase3_main_runner.MainRunIdentity) -> Path:
+    registry = identity.identity_registry_root
     if registry is None:
         raise Phase3MainLiveError("main identity has no persistent registry root")
-    authorization_id = str(prepared.authorization["authorization_id"])
-    identity = hashlib.sha256(authorization_id.encode("utf-8")).hexdigest()
-    return registry / "authorizations" / f"{identity}.consumed.json"
+    return (
+        registry / "identities"
+        / f"{identity.run_id}-{identity.manifest_sha256}.voided.json"
+    )
 
 
-def _write_exclusive_json(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _assert_identity_not_started(identity: phase3_main_runner.MainRunIdentity) -> None:
+    if (
+        _identity_start_path(identity).exists()
+        or _identity_void_path(identity).exists()
+        or _identity_complete_path(identity).exists()
+    ):
+        raise Phase3MainLiveError(
+            "formal identity already has persistent single-shot state")
+
+
+def _require_identity_not_voided(identity: phase3_main_runner.MainRunIdentity) -> None:
+    if _identity_void_path(identity).exists():
+        raise Phase3MainLiveError("a voided formal identity cannot be completed")
+
+
+def _write_exclusive_json(
+    path: Path,
+    value: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
     encoded = (json.dumps(dict(value), sort_keys=True, ensure_ascii=True) + "\n").encode(
         "utf-8")
+    _publish_exclusive_bytes(path, encoded, label=label)
+
+
+def _exclusive_publish_temp_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.publish.tmp")
+
+
+def _directory_publish_temp_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.mkdir-{uuid.uuid4().hex}.tmp")
+
+
+def _publish_missing_directory(directory: Path) -> None:
+    """Publish one previously absent directory with platform durability semantics."""
+    if os.name != "nt":
+        try:
+            directory.mkdir()
+        except FileExistsError as exc:
+            raise Phase3MainLiveError(
+                f"durable directory path appeared concurrently: {directory}") from exc
+        phase3_main_runner._fsync_directory(directory)  # noqa: SLF001
+        phase3_main_runner._fsync_directory(directory.parent)  # noqa: SLF001
+        return
+
+    stage = _directory_publish_temp_path(directory)
+    stage_owned = False
     try:
-        with path.open("xb") as handle:
-            handle.write(encoded)
-            handle.flush()
-            os.fsync(handle.fileno())
-    except FileExistsError as exc:
-        raise Phase3MainLiveError(f"formal identity was already consumed: {path}") from exc
+        try:
+            stage.mkdir()
+            stage_owned = True
+        except FileExistsError as exc:
+            raise Phase3MainLiveError(
+                f"durable directory publish stage already exists: {stage}") from exc
+        try:
+            phase3_main_runner._windows_move_no_replace_write_through(  # noqa: SLF001
+                stage, directory)
+        except FileExistsError as exc:
+            raise Phase3MainLiveError(
+                f"durable directory path appeared concurrently: {directory}") from exc
+        except OSError as exc:
+            raise Phase3MainLiveError(
+                f"could not durably publish directory: {directory}") from exc
+        if directory.is_symlink() or not directory.is_dir():
+            raise Phase3MainLiveError(
+                f"durably published directory has the wrong type: {directory}")
+    finally:
+        if stage_owned:
+            try:
+                stage.rmdir()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                raise Phase3MainLiveError(
+                    f"could not clean durable directory publish stage: {stage}") from exc
+
+
+def _durably_create_directory_tree(path: Path) -> None:
+    """Create each missing directory and durably anchor every new parent entry."""
+    target = Path(path)
+    missing: list[Path] = []
+    cursor = target
+    while not cursor.exists():
+        if cursor.parent == cursor:
+            raise Phase3MainLiveError(
+                f"no existing ancestor for durable directory tree: {target}")
+        missing.append(cursor)
+        cursor = cursor.parent
+    if cursor.is_symlink() or not cursor.is_dir():
+        raise Phase3MainLiveError(
+            f"durable directory tree has a linked or non-directory ancestor: {cursor}")
+    try:
+        phase3_main_runner._fsync_directory(cursor)  # noqa: SLF001
+        for directory in reversed(missing):
+            _publish_missing_directory(directory)
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            f"could not durably establish directory tree: {target}") from exc
+
+
+def _registry_bootstrap_lease_path(registry_target: Path) -> Path:
+    canonical = str(Path(registry_target).resolve())
+    if os.name == "nt":
+        canonical = canonical.casefold()
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return Path(tempfile.gettempdir()).resolve() / (
+        f"phase3-main-registry-bootstrap-{digest}.lock")
+
+
+def _durably_prepare_identity_registry(registry_root: Path) -> None:
+    target = Path(registry_root) / "identities"
+    with phase3_v3_live.RunLease(_registry_bootstrap_lease_path(target)):
+        _durably_create_directory_tree(target)
+
+
+def _cleanup_exclusive_publish_temp(path: Path, *, label: str) -> None:
+    temp = _exclusive_publish_temp_path(path)
+    if temp.is_symlink():
+        raise Phase3MainLiveError(f"{label} publish temp is not a regular file")
+    if not temp.exists():
+        return
+    if not temp.is_file():
+        raise Phase3MainLiveError(f"{label} publish temp is not a regular file")
+    try:
+        temp.unlink()
+        phase3_main_runner._fsync_parent_directory(path)  # noqa: SLF001
+    except OSError as exc:
+        raise Phase3MainLiveError(f"could not clean {label} publish temp") from exc
+
+
+def _publish_staged_no_replace(temp: Path, path: Path) -> None:
+    if os.name == "nt":
+        phase3_main_runner._windows_move_no_replace_write_through(  # noqa: SLF001
+            temp, path)
+        return
+    os.link(temp, path)
+
+
+def _publish_exclusive_bytes(path: Path, raw: bytes, *, label: str) -> None:
+    """Publish complete bytes atomically without replacing an existing record."""
+    if path.parent.is_symlink() or not path.parent.is_dir():
+        raise Phase3MainLiveError(
+            f"{label} parent directory was not durably prepared: {path.parent}")
+    temp = _exclusive_publish_temp_path(path)
+    if path.exists() or path.is_symlink():
+        if temp.is_symlink() or (temp.exists() and not temp.is_file()):
+            raise Phase3MainLiveError(
+                f"{label} publish temp conflicts with the existing record")
+        if temp.exists():
+            try:
+                same_file = os.path.samefile(temp, path)
+            except OSError as exc:
+                raise Phase3MainLiveError(
+                    f"could not compare {label} with its publish temp") from exc
+            if not same_file:
+                raise Phase3MainLiveError(
+                    f"{label} publish temp is a different file from the existing record")
+            try:
+                published = path.read_bytes()
+                if temp.read_bytes() != published:
+                    raise Phase3MainLiveError(
+                        f"{label} linked publish aliases have different bytes")
+                temp.unlink()
+                phase3_main_runner._fsync_parent_directory(path)  # noqa: SLF001
+                if path.read_bytes() != published:
+                    raise Phase3MainLiveError(
+                        f"{label} changed while its linked publish alias was cleaned")
+            except OSError as exc:
+                raise Phase3MainLiveError(
+                    f"could not clean {label} linked publish alias") from exc
+        raise Phase3MainLiveError(f"{label} already exists: {path}")
+    _cleanup_exclusive_publish_temp(path, label=label)
+    temp_owned = False
+    try:
+        try:
+            with temp.open("xb") as handle:
+                temp_owned = True
+                written = handle.write(raw)
+                if written != len(raw):
+                    raise Phase3MainLiveError(
+                        f"could not completely stage {label} for publication")
+                handle.flush()
+                os.fsync(handle.fileno())
+        except FileExistsError as exc:
+            raise Phase3MainLiveError(
+                f"{label} publish temp appeared during staging") from exc
+        try:
+            _publish_staged_no_replace(temp, path)
+        except FileExistsError as exc:
+            raise Phase3MainLiveError(f"{label} already exists: {path}") from exc
+        except OSError as exc:
+            raise Phase3MainLiveError(
+                f"could not atomically publish {label}") from exc
+        try:
+            phase3_main_runner._fsync_parent_directory(path)  # noqa: SLF001
+            published = path.read_bytes()
+        except OSError as exc:
+            raise Phase3MainLiveError(
+                f"could not durably reopen published {label}") from exc
+        if published != raw:
+            raise Phase3MainLiveError(f"published {label} bytes drifted")
+    finally:
+        if temp_owned:
+            try:
+                temp.unlink()
+                phase3_main_runner._fsync_parent_directory(path)  # noqa: SLF001
+            except FileNotFoundError:
+                pass
 
 
 def _write_exclusive_bytes(path: Path, raw: bytes, *, label: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _publish_exclusive_bytes(path, raw, label=label)
+
+
+def _new_artifact_publication_probe_path(artifact_root: Path) -> Path:
+    return artifact_root / f".phase3-main-publication-probe-{uuid.uuid4().hex}"
+
+
+def _probe_artifact_publication(artifact_root: Path) -> None:
+    """Exercise artifact-volume publication before the persistent formal start."""
+    target = _new_artifact_publication_probe_path(artifact_root)
+    temp = _exclusive_publish_temp_path(target)
+    for candidate in (target, temp):
+        if candidate.is_symlink() or candidate.exists():
+            raise Phase3MainLiveError(
+                f"artifact publication probe path already exists: {candidate}")
+    raw = b"phase3-main-exclusive-publication-probe-v1\n"
+    published_by_this_invocation = False
     try:
-        with path.open("xb") as handle:
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-    except FileExistsError as exc:
-        raise Phase3MainLiveError(f"{label} already exists: {path}") from exc
-    if path.read_bytes() != raw:
-        raise Phase3MainLiveError(f"{label} changed during its durable write")
+        _publish_exclusive_bytes(
+            target, raw, label="artifact-volume publication probe")
+        published_by_this_invocation = True
+        if target.read_bytes() != raw:
+            raise Phase3MainLiveError("artifact publication probe bytes drifted")
+    finally:
+        if published_by_this_invocation and target.exists():
+            try:
+                target.unlink()
+                phase3_main_runner._fsync_parent_directory(target)  # noqa: SLF001
+            except OSError as exc:
+                raise Phase3MainLiveError(
+                    "could not clean the artifact publication probe") from exc
 
 
-def _consume_identity(prepared: PreparedMainRun) -> Path:
+def _fresh_ledger_start_binding(
+    prepared: PreparedMainRun,
+    snapshot: api_client.UsageLedgerSnapshot,
+) -> dict[str, Any]:
+    """Reopen and bind the exact genesis-only ledger immediately before start."""
+    ledger_path = prepared.identity.paths.usage_ledger.resolve()
+    state_path = api_client.usage_ledger_state_path(ledger_path).resolve()
+    expected_summary = {
+        "events": 0,
+        "actual_spend_usd": 0.0,
+        "uncertain_spend_usd": 0.0,
+        "accounted_spend_usd": 0.0,
+        "unmatched_reservations": 0,
+    }
+    if (
+        snapshot.path.resolve() != ledger_path
+        or snapshot.state_path.resolve() != state_path
+        or snapshot.last_sequence != 0
+        or snapshot.summary != expected_summary
+    ):
+        raise Phase3MainLiveError(
+            "formal identity start requires the exact fresh zero-spend usage ledger")
+    try:
+        verified = api_client.load_chained_usage_ledger(
+            ledger_path, expected_identity=snapshot.identity)
+        ledger_raw = ledger_path.read_bytes()
+        state_raw = state_path.read_bytes()
+        events = api_client._read_usage_events(ledger_path)  # noqa: SLF001
+        verified_again = api_client.load_chained_usage_ledger(
+            ledger_path, expected_identity=snapshot.identity)
+        if ledger_path.read_bytes() != ledger_raw or state_path.read_bytes() != state_raw:
+            raise Phase3MainLiveError(
+                "fresh usage ledger changed while its start binding was recorded")
+    except (OSError, api_client.UsageLedgerError) as exc:
+        raise Phase3MainLiveError(
+            "fresh usage ledger could not be bound to the formal identity start") from exc
+    if (
+        verified.last_sequence != 0
+        or verified.summary != expected_summary
+        or verified_again.last_event_hash != verified.last_event_hash
+        or len(events) != 1
+        or ledger_raw.count(b"\n") != 1
+        or not ledger_raw.endswith(b"\n")
+    ):
+        raise Phase3MainLiveError(
+            "formal identity usage ledger is not a stable genesis-only ledger")
+    ledger_identity = dict(verified.identity)
+    if (
+        set(ledger_identity) != {
+            "schema_version", "ledger_id", "ledger_path", "state_path"
+        }
+        or ledger_identity.get("schema_version") != api_client.USAGE_LEDGER_SCHEMA_VERSION
+        or not isinstance(ledger_identity.get("ledger_id"), str)
+        or not ledger_identity["ledger_id"]
+        or ledger_identity.get("ledger_path") != ledger_path.as_posix()
+        or ledger_identity.get("state_path") != state_path.as_posix()
+        or events[0].get("event_hash") != verified.last_event_hash
+    ):
+        raise Phase3MainLiveError(
+            "fresh usage ledger identity or genesis event is invalid")
+    return {
+        "usage_ledger_schema_version": ledger_identity["schema_version"],
+        "usage_ledger_id": ledger_identity["ledger_id"],
+        "usage_ledger_path": ledger_path.as_posix(),
+        "usage_ledger_state_path": state_path.as_posix(),
+        "usage_ledger_identity_canonical_sha256": canonical_sha256(ledger_identity),
+        "usage_ledger_genesis_event_hash": verified.last_event_hash,
+        "usage_ledger_genesis_raw_sha256": hashlib.sha256(ledger_raw).hexdigest(),
+        "usage_ledger_genesis_state_raw_sha256": hashlib.sha256(state_raw).hexdigest(),
+    }
+
+
+def _start_bound_ledger_identity(
+    start: Mapping[str, Any], *, expected_ledger_path: Path,
+) -> dict[str, object]:
+    """Recover the exact ledger identity durably anchored in a start record."""
+    ledger_path = expected_ledger_path.resolve()
+    state_path = api_client.usage_ledger_state_path(ledger_path).resolve()
+    ledger_id = start.get("usage_ledger_id")
+    if (
+        start.get("usage_ledger_schema_version")
+        != api_client.USAGE_LEDGER_SCHEMA_VERSION
+        or not isinstance(ledger_id, str)
+        or not ledger_id
+        or start.get("usage_ledger_path") != ledger_path.as_posix()
+        or start.get("usage_ledger_state_path") != state_path.as_posix()
+    ):
+        raise Phase3MainLiveError(
+            "formal identity start usage-ledger identity drifted")
+    identity: dict[str, object] = {
+        "schema_version": api_client.USAGE_LEDGER_SCHEMA_VERSION,
+        "ledger_id": ledger_id,
+        "ledger_path": ledger_path.as_posix(),
+        "state_path": state_path.as_posix(),
+    }
+    if canonical_sha256(identity) != start.get(
+        "usage_ledger_identity_canonical_sha256"
+    ):
+        raise Phase3MainLiveError(
+            "formal identity start usage-ledger identity hash drifted")
+    for field in (
+        "usage_ledger_genesis_event_hash",
+        "usage_ledger_genesis_raw_sha256",
+        "usage_ledger_genesis_state_raw_sha256",
+    ):
+        phase3_main_manifest._sha256(  # noqa: SLF001
+            start.get(field), f"formal identity start {field}")
+    return identity
+
+
+def _load_stable_start_bound_ledger(
+    start: Mapping[str, Any], *, expected_ledger_path: Path,
+) -> tuple[api_client.UsageLedgerSnapshot, bytes, bytes]:
+    """Validate stable final ledger and state descent from the started genesis."""
+    ledger_path = expected_ledger_path.resolve()
+    state_path = api_client.usage_ledger_state_path(ledger_path).resolve()
+    expected_identity = _start_bound_ledger_identity(
+        start, expected_ledger_path=ledger_path)
+    if not ledger_path.is_file() or not state_path.is_file():
+        raise Phase3MainLiveError(
+            "started formal identity is missing its bound usage ledger or state")
+    try:
+        snapshot = api_client.load_chained_usage_ledger(
+            ledger_path, expected_identity=expected_identity)
+        ledger_raw = ledger_path.read_bytes()
+        state_raw = state_path.read_bytes()
+        events = api_client._read_usage_events(ledger_path)  # noqa: SLF001
+        confirmed = api_client.load_chained_usage_ledger(
+            ledger_path, expected_identity=expected_identity)
+        if ledger_path.read_bytes() != ledger_raw or state_path.read_bytes() != state_raw:
+            raise Phase3MainLiveError(
+                "started usage ledger changed while its final state was validated")
+    except (OSError, api_client.UsageLedgerError) as exc:
+        raise Phase3MainLiveError(
+            "started usage ledger does not validate against its start binding") from exc
+    if (
+        not events
+        or len(events) != snapshot.last_sequence + 1
+        or confirmed.last_sequence != snapshot.last_sequence
+        or confirmed.last_event_hash != snapshot.last_event_hash
+        or events[0].get("event_hash")
+        != start.get("usage_ledger_genesis_event_hash")
+    ):
+        raise Phase3MainLiveError(
+            "started usage ledger does not descend from its bound genesis")
+    first_newline = ledger_raw.find(b"\n")
+    if (
+        first_newline < 0
+        or hashlib.sha256(ledger_raw[:first_newline + 1]).hexdigest()
+        != start.get("usage_ledger_genesis_raw_sha256")
+        or (
+            snapshot.last_sequence == 0
+            and hashlib.sha256(state_raw).hexdigest()
+            != start.get("usage_ledger_genesis_state_raw_sha256")
+        )
+    ):
+        raise Phase3MainLiveError(
+            "started usage ledger genesis bytes or state do not match the start record")
+    return snapshot, ledger_raw, state_raw
+
+
+def _start_identity(
+    prepared: PreparedMainRun,
+    usage_snapshot: api_client.UsageLedgerSnapshot,
+) -> Path:
+    """Record the single-shot formal identity without consuming its authorization."""
     identity = prepared.identity
-    authorization_sha = canonical_sha256(prepared.authorization)
-    _write_exclusive_json(_authorization_consumed_path(prepared), {
-        "schema_version": AUTHORIZATION_CONSUMED_SCHEMA,
-        "status": "consumed_no_reuse",
-        "authorization_id": prepared.authorization["authorization_id"],
-        "authorization_canonical_sha256": authorization_sha,
-        "authorization_raw_sha256": prepared.authorization_raw_sha256,
-        "authorization_signature_raw_sha256": (
-            prepared.authorization_signature_raw_sha256),
-        "run_id": identity.run_id,
-        "manifest_canonical_sha256": identity.manifest_sha256,
-        "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
-    })
     start = _identity_start_path(identity)
+    ledger_binding = _fresh_ledger_start_binding(prepared, usage_snapshot)
     _write_exclusive_json(start, {
         "schema_version": IDENTITY_START_SCHEMA,
-        "status": "started_no_resume",
+        "status": "started_single_shot",
         "run_id": identity.run_id,
         "manifest_canonical_sha256": identity.manifest_sha256,
         "manifest_identity_sha256": prepared.manifest["manifest_identity_sha256"],
         "authorization_id": prepared.authorization["authorization_id"],
+        "authorization_canonical_sha256": canonical_sha256(prepared.authorization),
+        "authorization_raw_sha256": prepared.authorization_raw_sha256,
+        "authorization_signature_raw_sha256": (
+            prepared.authorization_signature_raw_sha256),
         "artifact_root": identity.artifact_root.as_posix(),
+        **ledger_binding,
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
-    })
+    }, label="formal identity start record")
     return start
+
+
+def record_environmental_interruption(
+    manifest_path: str | Path,
+    *,
+    reason_code: str,
+) -> dict[str, Any]:
+    """Void one started, incomplete identity with exactly one short durable record.
+
+    This function neither authorizes nor starts a replacement identity. A replacement must
+    use a fresh manifest-derived identity and pass the normal launch gates.
+    """
+    if reason_code not in ENVIRONMENTAL_INTERRUPTION_REASONS:
+        raise Phase3MainLiveError(
+            "environmental interruption reason is not one of the frozen reason codes")
+    manifest = _load_strict_object(manifest_path, "main manifest")
+    validation = phase3_main_manifest.validate_main_manifest(
+        manifest,
+        project_root=LIVE_PROJECT_ROOT,
+        verify_files=False,
+        verify_runtime=False,
+    )
+    identity = phase3_main_runner.MainRunIdentity(
+        run_id=str(validation["run_id"]),
+        manifest_sha256=str(validation["manifest_canonical_sha256"]),
+        artifact_root=Path(validation["artifact_root"]),
+        identity_registry_root=Path(validation["identity_registry_root"]),
+    )
+    try:
+        with phase3_v3_live.RunLease(identity.paths.lease):
+            return _record_environmental_interruption_locked(
+                identity=identity,
+                manifest=manifest,
+                reason_code=reason_code,
+            )
+    except phase3_v3_live.Phase3V3LiveError as exc:
+        raise Phase3MainLiveError(
+            "environmental interruption record could not acquire the main run lease") from exc
+
+
+def _record_environmental_interruption_locked(
+    *,
+    identity: phase3_main_runner.MainRunIdentity,
+    manifest: Mapping[str, Any],
+    reason_code: str,
+) -> dict[str, Any]:
+    start_path = _identity_start_path(identity)
+    if not start_path.is_file():
+        raise Phase3MainLiveError(
+            "environmental interruption cannot void an identity that never started")
+    start = _load_strict_object(start_path, "formal identity start record")
+    if set(start) != IDENTITY_START_FIELDS:
+        raise Phase3MainLiveError("formal identity start record fields drifted")
+    if (
+        start.get("schema_version") != IDENTITY_START_SCHEMA
+        or start.get("status") != "started_single_shot"
+        or start.get("run_id") != identity.run_id
+        or start.get("manifest_canonical_sha256") != identity.manifest_sha256
+        or start.get("manifest_identity_sha256") != manifest["manifest_identity_sha256"]
+        or start.get("artifact_root") != identity.artifact_root.as_posix()
+    ):
+        raise Phase3MainLiveError("formal identity start record binding drifted")
+    authorization_id = start.get("authorization_id")
+    if not isinstance(authorization_id, str) or not authorization_id:
+        raise Phase3MainLiveError("formal identity start authorization_id is invalid")
+    for field in (
+        "authorization_canonical_sha256",
+        "authorization_raw_sha256",
+        "authorization_signature_raw_sha256",
+    ):
+        phase3_main_manifest._sha256(  # noqa: SLF001
+            start.get(field), f"formal identity start {field}")
+    phase3_main_manifest._utc(  # noqa: SLF001
+        start.get("recorded_at_utc"), "formal identity start recorded_at_utc")
+    void_path = _identity_void_path(identity)
+    if _identity_complete_path(identity).exists() or identity.paths.completion.exists():
+        raise Phase3MainLiveError("a completed formal identity cannot be voided")
+    usage_ledger_path = identity.paths.usage_ledger.resolve()
+    usage_ledger_state_path = api_client.usage_ledger_state_path(
+        usage_ledger_path).resolve()
+    _, usage_ledger_raw, usage_ledger_state_raw = _load_stable_start_bound_ledger(
+        start, expected_ledger_path=usage_ledger_path)
+    _write_exclusive_json(void_path, {
+        "schema_version": IDENTITY_VOID_SCHEMA,
+        "status": "voided_environmental_interruption",
+        "run_id": identity.run_id,
+        "manifest_canonical_sha256": identity.manifest_sha256,
+        "manifest_identity_sha256": manifest["manifest_identity_sha256"],
+        "artifact_root": identity.artifact_root.as_posix(),
+        "start_record_path": start_path.as_posix(),
+        "start_record_raw_sha256": _raw_sha256(start_path),
+        "usage_ledger_path": usage_ledger_path.as_posix(),
+        "usage_ledger_raw_sha256": hashlib.sha256(usage_ledger_raw).hexdigest(),
+        "usage_ledger_state_path": usage_ledger_state_path.as_posix(),
+        "usage_ledger_state_raw_sha256": hashlib.sha256(
+            usage_ledger_state_raw).hexdigest(),
+        "usage_ledger_identity_canonical_sha256": (
+            start["usage_ledger_identity_canonical_sha256"]),
+        "usage_ledger_genesis_event_hash": (
+            start["usage_ledger_genesis_event_hash"]),
+        "reason_code": reason_code,
+        "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+    }, label="environmental interruption record")
+    return {
+        "status": "voided_environmental_interruption",
+        "run_id": identity.run_id,
+        "reason_code": reason_code,
+        "record_path": void_path.as_posix(),
+        "replacement_authorized": False,
+    }
 
 
 def run_main(
@@ -1943,19 +2677,24 @@ def run_main(
     """Run one fresh main identity after all read-only gates pass.
 
     The execution loop is installed with finalization in this module's closeout section. This
-    entry already enforces the irreversible startup and private factory boundary. Any failure
-    after identity consumption leaves the persistent started record in place and cannot resume.
+    entry already enforces the single-shot startup and private factory boundary. Any failure
+    after identity start leaves the persistent started record in place and cannot resume.
     """
+    _require_production_execution_unblocked()
     prepared = load_prepared_main(
         manifest_path, authorization_path, verify_git=True)
-    _require_production_execution_unblocked()
     identity = prepared.identity
     paths = identity.paths
+    registry_root = identity.identity_registry_root
+    if registry_root is None:
+        raise Phase3MainLiveError("main identity has no persistent registry root")
+    _durably_prepare_identity_registry(registry_root)
     with phase3_v3_live.RunLease(paths.lease) as held_run_lease:
+        _assert_identity_not_started(identity)
         phase3_main_runner._assert_fresh_identity(paths)
         _validate_launch_freshness(prepared)
         _revalidate_authenticated_authorization(prepared)
-        _consume_identity(prepared)
+        _durably_create_directory_tree(paths.root)
         active = phase3_main_runner._write_active_marker(identity, paths)
         binding = phase3_main_runner._identity_binding_bytes(identity)
         try:
@@ -2002,8 +2741,16 @@ def run_main(
             )
             _require_clean_pre_main_billing(
                 billing_validation, prepared.manifest)
+            _validate_environmental_restart(
+                manifest_validation=prepared.manifest_validation,
+                billing_record=billing_record,
+                billing_validation=billing_validation,
+                project_root=prepared.project_root,
+            )
+            _probe_artifact_publication(paths.root)
             raw_client = _construct_provider_client(prepared, snapshot)
             client = JournalingClient(raw_client, journal)
+            _start_identity(prepared, snapshot)
             return _drive_and_finalize(
                 prepared,
                 client,
@@ -2802,7 +3549,12 @@ def _finalize_main(
         "provider_calls_authorized": False,
         "main_run_spend_authorized": False,
     }
-    _write_exclusive_json(paths.completion, completion)
+    _require_identity_not_voided(prepared.identity)
+    _write_exclusive_json(
+        paths.completion,
+        completion,
+        label="formal completion record",
+    )
     completion_sha = _raw_sha256(paths.completion)
     _write_exclusive_json(_identity_complete_path(prepared.identity), {
         "schema_version": IDENTITY_COMPLETE_SCHEMA,
@@ -2812,7 +3564,7 @@ def _finalize_main(
         "completion_path": paths.completion.as_posix(),
         "completion_raw_sha256": completion_sha,
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
-    })
+    }, label="identity completion record")
     return completion
 
 
@@ -2880,7 +3632,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     parser = argparse.ArgumentParser(prog="phase3_main_live")
     parser.add_argument("--manifest", required=True)
-    parser.add_argument("--authorization", required=True)
+    parser.add_argument("--authorization")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
         "--validate-only", action="store_true",
@@ -2888,12 +3640,36 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     mode.add_argument(
         "--run", action="store_true",
-        help="consume the exact identity and perform the one authorized formal attempt",
+        help="start the exact single-shot formal measurement",
+    )
+    mode.add_argument(
+        "--record-environmental-interruption", action="store_true",
+        help="void one started incomplete identity without authorizing a replacement",
+    )
+    parser.add_argument(
+        "--reason-code",
+        choices=sorted(ENVIRONMENTAL_INTERRUPTION_REASONS),
     )
     args = parser.parse_args(argv)
+    if args.record_environmental_interruption:
+        if args.authorization is not None:
+            parser.error("--authorization is not used when recording an interruption")
+        if args.reason_code is None:
+            parser.error(
+                "--reason-code is required with --record-environmental-interruption")
+    else:
+        if args.authorization is None:
+            parser.error("--authorization is required with --validate-only or --run")
+        if args.reason_code is not None:
+            parser.error("--reason-code is only valid when recording an interruption")
 
     try:
-        if args.validate_only:
+        if args.record_environmental_interruption:
+            payload = record_environmental_interruption(
+                args.manifest,
+                reason_code=args.reason_code,
+            )
+        elif args.validate_only:
             prepared = load_prepared_main(
                 args.manifest,
                 args.authorization,
@@ -2923,6 +3699,7 @@ __all__ = [
     "PreparedMainRun",
     "load_prepared_main",
     "main",
+    "record_environmental_interruption",
     "run_main",
 ]
 

@@ -7,7 +7,7 @@ import json
 import shutil
 import subprocess
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -53,6 +53,7 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
             "forecast_main_usd": "20.00",
             "stage_cap_usd": "40.00",
         },
+        "restart": {"mode": "initial", "predecessor": None},
         "runtime": {
             "reviewer_cli_binary": "codex.cmd",
             "reviewer_model": "gpt-5.6-sol",
@@ -119,11 +120,14 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
             "valid_until_utc": "2026-10-13T20:15:00Z",
         },
         manifest_validation={
+            "run_id": manifest["run_id"],
             "manifest_canonical_sha256": manifest_sha,
+            "recorded_at_utc": datetime(2026, 8, 29, 20, 0, tzinfo=timezone.utc),
             "artifact_root": artifact,
             "identity_registry_root": registry,
             "input_paths": input_paths,
             "output_paths": {},
+            "restart": {"mode": "initial", "predecessor": None},
         },
         authorization_validation={},
         input_paths=input_paths,
@@ -142,6 +146,20 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         inventory=inventory,
         context_excluded_cell_keys=(),
     )
+
+
+def _seed_started_identity(
+    prepared: phase3_main_live.PreparedMainRun,
+) -> tuple[Path, Path]:
+    prepared.identity.artifact_root.mkdir(parents=True, exist_ok=True)
+    registry_root = prepared.identity.identity_registry_root
+    assert registry_root is not None
+    phase3_main_live._durably_create_directory_tree(registry_root / "identities")
+    ledger_path = prepared.identity.paths.usage_ledger
+    snapshot, _ = phase3_main_live.phase3_main_runner._fresh_ledger_snapshot(
+        ledger_path)
+    start_path = phase3_main_live._start_identity(prepared, snapshot)
+    return start_path, ledger_path
 
 
 def _with_current_boundary_files(
@@ -306,6 +324,405 @@ def test_public_live_entry_has_no_client_factory_path_cap_or_resume_injection():
     source = inspect.getsource(phase3_main_live)
     assert "CallCache" not in source
     assert "CachingClient" not in source
+    run_source = inspect.getsource(phase3_main_live.run_main)
+    assert run_source.index("_durably_create_directory_tree(paths.root)") < (
+        run_source.index("_write_active_marker"))
+
+
+def test_exclusive_json_publication_recovers_orphan_temp_and_reopens_exact(tmp_path):
+    target = tmp_path / "registry" / "identity.started.json"
+    target.parent.mkdir(parents=True)
+    temp = phase3_main_live._exclusive_publish_temp_path(target)
+    temp.write_bytes(b'{"partial":')
+    payload = {"schema_version": "fixture", "status": "complete"}
+    expected = (json.dumps(payload, sort_keys=True) + "\n").encode("utf-8")
+
+    phase3_main_live._write_exclusive_json(
+        target, payload, label="fixture identity record")
+
+    assert target.read_bytes() == expected
+    assert not temp.exists()
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="already exists"):
+        phase3_main_live._write_exclusive_json(
+            target, {"status": "replacement"}, label="fixture identity record")
+    assert target.read_bytes() == expected
+
+
+def test_exclusive_json_publication_failure_leaves_no_partial_final(
+    tmp_path, monkeypatch,
+):
+    target = tmp_path / "registry" / "identity.voided.json"
+    target.parent.mkdir(parents=True)
+
+    def fail_publish(_source, _target):
+        raise OSError("simulated interrupted publication")
+
+    monkeypatch.setattr(
+        phase3_main_live, "_publish_staged_no_replace", fail_publish)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="could not atomically publish",
+    ):
+        phase3_main_live._write_exclusive_json(
+            target, {"status": "voided"}, label="fixture void record")
+    assert not target.exists()
+    assert not phase3_main_live._exclusive_publish_temp_path(target).exists()
+
+
+def test_exclusive_json_publication_cleans_only_same_file_post_link_alias(tmp_path):
+    target = tmp_path / "registry" / "identity.started.json"
+    target.parent.mkdir(parents=True)
+    payload = {"schema_version": "fixture", "status": "started"}
+    expected = (json.dumps(payload, sort_keys=True) + "\n").encode("utf-8")
+    target.write_bytes(expected)
+    temp = phase3_main_live._exclusive_publish_temp_path(target)
+    phase3_main_live.os.link(target, temp)
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="already exists"):
+        phase3_main_live._write_exclusive_json(
+            target, payload, label="fixture identity record")
+    assert target.read_bytes() == expected
+    assert not temp.exists()
+
+    temp.write_bytes(b"different inode")
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="different file",
+    ):
+        phase3_main_live._write_exclusive_json(
+            target, payload, label="fixture identity record")
+    assert target.read_bytes() == expected
+    assert temp.read_bytes() == b"different inode"
+
+
+def test_fresh_identity_registry_tree_publishes_each_created_ancestor(
+    tmp_path, monkeypatch,
+):
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    target = existing / "registry" / "identities"
+    published = []
+
+    def publish(directory):
+        published.append(Path(directory).resolve())
+        Path(directory).mkdir()
+
+    monkeypatch.setattr(phase3_main_live, "_publish_missing_directory", publish)
+
+    phase3_main_live._durably_create_directory_tree(target)
+
+    assert target.is_dir()
+    assert published == [target.parent.resolve(), target.resolve()]
+
+
+def test_fresh_nested_artifact_tree_publishes_parent_before_child(
+    tmp_path, monkeypatch,
+):
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    nested = existing / "nested"
+    artifact_root = nested / "formal"
+    published = []
+
+    def publish(directory):
+        published.append(Path(directory).resolve())
+        Path(directory).mkdir()
+
+    monkeypatch.setattr(phase3_main_live, "_publish_missing_directory", publish)
+
+    phase3_main_live._durably_create_directory_tree(artifact_root)
+
+    assert artifact_root.is_dir()
+    assert published == [
+        nested.resolve(),
+        artifact_root.resolve(),
+    ]
+
+
+def test_registry_bootstrap_lease_is_stable_and_outside_registry(tmp_path):
+    target = (tmp_path / "registry" / "identities").resolve()
+
+    first = phase3_main_live._registry_bootstrap_lease_path(target)
+    second = phase3_main_live._registry_bootstrap_lease_path(target)
+    different = phase3_main_live._registry_bootstrap_lease_path(
+        tmp_path / "other-registry" / "identities")
+
+    assert first == second
+    assert first != different
+    assert first.parent == Path(phase3_main_live.tempfile.gettempdir()).resolve()
+    assert target not in first.parents
+
+
+def test_registry_bootstrap_holds_lease_while_publishing_tree(tmp_path, monkeypatch):
+    registry_root = (tmp_path / "registry").resolve()
+    events = []
+
+    class FakeLease:
+        def __init__(self, path):
+            events.append(("lease-created", Path(path)))
+
+        def __enter__(self):
+            events.append(("lease-entered", None))
+            return self
+
+        def __exit__(self, *_exc_info):
+            events.append(("lease-exited", None))
+            return False
+
+    def publish(path):
+        events.append(("published", Path(path).resolve()))
+
+    monkeypatch.setattr(phase3_main_live.phase3_v3_live, "RunLease", FakeLease)
+    monkeypatch.setattr(phase3_main_live, "_durably_create_directory_tree", publish)
+
+    phase3_main_live._durably_prepare_identity_registry(registry_root)
+
+    assert events[0][0] == "lease-created"
+    assert events[1:] == [
+        ("lease-entered", None),
+        ("published", registry_root / "identities"),
+        ("lease-exited", None),
+    ]
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_write_through_move_is_exact_and_never_replaces(tmp_path):
+    stage = tmp_path / ".record.publish.tmp"
+    target = tmp_path / "record.json"
+    stage.write_bytes(b"first\n")
+
+    phase3_main_live.phase3_main_runner._windows_move_no_replace_write_through(
+        stage, target)
+
+    assert not stage.exists()
+    assert target.read_bytes() == b"first\n"
+    stage.write_bytes(b"second\n")
+    with pytest.raises(FileExistsError):
+        phase3_main_live.phase3_main_runner._windows_move_no_replace_write_through(
+            stage, target)
+    assert stage.read_bytes() == b"second\n"
+    assert target.read_bytes() == b"first\n"
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_write_through_move_supports_extended_length_paths(tmp_path):
+    parent = tmp_path
+    while len(str(parent)) < 280:
+        parent /= "extended-length-segment"
+    parent.mkdir(parents=True)
+    stage = parent / ".record.publish.tmp"
+    target = parent / "record.json"
+    stage.write_bytes(b"long path\n")
+
+    phase3_main_live.phase3_main_runner._windows_move_no_replace_write_through(
+        stage, target)
+
+    assert not stage.exists()
+    assert target.read_bytes() == b"long path\n"
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_no_replace_move_does_not_follow_dangling_destination_symlink(tmp_path):
+    stage = tmp_path / ".record.publish.tmp"
+    destination = tmp_path / "record.json"
+    missing_target = tmp_path / "outside" / "missing.json"
+    stage.write_bytes(b"new bytes\n")
+    try:
+        destination.symlink_to(missing_target)
+    except OSError as exc:
+        pytest.skip(f"file symlinks unavailable on this Windows host: {exc}")
+
+    with pytest.raises(FileExistsError):
+        phase3_main_live.phase3_main_runner._windows_move_no_replace_write_through(
+            stage, destination)
+
+    assert stage.read_bytes() == b"new bytes\n"
+    assert destination.is_symlink()
+    assert not missing_target.exists()
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_no_replace_move_uses_lexical_existence_check(tmp_path, monkeypatch):
+    stage = tmp_path / ".record.publish.tmp"
+    destination = tmp_path / "dangling-link.json"
+    stage.write_bytes(b"new bytes\n")
+    real_lexists = phase3_main_live.api_client.durable_fs.os.path.lexists
+
+    def simulated_dangling_link(path):
+        if Path(path) == destination:
+            return True
+        return real_lexists(path)
+
+    monkeypatch.setattr(
+        phase3_main_live.api_client.durable_fs.os.path,
+        "lexists",
+        simulated_dangling_link,
+    )
+
+    with pytest.raises(FileExistsError):
+        phase3_main_live.phase3_main_runner._windows_move_no_replace_write_through(
+            stage, destination)
+    assert stage.read_bytes() == b"new bytes\n"
+    assert not destination.exists()
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_replace_move_refuses_symlink_and_preserves_its_target(tmp_path):
+    stage = tmp_path / ".state.publish.tmp"
+    destination = tmp_path / "state.json"
+    protected_target = tmp_path / "protected.json"
+    stage.write_bytes(b"new state\n")
+    protected_target.write_bytes(b"protected\n")
+    try:
+        destination.symlink_to(protected_target)
+    except OSError as exc:
+        pytest.skip(f"file symlinks unavailable on this Windows host: {exc}")
+
+    with pytest.raises(OSError, match="reparse-point"):
+        phase3_main_live.phase3_main_runner._windows_move_write_through(
+            stage, destination, replace_existing=True)
+
+    assert stage.read_bytes() == b"new state\n"
+    assert destination.is_symlink()
+    assert protected_target.read_bytes() == b"protected\n"
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_replace_move_refuses_reparse_destination(tmp_path, monkeypatch):
+    stage = tmp_path / ".state.publish.tmp"
+    destination = tmp_path / "state.json"
+    stage.write_bytes(b"new state\n")
+    destination.write_bytes(b"protected\n")
+    monkeypatch.setattr(
+        phase3_main_live.api_client.durable_fs,
+        "_windows_is_reparse_point",
+        lambda path: Path(path) == destination,
+    )
+
+    with pytest.raises(OSError, match="reparse-point"):
+        phase3_main_live.phase3_main_runner._windows_move_write_through(
+            stage, destination, replace_existing=True)
+    assert stage.read_bytes() == b"new state\n"
+    assert destination.read_bytes() == b"protected\n"
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_usage_ledger_and_state_use_write_through_publication(
+    tmp_path, monkeypatch,
+):
+    ledger = tmp_path / "usage.jsonl"
+    calls = []
+    real_move = phase3_main_live.api_client.durable_fs.windows_move_write_through
+
+    def observed_move(source, destination, *, replace_existing):
+        calls.append((Path(destination).name, replace_existing))
+        return real_move(
+            source, destination, replace_existing=replace_existing)
+
+    monkeypatch.setattr(
+        phase3_main_live.api_client.durable_fs,
+        "windows_move_write_through",
+        observed_move,
+    )
+
+    identity = phase3_main_live.api_client.prepare_usage_ledger(
+        ledger, allow_create=True)
+
+    state_path = phase3_main_live.api_client.usage_ledger_state_path(ledger)
+    assert ledger.is_file()
+    assert state_path.is_file()
+    assert identity["ledger_path"] == ledger.resolve().as_posix()
+    assert calls == [
+        (ledger.name, False),
+        (state_path.name, True),
+    ]
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    phase3_main_live.api_client._atomic_write_json(state_path, state)  # noqa: SLF001
+    assert calls[-1] == (state_path.name, True)
+    assert len(calls) == 3
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_directory_publication_uses_write_through_move(tmp_path):
+    target = tmp_path / "durable-directory"
+
+    phase3_main_live._publish_missing_directory(target)
+
+    assert target.is_dir()
+    assert not list(tmp_path.glob(".durable-directory.mkdir-*.tmp"))
+
+
+@pytest.mark.skipif(phase3_main_live.os.name != "nt", reason="Windows durability primitive")
+def test_windows_directory_publication_fails_closed_on_concurrent_target(
+    tmp_path, monkeypatch,
+):
+    target = tmp_path / "durable-directory"
+
+    def race(_stage, destination):
+        Path(destination).mkdir()
+        raise FileExistsError("simulated concurrent publisher")
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_runner,
+        "_windows_move_no_replace_write_through",
+        race,
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="appeared concurrently",
+    ):
+        phase3_main_live._publish_missing_directory(target)
+    assert target.is_dir()
+    assert not list(tmp_path.glob(".durable-directory.mkdir-*.tmp"))
+
+
+def test_artifact_publication_probe_preserves_preexisting_path(tmp_path, monkeypatch):
+    artifact_root = tmp_path / "formal"
+    artifact_root.mkdir()
+    probe = artifact_root / ".phase3-main-publication-probe-fixed"
+    original = b"user-owned preexisting bytes"
+    probe.write_bytes(original)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_new_artifact_publication_probe_path",
+        lambda _root: probe,
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="probe path already exists",
+    ):
+        phase3_main_live._probe_artifact_publication(artifact_root)
+    assert probe.read_bytes() == original
+
+
+def test_artifact_publication_probe_preserves_racing_writer_path(
+    tmp_path, monkeypatch,
+):
+    artifact_root = tmp_path / "formal"
+    artifact_root.mkdir()
+    probe = artifact_root / ".phase3-main-publication-probe-fixed"
+    raced = b"racing writer bytes"
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_new_artifact_publication_probe_path",
+        lambda _root: probe,
+    )
+
+    def racing_publish(path, _raw, *, label):
+        assert label == "artifact-volume publication probe"
+        path.write_bytes(raced)
+        raise phase3_main_live.Phase3MainLiveError("simulated publication race")
+
+    monkeypatch.setattr(
+        phase3_main_live, "_publish_exclusive_bytes", racing_publish)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="simulated publication race",
+    ):
+        phase3_main_live._probe_artifact_publication(artifact_root)
+    assert probe.read_bytes() == raced
 
 
 def test_public_paid_path_is_blocked_before_any_formal_state_mutation(
@@ -325,6 +742,22 @@ def test_public_paid_path_is_blocked_before_any_formal_state_mutation(
     assert not registry_root.exists()
 
 
+def test_public_paid_path_is_blocked_before_manifest_loading(monkeypatch):
+    load_calls = []
+
+    def forbidden_load(*args, **kwargs):
+        load_calls.append((args, kwargs))
+        raise AssertionError("paid path loaded launch inputs before its hard block")
+
+    monkeypatch.setattr(phase3_main_live, "load_prepared_main", forbidden_load)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="intentionally blocked",
+    ):
+        phase3_main_live.run_main("manifest", "authorization")
+    assert load_calls == []
+
+
 def test_production_blockers_exclude_closed_provenance_work():
     blockers = phase3_main_live.PRODUCTION_EXECUTION_BLOCKERS
     assert blockers
@@ -338,7 +771,7 @@ def test_production_blockers_exclude_closed_provenance_work():
     assert not any("wave-index closeout" in item for item in blockers)
 
 
-def test_launch_freshness_failure_precedes_identity_consumption(
+def test_launch_freshness_failure_precedes_identity_start(
     tmp_path, inventory, monkeypatch,
 ):
     prepared = _prepared(tmp_path, inventory)
@@ -373,11 +806,10 @@ def test_launch_freshness_failure_precedes_identity_consumption(
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="expired"):
         phase3_main_live.run_main("manifest", "authorization")
     assert not prepared.identity.artifact_root.exists()
-    assert not phase3_main_live._authorization_consumed_path(prepared).exists()
     assert not phase3_main_live._identity_start_path(prepared.identity).exists()
 
 
-def test_authorization_is_rechecked_after_launch_freshness_before_consumption(
+def test_authorization_is_rechecked_after_launch_freshness_before_identity_start(
     tmp_path, inventory, monkeypatch,
 ):
     prepared = _prepared(tmp_path, inventory)
@@ -415,14 +847,14 @@ def test_authorization_is_rechecked_after_launch_freshness_before_consumption(
     )
     monkeypatch.setattr(
         phase3_main_live,
-        "_consume_identity",
-        lambda _prepared: pytest.fail("expired authorization consumed identity"),
+        "_start_identity",
+        lambda _prepared: pytest.fail("expired authorization started identity"),
     )
 
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="expired"):
         phase3_main_live.run_main("manifest", "authorization")
     assert events == ["freshness", "authorization"]
-    assert not phase3_main_live._authorization_consumed_path(prepared).exists()
+    assert not phase3_main_live._identity_start_path(prepared.identity).exists()
 
 
 def test_strict_json_loader_rejects_duplicate_keys(tmp_path):
@@ -741,6 +1173,7 @@ def test_paid_call_revalidates_authorization_and_price_before_dispatch(
             self, *args, _logical_dispatch_authorization_hook=None, **kwargs,
         ):
             events.append("raw")
+            assert _logical_dispatch_authorization_hook is not None
             assert _logical_dispatch_authorization_hook() == (
                 "2026-08-30T12:00:00+00:00")
             events.append("provider")
@@ -1468,6 +1901,7 @@ def test_launch_freshness_and_in_run_capacity_integrity_are_separate(
             "disposition": "closed",
             "closed": True,
             "accounted_spend_usd": "10.25",
+            "provider_delta_usd": "10.25",
         },
     )
     monkeypatch.setattr(
@@ -2193,6 +2627,7 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
         "closed": True,
         "within_conservative_envelope": True,
         "accounted_spend_usd": "10.25",
+        "provider_delta_usd": "10.21",
         "uncertain_spend_usd": "0.04",
         "unresolved_attempt_ids": ("attempt-unknown",),
     }
@@ -2209,6 +2644,14 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
     validation["run_id"] = prepared.manifest["run_id"]
 
     validation["accounted_spend_usd"] = "10.24"
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="not closed at the manifest upper bound",
+    ):
+        phase3_main_live._require_clean_pre_main_billing(
+            validation, prepared.manifest)
+    validation["accounted_spend_usd"] = "10.25"
+    validation["provider_delta_usd"] = "10.26"
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
         match="not closed at the manifest upper bound",
@@ -2250,6 +2693,7 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
             "disposition": "closed",
             "closed": True,
             "accounted_spend_usd": "10.25",
+            "provider_delta_usd": "10.25",
             "uncertain_spend_usd": "0",
             "unresolved_attempt_ids": (),
         },
@@ -2277,13 +2721,40 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
         phase3_main_live, "_drive_and_finalize",
         lambda _prepared, _client, **_kwargs: {"status": "test-complete"})
 
+    real_publish = phase3_main_live._publish_staged_no_replace
+
+    def fail_artifact_publish(source, target):
+        if Path(target).parent.resolve() == prepared.identity.artifact_root:
+            raise OSError("simulated artifact-volume publication failure")
+        return real_publish(source, target)
+
+    monkeypatch.setattr(
+        phase3_main_live, "_publish_staged_no_replace", fail_artifact_publish)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="could not atomically publish artifact-volume publication probe",
+    ):
+        phase3_main_live.run_main("manifest", "authorization")
+    assert events == ["preseed"]
+    assert not phase3_main_live._identity_start_path(prepared.identity).exists()
+    assert not list(prepared.identity.artifact_root.glob(
+        ".phase3-main-publication-probe-*"))
+    shutil.rmtree(prepared.identity.artifact_root)
+    events.clear()
+    monkeypatch.setattr(
+        phase3_main_live, "_publish_staged_no_replace", real_publish)
+
     assert phase3_main_live.run_main("manifest", "authorization") == {
         "status": "test-complete"}
     assert events == ["preseed", "factory"]
     start_path = phase3_main_live._identity_start_path(prepared.identity)
-    consumed_path = phase3_main_live._authorization_consumed_path(prepared)
     assert start_path.is_file()
-    assert json.loads(consumed_path.read_text(encoding="utf-8")) == {
+    start = json.loads(start_path.read_text(encoding="utf-8"))
+    usage_snapshot = phase3_main_live.api_client.load_chained_usage_ledger(
+        prepared.identity.paths.usage_ledger)
+    usage_state_path = phase3_main_live.api_client.usage_ledger_state_path(
+        prepared.identity.paths.usage_ledger).resolve()
+    assert start == {
         "authorization_canonical_sha256": phase3_main_live.canonical_sha256(
             prepared.authorization),
         "authorization_id": prepared.authorization["authorization_id"],
@@ -2291,19 +2762,365 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
         "authorization_signature_raw_sha256": (
             prepared.authorization_signature_raw_sha256),
         "manifest_canonical_sha256": prepared.identity.manifest_sha256,
-        "recorded_at_utc": json.loads(
-            consumed_path.read_text(encoding="utf-8"))["recorded_at_utc"],
+        "manifest_identity_sha256": prepared.manifest["manifest_identity_sha256"],
+        "artifact_root": prepared.identity.artifact_root.as_posix(),
+        "usage_ledger_schema_version": (
+            phase3_main_live.api_client.USAGE_LEDGER_SCHEMA_VERSION),
+        "usage_ledger_id": usage_snapshot.identity["ledger_id"],
+        "usage_ledger_path": prepared.identity.paths.usage_ledger.resolve().as_posix(),
+        "usage_ledger_state_path": usage_state_path.as_posix(),
+        "usage_ledger_identity_canonical_sha256": (
+            phase3_main_live.canonical_sha256(usage_snapshot.identity)),
+        "usage_ledger_genesis_event_hash": usage_snapshot.last_event_hash,
+        "usage_ledger_genesis_raw_sha256": hashlib.sha256(
+            prepared.identity.paths.usage_ledger.read_bytes()).hexdigest(),
+        "usage_ledger_genesis_state_raw_sha256": hashlib.sha256(
+            usage_state_path.read_bytes()).hexdigest(),
+        "recorded_at_utc": start["recorded_at_utc"],
         "run_id": prepared.identity.run_id,
-        "schema_version": phase3_main_live.AUTHORIZATION_CONSUMED_SCHEMA,
-        "status": "consumed_no_reuse",
+        "schema_version": phase3_main_live.IDENTITY_START_SCHEMA,
+        "status": "started_single_shot",
     }
     assert prepared.identity.paths.active_marker.is_file()
 
     shutil.rmtree(prepared.identity.artifact_root)
-    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="already consumed"):
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="single-shot state"):
         phase3_main_live.run_main("manifest", "authorization")
     assert events == ["preseed", "factory"]
     assert not prepared.identity.paths.active_marker.exists()
+
+
+def test_environmental_interruption_record_is_one_line_singleton_and_non_authorizing(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest) + "\n", encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *args, **kwargs: prepared.manifest_validation,
+    )
+    start_path, ledger_path = _seed_started_identity(prepared)
+
+    result = phase3_main_live.record_environmental_interruption(
+        prepared.manifest_path,
+        reason_code="network_outage",
+    )
+    void_path = phase3_main_live._identity_void_path(prepared.identity)
+    raw = void_path.read_bytes()
+    void = json.loads(raw)
+    assert raw.count(b"\n") == 1 and raw.endswith(b"\n")
+    assert result == {
+        "status": "voided_environmental_interruption",
+        "run_id": prepared.identity.run_id,
+        "reason_code": "network_outage",
+        "record_path": void_path.as_posix(),
+        "replacement_authorized": False,
+    }
+    assert set(void) == phase3_main_live.IDENTITY_VOID_FIELDS
+    assert void["start_record_path"] == start_path.as_posix()
+    assert void["start_record_raw_sha256"] == hashlib.sha256(
+        start_path.read_bytes()).hexdigest()
+    assert void["usage_ledger_path"] == ledger_path.as_posix()
+    assert void["usage_ledger_raw_sha256"] == hashlib.sha256(
+        ledger_path.read_bytes()).hexdigest()
+    ledger_state_path = phase3_main_live.api_client.usage_ledger_state_path(
+        ledger_path)
+    assert void["usage_ledger_state_path"] == ledger_state_path.resolve().as_posix()
+    assert void["usage_ledger_state_raw_sha256"] == hashlib.sha256(
+        ledger_state_path.read_bytes()).hexdigest()
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="already exists"):
+        phase3_main_live.record_environmental_interruption(
+            prepared.manifest_path,
+            reason_code="network_outage",
+        )
+    prepared.identity.paths.completion.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="completed"):
+        phase3_main_live.record_environmental_interruption(
+            prepared.manifest_path,
+            reason_code="network_outage",
+        )
+
+
+def test_environmental_interruption_rejects_replacement_usage_ledger(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest) + "\n", encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *args, **kwargs: prepared.manifest_validation,
+    )
+    _, ledger_path = _seed_started_identity(prepared)
+    state_path = phase3_main_live.api_client.usage_ledger_state_path(ledger_path)
+    ledger_path.unlink()
+    state_path.unlink()
+    phase3_main_live.api_client.prepare_usage_ledger(
+        ledger_path, allow_create=True)
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="does not validate against its start binding",
+    ):
+        phase3_main_live.record_environmental_interruption(
+            prepared.manifest_path,
+            reason_code="power_loss",
+        )
+    assert not phase3_main_live._identity_void_path(prepared.identity).exists()
+
+
+def test_environmental_successor_requires_exact_void_start_and_billing_ledger(
+    tmp_path, inventory, monkeypatch,
+):
+    predecessor = _prepared(tmp_path / "predecessor", inventory)
+    predecessor.manifest_path.write_text(
+        json.dumps(predecessor.manifest) + "\n", encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *args, **kwargs: predecessor.manifest_validation,
+    )
+    start_path, ledger_path = _seed_started_identity(predecessor)
+    state_path = phase3_main_live.api_client.usage_ledger_state_path(ledger_path)
+    genesis_ledger_raw = ledger_path.read_bytes()
+    genesis_state_raw = state_path.read_bytes()
+    genesis_snapshot = phase3_main_live.api_client.load_chained_usage_ledger(
+        ledger_path)
+    lost_reservation = {
+        "status": "reserved",
+        "attempt_id": "simulated-paid-call",
+        "model": "fixture-model",
+        "kind": "judge",
+        "seed": 1,
+        "attempt": 1,
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "reserved_prompt_tokens": 1,
+        "reserved_completion_tokens": 1,
+        "estimated_tokens": 2,
+        "cost_usd": 0.01,
+        "metadata": {},
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "ledger_id": genesis_snapshot.identity["ledger_id"],
+        "sequence": 1,
+        "prev_event_hash": genesis_snapshot.last_event_hash,
+    }
+    lost_reservation["event_hash"] = (
+        phase3_main_live.api_client._usage_event_hash(lost_reservation))  # noqa: SLF001
+    with ledger_path.open("a", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(lost_reservation, sort_keys=True) + "\n")
+    state_path.write_text(
+        json.dumps(
+            phase3_main_live.api_client._usage_state_payload(  # noqa: SLF001
+                genesis_snapshot.identity, 1, lost_reservation["event_hash"]),
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    assert phase3_main_live.api_client.load_chained_usage_ledger(
+        ledger_path).last_sequence == 1
+    ledger_path.write_bytes(genesis_ledger_raw)
+    state_path.write_bytes(genesis_state_raw)
+    phase3_main_live.record_environmental_interruption(
+        predecessor.manifest_path,
+        reason_code="provider_outage",
+    )
+    void_path = phase3_main_live._identity_void_path(predecessor.identity)
+    void = json.loads(void_path.read_text(encoding="utf-8"))
+    start = json.loads(start_path.read_text(encoding="utf-8"))
+    start_time = datetime.fromisoformat(start["recorded_at_utc"])
+    void_time = datetime.fromisoformat(void["recorded_at_utc"])
+    predecessor_binding = {
+        "run_id": predecessor.identity.run_id,
+        "manifest_canonical_sha256": predecessor.identity.manifest_sha256,
+        "manifest_identity_sha256": predecessor.manifest["manifest_identity_sha256"],
+        "authorization_id": start["authorization_id"],
+        "authorization_canonical_sha256": start["authorization_canonical_sha256"],
+        "authorization_raw_sha256": start["authorization_raw_sha256"],
+        "authorization_signature_raw_sha256": (
+            start["authorization_signature_raw_sha256"]),
+        "artifact_root": predecessor.identity.artifact_root,
+        "void_record_path": void_path,
+        "void_record_raw_sha256": hashlib.sha256(void_path.read_bytes()).hexdigest(),
+        "usage_ledger_path": ledger_path,
+        "usage_ledger_raw_sha256": hashlib.sha256(ledger_path.read_bytes()).hexdigest(),
+    }
+    successor_validation = {
+        "recorded_at_utc": void_time + timedelta(seconds=1),
+        "restart": {
+            "mode": phase3_main_live.phase3_main_manifest.RESTART_MODE_ENVIRONMENTAL_SUCCESSOR,
+            "predecessor": predecessor_binding,
+        },
+    }
+    billing_record = {
+        "ledgers": [{
+            "path": ledger_path.as_posix(),
+            "raw_sha256": predecessor_binding["usage_ledger_raw_sha256"],
+        }],
+    }
+    billing_validation = {
+        "billing_scope": {
+            "account_identity_sha256": "a" * 64,
+            "window_start_utc": (start_time - timedelta(seconds=1)).isoformat(),
+            "window_end_utc": (void_time + timedelta(seconds=1)).isoformat(),
+        },
+        "provider_settlement": {
+            "status": "provider_authenticated_finalized",
+            "account_identity_sha256": "a" * 64,
+            "finalized_through_utc": (
+                void_time + timedelta(milliseconds=500)).isoformat(),
+        },
+    }
+    phase3_main_live._validate_environmental_restart(
+        manifest_validation=successor_validation,
+        billing_record=billing_record,
+        billing_validation=billing_validation,
+        project_root=tmp_path,
+    )
+    out_of_window_validation = {
+        "billing_scope": {
+            "account_identity_sha256": "a" * 64,
+            "window_start_utc": (void_time + timedelta(seconds=1)).isoformat(),
+            "window_end_utc": (void_time + timedelta(seconds=2)).isoformat(),
+        },
+        "provider_settlement": dict(billing_validation["provider_settlement"]),
+    }
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="billing window does not cover",
+    ):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=successor_validation,
+            billing_record=billing_record,
+            billing_validation=out_of_window_validation,
+            project_root=tmp_path,
+        )
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="settlement finality",
+    ):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=successor_validation,
+            billing_record=billing_record,
+            billing_validation={"billing_scope": billing_validation["billing_scope"]},
+            project_root=tmp_path,
+        )
+    equality_settlement_validation = {
+        "billing_scope": dict(billing_validation["billing_scope"]),
+        "provider_settlement": {
+            **billing_validation["provider_settlement"],
+            "finalized_through_utc": billing_validation[
+                "billing_scope"]["window_end_utc"],
+        },
+    }
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="post-void billing window",
+    ):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=successor_validation,
+            billing_record=billing_record,
+            billing_validation=equality_settlement_validation,
+            project_root=tmp_path,
+        )
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="does not cover"):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=successor_validation,
+            billing_record={"ledgers": []},
+            billing_validation=billing_validation,
+            project_root=tmp_path,
+        )
+    changed = {
+        **successor_validation,
+        "restart": {
+            **successor_validation["restart"],
+            "predecessor": {
+                **predecessor_binding,
+                "authorization_canonical_sha256": "0" * 64,
+            },
+        },
+    }
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="semantics drifted"):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=changed,
+            billing_record=billing_record,
+            billing_validation=billing_validation,
+            project_root=tmp_path,
+        )
+    changed = {
+        **successor_validation,
+        "recorded_at_utc": void_time - timedelta(microseconds=1),
+    }
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="timestamps"):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=changed,
+            billing_record=billing_record,
+            billing_validation=billing_validation,
+            project_root=tmp_path,
+        )
+
+    original_void_raw = void_path.read_bytes()
+    tampered_void = dict(void)
+    tampered_void["run_id"] = "phase3-main-tampered"
+    void_path.write_text(
+        json.dumps(tampered_void, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    changed_predecessor = {
+        **predecessor_binding,
+        "void_record_raw_sha256": hashlib.sha256(void_path.read_bytes()).hexdigest(),
+    }
+    changed = {
+        **successor_validation,
+        "restart": {
+            **successor_validation["restart"],
+            "predecessor": changed_predecessor,
+        },
+    }
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="binding drifted"):
+        phase3_main_live._validate_environmental_restart(
+            manifest_validation=changed,
+            billing_record=billing_record,
+            billing_validation=billing_validation,
+            project_root=tmp_path,
+        )
+    void_path.write_bytes(original_void_raw)
+
+
+def test_environmental_interruption_record_respects_main_run_lease(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest) + "\n", encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *args, **kwargs: prepared.manifest_validation,
+    )
+    _seed_started_identity(prepared)
+    with phase3_main_live.phase3_v3_live.RunLease(prepared.identity.paths.lease):
+        with pytest.raises(phase3_main_live.Phase3MainLiveError, match="run lease"):
+            phase3_main_live.record_environmental_interruption(
+                prepared.manifest_path,
+                reason_code="host_failure",
+            )
+
+
+def test_completion_rejects_persistently_voided_identity(tmp_path, inventory):
+    prepared = _prepared(tmp_path, inventory)
+    void_path = phase3_main_live._identity_void_path(prepared.identity)
+    void_path.parent.mkdir(parents=True)
+    void_path.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="cannot be completed"):
+        phase3_main_live._require_identity_not_voided(prepared.identity)
 
 
 def test_unknown_charge_is_identity_fatal_in_the_production_loop(
@@ -2358,23 +3175,25 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
             "disposition": "closed",
             "closed": True,
             "accounted_spend_usd": "10.25",
+            "provider_delta_usd": "10.25",
             "uncertain_spend_usd": "0",
             "unresolved_attempt_ids": (),
         },
     )
 
     def fake_preseed(**kwargs):
-        assert phase3_main_live._identity_start_path(prepared.identity).is_file()
+        assert not phase3_main_live._identity_start_path(prepared.identity).exists()
         Path(kwargs["target_store_path"]).touch()
         return {"main_bundle_count": 492, "written": 492, "skipped": 0}
 
     def fake_factory(_prepared, _snapshot):
         factory_calls.append(True)
-        assert phase3_main_live._identity_start_path(prepared.identity).is_file()
+        assert not phase3_main_live._identity_start_path(prepared.identity).exists()
         return object()
 
     def fake_run_canary(**kwargs):
         loop_calls.append(kwargs)
+        assert phase3_main_live._identity_start_path(prepared.identity).is_file()
         assert kwargs["fatal_unknown_charge"] is True
         return SimpleNamespace(
             completed=0,
@@ -2407,11 +3226,10 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
     assert len(loop_calls) == 1
     start_path = phase3_main_live._identity_start_path(prepared.identity)
     assert start_path.is_file()
-    assert phase3_main_live._authorization_consumed_path(prepared).is_file()
     assert not prepared.identity.paths.completion.exists()
 
     shutil.rmtree(prepared.identity.artifact_root)
-    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="already consumed"):
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="single-shot state"):
         phase3_main_live.run_main("manifest", "authorization")
     assert len(factory_calls) == 1
     assert len(loop_calls) == 1
@@ -2523,6 +3341,35 @@ def test_cli_validate_only_cannot_construct_or_run_provider(
     }
     assert len(calls) == 1
     assert calls[0][1]["verify_git"] is True
+
+
+def test_cli_environmental_interruption_mode_never_reaches_run_main(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(
+        phase3_main_live,
+        "record_environmental_interruption",
+        lambda manifest, *, reason_code: calls.append((manifest, reason_code)) or {
+            "status": "voided_environmental_interruption",
+            "run_id": "phase3-main-interrupted",
+            "reason_code": reason_code,
+            "record_path": "C:/registry/interrupted.voided.json",
+            "replacement_authorized": False,
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "run_main",
+        lambda *args, **kwargs: pytest.fail("interruption mode reached run_main"),
+    )
+    rc = phase3_main_live.main([
+        "--manifest", "manifest.json",
+        "--record-environmental-interruption",
+        "--reason-code", "power_loss",
+    ])
+    captured = capsys.readouterr()
+    assert rc == 0 and captured.err == ""
+    assert calls == [("manifest.json", "power_loss")]
+    assert json.loads(captured.out)["replacement_authorized"] is False
 
 
 def test_cli_run_is_separate_and_failures_refuse(

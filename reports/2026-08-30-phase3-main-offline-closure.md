@@ -1,9 +1,10 @@
 # Phase 3 main offline closure and next gates
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
-capacity-foundation, billing-inventory, and offline hardening work complete. Production
-remains blocked on external authority, authenticated account evidence, and fresh measurement.
-This document authorizes no external execution, reviewer dispatch, provider call, or spend.
+capacity-foundation, billing-inventory, process-reset reconciliation, and offline hardening
+work complete. Production remains blocked on external authority, authenticated account
+evidence, and fresh measurement. This document authorizes no external execution, reviewer
+dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -14,7 +15,7 @@ Commits `d9d6db6`, `8299c52`, `f8a1798`, and `acee8b4` provide the blocked Phase
 driver, exact manifest and signed-authorization validation, provider and reviewer dispatch
 guards, complete transcript and request reconstruction, finalization admission,
 confirmatory-analysis handoff, and current readiness gates. The public paid path remains
-hard-blocked before formal state mutation.
+hard-blocked before manifest loading or formal state mutation.
 
 The closure adds these properties:
 
@@ -75,10 +76,11 @@ Post-materialization checks passed: the record's declared source, input, receipt
 hashes all match disk; the focused harness suite passed 9 tests; all 349 top-level `rejudge`
 JSON files parsed; and whitespace plus no-em-dash checks passed.
 
-This closes the current offline harness milestone, not a permanent launch gate. The eventual
-exact main manifest must bind seed `20260829`, validate this receipt against the chosen formal
-artifact root, and regenerate it after any harness-sensitive execution-code or frozen-input
-change.
+This closes the historical offline harness milestone, not a permanent launch gate. The current
+exact production source now differs from `acee8b4`, so the receipt must be regenerated at the
+chosen exact source commit before production manifest construction. The eventual exact main
+manifest must bind seed `20260829` and validate the new receipt against the chosen formal
+artifact root.
 
 ## Offline capacity and billing foundations
 
@@ -154,6 +156,74 @@ path cannot yet have a discoverable hard-link identity, so later creation stays 
 Inventory publication requires same-filesystem hard-link support and fails closed where it is
 unavailable. None of these limitations grants execution authority or provider access.
 
+## Environmental restart contract
+
+The ratified process reset is now implemented locally without weakening single-shot formal
+measurement. Main manifests use an exact v3 restart object. An initial identity has no
+predecessor. An environmental successor must use a fresh run ID and a separate, noncontained
+artifact root, and it binds the predecessor manifest identity, signed authorization hashes,
+void record, and final usage ledger.
+
+The persistent registry records one exact start immediately before formal provider work. It
+does not consume authorization or claim that an attempt is permanently spent. The start binds
+the exact fresh ledger ID, ledger and state paths, canonical ledger identity, genesis event,
+and initial ledger and state hashes. The public interruption command accepts only the four
+frozen environmental reason codes, acquires the same run lease used by execution and
+completion, rejects never-started or completed identities, validates the final ledger chain
+and state against the start-bound genesis, and writes one immutable one-line void record. A
+void never authorizes a replacement.
+
+Successor admission reopens the exact start, void, final ledger, and ledger state; checks the
+start-to-void-to-successor timestamp order; requires the predecessor authorization hashes to
+match; and requires exactly one validated billing-reconciliation row for the predecessor
+ledger path and raw hash. Its authenticated billing window must cover the whole predecessor
+lifetime. The provider delta may never exceed the accounted upper bound, and a successor also
+requires a validated account-matched provider settlement watermark strictly after the void and
+strictly inside the half-open billing window. The current billing validator cannot yet issue
+that watermark, so real environmental successors remain explicitly blocked rather than
+assuming that an immediate dashboard capture is final.
+
+Persistent registry records are staged in a fully fsynced sibling file and published without
+replacement. POSIX uses a hard link followed by a parent-directory fsync. Windows uses a
+same-directory `MoveFileExW` operation with `MOVEFILE_WRITE_THROUGH`, no replace flag, and an
+exact byte reopen. Microsoft documents that the write-through move does not return until the
+move is on disk in the [MoveFileExW contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
+and demonstrates the same operation for a directory whose target does not exist in its
+[directory example](https://learn.microsoft.com/en-us/windows/win32/fileio/moving-directories).
+Fresh Windows registry and artifact ancestors are therefore created as unique empty
+sibling stages and write-through moved into place one level at a time. A stable bootstrap
+lease serializes registry-tree creation, and any concurrently appearing target fails the
+current attempt closed. POSIX retains one-level creation plus directory fsync. A post-link
+POSIX crash alias is removed only when it is the same file as the final record; a
+different-file alias fails closed. The artifact volume is independently probed through the
+platform publication path, exact reopen, and cleanup under the run lease before persistent
+start or provider-client construction. The fresh genesis ledger uses the same fsynced,
+no-replace publication, and every ledger-state creation or replacement is write-through moved
+and exactly reopened on Windows. Win32 calls receive extended-length absolute paths, so a deep
+but valid artifact tree does not pass the root probe and then fail after paid work solely due
+to the legacy `MAX_PATH` boundary.
+
+The signed authorization text states that the identity is single-shot, environmental
+interruption voids it, and restart requires both a fresh successor manifest and a separate
+exact authorization. The manifest still fixes `formal_main_attempt_count` at one.
+
+Verification on the process-reset tree:
+
+- Focused runner, manifest, and live-driver suite: 114 passed, 2 skipped.
+- Usage-client and accounting regression suite: 132 passed.
+- Complete Phase 3 main suite: 486 passed, 2 skipped in 127.98 seconds.
+- Full repository exact-snapshot suite: 2,903 passed, 67 skipped in 617.47 seconds.
+- The two skips are direct Windows symlink exercises on a host without symlink privilege.
+  Deterministic lexical dangling-link and reparse-point refusal tests passed.
+- Scoped type checking, static compilation, whitespace checks, and stale-schema searches:
+  passed.
+- Adversarial review found and closed ordering, ledger-provenance, billing-window,
+  provider-settlement, prior-upper-bound, directory-durability, crash-alias, and cross-volume
+  publication gaps. The settled snapshot has no remaining P0, P1, or P2 finding.
+
+No provider call, reviewer dispatch, capacity measurement, production launch, push, or spend
+occurred during this work.
+
 ## Remaining production blockers
 
 The remaining items require owner decisions, internal contract reconciliation, or fresh
@@ -165,18 +235,16 @@ enabled:
    the repository and inaccessible to Codex.
 2. The protocol still fixes a $450 stage cap while the sealed canary supports a proposed $875
    planning cap. One value must be ratified after a fresh certified forecast.
-3. Provider-authenticated billing evidence, runtime credential-to-account binding, and an
-   authoritative predecessor-ledger inventory do not exist yet.
-4. The production protocol and driver have not yet been reconciled to the ratified process
-   reset. Formal measurement remains single-shot, while an environmental interruption voids
-   that run and permits a fresh identity with a one-line log entry. A non-resettable external
-   consumption store is not a new project requirement.
-5. No signed response rule exists for a provider price change during the formal run.
-6. Codex reviewer usage has no separately ratified spend treatment. The representative
+3. Provider-authenticated billing evidence, runtime credential-to-account binding, an
+   authoritative predecessor-ledger inventory, and an authenticated settlement-finality
+   watermark do not exist yet.
+4. No signed response rule exists for a provider price change during the formal run.
+5. Codex reviewer usage has no separately ratified spend treatment. The representative
    capacity preflight has a frozen plan and a verified fake-only execution foundation, but no
    authorized external measurement result. Real dispatch remains hard-disabled.
-7. Fresh prices, capacity evidence, billing evidence, forecast, exact manifest, and detached
-   owner authorization have not been materialized for a production identity.
+6. Fresh prices, capacity evidence, billing evidence, forecast, regenerated exact-source
+   harness receipt, exact manifest, and detached owner authorization have not been
+   materialized for a production identity.
 
 ## Crash-consistency closure
 
@@ -200,18 +268,18 @@ cross-wave continuity, final store targets, and the complete packet tree.
    ledger and auxiliary source set.
 2. Materialize the explicit local billing inventory, bind the runtime credential to the
    selected account scope, reconcile the inventory to the authenticated dashboard, and obtain
-   an authoritative completeness attestation.
-3. Reconcile the protocol and driver to the ratified environmental-restart rule. Ratify the
-   price-change response and reviewer usage treatment, then pin Jack's public signing key and
-   fingerprint.
+   an authoritative completeness attestation plus a provider settlement watermark for any
+   environmental predecessor.
+3. Ratify the price-change response and reviewer usage treatment, then pin Jack's public
+   signing key and fingerprint.
 4. Close the capacity real-enable gaps and request a separate bounded authorization for the
    representative reviewer-capacity preflight. Do not treat this report, the existing plan,
    or fake-only tests as dispatch authority.
 5. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
    forecast.
-6. Use the certified forecast to ratify one exact stage cap. At exact-manifest construction,
-   revalidate the harness receipt against the chosen formal artifact root and exact frozen
-   inputs. Regenerate it if the seed or harness-sensitive code differs from `acee8b4`.
+6. Use the certified forecast to ratify one exact stage cap. Regenerate the harness receipt at
+   the exact source commit and revalidate it against the chosen formal artifact root and exact
+   frozen inputs.
 7. Build the exact manifest and owner-signed authorization, then run `--validate-only` and prove
    zero formal-state mutation.
 8. Perform the dedicated final methods and launch review. A separate explicit authorization is

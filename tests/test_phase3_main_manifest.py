@@ -80,6 +80,7 @@ def _manifest(tmp_path: Path) -> dict:
             "paths": paths,
             "sha256s": {name: None for name in paths},
         },
+        "restart": {"mode": "initial", "predecessor": None},
         "runtime": {
             "provider": "Together",
             "model_ids": list(CONFIRMED_MAIN_JUDGES),
@@ -150,6 +151,64 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     assert result["run_id"] == manifest["run_id"]
     assert result["stage_cap_usd"] == "875.00"
     assert result["artifact_root"] == (tmp_path / "formal").resolve()
+
+
+def test_environmental_successor_binds_fresh_predecessor_evidence(tmp_path):
+    predecessor_run_id = "phase3-main-predecessor"
+    predecessor_manifest_sha = "c" * 64
+    predecessor_root = (tmp_path / "predecessor-formal").resolve()
+    predecessor_root.mkdir()
+    predecessor_ledger = predecessor_root / main_manifest.OUTPUT_FILENAMES["usage_ledger"]
+    predecessor_ledger.write_text('{"event":"genesis"}\n', encoding="utf-8")
+    registry = (tmp_path / "predecessor-registry" / "identities").resolve()
+    registry.mkdir(parents=True)
+    void_record = registry / (
+        f"{predecessor_run_id}-{predecessor_manifest_sha}.voided.json")
+    void_record.write_text('{"status":"voided_environmental_interruption"}\n', encoding="utf-8")
+
+    manifest = _manifest(tmp_path / "successor")
+    manifest["restart"] = {
+        "mode": main_manifest.RESTART_MODE_ENVIRONMENTAL_SUCCESSOR,
+        "predecessor": {
+            "run_id": predecessor_run_id,
+            "manifest_canonical_sha256": predecessor_manifest_sha,
+            "manifest_identity_sha256": "d" * 64,
+            "authorization_id": "predecessor-authorization",
+            "authorization_canonical_sha256": "e" * 64,
+            "authorization_raw_sha256": "f" * 64,
+            "authorization_signature_raw_sha256": "1" * 64,
+            "artifact_root": predecessor_root.as_posix(),
+            "void_record_path": void_record.as_posix(),
+            "void_record_raw_sha256": _sha(void_record),
+            "usage_ledger_path": predecessor_ledger.as_posix(),
+            "usage_ledger_raw_sha256": _sha(predecessor_ledger),
+        },
+    }
+    manifest["manifest_identity_sha256"] = main_manifest.manifest_identity_sha256(manifest)
+    manifest["run_id"] = main_manifest.expected_run_id(manifest)
+
+    validated = main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
+    assert validated["restart"]["mode"] == (
+        main_manifest.RESTART_MODE_ENVIRONMENTAL_SUCCESSOR)
+    assert validated["restart"]["predecessor"]["usage_ledger_path"] == predecessor_ledger
+    authorization = _authorization(manifest)
+    assert predecessor_run_id in authorization["exact_text"]
+    main_manifest.validate_main_authorization(authorization, manifest, as_of=NOW)
+
+    changed = deepcopy(manifest)
+    changed["restart"]["predecessor"]["usage_ledger_raw_sha256"] = "2" * 64
+    changed["manifest_identity_sha256"] = main_manifest.manifest_identity_sha256(changed)
+    changed["run_id"] = main_manifest.expected_run_id(changed)
+    with pytest.raises(main_manifest.MainManifestError, match="usage ledger"):
+        main_manifest.validate_main_manifest(changed, project_root=tmp_path)
+
+    changed = deepcopy(manifest)
+    changed["restart"]["predecessor"]["artifact_root"] = (
+        changed["output_contract"]["artifact_root"])
+    changed["manifest_identity_sha256"] = main_manifest.manifest_identity_sha256(changed)
+    changed["run_id"] = main_manifest.expected_run_id(changed)
+    with pytest.raises(main_manifest.MainManifestError, match="new artifact root"):
+        main_manifest.validate_main_manifest(changed, project_root=tmp_path)
 
 
 def test_manifest_rejects_self_authority_input_drift_and_wrong_hash_kind(tmp_path):

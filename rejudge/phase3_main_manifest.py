@@ -27,7 +27,7 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v2"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v3"
 AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v3"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
@@ -41,6 +41,7 @@ MANIFEST_FIELDS = frozenset({
     "input_bindings",
     "inventory",
     "output_contract",
+    "restart",
     "runtime",
     "spend",
     "harness_check",
@@ -157,6 +158,23 @@ OUTPUT_FILENAMES = {
     "analysis_results": "main_analysis_results.json",
     "completion": "main_completion.json",
 }
+RESTART_FIELDS = frozenset({"mode", "predecessor"})
+RESTART_MODE_INITIAL = "initial"
+RESTART_MODE_ENVIRONMENTAL_SUCCESSOR = "environmental_successor"
+PREDECESSOR_FIELDS = frozenset({
+    "run_id",
+    "manifest_canonical_sha256",
+    "manifest_identity_sha256",
+    "authorization_id",
+    "authorization_canonical_sha256",
+    "authorization_raw_sha256",
+    "authorization_signature_raw_sha256",
+    "artifact_root",
+    "void_record_path",
+    "void_record_raw_sha256",
+    "usage_ledger_path",
+    "usage_ledger_raw_sha256",
+})
 RUNTIME_FIELDS = frozenset({
     "provider",
     "model_ids",
@@ -281,12 +299,22 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
     """Exact owner sentence required by the separately stored authorization record."""
     runtime = manifest["runtime"]
     models = runtime["model_ids"]
+    restart = manifest["restart"]
+    identity_description = "an initial formal identity"
+    if restart["mode"] == RESTART_MODE_ENVIRONMENTAL_SUCCESSOR:
+        identity_description = (
+            "an environmental successor to "
+            f"{restart['predecessor']['run_id']}"
+        )
     return (
         f"Approved: {manifest['run_id']} Phase 3 main with Together endpoints exactly "
         f"{models[0]} and {models[1]}, plus Codex reviewer dispatches using "
         f"{runtime['reviewer_model']} at {runtime['reviewer_reasoning_effort']} effort and "
-        f"concurrency {runtime['reviewer_concurrency']}, one formal attempt, "
-        f"${manifest['spend']['stage_cap_usd']} USD cumulative stage cap, no resume. "
+        f"concurrency {runtime['reviewer_concurrency']}, {identity_description}, one "
+        f"single-shot formal measurement, ${manifest['spend']['stage_cap_usd']} USD "
+        "cumulative stage cap, and no resume of this identity. An environmental interruption "
+        "voids this identity; any restart requires a fresh successor manifest and separate "
+        "exact authorization. "
         "valid_until_utc is the latest start of a new logical provider call or individual "
         "reviewer invocation; already-started work and local evidence closeout may finish "
         "later."
@@ -350,6 +378,108 @@ def _validate_output_contract(value: Any) -> tuple[Path, Path, dict[str, Path]]:
     return artifact_root, registry_root, resolved
 
 
+def _validate_restart(
+    value: Any,
+    *,
+    artifact_root: Path,
+    current_run_id: str,
+    verify_files: bool,
+) -> dict[str, Any]:
+    restart = _exact_keys(value, RESTART_FIELDS, "restart")
+    mode = restart["mode"]
+    if mode == RESTART_MODE_INITIAL:
+        if restart["predecessor"] is not None:
+            raise MainManifestError("an initial manifest cannot name a predecessor")
+        return {"mode": mode, "predecessor": None}
+    if mode != RESTART_MODE_ENVIRONMENTAL_SUCCESSOR:
+        raise MainManifestError("restart.mode is not supported")
+
+    predecessor = _exact_keys(
+        restart["predecessor"], PREDECESSOR_FIELDS, "restart.predecessor")
+    predecessor_run_id = _text(predecessor["run_id"], "restart.predecessor.run_id")
+    if predecessor_run_id == current_run_id:
+        raise MainManifestError("an environmental successor must use a fresh run ID")
+    predecessor_manifest_sha = _sha256(
+        predecessor["manifest_canonical_sha256"],
+        "restart.predecessor.manifest_canonical_sha256",
+    )
+    predecessor_identity_sha = _sha256(
+        predecessor["manifest_identity_sha256"],
+        "restart.predecessor.manifest_identity_sha256",
+    )
+    predecessor_authorization_id = _text(
+        predecessor["authorization_id"], "restart.predecessor.authorization_id")
+    predecessor_authorization_sha = _sha256(
+        predecessor["authorization_canonical_sha256"],
+        "restart.predecessor.authorization_canonical_sha256",
+    )
+    predecessor_authorization_raw_sha = _sha256(
+        predecessor["authorization_raw_sha256"],
+        "restart.predecessor.authorization_raw_sha256",
+    )
+    predecessor_signature_raw_sha = _sha256(
+        predecessor["authorization_signature_raw_sha256"],
+        "restart.predecessor.authorization_signature_raw_sha256",
+    )
+    predecessor_root = Path(_text(
+        predecessor["artifact_root"], "restart.predecessor.artifact_root")).resolve()
+    if not Path(str(predecessor["artifact_root"])).is_absolute():
+        raise MainManifestError("restart.predecessor.artifact_root must be absolute")
+    if predecessor_root == artifact_root:
+        raise MainManifestError("an environmental successor must use a new artifact root")
+    for child, parent in ((predecessor_root, artifact_root), (artifact_root, predecessor_root)):
+        try:
+            child.relative_to(parent)
+        except ValueError:
+            continue
+        raise MainManifestError(
+            "successor and predecessor artifact roots must not contain one another")
+
+    void_path = Path(_text(
+        predecessor["void_record_path"], "restart.predecessor.void_record_path"))
+    ledger_path = Path(_text(
+        predecessor["usage_ledger_path"], "restart.predecessor.usage_ledger_path"))
+    if not void_path.is_absolute() or not ledger_path.is_absolute():
+        raise MainManifestError("restart predecessor evidence paths must be absolute")
+    void_path = void_path.resolve()
+    ledger_path = ledger_path.resolve()
+    if ledger_path != predecessor_root / OUTPUT_FILENAMES["usage_ledger"]:
+        raise MainManifestError(
+            "restart predecessor usage ledger is outside its exact artifact root")
+    void_sha = _sha256(
+        predecessor["void_record_raw_sha256"],
+        "restart.predecessor.void_record_raw_sha256",
+    )
+    ledger_sha = _sha256(
+        predecessor["usage_ledger_raw_sha256"],
+        "restart.predecessor.usage_ledger_raw_sha256",
+    )
+    if verify_files:
+        for path, expected, label in (
+            (void_path, void_sha, "environmental predecessor void record"),
+            (ledger_path, ledger_sha, "environmental predecessor usage ledger"),
+        ):
+            if not path.is_file() or _raw_sha256(path) != expected:
+                raise MainManifestError(f"{label} is missing or its raw SHA-256 drifted")
+    return {
+        "mode": mode,
+        "predecessor": {
+            "run_id": predecessor_run_id,
+            "manifest_canonical_sha256": predecessor_manifest_sha,
+            "manifest_identity_sha256": predecessor_identity_sha,
+            "authorization_id": predecessor_authorization_id,
+            "authorization_canonical_sha256": predecessor_authorization_sha,
+            "authorization_raw_sha256": predecessor_authorization_raw_sha,
+            "authorization_signature_raw_sha256": predecessor_signature_raw_sha,
+            "artifact_root": predecessor_root,
+            "void_record_path": void_path,
+            "void_record_raw_sha256": void_sha,
+            "usage_ledger_path": ledger_path,
+            "usage_ledger_raw_sha256": ledger_sha,
+        },
+    }
+
+
 def validate_main_manifest(
     manifest: Mapping[str, Any], *, project_root: str | Path = ".",
     verify_files: bool = True, verify_runtime: bool = True,
@@ -360,7 +490,7 @@ def validate_main_manifest(
         raise MainManifestError("unsupported Phase 3 main manifest schema or stage")
     if manifest["execution_authorized"] is not False:
         raise MainManifestError("a main manifest can never authorize execution")
-    _utc(manifest["recorded_at_utc"], "recorded_at_utc")
+    recorded_at = _utc(manifest["recorded_at_utc"], "recorded_at_utc")
     commit = _text(manifest["source_commit"], "source_commit")
     if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
         raise MainManifestError("source_commit must be a lowercase 40-character Git commit")
@@ -411,6 +541,12 @@ def validate_main_manifest(
 
     artifact_root, registry_root, output_paths = _validate_output_contract(
         manifest["output_contract"])
+    restart = _validate_restart(
+        manifest["restart"],
+        artifact_root=artifact_root,
+        current_run_id=str(manifest["run_id"]),
+        verify_files=verify_files,
+    )
     runtime = _exact_keys(manifest["runtime"], RUNTIME_FIELDS, "runtime")
     if runtime["provider"] != "Together":
         raise MainManifestError("main provider must be Together")
@@ -457,11 +593,13 @@ def validate_main_manifest(
         raise MainManifestError("run ID or manifest identity digest does not match its contents")
     return {
         "run_id": manifest["run_id"],
+        "recorded_at_utc": recorded_at,
         "manifest_canonical_sha256": manifest_canonical_sha256(manifest),
         "input_paths": input_paths,
         "artifact_root": artifact_root,
         "identity_registry_root": registry_root,
         "output_paths": output_paths,
+        "restart": restart,
         "stage_cap_usd": str(cap),
         "prior_reconciled_usd": str(prior),
         "forecast_main_usd": str(forecast),
@@ -553,6 +691,8 @@ __all__ = [
     "MANIFEST_SCHEMA",
     "MainManifestError",
     "OUTPUT_FILENAMES",
+    "RESTART_MODE_ENVIRONMENTAL_SUCCESSOR",
+    "RESTART_MODE_INITIAL",
     "REQUIRED_INPUT_BINDINGS",
     "expected_run_id",
     "expected_authorization_text",
