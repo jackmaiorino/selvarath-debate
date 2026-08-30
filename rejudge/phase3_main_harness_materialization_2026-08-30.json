@@ -1,0 +1,83 @@
+{
+  "schema_version": "phase3_main_harness_materialization_v1",
+  "record_id": "phase3_main_harness_materialization_2026-08-30",
+  "recorded_at_date": "2026-08-30",
+  "status": "offline_bit_identical_pass",
+  "source": {
+    "git_commit": "acee8b4252f32f2ed46e9d890d753909a0145874",
+    "tracked_worktree_clean_before_execution": true,
+    "harness_module": {
+      "path": "rejudge/phase3_main_harness.py",
+      "raw_sha256": "95bc739f473bec228d50bf49a8fe60ebd56d1283867c6e7ba729b34468078443"
+    },
+    "main_runner": {
+      "path": "rejudge/phase3_main_runner.py",
+      "raw_sha256": "fb53a4e2925812cc4313444f51f461ebbd05adc41c7e7c955ebd48073b6e1da7"
+    },
+    "canary_runner": {
+      "path": "rejudge/phase2_canary_runner.py",
+      "raw_sha256": "97b876211abc4b358ed019bce519b82b0e1b2b99cd9fdfcd4f1ece13957934c7"
+    },
+    "main_preseed": {
+      "path": "scripts/phase3_preseed_transcripts.py",
+      "raw_sha256": "46f69e76d89097b341449290be125bbd5fef21be962b7b1abfd6e576da4adfd5"
+    }
+  },
+  "toolchain": {
+    "python": "3.13.5",
+    "uv_lock_raw_sha256": "c20aa6550ff8c943cdd22d2fde0f4af958521f3574be0e05190278ef04fe3848",
+    "linker": "not_used",
+    "gpu_ordinal": "not_used"
+  },
+  "inputs": {
+    "protocol": {
+      "path": "rejudge/phase3_protocol_v3_r6.json",
+      "canonical_sha256": "e366147d54f65d9c033f94fc7f8dfd2803c3d147a326212a8dd36c5f84b7ef85",
+      "raw_sha256": "3571b195b6ac806bbdeb3a629878bb2c01cc7cd6f6979baefb2c5276c7a8f484"
+    },
+    "prompt_bundle": {
+      "path": "rejudge/phase2_prompt_bundle.json",
+      "canonical_sha256": "cc02d29cfc8e7410c270c21f53da56457e44c31f74f8e512299e4e80726a076f",
+      "raw_sha256": "78ff8e0f66bc6eb9b281dd6a52e6715f64c82c2bae6d5b0f11e659e888923629"
+    },
+    "role_limits": {
+      "path": "rejudge/phase3_v3_role_limits_r10_2026-08-28.json",
+      "canonical_sha256": "bb545e80a3485b75252e489b092b0656b7b7272669836d1f1b4451ef956612f3",
+      "raw_sha256": "6ffc5f41def23369a0016f454a94ae683e735968b04c995a68d99ace85083851"
+    },
+    "transcript_verification": {
+      "path": "rejudge/phase3_transcript_verification_2026-08-18.json",
+      "canonical_sha256": "f70f2f0cebbe3619fb0a58c94e060a0e087da8963fcc73c2d87b78dcb0fe9ceb",
+      "raw_sha256": "72d9e5381144a76ddf55c6efa5563be74807d697d86866f3e964e055a57e66e4"
+    },
+    "main_transcript_bundle": {
+      "path": "E:/selvarath-archive/phase3-materialization-2026-08-18/phase3_transcript_bundle_main_2026-08-18.json",
+      "canonical_sha256": "d1361003e637b6d8f42fe4d04e8d37f983dd2947e7c29e05c94a99eec091e0d8",
+      "raw_sha256": "8b3f5821c35156c7ebe3267d726c27b217eb6ad4f35ee6afbade1034ebca769a",
+      "byte_count": 9566988,
+      "transcript_count": 492
+    }
+  },
+  "execution": {
+    "harness_seed": 20260829,
+    "execution_count": 2,
+    "result_store_row_count_each": 493,
+    "first_output_store_sha256": "32d3f91aacec80b1faf943444df4aae8ee842a2df39618552fdb693163a67d7d",
+    "rerun_output_store_sha256": "32d3f91aacec80b1faf943444df4aae8ee842a2df39618552fdb693163a67d7d",
+    "receipt": {
+      "path": "E:/selvarath-archive/phase3-main-harness-acee8b4-2026-08-30/phase3_main_harness_receipt.json",
+      "raw_sha256": "479cab54a05be295419e5176a48e770ef24af0d0583c4dacbfa50fb8d3df1e24",
+      "schema_version": "phase3_main_harness_receipt_v2",
+      "status": "bit_identical_pass"
+    }
+  },
+  "authority": {
+    "execution_authorized": false,
+    "provider_calls_authorized": false,
+    "main_run_spend_authorized": false,
+    "external_reviewer_calls_made": 0,
+    "provider_calls_made": 0,
+    "spend_usd": 0
+  },
+  "freshness_rule": "The eventual exact main manifest must bind harness seed 20260829 and this receipt, and must validate the receipt outside its chosen formal artifact root. Regenerate the receipt after any harness-sensitive execution-code or frozen-input change."
+}

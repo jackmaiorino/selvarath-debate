@@ -9,11 +9,11 @@ run ask package, and protocol pre-review. Those documents remain useful historic
 
 ## Outcome
 
-Commits `d9d6db6`, `8299c52`, and `f8a1798` provide the blocked Phase 3 main driver, exact
-manifest and signed-authorization validation, provider and reviewer dispatch guards, complete
-transcript and request reconstruction, finalization admission, confirmatory-analysis handoff,
-and current readiness gates. The public paid path remains hard-blocked before formal state
-mutation.
+Commits `d9d6db6`, `8299c52`, `f8a1798`, and `acee8b4` provide the blocked Phase 3 main
+driver, exact manifest and signed-authorization validation, provider and reviewer dispatch
+guards, complete transcript and request reconstruction, finalization admission,
+confirmatory-analysis handoff, and current readiness gates. The public paid path remains
+hard-blocked before formal state mutation.
 
 The closure adds these properties:
 
@@ -52,6 +52,33 @@ Verification on the resulting tree:
 
 No paid call, external reviewer call, production launch, or push occurred during this closure.
 
+## Offline harness milestone
+
+The two-execution fake-only harness passed from source commit
+`acee8b4252f32f2ed46e9d890d753909a0145874` with seed `20260829`. Both fresh executions
+preseeded the 492 bound main transcripts, completed one selected b0 judgment through the
+module-owned deterministic client, and produced 493-row result stores with the identical raw
+SHA-256 `32d3f91aacec80b1faf943444df4aae8ee842a2df39618552fdb693163a67d7d`.
+
+The receipt is
+`E:/selvarath-archive/phase3-main-harness-acee8b4-2026-08-30/phase3_main_harness_receipt.json`
+with raw SHA-256
+`479cab54a05be295419e5176a48e770ef24af0d0583c4dacbfa50fb8d3df1e24`. Independent
+validation reopened all linked stores, journals, ledgers, transcript inputs, and frozen JSON
+bindings. Each execution has a distinct identity and zero-spend genesis ledger, each journal
+contains exactly one fake call, and `execution_authorized`, `provider_calls_authorized`, and
+`main_run_spend_authorized` are all false. The compact tracked materialization record is
+`rejudge/phase3_main_harness_materialization_2026-08-30.json`.
+
+Post-materialization checks passed: the record's declared source, input, receipt, and output
+hashes all match disk; the focused harness suite passed 9 tests; all 349 top-level `rejudge`
+JSON files parsed; and whitespace plus no-em-dash checks passed.
+
+This closes the current offline harness milestone, not a permanent launch gate. The eventual
+exact main manifest must bind seed `20260829`, validate this receipt against the chosen formal
+artifact root, and regenerate it after any harness-sensitive execution-code or frozen-input
+change.
+
 ## Remaining production blockers
 
 All remaining items require owner authority or fresh external evidence. None is missing
@@ -67,9 +94,8 @@ request provenance, reviewer provenance, or reviewer-closeout crash consistency:
 5. No signed response rule exists for a provider price change during the formal run.
 6. Codex reviewer usage has no separately ratified spend treatment. The representative
    capacity preflight has a frozen plan but no authorized measurement result.
-7. Fresh prices, capacity evidence, billing evidence, forecast, two-run harness receipt, exact
-   manifest, and detached owner authorization have not been materialized for a production
-   identity.
+7. Fresh prices, capacity evidence, billing evidence, forecast, exact manifest, and detached
+   owner authorization have not been materialized for a production identity.
 
 ## Crash-consistency closure
 
@@ -88,17 +114,17 @@ cross-wave continuity, final store targets, and the complete packet tree.
 
 ## Next sequence
 
-1. Materialize the two-execution offline harness receipt from the exact commit containing this
-   closure. The harness uses a module-owned fake and requires no provider, reviewer, or spend
-   authorization. Rerun it if execution code changes before the production manifest is built.
-2. Obtain the owner-supplied Together billing-console evidence and decide the authoritative
+1. Obtain the owner-supplied Together billing-console evidence and decide the authoritative
    account, predecessor-ledger, and one-attempt consumption sources.
-3. Ratify the price-change rule, reviewer usage treatment, and one exact stage cap. Then pin
-   Jack's public signing key and fingerprint.
-4. Request a separate bounded authorization for the representative reviewer-capacity preflight.
+2. Ratify the price-change rule and reviewer usage treatment. Then pin Jack's public signing
+   key and fingerprint.
+3. Request a separate bounded authorization for the representative reviewer-capacity preflight.
    Do not treat this report or the existing plan as dispatch authority.
-5. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
+4. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
    forecast.
+5. Use the certified forecast to ratify one exact stage cap. At exact-manifest construction,
+   revalidate the harness receipt against the chosen formal artifact root and exact frozen
+   inputs. Regenerate it if the seed or harness-sensitive code differs from `acee8b4`.
 6. Build the exact manifest and owner-signed authorization, then run `--validate-only` and prove
    zero formal-state mutation.
 7. Perform the dedicated final methods and launch review. A separate explicit authorization is

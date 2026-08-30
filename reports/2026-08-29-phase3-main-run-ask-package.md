@@ -2,9 +2,10 @@
 
 Date: 2026-08-29. Prepared after the canary close-out (`2026-08-29-phase3-v3-successor-canary-closeout.md`) and its Codex review (`rejudge/phase3_v3_codex_closeout_consult_2026-08-29.md`). Nothing here authorizes external execution, reviewer dispatch, provider calls, or spend; this is the checklist and decision set.
 
-Current-state update, 2026-08-30: commits `d9d6db6` and `8299c52` add item 7's blocked
-driver, finalization, analysis handoff, and provider and reviewer provenance. Crash-consistent
-reviewer closeout and the offline harness receipt remain. See
+Current-state update, 2026-08-30: commits through `acee8b4` add item 7's blocked driver,
+finalization, analysis handoff, provider and reviewer provenance, and crash-consistent reviewer
+closeout. The fake-only two-execution harness receipt has passed from `acee8b4`; external
+authority and fresh evidence remain. See
 `reports/2026-08-30-phase3-main-offline-closure.md` for the current gate order. The historical
 checklist below is retained to preserve the decision chronology.
 
