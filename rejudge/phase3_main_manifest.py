@@ -28,8 +28,8 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v5"
-AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v5"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v6"
+AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v6"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -108,6 +108,9 @@ REQUIRED_INPUT_BINDINGS = frozenset({
     "capacity_plan",
     "capacity_dispatch_history",
     "capacity_result",
+    "capacity_execution_manifest",
+    "capacity_execution_authorization",
+    "capacity_execution_authorization_signature",
     "price_snapshot",
     "price_change_policy",
     "raw_provider_catalog",
@@ -544,6 +547,17 @@ def validate_main_manifest(
 
     input_paths = _validate_input_bindings(
         manifest["input_bindings"], project_root=root, verify_files=verify_files)
+    capacity_authorization_path = input_paths["capacity_execution_authorization"]
+    expected_capacity_signature_path = capacity_authorization_path.with_name(
+        f"{capacity_authorization_path.name}.sig"
+    )
+    if (
+        input_paths["capacity_execution_authorization_signature"]
+        != expected_capacity_signature_path
+    ):
+        raise MainManifestError(
+            "capacity authorization signature input must be the exact detached sidecar"
+        )
     if verify_files:
         try:
             phase3_main_runtime_policies.load_and_validate_price_change_policy(

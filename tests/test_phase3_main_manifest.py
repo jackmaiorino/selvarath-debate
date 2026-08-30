@@ -34,18 +34,24 @@ def _manifest(tmp_path: Path) -> dict:
     input_root.mkdir(parents=True)
     bindings = {}
     for name in sorted(main_manifest.REQUIRED_INPUT_BINDINGS):
-        path = input_root / f"{name}.json"
+        if name == "capacity_execution_authorization_signature":
+            path = input_root / "capacity_execution_authorization.json.sig"
+        else:
+            path = input_root / f"{name}.json"
         if name == "price_change_policy":
             value = runtime_policies.EXPECTED_PRICE_CHANGE_POLICY
         elif name == "reviewer_usage_policy":
             value = runtime_policies.EXPECTED_REVIEWER_USAGE_POLICY
         else:
             value = {"name": name}
-        path.write_text(
-            json.dumps(value, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        if name == "capacity_execution_authorization_signature":
+            path.write_text("fixture signature\n", encoding="utf-8", newline="\n")
+        else:
+            path.write_text(
+                json.dumps(value, sort_keys=True) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
         bindings[name] = {
             "path": str(path.resolve()),
             "sha256": _sha(path),
@@ -163,10 +169,16 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     manifest = _manifest(tmp_path)
     result = main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
     assert set(manifest) == main_manifest.MANIFEST_FIELDS
-    assert manifest["schema_version"] == "phase3_main_launch_manifest_v5"
+    assert manifest["schema_version"] == "phase3_main_launch_manifest_v6"
     assert "price_change_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "reviewer_usage_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "tokenizer_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
+    assert "capacity_execution_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
+    assert "capacity_execution_authorization" in main_manifest.REQUIRED_INPUT_BINDINGS
+    assert (
+        "capacity_execution_authorization_signature"
+        in main_manifest.REQUIRED_INPUT_BINDINGS
+    )
     assert "exact_context_index" not in main_manifest.REQUIRED_INPUT_BINDINGS
     assert manifest["execution_authorized"] is False
     assert result["run_id"] == manifest["run_id"]
@@ -251,6 +263,20 @@ def test_manifest_rejects_self_authority_input_drift_and_wrong_hash_kind(tmp_pat
     with pytest.raises(main_manifest.MainManifestError, match="hash_kind"):
         main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
 
+    manifest = _manifest(tmp_path / "sidecar")
+    wrong_signature = Path(manifest["input_bindings"]["protocol"]["path"])
+    signature_binding = manifest["input_bindings"][
+        "capacity_execution_authorization_signature"
+    ]
+    signature_binding["path"] = str(wrong_signature)
+    signature_binding["sha256"] = _sha(wrong_signature)
+    manifest["manifest_identity_sha256"] = main_manifest.manifest_identity_sha256(
+        manifest
+    )
+    manifest["run_id"] = main_manifest.expected_run_id(manifest)
+    with pytest.raises(main_manifest.MainManifestError, match="detached sidecar"):
+        main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
+
 
 def test_manifest_rejects_inventory_output_concurrency_runtime_and_forecast_drift(tmp_path):
     manifest = _manifest(tmp_path)
@@ -306,7 +332,7 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
     result = main_manifest.validate_main_authorization(
         authorization, manifest, as_of=NOW)
     assert result["approved_cap_usd"] == "875.00"
-    assert authorization["schema_version"] == "phase3_main_exact_authorization_v5"
+    assert authorization["schema_version"] == "phase3_main_exact_authorization_v6"
     assert "Together account identity SHA-256" in authorization["exact_text"]
     assert manifest["runtime"]["provider_account_identity_sha256"] in (
         authorization["exact_text"])

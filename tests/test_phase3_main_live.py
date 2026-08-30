@@ -61,6 +61,7 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         "reviewer_failure_policy", "role_limits",
         "main_transcript_bundle", "transcript_verification",
         "capacity_plan", "capacity_result", "capacity_dispatch_history",
+        "capacity_execution_manifest", "capacity_execution_authorization",
         "context_blocklist", "analysis_pins", "billing_reconciliation",
         "price_snapshot", "raw_provider_catalog", "raw_serverless_endpoints",
         "price_change_policy", "reviewer_usage_policy",
@@ -68,6 +69,15 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         path = inputs / f"{name}.json"
         path.write_text("{}\n", encoding="utf-8")
         input_paths[name] = path.resolve()
+    capacity_authorization_signature = input_paths[
+        "capacity_execution_authorization"
+    ].with_name("capacity_execution_authorization.json.sig")
+    capacity_authorization_signature.write_text(
+        "test capacity signature\n", encoding="utf-8"
+    )
+    input_paths["capacity_execution_authorization_signature"] = (
+        capacity_authorization_signature.resolve()
+    )
     manifest_sha = "a" * 64
     manifest = {
         "run_id": "phase3-main-live-test",
@@ -2216,6 +2226,15 @@ def test_launch_freshness_and_in_run_capacity_integrity_are_separate(
     assert calls[0][1].get("require_current_freshness", True) is True
     assert calls[1][0] == "capacity"
     assert calls[1][1].get("require_current_freshness", True) is True
+    assert calls[1][1]["execution_manifest_path"] == prepared.input_paths[
+        "capacity_execution_manifest"
+    ]
+    assert calls[1][1]["execution_authorization_path"] == prepared.input_paths[
+        "capacity_execution_authorization"
+    ]
+    assert calls[1][1][
+        "execution_authorization_signature_path"
+    ] == prepared.input_paths["capacity_execution_authorization_signature"]
     assert calls[2][0] == "manifest"
     assert calls[2][1]["verify_files"] is True
     assert [call[0] for call in calls[3:]] == ["code-root", "git-identity"]
@@ -2230,6 +2249,137 @@ def test_launch_freshness_and_in_run_capacity_integrity_are_separate(
         "drift\n", encoding="utf-8")
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="raw SHA-256 drifted"):
         phase3_main_live._revalidate_capacity_snapshot(prepared)
+
+
+def test_capacity_validation_authenticates_and_reopens_execution_provenance(
+    tmp_path,
+    monkeypatch,
+):
+    now = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
+    completed = now - timedelta(minutes=5)
+    expires = now + timedelta(hours=23)
+    plan = {
+        "source_locations": {
+            "sealed_archive": str(tmp_path / "archive"),
+            "finalization_record": str(tmp_path / "finalization.json"),
+        }
+    }
+    result = {"completed_at_utc": completed.isoformat()}
+    plan_path = (tmp_path / "capacity-plan.json").resolve()
+    result_path = (tmp_path / "capacity-result.json").resolve()
+    history_path = (tmp_path / "capacity-history.jsonl").resolve()
+    execution_manifest_path = (tmp_path / "capacity-execution.json").resolve()
+    execution_authorization_path = (tmp_path / "capacity-authorization.json").resolve()
+    execution_signature_path = execution_authorization_path.with_name(
+        f"{execution_authorization_path.name}.sig"
+    )
+    execution_signature_path.write_text("fixture signature\n", encoding="utf-8")
+    context = SimpleNamespace(plan=plan)
+    execution_manifest_raw = b'{"manifest":"exact"}\n'
+    execution_manifest = {
+        "run_id": "capacity-run-test",
+        "attempt_id": "capacity-attempt-test",
+        "result_path": result_path.as_posix(),
+        "dispatch_history": {"path": history_path.as_posix()},
+    }
+    authorization_raw = b'{"authorization":"exact"}\n'
+    authorization = {"authorization_id": "capacity-owner-test"}
+    observed: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "collect_source_snapshot",
+        lambda **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "derive_workload",
+        lambda _snapshot: object(),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "validate_plan",
+        lambda *_args, **_kwargs: {"validation": "plan-pass"},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "load_bound_dispatch_history",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "validate_result",
+        lambda *_args, **_kwargs: {
+            "validation": "measurement-pass",
+            "evidence_expires_at_utc": expires.isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "load_capacity_context",
+        lambda path, **kwargs: (
+            observed.update(context_path=path, context_kwargs=kwargs) or context
+        ),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "load_execution_manifest",
+        lambda path, **kwargs: (
+            observed.update(manifest_path=path, manifest_kwargs=kwargs)
+            or (execution_manifest_raw, execution_manifest)
+        ),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "load_authenticated_capacity_authorization",
+        lambda path: (
+            observed.update(authorization_path=path)
+            or (authorization_raw, authorization)
+        ),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "validate_authorization",
+        lambda value, **kwargs: (
+            observed.update(validated_authorization=value, authorization_kwargs=kwargs)
+            or dict(authorization)
+        ),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "validate_execution_result",
+        lambda value, **kwargs: (
+            observed.update(validated_result=value, result_kwargs=kwargs)
+            or {
+                "reopened_dispatch_reservations": 180,
+                "reopened_invocation_receipts": 180,
+            }
+        ),
+    )
+
+    validation = phase3_main_live._validate_capacity(
+        plan=plan,
+        result=result,
+        history_path=history_path,
+        as_of=now,
+        require_current_freshness=False,
+        plan_path=plan_path,
+        result_path=result_path,
+        execution_manifest_path=execution_manifest_path,
+        execution_authorization_path=execution_authorization_path,
+        execution_authorization_signature_path=execution_signature_path,
+    )
+
+    provenance = validation["execution_provenance"]
+    assert provenance["authorization_id"] == "capacity-owner-test"
+    assert provenance["validation"]["reopened_dispatch_reservations"] == 180
+    assert provenance["validation"]["reopened_invocation_receipts"] == 180
+    assert observed["context_path"] == plan_path
+    assert observed["manifest_path"] == execution_manifest_path
+    assert observed["authorization_path"] == execution_authorization_path
+    assert observed["authorization_kwargs"]["observed_at"] == completed
+    assert observed["result_kwargs"]["as_of_utc"] == now
+    assert observed["result_kwargs"]["require_current_freshness"] is False
 
 
 def test_exact_context_index_is_recomputed_from_the_bound_tokenizer_manifest(

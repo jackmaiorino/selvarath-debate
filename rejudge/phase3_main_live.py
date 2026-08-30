@@ -33,6 +33,7 @@ from rejudge import (
     api_client,
     phase3_main_authorization,
     phase3_main_billing_reconciliation,
+    phase3_main_capacity_execution,
     phase3_main_harness,
     phase3_main_context,
     phase3_main_finalization,
@@ -535,6 +536,11 @@ def _validate_capacity(
     *, plan: Mapping[str, Any], result: Mapping[str, Any],
     history_path: Path, as_of: datetime,
     require_current_freshness: bool = True,
+    plan_path: Path | None = None,
+    result_path: Path | None = None,
+    execution_manifest_path: Path | None = None,
+    execution_authorization_path: Path | None = None,
+    execution_authorization_signature_path: Path | None = None,
 ) -> dict[str, Any]:
     try:
         source = plan["source_locations"]
@@ -564,12 +570,139 @@ def _validate_capacity(
             raise ValueError("capacity validity window ends before measurement completion")
     except (KeyError, TypeError, ValueError) as exc:
         raise Phase3MainLiveError(f"review capacity evidence failed: {exc}") from exc
-    return {
+    validation = {
         "plan": plan_validation,
         "measurement": measurement,
         "capacity_completed_at": capacity_completed_at,
         "capacity_expires_at": capacity_expires_at,
     }
+    provenance_paths = (
+        plan_path,
+        result_path,
+        execution_manifest_path,
+        execution_authorization_path,
+        execution_authorization_signature_path,
+    )
+    if not any(path is not None for path in provenance_paths):
+        return validation
+    if not all(path is not None for path in provenance_paths):
+        raise Phase3MainLiveError(
+            "review capacity execution provenance paths are incomplete"
+        )
+    plan_path = cast(Path, plan_path)
+    result_path = cast(Path, result_path)
+    execution_manifest_path = cast(Path, execution_manifest_path)
+    execution_authorization_path = cast(Path, execution_authorization_path)
+    execution_authorization_signature_path = cast(
+        Path, execution_authorization_signature_path
+    )
+    expected_signature_path = execution_authorization_path.with_name(
+        f"{execution_authorization_path.name}.sig"
+    ).resolve()
+    if execution_authorization_signature_path.resolve() != expected_signature_path:
+        raise Phase3MainLiveError(
+            "review capacity authorization signature is not its exact detached sidecar"
+        )
+    signature_raw = _stable_regular_file_bytes(
+        execution_authorization_signature_path,
+        "capacity execution authorization signature",
+    )
+    try:
+        context = phase3_main_capacity_execution.load_capacity_context(
+            plan_path,
+            project_root=LIVE_PROJECT_ROOT,
+        )
+        if dict(context.plan) != dict(plan):
+            raise phase3_main_capacity_execution.CapacityExecutionError(
+                "capacity plan differs from its execution context"
+            )
+        execution_manifest_raw, execution_manifest = (
+            phase3_main_capacity_execution.load_execution_manifest(
+                execution_manifest_path,
+                context=context,
+            )
+        )
+        if Path(str(execution_manifest["result_path"])).resolve() != result_path.resolve():
+            raise phase3_main_capacity_execution.CapacityExecutionError(
+                "capacity execution manifest binds another result path"
+            )
+        execution_history = cast(
+            Mapping[str, Any], execution_manifest["dispatch_history"]
+        )
+        if Path(str(execution_history["path"])).resolve() != history_path.resolve():
+            raise phase3_main_capacity_execution.CapacityExecutionError(
+                "capacity execution manifest binds another dispatch history"
+            )
+        authorization_raw, authorization = (
+            phase3_main_capacity_execution.load_authenticated_capacity_authorization(
+                execution_authorization_path
+            )
+        )
+        validated_authorization = (
+            phase3_main_capacity_execution.validate_authorization(
+                authorization,
+                manifest=execution_manifest,
+                manifest_raw=execution_manifest_raw,
+                observed_at=capacity_completed_at,
+            )
+        )
+        execution_validation = (
+            phase3_main_capacity_execution.validate_execution_result(
+                result,
+                manifest=execution_manifest,
+                manifest_raw=execution_manifest_raw,
+                authorization=validated_authorization,
+                authorization_raw=authorization_raw,
+                context=context,
+                as_of_utc=as_of,
+                require_current_freshness=require_current_freshness,
+            )
+        )
+        if _stable_regular_file_bytes(
+            execution_authorization_signature_path,
+            "capacity execution authorization signature",
+        ) != signature_raw:
+            raise phase3_main_capacity_execution.CapacityExecutionError(
+                "capacity authorization signature changed during main admission"
+            )
+    except phase3_main_capacity_execution.CapacityExecutionError as exc:
+        raise Phase3MainLiveError(
+            f"review capacity execution provenance failed: {exc}"
+        ) from exc
+    return {
+        **validation,
+        "execution_provenance": {
+            "manifest_raw_sha256": hashlib.sha256(
+                execution_manifest_raw
+            ).hexdigest(),
+            "authorization_raw_sha256": hashlib.sha256(
+                authorization_raw
+            ).hexdigest(),
+            "authorization_signature_raw_sha256": hashlib.sha256(
+                signature_raw
+            ).hexdigest(),
+            "authorization_id": validated_authorization["authorization_id"],
+            "run_id": execution_manifest["run_id"],
+            "attempt_id": execution_manifest["attempt_id"],
+            "validation": execution_validation,
+        },
+    }
+
+
+def _reopen_capacity_execution_provenance_inputs(
+    manifest: Mapping[str, Any],
+    input_paths: Mapping[str, Path],
+) -> None:
+    """Reopen every main-bound capacity execution authority input."""
+    for name, label in (
+        ("capacity_execution_manifest", "capacity execution manifest"),
+        ("capacity_execution_authorization", "capacity execution authorization"),
+        (
+            "capacity_execution_authorization_signature",
+            "capacity execution authorization signature",
+        ),
+    ):
+        _load_bound_input_bytes(manifest, input_paths, name, label)
 
 
 def _reviewer_cli_version(path: Path) -> str:
@@ -1519,12 +1652,26 @@ def _revalidate_capacity_snapshot(
         "capacity_dispatch_history",
         "capacity dispatch history",
     )
+    _reopen_capacity_execution_provenance_inputs(
+        prepared.manifest, prepared.input_paths
+    )
     validation = _validate_capacity(
         plan=plan,
         result=result,
         history_path=prepared.input_paths["capacity_dispatch_history"],
         as_of=datetime.now(timezone.utc),
         require_current_freshness=False,
+        plan_path=prepared.input_paths["capacity_plan"],
+        result_path=prepared.input_paths["capacity_result"],
+        execution_manifest_path=prepared.input_paths[
+            "capacity_execution_manifest"
+        ],
+        execution_authorization_path=prepared.input_paths[
+            "capacity_execution_authorization"
+        ],
+        execution_authorization_signature_path=prepared.input_paths[
+            "capacity_execution_authorization_signature"
+        ],
     )
     runtime = _validate_capacity_runtime_binding(
         plan=plan, result=result, runtime=prepared.manifest["runtime"])
@@ -1561,11 +1708,25 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         "capacity_dispatch_history",
         "capacity dispatch history",
     )
+    _reopen_capacity_execution_provenance_inputs(
+        prepared.manifest, prepared.input_paths
+    )
     _validate_capacity(
         plan=plan,
         result=result,
         history_path=prepared.input_paths["capacity_dispatch_history"],
         as_of=now,
+        plan_path=prepared.input_paths["capacity_plan"],
+        result_path=prepared.input_paths["capacity_result"],
+        execution_manifest_path=prepared.input_paths[
+            "capacity_execution_manifest"
+        ],
+        execution_authorization_path=prepared.input_paths[
+            "capacity_execution_authorization"
+        ],
+        execution_authorization_signature_path=prepared.input_paths[
+            "capacity_execution_authorization_signature"
+        ],
     )
     _validate_capacity_runtime_binding(
         plan=plan, result=result, runtime=prepared.manifest["runtime"])
@@ -2024,9 +2185,19 @@ def load_prepared_main(
         manifest, input_paths, "capacity_plan", "capacity plan")
     capacity_result = _load_bound_input_object(
         manifest, input_paths, "capacity_result", "capacity result")
+    _reopen_capacity_execution_provenance_inputs(manifest, input_paths)
     capacity_validation = _validate_capacity(
         plan=capacity_plan, result=capacity_result,
-        history_path=input_paths["capacity_dispatch_history"], as_of=now)
+        history_path=input_paths["capacity_dispatch_history"], as_of=now,
+        plan_path=input_paths["capacity_plan"],
+        result_path=input_paths["capacity_result"],
+        execution_manifest_path=input_paths["capacity_execution_manifest"],
+        execution_authorization_path=input_paths[
+            "capacity_execution_authorization"
+        ],
+        execution_authorization_signature_path=input_paths[
+            "capacity_execution_authorization_signature"
+        ])
     capacity_runtime = _validate_capacity_runtime_binding(
         plan=capacity_plan, result=capacity_result, runtime=manifest["runtime"])
     capacity_validation = {**capacity_validation, "runtime": capacity_runtime}

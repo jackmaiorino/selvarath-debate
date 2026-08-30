@@ -45,7 +45,7 @@ execution occurred, and `--run` remains hard-disabled.
    runner, monotonic and UTC clocks, repository and host probes, CLI version reader, and pinned-key
    signature verifier. Preserve the current noninjectable public signature and exact 180-dispatch
    authorization limit.
-5. Extend the v5 main manifest with raw bindings for the capacity execution manifest,
+5. Extend the main manifest with raw bindings for the capacity execution manifest,
    authorization, and detached signature. Main preparation must authenticate the signature,
    validate the capacity authorization at its recorded execution time, and call the strong
    execution-result validator to reopen the attempt reservation, dispatch history anchors, wave
@@ -79,3 +79,14 @@ Verification: 225 capacity, reviewer provenance, reviewer commit, recovery, and 
 passed. Focused static type checks and bytecode compilation passed. No reviewer dispatch, provider
 call, main launch, or external execution occurred. Findings 1 and 4 remain open, and the public
 capacity function and CLI `--run` path remain unconditionally disabled.
+
+The main-admission provenance work in finding 4 is also closed. The v6 main manifest and v6 exact
+authorization contract require raw bindings for the capacity execution manifest, capacity
+authorization, and its exact detached signature sidecar. Initial preparation, launch freshness,
+and in-run revalidation authenticate the capacity signature, validate its authority at the
+recorded capacity completion time, rebuild the execution manifest, and reopen the attempt
+reservation, dispatch history, 180 per-child reservations, wave outputs, and 180 invocation
+receipts. Capacity evidence remains non-authorizing on its own. A combined fake-only test exercises
+the actual capacity executor and main admission join end to end. Verification is 324 passed and 2
+skipped across the related main, capacity, reviewer provenance, reviewer commit, recovery, and
+failure-path suites. Finding 1 is the only implementation gap left in this review.

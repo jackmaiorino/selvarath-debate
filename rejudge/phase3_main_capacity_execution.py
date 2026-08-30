@@ -40,12 +40,11 @@ OWNER_SIGNING_PUBLIC_KEY: str | None = None
 OWNER_SIGNING_KEY_FINGERPRINT: str | None = None
 SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
 REAL_CAPACITY_DISPATCH_BLOCKER = (
-    "real capacity dispatch is disabled: fixed public dependency wiring and "
-    "main-admission capacity provenance binding are not implemented"
+    "real capacity dispatch is disabled: the public execution surface and CLI run "
+    "path remain intentionally unwired"
 )
 DOWNSTREAM_LAUNCH_BLOCKER = (
-    "phase3_main_live does not authenticate capacity authorization provenance, "
-    "dispatch reservations, or reopened invocation receipts"
+    "capacity evidence alone cannot authorize provider calls or main launch"
 )
 PACKET_COUNT = 180
 WAVE_COUNT = 3
@@ -1751,6 +1750,7 @@ def _validate_execution_result(
     authorization_raw: bytes,
     context: CapacityContext,
     as_of_utc: datetime,
+    require_current_freshness: bool,
     dispatch_history: capacity.DispatchHistorySnapshot | None = None,
     _validate_history_anchors: bool,
 ) -> dict[str, Any]:
@@ -1802,6 +1802,7 @@ def _validate_execution_result(
             workload=context.workload,
             dispatch_history=history,
             as_of_utc=as_of_utc,
+            require_current_freshness=require_current_freshness,
             _validate_history_anchors=_validate_history_anchors,
         )
         if not _validate_history_anchors:
@@ -1965,6 +1966,7 @@ def validate_execution_result(
     authorization_raw: bytes,
     context: CapacityContext,
     as_of_utc: datetime,
+    require_current_freshness: bool = True,
     dispatch_history: capacity.DispatchHistorySnapshot | None = None,
 ) -> dict[str, Any]:
     """Validate durable execution evidence with dispatch anchors always enforced."""
@@ -1976,6 +1978,7 @@ def validate_execution_result(
         authorization_raw=authorization_raw,
         context=context,
         as_of_utc=as_of_utc,
+        require_current_freshness=require_current_freshness,
         dispatch_history=dispatch_history,
         _validate_history_anchors=True,
     )
@@ -2293,6 +2296,7 @@ def _execute_capacity_preflight(
             authorization_raw=authorization_raw,
             context=context,
             as_of_utc=attempt_completed_utc,
+            require_current_freshness=True,
             dispatch_history=predicted_history,
             _validate_history_anchors=False,
         )

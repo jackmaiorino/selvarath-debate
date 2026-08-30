@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from rejudge import phase3_main_capacity_execution as execution
+from rejudge import phase3_main_live
 from scripts import codex_reviewer_batch
 from scripts import phase3_main_review_capacity_preflight as capacity
 from scripts import phase3_main_run_capacity_preflight as capacity_cli
@@ -137,9 +138,14 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     cli_path.write_bytes(cli_raw)
     sealed_source = (tmp_path / "sealed-source").resolve()
     sealed_source.mkdir()
+    finalization_path = (tmp_path / "finalization.json").resolve()
+    finalization_path.write_text("{}\n", encoding="utf-8")
     plan = {
         "schema_version": capacity.SCHEMA_VERSION,
-        "source_locations": {"sealed_archive": sealed_source.as_posix()},
+        "source_locations": {
+            "sealed_archive": sealed_source.as_posix(),
+            "finalization_record": finalization_path.as_posix(),
+        },
         "reviewer_configuration": {
             "model": "gpt-5.6-sol",
             "reasoning_effort": "high",
@@ -490,6 +496,65 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
     assert fresh_validation["reopened_dispatch_reservations"] == 180
     assert fresh_validation["reopened_invocation_receipts"] == 180
     assert anchor_validation_modes == [False, True, True]
+
+    authorization_signature_path = fixture["authorization_path"].with_name(
+        f"{fixture['authorization_path'].name}.sig"
+    )
+    authorization_signature_path.write_text(
+        "fixture capacity signature\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "collect_source_snapshot",
+        lambda **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "derive_workload",
+        lambda _snapshot: fixture["context"].workload,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "validate_plan",
+        lambda *_args, **_kwargs: {"validation": "plan-pass"},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_review_capacity_preflight,
+        "validate_result",
+        lambda *_args, **_kwargs: {
+            "validation": "measurement-pass",
+            "evidence_expires_at_utc": (NOW + timedelta(hours=24)).isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "load_capacity_context",
+        lambda *_args, **_kwargs: fixture["context"],
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_capacity_execution,
+        "load_authenticated_capacity_authorization",
+        lambda _path: (fresh_authorization_raw, fixture["authorization"]),
+    )
+    main_validation = phase3_main_live._validate_capacity(
+        plan=fixture["context"].plan,
+        result=result,
+        history_path=fixture["history_path"],
+        as_of=NOW,
+        plan_path=fixture["context"].plan_path,
+        result_path=fixture["result_path"],
+        execution_manifest_path=fixture["manifest_path"],
+        execution_authorization_path=fixture["authorization_path"],
+        execution_authorization_signature_path=authorization_signature_path,
+    )
+    execution_provenance = main_validation["execution_provenance"]
+    assert execution_provenance["validation"][
+        "reopened_dispatch_reservations"
+    ] == 180
+    assert execution_provenance["validation"][
+        "reopened_invocation_receipts"
+    ] == 180
+    assert anchor_validation_modes == [False, True, True, True]
 
 
 @pytest.mark.parametrize("failure", ["missing", "false", "expired", "mismatch"])
