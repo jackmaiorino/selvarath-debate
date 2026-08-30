@@ -69,7 +69,7 @@ No paid call, external reviewer call, production launch, or push occurred during
 | Reviewer-capacity workload | Cohort 1 is materialized as 180 packets in three 60-packet waves with empty dispatch history. | Run once only after the separate capacity authorization exists. |
 | Provider billing reconciliation | Not materialized. Read-only `/v1/whoami` succeeds for the proposed account, while `/v1/billing/usage` returns 404. | Together enables the endpoint, then capture and reconcile the ratified source set. |
 | Certified forecast and stage cap | Not materialized. The protocol's `$450` cap and the canary-derived `$875` proposal are unresolved. | Recompute from fresh prices, billing reconciliation, and passing capacity evidence, then ratify one cap. |
-| Final exact-source harness, manifest, and main authorization | Not materialized for the eventual clean execution commit. Existing fake-only and readiness specimens are non-authorizing. | Regenerate after all upstream evidence is fixed, then sign the v6 authorization. |
+| Final exact-source harness, manifest, and main authorization | Not materialized for the eventual clean execution commit. Existing fake-only and readiness specimens are non-authorizing. The capacity CLI can materialize an exact unsigned authorization draft without any signing or execution surface. | Regenerate after all upstream evidence is fixed, review exact draft bytes, then sign the v6 authorization. |
 | Phase 3 production run | Not authorized or started. | Dedicated final methods review and separate explicit signed launch authority. |
 
 ## Offline harness milestone

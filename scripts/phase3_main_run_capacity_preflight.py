@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -16,6 +17,18 @@ from rejudge import phase3_main_capacity_execution as execution  # noqa: E402
 
 
 DEFAULT_PLAN = REPO_ROOT / "rejudge" / "phase3_main_review_capacity_preflight_plan_2026-08-29.json"
+
+
+def _utc_argument(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(
+            value[:-1] + "+00:00" if value.endswith("Z") else value
+        )
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be ISO-8601 UTC") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise argparse.ArgumentTypeError("must use UTC")
+    return parsed.astimezone(timezone.utc)
 
 
 def _context(args: argparse.Namespace) -> execution.CapacityContext:
@@ -35,6 +48,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--finalization-record", type=Path)
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--write-manifest", type=Path)
+    actions.add_argument("--write-unsigned-authorization", type=Path)
     actions.add_argument("--validate-authority", action="store_true")
     actions.add_argument("--run", action="store_true")
     parser.add_argument("--manifest", type=Path)
@@ -43,6 +57,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--result-path", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--attempt-id")
+    parser.add_argument("--authorization-id")
+    parser.add_argument("--approved-at-utc", type=_utc_argument)
+    parser.add_argument("--valid-until-utc", type=_utc_argument)
     args = parser.parse_args(argv)
 
     context = _context(args)
@@ -78,6 +95,71 @@ def main(argv: Sequence[str] | None = None) -> int:
             "manifest_path": args.write_manifest.resolve().as_posix(),
             "manifest_canonical_sha256": execution.canonical_sha256(manifest),
             "execution_authorized": False,
+        }, indent=1))
+        return 0
+
+    if args.write_unsigned_authorization is not None:
+        required = {
+            "--manifest": args.manifest,
+            "--authorization-id": args.authorization_id,
+            "--approved-at-utc": args.approved_at_utc,
+            "--valid-until-utc": args.valid_until_utc,
+        }
+        missing = [name for name, value in required.items() if value is None]
+        if missing:
+            parser.error(
+                f"{', '.join(missing)} are required with "
+                "--write-unsigned-authorization"
+            )
+        destination = args.write_unsigned_authorization.resolve()
+        signature_path = destination.with_name(f"{destination.name}.sig")
+        if signature_path.exists() or signature_path.is_symlink():
+            raise execution.CapacityExecutionError(
+                "unsigned authorization destination already has a detached signature"
+            )
+        manifest_raw, manifest = execution.load_execution_manifest(
+            args.manifest.resolve(), context=context
+        )
+        repository = manifest["repository"]
+        observed_head, clean = execution.repository_probe(
+            Path(repository["project_root"])
+        )
+        if observed_head != repository["head_commit"] or not clean:
+            parser.error(
+                "tracked repository state must match the manifest before unsigned "
+                "authorization construction"
+            )
+        authorization = execution.build_unsigned_capacity_authorization(
+            manifest=manifest,
+            manifest_raw=manifest_raw,
+            authorization_id=args.authorization_id,
+            approved_at_utc=args.approved_at_utc,
+            valid_until_utc=args.valid_until_utc,
+        )
+        execution.write_json_exclusive(destination, authorization)
+        authorization_raw = destination.read_bytes()
+        if (
+            destination.read_bytes() != authorization_raw
+            or signature_path.exists()
+            or signature_path.is_symlink()
+        ):
+            raise execution.CapacityExecutionError(
+                "unsigned authorization or detached-signature state changed during publication"
+            )
+        print(json.dumps({
+            "authorization_path": destination.as_posix(),
+            "authorization_raw_sha256": hashlib.sha256(
+                authorization_raw
+            ).hexdigest(),
+            "authorization_canonical_sha256": execution.canonical_sha256(
+                authorization
+            ),
+            "artifact_status": "unsigned_non_authorizing_draft",
+            "detached_signature_present": False,
+            "signature_namespace": execution.CAPACITY_SIGNATURE_NAMESPACE,
+            "signature_principal": execution.CAPACITY_SIGNATURE_PRINCIPAL,
+            "capacity_execution_authorized": False,
+            "external_reviewer_dispatch_authorized": False,
         }, indent=1))
         return 0
 

@@ -108,3 +108,18 @@ requires fresh measured capacity evidence. A focused test proves the unpinned ke
 signature verification can invoke a subprocess. No reviewer call or external execution occurred
 during this implementation work. This review now has no remaining code gap; owner key selection,
 exact authorization, and the actual single-shot capacity measurement remain external decisions.
+
+## Unsigned owner handoff update
+
+The capacity CLI can now materialize the exact unsigned authorization JSON from a validated
+execution manifest with `--write-unsigned-authorization`. The action requires explicit authority
+ID and UTC approval-window inputs, reopens the exact manifest, and requires the current tracked
+checkout to match its bound commit. It writes no detached signature, invokes no signature
+verifier, and has no reviewer or execution path. Its status output explicitly reports that
+capacity execution and reviewer dispatch remain unauthorized.
+
+The handoff refuses any destination that already has a detached-signature sidecar and rechecks
+both draft bytes and sidecar absence after exclusive publication. Jack must review the exact raw
+SHA-256 and sign the unchanged bytes outside Codex under the capacity namespace. The signed file
+still requires `--validate-authority` before `--run`, and neither validation nor this report grants
+dispatch authority.

@@ -923,6 +923,54 @@ def load_execution_manifest(
         Path(path).resolve(), subject="capacity execution manifest"
     )
     return raw, _validate_manifest(manifest, context=context)
+
+
+def build_unsigned_capacity_authorization(
+    *,
+    manifest: Mapping[str, Any],
+    manifest_raw: bytes,
+    authorization_id: str,
+    approved_at_utc: datetime,
+    valid_until_utc: datetime,
+) -> dict[str, Any]:
+    """Build exact review bytes that remain non-authorizing until owner-signed."""
+    if not isinstance(approved_at_utc, datetime) or not isinstance(
+        valid_until_utc, datetime
+    ):
+        raise CapacityExecutionError("capacity authorization times must be datetimes")
+    approved = _utc(approved_at_utc.isoformat(), field="approved_at_utc")
+    valid_until = _utc(valid_until_utc.isoformat(), field="valid_until_utc")
+    authorization = {
+        "schema_version": AUTHORIZATION_SCHEMA,
+        "authorization_id": authorization_id,
+        "scope": SCOPE,
+        "approved_by": "Jack Maiorino",
+        "approved_at_utc": approved.isoformat(),
+        "valid_until_utc": valid_until.isoformat(),
+        "manifest_raw_sha256": hashlib.sha256(manifest_raw).hexdigest(),
+        "manifest_canonical_sha256": canonical_sha256(manifest),
+        "run_id": manifest.get("run_id"),
+        "attempt_id": manifest.get("attempt_id"),
+        "cohort_number": 1,
+        "authority": dict(_REQUIRED_AUTHORITY),
+        "maximum_reviewer_dispatches": PACKET_COUNT,
+        "reviewer_usage_limit": {
+            "schema_version": USAGE_LIMIT_SCHEMA,
+            "unit": USAGE_UNIT,
+            "maximum": PACKET_COUNT,
+            "accounting_treatment": (
+                "owner-authorized capacity invocation count only"
+            ),
+        },
+    }
+    return validate_authorization(
+        authorization,
+        manifest=manifest,
+        manifest_raw=manifest_raw,
+        observed_at=approved,
+    )
+
+
 def validate_authorization(
     authorization: Mapping[str, Any],
     *,
@@ -2423,6 +2471,8 @@ def host_identity() -> str:
 
 __all__ = [
     "AUTHORIZATION_SCHEMA",
+    "CAPACITY_SIGNATURE_NAMESPACE",
+    "CAPACITY_SIGNATURE_PRINCIPAL",
     "CapacityContext",
     "CapacityExecutionError",
     "MANIFEST_SCHEMA",
@@ -2432,6 +2482,7 @@ __all__ = [
     "USAGE_UNIT",
     "audit_capacity_dispatch_reservations",
     "build_execution_manifest",
+    "build_unsigned_capacity_authorization",
     "canonical_sha256",
     "execute_capacity_preflight",
     "host_identity",

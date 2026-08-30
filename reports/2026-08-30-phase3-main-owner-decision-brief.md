@@ -49,7 +49,9 @@ does not count as this ratification.
    returned 200. After enablement, a fresh authenticated account identity, complete billing
    capture, and settlement watermark must be materialized.
 2. The 180-dispatch reviewer-capacity preflight requires a fresh execution manifest and a separate
-   short-lived signed authorization. The frozen plan raw SHA-256 is
+   short-lived signed authorization. After the exact manifest exists, the capacity CLI can write
+   a reviewable non-authorizing draft with `--write-unsigned-authorization`; it cannot sign,
+   validate as authority, dispatch, or execute. The frozen plan raw SHA-256 is
    `11989a20c09f46093759ce0c7a5bf643b8e52d0a9b262b78a4a1bf6459bb855f`. It grants no Together
    or main-run authority. The launch-input handoff, crash accounting, fixed production wiring,
    and v6 main provenance checks are implemented and verified. Execution still requires Jack to

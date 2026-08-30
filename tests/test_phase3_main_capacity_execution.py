@@ -630,9 +630,129 @@ def test_capacity_cli_direct_script_entrypoint_loads_project_package() -> None:
 
     assert completed.returncode == 0
     assert "--write-manifest" in completed.stdout
+    assert "--write-unsigned-authorization" in completed.stdout
     assert "--validate-authority" in completed.stdout
     assert "--run" in completed.stdout
     assert completed.stderr == ""
+
+
+def test_unsigned_capacity_authorization_builder_binds_exact_manifest(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+
+    authorization = execution.build_unsigned_capacity_authorization(
+        manifest=fixture["manifest"],
+        manifest_raw=fixture["manifest_path"].read_bytes(),
+        authorization_id="capacity-authorization-draft-0001",
+        approved_at_utc=NOW,
+        valid_until_utc=NOW + timedelta(hours=1),
+    )
+
+    assert authorization["authority"] == {
+        "capacity_execution_authorized": True,
+        "external_reviewer_dispatch_authorized": True,
+        "provider_calls_authorized": False,
+        "together_calls_authorized": False,
+        "main_run_authorized": False,
+        "main_artifact_mutation_authorized": False,
+    }
+    assert authorization["maximum_reviewer_dispatches"] == 180
+    assert execution.validate_authorization(
+        authorization,
+        manifest=fixture["manifest"],
+        manifest_raw=fixture["manifest_path"].read_bytes(),
+        observed_at=NOW,
+    ) == authorization
+
+
+def test_cli_writes_unsigned_authorization_without_signature_or_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fixture = _fixture(tmp_path)
+    destination = fixture["root"] / "unsigned_capacity_authorization.json"
+    monkeypatch.setattr(capacity_cli, "_context", lambda _args: fixture["context"])
+    monkeypatch.setattr(execution, "repository_probe", lambda _root: (HEAD, True))
+    monkeypatch.setattr(
+        execution,
+        "execute_capacity_preflight",
+        lambda **_kwargs: pytest.fail("unsigned materialization reached execution"),
+    )
+    monkeypatch.setattr(
+        execution,
+        "verify_capacity_authorization_signature",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unsigned materialization reached signature verification"
+        ),
+    )
+
+    assert capacity_cli.main([
+        "--write-unsigned-authorization",
+        str(destination),
+        "--manifest",
+        str(fixture["manifest_path"]),
+        "--authorization-id",
+        "capacity-authorization-draft-0001",
+        "--approved-at-utc",
+        NOW.isoformat(),
+        "--valid-until-utc",
+        (NOW + timedelta(hours=1)).isoformat(),
+    ]) == 0
+
+    status = json.loads(capsys.readouterr().out)
+    assert status["artifact_status"] == "unsigned_non_authorizing_draft"
+    assert status["detached_signature_present"] is False
+    assert status["signature_namespace"] == execution.CAPACITY_SIGNATURE_NAMESPACE
+    assert status["signature_principal"] == execution.CAPACITY_SIGNATURE_PRINCIPAL
+    assert status["capacity_execution_authorized"] is False
+    assert status["external_reviewer_dispatch_authorized"] is False
+    assert not destination.with_name(f"{destination.name}.sig").exists()
+    authorization = json.loads(destination.read_text(encoding="utf-8"))
+    assert execution.validate_authorization(
+        authorization,
+        manifest=fixture["manifest"],
+        manifest_raw=fixture["manifest_path"].read_bytes(),
+        observed_at=NOW,
+    ) == authorization
+
+
+def test_cli_rejects_stale_signature_before_unsigned_authorization_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    destination = tmp_path / "unsigned_capacity_authorization.json"
+    signature_path = destination.with_name(f"{destination.name}.sig")
+    signature_path.write_text("stale signature\n", encoding="utf-8")
+    monkeypatch.setattr(capacity_cli, "_context", lambda _args: object())
+    monkeypatch.setattr(
+        execution,
+        "load_execution_manifest",
+        lambda *_args, **_kwargs: pytest.fail(
+            "stale signature reached manifest loading"
+        ),
+    )
+
+    with pytest.raises(
+        execution.CapacityExecutionError,
+        match="already has a detached signature",
+    ):
+        capacity_cli.main([
+            "--write-unsigned-authorization",
+            str(destination),
+            "--manifest",
+            str(tmp_path / "manifest.json"),
+            "--authorization-id",
+            "capacity-authorization-draft-0001",
+            "--approved-at-utc",
+            NOW.isoformat(),
+            "--valid-until-utc",
+            (NOW + timedelta(hours=1)).isoformat(),
+        ])
+
+    assert not destination.exists()
+    assert signature_path.read_text(encoding="utf-8") == "stale signature\n"
 
 
 def test_public_result_validators_do_not_expose_anchor_bypasses() -> None:
