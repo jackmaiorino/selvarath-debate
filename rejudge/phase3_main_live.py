@@ -160,9 +160,6 @@ ANALYSIS_INTEGRITY_FIELDS = frozenset({
 LIVE_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OWNER_SIGNATURE_NAMESPACE = phase3_main_authorization.OWNER_SIGNATURE_NAMESPACE
 OWNER_SIGNATURE_PRINCIPAL = phase3_main_authorization.OWNER_SIGNATURE_PRINCIPAL
-OWNER_SIGNING_PUBLIC_KEY = phase3_main_authorization.OWNER_SIGNING_PUBLIC_KEY
-OWNER_SIGNING_KEY_FINGERPRINT = (
-    phase3_main_authorization.OWNER_SIGNING_KEY_FINGERPRINT)
 SSH_KEYGEN_PATH = phase3_main_authorization.SSH_KEYGEN_PATH
 PRODUCTION_EXECUTION_BLOCKERS = (
     "the owner signing key is not pinned",
@@ -364,8 +361,6 @@ def _load_authenticated_owner_authorization(path: str | Path) -> dict[str, Any]:
     try:
         return phase3_main_authorization.load_authenticated_owner_authorization(
             path,
-            public_key=OWNER_SIGNING_PUBLIC_KEY,
-            key_fingerprint=OWNER_SIGNING_KEY_FINGERPRINT,
             ssh_keygen_path=SSH_KEYGEN_PATH,
         )
     except phase3_main_authorization.MainAuthorizationSignatureError as exc:

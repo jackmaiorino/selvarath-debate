@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from rejudge import phase3_owner_signing
 from scripts import codex_reviewer_batch
 from scripts import phase3_main_review_capacity_preflight as capacity
 
@@ -37,8 +38,6 @@ SCOPE = "phase3_main_reviewer_capacity_preflight_cohort_1"
 USAGE_UNIT = "external_reviewer_dispatch"
 CAPACITY_SIGNATURE_NAMESPACE = "selvarath-phase3-capacity-authorization-v1"
 CAPACITY_SIGNATURE_PRINCIPAL = "jack-maiorino"
-OWNER_SIGNING_PUBLIC_KEY: str | None = None
-OWNER_SIGNING_KEY_FINGERPRINT: str | None = None
 SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
 DOWNSTREAM_LAUNCH_BLOCKER = (
     "capacity evidence alone cannot authorize provider calls or main launch"
@@ -1026,9 +1025,13 @@ def verify_capacity_authorization_signature(
     ssh_keygen_path: Path | None = None,
 ) -> None:
     """Verify the exact capacity authorization bytes under a separate SSH namespace."""
-    pinned_key = OWNER_SIGNING_PUBLIC_KEY if public_key is None else public_key
+    pinned_key = (
+        phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY
+        if public_key is None
+        else public_key
+    )
     pinned_fingerprint = (
-        OWNER_SIGNING_KEY_FINGERPRINT
+        phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT
         if key_fingerprint is None
         else key_fingerprint
     )

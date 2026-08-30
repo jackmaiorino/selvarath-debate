@@ -7,11 +7,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from rejudge import phase3_owner_signing
+
 
 OWNER_SIGNATURE_NAMESPACE = "selvarath-phase3-main-authorization-v1"
 OWNER_SIGNATURE_PRINCIPAL = "jack-maiorino"
-OWNER_SIGNING_PUBLIC_KEY: str | None = None
-OWNER_SIGNING_KEY_FINGERPRINT: str | None = None
 SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
 
 
@@ -38,9 +38,13 @@ def load_authenticated_owner_authorization(
     """Load one strict JSON object and verify its exact bytes with an SSH signature."""
     source = Path(path).resolve()
     signature = source.with_name(f"{source.name}.sig")
-    pinned_key = OWNER_SIGNING_PUBLIC_KEY if public_key is None else public_key
+    pinned_key = (
+        phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY
+        if public_key is None
+        else public_key
+    )
     pinned_fingerprint = (
-        OWNER_SIGNING_KEY_FINGERPRINT
+        phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT
         if key_fingerprint is None else key_fingerprint
     )
     verifier = Path(ssh_keygen_path or SSH_KEYGEN_PATH)
@@ -124,8 +128,6 @@ __all__ = [
     "MainAuthorizationSignatureError",
     "OWNER_SIGNATURE_NAMESPACE",
     "OWNER_SIGNATURE_PRINCIPAL",
-    "OWNER_SIGNING_KEY_FINGERPRINT",
-    "OWNER_SIGNING_PUBLIC_KEY",
     "SSH_KEYGEN_PATH",
     "load_authenticated_owner_authorization",
 ]

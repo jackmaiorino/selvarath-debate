@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 
-from rejudge import phase3_main_live, phase3_main_runner
+from rejudge import phase3_main_live, phase3_main_runner, phase3_owner_signing
 from rejudge import phase3_main_runtime_policies
 from scripts import phase3_preseed_transcripts
 
@@ -1038,8 +1038,8 @@ def test_bound_input_is_hashed_and_parsed_from_the_same_bytes(tmp_path):
 def test_live_authorization_is_blocked_until_owner_signing_key_is_pinned(tmp_path):
     authorization = tmp_path / "authorization.json"
     authorization.write_text("{}\n", encoding="utf-8")
-    assert phase3_main_live.OWNER_SIGNING_PUBLIC_KEY is None
-    assert phase3_main_live.OWNER_SIGNING_KEY_FINGERPRINT is None
+    assert phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY is None
+    assert phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT is None
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="signing key is not pinned"):
         phase3_main_live._load_authenticated_owner_authorization(authorization)
 
@@ -1081,9 +1081,9 @@ def test_owner_authorization_requires_valid_signature_over_exact_bytes(
         timeout=30,
         check=True,
     ).stdout.split()[1]
-    monkeypatch.setattr(phase3_main_live, "OWNER_SIGNING_PUBLIC_KEY", public_key)
+    monkeypatch.setattr(phase3_owner_signing, "OWNER_SIGNING_PUBLIC_KEY", public_key)
     monkeypatch.setattr(
-        phase3_main_live, "OWNER_SIGNING_KEY_FINGERPRINT", fingerprint)
+        phase3_owner_signing, "OWNER_SIGNING_KEY_FINGERPRINT", fingerprint)
 
     assert phase3_main_live._load_authenticated_owner_authorization(authorization) == {
         "authorization_id": "signed-test",

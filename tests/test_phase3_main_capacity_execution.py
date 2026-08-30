@@ -19,6 +19,7 @@ import pytest
 
 from rejudge import phase3_main_capacity_execution as execution
 from rejudge import phase3_main_live
+from rejudge import phase3_owner_signing
 from scripts import codex_reviewer_batch
 from scripts import phase3_main_review_capacity_preflight as capacity
 from scripts import phase3_main_run_capacity_preflight as capacity_cli
@@ -757,8 +758,8 @@ def test_unpinned_capacity_owner_key_blocks_before_signature_or_subprocess(
     authorization_path = tmp_path / "authorization.json"
     authorization_raw = b"{}\n"
     authorization_path.write_bytes(authorization_raw)
-    monkeypatch.setattr(execution, "OWNER_SIGNING_PUBLIC_KEY", None)
-    monkeypatch.setattr(execution, "OWNER_SIGNING_KEY_FINGERPRINT", None)
+    monkeypatch.setattr(phase3_owner_signing, "OWNER_SIGNING_PUBLIC_KEY", None)
+    monkeypatch.setattr(phase3_owner_signing, "OWNER_SIGNING_KEY_FINGERPRINT", None)
     monkeypatch.setattr(
         execution.subprocess,
         "run",
