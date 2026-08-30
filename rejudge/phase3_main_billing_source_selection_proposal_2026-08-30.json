@@ -1,0 +1,135 @@
+{
+  "schema_version": "phase3_main_billing_source_selection_proposal_v1",
+  "stage": "main",
+  "provider": "Together",
+  "proposal_only": true,
+  "proposal_status": "owner_decision_required",
+  "owner_ratified": false,
+  "authoritative_completeness": "not_established",
+  "semantic_disjointness": "not_established",
+  "execution_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false,
+  "candidate_inventory": {
+    "tracked_path": "rejudge/phase3_main_billing_evidence_inventory_candidate_2026-08-30.json",
+    "raw_sha256": "45916d663963f372f33458f9ae89d27a78011377543f30512fcedc6c5ca1318d",
+    "schema_version": "phase3_main_billing_evidence_inventory_v3",
+    "billing_window": {
+      "window_start_utc": "2026-08-18T00:00:00Z",
+      "window_end_utc": "2026-08-30T00:00:00Z"
+    },
+    "source_count": 20,
+    "source_ids": [
+      "phase3-v1",
+      "phase3-v2",
+      "phase3-v3-journal-validation",
+      "phase3-v3-judgment-screen",
+      "phase3-v3-llama-checker-screen",
+      "phase3-v3-r01",
+      "phase3-v3-r02",
+      "phase3-v3-r03",
+      "phase3-v3-r04",
+      "phase3-v3-r05",
+      "phase3-v3-r06",
+      "phase3-v3-r07",
+      "phase3-v3-r08",
+      "phase3-v3-r09",
+      "phase3-v3-r10",
+      "phase3-v3-r11",
+      "phase3-v3-r12",
+      "phase3-v3-r13",
+      "phase3-v3-r14",
+      "phase3-v3-r15"
+    ],
+    "totals": {
+      "row_count": 50141,
+      "first_row_utc": "2026-08-18T15:31:29.117881Z",
+      "last_row_utc": "2026-08-29T19:03:54.718208Z",
+      "actual_spend_usd": "100.91915660999999798469",
+      "uncertain_spend_usd": "23.8246497500000000378",
+      "accounted_spend_usd": "124.74380635999999802249",
+      "uncertain_line_ref_count": 840
+    }
+  },
+  "source_groups": [
+    {
+      "group_id": "auxiliary-screens",
+      "source_ids": [
+        "phase3-v3-judgment-screen",
+        "phase3-v3-llama-checker-screen"
+      ],
+      "recommended_disposition": "include_if_owner_confirms_complete_and_disjoint",
+      "owner_disposition": "pending"
+    },
+    {
+      "group_id": "journal-validation-ledger",
+      "source_ids": [
+        "phase3-v3-journal-validation"
+      ],
+      "recommended_disposition": "include_if_owner_confirms_complete_and_disjoint",
+      "owner_disposition": "pending"
+    },
+    {
+      "group_id": "measurement-ledgers",
+      "source_ids": [
+        "phase3-v1",
+        "phase3-v2",
+        "phase3-v3-r01",
+        "phase3-v3-r02",
+        "phase3-v3-r03",
+        "phase3-v3-r04",
+        "phase3-v3-r05",
+        "phase3-v3-r06",
+        "phase3-v3-r07",
+        "phase3-v3-r08",
+        "phase3-v3-r09",
+        "phase3-v3-r10",
+        "phase3-v3-r11",
+        "phase3-v3-r12",
+        "phase3-v3-r13",
+        "phase3-v3-r14",
+        "phase3-v3-r15"
+      ],
+      "recommended_disposition": "include_if_owner_confirms_complete_and_disjoint",
+      "owner_disposition": "pending"
+    }
+  ],
+  "auxiliary_replica_observations": [
+    {
+      "source_id": "phase3-v3-judgment-screen",
+      "raw_sha256": "260751e454ecc83796d21d3a13649d899933f0fda7a0ce41b2155ecdc5fa91ce",
+      "selected_path": "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl",
+      "byte_identical_replica_paths": [
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl",
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner1/repo/rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl",
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner2/repo/rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl"
+      ]
+    },
+    {
+      "source_id": "phase3-v3-llama-checker-screen",
+      "raw_sha256": "0bb6e44ef600e492d8d2d16a593d67d5bda2195738b50e7a8b2325cc91938207",
+      "selected_path": "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl",
+      "byte_identical_replica_paths": [
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl",
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner1/repo/rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl",
+        "D:/phase3-reviewer-transaction-full-20260830/phase3_runner2/repo/rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl"
+      ]
+    }
+  ],
+  "mechanical_observations": {
+    "candidate_inventory_reopen_validation": "passed_local",
+    "legacy_ledger_field_schema_validation": "passed_for_phase3_v1_and_v2",
+    "ledger_id_uniqueness": "passed",
+    "ledger_attempt_id_uniqueness": "passed",
+    "auxiliary_exact_row_uniqueness": "passed",
+    "auxiliary_replica_hash_agreement": "passed",
+    "auxiliary_ledger_closed_interval_overlap_count": 0,
+    "cross_format_durable_call_identity_present": false
+  },
+  "owner_decisions_required": [
+    "Confirm that the 20 exact source IDs form the complete predecessor evidence set for the bound half-open billing window.",
+    "Confirm semantic disjointness across the measurement-ledger, journal-validation, and auxiliary-screen groups despite the absence of a durable cross-format call ID.",
+    "Record include or exclude for each exact source group in a separate owner-ratified artifact.",
+    "Bind the selected Together account, organization, project, and API-key-ID scope before authenticated billing capture."
+  ]
+}

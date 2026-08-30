@@ -34,6 +34,13 @@ def _usage_fields(*, attempt_id: str, cost: float) -> dict[str, Any]:
     }
 
 
+def _legacy_usage_fields(*, attempt_id: str, cost: float) -> dict[str, Any]:
+    fields = _usage_fields(attempt_id=attempt_id, cost=cost)
+    fields.pop("reserved_prompt_tokens")
+    fields.pop("reserved_completion_tokens")
+    return fields
+
+
 def _write_ledger(
     path: Path,
     events: list[dict[str, Any]],
@@ -172,6 +179,60 @@ def test_builds_exact_non_authorizing_mixed_inventory(tmp_path: Path) -> None:
         "authoritative_completeness": "not_established",
         "execution_authorized": False,
     }
+
+
+def test_legacy_ledgers_without_reservation_token_split_are_inventoried(
+    tmp_path: Path,
+) -> None:
+    ledger = _write_ledger(tmp_path / "legacy.jsonl", [
+        {
+            "status": "reserved",
+            **_legacy_usage_fields(attempt_id="legacy", cost=0.25),
+        },
+        {
+            "status": "success",
+            **_legacy_usage_fields(attempt_id="legacy", cost=0.20),
+            "prompt_tokens": 8,
+            "completion_tokens": 9,
+            "response_metadata": None,
+        },
+    ])
+    record = inventory.build_inventory(
+        window_start_utc=WINDOW_START,
+        window_end_utc=WINDOW_END,
+        ledger_sources=(("legacy", ledger),),
+        project_root=tmp_path,
+    )
+    assert record["totals"]["actual_spend_usd"] == "0.2"
+    assert record["totals"]["uncertain_spend_usd"] == "0"
+
+
+def test_one_ledger_cannot_mix_legacy_and_modern_reservation_fields(
+    tmp_path: Path,
+) -> None:
+    ledger = _write_ledger(tmp_path / "mixed-schema.jsonl", [
+        {
+            "status": "reserved",
+            **_legacy_usage_fields(attempt_id="mixed", cost=0.25),
+        },
+        {
+            "status": "success",
+            **_usage_fields(attempt_id="mixed", cost=0.20),
+            "prompt_tokens": 8,
+            "completion_tokens": 9,
+            "response_metadata": None,
+        },
+    ])
+    with pytest.raises(
+        inventory.BillingEvidenceInventoryError,
+        match="mixes legacy and modern reservation field schemas",
+    ):
+        inventory.build_inventory(
+            window_start_utc=WINDOW_START,
+            window_end_utc=WINDOW_END,
+            ledger_sources=(("mixed-schema", ledger),),
+            project_root=tmp_path,
+        )
 
 
 def test_auxiliary_numeric_lexemes_use_decimal_without_float_rounding(

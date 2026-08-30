@@ -122,28 +122,41 @@ sibling workload layout is preserved, and nonexistent destinations remain protec
 exclusive creation. Public result validators always require dispatch anchors; only the private
 predicted-PASS validator can disable on-disk anchor lookup before the terminal history append.
 
-No real inventory was materialized because the exact account scope and authoritative source
-set still require owner decisions. A read-only local audit found these candidate amounts:
+A non-authorizing candidate inventory is now materialized at
+`rejudge/phase3_main_billing_evidence_inventory_candidate_2026-08-30.json`. It reopens all
+20 identified sources and ledger state tails. It remains evidence-only because the exact
+account scope, authoritative completeness, and semantic disjointness still require owner
+decisions. The bound source-selection proposal is
+`rejudge/phase3_main_billing_source_selection_proposal_2026-08-30.json`. The exact candidate
+amounts are:
 
 - Seventeen Phase 3 measurement ledgers: settled
   `$95.36142456999999802619`, uncertain `$23.5893157200000000378`, accounted
   `$118.95074028999999806399`, with 827 unresolved attempt IDs.
-- Judgment and checker auxiliary screens: settled `$5.23608743`; the judgment screen also
-  carries `$0.23533403` of full-reservation uncertainty for 13 null-actual rows.
-- The separate journal-validation ledger: settled `$0.32164461`.
+- Judgment and checker auxiliary screens: settled `$5.2360874299999999661`; the judgment
+  screen also carries `$0.23533403` of full-reservation uncertainty for 13 null-actual rows.
+- The separate journal-validation ledger: settled `$0.3216446099999999924`.
 - If the owner selects all identified sources as disjoint evidence, the mechanical local sum
-  is settled `$100.91915660999999802619`, uncertain `$23.8246497500000000378`, and accounted
-  `$124.74380635999999806399`.
+  is settled `$100.91915660999999798469`, uncertain `$23.8246497500000000378`, and accounted
+  `$124.74380635999999802249` across 50,141 rows. The 840 uncertain references comprise 827
+  ledger attempts and 13 auxiliary null-actual rows.
 
 These are local inventory candidates, not provider-authenticated completeness, account
 binding, or a billing reconciliation. Existing auxiliary formats also cannot prove that an
 auxiliary call is disjoint from every ledger call, so source disposition must be explicit.
+The two auxiliary logs each have three byte-identical reviewer-transaction replicas, and their
+closed timestamp intervals overlap no ledger interval. Those observations support recovery but
+do not create the missing durable cross-format call identity.
 
 Verification on the completed successor tree:
 
 - Focused capacity execution: 34 passed; base capacity suite: 59 passed.
-- Focused billing inventory: 38 passed; inventory plus existing billing reconciliation:
-  64 passed.
+- Legacy-ledger compatibility and the tracked source-selection proposal: 42 passed. The v1
+  and v2 exact field sets are accepted as one consistent legacy schema per ledger; a ledger
+  mixing legacy and modern reservation fields is rejected.
+- Complete billing boundary, including evidence inventory, proposal, reconciliation, and
+  authenticated-capture tests: 112 passed.
+- Complete Phase 3 main suite: 539 passed, 2 skipped in 113.03 seconds.
 - Combined capacity and billing integration: 157 passed in 27.03 seconds on a fresh external
   Windows basetemp.
 - Targeted type checking, whitespace checks, diff checks, and the repository no-em-dash rule:
@@ -345,11 +358,11 @@ cross-wave continuity, final store targets, and the complete packet tree.
 
 1. Ask Together to enable the billing-usage beta endpoint for the selected organization, then
    confirm the stable account, organization, project, and API-key-ID scope.
-2. Decide the exact predecessor ledger and auxiliary source set, establish its authoritative
-   completeness and disjointness, materialize the explicit inventory and approved account scope,
-   then run the read-only authenticated capture and reconciliation. The v4 launch gate will bind
-   the exact runtime credential to that signed scope. Any environmental predecessor also needs a
-   post-void settlement watermark.
+2. Ratify or amend the three exact source groups in the tracked source-selection proposal,
+   establish authoritative completeness and semantic disjointness, and bind the approved account
+   scope. Then run the read-only authenticated capture and reconciliation. The v4 launch gate will
+   bind the exact runtime credential to that signed scope. Any environmental predecessor also
+   needs a post-void settlement watermark.
 3. Ratify the price-change response and reviewer usage treatment, then pin Jack's public
    signing key and fingerprint.
 4. Close the capacity real-enable gaps and request a separate bounded authorization for the

@@ -1,0 +1,7115 @@
+{
+  "authoritative_completeness": "not_established",
+  "billing_window": {
+    "window_end_utc": "2026-08-30T00:00:00Z",
+    "window_start_utc": "2026-08-18T00:00:00Z"
+  },
+  "evidence_only": true,
+  "execution_authorized": false,
+  "main_run_spend_authorized": false,
+  "provider": "Together",
+  "provider_calls_authorized": false,
+  "schema_version": "phase3_main_billing_evidence_inventory_v3",
+  "selection_basis": "explicit_local_source_list",
+  "source_count": 20,
+  "sources": [
+    {
+      "accounted_spend_usd": "19.78244913000000007993",
+      "actual_spend_usd": "15.30535811000000007213",
+      "first_row_utc": "2026-08-18T15:31:29.117881Z",
+      "last_row_utc": "2026-08-20T08:01:37.013880Z",
+      "ledger_id": "8c2aed0e492e4a9f87296b00ebc41fa3",
+      "path": "E:/selvarath-archive/phase3-2026-08-18/phase3_usage.jsonl",
+      "raw_sha256": "bc8a8f895c4acdc4c08812543da5cbe3d58a925f79059bd2d830f60aa3ac021a",
+      "row_count": 15757,
+      "source_id": "phase3-v1",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-2026-08-18/phase3_usage.jsonl.state.json",
+      "state_raw_sha256": "9ad1f4d88e8c5c9ea6ae49a11fad420907fd34893a31258d41924b7b363585e2",
+      "tail_event_hash": "38a7a518d9b920405d76101f3353481c5b62e5a946ced0cbd32085631d4e861f",
+      "tail_sequence": 15757,
+      "uncertain_line_refs": [
+        {
+          "line_number": 9,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 17,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 37,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 43,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 45,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 63,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 83,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 87,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 89,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 109,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 113,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 125,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 139,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 155,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 157,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 179,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 183,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 185,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 189,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 217,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 249,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 289,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 331,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 343,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 345,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 351,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 363,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 379,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 387,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 415,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 443,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 457,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 465,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 479,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 487,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 493,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 495,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 511,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 521,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 527,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 529,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 541,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 547,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 559,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 577,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 597,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 607,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 625,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 629,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 637,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 647,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 665,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 675,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 679,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 685,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 703,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 751,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 755,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 787,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 791,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 815,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 819,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 825,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 835,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 857,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 885,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 895,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 921,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 923,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 931,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 961,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 981,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 989,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 991,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 995,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1003,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1009,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1013,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1015,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1045,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1051,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1057,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1063,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1067,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1069,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1071,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1075,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1077,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1079,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1085,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1087,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1089,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1091,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1093,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1101,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1109,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1111,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1125,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1127,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1129,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1135,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1143,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1145,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1147,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1149,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1151,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1153,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1155,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1157,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1159,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1161,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1169,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1439,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1538,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1714,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1726,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1728,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1784,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1786,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1852,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1854,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1862,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1870,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1872,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1886,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1912,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1914,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1916,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1918,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1920,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1922,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1924,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1932,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1934,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1936,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1938,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1940,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1942,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1944,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1946,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1948,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1950,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1952,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1954,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1956,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1958,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1960,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1962,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1964,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1966,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1968,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1972,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1974,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1976,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1978,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1980,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1982,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1984,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1986,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1988,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1990,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1992,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1994,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1996,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 1998,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2000,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2002,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2004,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2006,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2008,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2014,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2022,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2036,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2038,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2048,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2052,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2054,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2060,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2066,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2078,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2086,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2090,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2092,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2110,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2112,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2128,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2134,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2138,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 2748,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 3960,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 4014,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 4638,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 4822,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 4854,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 5910,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 5950,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6128,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6232,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6366,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6380,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6392,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 6840,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8116,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8211,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8239,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8273,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8373,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8385,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8389,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8399,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8495,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8505,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8507,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8511,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8513,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8515,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8517,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8521,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8523,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8525,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8529,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8531,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8535,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8537,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8539,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8541,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8543,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8545,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8547,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8549,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8551,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8553,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8559,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8563,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8565,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8567,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8571,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8579,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8583,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8589,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 8753,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 10031,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 10157,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 10255,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 11275,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 11590,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 12438,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 12588,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13234,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13240,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13252,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13260,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13298,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13302,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13308,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13310,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13362,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13416,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13418,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13420,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13508,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13514,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13516,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13518,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13530,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13532,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13534,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13536,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13538,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13540,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13542,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13544,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13546,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13556,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13570,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13572,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13574,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13576,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13596,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13620,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13648,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13650,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13652,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13656,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13686,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13688,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13764,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13772,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13774,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13782,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13796,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13808,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13810,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13812,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13814,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13896,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13932,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13954,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13968,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13970,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13972,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 13982,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14004,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14014,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14016,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14018,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14022,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14058,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14060,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14076,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14078,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14080,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14092,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14106,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14122,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14124,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14126,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14128,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14174,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14206,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14234,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14248,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14250,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14252,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14264,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14288,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14306,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14308,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14310,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14318,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14342,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14344,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14368,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14370,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14372,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14380,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14388,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14390,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14392,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14394,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14396,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14450,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14492,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14538,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14550,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14552,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14554,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14558,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14578,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14588,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14590,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14592,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14600,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14628,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14630,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14648,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14650,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14652,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14660,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14662,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14664,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14666,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14668,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14670,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14706,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14738,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14762,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14772,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14774,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14776,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14782,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14808,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14818,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14820,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14822,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14830,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14856,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14858,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14878,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14880,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14882,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14884,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14886,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14888,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14890,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14892,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14894,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14910,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14950,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14962,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14976,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14978,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14980,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 14984,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15004,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15010,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15012,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15014,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15022,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15036,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15038,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15040,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15042,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15044,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15046,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15048,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15050,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15052,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15054,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15056,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15058,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15060,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15062,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15064,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15066,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15068,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15070,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15072,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15074,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15102,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15104,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15116,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15118,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15120,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15122,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15124,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15126,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15128,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15130,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15132,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15154,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15176,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15188,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15204,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15206,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15208,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15216,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15276,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15288,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15290,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15292,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15300,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15318,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15320,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15340,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15342,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15344,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15346,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15348,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15350,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15352,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15354,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15356,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15362,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15384,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15406,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15408,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15432,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15442,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15444,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15446,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15450,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15468,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15472,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15474,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15476,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15484,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15522,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15524,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15532,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15538,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15540,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15542,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15544,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15546,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15548,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15550,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15552,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15554,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15556,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15558,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15572,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15610,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15612,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15614,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15622,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15624,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15626,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15632,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15640,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15642,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15644,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15646,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15648,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15656,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15678,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15680,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15686,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15694,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15696,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15698,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15700,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15702,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15704,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15706,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15708,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15710,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15712,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15714,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15716,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15718,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15720,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15722,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15724,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15726,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15728,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15730,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15732,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15734,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15736,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15738,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15740,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15742,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15744,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15746,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15748,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15750,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15752,
+          "source_id": "phase3-v1"
+        },
+        {
+          "line_number": 15758,
+          "source_id": "phase3-v1"
+        }
+      ],
+      "uncertain_spend_usd": "4.4770910200000000078"
+    },
+    {
+      "accounted_spend_usd": "14.78698631000000011451",
+      "actual_spend_usd": "13.69589112000000009621",
+      "first_row_utc": "2026-08-21T17:02:03.256412Z",
+      "last_row_utc": "2026-08-23T09:42:44.187815Z",
+      "ledger_id": "5116ce0bf7104ceeba4b9971c9b875f7",
+      "path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_usage.jsonl",
+      "raw_sha256": "6f7aebcb784f2da757623df71a78505e861624ab5e986ad08e0f1e2cca2e0520",
+      "row_count": 12508,
+      "source_id": "phase3-v2",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v2-2026-08-21/phase3_usage.jsonl.state.json",
+      "state_raw_sha256": "f0226dd23d10644a9122c020b00904d03583ef4b44ee27903b33d9df669d1d4a",
+      "tail_event_hash": "bfc861156acfc6d30f499613f2efdd8dcb9f4739f9a4c5002e51720647b136fc",
+      "tail_sequence": 12508,
+      "uncertain_line_refs": [
+        {
+          "line_number": 3,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 5,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 7,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 13,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 25,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 55,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 57,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 95,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 137,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 145,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 183,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 191,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 209,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 219,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 225,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 247,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 251,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 263,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 265,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 273,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 281,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 283,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 289,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 295,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 297,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 299,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 335,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 343,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 351,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 361,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 383,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 389,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 393,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 399,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 407,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 419,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 447,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 471,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 477,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 479,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 493,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 495,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 513,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 517,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 519,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 535,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 541,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 547,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 551,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 559,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 595,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 597,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 607,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 611,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 637,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 657,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 659,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 667,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 669,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 675,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 679,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 685,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 703,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 705,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 711,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 723,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 735,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 741,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 759,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 763,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 765,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 769,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 773,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 787,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 797,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 817,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 855,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 863,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 867,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 879,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 917,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 937,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 945,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 949,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 953,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 989,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 993,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 995,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 999,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1011,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1021,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1035,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1079,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1095,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1111,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1137,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1145,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1149,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1153,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1157,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1159,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1161,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1163,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1165,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1167,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1169,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1171,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1173,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1175,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1177,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1327,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1329,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1331,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1333,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1335,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1337,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1339,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1341,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1343,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 1639,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 3449,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 3453,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 3455,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 4889,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 5311,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 5347,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 5357,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 5901,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6289,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6535,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6713,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6733,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6769,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6771,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6785,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6787,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6797,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6799,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6805,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6811,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6827,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6837,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 6841,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 10471,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 10699,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 11479,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 11959,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 11973,
+          "source_id": "phase3-v2"
+        },
+        {
+          "line_number": 11975,
+          "source_id": "phase3-v2"
+        }
+      ],
+      "uncertain_spend_usd": "1.0910951900000000183"
+    },
+    {
+      "accounted_spend_usd": "0.3216446099999999924",
+      "actual_spend_usd": "0.3216446099999999924",
+      "first_row_utc": "2026-08-29T18:59:03.428743Z",
+      "last_row_utc": "2026-08-29T19:03:54.718208Z",
+      "ledger_id": "629d8d2595db442bb4b12103cd7093d5",
+      "path": "E:/selvarath-archive/phase3-v3-journal-validation-2026-08-29/journal_validation_usage.jsonl",
+      "raw_sha256": "0df1078ac14b65df0a5fbdd4344f7b758f2e59829375c654aa2cf77fc954d976",
+      "row_count": 72,
+      "source_id": "phase3-v3-journal-validation",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3-journal-validation-2026-08-29/journal_validation_usage.jsonl.state.json",
+      "state_raw_sha256": "07090e12e2e2ae8194c431ad816baf66bc0bac775edcd465b84ef30fc09e38f7",
+      "tail_event_hash": "d49bab081489545ef0532bfa11a3fa6d0e9a11364c4de53acaef3ead0e28cade",
+      "tail_sequence": 72,
+      "uncertain_line_refs": [],
+      "uncertain_spend_usd": "0"
+    },
+    {
+      "accounted_spend_usd": "5.3272233799999999618",
+      "actual_spend_usd": "5.0918893499999999618",
+      "first_row_utc": "2026-08-27T12:15:21.828941Z",
+      "last_row_utc": "2026-08-27T22:57:56.620550Z",
+      "path": "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_screen_usage_2026-08-27.jsonl",
+      "raw_sha256": "260751e454ecc83796d21d3a13649d899933f0fda7a0ce41b2155ecdc5fa91ce",
+      "row_count": 692,
+      "source_id": "phase3-v3-judgment-screen",
+      "source_kind": "auxiliary_screen_usage_jsonl",
+      "uncertain_line_refs": [
+        {
+          "line_number": 13,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 14,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 15,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 18,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 22,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 23,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 24,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 25,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 26,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 27,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 497,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 498,
+          "source_id": "phase3-v3-judgment-screen"
+        },
+        {
+          "line_number": 499,
+          "source_id": "phase3-v3-judgment-screen"
+        }
+      ],
+      "uncertain_spend_usd": "0.23533403"
+    },
+    {
+      "accounted_spend_usd": "0.1441980800000000043",
+      "actual_spend_usd": "0.1441980800000000043",
+      "first_row_utc": "2026-08-28T11:32:40.878563Z",
+      "last_row_utc": "2026-08-28T11:35:06.207037Z",
+      "path": "D:/phase3-reviewer-transaction-full-20260830/phase3_runner0/repo/rejudge/output/phase3_v3_llama_checker_screen_usage_2026-08-28.jsonl",
+      "raw_sha256": "0bb6e44ef600e492d8d2d16a593d67d5bda2195738b50e7a8b2325cc91938207",
+      "row_count": 96,
+      "source_id": "phase3-v3-llama-checker-screen",
+      "source_kind": "auxiliary_screen_usage_jsonl",
+      "uncertain_line_refs": [],
+      "uncertain_spend_usd": "0"
+    },
+    {
+      "accounted_spend_usd": "0.21711288999999999991",
+      "actual_spend_usd": "0.16820808999999999491",
+      "first_row_utc": "2026-08-24T21:46:16.553730Z",
+      "last_row_utc": "2026-08-24T22:28:58.823226Z",
+      "ledger_id": "ee18c88809d6459b9fc96e732641e6c7",
+      "path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl",
+      "raw_sha256": "b583c2aed470543310c28061f725ba2b003ff60d405c5ac7f8db41ac4d1042ab",
+      "row_count": 294,
+      "source_id": "phase3-v3-r01",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3-successor-2026-08-24/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "ae03124fccf7091d54f2ab0d468799c6379c7d54e93ef2b9aa57b07f436736a8",
+      "tail_event_hash": "a8246f77f2b836d89c867e13c4c9ac201d934e96e57b4bfde816130194eed198",
+      "tail_sequence": 294,
+      "uncertain_line_refs": [
+        {
+          "line_number": 295,
+          "source_id": "phase3-v3-r01"
+        }
+      ],
+      "uncertain_spend_usd": "0.048904800000000005"
+    },
+    {
+      "accounted_spend_usd": "0.09274",
+      "actual_spend_usd": "0",
+      "first_row_utc": "2026-08-25T00:46:04.808149Z",
+      "last_row_utc": "2026-08-25T00:46:10.141132Z",
+      "ledger_id": "39f1cfd261464685803ab1a38cc55b7c",
+      "path": "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24/phase3_v3_usage.jsonl",
+      "raw_sha256": "adfd086dcd9246673963191c1ebc41ada23a2c430fe0dea6c35484b3e08dd37d",
+      "row_count": 2,
+      "source_id": "phase3-v3-r02",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r2-qwen38-successor-2026-08-24/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "1865f29e62d1e9477d30dadfc56cea7de7dbcc1f96632414bd6b270cfb5a4edb",
+      "tail_event_hash": "2191dc74346af0c8b9c5b63efd1fe9b315ff73d371d6fa4af5588d397854382d",
+      "tail_sequence": 2,
+      "uncertain_line_refs": [
+        {
+          "line_number": 3,
+          "source_id": "phase3-v3-r02"
+        }
+      ],
+      "uncertain_spend_usd": "0.09274"
+    },
+    {
+      "accounted_spend_usd": "4.66735781999999991014",
+      "actual_spend_usd": "4.57550159999999990914",
+      "first_row_utc": "2026-08-25T12:04:47.379550Z",
+      "last_row_utc": "2026-08-25T18:28:54.678071Z",
+      "ledger_id": "2a35a32d73fd46388a1dea791a467e45",
+      "path": "E:/selvarath-archive/phase3-v3r3-qwen38-nonstream-2026-08-25/phase3_v3_usage.jsonl",
+      "raw_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60",
+      "row_count": 1774,
+      "source_id": "phase3-v3-r03",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r3-qwen38-nonstream-2026-08-25/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "34e22c9017a3c93185b1abca42f26ea68491bc9804044c5f813a71616074698d",
+      "tail_event_hash": "d0e5f4584708dc9c7c3ea4cffc483be6950f93e607bd6517246207b0c3fe214b",
+      "tail_sequence": 1774,
+      "uncertain_line_refs": [
+        {
+          "line_number": 1287,
+          "source_id": "phase3-v3-r03"
+        },
+        {
+          "line_number": 1521,
+          "source_id": "phase3-v3-r03"
+        },
+        {
+          "line_number": 1523,
+          "source_id": "phase3-v3-r03"
+        },
+        {
+          "line_number": 1573,
+          "source_id": "phase3-v3-r03"
+        },
+        {
+          "line_number": 1585,
+          "source_id": "phase3-v3-r03"
+        },
+        {
+          "line_number": 1671,
+          "source_id": "phase3-v3-r03"
+        }
+      ],
+      "uncertain_spend_usd": "0.091856220000000001"
+    },
+    {
+      "accounted_spend_usd": "3.1902903999999999479",
+      "actual_spend_usd": "3.1564756299999999442",
+      "first_row_utc": "2026-08-25T19:14:23.763963Z",
+      "last_row_utc": "2026-08-25T21:23:53.154917Z",
+      "ledger_id": "3b5a467e39904a16bcf940430676ed65",
+      "path": "E:/selvarath-archive/phase3-v3r4-uncertain-tolerance-2026-08-25/phase3_v3_usage.jsonl",
+      "raw_sha256": "cbad43ba62d4f29613596357d4f15b25925240dcd84b898b84473cc82a703dd9",
+      "row_count": 1175,
+      "source_id": "phase3-v3-r04",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r4-uncertain-tolerance-2026-08-25/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "81f566619a3d79622cfec6ab9b288389483ae21cc6fa1de8c24db6d2d425c3f3",
+      "tail_event_hash": "f7bd8115e75144a060bb96512dd8624e71d76b5a345b362034f2b73fbce0fa78",
+      "tail_sequence": 1175,
+      "uncertain_line_refs": [
+        {
+          "line_number": 1071,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1079,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1085,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1087,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1127,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1135,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1141,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1143,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1145,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1147,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1165,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1167,
+          "source_id": "phase3-v3-r04"
+        },
+        {
+          "line_number": 1176,
+          "source_id": "phase3-v3-r04"
+        }
+      ],
+      "uncertain_spend_usd": "0.0338147700000000037"
+    },
+    {
+      "accounted_spend_usd": "6.5586127099999999014",
+      "actual_spend_usd": "6.3602235399999998964",
+      "first_row_utc": "2026-08-25T23:34:37.534168Z",
+      "last_row_utc": "2026-08-26T07:30:23.729124Z",
+      "ledger_id": "0609ebab607f49e0bccbb233f04503b3",
+      "path": "E:/selvarath-archive/phase3-v3r5-qwen35-9b-2026-08-25/phase3_v3_usage.jsonl",
+      "raw_sha256": "64a6604c9f44c7077a9edf955e4690b59b62952c9a459197a8dba8507804eda7",
+      "row_count": 2508,
+      "source_id": "phase3-v3-r05",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r5-qwen35-9b-2026-08-25/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "f2c1a67517137d9406e172ab0c7641b5faef1cb34af263533c5bd89157bbe75e",
+      "tail_event_hash": "55ebc8d6d09bcdd8569333909c5d657e8c0359f80079bcde9c2ccfd17620546c",
+      "tail_sequence": 2508,
+      "uncertain_line_refs": [
+        {
+          "line_number": 503,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 517,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 575,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 589,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1191,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1615,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1881,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1965,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1969,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1979,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 1987,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 2009,
+          "source_id": "phase3-v3-r05"
+        },
+        {
+          "line_number": 2103,
+          "source_id": "phase3-v3-r05"
+        }
+      ],
+      "uncertain_spend_usd": "0.198389170000000005"
+    },
+    {
+      "accounted_spend_usd": "6.937092799999999907",
+      "actual_spend_usd": "6.007793009999999896",
+      "first_row_utc": "2026-08-26T08:11:56.614096Z",
+      "last_row_utc": "2026-08-26T16:01:55.350388Z",
+      "ledger_id": "50add235c3aa4e81b532faf856064603",
+      "path": "E:/selvarath-archive/phase3-v3r6-checker-disposition-2026-08-26/phase3_v3_usage.jsonl",
+      "raw_sha256": "c5d5229de09016c51c817a3f97c170339963381bdeca55025a16d322425b3632",
+      "row_count": 2355,
+      "source_id": "phase3-v3-r06",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r6-checker-disposition-2026-08-26/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "5e4ff3b8b58d4d93faf6f19ce15893ab38735b807a5017c8948174915f0d6fc4",
+      "tail_event_hash": "e01b4d8ec96d7e980432caa55630275a59feb5ccdc0e11b8f9081cebb6783615",
+      "tail_sequence": 2355,
+      "uncertain_line_refs": [
+        {
+          "line_number": 375,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 719,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1041,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1069,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1237,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1679,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1869,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1871,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1889,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 1993,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 2281,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 2343,
+          "source_id": "phase3-v3-r06"
+        },
+        {
+          "line_number": 2356,
+          "source_id": "phase3-v3-r06"
+        }
+      ],
+      "uncertain_spend_usd": "0.929299790000000011"
+    },
+    {
+      "accounted_spend_usd": "3.7433464699999999834",
+      "actual_spend_usd": "1.3422268199999999844",
+      "first_row_utc": "2026-08-26T17:47:26.058549Z",
+      "last_row_utc": "2026-08-26T22:02:47.548425Z",
+      "ledger_id": "027006286f184a01bd5578aa13cd510a",
+      "path": "E:/selvarath-archive/phase3-v3r7-raised-ceiling-2026-08-26/phase3_v3_usage.jsonl",
+      "raw_sha256": "261feae2a1c1435b511dae363fe77e47202a20987997e4ad541f156d2b023aff",
+      "row_count": 691,
+      "source_id": "phase3-v3-r07",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r7-raised-ceiling-2026-08-26/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "8145a08798f62c1cc3c64731c4aa087492d07777e57c9d570e11a1d98bced51f",
+      "tail_event_hash": "da1267e7a09d51f1758bb0751bc5d66ba02dbd259d5af9f10830a034cd13b64b",
+      "tail_sequence": 691,
+      "uncertain_line_refs": [
+        {
+          "line_number": 97,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 263,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 301,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 303,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 305,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 307,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 313,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 429,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 439,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 443,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 471,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 509,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 523,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 557,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 559,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 563,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 601,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 625,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 633,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 643,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 653,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 667,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 689,
+          "source_id": "phase3-v3-r07"
+        },
+        {
+          "line_number": 692,
+          "source_id": "phase3-v3-r07"
+        }
+      ],
+      "uncertain_spend_usd": "2.401119649999999999"
+    },
+    {
+      "accounted_spend_usd": "5.1200053499999999472",
+      "actual_spend_usd": "2.7803216799999999532",
+      "first_row_utc": "2026-08-26T22:26:09.821954Z",
+      "last_row_utc": "2026-08-27T09:35:34.761959Z",
+      "ledger_id": "cf846d6358554a7cab3a554fcf9414fe",
+      "path": "E:/selvarath-archive/phase3-v3r8-offpeak-2026-08-27/phase3_v3_usage.jsonl",
+      "raw_sha256": "531f440cc27af6353283d10660aa5035714ab3e670484a7ee77dab3b302182b1",
+      "row_count": 1085,
+      "source_id": "phase3-v3-r08",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r8-offpeak-2026-08-27/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "1e6489630b8faf89efb46dd0f5d7466a1a1d1a7969368e2d64fbdc9095f07ebc",
+      "tail_event_hash": "73610e7814f46afa3a33e000c5c33d1681e5ed924e66929dd73bd9fbffb786d5",
+      "tail_sequence": 1085,
+      "uncertain_line_refs": [
+        {
+          "line_number": 303,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 305,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 329,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 583,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 599,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 635,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 659,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 675,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 703,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 705,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 713,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 745,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 831,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 837,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 887,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 973,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 979,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 1017,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 1081,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 1083,
+          "source_id": "phase3-v3-r08"
+        },
+        {
+          "line_number": 1086,
+          "source_id": "phase3-v3-r08"
+        }
+      ],
+      "uncertain_spend_usd": "2.339683669999999994"
+    },
+    {
+      "accounted_spend_usd": "0.00130943",
+      "actual_spend_usd": "0.00130943",
+      "first_row_utc": "2026-08-27T11:16:33.568767Z",
+      "last_row_utc": "2026-08-27T11:17:26.333351Z",
+      "ledger_id": "ae4bd4a9f86b48b59b54d18604e02859",
+      "path": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl",
+      "raw_sha256": "3f3b545dac035473a6e4c5d5323763911803acf70db91ffe9526a0fd47047ec4",
+      "row_count": 2,
+      "source_id": "phase3-v3-r09",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r9-final4judge-2026-08-27/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "a2d193f7a4ebb424e7e410d1f2e083980f31dba0fb784c9b65b6e320563852a3",
+      "tail_event_hash": "a97f5148b26503d1d9d9b267b9645582ac0e581de7743ce918dacb92d930612b",
+      "tail_sequence": 2,
+      "uncertain_line_refs": [],
+      "uncertain_spend_usd": "0"
+    },
+    {
+      "accounted_spend_usd": "4.122688799999999898",
+      "actual_spend_usd": "4.1022215999999999",
+      "first_row_utc": "2026-08-27T23:56:26.641023Z",
+      "last_row_utc": "2026-08-28T00:48:09.254918Z",
+      "ledger_id": "ca2c80990b3c4142ad98bbc9bb865a2e",
+      "path": "E:/selvarath-archive/phase3-v3r10-n2-2026-08-27/phase3_v3_usage.jsonl",
+      "raw_sha256": "71277f4d19584b4cbbda4b9b5f21161dc5dd92a486f8bea862fd486c54c02206",
+      "row_count": 764,
+      "source_id": "phase3-v3-r10",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r10-n2-2026-08-27/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "5b6dbda90c26934bb2eaa3c28e064a1153b557af3408e98f3af5f0b960f8c9fa",
+      "tail_event_hash": "dab55c0c0a2077fd9120aa22ce686d77d714df32514344e3c76ae013db0f4740",
+      "tail_sequence": 764,
+      "uncertain_line_refs": [
+        {
+          "line_number": 609,
+          "source_id": "phase3-v3-r10"
+        }
+      ],
+      "uncertain_spend_usd": "0.020467199999999998"
+    },
+    {
+      "accounted_spend_usd": "7.8807026599999998398",
+      "actual_spend_usd": "5.6543376599999998398",
+      "first_row_utc": "2026-08-28T01:00:39.020495Z",
+      "last_row_utc": "2026-08-28T03:04:54.403255Z",
+      "ledger_id": "e4522c9dedf8415f9b12494b6afe6b1c",
+      "path": "E:/selvarath-archive/phase3-v3r11-n2-2026-08-28/phase3_v3_usage.jsonl",
+      "raw_sha256": "f87ebcbf1cf3d953766f78441fb6e6c39ce060f1c7302fca1cdc17e2e6b21f9d",
+      "row_count": 1416,
+      "source_id": "phase3-v3-r11",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r11-n2-2026-08-28/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "fdbef837c90b943b3521378115bdc809a9fb844c69755f99d17ef9466ba28049",
+      "tail_event_hash": "32ab04e224a43127a414c0bde27ef547a75b10fb0dd8b49c539048bb6a1434ea",
+      "tail_sequence": 1416,
+      "uncertain_line_refs": [
+        {
+          "line_number": 105,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 415,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 729,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 859,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 1227,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 1277,
+          "source_id": "phase3-v3-r11"
+        },
+        {
+          "line_number": 1329,
+          "source_id": "phase3-v3-r11"
+        }
+      ],
+      "uncertain_spend_usd": "2.226365"
+    },
+    {
+      "accounted_spend_usd": "7.9202964699999999038",
+      "actual_spend_usd": "3.3174514699999999038",
+      "first_row_utc": "2026-08-28T12:08:37.461209Z",
+      "last_row_utc": "2026-08-28T17:02:07.745600Z",
+      "ledger_id": "f835b0ce7dca44f69b19358b91412fa5",
+      "path": "E:/selvarath-archive/phase3-v3r12-llamachecker-2026-08-28/phase3_v3_usage.jsonl",
+      "raw_sha256": "fe9eefb2d30c5949151f7476aeac3e3345ec826b4bfb73b3394d2c6506cff0d3",
+      "row_count": 786,
+      "source_id": "phase3-v3-r12",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r12-llamachecker-2026-08-28/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "2bed104672cb005ac4621e7cf8606e469a98bbea68281897a7f00b4e7aef5388",
+      "tail_event_hash": "3abb364fed1e5e591aaf7a39ffdc23d0844fef50466b74e8756d615b14d7278a",
+      "tail_sequence": 786,
+      "uncertain_line_refs": [
+        {
+          "line_number": 103,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 105,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 107,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 109,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 111,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 113,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 115,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 121,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 127,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 135,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 149,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 151,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 165,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 171,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 173,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 175,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 177,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 181,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 183,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 185,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 187,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 193,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 195,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 197,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 199,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 201,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 319,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 347,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 443,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 783,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 785,
+          "source_id": "phase3-v3-r12"
+        },
+        {
+          "line_number": 787,
+          "source_id": "phase3-v3-r12"
+        }
+      ],
+      "uncertain_spend_usd": "4.602845"
+    },
+    {
+      "accounted_spend_usd": "4.2050991699999999036",
+      "actual_spend_usd": "3.8316945899999999036",
+      "first_row_utc": "2026-08-28T19:23:44.039195Z",
+      "last_row_utc": "2026-08-28T20:26:31.114415Z",
+      "ledger_id": "92538dfeee7b489182839e7c32de1017",
+      "path": "E:/selvarath-archive/phase3-v3r13-extended-2026-08-28/phase3_v3_usage.jsonl",
+      "raw_sha256": "5459c76473d0a541110817cc967a86016b3c9cfc2c464c21f19b7773e98cf346",
+      "row_count": 720,
+      "source_id": "phase3-v3-r13",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r13-extended-2026-08-28/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "cc52465f7ee689da998cd617c6616ab63aefcd8d789ca57eac2a1ee19d75875d",
+      "tail_event_hash": "6d218390717bf5188ee1b5605caa68dbda2563241b3195e92b0de137916b0789",
+      "tail_sequence": 720,
+      "uncertain_line_refs": [
+        {
+          "line_number": 391,
+          "source_id": "phase3-v3-r13"
+        },
+        {
+          "line_number": 585,
+          "source_id": "phase3-v3-r13"
+        }
+      ],
+      "uncertain_spend_usd": "0.37340458"
+    },
+    {
+      "accounted_spend_usd": "10.1694875599999996321",
+      "actual_spend_usd": "8.7535125599999996321",
+      "first_row_utc": "2026-08-29T10:38:14.100832Z",
+      "last_row_utc": "2026-08-29T12:50:58.953083Z",
+      "ledger_id": "76638844511a4bfdb387e36a516af62e",
+      "path": "E:/selvarath-archive/phase3-v3r14-final-2026-08-29/phase3_v3_usage.jsonl",
+      "raw_sha256": "d66827a97e54111ffeeb2c43cd6c97839be6fafc135b35519d24b9cddd4aa0c4",
+      "row_count": 2256,
+      "source_id": "phase3-v3-r14",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r14-final-2026-08-29/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "fe97716b6e9828837efa00eda850d56ed6f21f3ab038cd1dff11fa6408d6dd7a",
+      "tail_event_hash": "ea11a06f1e13d08b425344dfdcbc96b77e59ed5922b60a8dc2509e75ca4aa6df",
+      "tail_sequence": 2256,
+      "uncertain_line_refs": [
+        {
+          "line_number": 267,
+          "source_id": "phase3-v3-r14"
+        },
+        {
+          "line_number": 391,
+          "source_id": "phase3-v3-r14"
+        },
+        {
+          "line_number": 745,
+          "source_id": "phase3-v3-r14"
+        },
+        {
+          "line_number": 1453,
+          "source_id": "phase3-v3-r14"
+        }
+      ],
+      "uncertain_spend_usd": "1.415975"
+    },
+    {
+      "accounted_spend_usd": "19.5551623199999990953",
+      "actual_spend_usd": "16.3088976599999991003",
+      "first_row_utc": "2026-08-29T13:39:11.148079Z",
+      "last_row_utc": "2026-08-29T18:21:31.679516Z",
+      "ledger_id": "3cea0e65af5743f5824ec53b6ed81eb0",
+      "path": "E:/selvarath-archive/phase3-v3r15-clean-2026-08-29/phase3_v3_usage.jsonl",
+      "raw_sha256": "cd057c85488ce1b5c663465a10ca73a927476695dd60a7c1b04782f2659874d5",
+      "row_count": 5188,
+      "source_id": "phase3-v3-r15",
+      "source_kind": "immutable_usage_ledger",
+      "state_path": "E:/selvarath-archive/phase3-v3r15-clean-2026-08-29/phase3_v3_usage.jsonl.state.json",
+      "state_raw_sha256": "6900ba71cfb0f2c0b6110a764db252251c77eb49ea8bc20640af1594abfec31d",
+      "tail_event_hash": "4a9b06b14375407f773c0b73e47d2da5b3cc2c2c4f0a4180c94efe7ec08ba507",
+      "tail_sequence": 5188,
+      "uncertain_line_refs": [
+        {
+          "line_number": 267,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 381,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 391,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 743,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 747,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 1265,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 1267,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 1971,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 2439,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 4027,
+          "source_id": "phase3-v3-r15"
+        },
+        {
+          "line_number": 4987,
+          "source_id": "phase3-v3-r15"
+        }
+      ],
+      "uncertain_spend_usd": "3.246264659999999995"
+    }
+  ],
+  "stage": "main",
+  "totals": {
+    "accounted_spend_usd": "124.74380635999999802249",
+    "actual_spend_usd": "100.91915660999999798469",
+    "first_row_utc": "2026-08-18T15:31:29.117881Z",
+    "last_row_utc": "2026-08-29T19:03:54.718208Z",
+    "row_count": 50141,
+    "uncertain_line_refs": [
+      {
+        "line_number": 9,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 17,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 37,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 43,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 45,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 63,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 83,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 87,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 89,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 109,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 113,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 125,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 139,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 155,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 157,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 179,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 183,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 185,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 189,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 217,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 249,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 289,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 331,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 343,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 345,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 351,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 363,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 379,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 387,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 415,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 443,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 457,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 465,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 479,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 487,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 493,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 495,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 511,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 521,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 527,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 529,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 541,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 547,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 559,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 577,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 597,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 607,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 625,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 629,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 637,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 647,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 665,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 675,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 679,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 685,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 703,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 751,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 755,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 787,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 791,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 815,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 819,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 825,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 835,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 857,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 885,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 895,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 921,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 923,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 931,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 961,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 981,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 989,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 991,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 995,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1003,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1009,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1013,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1015,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1045,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1051,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1057,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1063,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1067,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1069,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1071,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1075,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1077,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1079,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1085,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1087,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1089,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1091,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1093,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1101,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1109,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1111,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1125,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1127,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1129,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1135,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1143,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1145,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1147,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1149,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1151,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1153,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1155,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1157,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1159,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1161,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1169,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1439,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1538,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1714,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1726,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1728,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1784,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1786,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1852,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1854,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1862,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1870,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1872,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1886,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1912,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1914,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1916,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1918,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1920,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1922,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1924,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1932,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1934,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1936,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1938,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1940,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1942,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1944,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1946,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1948,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1950,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1952,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1954,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1956,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1958,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1960,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1962,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1964,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1966,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1968,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1972,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1974,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1976,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1978,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1980,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1982,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1984,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1986,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1988,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1990,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1992,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1994,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1996,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 1998,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2000,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2002,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2004,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2006,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2008,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2014,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2022,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2036,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2038,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2048,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2052,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2054,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2060,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2066,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2078,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2086,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2090,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2092,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2110,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2112,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2128,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2134,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2138,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 2748,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 3960,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 4014,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 4638,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 4822,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 4854,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 5910,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 5950,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6128,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6232,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6366,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6380,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6392,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 6840,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8116,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8211,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8239,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8273,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8373,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8385,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8389,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8399,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8495,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8505,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8507,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8511,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8513,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8515,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8517,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8521,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8523,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8525,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8529,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8531,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8535,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8537,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8539,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8541,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8543,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8545,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8547,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8549,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8551,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8553,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8559,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8563,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8565,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8567,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8571,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8579,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8583,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8589,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 8753,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 10031,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 10157,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 10255,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 11275,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 11590,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 12438,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 12588,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13234,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13240,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13252,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13260,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13298,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13302,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13308,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13310,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13362,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13416,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13418,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13420,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13508,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13514,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13516,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13518,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13530,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13532,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13534,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13536,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13538,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13540,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13542,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13544,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13546,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13556,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13570,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13572,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13574,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13576,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13596,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13620,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13648,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13650,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13652,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13656,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13686,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13688,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13764,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13772,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13774,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13782,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13796,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13808,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13810,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13812,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13814,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13896,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13932,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13954,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13968,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13970,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13972,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 13982,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14004,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14014,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14016,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14018,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14022,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14058,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14060,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14076,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14078,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14080,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14092,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14106,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14122,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14124,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14126,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14128,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14174,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14206,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14234,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14248,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14250,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14252,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14264,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14288,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14306,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14308,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14310,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14318,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14342,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14344,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14368,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14370,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14372,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14380,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14388,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14390,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14392,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14394,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14396,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14450,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14492,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14538,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14550,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14552,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14554,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14558,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14578,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14588,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14590,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14592,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14600,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14628,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14630,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14648,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14650,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14652,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14660,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14662,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14664,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14666,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14668,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14670,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14706,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14738,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14762,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14772,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14774,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14776,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14782,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14808,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14818,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14820,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14822,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14830,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14856,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14858,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14878,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14880,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14882,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14884,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14886,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14888,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14890,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14892,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14894,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14910,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14950,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14962,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14976,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14978,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14980,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 14984,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15004,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15010,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15012,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15014,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15022,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15036,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15038,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15040,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15042,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15044,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15046,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15048,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15050,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15052,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15054,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15056,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15058,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15060,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15062,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15064,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15066,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15068,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15070,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15072,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15074,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15102,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15104,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15116,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15118,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15120,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15122,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15124,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15126,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15128,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15130,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15132,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15154,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15176,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15188,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15204,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15206,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15208,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15216,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15276,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15288,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15290,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15292,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15300,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15318,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15320,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15340,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15342,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15344,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15346,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15348,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15350,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15352,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15354,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15356,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15362,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15384,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15406,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15408,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15432,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15442,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15444,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15446,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15450,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15468,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15472,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15474,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15476,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15484,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15522,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15524,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15532,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15538,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15540,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15542,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15544,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15546,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15548,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15550,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15552,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15554,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15556,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15558,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15572,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15610,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15612,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15614,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15622,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15624,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15626,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15632,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15640,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15642,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15644,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15646,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15648,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15656,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15678,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15680,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15686,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15694,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15696,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15698,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15700,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15702,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15704,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15706,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15708,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15710,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15712,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15714,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15716,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15718,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15720,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15722,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15724,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15726,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15728,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15730,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15732,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15734,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15736,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15738,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15740,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15742,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15744,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15746,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15748,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15750,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15752,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 15758,
+        "source_id": "phase3-v1"
+      },
+      {
+        "line_number": 3,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 5,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 7,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 13,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 25,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 55,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 57,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 95,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 137,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 145,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 183,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 191,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 209,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 219,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 225,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 247,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 251,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 263,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 265,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 273,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 281,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 283,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 289,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 295,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 297,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 299,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 335,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 343,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 351,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 361,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 383,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 389,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 393,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 399,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 407,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 419,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 447,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 471,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 477,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 479,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 493,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 495,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 513,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 517,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 519,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 535,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 541,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 547,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 551,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 559,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 595,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 597,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 607,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 611,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 637,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 657,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 659,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 667,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 669,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 675,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 679,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 685,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 703,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 705,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 711,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 723,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 735,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 741,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 759,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 763,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 765,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 769,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 773,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 787,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 797,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 817,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 855,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 863,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 867,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 879,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 917,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 937,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 945,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 949,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 953,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 989,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 993,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 995,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 999,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1011,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1021,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1035,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1079,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1095,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1111,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1137,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1145,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1149,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1153,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1157,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1159,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1161,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1163,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1165,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1167,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1169,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1171,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1173,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1175,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1177,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1327,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1329,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1331,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1333,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1335,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1337,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1339,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1341,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1343,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 1639,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 3449,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 3453,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 3455,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 4889,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 5311,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 5347,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 5357,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 5901,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6289,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6535,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6713,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6733,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6769,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6771,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6785,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6787,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6797,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6799,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6805,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6811,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6827,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6837,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 6841,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 10471,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 10699,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 11479,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 11959,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 11973,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 11975,
+        "source_id": "phase3-v2"
+      },
+      {
+        "line_number": 13,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 14,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 15,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 18,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 22,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 23,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 24,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 25,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 26,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 27,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 497,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 498,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 499,
+        "source_id": "phase3-v3-judgment-screen"
+      },
+      {
+        "line_number": 295,
+        "source_id": "phase3-v3-r01"
+      },
+      {
+        "line_number": 3,
+        "source_id": "phase3-v3-r02"
+      },
+      {
+        "line_number": 1287,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1521,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1523,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1573,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1585,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1671,
+        "source_id": "phase3-v3-r03"
+      },
+      {
+        "line_number": 1071,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1079,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1085,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1087,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1127,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1135,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1141,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1143,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1145,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1147,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1165,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1167,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 1176,
+        "source_id": "phase3-v3-r04"
+      },
+      {
+        "line_number": 503,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 517,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 575,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 589,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1191,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1615,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1881,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1965,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1969,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1979,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 1987,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 2009,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 2103,
+        "source_id": "phase3-v3-r05"
+      },
+      {
+        "line_number": 375,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 719,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1041,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1069,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1237,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1679,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1869,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1871,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1889,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 1993,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 2281,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 2343,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 2356,
+        "source_id": "phase3-v3-r06"
+      },
+      {
+        "line_number": 97,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 263,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 301,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 303,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 305,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 307,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 313,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 429,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 439,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 443,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 471,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 509,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 523,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 557,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 559,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 563,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 601,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 625,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 633,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 643,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 653,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 667,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 689,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 692,
+        "source_id": "phase3-v3-r07"
+      },
+      {
+        "line_number": 303,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 305,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 329,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 583,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 599,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 635,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 659,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 675,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 703,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 705,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 713,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 745,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 831,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 837,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 887,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 973,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 979,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 1017,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 1081,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 1083,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 1086,
+        "source_id": "phase3-v3-r08"
+      },
+      {
+        "line_number": 609,
+        "source_id": "phase3-v3-r10"
+      },
+      {
+        "line_number": 105,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 415,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 729,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 859,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 1227,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 1277,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 1329,
+        "source_id": "phase3-v3-r11"
+      },
+      {
+        "line_number": 103,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 105,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 107,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 109,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 111,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 113,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 115,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 121,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 127,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 135,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 149,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 151,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 165,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 171,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 173,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 175,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 177,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 181,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 183,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 185,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 187,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 193,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 195,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 197,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 199,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 201,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 319,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 347,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 443,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 783,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 785,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 787,
+        "source_id": "phase3-v3-r12"
+      },
+      {
+        "line_number": 391,
+        "source_id": "phase3-v3-r13"
+      },
+      {
+        "line_number": 585,
+        "source_id": "phase3-v3-r13"
+      },
+      {
+        "line_number": 267,
+        "source_id": "phase3-v3-r14"
+      },
+      {
+        "line_number": 391,
+        "source_id": "phase3-v3-r14"
+      },
+      {
+        "line_number": 745,
+        "source_id": "phase3-v3-r14"
+      },
+      {
+        "line_number": 1453,
+        "source_id": "phase3-v3-r14"
+      },
+      {
+        "line_number": 267,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 381,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 391,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 743,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 747,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 1265,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 1267,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 1971,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 2439,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 4027,
+        "source_id": "phase3-v3-r15"
+      },
+      {
+        "line_number": 4987,
+        "source_id": "phase3-v3-r15"
+      }
+    ],
+    "uncertain_spend_usd": "23.8246497500000000378"
+  }
+}

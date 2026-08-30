@@ -26,7 +26,7 @@ from rejudge import api_client
 from rejudge import phase3_main_billing_reconciliation as billing
 
 
-SCHEMA_VERSION = "phase3_main_billing_evidence_inventory_v2"
+SCHEMA_VERSION = "phase3_main_billing_evidence_inventory_v3"
 PROVIDER = "Together"
 SELECTION_BASIS = "explicit_local_source_list"
 AUTHORITATIVE_COMPLETENESS = "not_established"
@@ -92,6 +92,9 @@ _USAGE_FIELDS = frozenset({
     "prompt_tokens", "completion_tokens", "reserved_prompt_tokens",
     "reserved_completion_tokens", "estimated_tokens", "cost_usd", "metadata",
 })
+_LEGACY_USAGE_FIELDS = _USAGE_FIELDS - frozenset({
+    "reserved_prompt_tokens", "reserved_completion_tokens",
+})
 _GENESIS_FIELDS = _CHAIN_FIELDS | frozenset({"status", "schema_version"})
 _LEDGER_EVENT_FIELDS = {
     "reserved": _CHAIN_FIELDS | _USAGE_FIELDS,
@@ -99,6 +102,10 @@ _LEDGER_EVENT_FIELDS = {
     "unknown_charge": _CHAIN_FIELDS | _USAGE_FIELDS | frozenset({"error"}),
     "success": _CHAIN_FIELDS | _USAGE_FIELDS,
     "charged_malformed": _CHAIN_FIELDS | _USAGE_FIELDS,
+}
+_LEGACY_LEDGER_EVENT_FIELDS = {
+    status: fields - _USAGE_FIELDS | _LEGACY_USAGE_FIELDS
+    for status, fields in _LEDGER_EVENT_FIELDS.items()
 }
 
 _AUX_BASE = frozenset({"ts", "reserved_usd", "actual_usd"})
@@ -372,26 +379,40 @@ def _validate_ledger_row_fields(rows: Sequence[Mapping[str, Any]], label: str) -
     _exact_keys(rows[0], _GENESIS_FIELDS, f"{label} row 1")
     if rows[0].get("status") != "ledger_genesis":
         raise BillingEvidenceInventoryError(f"{label} row 1 is not ledger genesis")
+    ledger_field_schema: str | None = None
     for line_number, row in enumerate(rows[1:], 2):
         status = row.get("status")
         if not isinstance(status, str):
             raise BillingEvidenceInventoryError(
                 f"{label} row {line_number} has unsupported status"
             )
-        expected = _LEDGER_EVENT_FIELDS.get(status)
-        if expected is None:
+        modern = _LEDGER_EVENT_FIELDS.get(status)
+        legacy = _LEGACY_LEDGER_EVENT_FIELDS.get(status)
+        if modern is None or legacy is None:
             raise BillingEvidenceInventoryError(
                 f"{label} row {line_number} has unsupported status"
             )
         observed = set(row)
+        modern_accepted = (modern,)
+        legacy_accepted = (legacy,)
         if status in {"success", "charged_malformed"}:
-            accepted = (expected, expected | frozenset({"response_metadata"}))
-            if observed not in accepted:
-                raise BillingEvidenceInventoryError(
-                    f"{label} row {line_number} fields drifted"
-                )
+            modern_accepted += (modern | frozenset({"response_metadata"}),)
+            legacy_accepted += (legacy | frozenset({"response_metadata"}),)
+
+        if observed in modern_accepted:
+            row_field_schema = "reservation_token_split"
+        elif observed in legacy_accepted:
+            row_field_schema = "legacy_estimated_tokens_only"
         else:
-            _exact_keys(row, expected, f"{label} row {line_number}")
+            raise BillingEvidenceInventoryError(
+                f"{label} row {line_number} fields drifted"
+            )
+        if ledger_field_schema is None:
+            ledger_field_schema = row_field_schema
+        elif row_field_schema != ledger_field_schema:
+            raise BillingEvidenceInventoryError(
+                f"{label} mixes legacy and modern reservation field schemas"
+            )
 
 
 def _ledger_material(
