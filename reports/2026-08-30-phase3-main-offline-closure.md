@@ -54,6 +54,18 @@ Verification on the resulting tree:
 - Static compilation, whitespace checks, JSON parsing, and the repository no-em-dash rule:
   passed.
 
+Current-head regression revalidation on source commit
+`48ee95b4439304920cca1fd3ebc9c967bdcec73e` used the repository-managed Python 3.13.5
+environment with pytest 9.0.2, httpx 0.28.1, and Together SDK 2.7.0. The Together, OpenAI,
+and OpenRouter API-key variables were removed from the test subprocess, pytest caching was
+disabled, and the disposable temp root was outside the repository. The complete suite passed:
+2,991 passed, 67 skipped in 982.13 seconds, exit code 0.
+
+A preliminary validation invocation placed the disposable temp root inside the repository. That
+topology made one run-manifest test correctly store a repository-relative path while its fixture
+expected an external absolute path. The exact test passed after moving the temp root outside the
+repository, followed by the clean full-suite result above. No code change was required.
+
 No paid call, external reviewer call, production launch, or push occurred during this closure.
 
 ## Current completion matrix
