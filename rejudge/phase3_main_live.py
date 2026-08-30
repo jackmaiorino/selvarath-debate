@@ -1,4 +1,4 @@
-"""Offline launch validator and blocked driver skeleton for the Phase 3 main measurement.
+"""Offline launch validator and blocked driver for the Phase 3 main measurement.
 
 The public preparation path is read-only. It derives the exact main inventory and validates
 every bound input before accepting a separate, active owner authorization. The public run path
@@ -8,7 +8,7 @@ constructs the private provider client.
 
 Importing this module and calling :func:`load_prepared_main` cannot create a provider client or
 mutate formal output state. The public paid path also refuses before formal state mutation until
-the external authority and provenance blockers listed below are implemented.
+the remaining launch blockers listed below are closed.
 """
 from __future__ import annotations
 
@@ -117,14 +117,15 @@ OWNER_SIGNING_KEY_FINGERPRINT = (
 SSH_KEYGEN_PATH = phase3_main_authorization.SSH_KEYGEN_PATH
 PRODUCTION_EXECUTION_BLOCKERS = (
     "the owner signing key is not pinned",
+    "the protocol cap and proposed main cap are not ratified to one value",
     "provider-authenticated billing evidence is not implemented",
     "the runtime credential is not bound to the reconciled provider account",
     "predecessor-ledger completeness has no independent authoritative inventory",
     "one-attempt consumption has no non-resettable external authority store",
     "the signed run has no authorized response to in-run provider price changes",
-    "Codex reviewer authority and spend accounting are unresolved",
-    "non-verdict provider request fingerprints are not independently reconstructed",
-    "reviewer packet and worklist provenance are not independently revalidated",
+    "Codex reviewer usage has no separately ratified spend accounting",
+    "fresh reviewer capacity evidence has not been authorized or measured",
+    "reviewer decision and wave-index closeout is not crash-consistent",
 )
 
 
@@ -133,7 +134,7 @@ class Phase3MainLiveError(RuntimeError, ValueError):
 
 
 def _require_production_execution_unblocked() -> None:
-    """Keep the public paid path closed until its external authority adapters exist."""
+    """Keep the public paid path closed until every remaining launch blocker is closed."""
     if PRODUCTION_EXECUTION_BLOCKERS:
         raise Phase3MainLiveError(
             "formal main execution is intentionally blocked: "

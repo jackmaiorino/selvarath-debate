@@ -2,6 +2,12 @@
 
 Date: 2026-08-29. Prepared after the canary close-out (`2026-08-29-phase3-v3-successor-canary-closeout.md`) and its Codex review (`rejudge/phase3_v3_codex_closeout_consult_2026-08-29.md`). Nothing here authorizes external execution, reviewer dispatch, provider calls, or spend; this is the checklist and decision set.
 
+Current-state update, 2026-08-30: commits `d9d6db6` and `8299c52` add item 7's blocked
+driver, finalization, analysis handoff, and provider and reviewer provenance. Crash-consistent
+reviewer closeout and the offline harness receipt remain. See
+`reports/2026-08-30-phase3-main-offline-closure.md` for the current gate order. The historical
+checklist below is retained to preserve the decision chronology.
+
 ## The ask, in one paragraph
 
 This package describes a possible main run using `Qwen/Qwen3.8-2.4T-A95B` and `meta-llama/Llama-3.3-70B-Instruct-Turbo` over 82 questions and 9,840 judgment slots. The $875 figure is a proposed planning cap from the sealed canary, not a current authorization or certified ceiling. The final cap requires the fresh forecast, price snapshot, billing reconciliation, final manifest, and owner authorization. Any voided formal identity requires separate reauthorization.

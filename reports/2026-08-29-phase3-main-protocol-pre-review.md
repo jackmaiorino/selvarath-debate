@@ -2,6 +2,11 @@
 
 Date: 2026-08-29. Status: offline continuation review, not final methods ratification. This document authorizes no external execution, provider call, or spend.
 
+Current-state update, 2026-08-30: commits `d9d6db6` and `8299c52` implement the blocked
+production driver, finalization, provider and reviewer provenance, output completion, and
+analysis handoff that were open below. See `reports/2026-08-30-phase3-main-offline-closure.md`
+for the remaining gates. The findings below preserve the 2026-08-29 review state.
+
 ## Decision
 
 Do not freeze a live main-run manifest or execution identity, and do not request the proposed $875 authorization yet. The canary supports a conditional funding ask for the two named judges. This continuation fixed the journal's unsafe timeout and open-reservation assumptions. Jack confirmed the scientific scope and approved replacing the obsolete eight-block rule with a representative review-capacity preflight in `rejudge/phase3_main_scope_capacity_decision_2026-08-29.json`. The offline capacity plan, materializer, and validator, the fake-only main-runner safety foundation, and the frozen analysis pins and reporting engine now exist. No capacity measurement, live production driver, main outcome, or main analysis report exists.

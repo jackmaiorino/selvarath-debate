@@ -2,6 +2,11 @@
 
 Date: 2026-08-29. Status: offline implementation candidate. This document authorizes no provider call, reviewer dispatch, paid execution, or spend.
 
+Current-state update, 2026-08-30: commits `d9d6db6` and `8299c52` closed the
+driver, provider-request reconstruction, reviewer-provenance, finalization, and analysis gaps
+described below. See `reports/2026-08-30-phase3-main-offline-closure.md` for the current blockers
+and next sequence. The remainder of this file preserves the 2026-08-29 state.
+
 ## Current outcome
 
 The repository now has an offline launch validator, a deliberately blocked execution skeleton, artifact-bound finalization, and the confirmatory analysis handoff for the Phase 3 main design. The planned inventory remains 82 questions, 492 frozen transcript rows, 9,840 judgment slots, and 10,332 total result rows. The judge endpoints remain `Qwen/Qwen3.8-2.4T-A95B` and `meta-llama/Llama-3.3-70B-Instruct-Turbo`.

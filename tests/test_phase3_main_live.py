@@ -325,6 +325,19 @@ def test_public_paid_path_is_blocked_before_any_formal_state_mutation(
     assert not registry_root.exists()
 
 
+def test_production_blockers_exclude_closed_provenance_work():
+    blockers = phase3_main_live.PRODUCTION_EXECUTION_BLOCKERS
+    assert blockers
+    assert not any(
+        "non-verdict provider request fingerprints" in item for item in blockers)
+    assert not any(
+        "reviewer packet and worklist provenance" in item for item in blockers)
+    assert any("owner signing key" in item for item in blockers)
+    assert any("provider-authenticated billing" in item for item in blockers)
+    assert any("reviewer capacity evidence" in item for item in blockers)
+    assert any("wave-index closeout" in item for item in blockers)
+
+
 def test_launch_freshness_failure_precedes_identity_consumption(
     tmp_path, inventory, monkeypatch,
 ):
