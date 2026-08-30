@@ -9,6 +9,7 @@ import platform
 import stat
 import sys
 import threading
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -289,6 +290,9 @@ class FakeReviewer:
         codex: str,
         not_after_utc: datetime,
         concurrency: int,
+        expected_prompt_raw_sha256: str,
+        expected_cli_raw_sha256: str,
+        expected_batch_runner_raw_sha256: str,
     ) -> dict[str, Any]:
         with self.lock:
             call_number = len(self.calls)
@@ -301,6 +305,9 @@ class FakeReviewer:
         runner_path, runner_sha, runner_size = (
             codex_reviewer_batch._batch_runner_identity()  # noqa: SLF001
         )
+        assert hashlib.sha256(prompt_raw).hexdigest() == expected_prompt_raw_sha256
+        assert hashlib.sha256(cli_raw).hexdigest() == expected_cli_raw_sha256
+        assert runner_sha == expected_batch_runner_raw_sha256
         working = packet.parent / f"fake-work-{packet.stem}"
         event_stream = (
             '{"type":"thread.started","thread_id":"fake"}\n'
@@ -395,7 +402,11 @@ class FakeReviewer:
         }
 
 
-def _execute(fixture: dict[str, Any], reviewer: FakeReviewer, **overrides: Any):
+def _execute(
+    fixture: dict[str, Any],
+    reviewer: Callable[..., dict[str, Any]],
+    **overrides: Any,
+):
     kwargs = {
         "manifest_path": fixture["manifest_path"],
         "authorization_path": fixture["authorization_path"],
@@ -443,9 +454,11 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
     ]
     result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
     assert result["reviewer_usage_receipt"]["observed_quantity"] == 180
+    assert len(result["reviewer_usage_receipt"]["dispatch_reservations"]) == 180
     assert result["reviewer_usage_receipt"]["non_claim"] == (
         "dispatch count is not USD or token accounting"
     )
+    assert outcome["validation"]["reopened_dispatch_reservations"] == 180
     assert outcome["validation"]["reopened_invocation_receipts"] == 180
     assert all(
         Path(wave["durable_output"]["path"]).is_file() for wave in result["waves"]
@@ -463,6 +476,18 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
         context=fixture["context"],
         as_of_utc=NOW,
     )
+    reservation_audit = execution.audit_capacity_dispatch_reservations(
+        manifest=fresh_manifest,
+        manifest_raw=fresh_manifest_raw,
+        authorization=json.loads(fresh_authorization_raw.decode("utf-8")),
+        authorization_raw=fresh_authorization_raw,
+    )
+    assert reservation_audit["observed_quantity"] == 180
+    assert reservation_audit["resume_or_redispatch_authorized"] is False
+    assert reservation_audit["dispatch_reservations"] == result[
+        "reviewer_usage_receipt"
+    ]["dispatch_reservations"]
+    assert fresh_validation["reopened_dispatch_reservations"] == 180
     assert fresh_validation["reopened_invocation_receipts"] == 180
     assert anchor_validation_modes == [False, True, True]
 
@@ -836,8 +861,121 @@ def test_tampered_invocation_receipt_fails_terminally_with_usage_count(tmp_path:
     )
     failure = json.loads(failure_path.read_text(encoding="utf-8"))
     assert failure["attempted_dispatches"] == 60
+    assert failure["dispatch_reservation_count"] == 60
+    assert len(failure["dispatch_reservations"]) == 60
     assert failure["usage_unit"] == execution.USAGE_UNIT
+    manifest_raw = fixture["manifest_path"].read_bytes()
+    authorization_raw = fixture["authorization_path"].read_bytes()
+    reservation_audit = execution.audit_capacity_dispatch_reservations(
+        manifest=fixture["manifest"],
+        manifest_raw=manifest_raw,
+        authorization=fixture["authorization"],
+        authorization_raw=authorization_raw,
+    )
+    assert reservation_audit["observed_quantity"] == 60
+    assert reservation_audit["dispatch_reservations"] == failure[
+        "dispatch_reservations"
+    ]
     assert not fixture["result_path"].exists()
+
+
+def test_reviewer_failure_after_reservation_is_conservatively_accounted(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    calls: list[Path] = []
+    lock = threading.Lock()
+
+    def unavailable_reviewer(**kwargs: Any) -> dict[str, Any]:
+        with lock:
+            calls.append(kwargs["packet"])
+        raise RuntimeError("synthetic reviewer unavailable after handoff")
+
+    with pytest.raises(
+        execution.CapacityExecutionError,
+        match="synthetic reviewer unavailable after handoff",
+    ):
+        _execute(fixture, unavailable_reviewer)
+
+    failure_path = Path(
+        fixture["manifest"]["dispatch_history"]["failure_receipt_path"]
+    )
+    failure = json.loads(failure_path.read_text(encoding="utf-8"))
+    assert len(calls) == 60
+    assert failure["attempted_dispatches"] == 60
+    assert failure["dispatch_reservation_count"] == 60
+    assert len(failure["dispatch_reservations"]) == 60
+    reservation_audit = execution.audit_capacity_dispatch_reservations(
+        manifest=fixture["manifest"],
+        manifest_raw=fixture["manifest_path"].read_bytes(),
+        authorization=fixture["authorization"],
+        authorization_raw=fixture["authorization_path"].read_bytes(),
+    )
+    assert reservation_audit["observed_quantity"] == 60
+    assert reservation_audit["resume_or_redispatch_authorized"] is False
+    assert [event["event"] for event in _history_events(fixture)] == [
+        "dispatch_started",
+        "attempt_completed_fail",
+    ]
+    assert not fixture["result_path"].exists()
+    first_reservation = Path(failure["dispatch_reservations"][0]["path"])
+    first_reservation.write_bytes(first_reservation.read_bytes() + b" ")
+    with pytest.raises(execution.CapacityExecutionError, match="bytes drifted"):
+        execution.audit_capacity_dispatch_reservations(
+            manifest=fixture["manifest"],
+            manifest_raw=fixture["manifest_path"].read_bytes(),
+            authorization=fixture["authorization"],
+            authorization_raw=fixture["authorization_path"].read_bytes(),
+        )
+
+
+def test_failure_receipt_recovers_reservation_written_before_local_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(tmp_path)
+    reviewer = FakeReviewer()
+    original_artifact_binding = execution._artifact_binding  # noqa: SLF001
+    failure_lock = threading.Lock()
+    failed = False
+
+    def fail_first_reservation_binding(path: Path) -> dict[str, Any]:
+        nonlocal failed
+        with failure_lock:
+            should_fail = (
+                not failed
+                and path.parent.name
+                == codex_reviewer_batch.DISPATCH_RESERVATION_DIRECTORY_NAME
+            )
+            if should_fail:
+                failed = True
+        if should_fail:
+            raise execution.CapacityExecutionError(
+                "synthetic failure after reservation write"
+            )
+        return original_artifact_binding(path)
+
+    monkeypatch.setattr(execution, "_artifact_binding", fail_first_reservation_binding)
+
+    with pytest.raises(
+        execution.CapacityExecutionError,
+        match="synthetic failure after reservation write",
+    ):
+        _execute(fixture, reviewer)
+
+    failure_path = Path(
+        fixture["manifest"]["dispatch_history"]["failure_receipt_path"]
+    )
+    failure = json.loads(failure_path.read_text(encoding="utf-8"))
+    assert failed is True
+    assert len(reviewer.calls) == 59
+    assert failure["attempted_dispatches"] == 60
+    assert failure["dispatch_reservation_count"] == 60
+    assert len(failure["dispatch_reservations"]) == 60
+    assert [event["event"] for event in _history_events(fixture)] == [
+        "dispatch_started",
+        "attempt_completed_fail",
+    ]
 
 
 def test_cross_wave_receipt_reuse_fails_closed(tmp_path: Path) -> None:

@@ -1579,10 +1579,35 @@ def run_one(
     dispatch_guard_path: Path | None = None,
     dispatch_guard_raw_sha256: str | None = None,
     batch_output_path: Path | None = None,
+    expected_prompt_raw_sha256: str | None = None,
+    expected_cli_raw_sha256: str | None = None,
+    expected_batch_runner_raw_sha256: str | None = None,
 ) -> dict:
     """Review one packet and durably retain its exact local invocation evidence."""
     batch_concurrency = _strict_positive_int(
         batch_concurrency, field="batch_concurrency")
+    frozen_binding_values = (
+        expected_prompt_raw_sha256,
+        expected_cli_raw_sha256,
+        expected_batch_runner_raw_sha256,
+    )
+    if any(value is not None for value in frozen_binding_values) and not all(
+        value is not None for value in frozen_binding_values
+    ):
+        raise ValueError(
+            "frozen reviewer launch bindings must supply prompt, CLI, and runner hashes")
+    if all(value is not None for value in frozen_binding_values):
+        expected_prompt_raw_sha256 = _strict_sha256(
+            expected_prompt_raw_sha256, field="expected_prompt_raw_sha256")
+        expected_cli_raw_sha256 = _strict_sha256(
+            expected_cli_raw_sha256, field="expected_cli_raw_sha256")
+        expected_batch_runner_raw_sha256 = _strict_sha256(
+            expected_batch_runner_raw_sha256,
+            field="expected_batch_runner_raw_sha256",
+        )
+        if dispatch_guard_path is not None or dispatch_guard_raw_sha256 is not None:
+            raise ValueError(
+                "frozen reviewer launch bindings cannot be combined with a dispatch guard")
     prompt_bytes = b""
     prompt_sha = _raw_sha256(prompt_bytes)
     workdir = Path(tempfile.mkdtemp(prefix="reviewer-iso-"))
@@ -1609,6 +1634,14 @@ def run_one(
     ]
     cli_path, cli_sha, cli_bytes = _executable_identity(codex)
     runner_path, runner_sha, runner_bytes = _batch_runner_identity()
+    frozen_binding_error: str | None = None
+    if expected_cli_raw_sha256 is not None and cli_sha != expected_cli_raw_sha256:
+        frozen_binding_error = "reviewer CLI bytes differ from the frozen launch binding"
+    elif (
+        expected_batch_runner_raw_sha256 is not None
+        and runner_sha != expected_batch_runner_raw_sha256
+    ):
+        frozen_binding_error = "reviewer batch runner differs from the frozen launch binding"
     if (dispatch_guard_path is None) != (dispatch_guard_raw_sha256 is None):
         raise ValueError(
             "reviewer dispatch guard path and raw SHA-256 must be supplied together")
@@ -1704,6 +1737,15 @@ def run_one(
         prompt_bytes = packet.read_bytes()
         prompt_sha = _raw_sha256(prompt_bytes)
         started = _utc_now()
+    if (
+        frozen_binding_error is None
+        and expected_prompt_raw_sha256 is not None
+        and prompt_sha != expected_prompt_raw_sha256
+    ):
+        frozen_binding_error = "reviewer prompt differs from the frozen launch binding"
+    if frozen_binding_error is not None:
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise ValueError(frozen_binding_error)
     deadline_active = not_after_utc is None or started <= not_after_utc
     guard_active = (
         dispatch_guard_evidence is None

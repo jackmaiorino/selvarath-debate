@@ -58,3 +58,24 @@ execution occurred, and `--run` remains hard-disabled.
 The existing fake engine proves result construction on an ordinary successful process. It does
 not yet prove this closure contract, and no existing instruction to continue grants the missing
 180-dispatch authority.
+
+## Implementation update
+
+The capacity engine now closes findings 2, 3, and 5 without enabling external execution:
+
+1. Every capacity-owned reviewer handoff writes an exclusive, fsynced per-packet reservation
+   before the reviewer runner is called. The record binds the manifest, authorization, wave,
+   packet, reviewer runtime, reservation time, usage unit, and quantity one.
+2. Successful results bind and reopen all 180 reservation records. Terminal failure receipts
+   rebuild their count from disk, including a reservation written before local bookkeeping fails.
+   A read-only auditor reconstructs any exact concurrent reservation subset and never grants
+   resume or redispatch authority.
+3. The reviewer child now compares final packet, CLI-wrapper, and batch-runner reads with all three
+   manifest-supplied hashes before `subprocess.run`. Partial bindings and mismatches release no
+   child.
+4. Blocker text now names only the remaining public wiring and main-admission provenance work.
+
+Verification: 225 capacity, reviewer provenance, reviewer commit, recovery, and failure-path tests
+passed. Focused static type checks and bytecode compilation passed. No reviewer dispatch, provider
+call, main launch, or external execution occurred. Findings 1 and 4 remain open, and the public
+capacity function and CLI `--run` path remain unconditionally disabled.

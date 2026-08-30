@@ -374,6 +374,41 @@ def test_expired_authorization_blocks_before_reviewer_subprocess(tmp_path, monke
     assert "authorization deadline expired" in result["error"]
 
 
+@pytest.mark.parametrize("drift", ["prompt", "cli", "runner"])
+def test_frozen_launch_binding_drift_blocks_before_reviewer_subprocess(
+    tmp_path, monkeypatch, drift,
+):
+    packet = tmp_path / "packet.txt"
+    packet.write_text("review this exact packet", encoding="utf-8")
+    cli = tmp_path / "codex.cmd"
+    cli.write_bytes(b"@echo off\r\nnode codex.js %*\r\n")
+    _, runner_sha, _ = codex_reviewer_batch._batch_runner_identity()  # noqa: SLF001
+    expected = {
+        "prompt": hashlib.sha256(packet.read_bytes()).hexdigest(),
+        "cli": hashlib.sha256(cli.read_bytes()).hexdigest(),
+        "runner": runner_sha,
+    }
+    expected[drift] = "0" * 64
+    monkeypatch.setattr(
+        codex_reviewer_batch.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail(
+            "frozen launch-binding drift reached reviewer subprocess"),
+    )
+
+    with pytest.raises(ValueError, match="frozen launch binding"):
+        codex_reviewer_batch.run_one(
+            packet,
+            "reviewer-model",
+            "high",
+            str(cli),
+            expected_prompt_raw_sha256=expected["prompt"],
+            expected_cli_raw_sha256=expected["cli"],
+            expected_batch_runner_raw_sha256=expected["runner"],
+        )
+    assert not (packet.parent / codex_reviewer_batch.EVIDENCE_DIRECTORY_NAME).exists()
+
+
 def test_capacity_expiry_after_first_packet_blocks_second_dispatch(
     tmp_path, monkeypatch,
 ):

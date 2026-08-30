@@ -31,6 +31,7 @@ AUTHORIZATION_SCHEMA = "phase3_main_capacity_execution_authorization_v1"
 USAGE_LIMIT_SCHEMA = "phase3_main_capacity_reviewer_usage_limit_v1"
 USAGE_RECEIPT_SCHEMA = "phase3_main_capacity_reviewer_usage_receipt_v1"
 ATTEMPT_RESERVATION_SCHEMA = "phase3_main_capacity_attempt_reservation_v1"
+DISPATCH_RESERVATION_SCHEMA = "phase3_main_capacity_dispatch_reservation_v1"
 SCOPE = "phase3_main_reviewer_capacity_preflight_cohort_1"
 USAGE_UNIT = "external_reviewer_dispatch"
 CAPACITY_SIGNATURE_NAMESPACE = "selvarath-phase3-capacity-authorization-v1"
@@ -39,13 +40,12 @@ OWNER_SIGNING_PUBLIC_KEY: str | None = None
 OWNER_SIGNING_KEY_FINGERPRINT: str | None = None
 SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
 REAL_CAPACITY_DISPATCH_BLOCKER = (
-    "real capacity dispatch is disabled: detached authorization provenance, "
-    "hard-crash usage reconciliation, and guarded reviewer launch input handoff "
-    "are not implemented"
+    "real capacity dispatch is disabled: fixed public dependency wiring and "
+    "main-admission capacity provenance binding are not implemented"
 )
 DOWNSTREAM_LAUNCH_BLOCKER = (
-    "real capacity dispatch is disabled and phase3_main_live does not authenticate "
-    "capacity authorization provenance or reopen invocation receipts"
+    "phase3_main_live does not authenticate capacity authorization provenance, "
+    "dispatch reservations, or reopened invocation receipts"
 )
 PACKET_COUNT = 180
 WAVE_COUNT = 3
@@ -137,6 +137,30 @@ _AUTHORIZATION_FIELDS = frozenset(
 _USAGE_LIMIT_FIELDS = frozenset(
     {"schema_version", "unit", "maximum", "accounting_treatment"}
 )
+_DISPATCH_RESERVATION_FIELDS = frozenset({
+    "schema_version",
+    "scope",
+    "run_id",
+    "attempt_id",
+    "cohort_number",
+    "wave",
+    "position",
+    "packet_file",
+    "packet_path",
+    "payload_sha256",
+    "prompt_sha256",
+    "packet_raw_sha256",
+    "manifest_raw_sha256",
+    "authorization_raw_sha256",
+    "reviewer_model",
+    "reviewer_reasoning_effort",
+    "reviewer_concurrency",
+    "reviewer_cli_raw_sha256",
+    "reviewer_batch_runner_raw_sha256",
+    "reserved_at_utc",
+    "usage_unit",
+    "quantity",
+})
 
 
 class CapacityExecutionError(RuntimeError, ValueError):
@@ -1432,12 +1456,265 @@ def _reserve_attempt(
     return _artifact_binding(path)
 
 
+def _reserve_capacity_dispatch(
+    *,
+    manifest: Mapping[str, Any],
+    manifest_raw: bytes,
+    authorization_raw: bytes,
+    wave_number: int,
+    packet: Path,
+    binding: Mapping[str, Any],
+    reserved_at: datetime,
+) -> dict[str, Any]:
+    """Persist one non-replayable reviewer usage unit before child release."""
+    payload_sha256 = _sha(
+        binding.get("payload_sha256"), field="dispatch binding payload_sha256")
+    prompt_sha256 = _sha(
+        binding.get("prompt_sha256"), field="dispatch binding prompt_sha256")
+    packet_raw_sha256 = _sha(
+        binding.get("raw_sha256"), field="dispatch binding raw_sha256")
+    position = _positive_int(
+        binding.get("position"), field="dispatch binding position")
+    reviewer = cast(Mapping[str, Any], manifest["reviewer"])
+    cli = cast(Mapping[str, Any], reviewer["cli"])
+    runner = cast(
+        Mapping[str, Any],
+        cast(Mapping[str, Any], manifest["code_bindings"])["reviewer_batch"],
+    )
+    reservation_path = (
+        packet.parent
+        / codex_reviewer_batch.DISPATCH_RESERVATION_DIRECTORY_NAME
+        / f"capacity_{payload_sha256}.json"
+    )
+    record = {
+        "schema_version": DISPATCH_RESERVATION_SCHEMA,
+        "scope": SCOPE,
+        "run_id": manifest["run_id"],
+        "attempt_id": manifest["attempt_id"],
+        "cohort_number": 1,
+        "wave": wave_number,
+        "position": position,
+        "packet_file": packet.name,
+        "packet_path": packet.resolve().as_posix(),
+        "payload_sha256": payload_sha256,
+        "prompt_sha256": prompt_sha256,
+        "packet_raw_sha256": packet_raw_sha256,
+        "manifest_raw_sha256": hashlib.sha256(manifest_raw).hexdigest(),
+        "authorization_raw_sha256": hashlib.sha256(authorization_raw).hexdigest(),
+        "reviewer_model": reviewer["model"],
+        "reviewer_reasoning_effort": reviewer["reasoning_effort"],
+        "reviewer_concurrency": reviewer["concurrency"],
+        "reviewer_cli_raw_sha256": cli["raw_sha256"],
+        "reviewer_batch_runner_raw_sha256": runner["raw_sha256"],
+        "reserved_at_utc": reserved_at.astimezone(timezone.utc).isoformat(),
+        "usage_unit": USAGE_UNIT,
+        "quantity": 1,
+    }
+    write_json_exclusive(reservation_path, record)
+    return _artifact_binding(reservation_path)
+
+
+def _validate_capacity_dispatch_reservation(
+    reservation_binding: Mapping[str, Any],
+    *,
+    manifest: Mapping[str, Any],
+    manifest_raw: bytes,
+    authorization: Mapping[str, Any],
+    authorization_raw: bytes,
+    wave_number: int,
+    packet: Path,
+    packet_binding: Mapping[str, Any],
+) -> str:
+    path, raw = _verify_binding(
+        reservation_binding, field="capacity dispatch reservation")
+    payload_sha256 = _sha(
+        packet_binding.get("payload_sha256"), field="packet payload_sha256")
+    expected_path = (
+        packet.parent
+        / codex_reviewer_batch.DISPATCH_RESERVATION_DIRECTORY_NAME
+        / f"capacity_{payload_sha256}.json"
+    ).resolve()
+    if path != expected_path:
+        raise CapacityExecutionError("capacity dispatch reservation path drifted")
+    record = _strict_object(raw, subject="capacity dispatch reservation")
+    if set(record) != _DISPATCH_RESERVATION_FIELDS:
+        raise CapacityExecutionError("capacity dispatch reservation fields drifted")
+    expected_raw = (
+        json.dumps(record, ensure_ascii=False, indent=1) + "\n"
+    ).encode("utf-8")
+    if raw != expected_raw:
+        raise CapacityExecutionError("capacity dispatch reservation bytes drifted")
+    reviewer = cast(Mapping[str, Any], manifest["reviewer"])
+    cli = cast(Mapping[str, Any], reviewer["cli"])
+    runner = cast(
+        Mapping[str, Any],
+        cast(Mapping[str, Any], manifest["code_bindings"])["reviewer_batch"],
+    )
+    expected = {
+        "schema_version": DISPATCH_RESERVATION_SCHEMA,
+        "scope": SCOPE,
+        "run_id": manifest["run_id"],
+        "attempt_id": manifest["attempt_id"],
+        "cohort_number": 1,
+        "wave": wave_number,
+        "position": packet_binding["position"],
+        "packet_file": packet.name,
+        "packet_path": packet.resolve().as_posix(),
+        "payload_sha256": payload_sha256,
+        "prompt_sha256": packet_binding["prompt_sha256"],
+        "packet_raw_sha256": packet_binding["raw_sha256"],
+        "manifest_raw_sha256": hashlib.sha256(manifest_raw).hexdigest(),
+        "authorization_raw_sha256": hashlib.sha256(authorization_raw).hexdigest(),
+        "reviewer_model": reviewer["model"],
+        "reviewer_reasoning_effort": reviewer["reasoning_effort"],
+        "reviewer_concurrency": reviewer["concurrency"],
+        "reviewer_cli_raw_sha256": cli["raw_sha256"],
+        "reviewer_batch_runner_raw_sha256": runner["raw_sha256"],
+        "usage_unit": USAGE_UNIT,
+        "quantity": 1,
+    }
+    for field, expected_value in expected.items():
+        if record.get(field) != expected_value:
+            raise CapacityExecutionError(
+                f"capacity dispatch reservation {field} drifted")
+    reserved_at = _utc(
+        record.get("reserved_at_utc"), field="dispatch reservation reserved_at_utc")
+    approved_at = _utc(
+        authorization["approved_at_utc"], field="authorization approved_at_utc")
+    valid_until = _utc(
+        authorization["valid_until_utc"], field="authorization valid_until_utc")
+    if not approved_at <= reserved_at <= valid_until:
+        raise CapacityExecutionError(
+            "capacity dispatch reservation lies outside signed authority")
+    return payload_sha256
+
+
+def _ordered_dispatch_reservations(
+    manifest: Mapping[str, Any],
+    reservations_by_payload: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return the observed reservation subset in frozen manifest order."""
+    ordered: list[dict[str, Any]] = []
+    observed_payloads: set[str] = set()
+    workload = cast(Mapping[str, Any], manifest["workload"])
+    for wave in cast(list[Mapping[str, Any]], workload["waves"]):
+        for binding in cast(list[Mapping[str, Any]], wave["packet_bindings"]):
+            payload_sha256 = _sha(
+                binding.get("payload_sha256"), field="packet payload_sha256"
+            )
+            reservation = reservations_by_payload.get(payload_sha256)
+            if reservation is not None:
+                ordered.append(dict(reservation))
+                observed_payloads.add(payload_sha256)
+    if observed_payloads != set(reservations_by_payload):
+        raise CapacityExecutionError(
+            "capacity dispatch reservations contain an undeclared payload"
+        )
+    return ordered
+
+
+def audit_capacity_dispatch_reservations(
+    *,
+    manifest: Mapping[str, Any],
+    manifest_raw: bytes,
+    authorization: Mapping[str, Any],
+    authorization_raw: bytes,
+) -> dict[str, Any]:
+    """Reconstruct the exact conservative usage subset after an interruption."""
+    if _strict_object(manifest_raw, subject="capacity manifest") != dict(manifest):
+        raise CapacityExecutionError("capacity manifest differs from supplied bytes")
+    if _strict_object(
+        authorization_raw, subject="capacity authorization"
+    ) != dict(authorization):
+        raise CapacityExecutionError("capacity authorization differs from supplied bytes")
+    approved_at = _utc(
+        authorization.get("approved_at_utc"),
+        field="authorization approved_at_utc",
+    )
+    validated_authorization = validate_authorization(
+        authorization,
+        manifest=manifest,
+        manifest_raw=manifest_raw,
+        observed_at=approved_at,
+    )
+    reservations_by_payload: dict[str, dict[str, Any]] = {}
+    expected_paths: set[Path] = set()
+    workload = cast(Mapping[str, Any], manifest["workload"])
+    for wave in cast(list[Mapping[str, Any]], workload["waves"]):
+        wave_number = _positive_int(wave.get("wave"), field="workload wave")
+        wave_dir = Path(str(wave["directory"]))
+        reservation_root = (
+            wave_dir / codex_reviewer_batch.DISPATCH_RESERVATION_DIRECTORY_NAME
+        )
+        bindings = cast(list[Mapping[str, Any]], wave["packet_bindings"])
+        for packet_binding in bindings:
+            payload_sha256 = _sha(
+                packet_binding.get("payload_sha256"),
+                field="packet payload_sha256",
+            )
+            expected_path = (
+                reservation_root / f"capacity_{payload_sha256}.json"
+            ).resolve()
+            expected_paths.add(expected_path)
+            if not expected_path.exists():
+                continue
+            reservation_binding = _artifact_binding(expected_path)
+            observed_payload = _validate_capacity_dispatch_reservation(
+                reservation_binding,
+                manifest=manifest,
+                manifest_raw=manifest_raw,
+                authorization=validated_authorization,
+                authorization_raw=authorization_raw,
+                wave_number=wave_number,
+                packet=wave_dir / str(packet_binding["file"]),
+                packet_binding=packet_binding,
+            )
+            if observed_payload in reservations_by_payload:
+                raise CapacityExecutionError(
+                    "capacity dispatch reservation repeats a payload"
+                )
+            reservations_by_payload[observed_payload] = reservation_binding
+        if reservation_root.exists():
+            if reservation_root.is_symlink() or not reservation_root.is_dir():
+                raise CapacityExecutionError(
+                    "capacity dispatch reservation root is not a plain directory"
+                )
+            for candidate in reservation_root.iterdir():
+                if candidate.is_symlink() or not candidate.is_file():
+                    raise CapacityExecutionError(
+                        "capacity dispatch reservation directory has an invalid entry"
+                    )
+                if candidate.resolve() not in expected_paths:
+                    raise CapacityExecutionError(
+                        "capacity dispatch reservation directory has an undeclared entry"
+                    )
+    ordered = _ordered_dispatch_reservations(manifest, reservations_by_payload)
+    authorized_usage = cast(
+        Mapping[str, Any], validated_authorization["reviewer_usage_limit"]
+    )
+    if len(ordered) > int(authorized_usage["maximum"]):
+        raise CapacityExecutionError(
+            "capacity dispatch reservations exceed signed authority"
+        )
+    return {
+        "schema_version": "phase3_main_capacity_dispatch_reservation_audit_v1",
+        "usage_unit": USAGE_UNIT,
+        "authorized_maximum": authorized_usage["maximum"],
+        "observed_quantity": len(ordered),
+        "dispatch_reservations": ordered,
+        "accounting_treatment": authorized_usage["accounting_treatment"],
+        "resume_or_redispatch_authorized": False,
+        "non_claim": "reservation count is not USD or token accounting",
+    }
+
+
 def _write_failure_receipt(
     *,
     manifest: Mapping[str, Any],
     manifest_raw: bytes,
     authorization_raw: bytes,
     attempted_dispatches: int,
+    dispatch_reservations: Sequence[Mapping[str, Any]],
     valid_receipt_hashes: Sequence[str],
     failed_at: datetime,
     error: BaseException,
@@ -1453,6 +1730,8 @@ def _write_failure_receipt(
         "authorization_raw_sha256": hashlib.sha256(authorization_raw).hexdigest(),
         "usage_unit": USAGE_UNIT,
         "attempted_dispatches": attempted_dispatches,
+        "dispatch_reservation_count": len(dispatch_reservations),
+        "dispatch_reservations": [dict(binding) for binding in dispatch_reservations],
         "validated_invocation_receipts": len(valid_receipt_hashes),
         "invocation_receipt_raw_sha256s": list(valid_receipt_hashes),
         "failed_at_utc": failed_at.astimezone(timezone.utc).isoformat(),
@@ -1552,6 +1831,7 @@ def _validate_execution_result(
         "unit",
         "authorized_maximum",
         "observed_quantity",
+        "dispatch_reservations",
         "invocation_receipt_raw_sha256s",
         "accounting_treatment",
         "non_claim",
@@ -1572,7 +1852,15 @@ def _validate_execution_result(
     declared_receipts = usage.get("invocation_receipt_raw_sha256s")
     if not isinstance(declared_receipts, list) or len(declared_receipts) != PACKET_COUNT:
         raise CapacityExecutionError("capacity usage receipt must bind 180 invocations")
+    declared_reservations = usage.get("dispatch_reservations")
+    if (
+        not isinstance(declared_reservations, list)
+        or len(declared_reservations) != PACKET_COUNT
+    ):
+        raise CapacityExecutionError("capacity usage receipt must bind 180 reservations")
     observed_receipts: list[str] = []
+    observed_reservation_payloads: list[str] = []
+    reservation_position = 0
     waves = result.get("waves")
     manifest_waves = cast(list[Mapping[str, Any]], cast(Mapping[str, Any], manifest["workload"])["waves"])
     if not isinstance(waves, list) or len(waves) != WAVE_COUNT:
@@ -1602,6 +1890,26 @@ def _validate_execution_result(
         for row, binding in zip(rows, bindings):
             if not isinstance(row, Mapping):
                 raise CapacityExecutionError("capacity result row is invalid")
+            declared_reservation = declared_reservations[reservation_position]
+            reservation_position += 1
+            if not isinstance(declared_reservation, Mapping):
+                raise CapacityExecutionError(
+                    "capacity usage receipt reservation binding is invalid"
+                )
+            observed_reservation_payloads.append(
+                _validate_capacity_dispatch_reservation(
+                    declared_reservation,
+                    manifest=manifest,
+                    manifest_raw=manifest_raw,
+                    authorization=authorization,
+                    authorization_raw=authorization_raw,
+                    wave_number=_positive_int(
+                        manifest_wave.get("wave"), field="manifest wave"
+                    ),
+                    packet=wave_dir / str(binding["file"]),
+                    packet_binding=binding,
+                )
+            )
             reference = row.get("invocation_evidence")
             if not isinstance(reference, Mapping):
                 raise CapacityExecutionError("capacity result row omits invocation evidence")
@@ -1624,9 +1932,24 @@ def _validate_execution_result(
             observed_receipts.append(receipt_sha)
     if declared_receipts != observed_receipts or len(set(observed_receipts)) != PACKET_COUNT:
         raise CapacityExecutionError("capacity usage receipt list drifted or repeats a dispatch")
+    expected_payloads = [
+        str(binding["payload_sha256"])
+        for manifest_wave in manifest_waves
+        for binding in cast(
+            list[Mapping[str, Any]], manifest_wave["packet_bindings"]
+        )
+    ]
+    if (
+        observed_reservation_payloads != expected_payloads
+        or len(set(observed_reservation_payloads)) != PACKET_COUNT
+    ):
+        raise CapacityExecutionError(
+            "capacity reservation list drifted or repeats a dispatch"
+        )
     return {
         **base_validation,
         "history_event_count": 2,
+        "reopened_dispatch_reservations": PACKET_COUNT,
         "reopened_invocation_receipts": PACKET_COUNT,
         "usage_unit": USAGE_UNIT,
         "observed_usage": PACKET_COUNT,
@@ -1734,6 +2057,7 @@ def _execute_capacity_preflight(
     result_waves: list[dict[str, Any]] = []
     receipt_hashes: list[str] = []
     attempted_dispatches = 0
+    dispatch_reservations_by_payload: dict[str, dict[str, Any]] = {}
     attempted_dispatches_lock = threading.Lock()
     try:
         waves = cast(
@@ -1755,12 +2079,13 @@ def _execute_capacity_preflight(
 
             def invoke(binding: Mapping[str, Any]) -> Mapping[str, Any]:
                 nonlocal attempted_dispatches
+                reserved_at = utc_now().astimezone(timezone.utc)
                 _reopen_authority(
                     resolved_authorization,
                     expected_raw_sha256=authorization_raw_sha,
                     manifest=manifest,
                     manifest_raw=manifest_raw,
-                    observed_at=utc_now(),
+                    observed_at=reserved_at,
                     authorization_verifier=authorization_verifier,
                     verify_signature=False,
                 )
@@ -1771,7 +2096,27 @@ def _execute_capacity_preflight(
                     manifest=manifest,
                     host_reader=host_reader,
                 )
+                dispatch_reservation = _reserve_capacity_dispatch(
+                    manifest=manifest,
+                    manifest_raw=manifest_raw,
+                    authorization_raw=authorization_raw,
+                    wave_number=wave_number,
+                    packet=packet,
+                    binding=binding,
+                    reserved_at=reserved_at,
+                )
+                payload_sha256 = _sha(
+                    binding.get("payload_sha256"),
+                    field="dispatch binding payload_sha256",
+                )
                 with attempted_dispatches_lock:
+                    if payload_sha256 in dispatch_reservations_by_payload:
+                        raise CapacityExecutionError(
+                            "capacity dispatch reservation repeats a payload"
+                        )
+                    dispatch_reservations_by_payload[payload_sha256] = (
+                        dispatch_reservation
+                    )
                     attempted_dispatches += 1
                 return reviewer_runner(
                     packet=packet,
@@ -1780,6 +2125,13 @@ def _execute_capacity_preflight(
                     codex=str(cli["path"]),
                     not_after_utc=deadline,
                     concurrency=int(reviewer["concurrency"]),
+                    expected_prompt_raw_sha256=str(binding["raw_sha256"]),
+                    expected_cli_raw_sha256=str(cli["raw_sha256"]),
+                    expected_batch_runner_raw_sha256=str(
+                        cast(Mapping[str, Any], manifest["code_bindings"])[
+                            "reviewer_batch"
+                        ]["raw_sha256"]
+                    ),
                 )
 
             ordered_results: list[Mapping[str, Any] | None] = [None] * WAVE_SIZE
@@ -1859,6 +2211,13 @@ def _execute_capacity_preflight(
             raise CapacityExecutionError("capacity attempt lacks 180 unique invocation receipts")
         if attempted_dispatches != PACKET_COUNT:
             raise CapacityExecutionError("capacity attempt did not release exactly 180 calls")
+        ordered_dispatch_reservations = _ordered_dispatch_reservations(
+            manifest, dispatch_reservations_by_payload
+        )
+        if len(ordered_dispatch_reservations) != PACKET_COUNT:
+            raise CapacityExecutionError(
+                "capacity attempt lacks 180 unique dispatch reservations"
+            )
         attempt_completed_utc = utc_now().astimezone(timezone.utc)
         _reopen_authority(
             resolved_authorization,
@@ -1913,6 +2272,7 @@ def _execute_capacity_preflight(
                 "unit": USAGE_UNIT,
                 "authorized_maximum": PACKET_COUNT,
                 "observed_quantity": PACKET_COUNT,
+                "dispatch_reservations": ordered_dispatch_reservations,
                 "invocation_receipt_raw_sha256s": receipt_hashes,
                 "accounting_treatment": cast(
                     Mapping[str, Any], authorization["reviewer_usage_limit"]
@@ -1973,11 +2333,30 @@ def _execute_capacity_preflight(
         if not terminal_appended:
             failed_at = utc_now().astimezone(timezone.utc)
             try:
+                reservation_audit = audit_capacity_dispatch_reservations(
+                    manifest=manifest,
+                    manifest_raw=manifest_raw,
+                    authorization=authorization,
+                    authorization_raw=authorization_raw,
+                )
+                durable_dispatch_reservations = cast(
+                    list[Mapping[str, Any]],
+                    reservation_audit["dispatch_reservations"],
+                )
+                durable_dispatch_count = _nonnegative_int(
+                    reservation_audit["observed_quantity"],
+                    field="capacity dispatch reservation audit observed_quantity",
+                )
+                if attempted_dispatches > durable_dispatch_count:
+                    raise CapacityExecutionError(
+                        "capacity dispatch reservation disappeared before failure accounting"
+                    )
                 _write_failure_receipt(
                     manifest=manifest,
                     manifest_raw=manifest_raw,
                     authorization_raw=authorization_raw,
-                    attempted_dispatches=attempted_dispatches,
+                    attempted_dispatches=durable_dispatch_count,
+                    dispatch_reservations=durable_dispatch_reservations,
                     valid_receipt_hashes=receipt_hashes,
                     failed_at=failed_at,
                     error=exc,
@@ -2034,6 +2413,7 @@ __all__ = [
     "USAGE_LIMIT_SCHEMA",
     "USAGE_RECEIPT_SCHEMA",
     "USAGE_UNIT",
+    "audit_capacity_dispatch_reservations",
     "build_execution_manifest",
     "canonical_sha256",
     "execute_capacity_preflight",
