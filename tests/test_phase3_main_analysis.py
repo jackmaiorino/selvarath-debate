@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -340,6 +341,192 @@ def test_key_lists_reject_empty_duplicate_and_unadmitted_nonempty_keys(tmp_path)
         analysis._require_admitted_exclusions(["cell-a"], [])
     with pytest.raises(analysis.AnalysisError, match="not admitted for confirmatory"):
         analysis._require_admitted_exclusions([], ["cell-b"])
+
+
+def _write_analysis_finalization_fixture(tmp_path):
+    terminal = ["terminal-cell"]
+    context = ["context-cell"]
+    results_path = tmp_path / analysis.phase3_main_manifest.OUTPUT_FILENAMES["results"]
+    results_path.write_text("", encoding="utf-8")
+    record = {
+        "schema_version": analysis.MAIN_FINALIZATION_SCHEMA,
+        "partition": {
+            "terminal_cell_keys": terminal,
+            "context_ineligible_cell_keys": context,
+        },
+    }
+    finalization_path = tmp_path / analysis.phase3_main_manifest.OUTPUT_FILENAMES[
+        "finalization"]
+    finalization_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    protocol = json.loads(
+        (ROOT / "rejudge" / "phase3_protocol_v3_r6.json").read_text(encoding="utf-8"))
+    pins_path = ROOT / "rejudge" / "phase3_main_analysis_pins_2026-08-29.json"
+    return finalization_path, results_path, pins_path, protocol, terminal, context, record
+
+
+def _expected_launch_kwargs(tmp_path):
+    return {
+        "expected_run_id": "phase3-main-test",
+        "expected_manifest_canonical_sha256": "a" * 64,
+        "expected_authorization_canonical_sha256": "b" * 64,
+        "expected_authorization_raw_sha256": "c" * 64,
+        "expected_authorization_signature_raw_sha256": "d" * 64,
+        "authorization_approved_at_utc": "2026-08-29T12:00:00Z",
+        "authorization_valid_until_utc": "2026-08-30T12:00:00Z",
+        "expected_context_blocklist_path": (tmp_path / "context.json").resolve(),
+        "expected_manifest_output_paths": {
+            name: (tmp_path / filename).resolve()
+            for name, filename in analysis.phase3_main_manifest.OUTPUT_FILENAMES.items()
+        },
+        "prior_reconciled_usd": "0",
+        "stage_cap_usd": "1",
+    }
+
+
+def test_analysis_routes_finalization_through_full_bound_artifact_validator(
+    tmp_path, monkeypatch,
+):
+    (finalization_path, results_path, pins_path, protocol,
+     terminal, context, record) = _write_analysis_finalization_fixture(tmp_path)
+    captured = {}
+
+    def validate(candidate, **kwargs):
+        captured["candidate"] = candidate
+        captured.update(kwargs)
+        return record
+
+    monkeypatch.setattr(
+        analysis.phase3_main_finalization,
+        "validate_finalization_from_bound_artifacts",
+        validate,
+    )
+    observed_terminal, observed_context, raw_sha256 = (
+        analysis._load_finalization_exclusions(
+            finalization_path,
+            results_path=results_path,
+            protocol=protocol,
+            pins_path=pins_path,
+            project_root=ROOT,
+            **_expected_launch_kwargs(tmp_path),
+        )
+    )
+    assert observed_terminal == terminal
+    assert observed_context == context
+    assert raw_sha256 == hashlib.sha256(finalization_path.read_bytes()).hexdigest()
+    assert captured["candidate"] == record
+    assert captured["expected_result_store_path"] == results_path.resolve()
+    assert captured["expected_analysis_pins_path"] == pins_path.resolve()
+    assert captured["expected_manifest_output_paths"] == (
+        _expected_launch_kwargs(tmp_path)["expected_manifest_output_paths"])
+    assert captured["expected_checker_model"] == protocol["roster"]["query_checker"]
+    assert captured["expected_oracle_model"] == protocol["roster"]["oracle"]
+    assert captured["expected_authorization_raw_sha256"] == "c" * 64
+    assert captured["expected_authorization_signature_raw_sha256"] == "d" * 64
+    assert analysis.phase3_main_finalization.inventory_canonical_sha256(
+        captured["inventory"]
+    ) == analysis.phase3_main_finalization.inventory_canonical_sha256(
+        analysis.phase3_main_runner.build_main_inventory(protocol, ROOT)
+    )
+
+
+def test_shallow_fabricated_finalization_is_not_analysis_admissible(tmp_path):
+    (finalization_path, results_path, pins_path, protocol,
+     _terminal, _context, _record) = _write_analysis_finalization_fixture(tmp_path)
+    with pytest.raises(analysis.AnalysisError, match="full bound-artifact validation"):
+        analysis._load_finalization_exclusions(
+            finalization_path,
+            results_path=results_path,
+            protocol=protocol,
+            pins_path=pins_path,
+            project_root=ROOT,
+            **_expected_launch_kwargs(tmp_path),
+        )
+
+
+def test_analysis_requires_finalization_to_bind_the_loaded_result_and_pins_snapshots(
+    tmp_path,
+):
+    (finalization_path, results_path, pins_path, protocol,
+     _terminal, _context, record) = _write_analysis_finalization_fixture(tmp_path)
+    record["artifact_hashes"] = {
+        "result_store": {"raw_sha256": "0" * 64},
+        "analysis_pins": {"raw_sha256": hashlib.sha256(pins_path.read_bytes()).hexdigest()},
+    }
+    finalization_path.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(analysis.AnalysisError, match="result-store snapshot"):
+        analysis._load_finalization_exclusions(
+            finalization_path,
+            results_path=results_path,
+            protocol=protocol,
+            pins_path=pins_path,
+            project_root=ROOT,
+            **_expected_launch_kwargs(tmp_path),
+            expected_results_raw_sha256=hashlib.sha256(
+                results_path.read_bytes()).hexdigest(),
+            expected_pins_raw_sha256=hashlib.sha256(pins_path.read_bytes()).hexdigest(),
+        )
+
+
+def test_analysis_output_cannot_alias_an_immutable_input(tmp_path):
+    results_path = tmp_path / "results.jsonl"
+    results_path.write_text("", encoding="utf-8")
+    with pytest.raises(analysis.AnalysisError, match="output path must differ"):
+        analysis.main([
+            "--results", str(results_path),
+            "--manifest", str(tmp_path / "manifest.json"),
+            "--authorization", str(tmp_path / "authorization.json"),
+            "--finalization", str(tmp_path / "finalization.json"),
+            "--out", str(results_path),
+        ])
+
+
+def test_analysis_rejects_finalization_mutation_after_validation(tmp_path):
+    finalization_path = tmp_path / "finalization.json"
+    admitted = b'{"status":"admitted"}\n'
+    finalization_path.write_bytes(admitted)
+    stable_input = analysis._snapshot_sha256_bound_input(
+        finalization_path,
+        hashlib.sha256(admitted).hexdigest(),
+        "main finalization",
+    )
+
+    finalization_path.write_bytes(b'{"status":"replaced-during-bootstrap"}\n')
+
+    with pytest.raises(analysis.AnalysisError, match="changed during analysis"):
+        analysis._require_unchanged(*stable_input)
+
+
+def test_finalization_cannot_mix_with_even_empty_explicit_key_files(tmp_path):
+    with pytest.raises(analysis.AnalysisError, match="cannot be combined"):
+        analysis._resolve_exclusions(
+            finalization_path=tmp_path / "finalization.json",
+            terminal_path=tmp_path / "empty-terminal.json",
+            context_path=None,
+            results_path=tmp_path / "results.jsonl",
+            protocol={},
+            pins_path=tmp_path / "pins.json",
+            project_root=ROOT,
+            **_expected_launch_kwargs(tmp_path),
+        )
+    with pytest.raises(SystemExit) as exc:
+        analysis.main([
+            "--results", str(tmp_path / "missing-results.jsonl"),
+            "--manifest", str(tmp_path / "manifest.json"),
+            "--authorization", str(tmp_path / "authorization.json"),
+            "--finalization", str(tmp_path / "finalization.json"),
+            "--context-ineligible-cell-keys", str(tmp_path / "empty-context.json"),
+        ])
+    assert exc.value.code == 2
+
+
+def test_confirmatory_analysis_cli_requires_finalization():
+    with pytest.raises(SystemExit) as exc:
+        analysis.main([
+            "--results", "results.jsonl",
+        ])
+    assert exc.value.code == 2
 
 
 def test_analysis_pins_validate_and_seed_drift_fails_closed():

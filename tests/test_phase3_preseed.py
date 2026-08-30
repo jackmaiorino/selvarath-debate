@@ -27,6 +27,7 @@ from scripts.phase3_preseed_transcripts import (
     PreseedError,
     preseed,
     preseed_canary,
+    preseed_main,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -228,6 +229,110 @@ def test_canary_only_preseed_rejects_existing_row_that_differs_from_bundle(
             target_store_path=target)
 
 
+def test_main_only_preseed_writes_exact_main_transcript_coverage(tmp_path, fixtures):
+    target = tmp_path / "main-only.jsonl"
+    result = preseed_main(
+        protocol_path=fixtures["protocol_path"], project_root=ROOT,
+        main_bundle_path=fixtures["main_bundle_path"],
+        verification_report_path=fixtures["verification_report_path"],
+        target_store_path=target)
+    assert result == {
+        "target_store_path": str(target), "main_bundle_count": 12,
+        "written": 12, "skipped": 0,
+    }
+    store = CellResultStore(target)
+    main_keys, canary_keys = _enumerated_transcript_keys(fixtures)
+    assert set(store._results) == set(main_keys)
+    assert not set(store._results) & set(canary_keys)
+
+    before = target.read_bytes()
+    second = preseed_main(
+        protocol_path=fixtures["protocol_path"], project_root=ROOT,
+        main_bundle_path=fixtures["main_bundle_path"],
+        verification_report_path=fixtures["verification_report_path"],
+        target_store_path=target)
+    assert second["written"] == 0
+    assert second["skipped"] == 12
+    assert target.read_bytes() == before
+
+
+def test_main_only_preseed_checks_all_existing_rows_before_appending(tmp_path, fixtures):
+    target = tmp_path / "main-drift.jsonl"
+    main_keys, _canary_keys = _enumerated_transcript_keys(fixtures)
+    CellResultStore(target).record(
+        main_keys[-1], {"cell_key": main_keys[-1], "question": "wrong transcript"})
+    before = target.read_bytes()
+
+    with pytest.raises(PreseedError, match="existing main transcript row differs"):
+        preseed_main(
+            protocol_path=fixtures["protocol_path"], project_root=ROOT,
+            main_bundle_path=fixtures["main_bundle_path"],
+            verification_report_path=fixtures["verification_report_path"],
+            target_store_path=target)
+    assert target.read_bytes() == before
+
+
+def test_main_only_preseed_refuses_any_foreign_existing_row_before_appending(
+    tmp_path, fixtures,
+):
+    target = tmp_path / "main-foreign.jsonl"
+    CellResultStore(target).record(
+        "canary:foreign", {"cell_key": "canary:foreign", "question": "foreign"})
+    before = target.read_bytes()
+    with pytest.raises(PreseedError, match="outside the exact main transcript partition"):
+        preseed_main(
+            protocol_path=fixtures["protocol_path"], project_root=ROOT,
+            main_bundle_path=fixtures["main_bundle_path"],
+            verification_report_path=fixtures["verification_report_path"],
+            target_store_path=target)
+    assert target.read_bytes() == before
+
+
+def test_main_only_preseed_refuses_incomplete_bundle_coverage_before_writing(
+    tmp_path, fixtures,
+):
+    incomplete = json.loads(json.dumps(fixtures["main_bundle"]))
+    incomplete["transcripts"].pop()
+    incomplete["actual_transcript_count"] -= 1
+    incomplete_path = tmp_path / "incomplete-main.json"
+    incomplete_path.write_text(json.dumps(incomplete), encoding="utf-8")
+    report = {
+        "bundle_canonical_sha256": {"main_bundle": canonical_sha256(incomplete)},
+    }
+    report_path = tmp_path / "incomplete-report.json"
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    target = tmp_path / "not-written.jsonl"
+
+    with pytest.raises(PreseedError, match="have no matching bundle record"):
+        preseed_main(
+            protocol_path=fixtures["protocol_path"], project_root=ROOT,
+            main_bundle_path=incomplete_path, verification_report_path=report_path,
+            target_store_path=target)
+    assert not target.exists()
+
+
+def test_main_only_preseed_refuses_duplicate_bundle_coverage_before_writing(
+    tmp_path, fixtures,
+):
+    duplicated = json.loads(json.dumps(fixtures["main_bundle"]))
+    duplicated["transcripts"].append(dict(duplicated["transcripts"][0]))
+    duplicated["actual_transcript_count"] += 1
+    duplicated_path = tmp_path / "duplicated-main.json"
+    duplicated_path.write_text(json.dumps(duplicated), encoding="utf-8")
+    report_path = tmp_path / "duplicated-report.json"
+    report_path.write_text(json.dumps({
+        "bundle_canonical_sha256": {"main_bundle": canonical_sha256(duplicated)},
+    }), encoding="utf-8")
+    target = tmp_path / "not-written-duplicate.jsonl"
+
+    with pytest.raises(PreseedError, match="does not map one-to-one"):
+        preseed_main(
+            protocol_path=fixtures["protocol_path"], project_root=ROOT,
+            main_bundle_path=duplicated_path, verification_report_path=report_path,
+            target_store_path=target)
+    assert not target.exists()
+
+
 def test_a_preseeded_rows_result_carries_the_transcript_payload_and_phase3_cell_key(
     tmp_path, fixtures,
 ):
@@ -269,17 +374,18 @@ def test_preseeding_twice_against_the_same_store_is_a_verified_no_op(tmp_path, f
     assert len(store._results) == 14
 
 
-def test_preseeding_a_partially_seeded_store_only_writes_the_missing_rows(tmp_path, fixtures):
+def test_preseeding_rejects_a_preexisting_row_that_differs_from_the_bundle(
+    tmp_path, fixtures,
+):
     target = tmp_path / "store.jsonl"
     store = CellResultStore(target)
     main_keys, _canary_keys = _enumerated_transcript_keys(fixtures)
     store.record(main_keys[0], {"pre-existing": True})
 
-    result = _run(fixtures, target)
-    assert result["written"] == {"main": 11, "canary": 2}
-    assert result["skipped"] == {"main": 1, "canary": 0}
-    # The pre-existing row is untouched, not overwritten (CellResultStore.record refuses a
-    # second write for the same key; preseed skips it instead of attempting one).
+    before = target.read_bytes()
+    with pytest.raises(PreseedError, match="differs from the frozen bundle"):
+        _run(fixtures, target)
+    assert target.read_bytes() == before
     reopened = CellResultStore(target)
     assert reopened.get(main_keys[0]) == {"pre-existing": True}
 

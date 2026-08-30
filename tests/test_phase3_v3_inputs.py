@@ -470,6 +470,14 @@ def test_price_snapshot_is_raw_catalog_bound_post_resolution_and_under_24_hours(
             as_of=datetime(2026, 8, 30, 2, tzinfo=timezone.utc),
         )
 
+    integrity = inputs.validate_price_snapshot(
+        snapshot,
+        protocol=protocol,
+        as_of=datetime(2026, 8, 30, 2, tzinfo=timezone.utc),
+        require_current_freshness=False,
+    )
+    assert integrity["raw_catalog_checked"] is True
+
 
 def test_price_snapshot_rejects_pre_resolution_price_drift_and_unavailable_model(
     protocol, tmp_path: Path,

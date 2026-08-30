@@ -850,8 +850,9 @@ def validate_price_snapshot(
     project_root: str | Path | None = None,
     verify_catalog: bool = True,
     max_age: timedelta = timedelta(hours=24),
+    require_current_freshness: bool = True,
 ) -> dict[str, Any]:
-    """Require post-roster serverless availability and prices no more than 24 hours old."""
+    """Validate price evidence, optionally including its launch-time freshness window."""
     phase3_plan.validate_protocol(protocol)
     schema_version = snapshot.get("schema_version")
     expected_top_fields = {
@@ -874,8 +875,9 @@ def validate_price_snapshot(
         raise InputGateError("as_of must be timezone-aware")
     reference = as_of.astimezone(timezone.utc)
     age = reference - verified_at
-    if age < timedelta(0) or age > max_age:
-        raise InputGateError("price snapshot is not within the required 24-hour window")
+    if require_current_freshness:
+        if age < timedelta(0) or age > max_age:
+            raise InputGateError("price snapshot is not within the required 24-hour window")
     roster_resolved_at = _timestamp(
         protocol["roster_resolution"]["resolved_at_utc"],
         "protocol.roster_resolution.resolved_at_utc",

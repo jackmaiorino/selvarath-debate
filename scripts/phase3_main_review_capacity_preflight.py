@@ -1585,8 +1585,9 @@ def _validate_result_dispatch_history(
 def validate_result(
     result: Mapping[str, Any], *, plan: Mapping[str, Any], workload: DerivedWorkload,
     dispatch_history: DispatchHistorySnapshot, as_of_utc: datetime,
+    require_current_freshness: bool = True,
 ) -> dict[str, Any]:
-    """Validate one later capacity measurement without performing any dispatch."""
+    """Validate capacity evidence, optionally including launch-time freshness."""
     if result.get("schema_version") != RESULT_SCHEMA_VERSION:
         raise CapacityPreflightError("unexpected capacity result schema")
     cohort_number = _validate_result_dispatch_history(
@@ -1657,14 +1658,15 @@ def validate_result(
     completed_at = _parse_utc(result.get("completed_at_utc"), field="completed_at_utc")
     if completed_at < started_at:
         raise CapacityPreflightError("capacity result completes before it starts")
-    if as_of_utc.tzinfo is None or as_of_utc.utcoffset() != timedelta(0):
-        raise CapacityPreflightError("as_of_utc must be timezone-aware UTC")
-    as_of = as_of_utc.astimezone(timezone.utc)
-    if as_of < completed_at:
-        raise CapacityPreflightError("capacity evidence completion lies in the future")
     valid_hours = int((plan.get("validity") or {}).get("valid_for_hours", 0))
-    if as_of > completed_at + timedelta(hours=valid_hours):
-        raise CapacityPreflightError("capacity evidence has expired")
+    if require_current_freshness:
+        if as_of_utc.tzinfo is None or as_of_utc.utcoffset() != timedelta(0):
+            raise CapacityPreflightError("as_of_utc must be timezone-aware UTC")
+        as_of = as_of_utc.astimezone(timezone.utc)
+        if as_of < completed_at:
+            raise CapacityPreflightError("capacity evidence completion lies in the future")
+        if as_of > completed_at + timedelta(hours=valid_hours):
+            raise CapacityPreflightError("capacity evidence has expired")
 
     attempt_start = _finite_number(
         result.get("monotonic_started_seconds"), field="monotonic_started_seconds"

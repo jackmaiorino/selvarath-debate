@@ -603,6 +603,26 @@ def test_reconciliation_requires_exact_request_binding_and_well_formed_lifecycle
         find_ambiguous_dispatches(journal, bad_lifecycle)
 
 
+def test_reconciliation_rejects_journal_entry_without_one_settled_success(tmp_path):
+    journal = RequestJournal(tmp_path / "journal.jsonl")
+    metadata = {
+        "cell_key": "cell-orphan", "call_role": "judge_verdict",
+        JOURNAL_REQUEST_SHA256_FIELD: "a" * 64,
+    }
+    key = journal_key(metadata)
+    journal.put(key, "a" * 64, "recorded")
+    findings = find_ambiguous_dispatches(journal, [])
+    assert findings == [{
+        "cell_key": "cell-orphan",
+        "call_role": "judge_verdict",
+        "slot": key.slot,
+        "attempt": key.attempt,
+        "attempt_id": None,
+        "ledger_sequence": None,
+        "problem": "journal_entry_without_success",
+    }]
+
+
 def test_accounted_client_ledger_events_bind_and_reconcile_to_the_journal(tmp_path):
     class StubSDK:
         def __init__(self):

@@ -141,7 +141,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                transcript_generation_forbidden: bool = False,
                namespace: str | None = None,
                pending_payload_limit: int | None = None,
-               role_limits: dict | None = None) -> RunOutcome:
+               role_limits: dict | None = None,
+               fatal_unknown_charge: bool = False) -> RunOutcome:
     """Run one pass over the frozen canary plan, resuming from whatever is already recorded.
 
     Returns rather than raises on a halt: the caller needs the partial outcome, and everything
@@ -181,6 +182,11 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
     ``CellContext`` and from there into ``judge_loop.run_judgment`` to activate the mechanically
     enforced visible-history byte cap (see ``judge_loop.visible_history_cap_bytes``); left
     ``None`` the cap never activates and behavior is unchanged.
+
+    ``fatal_unknown_charge`` is an additive, default-off main-run hook. When true, the first
+    ambiguous provider charge halts the pass immediately instead of entering the historical
+    canary abandonment tolerance. Existing phase-2 and canary callers retain their original
+    behavior because the default is false.
     """
     protocol = protocol if protocol is not None else _load(
         REPO_ROOT / "rejudge" / "phase2_protocol.json")
@@ -226,7 +232,8 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
             ordered=ordered, results=results, context=context, outcome=outcome,
             seen_payloads=seen_payloads, limit=limit, max_workers=max_workers,
             block_size=block_size or max_workers * 2, namespace=namespace,
-            pending_payload_limit=pending_payload_limit)
+            pending_payload_limit=pending_payload_limit,
+            fatal_unknown_charge=fatal_unknown_charge)
 
     attempted = 0
     for cell in ordered:
@@ -265,6 +272,10 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
             continue
         except UnknownChargeHalt:
             outcome.abandoned += 1
+            if fatal_unknown_charge:
+                outcome.halted_reason = "unknown_charge"
+                outcome.halted_cell_key = cell.cell_key
+                break
             if _too_many_abandoned(outcome, attempted):
                 outcome.halted_reason = "abandoned_cell_rate"
                 outcome.halted_cell_key = cell.cell_key
@@ -316,7 +327,10 @@ def _too_many_abandoned(outcome, attempted: int) -> bool:
     return outcome.abandoned >= max(1, attempted) * ABANDONED_FRACTION
 
 
-def _attempt(cell, context, *, namespace: str | None = None) -> tuple[str, Any]:
+def _attempt(
+    cell, context, *, namespace: str | None = None,
+    fatal_unknown_charge: bool = False,
+) -> tuple[str, Any]:
     """Run one cell and classify the outcome, never raising into the worker pool.
 
     Same taxonomy as the serial loop: a pause is not a failure, a missing dependency is not a
@@ -339,7 +353,7 @@ def _attempt(cell, context, *, namespace: str | None = None) -> tuple[str, Any]:
         # That is a statement about ONE call, not about the run: no other cell's billing is
         # implicated, and total exposure is bounded by the uncertain-spend ceiling. Halting
         # everything cost 124 driver restarts and 4.77h of backoff on the bridge canary.
-        return "abandoned", unknown
+        return ("halt", "unknown_charge") if fatal_unknown_charge else ("abandoned", unknown)
     except CanaryCellHalted as halt:
         return "halt", halt.reason
     except CapExceededError:
@@ -351,7 +365,8 @@ def _attempt(cell, context, *, namespace: str | None = None) -> tuple[str, Any]:
 def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                     max_workers: int, block_size: int,
                     namespace: str | None = None,
-                    pending_payload_limit: int | None = None) -> RunOutcome:
+                    pending_payload_limit: int | None = None,
+                    fatal_unknown_charge: bool = False) -> RunOutcome:
     """Blocked concurrent execution of one pass.
 
     Two properties are load bearing and neither is about speed.
@@ -386,7 +401,9 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
             block = _balanced_block(ready, block_size)
             attempted.update(cell.cell_key for cell in block)
 
-            futures = [pool.submit(_attempt, cell, context, namespace=namespace)
+            futures = [pool.submit(
+                _attempt, cell, context, namespace=namespace,
+                fatal_unknown_charge=fatal_unknown_charge)
                       for cell in block]
             settled = [future.result() for future in futures]
 

@@ -606,6 +606,16 @@ def test_result_validator_rejects_expired_evidence() -> None:
             as_of_utc=datetime(2026, 8, 30, 13, tzinfo=timezone.utc),
         )
 
+    integrity = capacity.validate_result(
+        result,
+        plan=plan,
+        workload=workload,
+        dispatch_history=history,
+        as_of_utc=datetime(2026, 8, 30, 13, tzinfo=timezone.utc),
+        require_current_freshness=False,
+    )
+    assert integrity["attempt_status"] == "complete"
+
 
 def test_result_validator_rejects_naive_as_of_timestamp() -> None:
     plan = _result_plan()

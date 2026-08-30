@@ -196,6 +196,10 @@ def preseed(*, protocol_path: str | Path, project_root: str | Path = ".",
     for label, rows in (("main", main_rows), ("canary", canary_rows)):
         for cell_key, result in rows:
             if store.is_complete(cell_key):
+                if store.get(cell_key) != result:
+                    raise PreseedError(
+                        f"existing {label} transcript row differs from the frozen bundle: "
+                        f"{cell_key}")
                 skipped[label] += 1
                 continue
             store.record(cell_key, result)
@@ -257,6 +261,78 @@ def preseed_canary(*, protocol_path: str | Path, project_root: str | Path = ".",
     return {
         "target_store_path": str(target_store_path),
         "canary_bundle_count": len(rows),
+        "written": written,
+        "skipped": skipped,
+    }
+
+
+def preseed_main(*, protocol_path: str | Path, project_root: str | Path = ".",
+                 main_bundle_path: str | Path | None = None,
+                 verification_report_path: str | Path | None = None,
+                 target_store_path: str | Path) -> dict[str, Any]:
+    """Pre-seed exactly the main transcript-reference rows and no canary rows.
+
+    Bundle integrity and the exact two-way bundle-to-main-plan coverage check happen before the
+    target store is opened.  Every already-complete main transcript row is then compared with
+    the frozen payload before any missing row is appended, so a mismatched skipped row refuses
+    without partially extending the store.
+    """
+    root = Path(project_root)
+    main_bundle_path = Path(main_bundle_path) if main_bundle_path else DEFAULT_MAIN_BUNDLE_PATH
+    verification_report_path = (
+        Path(verification_report_path) if verification_report_path
+        else DEFAULT_VERIFICATION_REPORT_PATH)
+
+    protocol = phase3_plan.load_protocol(protocol_path)
+    main_question_ids, _held_out_question_ids = phase3_plan.load_reference_question_ids(
+        protocol, root)
+    roster_size = (len(protocol["roster"]["judges_final"])
+                   if protocol.get("schema_version") == "phase3_plan_v3"
+                   else _PROBE_ROSTER_SIZE)
+    probe_roster = phase3_plan.candidate_roster_judges(protocol, roster_size)
+    verification_report = _json(verification_report_path)
+    expected_hash = verification_report["bundle_canonical_sha256"]["main_bundle"]
+    main_bundle = _json(main_bundle_path)
+    _verify_bundle_hash(main_bundle, expected=expected_hash, label=str(main_bundle_path))
+    main_cells = phase3_plan.enumerate_cells(protocol, probe_roster, main_question_ids)
+    rows = _rows_for_bundle(
+        main_bundle, kind=phase3_plan.MAIN_TRANSCRIPT_KIND, cells=main_cells,
+        label=str(main_bundle_path))
+    row_keys = [cell_key for cell_key, _result in rows]
+    if len(row_keys) != len(set(row_keys)):
+        raise PreseedError(
+            "main transcript bundle does not map one-to-one onto the main transcript cells")
+
+    store = CellResultStore(target_store_path)
+    unexpected_existing = sorted(set(store._results) - set(row_keys))
+    if unexpected_existing:
+        raise PreseedError(
+            "main-only preseed store already contains rows outside the exact main "
+            f"transcript partition: {unexpected_existing[:5]!r}")
+    for cell_key, result in rows:
+        if store.is_complete(cell_key) and store.get(cell_key) != result:
+            raise PreseedError(
+                f"existing main transcript row differs from the frozen bundle: {cell_key}")
+
+    written = skipped = 0
+    for cell_key, result in rows:
+        if store.is_complete(cell_key):
+            skipped += 1
+            continue
+        store.record(cell_key, result)
+        written += 1
+
+    missing_or_drifted = [
+        cell_key for cell_key, result in rows
+        if not store.is_complete(cell_key) or store.get(cell_key) != result
+    ]
+    if missing_or_drifted:
+        raise PreseedError(
+            "main transcript preseed did not produce exact main-only transcript coverage: "
+            f"{missing_or_drifted[:5]!r}")
+    return {
+        "target_store_path": str(target_store_path),
+        "main_bundle_count": len(rows),
         "written": written,
         "skipped": skipped,
     }

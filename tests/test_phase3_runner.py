@@ -217,6 +217,66 @@ def _preseed(root: Path, manifest: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# main-only cell resolution
+# ---------------------------------------------------------------------------
+
+
+def _main_resolution_fixture() -> tuple[dict, dict, list[dict]]:
+    protocol = {
+        "debate_grid": {"conditions": [{
+            "id": "b0", "query_budget": 0, "oracle_mode": "none",
+            "judgment_replicates_per_transcript_side": 1,
+        }]},
+    }
+    composition = {"presentation": "sequential_judge_presentation",
+                   "verdict": "sequential_judge_verdict"}
+    bundle = {"condition_composition": {"debate_grid": {"b0": composition}}}
+    transcript_key = "main:transcript"
+    cells = [
+        {
+            "cell_key": transcript_key, "kind": phase3_plan.MAIN_TRANSCRIPT_KIND,
+            "condition": "phase3_transcript_reuse", "question_id": "Q-001",
+            "judge_model": None, "debater_model": "debater-a", "transcript_index": 0,
+            "replicate_index": None, "query_budget": None, "dependency_keys": [],
+        },
+        {
+            "cell_key": "main:judgment", "kind": phase3_plan.MAIN_JUDGMENT_KIND,
+            "condition": "b0", "question_id": "Q-001", "judge_model": "judge-a",
+            "debater_model": "debater-a", "transcript_index": 0,
+            "replicate_index": 0, "query_budget": 0,
+            "dependency_keys": [transcript_key],
+        },
+    ]
+    return protocol, bundle, cells
+
+
+def test_resolve_main_cells_accepts_exact_main_transcript_and_judgment_kinds():
+    protocol, bundle, cells = _main_resolution_fixture()
+    resolved = phase3_runner.resolve_main_cells(cells, protocol=protocol, bundle=bundle)
+
+    assert [cell.cell_key for cell in resolved] == ["main:transcript", "main:judgment"]
+    assert resolved[0].is_transcript
+    assert resolved[0].kind == "debate_transcript"
+    assert resolved[1].kind == phase3_plan.MAIN_JUDGMENT_KIND
+    assert resolved[1].dependency_keys == ("main:transcript",)
+    assert resolved[1].judgment_replicates_per_side == 1
+
+
+@pytest.mark.parametrize("foreign_kind", [
+    phase3_plan.CANARY_TRANSCRIPT_KIND,
+    phase3_plan.CANARY_JUDGMENT_KIND,
+    phase3_plan.CAPABILITY_ANCHOR_KIND,
+    "unknown-main-shape",
+])
+def test_resolve_main_cells_refuses_every_non_main_kind(foreign_kind):
+    protocol, bundle, cells = _main_resolution_fixture()
+    cells[0]["kind"] = foreign_kind
+    with pytest.raises(phase3_runner.Phase3RunnerError,
+                       match="unrecognised phase-3 main cell kind"):
+        phase3_runner.resolve_main_cells(cells, protocol=protocol, bundle=bundle)
+
+
+# ---------------------------------------------------------------------------
 # THE DRY RUN: the full canary plan, all 1,728 cells
 # ---------------------------------------------------------------------------
 

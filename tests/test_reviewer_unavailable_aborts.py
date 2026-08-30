@@ -16,13 +16,31 @@ The distinction the batch runner was missing:
 Fail-closed means refusing to proceed, not manufacturing a refusal for every payload in the
 queue.
 """
+import json
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+
 import pytest
 
+from scripts import codex_reviewer_batch
 from scripts.codex_reviewer_batch import ReviewerUnavailable, classify_result
 
 
 def _meta(sha="a" * 64):
     return {"payload_sha256": sha}
+
+
+def _event_stream(*events) -> bytes:
+    return ("\n".join(json.dumps(event) for event in events) + "\n").encode("utf-8")
+
+
+def _clean_events(*items):
+    return (
+        {"type": "thread.started", "thread_id": "thread-test"},
+        {"type": "turn.started"},
+        *items,
+        {"type": "turn.completed", "usage": {}},
+    )
 
 
 def test_an_unreachable_reviewer_raises_rather_than_ruling():
@@ -61,3 +79,101 @@ def test_a_clean_ruling_passes_through():
         packet_ok=True)
     # A clean ruling carries no "status": the commit path derives it from the parsed output.
     assert "status" not in row and row["tool_uses"] == 0
+
+
+def test_expired_authorization_blocks_before_reviewer_subprocess(tmp_path, monkeypatch):
+    packet = tmp_path / "packet.txt"
+    packet.write_text("review this", encoding="utf-8")
+    monkeypatch.setattr(
+        codex_reviewer_batch.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("expired authority reached reviewer subprocess"),
+    )
+    result = codex_reviewer_batch.run_one(
+        packet,
+        "reviewer-model",
+        "high",
+        "codex",
+        datetime.now(timezone.utc) - timedelta(seconds=1),
+    )
+    assert result["ok"] is False
+    assert "authorization deadline expired" in result["error"]
+
+
+def test_json_event_stream_accepts_only_complete_zero_tool_lifecycle():
+    commands, errors = codex_reviewer_batch._inspect_json_event_stream(
+        _event_stream(*_clean_events(
+            {"type": "item.completed", "item": {"type": "reasoning"}},
+            {"type": "item.completed", "item": {"type": "agent_message"}},
+        )))
+    assert commands == []
+    assert errors == []
+
+
+def test_json_event_stream_reports_every_recognized_tool_item():
+    commands, errors = codex_reviewer_batch._inspect_json_event_stream(
+        _event_stream(*_clean_events(
+            {
+                "type": "item.started",
+                "item": {"type": "command_execution", "command": "Get-Content world.txt"},
+            },
+            {
+                "type": "item.completed",
+                "item": {"type": "command_execution", "command": "Get-Content world.txt"},
+            },
+            {"type": "item.completed", "item": {"type": "web_search"}},
+        )))
+    assert commands == ["Get-Content world.txt", "web_search"]
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    "stream, match",
+    [
+        (b"not-json\n", "not unique-key JSON"),
+        (
+            _event_stream(*_clean_events({"type": "future.event"})),
+            "unknown event type",
+        ),
+        (
+            _event_stream(*_clean_events({
+                "type": "item.completed",
+                "item": {"type": "future_item"},
+            })),
+            "unknown item type",
+        ),
+        (
+            _event_stream(
+                {"type": "thread.started", "thread_id": "thread-test"},
+                {"type": "turn.started"},
+                {"type": "turn.failed", "error": {"message": "failure"}},
+            ),
+            "turn.failed",
+        ),
+    ],
+)
+def test_json_event_stream_rejects_unknown_malformed_or_failed_shapes(stream, match):
+    _commands, errors = codex_reviewer_batch._inspect_json_event_stream(stream)
+    assert any(match in error for error in errors)
+
+
+def test_run_one_refuses_a_ruling_with_an_unrecognized_json_event(
+    tmp_path, monkeypatch,
+):
+    packet = tmp_path / "packet.txt"
+    packet.write_text("review this", encoding="utf-8")
+
+    def fake_run(command, **_kwargs):
+        out_file = command[command.index("-o") + 1]
+        with open(out_file, "w", encoding="utf-8") as handle:
+            handle.write("LABEL: ACCEPT\nCLAUSE: Allowed\nRATIONALE: valid\n")
+        return SimpleNamespace(
+            returncode=0,
+            stdout=_event_stream(*_clean_events({"type": "future.event"})),
+        )
+
+    monkeypatch.setattr(codex_reviewer_batch.subprocess, "run", fake_run)
+    result = codex_reviewer_batch.run_one(
+        packet, "reviewer-model", "high", "codex")
+    assert result["ok"] is False
+    assert "unknown event type" in result["error"]

@@ -316,6 +316,27 @@ def test_artifact_root_is_a_constituent_of_identity_and_paths_cannot_be_injected
     assert not second.paths.active_marker.exists()
 
 
+def test_external_identity_registry_owns_the_single_global_lease(tmp_path):
+    artifact_root = (tmp_path / "formal").resolve()
+    registry_root = (tmp_path / "registry").resolve()
+    identity = phase3_main_runner.MainRunIdentity(
+        run_id="phase3-main-test-registry",
+        manifest_sha256="a" * 64,
+        artifact_root=artifact_root,
+        identity_registry_root=registry_root,
+    )
+    assert identity.paths.root == artifact_root
+    assert identity.paths.lease == registry_root / "phase3_main_global.lock"
+    assert {
+        path.name for _label, path in identity.paths.formal_artifacts()
+    } >= {
+        "main_terminal_dispositions.jsonl",
+        "main_run_log.jsonl",
+        "main_finalization.json",
+        "main_analysis_results.json",
+    }
+
+
 def test_chained_ledger_tamper_refuses_before_journal_and_client(
     tmp_path, monkeypatch,
 ):

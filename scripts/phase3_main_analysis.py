@@ -33,7 +33,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from rejudge import phase3_plan  # noqa: E402
+from rejudge import (  # noqa: E402
+    phase3_main_authorization,
+    phase3_main_context,
+    phase3_main_finalization,
+    phase3_main_manifest,
+    phase3_main_runner,
+    phase3_plan,
+)
 from rejudge.phase2_execution import canonical_sha256  # noqa: E402
 from scripts import phase3_polarity_verify  # noqa: E402
 from scripts.phase2_main_analysis import (  # noqa: E402
@@ -84,6 +91,8 @@ FROZEN_PINS_SECTION_SHA256 = {
     "integrity": "42dbe5dfdcf558f8e27ca6e2ae8c2c4913d48c89caa525ef48a22c2ab242d814",
     "authority": "625cf90c47d32f20642db3ab844c2996a2fcebbf69e2d32425f84e75f25e2476",
 }
+MAIN_FINALIZATION_SCHEMA = phase3_main_finalization.FINALIZATION_SCHEMA
+MAIN_FINALIZATION_STATUS = phase3_main_finalization.FINALIZATION_STATUS
 
 
 class AnalysisError(ValueError):
@@ -137,25 +146,79 @@ def plan_replicate_to_side(replicate_index: int, replicates_per_side: int) -> tu
     return side, within
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+def _read_stable_bytes(path: Path, label: str) -> bytes:
+    """Read one immutable analysis input twice and require identical bytes."""
+    try:
+        first = path.read_bytes()
+        second = path.read_bytes()
+    except OSError as exc:
+        raise AnalysisError(f"could not read {label}: {path}") from exc
+    if first != second:
+        raise AnalysisError(f"{label} changed while analysis read it")
+    return first
+
+
+def _read_stable_json_object(
+    path: Path, label: str,
+) -> tuple[Mapping[str, Any], bytes]:
+    raw = _read_stable_bytes(path, label)
+    try:
+        value = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except AnalysisError:
+        raise
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise AnalysisError(f"{label} is not valid unique-key UTF-8 JSON") from exc
+    if not isinstance(value, Mapping):
+        raise AnalysisError(f"{label} must be a JSON object")
+    return value, raw
+
+
+def _require_unchanged(path: Path, expected: bytes, label: str) -> None:
+    try:
+        observed = path.read_bytes()
+    except OSError as exc:
+        raise AnalysisError(f"{label} became unreadable during analysis") from exc
+    if observed != expected:
+        raise AnalysisError(f"{label} changed during analysis")
+
+
+def _snapshot_sha256_bound_input(
+    path: Path, expected_sha256: str, label: str,
+) -> tuple[Path, bytes, str]:
+    """Snapshot the exact bytes already admitted by an earlier validation step."""
+    raw = _read_stable_bytes(path, label)
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        raise AnalysisError(f"{label} changed after validation")
+    return path, raw, label
+
+
+def _read_jsonl_bytes(raw: bytes, path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
-    with path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, 1):
-            if not line.strip():
-                raise AnalysisError(f"blank JSONL row at {path}:{line_number}")
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise AnalysisError(f"invalid JSON at {path}:{line_number}") from exc
-            if not isinstance(row, dict) or not isinstance(row.get("cell_key"), str):
-                raise AnalysisError(f"invalid result row at {path}:{line_number}")
-            key = str(row["cell_key"])
-            if key in seen:
-                raise AnalysisError(f"duplicate result cell_key {key}")
-            seen.add(key)
-            rows.append(row)
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeError as exc:
+        raise AnalysisError(f"result store is not UTF-8: {path}") from exc
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            raise AnalysisError(f"blank JSONL row at {path}:{line_number}")
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise AnalysisError(f"invalid JSON at {path}:{line_number}") from exc
+        if not isinstance(row, dict) or not isinstance(row.get("cell_key"), str):
+            raise AnalysisError(f"invalid result row at {path}:{line_number}")
+        key = str(row["cell_key"])
+        if key in seen:
+            raise AnalysisError(f"duplicate result cell_key {key}")
+        seen.add(key)
+        rows.append(row)
     return rows
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    return _read_jsonl_bytes(_read_stable_bytes(path, "result store"), path)
 
 
 def _load_protocol_bound_question_bank(
@@ -996,17 +1059,21 @@ def analyze_records(
     }
 
 
+def _validate_key_list(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise AnalysisError(f"{label} must contain a JSON array of cell-key strings")
+    if any(not item.strip() for item in value):
+        raise AnalysisError(f"{label} contains an empty cell key")
+    if len(value) != len(set(value)):
+        raise AnalysisError(f"{label} contains duplicate cell keys")
+    return [str(item) for item in value]
+
+
 def _load_key_list(path: Path | None) -> list[str]:
     if path is None:
         return []
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise AnalysisError(f"{path} must contain a JSON array of cell-key strings")
-    if any(not item.strip() for item in value):
-        raise AnalysisError(f"{path} contains an empty cell key")
-    if len(value) != len(set(value)):
-        raise AnalysisError(f"{path} contains duplicate cell keys")
-    return value
+    return _validate_key_list(
+        json.loads(path.read_text(encoding="utf-8")), str(path))
 
 
 def _require_admitted_exclusions(
@@ -1019,6 +1086,168 @@ def _require_admitted_exclusions(
             "analysis without a production finalization artifact validating terminal "
             "evidence and stop bounds, the context-blocklist hash, and the exact partition"
         )
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise AnalysisError(f"finalization JSON repeats key {key!r}")
+        result[key] = value
+    return result
+
+
+def _load_finalization_exclusions(
+    path: Path,
+    *,
+    results_path: Path,
+    protocol: Mapping[str, Any],
+    pins_path: Path,
+    project_root: Path,
+    expected_run_id: str,
+    expected_manifest_canonical_sha256: str,
+    expected_authorization_canonical_sha256: str,
+    expected_authorization_raw_sha256: str,
+    expected_authorization_signature_raw_sha256: str,
+    authorization_approved_at_utc: str,
+    authorization_valid_until_utc: str,
+    expected_context_blocklist_path: Path,
+    expected_manifest_output_paths: Mapping[str, Path],
+    prior_reconciled_usd: str,
+    stage_cap_usd: str,
+    expected_results_raw_sha256: str | None = None,
+    expected_pins_raw_sha256: str | None = None,
+) -> tuple[list[str], list[str], str]:
+    """Rebuild the full bound-artifact admission before admitting its partition."""
+    try:
+        raw = path.read_bytes()
+        record = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except AnalysisError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise AnalysisError(f"could not read a valid main finalization artifact: {path}") from exc
+    if not isinstance(record, Mapping):
+        raise AnalysisError("main finalization artifact must be an object")
+    artifact_hashes = record.get("artifact_hashes")
+    if expected_results_raw_sha256 is not None:
+        if (
+            not isinstance(artifact_hashes, Mapping)
+            or not isinstance(artifact_hashes.get("result_store"), Mapping)
+            or artifact_hashes["result_store"].get("raw_sha256")
+            != expected_results_raw_sha256
+        ):
+            raise AnalysisError(
+                "main finalization does not bind the result-store snapshot being analyzed")
+    if expected_pins_raw_sha256 is not None:
+        if (
+            not isinstance(artifact_hashes, Mapping)
+            or not isinstance(artifact_hashes.get("analysis_pins"), Mapping)
+            or artifact_hashes["analysis_pins"].get("raw_sha256")
+            != expected_pins_raw_sha256
+        ):
+            raise AnalysisError(
+                "main finalization does not bind the analysis-pins snapshot being used")
+    try:
+        inventory = phase3_main_runner.build_main_inventory(protocol, project_root)
+        validated = phase3_main_finalization.validate_finalization_from_bound_artifacts(
+            record,
+            inventory=inventory,
+            expected_run_id=expected_run_id,
+            expected_manifest_canonical_sha256=expected_manifest_canonical_sha256,
+            expected_authorization_canonical_sha256=(
+                expected_authorization_canonical_sha256),
+            expected_authorization_raw_sha256=expected_authorization_raw_sha256,
+            expected_authorization_signature_raw_sha256=(
+                expected_authorization_signature_raw_sha256),
+            authorization_approved_at_utc=authorization_approved_at_utc,
+            authorization_valid_until_utc=authorization_valid_until_utc,
+            expected_result_store_path=results_path.resolve(),
+            expected_analysis_pins_path=pins_path.resolve(),
+            expected_context_blocklist_path=expected_context_blocklist_path.resolve(),
+            expected_manifest_output_paths=expected_manifest_output_paths,
+            expected_checker_model=str(protocol["roster"]["query_checker"]),
+            expected_oracle_model=str(protocol["roster"]["oracle"]),
+            prior_reconciled_usd=prior_reconciled_usd,
+            stage_cap_usd=stage_cap_usd,
+        )
+    except (
+        phase3_main_finalization.MainFinalizationError,
+        phase3_main_runner.Phase3MainRunnerError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise AnalysisError(
+            f"main finalization failed full bound-artifact validation: {exc}") from exc
+    try:
+        if path.read_bytes() != raw:
+            raise AnalysisError("main finalization changed while it was validated")
+    except OSError as exc:
+        raise AnalysisError("main finalization became unreadable during validation") from exc
+    partition = validated["partition"]
+    terminal = _validate_key_list(
+        partition.get("terminal_cell_keys"),
+        "main finalization partition.terminal_cell_keys")
+    context = _validate_key_list(
+        partition.get("context_ineligible_cell_keys"),
+        "main finalization partition.context_ineligible_cell_keys")
+    return terminal, context, hashlib.sha256(raw).hexdigest()
+
+
+def _resolve_exclusions(
+    *,
+    finalization_path: Path | None,
+    terminal_path: Path | None,
+    context_path: Path | None,
+    results_path: Path,
+    protocol: Mapping[str, Any],
+    pins_path: Path,
+    project_root: Path,
+    expected_run_id: str,
+    expected_manifest_canonical_sha256: str,
+    expected_authorization_canonical_sha256: str,
+    expected_authorization_raw_sha256: str,
+    expected_authorization_signature_raw_sha256: str,
+    authorization_approved_at_utc: str,
+    authorization_valid_until_utc: str,
+    expected_context_blocklist_path: Path,
+    expected_manifest_output_paths: Mapping[str, Path],
+    prior_reconciled_usd: str,
+    stage_cap_usd: str,
+    expected_results_raw_sha256: str | None = None,
+    expected_pins_raw_sha256: str | None = None,
+) -> tuple[list[str], list[str], str | None]:
+    if finalization_path is not None and (terminal_path is not None or context_path is not None):
+        raise AnalysisError(
+            "--finalization cannot be combined with explicit terminal or context key lists")
+    if finalization_path is not None:
+        return _load_finalization_exclusions(
+            finalization_path,
+            results_path=results_path,
+            protocol=protocol,
+            pins_path=pins_path,
+            project_root=project_root,
+            expected_run_id=expected_run_id,
+            expected_manifest_canonical_sha256=expected_manifest_canonical_sha256,
+            expected_authorization_canonical_sha256=(
+                expected_authorization_canonical_sha256),
+            expected_authorization_raw_sha256=expected_authorization_raw_sha256,
+            expected_authorization_signature_raw_sha256=(
+                expected_authorization_signature_raw_sha256),
+            authorization_approved_at_utc=authorization_approved_at_utc,
+            authorization_valid_until_utc=authorization_valid_until_utc,
+            expected_context_blocklist_path=expected_context_blocklist_path,
+            expected_manifest_output_paths=expected_manifest_output_paths,
+            prior_reconciled_usd=prior_reconciled_usd,
+            stage_cap_usd=stage_cap_usd,
+            expected_results_raw_sha256=expected_results_raw_sha256,
+            expected_pins_raw_sha256=expected_pins_raw_sha256,
+        )
+    terminal = _load_key_list(terminal_path)
+    context = _load_key_list(context_path)
+    _require_admitted_exclusions(terminal, context)
+    return terminal, context, None
 
 
 def _capability_anchor_proportions(
@@ -1190,37 +1419,185 @@ def _git_path_status(root: Path, path: Path) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="phase3_main_analysis")
     parser.add_argument("--results", required=True)
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--authorization", required=True)
     parser.add_argument("--protocol", default=str(PROTOCOL_PATH_DEFAULT))
     parser.add_argument("--pins", default=str(PINS_PATH_DEFAULT))
-    parser.add_argument("--terminal-cell-keys")
-    parser.add_argument("--context-ineligible-cell-keys")
+    parser.add_argument(
+        "--finalization",
+        required=True,
+        help="fully validated production finalization admission for this exact result store",
+    )
     parser.add_argument("--out", default=str(OUTPUT_PATH_DEFAULT))
     parser.add_argument("--project-root", default=str(REPO_ROOT))
     args = parser.parse_args(argv)
 
     root = Path(args.project_root).resolve()
-    protocol_path = Path(args.protocol)
-    pins_path = Path(args.pins)
-    results_path = Path(args.results)
-    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
-    pins = json.loads(pins_path.read_text(encoding="utf-8"))
+    protocol_path = Path(args.protocol).resolve()
+    pins_path = Path(args.pins).resolve()
+    results_path = Path(args.results).resolve()
+    manifest_path = Path(args.manifest).resolve()
+    authorization_path = Path(args.authorization).resolve()
+    authorization_signature_path = authorization_path.with_name(
+        f"{authorization_path.name}.sig")
+    finalization_path = Path(args.finalization).resolve()
+    out_path = Path(args.out).resolve()
+    if out_path in {
+        protocol_path,
+        pins_path,
+        results_path,
+        manifest_path,
+        authorization_path,
+        authorization_signature_path,
+        finalization_path,
+    }:
+        raise AnalysisError("analysis output path must differ from every immutable input")
+
+    manifest_raw = _read_stable_bytes(manifest_path, "launch manifest")
+    try:
+        manifest = json.loads(
+            manifest_raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except AnalysisError:
+        raise
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise AnalysisError("launch manifest is not valid unique-key UTF-8 JSON") from exc
+    if not isinstance(manifest, Mapping):
+        raise AnalysisError("launch manifest must be a JSON object")
+    try:
+        manifest_validation = phase3_main_manifest.validate_main_manifest(
+            manifest, project_root=root, verify_files=True, verify_runtime=False)
+        authorization = (
+            phase3_main_authorization.load_authenticated_owner_authorization(
+                authorization_path))
+        approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+            authorization["approved_at_utc"], "authorization.approved_at_utc")
+        phase3_main_manifest.validate_main_authorization(
+            authorization, manifest, as_of=approved_at)
+    except (
+        phase3_main_authorization.MainAuthorizationSignatureError,
+        phase3_main_manifest.MainManifestError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise AnalysisError(
+            f"signed launch authority failed validation: {exc}") from exc
+    authorization_raw = _read_stable_bytes(
+        authorization_path, "owner authorization")
+    authorization_signature_raw = _read_stable_bytes(
+        authorization_signature_path, "owner authorization signature")
+    if canonical_sha256(authorization) != canonical_sha256(json.loads(
+            authorization_raw.decode("utf-8"), object_pairs_hook=_unique_json_object)):
+        raise AnalysisError("authenticated authorization differs from its stable byte snapshot")
+
+    protocol_raw = _read_stable_bytes(protocol_path, "protocol")
+    pins_raw = _read_stable_bytes(pins_path, "analysis pins")
+    results_raw = _read_stable_bytes(results_path, "result store")
+    try:
+        protocol = json.loads(
+            protocol_raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        pins = json.loads(
+            pins_raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except AnalysisError:
+        raise
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise AnalysisError("protocol or analysis pins is not valid unique-key UTF-8 JSON") from exc
+    if not isinstance(protocol, Mapping) or not isinstance(pins, Mapping):
+        raise AnalysisError("protocol and analysis pins must be JSON objects")
+    input_paths = manifest_validation["input_paths"]
+    output_paths = manifest_validation["output_paths"]
+    if (
+        input_paths["protocol"] != protocol_path
+        or input_paths["analysis_pins"] != pins_path
+        or output_paths["results"] != results_path
+        or output_paths["finalization"] != finalization_path
+        or output_paths["analysis_results"] != out_path
+    ):
+        raise AnalysisError(
+            "analysis paths differ from the signed launch manifest")
     phase3_plan.validate_protocol(protocol)
     validate_analysis_pins(pins, protocol, root=root)
     judges = tuple(protocol["roster"]["judges_final"])
     main_ids, _held_out = phase3_plan.load_reference_question_ids(protocol, root)
     plan_cells = phase3_plan.enumerate_cells(protocol, judges, main_ids)
-    rows = _read_jsonl(results_path)
+    context_snapshots: list[tuple[Path, bytes, str]] = []
+    context_inputs: dict[str, Mapping[str, Any]] = {}
+    for name, label in (
+        ("prompt_bundle", "prompt bundle"),
+        ("role_limits", "role limits"),
+        ("main_transcript_bundle", "main transcript bundle"),
+        ("context_blocklist", "context blocklist"),
+    ):
+        value, raw = _read_stable_json_object(input_paths[name], label)
+        context_inputs[name] = value
+        context_snapshots.append((input_paths[name], raw, label))
+    try:
+        recomputed_context_keys = phase3_main_context.validate_main_context_blocklist(
+            context_inputs["context_blocklist"],
+            protocol=protocol,
+            inventory=phase3_main_runner.build_main_inventory(protocol, root),
+            prompt_bundle=context_inputs["prompt_bundle"],
+            role_limits=context_inputs["role_limits"],
+            transcript_bundle=context_inputs["main_transcript_bundle"],
+        )
+    except phase3_main_context.MainContextBlocklistError as exc:
+        raise AnalysisError(f"main context blocklist failed recomputation: {exc}") from exc
+    rows = _read_jsonl_bytes(results_raw, results_path)
     question_bank = _load_protocol_bound_question_bank(protocol, root)
     missing_main_questions = set(main_ids) - set(question_bank)
     if missing_main_questions:
         raise AnalysisError(
             f"question bank lacks protocol-derived main IDs: {sorted(missing_main_questions)}")
-    terminal_path = Path(args.terminal_cell_keys) if args.terminal_cell_keys else None
-    context_path = (Path(args.context_ineligible_cell_keys)
-                    if args.context_ineligible_cell_keys else None)
-    terminal_cell_keys = _load_key_list(terminal_path)
-    context_ineligible_cell_keys = _load_key_list(context_path)
-    _require_admitted_exclusions(terminal_cell_keys, context_ineligible_cell_keys)
+    terminal_path: Path | None = None
+    context_path: Path | None = None
+    (terminal_cell_keys,
+     context_ineligible_cell_keys,
+     finalization_raw_sha256) = _resolve_exclusions(
+        finalization_path=finalization_path,
+        terminal_path=terminal_path,
+        context_path=context_path,
+        results_path=results_path,
+        protocol=protocol,
+        pins_path=pins_path,
+        project_root=root,
+        expected_run_id=str(manifest["run_id"]),
+        expected_manifest_canonical_sha256=(
+            phase3_main_manifest.manifest_canonical_sha256(manifest)),
+        expected_authorization_canonical_sha256=canonical_sha256(authorization),
+        expected_authorization_raw_sha256=(
+            hashlib.sha256(authorization_raw).hexdigest()),
+        expected_authorization_signature_raw_sha256=(
+            hashlib.sha256(authorization_signature_raw).hexdigest()),
+        authorization_approved_at_utc=str(authorization["approved_at_utc"]),
+        authorization_valid_until_utc=str(authorization["valid_until_utc"]),
+        expected_context_blocklist_path=input_paths["context_blocklist"],
+        expected_manifest_output_paths=output_paths,
+        prior_reconciled_usd=str(manifest["spend"]["prior_reconciled_usd"]),
+        stage_cap_usd=str(authorization["stage_cap_usd"]),
+        expected_results_raw_sha256=hashlib.sha256(results_raw).hexdigest(),
+        expected_pins_raw_sha256=hashlib.sha256(pins_raw).hexdigest(),
+    )
+    if finalization_raw_sha256 is None:  # pragma: no cover - CLI requires --finalization
+        raise AnalysisError("confirmatory analysis requires a validated finalization")
+    finalization_input = _snapshot_sha256_bound_input(
+        finalization_path, finalization_raw_sha256, "main finalization")
+    if tuple(sorted(context_ineligible_cell_keys)) != tuple(
+            sorted(recomputed_context_keys)):
+        raise AnalysisError(
+            "finalization context exclusions differ from the deterministic recomputation")
+    stable_inputs = (
+        (protocol_path, protocol_raw, "protocol"),
+        (pins_path, pins_raw, "analysis pins"),
+        (results_path, results_raw, "result store"),
+        (manifest_path, manifest_raw, "launch manifest"),
+        (authorization_path, authorization_raw, "owner authorization"),
+        (authorization_signature_path, authorization_signature_raw,
+         "owner authorization signature"),
+        finalization_input,
+        *context_snapshots,
+    )
+    for path, expected, label in stable_inputs:
+        _require_unchanged(path, expected, label)
     records = build_analysis_records(
         rows=rows,
         plan_cells=plan_cells,
@@ -1260,15 +1637,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "main_question_rows_canonical_sha256": canonical_sha256({
             question_id: question_bank[question_id] for question_id in sorted(main_ids)
         }),
-        "pins_raw_sha256": hashlib.sha256(pins_path.read_bytes()).hexdigest(),
-        "results_raw_sha256": hashlib.sha256(results_path.read_bytes()).hexdigest(),
+        "pins_raw_sha256": hashlib.sha256(pins_raw).hexdigest(),
+        "results_raw_sha256": hashlib.sha256(results_raw).hexdigest(),
+        "finalization_raw_sha256": finalization_raw_sha256,
         "terminal_cell_keys_raw_sha256": (
             hashlib.sha256(terminal_path.read_bytes()).hexdigest() if terminal_path else None),
         "context_ineligible_cell_keys_raw_sha256": (
             hashlib.sha256(context_path.read_bytes()).hexdigest() if context_path else None),
         "record_count": len(records),
     }
-    out_path = Path(args.out)
+    for path, expected, label in stable_inputs:
+        _require_unchanged(path, expected, label)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({

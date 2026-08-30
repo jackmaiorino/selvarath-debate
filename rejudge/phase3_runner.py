@@ -54,7 +54,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from rejudge import phase3_manifest, phase3_plan, run_accounting
 from rejudge.api_client import CapExceededError, _RESERVED_REQUEST_KWARGS
@@ -466,7 +466,7 @@ def _resolve_judgment_cell(cell: Mapping[str, Any], *, conditions: Mapping[str, 
         judgment_replicates_per_side=judgment_replicates_per_side)
 
 
-def resolve_canary_cells(cells: list[Mapping[str, Any]], *, protocol: Mapping[str, Any],
+def resolve_canary_cells(cells: Sequence[Mapping[str, Any]], *, protocol: Mapping[str, Any],
                          bundle: Mapping[str, Any],
                          ) -> tuple[list[ResolvedCell], list[dict[str, Any]]]:
     """Split the phase-3 canary plan into (judgment+transcript ``ResolvedCell``s, capability_qa
@@ -492,6 +492,30 @@ def resolve_canary_cells(cells: list[Mapping[str, Any]], *, protocol: Mapping[st
         else:
             raise Phase3RunnerError(f"unrecognised phase-3 canary cell kind: {kind!r}")
     return resolved, capability
+
+
+def resolve_main_cells(cells: Sequence[Mapping[str, Any]], *, protocol: Mapping[str, Any],
+                       bundle: Mapping[str, Any]) -> list[ResolvedCell]:
+    """Resolve an exact phase-3 main inventory for the shared phase-2 executor.
+
+    Main execution has only two admitted cell shapes: the preseeded transcript references and
+    the provider-billed debate judgments.  Canary transcript/judgment cells, capability anchors,
+    and every unknown kind are refused instead of being silently ignored or routed through a
+    similar-looking execution path.
+    """
+    conditions = _condition_lookup(protocol)
+    resolved: list[ResolvedCell] = []
+    for cell in cells:
+        kind = str(cell["kind"])
+        if kind == phase3_plan.MAIN_TRANSCRIPT_KIND:
+            resolved.append(_resolve_transcript_cell(cell))
+        elif kind == phase3_plan.MAIN_JUDGMENT_KIND:
+            resolved.append(_resolve_judgment_cell(
+                cell, conditions=conditions, bundle=bundle))
+        else:
+            raise Phase3RunnerError(
+                f"unrecognised phase-3 main cell kind: {kind!r}")
+    return resolved
 
 
 # --- capability_qa: a phase-3-only cell shape, executed directly --------------------------
@@ -688,7 +712,7 @@ def load_context_blocklist(path: str | Path,
 # --- amendment-bound judgment-cell deferral list (v2 amendment 1: the Qwen carve-out) -----
 
 
-def mechanical_deferral_cell_keys(plan_cells: list[Mapping[str, Any]],
+def mechanical_deferral_cell_keys(plan_cells: Sequence[Mapping[str, Any]],
                                   judge_model: str) -> list[str]:
     """The mechanical deferral rule, sorted: every ``CANARY_JUDGMENT_KIND`` cell_key in
     ``plan_cells`` whose ``judge_model`` is ``judge_model``.
@@ -705,7 +729,7 @@ def mechanical_deferral_cell_keys(plan_cells: list[Mapping[str, Any]],
 
 
 def load_deferral_list(path: str | Path, *, project_root: str | Path, protocol: Mapping[str, Any],
-                       plan_cells: list[Mapping[str, Any]]) -> dict[str, Any]:
+                       plan_cells: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Load and fully verify an amendment-bound judgment-cell deferral list.
 
     Mirrors :func:`load_context_blocklist`'s binding discipline (fail closed on any drift), with

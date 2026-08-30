@@ -405,6 +405,11 @@ class RequestJournal:
             row = self._entries.get(self._identity(key))
             return None if row is None else str(row["request_sha256"])
 
+    def entry_identities(self) -> frozenset[tuple[str, str, int, int]]:
+        """Return the immutable call identities represented by the validated journal."""
+        with self._lock:
+            return frozenset(self._entries)
+
 
 class JournalingClient:
     """Replays journaled responses and latches after any unresolved live dispatch.
@@ -426,8 +431,9 @@ class JournalingClient:
         return getattr(self.inner, "dry_run", False)
 
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
-                 request_metadata=None) -> str:
+                 request_metadata: Mapping[str, Any] | None = None) -> str:
         key = journal_key(request_metadata)
+        assert request_metadata is not None  # journal_key refuses missing metadata
         fingerprint = request_fingerprint(
             messages=messages, model=model, temperature=temperature, seed=seed,
             max_tokens=max_tokens)
@@ -478,8 +484,9 @@ def _find_ambiguous_dispatches_loaded(
     The full ledger is paired by ``attempt_id`` first. Structural mismatches raise
     :class:`JournalLedgerMismatch`; recoverable-looking partial interpretation is unsafe.
     Journalable attempts then produce findings for unknown charges, charged malformed
-    responses, unmatched reservations, successes without journal bytes, duplicate
-    successes, and missing or mismatched request-fingerprint bindings. A paired
+    responses, unmatched reservations, successes without journal bytes, journal entries
+    without a settled success, duplicate successes, and missing or mismatched
+    request-fingerprint bindings. A paired
     ``released_no_charge`` is the only terminal state that permits a later attempt without
     a finding because the accounted client uses it only for a locally rejected transport
     shape before inference.
@@ -614,6 +621,18 @@ def _find_ambiguous_dispatches_loaded(
                 "problem": "duplicate_success_for_key",
                 "success_events": count,
             })
+
+    for identity in journal.entry_identities() - success_counts.keys():
+        cell_key, call_role, slot, attempt = identity
+        findings.append({
+            "cell_key": cell_key,
+            "call_role": call_role,
+            "slot": slot,
+            "attempt": attempt,
+            "attempt_id": None,
+            "ledger_sequence": None,
+            "problem": "journal_entry_without_success",
+        })
 
     return sorted(
         findings,

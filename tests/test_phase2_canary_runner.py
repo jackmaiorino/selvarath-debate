@@ -478,6 +478,26 @@ def test_a_provider_abandoning_everything_still_halts(tmp_path):
     assert outcome.halted_reason is not None, "a wholly failing provider must stop the run"
 
 
+def test_main_mode_makes_the_first_unknown_charge_fatal(tmp_path):
+    from rejudge.api_client import UnknownChargeHalt
+
+    class Ambiguous:
+        calls = []
+
+        def complete(self, *args, **kwargs):
+            raise UnknownChargeHalt("billing status unknown")
+
+    outcome = run_canary(
+        results_path=tmp_path / "results.jsonl",
+        decisions_path=tmp_path / "decisions.jsonl",
+        client=Ambiguous(), reviewer=StubReviewer(), anchor_judge_model=ANCHOR,
+        limit=1, fatal_unknown_charge=True)
+    assert outcome.completed == 0
+    assert outcome.abandoned == 1
+    assert outcome.halted_reason == "unknown_charge"
+    assert outcome.halted_cell_key
+
+
 @needs_corpus
 def test_the_runner_can_be_pointed_at_the_main_plan(tmp_path):
     """run_canary enumerated the canary plan unconditionally, so the main grid had no

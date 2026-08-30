@@ -1,8 +1,8 @@
 """Offline safety foundation for the Phase 3 main runner.
 
 This module deliberately has no production client factory and no live command-line entry
-point.  It establishes the ordering and identity rules that a later, separately authorized
-main driver must preserve:
+point. It establishes the ordering and identity rules used by the separately authorized
+driver in :mod:`rejudge.phase3_main_live`:
 
 * the exact two-judge main inventory is derived internally from the frozen protocol and
   checked against its canonical inventory digest;
@@ -20,17 +20,17 @@ The body callback and this module's globals are trusted offline harness code. Th
 execute arbitrary Python, and Python monkeypatching or filesystem access can bypass ordinary
 object boundaries. This module is not a security sandbox. Entry refuses a recorded identity
 within its canonical root while its start evidence remains. The binding is crash and
-accidental-deletion durable while the lease is held, not tamper-proof after return. A future
-production completion/archive step or external identity registry must protect identity reuse
-after the foundation returns. That driver must also require a validated new manifest, new
-output paths, and separate exact owner authorization before constructing a provider client.
+accidental-deletion durable while the lease is held, not tamper-proof after return. The live
+driver adds a persistent external identity and authorization-consumption registry, requires a
+validated new manifest and output paths, and verifies separate exact owner authorization before
+constructing a provider client.
 
 ``MainRunIdentity.manifest_sha256`` is a typed offline binding, not a substitute for manifest
-validation.  The future production integration must validate the small main manifest and
-derive its canonical SHA-256 internally before entering this foundation.  Terminal-disposition
-stop bounds, exact full provider completion, final reconciliation, worker concurrency, and the
-one-seed bit-identical output-store check are also production integration gates.  This module
-does not imply launch readiness.
+validation. The live driver validates the small main manifest and derives its canonical SHA-256
+internally before entering this foundation. Terminal-disposition stop bounds, exact full
+provider completion, final reconciliation, worker concurrency, and the one-seed bit-identical
+output-store check remain production integration gates. This module alone does not imply launch
+readiness.
 """
 from __future__ import annotations
 
@@ -97,19 +97,25 @@ class OfflineClientRequired(Phase3MainRunnerError):
 class MainRunIdentity:
     """A non-authorizing identity supplied by the offline harness.
 
-    Only digest syntax is checked here.  A future live integration must derive the value from
-    a validated canonical manifest rather than accepting a caller assertion.
+    Only digest syntax is checked here. The live driver derives the value from a validated
+    canonical manifest rather than accepting a caller assertion.
     """
 
     run_id: str
     manifest_sha256: str
     artifact_root: Path
+    identity_registry_root: Path | None = None
 
     def __post_init__(self) -> None:
         root = Path(self.artifact_root)
         if not root.is_absolute():
             raise Phase3MainRunnerError("main artifact_root must be absolute")
         object.__setattr__(self, "artifact_root", root.resolve())
+        registry = root if self.identity_registry_root is None else Path(
+            self.identity_registry_root)
+        if not registry.is_absolute():
+            raise Phase3MainRunnerError("main identity_registry_root must be absolute")
+        object.__setattr__(self, "identity_registry_root", registry.resolve())
 
     @property
     def artifact_root_sha256(self) -> str:
@@ -125,7 +131,8 @@ class MainRunIdentity:
 
     @property
     def paths(self) -> "MainRunPaths":
-        return MainRunPaths.under(self.artifact_root)
+        return MainRunPaths.under(
+            self.artifact_root, lease_root=self.identity_registry_root)
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,17 +140,26 @@ class MainRunPaths:
     """All mutable paths owned by one formal main identity."""
 
     root: Path
+    lease_root: Path
 
     @classmethod
-    def under(cls, root: str | Path) -> "MainRunPaths":
+    def under(
+        cls, root: str | Path, *, lease_root: str | Path | None = None,
+    ) -> "MainRunPaths":
         root = Path(root)
         if not root.is_absolute():
             raise Phase3MainRunnerError("main artifact root must be absolute")
-        return cls(root=root.resolve())
+        lease = root if lease_root is None else Path(lease_root)
+        if not lease.is_absolute():
+            raise Phase3MainRunnerError("main lease root must be absolute")
+        return cls(root=root.resolve(), lease_root=lease.resolve())
 
     @property
     def lease(self) -> Path:
-        return self.root / "main_run.lock"
+        filename = (
+            "main_run.lock" if self.lease_root == self.root
+            else "phase3_main_global.lock")
+        return self.lease_root / filename
 
     @property
     def active_marker(self) -> Path:
@@ -170,6 +186,38 @@ class MainRunPaths:
         return self.root / "main_reviewer_decisions.jsonl"
 
     @property
+    def provider_error_log(self) -> Path:
+        return self.root / "main_provider_errors.jsonl"
+
+    @property
+    def reviewer_worklist(self) -> Path:
+        return self.root / "reviewer_worklist.json"
+
+    @property
+    def reviewer_index(self) -> Path:
+        return self.root / "main_reviewer_index.jsonl"
+
+    @property
+    def review_packets_root(self) -> Path:
+        return self.root / "main_review_packets"
+
+    @property
+    def terminal_dispositions(self) -> Path:
+        return self.root / "main_terminal_dispositions.jsonl"
+
+    @property
+    def run_log(self) -> Path:
+        return self.root / "main_run_log.jsonl"
+
+    @property
+    def finalization(self) -> Path:
+        return self.root / "main_finalization.json"
+
+    @property
+    def analysis_results(self) -> Path:
+        return self.root / "main_analysis_results.json"
+
+    @property
     def completion(self) -> Path:
         return self.root / "main_completion.json"
 
@@ -187,6 +235,14 @@ class MainRunPaths:
             ("unresolved dispatch marker", self.unresolved_dispatch_marker),
             ("result store", self.results),
             ("review decision store", self.decisions),
+            ("provider error log", self.provider_error_log),
+            ("reviewer worklist", self.reviewer_worklist),
+            ("reviewer index", self.reviewer_index),
+            ("review packet root", self.review_packets_root),
+            ("terminal dispositions", self.terminal_dispositions),
+            ("run log", self.run_log),
+            ("finalization record", self.finalization),
+            ("analysis results", self.analysis_results),
             ("completion record", self.completion),
         )
 

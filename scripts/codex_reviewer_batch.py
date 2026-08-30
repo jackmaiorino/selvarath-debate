@@ -25,20 +25,135 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 MODEL_DEFAULT = "gpt-5.6-sol"
 EFFORT_DEFAULT = "high"
 PER_REVIEW_TIMEOUT_SECONDS = 600
+_LIFECYCLE_EVENT_TYPES = frozenset({
+    "thread.started",
+    "turn.started",
+    "turn.completed",
+})
+_FAILURE_EVENT_TYPES = frozenset({"error", "turn.failed"})
+_ITEM_EVENT_TYPES = frozenset({"item.started", "item.updated", "item.completed"})
+_NON_TOOL_ITEM_TYPES = frozenset({"agent_message", "reasoning", "user_message"})
+_TOOL_ITEM_TYPES = frozenset({
+    "collab_tool_call",
+    "command_execution",
+    "dynamic_tool_call",
+    "entered_review_mode",
+    "exited_review_mode",
+    "file_change",
+    "image_view",
+    "mcp_tool_call",
+    "plan",
+    "todo_list",
+    "web_search",
+})
 
 
-def run_one(packet: Path, model: str, effort: str, codex: str) -> dict:
+def _active_deadline(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(
+            value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError as exc:
+        raise ValueError("reviewer authorization deadline must be ISO-8601") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise ValueError("reviewer authorization deadline must use UTC")
+    return parsed.astimezone(timezone.utc)
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        value[key] = item
+    return value
+
+
+def _inspect_json_event_stream(raw: bytes) -> tuple[list[str], list[str]]:
+    """Return detected tool uses and structural errors from one Codex JSONL stream."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return [], ["stdout is not valid UTF-8"]
+    commands: list[str] = []
+    errors: list[str] = []
+    lifecycle_counts = {event_type: 0 for event_type in _LIFECYCLE_EVENT_TYPES}
+    for line_number, raw_line in enumerate(text.splitlines(), 1):
+        line = raw_line.strip()
+        if not line:
+            errors.append(f"line {line_number} is blank")
+            continue
+        try:
+            event = json.loads(line, object_pairs_hook=_unique_json_object)
+        except (json.JSONDecodeError, ValueError) as exc:
+            errors.append(f"line {line_number} is not unique-key JSON: {exc}")
+            continue
+        if not isinstance(event, dict):
+            errors.append(f"line {line_number} is not a JSON object")
+            continue
+        event_type = event.get("type")
+        if not isinstance(event_type, str):
+            errors.append(f"line {line_number} has no string event type")
+            continue
+        if event_type in _FAILURE_EVENT_TYPES:
+            errors.append(f"line {line_number} reports {event_type}")
+            continue
+        if event_type in _LIFECYCLE_EVENT_TYPES:
+            lifecycle_counts[event_type] += 1
+            continue
+        if event_type not in _ITEM_EVENT_TYPES:
+            errors.append(f"line {line_number} has unknown event type {event_type!r}")
+            continue
+        item = event.get("item")
+        if not isinstance(item, dict):
+            errors.append(f"line {line_number} {event_type} has no item object")
+            continue
+        item_type = item.get("type")
+        if not isinstance(item_type, str):
+            errors.append(f"line {line_number} {event_type} has no string item type")
+            continue
+        if item_type in _NON_TOOL_ITEM_TYPES:
+            continue
+        if item_type not in _TOOL_ITEM_TYPES:
+            errors.append(f"line {line_number} has unknown item type {item_type!r}")
+            continue
+        command = item.get("command")
+        detail = (
+            str(command)[:200]
+            if item_type == "command_execution" and command is not None
+            else item_type
+        )
+        if detail not in commands:
+            commands.append(detail)
+    for event_type, count in lifecycle_counts.items():
+        if count != 1:
+            errors.append(f"event stream has {count} {event_type!r} events instead of one")
+    return commands, errors
+
+
+def run_one(
+    packet: Path, model: str, effort: str, codex: str,
+    not_after_utc: datetime | None = None,
+) -> dict:
     """Review one packet. Never raises: a failure is reported, not silently dropped."""
     prompt_bytes = packet.read_bytes()
     prompt_sha = hashlib.sha256(prompt_bytes).hexdigest()
     workdir = Path(tempfile.mkdtemp(prefix="reviewer-iso-"))
     out_file = workdir / "ruling.txt"
     try:
+        if not_after_utc is not None and datetime.now(timezone.utc) > not_after_utc:
+            return {
+                "packet": packet.name,
+                "prompt_sha256": prompt_sha,
+                "ok": False,
+                "error": "authorization deadline expired before reviewer dispatch",
+                "commands": [],
+            }
         proc = subprocess.run(
             [codex, "exec", "-m", model, "-c", f'model_reasoning_effort="{effort}"',
              "-C", str(workdir), "--skip-git-repo-check", "--ephemeral",
@@ -46,22 +161,13 @@ def run_one(packet: Path, model: str, effort: str, codex: str) -> dict:
              "-o", str(out_file), "-"],
             input=prompt_bytes, capture_output=True,
             timeout=PER_REVIEW_TIMEOUT_SECONDS)
-        commands = []
-        for line in proc.stdout.decode("utf-8", "replace").splitlines():
-            line = line.strip()
-            if not line.startswith("{"):
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            item = event.get("item") or {}
-            if event.get("type") == "item.completed" and item.get("type") == "command_execution":
-                commands.append(item.get("command", "")[:200])
+        commands, stream_errors = _inspect_json_event_stream(proc.stdout)
         ruling = out_file.read_text(encoding="utf-8").strip() if out_file.exists() else ""
-        if proc.returncode != 0 or not ruling:
+        if proc.returncode != 0 or not ruling or stream_errors:
+            event_error = stream_errors[0] if stream_errors else None
             return {"packet": packet.name, "prompt_sha256": prompt_sha, "ok": False,
-                    "error": f"exit={proc.returncode}, ruling_empty={not ruling}",
+                    "error": f"exit={proc.returncode}, ruling_empty={not ruling}, "
+                             f"event_stream_error={event_error!r}",
                     "commands": commands}
         return {"packet": packet.name, "prompt_sha256": prompt_sha, "ok": True,
                 "raw_output": ruling, "commands": commands}
@@ -116,7 +222,17 @@ def main(argv=None) -> int:
     ap.add_argument("--codex", default="codex")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--concurrency", type=int, default=4)
+    ap.add_argument(
+        "--not-after-utc",
+        help="signed authorization deadline checked immediately before every reviewer call",
+    )
     args = ap.parse_args(argv)
+    try:
+        not_after_utc = (
+            _active_deadline(args.not_after_utc)
+            if args.not_after_utc is not None else None)
+    except ValueError as exc:
+        ap.error(str(exc))
 
     packets_dir = Path(args.packets)
     index = json.loads((packets_dir / "INDEX.json").read_text(encoding="utf-8"))
@@ -136,8 +252,22 @@ def main(argv=None) -> int:
 
     written = clean = refused = failed = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-        futures = {pool.submit(run_one, packets_dir / i["file"], args.model, args.effort,
-                               args.codex): i for i in todo}
+        if not_after_utc is None:
+            futures = {
+                pool.submit(
+                    run_one, packets_dir / item["file"], args.model, args.effort,
+                    args.codex,
+                ): item
+                for item in todo
+            }
+        else:
+            futures = {
+                pool.submit(
+                    run_one, packets_dir / item["file"], args.model, args.effort,
+                    args.codex, not_after_utc,
+                ): item
+                for item in todo
+            }
         for fut in concurrent.futures.as_completed(futures):
             meta = futures[fut]
             result = fut.result()
