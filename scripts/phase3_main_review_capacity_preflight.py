@@ -1534,8 +1534,14 @@ def _finite_number(value: Any, *, field: str) -> float:
 def _validate_result_dispatch_history(
     history: DispatchHistorySnapshot, *, result: Mapping[str, Any],
     plan: Mapping[str, Any], workload: DerivedWorkload,
+    validate_history_anchors: bool = True,
 ) -> int:
-    _validate_dispatch_history_chain(history, plan=plan, workload=workload)
+    _validate_dispatch_history_chain(
+        history,
+        plan=plan,
+        workload=workload,
+        validate_anchors=validate_history_anchors,
+    )
     valid_first = False
     valid_retry = False
     if len(history.events) == 2:
@@ -1586,12 +1592,17 @@ def validate_result(
     result: Mapping[str, Any], *, plan: Mapping[str, Any], workload: DerivedWorkload,
     dispatch_history: DispatchHistorySnapshot, as_of_utc: datetime,
     require_current_freshness: bool = True,
+    validate_history_anchors: bool = True,
 ) -> dict[str, Any]:
     """Validate capacity evidence, optionally including launch-time freshness."""
     if result.get("schema_version") != RESULT_SCHEMA_VERSION:
         raise CapacityPreflightError("unexpected capacity result schema")
     cohort_number = _validate_result_dispatch_history(
-        dispatch_history, result=result, plan=plan, workload=workload
+        dispatch_history,
+        result=result,
+        plan=plan,
+        workload=workload,
+        validate_history_anchors=validate_history_anchors,
     )
     if result.get("attempt_status") != "complete" or result.get("interrupted") is not False:
         raise CapacityPreflightError("partial or interrupted capacity attempts are not evidence")

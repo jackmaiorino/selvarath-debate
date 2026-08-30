@@ -1,8 +1,9 @@
 # Phase 3 main offline closure and next gates
 
-Date: 2026-08-30. Status: offline provenance, finalization, analysis, and reviewer-closeout
-closure complete. Production remains blocked on external authority and fresh evidence. This
-document authorizes no external execution, reviewer dispatch, provider call, or spend.
+Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
+capacity-foundation, and billing-inventory work complete. Production remains blocked on
+external authority, authenticated account evidence, and fresh measurement. This document
+authorizes no external execution, reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -79,10 +80,73 @@ exact main manifest must bind seed `20260829`, validate this receipt against the
 artifact root, and regenerate it after any harness-sensitive execution-code or frozen-input
 change.
 
+## Offline capacity and billing foundations
+
+The successor patch adds two strictly offline foundations.
+
+The capacity execution module binds the frozen plan, repository commit, reviewer CLI and
+runner bytes, host identity, exact three-wave workload, dispatch history, result path, and a
+separate capacity-only authorization. Its fake-only orchestrator exercises exactly three
+waves of 60 packets and requires 180 unique reopened invocation receipts. It validates the
+predicted PASS result against the complete base capacity contract before publication and
+keeps downstream launch admission false.
+
+Real reviewer dispatch is not enabled. Both the public execution entry point and CLI `--run`
+stop before context loading, file reads, signature work, subprocess release, reservation, or
+mutation. Enablement still requires detached-signature provenance with a pinned owner public
+key, hard-crash reviewer-usage reconciliation, a guarded atomic launch-input handoff,
+authenticated integration with `phase3_main_live`, and path-containment hardening.
+
+The billing evidence inventory accepts only explicit `ID=PATH` source tuples. It reopens and
+hashes immutable usage-ledger and state pairs plus the two known auxiliary screen-log shapes,
+enforces one half-open UTC window, and sums JSON-number costs with exact decimal arithmetic.
+Null-actual error rows retain the full reservation as uncertain. It rejects duplicate source
+IDs, paths, raw hashes, ledger IDs, and attempt IDs across ledgers, and publishes through an
+exclusive fully-fsynced sibling file with exact-byte reopen. Every inventory permanently says
+`authoritative_completeness: not_established`, and all execution and spend authority flags are
+false.
+
+No real inventory was materialized because the exact account scope and authoritative source
+set still require owner decisions. A read-only local audit found these candidate amounts:
+
+- Seventeen Phase 3 measurement ledgers: settled
+  `$95.36142456999999802619`, uncertain `$23.5893157200000000378`, accounted
+  `$118.95074028999999806399`, with 827 unresolved attempt IDs.
+- Judgment and checker auxiliary screens: settled `$5.23608743`; the judgment screen also
+  carries `$0.23533403` of full-reservation uncertainty for 13 null-actual rows.
+- The separate journal-validation ledger: settled `$0.32164461`.
+- If the owner selects all identified sources as disjoint evidence, the mechanical local sum
+  is settled `$100.91915660999999802619`, uncertain `$23.8246497500000000378`, and accounted
+  `$124.74380635999999806399`.
+
+These are local inventory candidates, not provider-authenticated completeness, account
+binding, or a billing reconciliation. Existing auxiliary formats also cannot prove that an
+auxiliary call is disjoint from every ledger call, so source disposition must be explicit.
+
+Verification on the completed successor tree:
+
+- Focused capacity execution: 21 passed; base capacity suite: 59 passed.
+- Focused billing inventory: 28 passed; inventory plus existing billing reconciliation:
+  54 passed.
+- Combined capacity and billing integration: 134 passed in 16.49 seconds on a fresh external
+  Windows basetemp.
+- Targeted type checking, whitespace checks, diff checks, and the repository no-em-dash rule:
+  passed.
+- Independent capacity, billing, and integration audits found no P0 or P1 within the accepted
+  offline, fake-only, non-authorizing scope.
+
+P2 hardening remains before either foundation is promoted: reject auxiliary numeric strings
+and integral float lexemes, detect exact auxiliary snapshot overlap where possible, reject
+nested critical capacity paths, and document filesystems where exclusive hard-link
+publication is unavailable. These cases either fail closed operationally, concern exact
+source-shape fidelity, or can only conservatively overcount the non-authoritative inventory.
+
 ## Remaining production blockers
 
-All remaining items require owner authority or fresh external evidence. None is missing
-request provenance, reviewer provenance, or reviewer-closeout crash consistency:
+The remaining items require owner decisions, internal contract reconciliation, or fresh
+external evidence. The already closed main request provenance, reviewer provenance, and
+reviewer-closeout crash consistency remain intact. The new capacity lane is deliberately not
+enabled:
 
 1. Jack's public signing key and fingerprint are not pinned. The private key must remain outside
    the repository and inaccessible to Codex.
@@ -90,10 +154,14 @@ request provenance, reviewer provenance, or reviewer-closeout crash consistency:
    planning cap. One value must be ratified after a fresh certified forecast.
 3. Provider-authenticated billing evidence, runtime credential-to-account binding, and an
    authoritative predecessor-ledger inventory do not exist yet.
-4. One-attempt consumption has no non-resettable external authority source.
+4. The production protocol and driver have not yet been reconciled to the ratified process
+   reset. Formal measurement remains single-shot, while an environmental interruption voids
+   that run and permits a fresh identity with a one-line log entry. A non-resettable external
+   consumption store is not a new project requirement.
 5. No signed response rule exists for a provider price change during the formal run.
 6. Codex reviewer usage has no separately ratified spend treatment. The representative
-   capacity preflight has a frozen plan but no authorized measurement result.
+   capacity preflight has a frozen plan and a verified fake-only execution foundation, but no
+   authorized external measurement result. Real dispatch remains hard-disabled.
 7. Fresh prices, capacity evidence, billing evidence, forecast, exact manifest, and detached
    owner authorization have not been materialized for a production identity.
 
@@ -114,18 +182,24 @@ cross-wave continuity, final store targets, and the complete packet tree.
 
 ## Next sequence
 
-1. Obtain the owner-supplied Together billing-console evidence and decide the authoritative
-   account, predecessor-ledger, and one-attempt consumption sources.
-2. Ratify the price-change rule and reviewer usage treatment. Then pin Jack's public signing
-   key and fingerprint.
-3. Request a separate bounded authorization for the representative reviewer-capacity preflight.
-   Do not treat this report or the existing plan as dispatch authority.
-4. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
+1. Jack selects the stable Together account, organization, project, and API-key-ID scope;
+   supplies provider-authenticated dashboard evidence; and decides the exact predecessor
+   ledger and auxiliary source set.
+2. Materialize the explicit local billing inventory, bind the runtime credential to the
+   selected account scope, reconcile the inventory to the authenticated dashboard, and obtain
+   an authoritative completeness attestation.
+3. Reconcile the protocol and driver to the ratified environmental-restart rule. Ratify the
+   price-change response and reviewer usage treatment, then pin Jack's public signing key and
+   fingerprint.
+4. Close the capacity real-enable gaps and request a separate bounded authorization for the
+   representative reviewer-capacity preflight. Do not treat this report, the existing plan,
+   or fake-only tests as dispatch authority.
+5. If capacity passes, materialize fresh prices, billing reconciliation, and the certified
    forecast.
-5. Use the certified forecast to ratify one exact stage cap. At exact-manifest construction,
+6. Use the certified forecast to ratify one exact stage cap. At exact-manifest construction,
    revalidate the harness receipt against the chosen formal artifact root and exact frozen
    inputs. Regenerate it if the seed or harness-sensitive code differs from `acee8b4`.
-6. Build the exact manifest and owner-signed authorization, then run `--validate-only` and prove
+7. Build the exact manifest and owner-signed authorization, then run `--validate-only` and prove
    zero formal-state mutation.
-7. Perform the dedicated final methods and launch review. A separate explicit authorization is
+8. Perform the dedicated final methods and launch review. A separate explicit authorization is
    still required before any paid `--run` invocation.
