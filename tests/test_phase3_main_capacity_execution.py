@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import stat
+import subprocess
 import sys
 import threading
 from collections.abc import Callable
@@ -609,6 +610,28 @@ def test_public_execution_surface_is_noninjectable() -> None:
         parameter.kind is inspect.Parameter.KEYWORD_ONLY
         for parameter in signature.parameters.values()
     )
+
+
+def test_capacity_cli_direct_script_entrypoint_loads_project_package() -> None:
+    script = (
+        Path(execution.__file__).resolve().parents[1]
+        / "scripts"
+        / "phase3_main_run_capacity_preflight.py"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        cwd=script.parent,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0
+    assert "--write-manifest" in completed.stdout
+    assert "--validate-authority" in completed.stdout
+    assert "--run" in completed.stdout
+    assert completed.stderr == ""
 
 
 def test_public_result_validators_do_not_expose_anchor_bypasses() -> None:
