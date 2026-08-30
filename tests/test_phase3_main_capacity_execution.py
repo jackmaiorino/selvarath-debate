@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import os
 import platform
+import stat
 import sys
 import threading
 from datetime import datetime, timedelta, timezone
@@ -248,6 +250,28 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     }
 
 
+def _rebuild_manifest(
+    fixture: dict[str, Any],
+    *,
+    result_path: Path,
+) -> dict[str, Any]:
+    manifest = fixture["manifest"]
+    return execution.build_execution_manifest(
+        context=fixture["context"],
+        project_root=Path(manifest["repository"]["project_root"]),
+        workload_root=Path(manifest["workload"]["root"]),
+        result_path=result_path,
+        run_id=manifest["run_id"],
+        attempt_id=manifest["attempt_id"],
+        repository_head=manifest["repository"]["head_commit"],
+        reviewer_cli_version=manifest["reviewer"]["cli"]["version"],
+        host_identity=manifest["reviewer"]["host_identity"],
+        runner_script_path=Path(
+            manifest["code_bindings"]["capacity_cli"]["path"]
+        ),
+    )
+
+
 class FakeReviewer:
     def __init__(self, *, tamper_receipt: bool = False, cross_wave_reuse: bool = False):
         self.calls: list[Path] = []
@@ -401,13 +425,13 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
     fixture = _fixture(tmp_path)
     reviewer = FakeReviewer()
     anchor_validation_modes: list[bool] = []
-    original_base_validator = capacity.validate_result
+    original_private_validator = capacity._validate_result  # noqa: SLF001
 
-    def observe_base_validation(*args: Any, **kwargs: Any) -> dict[str, Any]:
-        anchor_validation_modes.append(kwargs["validate_history_anchors"])
-        return original_base_validator(*args, **kwargs)
+    def observe_private_validation(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        anchor_validation_modes.append(kwargs["_validate_history_anchors"])
+        return original_private_validator(*args, **kwargs)
 
-    monkeypatch.setattr(capacity, "validate_result", observe_base_validation)
+    monkeypatch.setattr(capacity, "_validate_result", observe_private_validation)
 
     outcome = _execute(fixture, reviewer)
 
@@ -495,6 +519,15 @@ def test_public_execution_surface_is_noninjectable() -> None:
         parameter.kind is inspect.Parameter.KEYWORD_ONLY
         for parameter in signature.parameters.values()
     )
+
+
+def test_public_result_validators_do_not_expose_anchor_bypasses() -> None:
+    assert "validate_history_anchors" not in inspect.signature(
+        capacity.validate_result
+    ).parameters
+    assert "prepublication" not in inspect.signature(
+        execution.validate_execution_result
+    ).parameters
 
 
 def test_cli_authority_validation_rejects_manifest_before_loading_authority(
@@ -593,8 +626,12 @@ def test_public_execution_is_unconditionally_blocked_before_reads_or_subprocesse
     "alias_name",
     [
         "history",
+        "initialization_pending",
         "initialization_receipt",
+        "append_intent",
+        "writer_lock",
         "anchor_directory",
+        "interruption_evidence_root",
         "attempt_reservation",
         "failure_receipt",
         "wave_1_output",
@@ -608,11 +645,20 @@ def test_result_path_alias_is_rejected_before_authority_or_reviewer_calls(
     fixture = _fixture(tmp_path)
     reviewer = FakeReviewer()
     history = fixture["manifest"]["dispatch_history"]
+    history_path = Path(history["path"])
     waves = fixture["manifest"]["workload"]["waves"]
     aliases = {
         "history": history["path"],
+        "initialization_pending": history_path.with_name(
+            f"{history_path.name}.initialize.pending.json"
+        ).as_posix(),
         "initialization_receipt": history["initialization_receipt"]["path"],
+        "append_intent": history_path.with_name(
+            f"{history_path.name}.append.pending.json"
+        ).as_posix(),
+        "writer_lock": history_path.with_name(f"{history_path.name}.lock").as_posix(),
         "anchor_directory": history["anchor_directory"],
+        "interruption_evidence_root": history["interruption_evidence_root"],
         "attempt_reservation": history["attempt_reservation_path"],
         "failure_receipt": history["failure_receipt_path"],
         "wave_1_output": waves[0]["output_path"],
@@ -643,6 +689,134 @@ def test_result_path_alias_is_rejected_before_authority_or_reviewer_calls(
     assert _history_events(fixture) == ()
     assert not Path(history["attempt_reservation_path"]).exists()
     assert not fixture["result_path"].exists()
+
+
+@pytest.mark.parametrize(
+    "contained_name",
+    [
+        "history_descendant",
+        "anchor_descendant",
+        "interruption_descendant",
+        "wave_output_descendant",
+        "workload_descendant",
+    ],
+)
+def test_result_path_containment_is_rejected_before_authority_or_reviewer_calls(
+    tmp_path: Path, contained_name: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    reviewer = FakeReviewer()
+    history = fixture["manifest"]["dispatch_history"]
+    waves = fixture["manifest"]["workload"]["waves"]
+    contained = {
+        "history_descendant": Path(history["path"]) / "nested-result.json",
+        "anchor_descendant": Path(history["anchor_directory"]) / "nested-result.json",
+        "interruption_descendant": (
+            Path(history["interruption_evidence_root"]) / "nested-result.json"
+        ),
+        "wave_output_descendant": (
+            Path(waves[0]["output_path"]) / "nested-result.json"
+        ),
+        "workload_descendant": (
+            Path(waves[0]["directory"])
+            / codex_reviewer_batch.EVIDENCE_DIRECTORY_NAME
+            / "nested-result.json"
+        ),
+    }
+    manifest = {
+        **fixture["manifest"],
+        "result_path": contained[contained_name].resolve().as_posix(),
+    }
+    manifest_raw = _write_json(fixture["manifest_path"], manifest)
+    authorization = {
+        **fixture["authorization"],
+        "manifest_raw_sha256": hashlib.sha256(manifest_raw).hexdigest(),
+        "manifest_canonical_sha256": execution.canonical_sha256(manifest),
+    }
+    _write_json(fixture["authorization_path"], authorization)
+    signature_checks: list[str] = []
+
+    with pytest.raises(
+        execution.CapacityExecutionError,
+        match="alias|contain|non-directory ancestor",
+    ):
+        _execute(
+            fixture,
+            reviewer,
+            authorization_verifier=lambda _path, _raw: signature_checks.append(
+                "signature"
+            ),
+        )
+
+    assert signature_checks == []
+    assert reviewer.calls == []
+    assert _history_events(fixture) == ()
+    assert not Path(history["attempt_reservation_path"]).exists()
+
+
+def test_existing_critical_hard_link_is_rejected_before_authority(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    alias_path = fixture["root"] / "dispatch_history_hard_link.jsonl"
+    try:
+        os.link(fixture["history_path"], alias_path)
+    except OSError as exc:
+        pytest.skip(f"filesystem does not support hard links: {exc}")
+    reviewer = FakeReviewer()
+    signature_checks: list[str] = []
+
+    with pytest.raises(execution.CapacityExecutionError, match="hard-link alias"):
+        _execute(
+            fixture,
+            reviewer,
+            authorization_verifier=lambda _path, _raw: signature_checks.append(
+                "signature"
+            ),
+        )
+
+    assert signature_checks == []
+    assert reviewer.calls == []
+    assert _history_events(fixture) == ()
+
+
+@pytest.mark.parametrize(
+    ("link_mode", "file_attributes"),
+    [
+        (stat.S_IFLNK, 0),
+        (stat.S_IFDIR, getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)),
+    ],
+)
+def test_result_parent_symlink_or_junction_is_rejected_during_manifest_build(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    link_mode: int,
+    file_attributes: int,
+) -> None:
+    fixture = _fixture(tmp_path)
+    linked_parent = fixture["root"] / "linked-runtime-parent"
+    original_lstat = Path.lstat
+
+    class LinkMetadata:
+        st_mode = link_mode
+        st_nlink = 1
+        st_file_attributes = file_attributes
+
+    def link_aware_lstat(path: Path) -> Any:
+        if execution._lexical_absolute(path) == linked_parent:  # noqa: SLF001
+            return LinkMetadata()
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", link_aware_lstat)
+
+    with pytest.raises(
+        execution.CapacityExecutionError,
+        match="symlink, junction, or reparse point",
+    ):
+        _rebuild_manifest(
+            fixture,
+            result_path=linked_parent / "capacity-result.json",
+        )
 
 
 def test_tampered_invocation_receipt_fails_terminally_with_usage_count(tmp_path: Path) -> None:
@@ -710,11 +884,11 @@ def test_predicted_pass_is_prevalidated_before_result_write_or_terminal_pass(
 ) -> None:
     fixture = _fixture(tmp_path)
     reviewer = FakeReviewer()
-    original = execution.validate_execution_result
+    original = execution._validate_execution_result  # noqa: SLF001
     observed: list[str] = []
 
     def reject_predicted(*args: Any, **kwargs: Any):
-        if kwargs.get("prepublication") is True:
+        if kwargs.get("_validate_history_anchors") is False:
             predicted = kwargs["dispatch_history"]
             assert [event["event"] for event in predicted.events] == [
                 "dispatch_started",
@@ -728,7 +902,7 @@ def test_predicted_pass_is_prevalidated_before_result_write_or_terminal_pass(
             raise execution.CapacityExecutionError("synthetic prepublication rejection")
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(execution, "validate_execution_result", reject_predicted)
+    monkeypatch.setattr(execution, "_validate_execution_result", reject_predicted)
     with pytest.raises(execution.CapacityExecutionError, match="prepublication rejection"):
         _execute(fixture, reviewer)
 

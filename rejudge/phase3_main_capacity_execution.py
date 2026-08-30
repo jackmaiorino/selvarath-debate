@@ -12,6 +12,7 @@ import json
 import os
 import platform
 import re
+import stat
 import subprocess
 import tempfile
 import threading
@@ -280,6 +281,121 @@ def _absolute_path(value: Any, *, field: str) -> Path:
     return resolved
 
 
+def _lexical_absolute(path: Path) -> Path:
+    """Return an absolute normalized path without following filesystem links."""
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _path_is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    """Return whether either normalized path contains the other."""
+    return _path_is_within(left, right) or _path_is_within(right, left)
+
+
+def _reject_link_alias_risks(
+    path: Path,
+    *,
+    field: str,
+    capacity_root: Path,
+) -> None:
+    """Reject existing indirection and hard-link aliases under the capacity root.
+
+    A path that does not exist cannot yet have a hard-link identity. Its existing
+    ancestors are still checked, and later writes remain exclusive.
+    """
+    lexical_path = _lexical_absolute(path)
+    lexical_root = _lexical_absolute(capacity_root)
+    if not _path_is_within(lexical_path, lexical_root):
+        raise CapacityExecutionError(
+            f"capacity {field} must remain under the capacity artifact root"
+        )
+    current = lexical_path
+    while True:
+        try:
+            metadata = current.lstat()
+        except (FileNotFoundError, NotADirectoryError):
+            metadata = None
+        except OSError as exc:
+            raise CapacityExecutionError(
+                f"capacity {field} path identity is unavailable: {current}"
+            ) from exc
+        if metadata is not None:
+            file_attributes = getattr(metadata, "st_file_attributes", 0)
+            reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            if stat.S_ISLNK(metadata.st_mode) or (
+                reparse_flag and file_attributes & reparse_flag
+            ):
+                raise CapacityExecutionError(
+                    f"capacity {field} traverses a symlink, junction, or reparse point: "
+                    f"{current}"
+                )
+            if stat.S_ISREG(metadata.st_mode) and metadata.st_nlink > 1:
+                raise CapacityExecutionError(
+                    f"capacity {field} has a hard-link alias: {current}"
+                )
+            if current != lexical_path and not stat.S_ISDIR(metadata.st_mode):
+                raise CapacityExecutionError(
+                    f"capacity {field} has a non-directory ancestor: {current}"
+                )
+        if current == lexical_root:
+            break
+        current = current.parent
+
+
+def _reject_critical_path_aliases(
+    critical_paths: Sequence[tuple[str, Path]],
+    *,
+    capacity_root: Path,
+    workload_root: Path,
+) -> None:
+    """Reject equality, containment, reparse, and existing file-identity aliases."""
+    normalized = [
+        (label, _lexical_absolute(path)) for label, path in critical_paths
+    ]
+    for label, path in normalized:
+        _reject_link_alias_risks(
+            path,
+            field=label,
+            capacity_root=capacity_root,
+        )
+    for position, (left_label, left_path) in enumerate(normalized):
+        for right_label, right_path in normalized[position + 1 :]:
+            if _paths_overlap(left_path, right_path):
+                raise CapacityExecutionError(
+                    "capacity runtime paths alias or contain one another: "
+                    f"{left_label} and {right_label}"
+                )
+            if left_path.exists() and right_path.exists():
+                try:
+                    same_file = left_path.samefile(right_path)
+                except OSError as exc:
+                    raise CapacityExecutionError(
+                        "capacity runtime path identities are unavailable: "
+                        f"{left_label} and {right_label}"
+                    ) from exc
+                if same_file:
+                    raise CapacityExecutionError(
+                        "capacity runtime paths share one filesystem identity: "
+                        f"{left_label} and {right_label}"
+                    )
+    resolved_workload = _lexical_absolute(workload_root)
+    for label, path in normalized:
+        if label.startswith("workload.waves["):
+            continue
+        if _paths_overlap(path, resolved_workload):
+            raise CapacityExecutionError(
+                "capacity workload root aliases or contains another runtime path: "
+                f"workload.root and {label}"
+            )
+
+
 def _artifact_binding(path: Path) -> dict[str, Any]:
     resolved = Path(path).resolve()
     raw = _stable_read(resolved, subject=f"artifact {resolved}")
@@ -530,7 +646,45 @@ def build_execution_manifest(
     contract = plan.get("dispatch_history_contract")
     if not isinstance(contract, Mapping):
         raise CapacityExecutionError("capacity plan lacks dispatch history contract")
-    history_path = Path(_text(contract.get("required_path"), field="history path")).resolve()
+    supplied_history_path = Path(
+        _text(contract.get("required_path"), field="history path")
+    )
+    history_path = supplied_history_path.resolve()
+    capacity_root = history_path.parent.resolve()
+    pending_path, initialization_receipt_path = capacity._initialization_paths(  # noqa: SLF001
+        history_path
+    )
+    append_intent_path = capacity._append_intent_path(history_path)  # noqa: SLF001
+    writer_lock_path = history_path.with_name(f"{history_path.name}.lock")
+    supplied_anchor_directory = Path(
+        _text(contract.get("anchor_directory"), field="anchor directory")
+    )
+    supplied_interruption_root = Path(
+        _text(
+            contract.get("interruption_evidence_root"),
+            field="interruption evidence root",
+        )
+    )
+    anchor_directory = supplied_anchor_directory.resolve()
+    interruption_evidence_root = supplied_interruption_root.resolve()
+    supplied_workload = _lexical_absolute(Path(workload_root))
+    supplied_result = _lexical_absolute(Path(result_path))
+    for label, path in (
+        ("dispatch_history.path", supplied_history_path),
+        ("dispatch_history.initialization_pending", pending_path),
+        ("dispatch_history.initialization_receipt", initialization_receipt_path),
+        ("dispatch_history.append_intent", append_intent_path),
+        ("dispatch_history.writer_lock", writer_lock_path),
+        ("dispatch_history.anchor_directory", supplied_anchor_directory),
+        ("dispatch_history.interruption_evidence_root", supplied_interruption_root),
+        ("workload.root", supplied_workload),
+        ("result_path", supplied_result),
+    ):
+        _reject_link_alias_risks(
+            path,
+            field=label,
+            capacity_root=capacity_root,
+        )
     history = capacity.load_bound_dispatch_history(history_path, plan=plan)
     try:
         capacity._validate_dispatch_history_chain(  # noqa: SLF001
@@ -542,16 +696,12 @@ def build_execution_manifest(
         history.events or history.raw_sha256 != hashlib.sha256(b"").hexdigest()
     ):
         raise CapacityExecutionError("capacity manifest requires pristine dispatch history")
-    pending_path, initialization_receipt_path = capacity._initialization_paths(  # noqa: SLF001
-        history_path
-    )
     if pending_path.exists() or pending_path.is_symlink():
         raise CapacityExecutionError("capacity history has pending initialization state")
     initialization_binding = _artifact_binding(initialization_receipt_path)
 
-    capacity_root = history_path.parent.resolve()
-    resolved_workload = Path(workload_root).resolve()
-    resolved_result = Path(result_path).resolve()
+    resolved_workload = supplied_workload.resolve()
+    resolved_result = supplied_result.resolve()
     for value, label in (
         (resolved_workload, "workload root"),
         (resolved_result, "result path"),
@@ -573,19 +723,13 @@ def build_execution_manifest(
     failure_path = (
         capacity_root / f"{attempt_id}.capacity_failure_receipt.json"
     ).resolve()
-    anchor_directory = Path(
-        _text(contract.get("anchor_directory"), field="anchor directory")
-    ).resolve()
-    interruption_evidence_root = Path(
-        _text(
-            contract.get("interruption_evidence_root"),
-            field="interruption evidence root",
-        )
-    ).resolve()
     critical_paths = [
         ("result_path", resolved_result),
         ("dispatch_history.path", history_path),
+        ("dispatch_history.initialization_pending", pending_path.resolve()),
         ("dispatch_history.initialization_receipt", initialization_receipt_path.resolve()),
+        ("dispatch_history.append_intent", append_intent_path.resolve()),
+        ("dispatch_history.writer_lock", writer_lock_path.resolve()),
         ("dispatch_history.anchor_directory", anchor_directory),
         ("dispatch_history.interruption_evidence_root", interruption_evidence_root),
         ("dispatch_history.attempt_reservation_path", reservation_path),
@@ -595,13 +739,11 @@ def build_execution_manifest(
             for wave in waves
         ],
     ]
-    seen_paths: dict[Path, str] = {}
-    for label, path in critical_paths:
-        prior = seen_paths.setdefault(path, label)
-        if prior != label:
-            raise CapacityExecutionError(
-                f"capacity runtime paths alias: {prior} and {label}"
-            )
+    _reject_critical_path_aliases(
+        critical_paths,
+        capacity_root=capacity_root,
+        workload_root=resolved_workload,
+    )
     module_path = Path(__file__).resolve()
     expected_cli_script = (
         module_path.parents[1] / "scripts" / "phase3_main_run_capacity_preflight.py"
@@ -1321,7 +1463,7 @@ def _write_failure_receipt(
     write_json_exclusive(Path(str(history["failure_receipt_path"])), record)
 
 
-def validate_execution_result(
+def _validate_execution_result(
     result: Mapping[str, Any],
     *,
     manifest: Mapping[str, Any],
@@ -1331,9 +1473,9 @@ def validate_execution_result(
     context: CapacityContext,
     as_of_utc: datetime,
     dispatch_history: capacity.DispatchHistorySnapshot | None = None,
-    prepublication: bool = False,
+    _validate_history_anchors: bool,
 ) -> dict[str, Any]:
-    """Join a capacity result to history, authorization, and every invocation receipt."""
+    """Join result evidence with one private predicted-history anchor mode."""
     if result.get("execution_manifest_raw_sha256") != hashlib.sha256(manifest_raw).hexdigest():
         raise CapacityExecutionError("capacity result manifest binding drifted")
     if result.get("authorization_raw_sha256") != hashlib.sha256(authorization_raw).hexdigest():
@@ -1375,15 +1517,15 @@ def validate_execution_result(
         history_path, plan=context.plan
     )
     try:
-        base_validation = capacity.validate_result(
+        base_validation = capacity._validate_result(  # noqa: SLF001
             result,
             plan=context.plan,
             workload=context.workload,
             dispatch_history=history,
             as_of_utc=as_of_utc,
-            validate_history_anchors=not prepublication,
+            _validate_history_anchors=_validate_history_anchors,
         )
-        if prepublication:
+        if not _validate_history_anchors:
             base_validation = {
                 **base_validation,
                 "validation": "predicted_pass_prepublication",
@@ -1489,6 +1631,31 @@ def validate_execution_result(
         "usage_unit": USAGE_UNIT,
         "observed_usage": PACKET_COUNT,
     }
+
+
+def validate_execution_result(
+    result: Mapping[str, Any],
+    *,
+    manifest: Mapping[str, Any],
+    manifest_raw: bytes,
+    authorization: Mapping[str, Any],
+    authorization_raw: bytes,
+    context: CapacityContext,
+    as_of_utc: datetime,
+    dispatch_history: capacity.DispatchHistorySnapshot | None = None,
+) -> dict[str, Any]:
+    """Validate durable execution evidence with dispatch anchors always enforced."""
+    return _validate_execution_result(
+        result,
+        manifest=manifest,
+        manifest_raw=manifest_raw,
+        authorization=authorization,
+        authorization_raw=authorization_raw,
+        context=context,
+        as_of_utc=as_of_utc,
+        dispatch_history=dispatch_history,
+        _validate_history_anchors=True,
+    )
 
 
 def _execute_capacity_preflight(
@@ -1758,7 +1925,7 @@ def _execute_capacity_preflight(
             },
         }
         result_path = Path(str(manifest["result_path"]))
-        validate_execution_result(
+        _validate_execution_result(
             result,
             manifest=manifest,
             manifest_raw=manifest_raw,
@@ -1767,7 +1934,7 @@ def _execute_capacity_preflight(
             context=context,
             as_of_utc=attempt_completed_utc,
             dispatch_history=predicted_history,
-            prepublication=True,
+            _validate_history_anchors=False,
         )
         write_json_exclusive(result_path, result)
         append = _append_history(

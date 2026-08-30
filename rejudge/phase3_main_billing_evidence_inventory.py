@@ -197,15 +197,21 @@ def _non_negative_int(value: Any, label: str) -> int:
 def _non_negative_integral_lexeme(value: Any, label: str) -> int:
     if (
         isinstance(value, bool)
-        or not isinstance(value, Decimal)
-        or not value.is_finite()
+        or not isinstance(value, int)
         or value < 0
-        or value != value.to_integral_value()
     ):
         raise BillingEvidenceInventoryError(
-            f"{label} must be a non-negative integral JSON number"
+            f"{label} must use a non-negative JSON integer lexeme"
         )
-    return int(value)
+    return value
+
+
+def _json_number_decimal(value: Any, label: str) -> Decimal:
+    if isinstance(value, bool) or not isinstance(value, (int, Decimal)):
+        raise BillingEvidenceInventoryError(
+            f"{label} must be a non-negative JSON number"
+        )
+    return _decimal(value, label)
 
 
 def _decimal(value: Any, label: str) -> Decimal:
@@ -306,7 +312,9 @@ def _jsonl_bytes(raw: bytes, label: str, *, exact_numbers: bool) -> list[dict[st
             )
         options: dict[str, Any] = {"object_pairs_hook": _unique_object}
         if exact_numbers:
-            options.update({"parse_float": Decimal, "parse_int": Decimal})
+            # Keep integer lexemes distinguishable from decimal or exponent lexemes.
+            # Decimal still parses every non-integer number without binary rounding.
+            options["parse_float"] = Decimal
         try:
             row = json.loads(line, **options)
         except json.JSONDecodeError as exc:
@@ -527,7 +535,9 @@ def _auxiliary_material(
         else:
             _text(row["config"], f"{label} line {line_number}.config")
             _text(row["prompt_key"], f"{label} line {line_number}.prompt_key")
-        reserved = _decimal(row["reserved_usd"], f"{label} line {line_number}.reserved_usd")
+        reserved = _json_number_decimal(
+            row["reserved_usd"], f"{label} line {line_number}.reserved_usd"
+        )
         actual_value = row["actual_usd"]
         if "error" in row:
             if actual_value is not None:
@@ -552,7 +562,9 @@ def _auxiliary_material(
                 row["completion_tokens"], f"{label} line {line_number}.completion_tokens"
             )
             _text(row["finish_reason"], f"{label} line {line_number}.finish_reason")
-            actual = _decimal(actual_value, f"{label} line {line_number}.actual_usd")
+            actual = _json_number_decimal(
+                actual_value, f"{label} line {line_number}.actual_usd"
+            )
             if actual > reserved:
                 raise BillingEvidenceInventoryError(
                     f"{label} line {line_number} actual_usd exceeds reserved_usd"
@@ -565,6 +577,7 @@ def _auxiliary_material(
         "source_kind": AUXILIARY_KIND,
         "path": path.as_posix(),
         "raw_sha256": _sha256(raw),
+        "_row_sha256s": tuple(_sha256(line) for line in raw.splitlines()),
         **_source_totals(
             timestamps,
             actual=actual_total,
@@ -655,6 +668,7 @@ def _check_unique_material(sources: Sequence[Mapping[str, Any]]) -> None:
     hashes: list[str] = []
     ledger_ids: list[str] = []
     attempt_owner: dict[str, str] = {}
+    auxiliary_rows: list[tuple[str, str]] = []
     for source in sources:
         paths.append(str(source["path"]))
         hashes.append(str(source["raw_sha256"]))
@@ -680,6 +694,19 @@ def _check_unique_material(sources: Sequence[Mapping[str, Any]]) -> None:
                         f"{source['source_id']!r}"
                     )
                 attempt_owner[attempt_id] = str(source["source_id"])
+        elif source["source_kind"] == AUXILIARY_KIND:
+            row_sha256s = source.get("_row_sha256s")
+            if (
+                not isinstance(row_sha256s, tuple)
+                or len(row_sha256s) != source["row_count"]
+                or any(not isinstance(digest, str) for digest in row_sha256s)
+            ):
+                raise BillingEvidenceInventoryError(
+                    "validated auxiliary material omits its internal raw row digests"
+                )
+            auxiliary_rows.extend(
+                (digest, str(source["source_id"])) for digest in row_sha256s
+            )
     if len(paths) != len(set(paths)):
         raise BillingEvidenceInventoryError("artifact paths must be unique across all source kinds")
     if len(hashes) != len(set(hashes)):
@@ -688,6 +715,15 @@ def _check_unique_material(sources: Sequence[Mapping[str, Any]]) -> None:
         raise BillingEvidenceInventoryError(
             "immutable ledger IDs must be unique across ledger sources"
         )
+    row_owner: dict[str, str] = {}
+    for digest, source_id in auxiliary_rows:
+        previous = row_owner.get(digest)
+        if previous is not None and previous != source_id:
+            raise BillingEvidenceInventoryError(
+                "exact raw auxiliary rows must be unique across auxiliary sources: "
+                f"one row appears in {previous!r} and {source_id!r}"
+            )
+        row_owner[digest] = source_id
 
 
 def _public_source(source: Mapping[str, Any]) -> dict[str, Any]:
@@ -874,7 +910,7 @@ def load_and_validate_inventory(
 
 
 def write_inventory_exclusive(path: str | Path, record: Mapping[str, Any]) -> None:
-    """Atomically publish one complete inventory without replacing an existing path."""
+    """Publish by same-filesystem hard link, failing closed where unsupported."""
     output = Path(path).resolve()
     validate_inventory(record, project_root=output.parent)
     try:
@@ -920,7 +956,8 @@ def write_inventory_exclusive(path: str | Path, record: Mapping[str, Any]) -> No
             ) from exc
         except OSError as exc:
             raise BillingEvidenceInventoryError(
-                f"could not atomically publish inventory: {output}"
+                "could not atomically publish inventory; same-filesystem hard-link "
+                f"support is required: {output}"
             ) from exc
         if os.name != "nt":
             try:

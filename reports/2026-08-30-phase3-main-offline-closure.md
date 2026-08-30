@@ -1,9 +1,9 @@
 # Phase 3 main offline closure and next gates
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
-capacity-foundation, and billing-inventory work complete. Production remains blocked on
-external authority, authenticated account evidence, and fresh measurement. This document
-authorizes no external execution, reviewer dispatch, provider call, or spend.
+capacity-foundation, billing-inventory, and offline hardening work complete. Production
+remains blocked on external authority, authenticated account evidence, and fresh measurement.
+This document authorizes no external execution, reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -95,7 +95,7 @@ Real reviewer dispatch is not enabled. Both the public execution entry point and
 stop before context loading, file reads, signature work, subprocess release, reservation, or
 mutation. Enablement still requires detached-signature provenance with a pinned owner public
 key, hard-crash reviewer-usage reconciliation, a guarded atomic launch-input handoff,
-authenticated integration with `phase3_main_live`, and path-containment hardening.
+and authenticated integration with `phase3_main_live`.
 
 The billing evidence inventory accepts only explicit `ID=PATH` source tuples. It reopens and
 hashes immutable usage-ledger and state pairs plus the two known auxiliary screen-log shapes,
@@ -105,6 +105,19 @@ IDs, paths, raw hashes, ledger IDs, and attempt IDs across ledgers, and publishe
 exclusive fully-fsynced sibling file with exact-byte reopen. Every inventory permanently says
 `authoritative_completeness: not_established`, and all execution and spend authority flags are
 false.
+
+The hardening follow-up keeps auxiliary integer lexemes distinct from decimal or exponent
+cost lexemes. Numeric strings and integral float counters are now rejected, while exact
+decimal cost arithmetic is preserved. Private raw-row digests reject exact row overlap across distinct
+auxiliary snapshots without changing the public inventory schema.
+
+Capacity manifest construction now rejects equality and ancestor or descendant containment
+across every critical result, history, history-control, anchor, interruption, reservation,
+failure, and wave output path. Existing symlink, junction, reparse, hard-link, and same-file
+aliases are rejected before authorization verification or reviewer release. The legitimate
+sibling workload layout is preserved, and nonexistent destinations remain protected by
+exclusive creation. Public result validators always require dispatch anchors; only the private
+predicted-PASS validator can disable on-disk anchor lookup before the terminal history append.
 
 No real inventory was materialized because the exact account scope and authoritative source
 set still require owner decisions. A read-only local audit found these candidate amounts:
@@ -125,21 +138,21 @@ auxiliary call is disjoint from every ledger call, so source disposition must be
 
 Verification on the completed successor tree:
 
-- Focused capacity execution: 21 passed; base capacity suite: 59 passed.
-- Focused billing inventory: 28 passed; inventory plus existing billing reconciliation:
-  54 passed.
-- Combined capacity and billing integration: 134 passed in 16.49 seconds on a fresh external
+- Focused capacity execution: 34 passed; base capacity suite: 59 passed.
+- Focused billing inventory: 38 passed; inventory plus existing billing reconciliation:
+  64 passed.
+- Combined capacity and billing integration: 157 passed in 27.03 seconds on a fresh external
   Windows basetemp.
 - Targeted type checking, whitespace checks, diff checks, and the repository no-em-dash rule:
   passed.
 - Independent capacity, billing, and integration audits found no P0 or P1 within the accepted
   offline, fake-only, non-authorizing scope.
 
-P2 hardening remains before either foundation is promoted: reject auxiliary numeric strings
-and integral float lexemes, detect exact auxiliary snapshot overlap where possible, reject
-nested critical capacity paths, and document filesystems where exclusive hard-link
-publication is unavailable. These cases either fail closed operationally, concern exact
-source-shape fidelity, or can only conservatively overcount the non-authoritative inventory.
+The remaining limitations are explicit rather than silently inferred. Existing auxiliary
+formats cannot prove semantic call disjointness from each other or from ledgers. A nonexistent
+path cannot yet have a discoverable hard-link identity, so later creation stays exclusive.
+Inventory publication requires same-filesystem hard-link support and fails closed where it is
+unavailable. None of these limitations grants execution authority or provider access.
 
 ## Remaining production blockers
 

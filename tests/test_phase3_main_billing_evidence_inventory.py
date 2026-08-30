@@ -213,6 +213,14 @@ def test_auxiliary_numeric_lexemes_use_decimal_without_float_rounding(
             "finite and non-negative",
         ),
         (
+            lambda rows: rows[0].update({"reserved_usd": "0.04"}),
+            "must be a non-negative JSON number",
+        ),
+        (
+            lambda rows: rows[0].update({"actual_usd": "0.03"}),
+            "must be a non-negative JSON number",
+        ),
+        (
             lambda rows: rows[0].update({"unexpected": True}),
             "fields drifted",
         ),
@@ -250,11 +258,11 @@ def test_auxiliary_rows_fail_closed(
         ),
         (
             lambda rows: rows[1].update({"attempt": -1}),
-            "non-negative integral JSON number",
+            "non-negative JSON integer lexeme",
         ),
         (
             lambda rows: rows[0].update({"prompt_tokens": 1.5}),
-            "non-negative integral JSON number",
+            "non-negative JSON integer lexeme",
         ),
         (
             lambda rows: rows[1].update({"error": ""}),
@@ -273,6 +281,35 @@ def test_auxiliary_outcome_nullness_and_field_types_are_coupled(
     mutate(rows)
     path = _write_aux(tmp_path / "screen.jsonl", rows)
     with pytest.raises(inventory.BillingEvidenceInventoryError, match=message):
+        inventory.build_inventory(
+            window_start_utc=WINDOW_START,
+            window_end_utc=WINDOW_END,
+            auxiliary_sources=(("screen", path),),
+            project_root=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    ("row_index", "field", "value"),
+    [
+        (1, "attempt", 0.0),
+        (1, "attempt", "0"),
+        (0, "prompt_tokens", 4.0),
+        (0, "prompt_tokens", "4"),
+        (0, "completion_tokens", 2.0),
+        (0, "completion_tokens", "2"),
+    ],
+)
+def test_auxiliary_integer_fields_require_json_integer_lexemes(
+    tmp_path: Path, row_index: int, field: str, value: Any,
+) -> None:
+    rows = _aux_rows()
+    rows[row_index][field] = value
+    path = _write_aux(tmp_path / "screen.jsonl", rows)
+    with pytest.raises(
+        inventory.BillingEvidenceInventoryError,
+        match="non-negative JSON integer lexeme",
+    ):
         inventory.build_inventory(
             window_start_utc=WINDOW_START,
             window_end_utc=WINDOW_END,
@@ -332,6 +369,48 @@ def test_duplicate_ids_and_raw_hashes_are_rejected_across_sources(tmp_path: Path
             auxiliary_sources=(("first", first), ("second", second)),
             project_root=tmp_path,
         )
+
+
+def test_exact_raw_auxiliary_row_cannot_appear_in_distinct_sources(
+    tmp_path: Path,
+) -> None:
+    rows = _aux_rows()
+    distinct = deepcopy(rows[1])
+    distinct.update({"ts": "2026-08-29T01:02:00Z", "probe_id": "p-distinct"})
+    first = _write_aux(tmp_path / "first.jsonl", rows)
+    second = _write_aux(tmp_path / "second.jsonl", [rows[0], distinct])
+    assert first.read_bytes() != second.read_bytes()
+
+    with pytest.raises(
+        inventory.BillingEvidenceInventoryError,
+        match="exact raw auxiliary rows must be unique",
+    ):
+        inventory.build_inventory(
+            window_start_utc=WINDOW_START,
+            window_end_utc=WINDOW_END,
+            auxiliary_sources=(("first", first), ("second", second)),
+            project_root=tmp_path,
+        )
+
+
+def test_auxiliary_row_digest_does_not_canonicalize_json(tmp_path: Path) -> None:
+    row = _aux_rows()[0]
+    first = _write_aux(tmp_path / "first.jsonl", [row])
+    second = tmp_path / "second.jsonl"
+    second.write_text(
+        json.dumps(row, sort_keys=False, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    assert first.read_bytes() != second.read_bytes()
+
+    record = inventory.build_inventory(
+        window_start_utc=WINDOW_START,
+        window_end_utc=WINDOW_END,
+        auxiliary_sources=(("first", first), ("second", second)),
+        project_root=tmp_path,
+    )
+    assert record["totals"]["actual_spend_usd"] == "0.06"
 
 
 def test_distinct_snapshots_of_one_immutable_ledger_cannot_be_double_counted(
