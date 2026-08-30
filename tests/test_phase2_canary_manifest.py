@@ -73,7 +73,8 @@ def test_a_tampered_transition_payload_refuses_manifest_validation(tmp_path):
         NO_QUERY_TRANSITION_RELATIVE_PATH, FrozenTransitionDrift)
     root = tmp_path / "repo"
     shutil.copytree(".", root, ignore=shutil.ignore_patterns(
-        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache"))
+        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache",
+        ".tmp"))
     target = root / NO_QUERY_TRANSITION_RELATIVE_PATH
     artifact = json.loads(target.read_text(encoding="utf-8"))
     artifact["payload"]["text"] += " "
@@ -171,7 +172,8 @@ def test_the_bundle_hash_changes_when_a_provenance_file_changes(tmp_path):
     import shutil
     root = tmp_path / "repo"
     shutil.copytree(".", root, ignore=shutil.ignore_patterns(
-        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache"))
+        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache",
+        ".tmp"))
     before = canary_code_bundle_sha256(root)
     target = root / "rejudge" / "judge_loop.py"
     target.write_text(target.read_text(encoding="utf-8") + "\n# drift\n",
@@ -184,7 +186,8 @@ def test_the_canary_bundle_is_independent_of_the_preflight_bundle(tmp_path):
     from rejudge.phase2_execution import compute_code_bundle_sha256
     root = tmp_path / "repo"
     shutil.copytree(".", root, ignore=shutil.ignore_patterns(
-        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache"))
+        ".git", "data", "rejudge/output", "__pycache__", ".venv", ".pytest_cache",
+        ".tmp"))
     preflight_before = compute_code_bundle_sha256(root)
     target = root / "rejudge" / "phase2_canary_runner.py"
     target.write_text(target.read_text(encoding="utf-8") + "\n# drift\n",

@@ -212,6 +212,8 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
     result = main_manifest.validate_main_authorization(
         authorization, manifest, as_of=NOW)
     assert result["approved_cap_usd"] == "875.00"
+    assert "latest start of a new logical provider call" in authorization["exact_text"]
+    assert "local evidence closeout may finish later" in authorization["exact_text"]
 
     mutations = [
         ("run_id", "phase3-main-other", "run ID"),

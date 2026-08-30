@@ -478,6 +478,16 @@ def test_fractional_provider_usage_is_unknown_not_truncated():
     assert client.usage_events[-1]["status"] == "unknown_charge"
 
 
+class StreamingRequiredError(RuntimeError):
+    status_code = 400
+    body = {
+        "error": {
+            "code": "streaming_required",
+            "message": "This model only supports streaming.",
+        },
+    }
+
+
 class StreamingOnlySDK:
     """Rejects non-streaming calls like Qwen3.7-Plus; streams three chunks otherwise."""
 
@@ -490,9 +500,7 @@ class StreamingOnlySDK:
             def create(self, **kwargs):
                 outer.calls.append(kwargs)
                 if not kwargs.get("stream"):
-                    raise RuntimeError(
-                        'Error code: 400 - {"error": {"code": "streaming_required", '
-                        '"message": "This model only supports streaming."}}')
+                    raise StreamingRequiredError("structured streaming rejection")
 
                 class _Delta:
                     def __init__(self, c):
@@ -1036,6 +1044,152 @@ def test_streaming_required_probe_release_still_retries_under_halt_on_unknown_ch
     statuses = [event["status"] for event in c.usage_events]
     assert "released_no_charge" in statuses
     assert "unknown_charge" not in statuses
+
+
+def test_streaming_retry_with_capability_text_is_unknown_charge_and_halts():
+    class StreamingRetryFailureSDK(StreamingOnlySDK):
+        def __init__(self):
+            super().__init__()
+            original_create = self.chat.completions.create
+
+            def create(**kwargs):
+                if kwargs.get("stream"):
+                    self.calls.append(kwargs)
+                    raise StreamingRequiredError(
+                        "streaming_required after streaming dispatch")
+                return original_create(**kwargs)
+
+            self.chat.completions.create = create
+
+    sdk = StreamingRetryFailureSDK()
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0,
+        _sdk_client=sdk,
+        max_retries=3,
+        _sleep=lambda seconds: None,
+        halt_on_unknown_charge=True,
+    )
+
+    with pytest.raises(ac.UnknownChargeHalt):
+        client.complete(MSGS, "m", 0.1, 1, 64)
+
+    assert len(sdk.calls) == 2
+    assert [event["status"] for event in client.usage_events] == [
+        "reserved",
+        "released_no_charge",
+        "reserved",
+        "unknown_charge",
+    ]
+    assert client.uncertain_spend_usd > 0
+
+
+def test_unstructured_streaming_capability_text_is_not_proof_of_no_charge():
+    class TextOnlySDK:
+        def __init__(self):
+            self.calls = 0
+            outer = self
+
+            class Completions:
+                @staticmethod
+                def create(**_kwargs):
+                    outer.calls += 1
+                    raise RuntimeError(
+                        "streaming_required: this model supports streaming")
+
+            self.chat = SimpleNamespace(completions=Completions())
+
+    sdk = TextOnlySDK()
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0,
+        _sdk_client=sdk,
+        max_retries=3,
+        _sleep=lambda seconds: None,
+        halt_on_unknown_charge=True,
+    )
+
+    with pytest.raises(ac.UnknownChargeHalt):
+        client.complete(MSGS, "m", 0.1, 1, 64)
+
+    assert sdk.calls == 1
+    assert [event["status"] for event in client.usage_events] == [
+        "reserved",
+        "unknown_charge",
+    ]
+
+
+def test_logical_dispatch_authorization_hook_runs_once_and_streaming_retry_inherits():
+    sdk = StreamingOnlySDK()
+    hook_calls = []
+
+    def authorize():
+        hook_calls.append("attempt-0")
+        return "2026-08-30T12:00:00Z"
+
+    client = ac.RejudgeClient(
+        approved_cap_usd=1.0,
+        _sdk_client=sdk,
+        _sleep=lambda seconds: None,
+        halt_on_unknown_charge=True,
+    )
+    assert client.complete(
+        MSGS,
+        "m",
+        0.1,
+        1,
+        64,
+        request_metadata={"source": "authorization-hook-test"},
+        _logical_dispatch_authorization_hook=authorize,
+    ) == "YES"
+
+    assert hook_calls == ["attempt-0"]
+    assert [event["status"] for event in client.usage_events] == [
+        "reserved", "released_no_charge", "reserved", "success"]
+    assert {
+        event["metadata"][ac.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD]
+        for event in client.usage_events
+    } == {"2026-08-30T12:00:00+00:00"}
+
+
+def test_logical_dispatch_authorization_hook_failure_prevents_reservation_and_sdk_call():
+    sdk = StubSDK()
+    client = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk)
+
+    def refuse():
+        raise RuntimeError("authorization expired")
+
+    with pytest.raises(RuntimeError, match="authorization expired"):
+        client.complete(
+            MSGS,
+            "m",
+            0.1,
+            1,
+            64,
+            _logical_dispatch_authorization_hook=refuse,
+        )
+
+    assert client.usage_events == []
+    assert sdk.calls == 0
+
+
+def test_logical_dispatch_authorization_timestamp_cannot_be_supplied_by_caller():
+    sdk = StubSDK()
+    client = ac.RejudgeClient(approved_cap_usd=1.0, _sdk_client=sdk)
+
+    with pytest.raises(ValueError, match="request_metadata reserves"):
+        client.complete(
+            MSGS,
+            "m",
+            0.1,
+            1,
+            64,
+            request_metadata={
+                ac.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD:
+                    "2026-08-30T12:00:00+00:00",
+            },
+        )
+
+    assert client.usage_events == []
+    assert sdk.calls == 0
 
 
 def test_reasoning_reservation_release_removes_the_full_reserved_completion_allowance():

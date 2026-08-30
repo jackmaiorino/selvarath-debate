@@ -27,8 +27,8 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v1"
-AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v2"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v2"
+AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v3"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -90,6 +90,7 @@ REQUIRED_INPUT_BINDINGS = frozenset({
     "protocol",
     "prompt_bundle",
     "reviewer_prompt",
+    "reviewer_failure_policy",
     "role_limits",
     "analysis_pins",
     "scope_decision",
@@ -285,7 +286,10 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
         f"{models[0]} and {models[1]}, plus Codex reviewer dispatches using "
         f"{runtime['reviewer_model']} at {runtime['reviewer_reasoning_effort']} effort and "
         f"concurrency {runtime['reviewer_concurrency']}, one formal attempt, "
-        f"${manifest['spend']['stage_cap_usd']} USD cumulative stage cap, no resume."
+        f"${manifest['spend']['stage_cap_usd']} USD cumulative stage cap, no resume. "
+        "valid_until_utc is the latest start of a new logical provider call or individual "
+        "reviewer invocation; already-started work and local evidence closeout may finish "
+        "later."
     )
 
 

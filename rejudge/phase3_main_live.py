@@ -36,6 +36,7 @@ from rejudge import (
     phase3_main_context,
     phase3_main_finalization,
     phase3_main_manifest,
+    phase3_main_reviewer_provenance,
     phase3_main_runner,
     phase3_plan,
     phase3_runner,
@@ -55,14 +56,58 @@ from rejudge.phase2_canary_runner import run_canary
 from rejudge.phase2_dual_gate import DualGateDecisionStore
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.request_journal import JournalingClient, RequestJournal, find_ambiguous_dispatches
-from scripts import phase3_main_analysis, phase3_main_review_capacity_preflight
+from scripts import (
+    codex_reviewer_batch,
+    phase3_main_analysis,
+    phase3_main_review_capacity_preflight,
+)
 from scripts.phase3_preseed_transcripts import _rows_for_bundle, _verify_bundle_hash
 
 
 IDENTITY_START_SCHEMA = "phase3_main_identity_start_v1"
 IDENTITY_COMPLETE_SCHEMA = "phase3_main_identity_complete_v1"
 AUTHORIZATION_CONSUMED_SCHEMA = "phase3_main_authorization_consumed_v2"
+REVIEWER_WAVE_SCHEMA = "phase3_main_reviewer_wave_v3"
 REVIEWER_PROMPT_SCHEMA = "phase2_reviewer_prompt_v1"
+ANALYSIS_RESULT_SCHEMA = "phase3_main_analysis_results_v1"
+ANALYSIS_RESULT_FIELDS = frozenset({
+    "schema_version",
+    "bootstrap",
+    "domains",
+    "primary",
+    "primary_sup_t",
+    "S1",
+    "valid_only_sensitivity",
+    "all_invalid_scenarios",
+    "strict_support",
+    "per_judge_descriptive",
+    "capability_slope",
+    "paired_mirror_diagnostics",
+    "invalid_counts_by_judge_condition",
+    "invalid_counts_by_budget_judge_replicate_block",
+    "terminal_invalid_counts_by_judge_condition",
+    "claims",
+    "integrity",
+})
+ANALYSIS_INTEGRITY_FIELDS = frozenset({
+    "repository_head_at_analysis",
+    "engine_git_commit",
+    "engine_git_state",
+    "engine_git_status_porcelain",
+    "engine_raw_sha256",
+    "python_version",
+    "protocol_canonical_sha256",
+    "protocol_question_bank_bundle_sha256",
+    "protocol_phase2_question_source_canonical_sha256",
+    "main_question_ids_canonical_sha256",
+    "main_question_rows_canonical_sha256",
+    "pins_raw_sha256",
+    "results_raw_sha256",
+    "finalization_raw_sha256",
+    "terminal_cell_keys_raw_sha256",
+    "context_ineligible_cell_keys_raw_sha256",
+    "record_count",
+})
 LIVE_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OWNER_SIGNATURE_NAMESPACE = phase3_main_authorization.OWNER_SIGNATURE_NAMESPACE
 OWNER_SIGNATURE_PRINCIPAL = phase3_main_authorization.OWNER_SIGNATURE_PRINCIPAL
@@ -174,9 +219,25 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def _parse_strict_json(raw: bytes, source: Path) -> Any:
     try:
-        return json.loads(
-            raw.decode("utf-8"), object_pairs_hook=_unique_object)
-    except (UnicodeError, json.JSONDecodeError) as exc:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_unique_object,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON number {value!r}")),
+        )
+        pending = [value]
+        while pending:
+            current = pending.pop()
+            if isinstance(current, float) and not math.isfinite(current):
+                raise ValueError("non-finite JSON number")
+            if isinstance(current, Mapping):
+                pending.extend(current.values())
+            elif isinstance(current, list):
+                pending.extend(current)
+        return value
+    except Phase3MainLiveError:
+        raise
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise Phase3MainLiveError(f"could not load strict JSON from {source}") from exc
 
 
@@ -280,13 +341,23 @@ def _validate_prompt_bundle(bundle: Mapping[str, Any]) -> None:
         raise Phase3MainLiveError("prompt bundle differs from the frozen Phase 2 bundle")
 
 
-def _validate_reviewer_prompt(artifact: Mapping[str, Any]) -> None:
+def _validate_reviewer_prompt(
+    artifact: Mapping[str, Any], failure_policy: Mapping[str, Any],
+) -> None:
+    if artifact.get("schema_version") != REVIEWER_PROMPT_SCHEMA:
+        raise Phase3MainLiveError("unsupported inherited reviewer prompt schema")
     prompt = artifact.get("prompt")
     expected = artifact.get("prompt_sha256")
     if not isinstance(prompt, str) or not prompt:
         raise Phase3MainLiveError("reviewer prompt artifact has no prompt")
     if hashlib.sha256(prompt.encode("utf-8")).hexdigest() != expected:
         raise Phase3MainLiveError("reviewer prompt differs from its declared hash")
+    try:
+        phase3_main_reviewer_provenance.validate_main_reviewer_failure_policy(
+            failure_policy, reviewer_prompt_sha256=str(expected))
+    except phase3_main_reviewer_provenance.MainReviewerProvenanceError as exc:
+        raise Phase3MainLiveError(
+            f"reviewer failure policy failed: {exc}") from exc
 
 
 def _validate_scope_decision(
@@ -411,9 +482,22 @@ def _validate_capacity(
             as_of_utc=as_of,
             require_current_freshness=require_current_freshness,
         )
-    except (KeyError, ValueError) as exc:
+        capacity_completed_at = phase3_main_manifest._utc(  # noqa: SLF001
+            result.get("completed_at_utc"), "capacity_result.completed_at_utc")
+        capacity_expires_at = phase3_main_manifest._utc(  # noqa: SLF001
+            measurement.get("evidence_expires_at_utc"),
+            "capacity measurement evidence_expires_at_utc",
+        )
+        if capacity_expires_at < capacity_completed_at:
+            raise ValueError("capacity validity window ends before measurement completion")
+    except (KeyError, TypeError, ValueError) as exc:
         raise Phase3MainLiveError(f"review capacity evidence failed: {exc}") from exc
-    return {"plan": plan_validation, "measurement": measurement}
+    return {
+        "plan": plan_validation,
+        "measurement": measurement,
+        "capacity_completed_at": capacity_completed_at,
+        "capacity_expires_at": capacity_expires_at,
+    }
 
 
 def _reviewer_cli_version(path: Path) -> str:
@@ -528,8 +612,395 @@ def _reviewer_loop_contract(plan: Mapping[str, Any]) -> tuple[int, int]:
     return pending_limit, max_passes
 
 
+def _validate_reviewer_invocation_capacity_binding(
+    invocation: Mapping[str, Any],
+    *,
+    reviewer_configuration: Mapping[str, Any],
+    capacity_validation: Mapping[str, Any],
+) -> str:
+    """Require one live reviewer invocation to match the measured wrapper and host."""
+    runtime_evidence = capacity_validation.get("runtime")
+    if not isinstance(runtime_evidence, Mapping):
+        raise Phase3MainLiveError(
+            "review capacity validation omits its runtime binding")
+    expected_cli_path = Path(str(
+        reviewer_configuration.get("reviewer_cli_resolved_path"))).resolve().as_posix()
+    if invocation.get("codex_cli_resolved_path") != expected_cli_path:
+        raise Phase3MainLiveError(
+            "reviewer invocation used a CLI other than the measured capacity CLI")
+    if invocation.get("codex_cli_wrapper_raw_sha256") != (
+        reviewer_configuration.get("reviewer_cli_wrapper_raw_sha256")
+    ):
+        raise Phase3MainLiveError(
+            "reviewer invocation CLI wrapper hash differs from capacity evidence")
+    if invocation.get("codex_cli_wrapper_byte_count") != (
+        reviewer_configuration.get("reviewer_cli_wrapper_byte_count")
+    ):
+        raise Phase3MainLiveError(
+            "reviewer invocation CLI wrapper size differs from capacity evidence")
+    if invocation.get("host_identity") != runtime_evidence.get("host_identity"):
+        raise Phase3MainLiveError(
+            "reviewer invocation host differs from the capacity-measured host")
+    expected_cli_version = runtime_evidence.get("reviewer_cli_version")
+    if (
+        not isinstance(expected_cli_version, str)
+        or not expected_cli_version
+        or invocation.get("codex_cli_version") != expected_cli_version
+    ):
+        raise Phase3MainLiveError(
+            "reviewer invocation CLI version differs from capacity evidence")
+    return expected_cli_path
+
+
+def _validate_reviewer_invocation_time_binding(
+    outcome: Mapping[str, Any],
+    *,
+    authorization: Mapping[str, Any],
+    capacity_validation: Mapping[str, Any],
+    observed_at: datetime,
+) -> tuple[datetime, datetime]:
+    """Enforce capacity and dispatch-only authorization time bounds before commit."""
+    capacity_completed_at = capacity_validation.get("capacity_completed_at")
+    capacity_expires_at = capacity_validation.get("capacity_expires_at")
+    if not isinstance(capacity_completed_at, datetime) or not isinstance(
+        capacity_expires_at, datetime
+    ):
+        raise Phase3MainLiveError(
+            "review capacity validation omits its validity window")
+    try:
+        started_at = phase3_main_manifest._utc(  # noqa: SLF001
+            outcome.get("started_at_utc"), "reviewer evidence started_at_utc")
+        completed_at = phase3_main_manifest._utc(  # noqa: SLF001
+            outcome.get("completed_at_utc"), "reviewer evidence completed_at_utc")
+        approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+            authorization.get("approved_at_utc"), "authorization.approved_at_utc")
+        deadline = phase3_main_manifest._utc(  # noqa: SLF001
+            authorization.get("valid_until_utc"), "authorization.valid_until_utc")
+    except (TypeError, ValueError) as exc:
+        raise Phase3MainLiveError(
+            "reviewer invocation evidence has an invalid timeline") from exc
+    if not capacity_completed_at <= started_at <= capacity_expires_at:
+        raise Phase3MainLiveError(
+            "reviewer invocation started outside the capacity validity window")
+    if not approved_at <= started_at <= completed_at <= observed_at:
+        raise Phase3MainLiveError(
+            "reviewer invocation falls outside the authorized wave timeline")
+    if started_at > deadline:
+        raise Phase3MainLiveError(
+            "reviewer invocation started after the authorization deadline")
+    return started_at, completed_at
+
+
+def _reviewer_guard_artifact_binding(
+    path: Path,
+    *,
+    expected_raw_sha256: str,
+    expected_byte_count: int | None = None,
+    label: str,
+) -> dict[str, Any]:
+    supplied = Path(path)
+    if not supplied.is_absolute() or supplied.is_symlink():
+        raise Phase3MainLiveError(
+            f"reviewer dispatch guard {label} path must be absolute and unlinked")
+    resolved = supplied.resolve()
+    try:
+        first = resolved.read_bytes()
+        second = resolved.read_bytes()
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            f"reviewer dispatch guard {label} is unavailable") from exc
+    if first != second:
+        raise Phase3MainLiveError(
+            f"reviewer dispatch guard {label} changed while snapshotted")
+    observed_sha = hashlib.sha256(first).hexdigest()
+    if observed_sha != expected_raw_sha256 or (
+        expected_byte_count is not None and len(first) != expected_byte_count
+    ):
+        raise Phase3MainLiveError(
+            f"reviewer dispatch guard {label} differs from its bound identity")
+    return {
+        "path": resolved.as_posix(),
+        "raw_sha256": observed_sha,
+        "byte_count": len(first),
+    }
+
+
+def _build_reviewer_dispatch_guard(
+    prepared: PreparedMainRun,
+    *,
+    authorization: Mapping[str, Any],
+    capacity_validation: Mapping[str, Any],
+    reviewer_configuration: Mapping[str, Any],
+    packet_dir: Path,
+    output_path: Path,
+    worklist_snapshot_path: Path,
+    packet_index_path: Path,
+    packet_bindings: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Freeze the complete per-invocation reviewer dispatch authority."""
+    capacity_completed_at = capacity_validation.get("capacity_completed_at")
+    capacity_expires_at = capacity_validation.get("capacity_expires_at")
+    if not isinstance(capacity_completed_at, datetime) or not isinstance(
+        capacity_expires_at, datetime
+    ):
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard lacks the capacity validity window")
+    signature_path = prepared.authorization_path.with_name(
+        f"{prepared.authorization_path.name}.sig")
+    cli_path = Path(str(
+        reviewer_configuration.get("reviewer_cli_resolved_path"))).resolve()
+    runtime_evidence = capacity_validation.get("runtime")
+    if not isinstance(runtime_evidence, Mapping):
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard lacks the capacity runtime binding")
+    reviewer_cli_version = runtime_evidence.get("reviewer_cli_version")
+    capacity_host_identity = runtime_evidence.get("host_identity")
+    if not isinstance(reviewer_cli_version, str) or not reviewer_cli_version:
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard lacks the measured CLI version")
+    if not isinstance(capacity_host_identity, str) or not capacity_host_identity:
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard lacks the capacity host identity")
+    batch_runner_path = (
+        prepared.project_root / "scripts" / "codex_reviewer_batch.py").resolve()
+    loaded_runner_path, runner_sha, runner_bytes = (
+        codex_reviewer_batch._batch_runner_identity())  # noqa: SLF001
+    if Path(loaded_runner_path).resolve() != batch_runner_path:
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard batch runner differs from loaded project code")
+    bindings = {
+        "authorization": _reviewer_guard_artifact_binding(
+            prepared.authorization_path,
+            expected_raw_sha256=prepared.authorization_raw_sha256,
+            label="authorization",
+        ),
+        "authorization_signature": _reviewer_guard_artifact_binding(
+            signature_path,
+            expected_raw_sha256=prepared.authorization_signature_raw_sha256,
+            label="authorization signature",
+        ),
+        "capacity_plan": _reviewer_guard_artifact_binding(
+            prepared.input_paths["capacity_plan"],
+            expected_raw_sha256=str(
+                prepared.manifest["input_bindings"]["capacity_plan"]["sha256"]),
+            label="capacity plan",
+        ),
+        "capacity_result": _reviewer_guard_artifact_binding(
+            prepared.input_paths["capacity_result"],
+            expected_raw_sha256=str(
+                prepared.manifest["input_bindings"]["capacity_result"]["sha256"]),
+            label="capacity result",
+        ),
+        "capacity_dispatch_history": _reviewer_guard_artifact_binding(
+            prepared.input_paths["capacity_dispatch_history"],
+            expected_raw_sha256=str(
+                prepared.manifest["input_bindings"][
+                    "capacity_dispatch_history"]["sha256"]),
+            label="capacity dispatch history",
+        ),
+        "reviewer_cli_wrapper": _reviewer_guard_artifact_binding(
+            cli_path,
+            expected_raw_sha256=str(
+                reviewer_configuration.get("reviewer_cli_wrapper_raw_sha256")),
+            expected_byte_count=int(
+                reviewer_configuration.get("reviewer_cli_wrapper_byte_count")),
+            label="reviewer CLI wrapper",
+        ),
+        "worklist_snapshot": _reviewer_guard_artifact_binding(
+            worklist_snapshot_path,
+            expected_raw_sha256=_raw_sha256(worklist_snapshot_path),
+            label="worklist snapshot",
+        ),
+        "packet_index": _reviewer_guard_artifact_binding(
+            packet_index_path,
+            expected_raw_sha256=_raw_sha256(packet_index_path),
+            label="packet index",
+        ),
+        "batch_runner": _reviewer_guard_artifact_binding(
+            batch_runner_path,
+            expected_raw_sha256=runner_sha,
+            expected_byte_count=runner_bytes,
+            label="batch runner",
+        ),
+    }
+    approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+        authorization.get("approved_at_utc"), "authorization.approved_at_utc")
+    valid_until = phase3_main_manifest._utc(  # noqa: SLF001
+        authorization.get("valid_until_utc"), "authorization.valid_until_utc")
+    runtime = prepared.manifest.get("runtime")
+    if not isinstance(runtime, Mapping):  # pragma: no cover - manifest validation
+        raise Phase3MainLiveError("reviewer dispatch guard lacks main runtime")
+    resolved_packet_dir = packet_dir.resolve()
+    resolved_output_path = output_path.resolve()
+    if (
+        not resolved_packet_dir.is_dir()
+        or packet_dir.is_symlink()
+        or not resolved_output_path.is_file()
+        or output_path.is_symlink()
+        or resolved_output_path.parent != resolved_packet_dir
+    ):
+        raise Phase3MainLiveError(
+            "reviewer dispatch guard packet directory or output path is unavailable")
+    return {
+        "schema_version": codex_reviewer_batch.DISPATCH_GUARD_SCHEMA,
+        "run_id": prepared.identity.run_id,
+        "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+        "authorization_canonical_sha256": canonical_sha256(authorization),
+        "authorization_approved_at_utc": approved_at.isoformat(),
+        "authorization_valid_until_utc": valid_until.isoformat(),
+        "capacity_completed_at_utc": capacity_completed_at.isoformat(),
+        "capacity_expires_at_utc": capacity_expires_at.isoformat(),
+        "reviewer_model": str(runtime["reviewer_model"]),
+        "reviewer_reasoning_effort": str(
+            runtime["reviewer_reasoning_effort"]),
+        "reviewer_concurrency": int(runtime["reviewer_concurrency"]),
+        "reviewer_cli_version": reviewer_cli_version,
+        "capacity_host_identity": capacity_host_identity,
+        "packet_directory": resolved_packet_dir.as_posix(),
+        "output_path": resolved_output_path.as_posix(),
+        "packet_bindings": [dict(binding) for binding in packet_bindings],
+        "artifact_bindings": bindings,
+    }
+
+
+def _validate_reviewer_dispatch_reservation(
+    packet_dir: Path,
+    *,
+    guard_evidence: Mapping[str, Any],
+    guard_raw_sha256: str,
+    packet_meta: Mapping[str, Any],
+    output_path: Path,
+    reviewer_model: str,
+    reviewer_reasoning_effort: str,
+    reviewer_concurrency: int,
+    reviewer_cli_version: str,
+    capacity_host_identity: str,
+    outcome: Mapping[str, Any],
+) -> Path:
+    """Reopen one exact durable reservation before its ruling may commit."""
+    binding = guard_evidence.get("reservation")
+    required_binding_fields = frozenset({"path", "raw_sha256", "byte_count"})
+    if not isinstance(binding, Mapping) or set(binding) != required_binding_fields:
+        raise Phase3MainLiveError(
+            "reviewer invocation lacks its exact durable dispatch reservation")
+    payload = str(packet_meta["payload_sha256"])
+    expected_relative = (
+        f"{codex_reviewer_batch.DISPATCH_RESERVATION_DIRECTORY_NAME}/"
+        f"{guard_raw_sha256}_{payload}.json"
+    )
+    if binding.get("path") != expected_relative:
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation path differs from its deterministic identity")
+    reservation_path = packet_dir / expected_relative
+    if reservation_path.is_symlink():
+        raise Phase3MainLiveError("reviewer dispatch reservation must not be linked")
+    try:
+        first = reservation_path.read_bytes()
+        second = reservation_path.read_bytes()
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation is unavailable") from exc
+    if first != second:
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation changed while validated")
+    if (
+        hashlib.sha256(first).hexdigest() != binding.get("raw_sha256")
+        or len(first) != binding.get("byte_count")
+    ):
+        raise Phase3MainLiveError("reviewer dispatch reservation bytes drifted")
+    try:
+        reservation = json.loads(
+            first.decode("utf-8"),
+            object_pairs_hook=_unique_object,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON number {value!r}")),
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation is not strict UTF-8 JSON") from exc
+    expected_fields = frozenset({
+        "schema_version",
+        "guard_raw_sha256",
+        "payload_sha256",
+        "prompt_sha256",
+        "packet_file",
+        "packet_directory",
+        "output_path",
+        "reviewer_model",
+        "reviewer_reasoning_effort",
+        "reviewer_concurrency",
+        "reviewer_cli_version",
+        "capacity_host_identity",
+        "reserved_at_utc",
+    })
+    if not isinstance(reservation, Mapping) or set(reservation) != expected_fields:
+        raise Phase3MainLiveError("reviewer dispatch reservation fields drifted")
+    exact_values = {
+        "schema_version": codex_reviewer_batch.DISPATCH_RESERVATION_SCHEMA,
+        "guard_raw_sha256": guard_raw_sha256,
+        "payload_sha256": payload,
+        "prompt_sha256": packet_meta["prompt_sha256"],
+        "packet_file": packet_meta["file"],
+        "packet_directory": packet_dir.resolve().as_posix(),
+        "output_path": output_path.resolve().as_posix(),
+        "reviewer_model": reviewer_model,
+        "reviewer_reasoning_effort": reviewer_reasoning_effort,
+        "reviewer_concurrency": reviewer_concurrency,
+        "reviewer_cli_version": reviewer_cli_version,
+        "capacity_host_identity": capacity_host_identity,
+    }
+    for field, expected in exact_values.items():
+        if reservation.get(field) != expected:
+            raise Phase3MainLiveError(
+                f"reviewer dispatch reservation {field} drifted")
+    reserved_at = reservation.get("reserved_at_utc")
+    if (
+        not isinstance(reserved_at, str)
+        or guard_evidence.get("checked_at_utc") != reserved_at
+        or outcome.get("started_at_utc") != reserved_at
+    ):
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation timestamp differs from invocation start")
+    try:
+        checked_at = phase3_main_manifest._utc(  # noqa: SLF001
+            reserved_at, "reviewer dispatch reservation reserved_at_utc")
+        released_at = phase3_main_manifest._utc(  # noqa: SLF001
+            guard_evidence.get("released_at_utc"),
+            "reviewer dispatch guard released_at_utc",
+        )
+        completed_at = phase3_main_manifest._utc(  # noqa: SLF001
+            outcome.get("completed_at_utc"), "reviewer evidence completed_at_utc")
+        approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+            guard_evidence.get("authorization_approved_at_utc"),
+            "reviewer dispatch guard authorization_approved_at_utc",
+        )
+        valid_until = phase3_main_manifest._utc(  # noqa: SLF001
+            guard_evidence.get("authorization_valid_until_utc"),
+            "reviewer dispatch guard authorization_valid_until_utc",
+        )
+        capacity_completed = phase3_main_manifest._utc(  # noqa: SLF001
+            guard_evidence.get("capacity_completed_at_utc"),
+            "reviewer dispatch guard capacity_completed_at_utc",
+        )
+        capacity_expires = phase3_main_manifest._utc(  # noqa: SLF001
+            guard_evidence.get("capacity_expires_at_utc"),
+            "reviewer dispatch guard capacity_expires_at_utc",
+        )
+    except (TypeError, ValueError) as exc:
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation release timeline is invalid") from exc
+    if not (
+        checked_at <= released_at <= completed_at
+        and approved_at <= released_at <= valid_until
+        and capacity_completed <= released_at <= capacity_expires
+    ):
+        raise Phase3MainLiveError(
+            "reviewer dispatch reservation was not actively released before subprocess")
+    return reservation_path
+
+
 class _AuthorizationDeadlineClient:
-    """Recheck exact authority and launch-bound price evidence before every paid call."""
+    """Inject the attempt-0 authorization hook into every new logical paid call."""
 
     def __init__(self, prepared: PreparedMainRun, inner: Any) -> None:
         self._prepared = prepared
@@ -540,15 +1011,22 @@ class _AuthorizationDeadlineClient:
         return bool(getattr(self._inner, "dry_run", False))
 
     def complete(self, *args: Any, **kwargs: Any) -> str:
-        _revalidate_authenticated_authorization(self._prepared)
-        _revalidate_price_snapshot(self._prepared)
-        return str(self._inner.complete(*args, **kwargs))
+        hook_field = "_logical_dispatch_authorization_hook"
+        if hook_field in kwargs:
+            raise Phase3MainLiveError(
+                "logical dispatch authorization hook is reserved for the main runtime")
+        return str(self._inner.complete(
+            *args,
+            **kwargs,
+            _logical_dispatch_authorization_hook=(
+                lambda: _authorize_provider_logical_dispatch(self._prepared)),
+        ))
 
 
-def _revalidate_authenticated_authorization(
+def _load_unchanged_authenticated_authorization(
     prepared: PreparedMainRun,
 ) -> Mapping[str, Any]:
-    """Require the original signed bytes and active semantic authorization."""
+    """Reload the exact signed authorization bytes and semantic object."""
     current = _load_authenticated_owner_authorization(prepared.authorization_path)
     signature_path = prepared.authorization_path.with_name(
         f"{prepared.authorization_path.name}.sig")
@@ -560,12 +1038,328 @@ def _revalidate_authenticated_authorization(
     ):
         raise Phase3MainLiveError(
             "main authorization or detached signature bytes changed during run")
+    return current
+
+
+def _revalidate_authenticated_authorization(
+    prepared: PreparedMainRun,
+    *,
+    as_of: datetime | None = None,
+) -> Mapping[str, Any]:
+    """Require active exact authority at one explicit validation time."""
+    current = _load_unchanged_authenticated_authorization(prepared)
     phase3_main_manifest.validate_main_authorization(
         current,
         prepared.manifest,
-        as_of=datetime.now(timezone.utc),
+        as_of=as_of or datetime.now(timezone.utc),
     )
     return current
+
+
+def _authorize_provider_logical_dispatch(prepared: PreparedMainRun) -> str:
+    """Return the durable start time after all local paid-call prerequisites pass."""
+    _revalidate_price_snapshot(prepared)
+    current = _load_unchanged_authenticated_authorization(prepared)
+    authorized_at = datetime.now(timezone.utc)
+    phase3_main_manifest.validate_main_authorization(
+        current,
+        prepared.manifest,
+        as_of=authorized_at,
+    )
+    return authorized_at.isoformat()
+
+
+def _revalidate_authenticated_authorization_scope(
+    prepared: PreparedMainRun,
+) -> Mapping[str, Any]:
+    """Revalidate immutable signed scope for local closeout after dispatch expiry."""
+    current = _load_unchanged_authenticated_authorization(prepared)
+    approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+        current["approved_at_utc"], "authorization.approved_at_utc")
+    phase3_main_manifest.validate_main_authorization(
+        current,
+        prepared.manifest,
+        as_of=approved_at,
+    )
+    return current
+
+
+def _revalidate_final_boundary_inputs(
+    prepared: PreparedMainRun,
+    finalization: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Reopen launch authority after analysis without extending its spend window."""
+    current_manifest = _load_strict_object(prepared.manifest_path, "main manifest")
+    current_manifest_sha256 = phase3_main_manifest.manifest_canonical_sha256(
+        current_manifest)
+    if (
+        current_manifest_sha256 != prepared.identity.manifest_sha256
+        or current_manifest != dict(prepared.manifest)
+    ):
+        raise Phase3MainLiveError("main manifest changed before completion")
+    try:
+        validation = phase3_main_manifest.validate_main_manifest(
+            current_manifest,
+            project_root=prepared.project_root,
+            verify_files=True,
+            verify_runtime=True,
+        )
+    except phase3_main_manifest.MainManifestError as exc:
+        raise Phase3MainLiveError(
+            f"main manifest failed final completion validation: {exc}") from exc
+    if validation.get("manifest_canonical_sha256") != prepared.identity.manifest_sha256:
+        raise Phase3MainLiveError(
+            "final manifest validation returned another canonical identity")
+    _verify_clean_git_identity(current_manifest, prepared.project_root)
+
+    current_authorization = _load_authenticated_owner_authorization(
+        prepared.authorization_path)
+    signature_path = prepared.authorization_path.with_name(
+        f"{prepared.authorization_path.name}.sig")
+    if (
+        _raw_sha256(prepared.authorization_path) != prepared.authorization_raw_sha256
+        or _raw_sha256(signature_path)
+        != prepared.authorization_signature_raw_sha256
+        or canonical_sha256(current_authorization)
+        != canonical_sha256(prepared.authorization)
+    ):
+        raise Phase3MainLiveError(
+            "main authorization or detached signature changed before completion")
+    try:
+        finalization_time = phase3_main_manifest._utc(  # noqa: SLF001
+            finalization["recorded_at_utc"], "finalization.recorded_at_utc")
+        approved_at = phase3_main_manifest._utc(  # noqa: SLF001
+            current_authorization["approved_at_utc"],
+            "authorization.approved_at_utc",
+        )
+        if finalization_time < approved_at:
+            raise ValueError("finalization predates the signed authorization")
+        phase3_main_manifest.validate_main_authorization(
+            current_authorization,
+            current_manifest,
+            as_of=approved_at,
+        )
+    except (KeyError, TypeError, ValueError, phase3_main_manifest.MainManifestError) as exc:
+        raise Phase3MainLiveError(
+            f"main authorization failed final completion validation: {exc}") from exc
+    return current_authorization
+
+
+def _validate_analysis_result_snapshot(
+    prepared: PreparedMainRun,
+    *,
+    expected_finalization_raw_sha256: str,
+    expected_results_raw_sha256: str,
+    expected_analysis_raw: bytes,
+) -> tuple[bytes, str]:
+    """Validate one stable analysis output snapshot and return its reusable digest."""
+    path = prepared.identity.paths.analysis_results
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            f"could not read main analysis result: {path}") from exc
+    if raw != expected_analysis_raw:
+        raise Phase3MainLiveError(
+            "main analysis result differs from the trusted in-process output")
+    value = _parse_strict_json(raw, path)
+    if not isinstance(value, dict) or set(value) != ANALYSIS_RESULT_FIELDS:
+        raise Phase3MainLiveError("main analysis result fields drifted")
+    if value.get("schema_version") != ANALYSIS_RESULT_SCHEMA:
+        raise Phase3MainLiveError("main analysis result schema drifted")
+    integrity = value.get("integrity")
+    if not isinstance(integrity, dict) or set(integrity) != ANALYSIS_INTEGRITY_FIELDS:
+        raise Phase3MainLiveError("main analysis integrity fields drifted")
+    bootstrap = value.get("bootstrap")
+    if (
+        not isinstance(bootstrap, Mapping)
+        or set(bootstrap) != {"B", "seed", "prng", "draw_matrix_sha256", "strata"}
+    ):
+        raise Phase3MainLiveError("main analysis bootstrap evidence is not an object")
+    list_sections = {"invalid_counts_by_budget_judge_replicate_block"}
+    for name in ANALYSIS_RESULT_FIELDS - {
+        "schema_version", "bootstrap", "integrity", *list_sections,
+    }:
+        if not isinstance(value[name], Mapping):
+            raise Phase3MainLiveError(
+                f"main analysis section {name!r} is not an object")
+    invalid_strata = value["invalid_counts_by_budget_judge_replicate_block"]
+    invalid_stratum_fields = {
+        "condition",
+        "query_budget",
+        "judge",
+        "replicate_block_zero_based",
+        "side_zero_based",
+        "within_side_replicate_zero_based",
+        "planned_rows",
+        "context_ineligible_rows",
+        "invalid_count",
+        "terminal_invalid_count",
+    }
+    if not isinstance(invalid_strata, list) or any(
+        not isinstance(row, Mapping) or set(row) != invalid_stratum_fields
+        for row in invalid_strata
+    ):
+        raise Phase3MainLiveError(
+            "main analysis invalid-count strata are malformed")
+
+    pins = _load_bound_input_object(
+        prepared.manifest,
+        prepared.input_paths,
+        "analysis_pins",
+        "analysis pins",
+    )
+    try:
+        phase3_main_analysis.validate_analysis_pins(
+            pins, prepared.protocol, root=prepared.project_root)
+        question_snapshot = phase3_main_analysis._snapshot_protocol_bound_question_bank(  # noqa: SLF001
+            prepared.protocol, prepared.project_root)
+        expected_integrity = {
+            "repository_head_at_analysis": str(prepared.manifest["source_commit"]),
+            "engine_git_commit": str(prepared.manifest["source_commit"]),
+            "engine_git_state": "clean_tracked_at_head",
+            "engine_git_status_porcelain": None,
+            "engine_raw_sha256": _raw_sha256(Path(phase3_main_analysis.__file__).resolve()),
+            "python_version": str(prepared.manifest["toolchain"]["python_version"]),
+            "protocol_canonical_sha256": canonical_sha256(prepared.protocol),
+            "protocol_question_bank_bundle_sha256": prepared.protocol[
+                "planning_cell_identity"]["question_bank_bundle_sha256"],
+            "protocol_phase2_question_source_canonical_sha256": prepared.protocol[
+                "source_bindings"]["canonical_json_sha256"][
+                    "rejudge/phase2_protocol.json"],
+            "main_question_ids_canonical_sha256": canonical_sha256(
+                list(question_snapshot.main_ids)),
+            "main_question_rows_canonical_sha256": canonical_sha256({
+                question_id: question_snapshot.bank[question_id]
+                for question_id in sorted(question_snapshot.main_ids)
+            }),
+            "pins_raw_sha256": _raw_sha256(prepared.input_paths["analysis_pins"]),
+            "results_raw_sha256": expected_results_raw_sha256,
+            "finalization_raw_sha256": expected_finalization_raw_sha256,
+            "terminal_cell_keys_raw_sha256": None,
+            "context_ineligible_cell_keys_raw_sha256": None,
+            "record_count": len(prepared.inventory.judgment_cells),
+        }
+        expected_bootstrap = {
+            "B": int(pins["bootstrap"]["B"]),
+            "seed": int(pins["bootstrap"]["seed"]),
+            "draw_matrix_sha256": str(
+                pins["bootstrap"]["precomputed_full_draw_matrix_sha256"]),
+            "prng": "CPython random.Random MT19937",
+        }
+        expected_strata: dict[str, list[str]] = {}
+        for question_id in question_snapshot.main_ids:
+            world = question_snapshot.bank[question_id]["world"]
+            if not isinstance(world, str) or not world:
+                raise ValueError(
+                    f"main question {question_id!r} has no non-empty world")
+            expected_strata.setdefault(world, []).append(question_id)
+        expected_strata = {
+            world: sorted(question_ids)
+            for world, question_ids in sorted(expected_strata.items())
+        }
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        phase3_main_analysis.AnalysisError,
+    ) as exc:
+        raise Phase3MainLiveError(
+            f"could not derive expected main analysis integrity: {exc}") from exc
+    if integrity != expected_integrity:
+        raise Phase3MainLiveError(
+            "main analysis integrity does not bind the current formal inputs")
+    for name, expected in expected_bootstrap.items():
+        if bootstrap.get(name) != expected:
+            raise Phase3MainLiveError(
+                f"main analysis bootstrap field {name!r} drifted")
+    if bootstrap.get("strata") != expected_strata:
+        raise Phase3MainLiveError("main analysis bootstrap strata drifted")
+    try:
+        primary_ids = frozenset(phase3_main_analysis.PRIMARY_IDS)
+        estimand_ids = primary_ids | {"S1"}
+        judges = frozenset(prepared.protocol["roster"]["judges_final"])
+        conditions = frozenset(phase3_main_analysis.ALL_CONDITIONS)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Phase3MainLiveError(
+            f"could not derive the main analysis scientific envelope: {exc}") from exc
+    exact_keys = {
+        "domains": estimand_ids,
+        "primary": primary_ids,
+        "valid_only_sensitivity": estimand_ids,
+        "strict_support": estimand_ids,
+        "per_judge_descriptive": judges,
+        "claims": frozenset({"pooled", "per_judge", "prohibited"}),
+    }
+    for section, expected_keys in exact_keys.items():
+        if set(value[section]) != expected_keys:
+            raise Phase3MainLiveError(
+                f"main analysis section {section!r} has the wrong identity set")
+    for estimand in estimand_ids:
+        if (
+            not isinstance(value["domains"][estimand], list)
+            or not isinstance(value["valid_only_sensitivity"][estimand], Mapping)
+            or not isinstance(value["strict_support"][estimand], Mapping)
+        ):
+            raise Phase3MainLiveError(
+                f"main analysis estimand {estimand!r} has a malformed result")
+    for estimand in primary_ids:
+        if not isinstance(value["primary"][estimand], Mapping):
+            raise Phase3MainLiveError(
+                f"main analysis primary estimand {estimand!r} is malformed")
+    if not isinstance(value["S1"], Mapping):  # pragma: no cover - guarded above
+        raise Phase3MainLiveError("main analysis S1 result is malformed")
+    for judge in judges:
+        judge_results = value["per_judge_descriptive"][judge]
+        if not isinstance(judge_results, Mapping) or set(judge_results) != estimand_ids:
+            raise Phase3MainLiveError(
+                f"main analysis judge result {judge!r} has the wrong estimand set")
+        if any(not isinstance(entry, Mapping) for entry in judge_results.values()):
+            raise Phase3MainLiveError(
+                f"main analysis judge result {judge!r} is malformed")
+    scenario_keys = frozenset({
+        "role", "common_draw_matrix_sha256",
+        "all_invalid_correct", "all_invalid_wrong",
+    })
+    scenarios = value["all_invalid_scenarios"]
+    if set(scenarios) != scenario_keys:
+        raise Phase3MainLiveError("main analysis invalid scenarios have the wrong fields")
+    for scenario in ("all_invalid_correct", "all_invalid_wrong"):
+        entries = scenarios[scenario]
+        if not isinstance(entries, Mapping) or set(entries) != estimand_ids:
+            raise Phase3MainLiveError(
+                f"main analysis invalid scenario {scenario!r} has the wrong estimand set")
+        if any(not isinstance(entry, Mapping) for entry in entries.values()):
+            raise Phase3MainLiveError(
+                f"main analysis invalid scenario {scenario!r} is malformed")
+    expected_count_keys = frozenset(
+        f"{judge}|{condition}" for judge in judges for condition in conditions)
+    for section in (
+        "invalid_counts_by_judge_condition",
+        "terminal_invalid_counts_by_judge_condition",
+    ):
+        counts = value[section]
+        if set(counts) != expected_count_keys or any(
+            type(count) is not int or count < 0 for count in counts.values()
+        ):
+            raise Phase3MainLiveError(
+                f"main analysis section {section!r} has malformed counts")
+    for source, expected_raw, label in question_snapshot.stable_inputs:
+        try:
+            if source.read_bytes() != expected_raw:
+                raise Phase3MainLiveError(
+                    f"{label} changed while analysis output was validated")
+        except OSError as exc:
+            raise Phase3MainLiveError(
+                f"could not recheck {label} during analysis validation") from exc
+    try:
+        if path.read_bytes() != raw:
+            raise Phase3MainLiveError(
+                "main analysis result changed while it was validated")
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            "main analysis result became unreadable while it was validated") from exc
+    return raw, hashlib.sha256(raw).hexdigest()
 
 
 def _revalidate_price_snapshot(prepared: PreparedMainRun) -> Mapping[str, Any]:
@@ -858,7 +1652,13 @@ def load_prepared_main(
     _validate_prompt_bundle(prompt_bundle)
     reviewer_prompt = _load_bound_input_object(
         manifest, input_paths, "reviewer_prompt", "reviewer prompt")
-    _validate_reviewer_prompt(reviewer_prompt)
+    reviewer_failure_policy = _load_bound_input_object(
+        manifest,
+        input_paths,
+        "reviewer_failure_policy",
+        "reviewer failure policy",
+    )
+    _validate_reviewer_prompt(reviewer_prompt, reviewer_failure_policy)
     role_limits = _load_bound_input_object(
         manifest, input_paths, "role_limits", "role limits")
     try:
@@ -1047,7 +1847,9 @@ def _construct_provider_client(
             transport["per_call_wall_clock_ceiling_seconds"]),
         require_returned_model_match=True,
     )
-    return RoleLimitResolvingClient(raw, prepared.role_limits["model_role_limits"])
+    authorized = _AuthorizationDeadlineClient(prepared, raw)
+    return RoleLimitResolvingClient(
+        authorized, prepared.role_limits["model_role_limits"])
 
 
 def _identity_start_path(identity: phase3_main_runner.MainRunIdentity) -> Path:
@@ -1090,6 +1892,19 @@ def _write_exclusive_json(path: Path, value: Mapping[str, Any]) -> None:
             os.fsync(handle.fileno())
     except FileExistsError as exc:
         raise Phase3MainLiveError(f"formal identity was already consumed: {path}") from exc
+
+
+def _write_exclusive_bytes(path: Path, raw: bytes, *, label: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("xb") as handle:
+            handle.write(raw)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError as exc:
+        raise Phase3MainLiveError(f"{label} already exists: {path}") from exc
+    if path.read_bytes() != raw:
+        raise Phase3MainLiveError(f"{label} changed during its durable write")
 
 
 def _consume_identity(prepared: PreparedMainRun) -> Path:
@@ -1188,8 +2003,7 @@ def run_main(
             _require_clean_pre_main_billing(
                 billing_validation, prepared.manifest)
             raw_client = _construct_provider_client(prepared, snapshot)
-            client = _AuthorizationDeadlineClient(
-                prepared, JournalingClient(raw_client, journal))
+            client = JournalingClient(raw_client, journal)
             return _drive_and_finalize(prepared, client)
         finally:
             phase3_main_runner._restore_start_evidence(
@@ -1369,12 +2183,22 @@ def _review_wave_same_process(
     """Dispatch a bound reviewer wave and commit it without re-entering the run lease."""
     paths = prepared.identity.paths
     current_authorization = _revalidate_authenticated_authorization(prepared)
-    capacity_plan, _capacity_validation = _revalidate_capacity_snapshot(prepared)
+    capacity_plan, capacity_validation = _revalidate_capacity_snapshot(prepared)
     worklist = export_reviewer_worklist(
         pending_payloads,
         str(prepared.reviewer_prompt["prompt"]),
         paths.reviewer_worklist,
     )
+    worklist_raw = paths.reviewer_worklist.read_bytes()
+    try:
+        persisted_worklist = json.loads(
+            worklist_raw.decode("utf-8"), object_pairs_hook=_unique_object)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise Phase3MainLiveError(
+            "persisted reviewer worklist is not strict UTF-8 JSON") from exc
+    if persisted_worklist != worklist:
+        raise Phase3MainLiveError(
+            "persisted reviewer worklist differs from the exported wave")
     items = list(worklist["items"])
     payload_hash = hashlib.sha256(
         "".join(str(item["payload_sha256"]) for item in items).encode("utf-8")
@@ -1382,26 +2206,85 @@ def _review_wave_same_process(
     packet_dir = paths.review_packets_root / (
         f"wave-{wave:03d}-{payload_hash}-{uuid.uuid4().hex[:8]}")
     packet_dir.mkdir()
+    worklist_snapshot_path = packet_dir / "WORKLIST.json"
+    _write_exclusive_bytes(
+        worklist_snapshot_path,
+        worklist_raw,
+        label="reviewer worklist snapshot",
+    )
     index: list[dict[str, Any]] = []
+    packet_bindings: list[dict[str, Any]] = []
     for number, item in enumerate(items, 1):
         prompt = str(item["subagent_prompt"])
-        prompt_sha = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        prompt_raw = prompt.encode("utf-8")
+        prompt_sha = hashlib.sha256(prompt_raw).hexdigest()
         if prompt_sha != item["subagent_prompt_sha256"]:
             raise Phase3MainLiveError("reviewer worklist prompt hash drifted")
         filename = f"{number:05d}_{str(item['payload_sha256'])[:12]}.txt"
-        (packet_dir / filename).write_text(prompt, encoding="utf-8", newline="")
+        _write_exclusive_bytes(
+            packet_dir / filename,
+            prompt_raw,
+            label="reviewer packet",
+        )
         index.append({
             "n": number,
             "file": filename,
             "payload_sha256": item["payload_sha256"],
             "prompt_sha256": prompt_sha,
         })
-    (packet_dir / "INDEX.json").write_text(
-        json.dumps({"count": len(index), "items": index}, sort_keys=True) + "\n",
-        encoding="utf-8", newline="\n")
+        packet_bindings.append({
+            "file": filename,
+            "payload_sha256": item["payload_sha256"],
+            "prompt_sha256": prompt_sha,
+            "byte_count": len(prompt_raw),
+        })
+    packet_index_path = packet_dir / "INDEX.json"
+    _write_exclusive_bytes(
+        packet_index_path,
+        (json.dumps(
+            {"count": len(index), "items": index},
+            ensure_ascii=True,
+            allow_nan=False,
+            sort_keys=True,
+        ) + "\n").encode("utf-8"),
+        label="reviewer packet index",
+    )
     rulings_path = packet_dir / "rulings.jsonl"
+    _write_exclusive_bytes(
+        rulings_path,
+        b"",
+        label="reviewer rulings output",
+    )
     runtime = prepared.manifest["runtime"]
     reviewer_configuration = capacity_plan["reviewer_configuration"]
+    dispatch_guard = _build_reviewer_dispatch_guard(
+        prepared,
+        authorization=current_authorization,
+        capacity_validation=capacity_validation,
+        reviewer_configuration=reviewer_configuration,
+        packet_dir=packet_dir,
+        output_path=rulings_path,
+        worklist_snapshot_path=worklist_snapshot_path,
+        packet_index_path=packet_index_path,
+        packet_bindings=packet_bindings,
+    )
+    dispatch_guard_path = packet_dir / codex_reviewer_batch.DISPATCH_GUARD_FILENAME
+    dispatch_guard_raw = (
+        json.dumps(
+            dispatch_guard,
+            ensure_ascii=True,
+            allow_nan=False,
+            sort_keys=True,
+            indent=1,
+        )
+        + "\n"
+    ).encode("utf-8")
+    _write_exclusive_bytes(
+        dispatch_guard_path,
+        dispatch_guard_raw,
+        label="reviewer dispatch guard snapshot",
+    )
+    dispatch_guard_raw_sha256 = hashlib.sha256(dispatch_guard_raw).hexdigest()
     command = [
         sys.executable,
         str(prepared.project_root / "scripts" / "codex_reviewer_batch.py"),
@@ -1412,6 +2295,8 @@ def _review_wave_same_process(
         "--effort", str(runtime["reviewer_reasoning_effort"]),
         "--concurrency", str(runtime["reviewer_concurrency"]),
         "--not-after-utc", str(current_authorization["valid_until_utc"]),
+        "--dispatch-guard", str(dispatch_guard_path),
+        "--dispatch-guard-raw-sha256", dispatch_guard_raw_sha256,
     ]
     phase3_main_manifest.validate_main_manifest(
         prepared.manifest,
@@ -1426,14 +2311,32 @@ def _review_wave_same_process(
         raise Phase3MainLiveError(
             f"reviewer wave {wave} failed with exit {completed.returncode}: "
             f"{completed.stderr[-500:]}")
+    if not rulings_path.is_file():
+        raise Phase3MainLiveError(
+            f"reviewer wave {wave} completed without a ruling store")
+    wave_tree_sha_after_batch = (
+        phase3_main_reviewer_provenance.review_packets_tree_canonical_sha256(
+            packet_dir.resolve()))
+    rulings_raw = rulings_path.read_bytes()
     rows = []
-    for line_number, line in enumerate(
-        rulings_path.read_text(encoding="utf-8").splitlines(), 1
-    ):
+    try:
+        rulings_text = rulings_raw.decode("utf-8")
+    except UnicodeError as exc:
+        raise Phase3MainLiveError("reviewer rulings are not UTF-8") from exc
+    for line_number, line in enumerate(rulings_text.splitlines(), 1):
         if not line.strip():
             raise Phase3MainLiveError(
                 f"reviewer rulings contain a blank row at line {line_number}")
-        row = json.loads(line)
+        try:
+            row = json.loads(
+                line,
+                object_pairs_hook=_unique_object,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ValueError(f"non-finite JSON number {value!r}")),
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise Phase3MainLiveError(
+                f"reviewer ruling line {line_number} is not strict JSON") from exc
         if not isinstance(row, dict):
             raise Phase3MainLiveError("reviewer ruling is not an object")
         rows.append(row)
@@ -1442,31 +2345,212 @@ def _review_wave_same_process(
         expected):
         raise Phase3MainLiveError("reviewer wave result identity set is not exact")
     commit_entries = []
+    expected_model = str(runtime["reviewer_model"])
+    expected_effort = str(runtime["reviewer_reasoning_effort"])
+    expected_concurrency = int(runtime["reviewer_concurrency"])
+    expected_cli_path = Path(str(
+        reviewer_configuration["reviewer_cli_resolved_path"])).resolve().as_posix()
+    capacity_runtime = capacity_validation.get("runtime")
+    if not isinstance(capacity_runtime, Mapping):  # pragma: no cover - guarded above
+        raise Phase3MainLiveError(
+            "review capacity validation omits its runtime binding")
+    expected_cli_version = str(capacity_runtime["reviewer_cli_version"])
+    expected_capacity_host = str(capacity_runtime["host_identity"])
+    expected_deadline = phase3_main_manifest._utc(  # noqa: SLF001
+        current_authorization["valid_until_utc"],
+        "authorization.valid_until_utc",
+    )
+    evidence_observed_at = datetime.now(timezone.utc)
+    reservation_checks: list[tuple[
+        Mapping[str, Any], Mapping[str, Any], Mapping[str, Any],
+    ]] = []
     for row in rows:
         payload = row["payload_sha256"]
-        if "tool_uses" in row:
+        packet_meta = next(item for item in index if item["payload_sha256"] == payload)
+        evidence = row.get("evidence")
+        if not isinstance(evidence, Mapping):
+            raise Phase3MainLiveError(
+                "reviewer ruling omits its invocation evidence reference")
+        try:
+            receipt = codex_reviewer_batch.validate_invocation_evidence(
+                packet_dir / str(packet_meta["file"]),
+                evidence,
+                expected_model=expected_model,
+                expected_effort=expected_effort,
+                expected_concurrency=expected_concurrency,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            raise Phase3MainLiveError(
+                f"reviewer invocation evidence failed for {payload}: {exc}") from exc
+        invocation = receipt["invocation"]
+        outcome = receipt["outcome"]
+        receipt_guard = receipt.get("dispatch_guard")
+        if (
+            not isinstance(receipt_guard, Mapping)
+            or receipt_guard.get("verified") is not True
+            or receipt_guard.get("snapshot_raw_sha256")
+            != dispatch_guard_raw_sha256
+            or receipt_guard.get("reviewer_cli_version")
+            != expected_cli_version
+        ):
+            raise Phase3MainLiveError(
+                "reviewer invocation lacks the exact successful dispatch guard")
+        _validate_reviewer_dispatch_reservation(
+            packet_dir,
+            guard_evidence=receipt_guard,
+            guard_raw_sha256=dispatch_guard_raw_sha256,
+            packet_meta=packet_meta,
+            output_path=rulings_path,
+            reviewer_model=expected_model,
+            reviewer_reasoning_effort=expected_effort,
+            reviewer_concurrency=expected_concurrency,
+            reviewer_cli_version=expected_cli_version,
+            capacity_host_identity=expected_capacity_host,
+            outcome=outcome,
+        )
+        reservation_checks.append((receipt_guard, packet_meta, outcome))
+        observed_cli_path = _validate_reviewer_invocation_capacity_binding(
+            invocation,
+            reviewer_configuration=reviewer_configuration,
+            capacity_validation=capacity_validation,
+        )
+        if observed_cli_path != expected_cli_path:  # pragma: no cover
+            raise Phase3MainLiveError(
+                "reviewer invocation capacity CLI path changed during validation")
+        receipt_deadline = outcome.get("authorization_deadline_utc")
+        try:
+            observed_deadline = phase3_main_manifest._utc(  # noqa: SLF001
+                receipt_deadline, "reviewer evidence authorization deadline")
+        except (TypeError, ValueError) as exc:
+            raise Phase3MainLiveError(
+                "reviewer invocation evidence has an invalid authorization deadline") from exc
+        if observed_deadline != expected_deadline:
+            raise Phase3MainLiveError(
+                "reviewer invocation used another authorization deadline")
+        _validate_reviewer_invocation_time_binding(
+            outcome,
+            authorization=current_authorization,
+            capacity_validation=capacity_validation,
+            observed_at=evidence_observed_at,
+        )
+        if outcome.get("result_ok") is not True or outcome.get(
+                "event_stream_errors") != []:
+            raise Phase3MainLiveError(
+                "reviewer invocation did not retain one structurally valid result")
+
+        clean_fields = {
+            "payload_sha256", "prompt_sha256", "raw_output", "tool_uses", "evidence",
+        }
+        error_fields = {"payload_sha256", "status", "raw_output", "evidence"}
+        if set(row) == clean_fields:
+            if type(row.get("tool_uses")) is not int or row["tool_uses"] != 0:
+                raise Phase3MainLiveError(
+                    "reviewer ruling tool_uses must be the exact integer zero")
             if row.get("prompt_sha256") != expected[payload]:
                 raise Phase3MainLiveError("reviewer ruling prompt proof drifted")
+            if outcome.get("commands") != []:
+                raise Phase3MainLiveError(
+                    "clean reviewer ruling has command evidence")
+            ruling_binding = receipt["artifacts"]["ruling"]
+            retained_ruling = (
+                packet_dir / str(ruling_binding["path"])).read_bytes()
+            try:
+                retained_text = retained_ruling.decode("utf-8").strip()
+            except UnicodeError as exc:
+                raise Phase3MainLiveError(
+                    "retained reviewer ruling is not UTF-8") from exc
+            if row.get("raw_output") != retained_text:
+                raise Phase3MainLiveError(
+                    "reviewer ruling text differs from retained invocation evidence")
             commit_entries.append({
                 "payload_sha256": payload,
                 "raw_output": row.get("raw_output"),
                 "prompt_sha256": row.get("prompt_sha256"),
             })
-        else:
+        elif set(row) == error_fields:
+            commands = outcome.get("commands")
+            if (
+                row.get("status") != "reviewer_error"
+                or not isinstance(row.get("raw_output"), str)
+                or not row["raw_output"].startswith("TOOL_USE_DETECTED:")
+                or not isinstance(commands, list)
+                or not commands
+            ):
+                raise Phase3MainLiveError(
+                    "completed reviewer_error row is not an evidenced tool-use refusal")
             commit_entries.append({
                 "payload_sha256": payload,
                 "status": "reviewer_error",
                 "raw_output": row.get("raw_output"),
             })
+        else:
+            raise Phase3MainLiveError("reviewer ruling fields drifted")
+    if (
+        paths.reviewer_worklist.read_bytes() != worklist_raw
+        or worklist_snapshot_path.read_bytes() != worklist_raw
+        or packet_index_path.read_bytes() != (
+            json.dumps(
+                {"count": len(index), "items": index},
+                ensure_ascii=True,
+                allow_nan=False,
+                sort_keys=True,
+            ) + "\n"
+        ).encode("utf-8")
+        or dispatch_guard_path.read_bytes() != dispatch_guard_raw
+        or rulings_path.read_bytes() != rulings_raw
+        or any(
+            (packet_dir / str(binding["file"])).read_bytes()
+            != str(items[position]["subagent_prompt"]).encode("utf-8")
+            for position, binding in enumerate(packet_bindings)
+        )
+    ):
+        raise Phase3MainLiveError(
+            "reviewer wave evidence changed before its index was committed")
+    for receipt_guard, packet_meta, outcome in reservation_checks:
+        _validate_reviewer_dispatch_reservation(
+            packet_dir,
+            guard_evidence=receipt_guard,
+            guard_raw_sha256=dispatch_guard_raw_sha256,
+            packet_meta=packet_meta,
+            output_path=rulings_path,
+            reviewer_model=expected_model,
+            reviewer_reasoning_effort=expected_effort,
+            reviewer_concurrency=expected_concurrency,
+            reviewer_cli_version=expected_cli_version,
+            capacity_host_identity=expected_capacity_host,
+            outcome=outcome,
+        )
+    if (
+        phase3_main_reviewer_provenance.review_packets_tree_canonical_sha256(
+            packet_dir.resolve())
+        != wave_tree_sha_after_batch
+    ):
+        raise Phase3MainLiveError(
+            "reviewer wave evidence tree changed before decision commit")
     counts = commit_decisions_into(
         DualGateDecisionStore(paths.decisions), worklist, commit_entries)
     _append_jsonl(paths.reviewer_index, {
+        "schema_version": REVIEWER_WAVE_SCHEMA,
+        "run_id": prepared.identity.run_id,
+        "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+        "authorization_canonical_sha256": canonical_sha256(current_authorization),
+        "authorization_raw_sha256": prepared.authorization_raw_sha256,
+        "authorization_signature_raw_sha256": (
+            prepared.authorization_signature_raw_sha256),
+        "capacity_plan_raw_sha256": str(
+            prepared.manifest["input_bindings"]["capacity_plan"]["sha256"]),
         "wave": wave,
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "payload_count": len(items),
-        "packet_directory": packet_dir.as_posix(),
-        "packet_index_raw_sha256": _raw_sha256(packet_dir / "INDEX.json"),
-        "rulings_raw_sha256": _raw_sha256(rulings_path),
+        "packet_directory": packet_dir.resolve().as_posix(),
+        "worklist_snapshot_raw_sha256": hashlib.sha256(worklist_raw).hexdigest(),
+        "packet_index_raw_sha256": _raw_sha256(packet_index_path),
+        "dispatch_guard_raw_sha256": dispatch_guard_raw_sha256,
+        "rulings_raw_sha256": hashlib.sha256(rulings_raw).hexdigest(),
+        "reviewer_model": expected_model,
+        "reviewer_reasoning_effort": expected_effort,
+        "reviewer_concurrency": int(runtime["reviewer_concurrency"]),
+        "reviewer_cli_resolved_path": expected_cli_path,
         "commit_counts": counts,
     })
 
@@ -1490,9 +2574,26 @@ def _finalize_main(
         "reviewer_worklist": paths.reviewer_worklist,
         "provider_error_log": paths.provider_error_log,
     }
-    current_authorization = _revalidate_authenticated_authorization(prepared)
+    provider_input_paths = {
+        name: prepared.input_paths[name]
+        for name in phase3_main_finalization.PROVIDER_INPUT_FIELDS
+    }
+    provider_input_raw_sha256s = {
+        name: str(prepared.manifest["input_bindings"][name]["sha256"])
+        for name in phase3_main_finalization.PROVIDER_INPUT_FIELDS
+    }
+    reviewer_input_paths = {
+        name: prepared.input_paths[name]
+        for name in phase3_main_finalization.REVIEWER_INPUT_FIELDS
+    }
+    reviewer_input_raw_sha256s = {
+        name: str(prepared.manifest["input_bindings"][name]["sha256"])
+        for name in phase3_main_finalization.REVIEWER_INPUT_FIELDS
+    }
+    runtime = prepared.manifest["runtime"]
+    current_authorization = _revalidate_authenticated_authorization_scope(prepared)
     authorization_sha = canonical_sha256(current_authorization)
-    finalization = phase3_main_finalization.build_finalization_admission(
+    finalization_inputs: dict[str, Any] = dict(
         run_id=prepared.identity.run_id,
         manifest_canonical_sha256=prepared.identity.manifest_sha256,
         authorization_canonical_sha256=authorization_sha,
@@ -1507,49 +2608,52 @@ def _finalize_main(
         request_journal_path=paths.request_journal,
         journal_execution_identity=prepared.identity.journal_execution_identity,
         analysis_pins_path=prepared.input_paths["analysis_pins"],
+        provider_input_paths=provider_input_paths,
+        provider_input_raw_sha256s=provider_input_raw_sha256s,
+        reviewer_input_paths=reviewer_input_paths,
+        reviewer_input_raw_sha256s=reviewer_input_raw_sha256s,
+        capacity_result_path=prepared.input_paths["capacity_result"],
+        expected_capacity_result_raw_sha256=str(
+            prepared.manifest["input_bindings"]["capacity_result"]["sha256"]),
+        capacity_dispatch_history_path=(
+            prepared.input_paths["capacity_dispatch_history"]),
+        expected_capacity_dispatch_history_raw_sha256=str(
+            prepared.manifest["input_bindings"]["capacity_dispatch_history"]["sha256"]),
+        review_packets_root_path=paths.review_packets_root,
         artifact_paths=artifacts,
         expected_oracle_model=str(prepared.protocol["roster"]["oracle"]),
+        expected_reviewer_model=str(runtime["reviewer_model"]),
+        expected_reviewer_reasoning_effort=str(
+            runtime["reviewer_reasoning_effort"]),
+        expected_reviewer_concurrency=int(runtime["reviewer_concurrency"]),
+        authorization_approved_at_utc=str(
+            current_authorization["approved_at_utc"]),
+        authorization_valid_until_utc=str(
+            current_authorization["valid_until_utc"]),
         prior_reconciled_usd=str(
             prepared.manifest["spend"]["prior_reconciled_usd"]),
         stage_cap_usd=str(current_authorization["stage_cap_usd"]),
+    )
+    finalization = phase3_main_finalization.build_finalization_admission(
+        **finalization_inputs,
         recorded_at_utc=datetime.now(timezone.utc).isoformat(),
     )
     phase3_main_finalization.validate_finalization_admission(
         finalization,
-        run_id=prepared.identity.run_id,
-        manifest_canonical_sha256=prepared.identity.manifest_sha256,
-        authorization_canonical_sha256=authorization_sha,
-        authorization_raw_sha256=prepared.authorization_raw_sha256,
-        authorization_signature_raw_sha256=(
-            prepared.authorization_signature_raw_sha256),
-        inventory=prepared.inventory,
-        context_blocklist_path=prepared.input_paths["context_blocklist"],
-        terminal_store=terminal_store,
-        result_store_path=paths.results,
-        usage_ledger_path=paths.usage_ledger,
-        request_journal_path=paths.request_journal,
-        journal_execution_identity=prepared.identity.journal_execution_identity,
-        analysis_pins_path=prepared.input_paths["analysis_pins"],
-        artifact_paths=artifacts,
-        expected_oracle_model=str(prepared.protocol["roster"]["oracle"]),
-        prior_reconciled_usd=str(
-            prepared.manifest["spend"]["prior_reconciled_usd"]),
-        stage_cap_usd=str(current_authorization["stage_cap_usd"]),
+        **finalization_inputs,
     )
-    completed_authorization = _revalidate_authenticated_authorization(prepared)
+    completed_authorization = _revalidate_authenticated_authorization_scope(prepared)
     completed_at = datetime.now(timezone.utc)
-    phase3_main_manifest.validate_main_authorization(
-        completed_authorization,
-        prepared.manifest,
-        as_of=completed_at,
-    )
+    if canonical_sha256(completed_authorization) != authorization_sha:
+        raise Phase3MainLiveError(
+            "main authorization scope changed during finalization")
     finalization = {
         **finalization,
         "recorded_at_utc": completed_at.isoformat(),
     }
     phase3_main_finalization.write_finalization_admission(paths.finalization, finalization)
     finalization_raw_sha = _raw_sha256(paths.finalization)
-    analysis_rc = phase3_main_analysis.main([
+    analysis_run = phase3_main_analysis.run_analysis([
         "--results", str(paths.results),
         "--manifest", str(prepared.manifest_path),
         "--authorization", str(prepared.authorization_path),
@@ -1559,11 +2663,69 @@ def _finalize_main(
         "--out", str(paths.analysis_results),
         "--project-root", str(prepared.project_root),
     ])
-    if analysis_rc != 0:
-        raise Phase3MainLiveError(f"main analysis returned exit {analysis_rc}")
+    if analysis_run.returncode != 0:
+        raise Phase3MainLiveError(
+            f"main analysis returned exit {analysis_run.returncode}")
     if _raw_sha256(paths.finalization) != finalization_raw_sha:
         raise Phase3MainLiveError("main finalization bytes changed during analysis")
+    _revalidate_final_boundary_inputs(prepared, finalization)
+    phase3_main_finalization.validate_finalization_admission(
+        finalization,
+        **finalization_inputs,
+    )
+    artifact_hashes_value = finalization.get("artifact_hashes")
+    artifact_hashes = (
+        cast(Mapping[str, Any], artifact_hashes_value)
+        if isinstance(artifact_hashes_value, Mapping)
+        else None
+    )
+    result_store_binding = (
+        artifact_hashes.get("result_store")
+        if artifact_hashes is not None
+        else None
+    )
+    finalization_results_raw_sha256 = (
+        result_store_binding.get("raw_sha256")
+        if isinstance(result_store_binding, Mapping)
+        else None
+    )
+    if (
+        not isinstance(finalization_results_raw_sha256, str)
+        or len(finalization_results_raw_sha256) != 64
+    ):
+        raise Phase3MainLiveError(
+            "validated finalization omits its result-store digest")
+    analysis_raw, analysis_raw_sha256 = _validate_analysis_result_snapshot(
+        prepared,
+        expected_finalization_raw_sha256=finalization_raw_sha,
+        expected_results_raw_sha256=finalization_results_raw_sha256,
+        expected_analysis_raw=analysis_run.output_raw,
+    )
     output_hashes = _completion_output_hashes(prepared)
+    if (
+        output_hashes.get("results") != finalization_results_raw_sha256
+        or output_hashes.get("finalization") != finalization_raw_sha
+        or output_hashes.get("analysis_results") != analysis_raw_sha256
+    ):
+        raise Phase3MainLiveError(
+            "completion output hashes disagree with validated finalization or analysis")
+    _require_completion_hashes_match_finalization(output_hashes, finalization)
+    try:
+        if (
+            paths.analysis_results.read_bytes() != analysis_raw
+            or _raw_sha256(paths.results) != finalization_results_raw_sha256
+            or _raw_sha256(paths.finalization) != finalization_raw_sha
+        ):
+            raise Phase3MainLiveError(
+                "formal results changed before completion was written")
+    except OSError as exc:
+        raise Phase3MainLiveError(
+            "formal results became unreadable before completion") from exc
+    final_output_hashes = _completion_output_hashes(prepared)
+    if final_output_hashes != output_hashes:
+        raise Phase3MainLiveError(
+            "formal outputs changed during completion hashing")
+    output_hashes = final_output_hashes
     completion = {
         "schema_version": "phase3_main_completion_v1",
         "status": "complete",
@@ -1572,7 +2734,7 @@ def _finalize_main(
         "manifest_canonical_sha256": prepared.identity.manifest_sha256,
         "authorization_canonical_sha256": authorization_sha,
         "finalization_raw_sha256": finalization_raw_sha,
-        "analysis_results_raw_sha256": _raw_sha256(paths.analysis_results),
+        "analysis_results_raw_sha256": analysis_raw_sha256,
         "output_hashes": output_hashes,
         "execution_authorized": False,
         "provider_calls_authorized": False,
@@ -1592,21 +2754,9 @@ def _finalize_main(
     return completion
 
 
-def _tree_sha256(path: Path) -> str:
-    if not path.is_dir():
-        raise Phase3MainLiveError(f"expected output directory is missing: {path}")
-    rows = []
-    for child in sorted((item for item in path.rglob("*") if item.is_file()),
-                        key=lambda item: item.relative_to(path).as_posix()):
-        rows.append({
-            "path": child.relative_to(path).as_posix(),
-            "raw_sha256": _raw_sha256(child),
-            "bytes": child.stat().st_size,
-        })
-    return canonical_sha256(rows)
-
-
-def _completion_output_hashes(prepared: PreparedMainRun) -> dict[str, str | None]:
+def _completion_output_hashes(
+    prepared: PreparedMainRun,
+) -> dict[str, str | None]:
     result: dict[str, str | None] = {}
     paths = prepared.manifest_validation["output_paths"]
     for name in sorted(paths):
@@ -1614,12 +2764,50 @@ def _completion_output_hashes(prepared: PreparedMainRun) -> dict[str, str | None
         if name == "completion":
             result[name] = None
         elif name == "review_packets_root":
-            result[name] = _tree_sha256(path)
+            try:
+                result[name] = (
+                    phase3_main_reviewer_provenance
+                    .review_packets_tree_canonical_sha256(path)
+                )
+            except phase3_main_reviewer_provenance.MainReviewerProvenanceError as exc:
+                raise Phase3MainLiveError(
+                    "reviewer packet tree failed completion hashing") from exc
         else:
             if not path.is_file():
                 raise Phase3MainLiveError(f"required final output is missing: {path}")
             result[name] = _raw_sha256(path)
     return result
+
+
+def _require_completion_hashes_match_finalization(
+    output_hashes: Mapping[str, str | None],
+    finalization: Mapping[str, Any],
+) -> None:
+    artifact_hashes = finalization.get("artifact_hashes")
+    if not isinstance(artifact_hashes, Mapping):
+        raise Phase3MainLiveError(
+            "validated finalization omits artifact hashes at completion")
+    for artifact_name, output_name in (
+        phase3_main_finalization.FINALIZATION_ARTIFACT_TO_MANIFEST_OUTPUT.items()
+    ):
+        artifact_binding = artifact_hashes.get(artifact_name)
+        expected_sha256 = (
+            artifact_binding.get("raw_sha256")
+            if isinstance(artifact_binding, Mapping)
+            else None
+        )
+        if output_hashes.get(output_name) != expected_sha256:
+            raise Phase3MainLiveError(
+                f"completion output {output_name!r} differs from finalization")
+    reviewer_provenance = finalization.get("reviewer_provenance")
+    expected_review_tree_sha256 = (
+        reviewer_provenance.get("review_packets_tree_canonical_sha256")
+        if isinstance(reviewer_provenance, Mapping)
+        else None
+    )
+    if output_hashes.get("review_packets_root") != expected_review_tree_sha256:
+        raise Phase3MainLiveError(
+            "completion reviewer packet tree differs from finalization")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

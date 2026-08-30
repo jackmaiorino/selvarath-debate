@@ -608,14 +608,17 @@ def baseline(synthetic_artifacts):
 
 def _artifact_binding(artifacts, name: str) -> dict:
     path = artifacts[name]
-    for base in (GREEN_ROOT, ROOT):
-        try:
-            path_value = str(path.relative_to(base).as_posix())
-            break
-        except ValueError:
-            continue
+    if name == "role_limits_and_request_settings":
+        path_value = str(path.resolve())
     else:
-        path_value = str(path)
+        for base in (GREEN_ROOT, ROOT):
+            try:
+                path_value = str(path.relative_to(base).as_posix())
+                break
+            except ValueError:
+                continue
+        else:
+            path_value = str(path)
     return {"path": path_value, "sha256": _canon_sha(path)}
 
 

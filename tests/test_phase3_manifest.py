@@ -49,7 +49,7 @@ CONTEXT_BLOCKLIST_CANARY_PATH = "rejudge/phase3_context_blocklist_canary_2026-08
 CONTEXT_BLOCKLIST_MAIN_PATH = "rejudge/phase3_context_blocklist_main_2026-08-19b.json"
 
 _IGNORE = shutil.ignore_patterns(".git", "data", "rejudge/output", "__pycache__", ".venv",
-                                 ".pytest_cache")
+                                 ".pytest_cache", ".tmp")
 
 
 # The real transcript bundles (492 main + 48 canary phase-2 transcripts) no longer live in the

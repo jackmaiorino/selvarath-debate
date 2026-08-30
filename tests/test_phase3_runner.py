@@ -54,7 +54,7 @@ GUARD_ROSTER = [
 ]
 
 _IGNORE = shutil.ignore_patterns(".git", "data", "rejudge/output", "__pycache__", ".venv",
-                                 ".pytest_cache")
+                                 ".pytest_cache", ".tmp")
 _DEBATERS = ("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Qwen/Qwen3.7-Plus")
 
 

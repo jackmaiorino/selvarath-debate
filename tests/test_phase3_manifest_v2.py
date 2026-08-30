@@ -37,7 +37,7 @@ CONTEXT_BLOCKLIST_MAIN_V1_PATH = "rejudge/phase3_context_blocklist_main_2026-08-
 FROZEN_CRANK_SETTINGS = {"review_daemon_concurrency": 12, "max_waves_per_round": 4}
 
 _IGNORE = shutil.ignore_patterns(".git", "data", "rejudge/output", "__pycache__", ".venv",
-                                 ".pytest_cache")
+                                 ".pytest_cache", ".tmp")
 
 _SYNTHETIC_MAIN_QUESTION_IDS = ("SYN-001", "SYN-002")
 _SYNTHETIC_CANARY_QUESTION_IDS = ("SYN-003",)

@@ -163,6 +163,31 @@ def test_frozen_seed_has_no_zero_subset_world_draw_and_hash_is_pinned():
             assert sum(draw.get(q, 0) for q in subset if worlds[q] == world) > 0
 
 
+def test_question_bank_snapshot_retains_exact_bound_source_bytes(tmp_path):
+    protocol = json.loads(
+        (ROOT / "rejudge" / "phase3_protocol_v3_r6.json").read_text(
+            encoding="utf-8"))
+    phase2_relative = protocol["sources"]["phase2_protocol"]
+    phase2_protocol = json.loads((ROOT / phase2_relative).read_text(encoding="utf-8"))
+    copied = [phase2_relative, *phase2_protocol["question_set"]["question_sources"]]
+    for relative in copied:
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((ROOT / relative).read_bytes())
+
+    snapshot = analysis._snapshot_protocol_bound_question_bank(protocol, tmp_path)
+    expected_main, expected_held_out = phase3_plan.load_reference_question_ids(
+        protocol, ROOT)
+    assert snapshot.main_ids == expected_main
+    assert snapshot.held_out_ids == expected_held_out
+    assert set(snapshot.bank) == set(expected_main) | set(expected_held_out)
+
+    question_path, question_raw, question_label = snapshot.stable_inputs[1]
+    question_path.write_bytes(question_raw + b"\n")
+    with pytest.raises(analysis.AnalysisError, match="changed during analysis"):
+        analysis._require_unchanged(question_path, question_raw, question_label)
+
+
 def test_fallback_s1_restricts_both_b8_and_b2():
     records = _fixture_records()
     # Outside Q1/Q3, make b8 much worse. If only one S1 arm were restricted,
@@ -366,6 +391,14 @@ def _write_analysis_finalization_fixture(tmp_path):
 
 
 def _expected_launch_kwargs(tmp_path):
+    provider_input_names = sorted(
+        analysis.phase3_main_finalization.PROVIDER_INPUT_FIELDS)
+    reviewer_input_names = sorted(
+        analysis.phase3_main_finalization.REVIEWER_INPUT_FIELDS)
+    output_paths = {
+        name: (tmp_path / filename).resolve()
+        for name, filename in analysis.phase3_main_manifest.OUTPUT_FILENAMES.items()
+    }
     return {
         "expected_run_id": "phase3-main-test",
         "expected_manifest_canonical_sha256": "a" * 64,
@@ -375,10 +408,35 @@ def _expected_launch_kwargs(tmp_path):
         "authorization_approved_at_utc": "2026-08-29T12:00:00Z",
         "authorization_valid_until_utc": "2026-08-30T12:00:00Z",
         "expected_context_blocklist_path": (tmp_path / "context.json").resolve(),
-        "expected_manifest_output_paths": {
-            name: (tmp_path / filename).resolve()
-            for name, filename in analysis.phase3_main_manifest.OUTPUT_FILENAMES.items()
+        "expected_manifest_output_paths": output_paths,
+        "expected_provider_input_paths": {
+            name: (tmp_path / f"{name}.json").resolve()
+            for name in provider_input_names
         },
+        "expected_provider_input_raw_sha256s": {
+            name: hashlib.sha256(name.encode("utf-8")).hexdigest()
+            for name in provider_input_names
+        },
+        "expected_reviewer_input_paths": {
+            name: (tmp_path / f"{name}.json").resolve()
+            for name in reviewer_input_names
+        },
+        "expected_reviewer_input_raw_sha256s": {
+            name: hashlib.sha256(name.encode("utf-8")).hexdigest()
+            for name in reviewer_input_names
+        },
+        "expected_capacity_result_path": (
+            tmp_path / "capacity_result.json").resolve(),
+        "expected_capacity_result_raw_sha256": hashlib.sha256(
+            b"capacity_result").hexdigest(),
+        "expected_capacity_dispatch_history_path": (
+            tmp_path / "capacity_dispatch_history.jsonl").resolve(),
+        "expected_capacity_dispatch_history_raw_sha256": hashlib.sha256(
+            b"capacity_dispatch_history").hexdigest(),
+        "expected_review_packets_root_path": output_paths["review_packets_root"],
+        "expected_reviewer_model": "gpt-5.6-sol",
+        "expected_reviewer_reasoning_effort": "high",
+        "expected_reviewer_concurrency": 12,
         "prior_reconciled_usd": "0",
         "stage_cap_usd": "1",
     }
@@ -419,8 +477,30 @@ def test_analysis_routes_finalization_through_full_bound_artifact_validator(
     assert captured["expected_analysis_pins_path"] == pins_path.resolve()
     assert captured["expected_manifest_output_paths"] == (
         _expected_launch_kwargs(tmp_path)["expected_manifest_output_paths"])
+    assert captured["expected_provider_input_paths"] == (
+        _expected_launch_kwargs(tmp_path)["expected_provider_input_paths"])
+    assert captured["expected_provider_input_raw_sha256s"] == (
+        _expected_launch_kwargs(tmp_path)["expected_provider_input_raw_sha256s"])
+    assert captured["expected_reviewer_input_paths"] == (
+        _expected_launch_kwargs(tmp_path)["expected_reviewer_input_paths"])
+    assert captured["expected_reviewer_input_raw_sha256s"] == (
+        _expected_launch_kwargs(tmp_path)["expected_reviewer_input_raw_sha256s"])
+    assert captured["expected_capacity_result_path"] == (
+        _expected_launch_kwargs(tmp_path)["expected_capacity_result_path"])
+    assert captured["expected_capacity_result_raw_sha256"] == (
+        _expected_launch_kwargs(tmp_path)["expected_capacity_result_raw_sha256"])
+    assert captured["expected_capacity_dispatch_history_path"] == (
+        _expected_launch_kwargs(tmp_path)["expected_capacity_dispatch_history_path"])
+    assert captured["expected_capacity_dispatch_history_raw_sha256"] == (
+        _expected_launch_kwargs(tmp_path)[
+            "expected_capacity_dispatch_history_raw_sha256"])
+    assert captured["expected_review_packets_root_path"] == (
+        _expected_launch_kwargs(tmp_path)["expected_review_packets_root_path"])
     assert captured["expected_checker_model"] == protocol["roster"]["query_checker"]
     assert captured["expected_oracle_model"] == protocol["roster"]["oracle"]
+    assert captured["expected_reviewer_model"] == "gpt-5.6-sol"
+    assert captured["expected_reviewer_reasoning_effort"] == "high"
+    assert captured["authorization_valid_until_utc"] == "2026-08-30T12:00:00Z"
     assert captured["expected_authorization_raw_sha256"] == "c" * 64
     assert captured["expected_authorization_signature_raw_sha256"] == "d" * 64
     assert analysis.phase3_main_finalization.inventory_canonical_sha256(
@@ -482,6 +562,26 @@ def test_analysis_output_cannot_alias_an_immutable_input(tmp_path):
         ])
 
 
+def test_analysis_output_receipt_binds_exact_immutable_bytes(tmp_path):
+    output = tmp_path / "analysis.json"
+    result = {"schema_version": "fixture", "estimate": 0.25}
+
+    raw = analysis._write_analysis_output(output, result)
+
+    assert raw == output.read_bytes()
+    assert json.loads(raw) == result
+    with pytest.raises(analysis.AnalysisError, match="already exists"):
+        analysis._write_analysis_output(output, result)
+
+
+def test_analysis_output_writer_rejects_nonfinite_results(tmp_path):
+    with pytest.raises(ValueError, match="Out of range float values"):
+        analysis._write_analysis_output(
+            tmp_path / "analysis.json",
+            {"estimate": float("inf")},
+        )
+
+
 def test_analysis_rejects_finalization_mutation_after_validation(tmp_path):
     finalization_path = tmp_path / "finalization.json"
     admitted = b'{"status":"admitted"}\n'
@@ -496,6 +596,41 @@ def test_analysis_rejects_finalization_mutation_after_validation(tmp_path):
 
     with pytest.raises(analysis.AnalysisError, match="changed during analysis"):
         analysis._require_unchanged(*stable_input)
+
+
+def test_post_analysis_repeats_full_finalization_validation(monkeypatch, tmp_path):
+    captured = {}
+
+    def reject_tampered_evidence(path, **kwargs):
+        captured["path"] = path
+        captured.update(kwargs)
+        raise analysis.AnalysisError(
+            "main finalization failed full bound-artifact validation: reviewer tree drifted")
+
+    monkeypatch.setattr(
+        analysis, "_load_finalization_exclusions", reject_tampered_evidence)
+    finalization_path = tmp_path / "finalization.json"
+    with pytest.raises(
+        analysis.AnalysisError,
+        match="reviewer tree drifted",
+    ):
+        analysis._require_finalization_admission_unchanged(
+            finalization_path,
+            results_path=tmp_path / "results.jsonl",
+            protocol={},
+            pins_path=tmp_path / "pins.json",
+            project_root=ROOT,
+            validation_kwargs={"expected_run_id": "phase3-main-test"},
+            expected_results_raw_sha256="a" * 64,
+            expected_pins_raw_sha256="b" * 64,
+            expected_terminal_cell_keys=[],
+            expected_context_ineligible_cell_keys=[],
+            expected_finalization_raw_sha256="c" * 64,
+        )
+    assert captured["path"] == finalization_path
+    assert captured["expected_run_id"] == "phase3-main-test"
+    assert captured["expected_results_raw_sha256"] == "a" * 64
+    assert captured["expected_pins_raw_sha256"] == "b" * 64
 
 
 def test_finalization_cannot_mix_with_even_empty_explicit_key_files(tmp_path):
@@ -519,6 +654,55 @@ def test_finalization_cannot_mix_with_even_empty_explicit_key_files(tmp_path):
             "--context-ineligible-cell-keys", str(tmp_path / "empty-context.json"),
         ])
     assert exc.value.code == 2
+
+
+def test_resolve_exclusions_forwards_provenance_bindings(tmp_path, monkeypatch):
+    expected = _expected_launch_kwargs(tmp_path)
+    captured = {}
+
+    def load(path, **kwargs):
+        captured["path"] = path
+        captured.update(kwargs)
+        return ["terminal"], ["context"], "e" * 64
+
+    monkeypatch.setattr(analysis, "_load_finalization_exclusions", load)
+    finalization_path = tmp_path / "finalization.json"
+    observed = analysis._resolve_exclusions(
+        finalization_path=finalization_path,
+        terminal_path=None,
+        context_path=None,
+        results_path=tmp_path / "results.jsonl",
+        protocol={},
+        pins_path=tmp_path / "pins.json",
+        project_root=ROOT,
+        **expected,
+    )
+
+    assert observed == (["terminal"], ["context"], "e" * 64)
+    assert captured["path"] == finalization_path
+    assert captured["expected_provider_input_paths"] == (
+        expected["expected_provider_input_paths"])
+    assert captured["expected_provider_input_raw_sha256s"] == (
+        expected["expected_provider_input_raw_sha256s"])
+    assert captured["expected_reviewer_input_paths"] == (
+        expected["expected_reviewer_input_paths"])
+    assert captured["expected_reviewer_input_raw_sha256s"] == (
+        expected["expected_reviewer_input_raw_sha256s"])
+    assert captured["expected_capacity_result_path"] == (
+        expected["expected_capacity_result_path"])
+    assert captured["expected_capacity_result_raw_sha256"] == (
+        expected["expected_capacity_result_raw_sha256"])
+    assert captured["expected_capacity_dispatch_history_path"] == (
+        expected["expected_capacity_dispatch_history_path"])
+    assert captured["expected_capacity_dispatch_history_raw_sha256"] == (
+        expected["expected_capacity_dispatch_history_raw_sha256"])
+    assert captured["expected_review_packets_root_path"] == (
+        expected["expected_review_packets_root_path"])
+    assert captured["expected_reviewer_model"] == expected["expected_reviewer_model"]
+    assert captured["expected_reviewer_reasoning_effort"] == (
+        expected["expected_reviewer_reasoning_effort"])
+    assert captured["authorization_valid_until_utc"] == (
+        expected["authorization_valid_until_utc"])
 
 
 def test_confirmatory_analysis_cli_requires_finalization():

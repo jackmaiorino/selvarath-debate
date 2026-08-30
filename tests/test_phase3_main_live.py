@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import json
 import shutil
 import subprocess
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -30,7 +33,9 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
     inputs.mkdir(parents=True)
     input_paths = {}
     for name in (
-        "protocol", "main_transcript_bundle", "transcript_verification",
+        "protocol", "prompt_bundle", "reviewer_prompt",
+        "reviewer_failure_policy", "role_limits",
+        "main_transcript_bundle", "transcript_verification",
         "capacity_plan", "capacity_result", "capacity_dispatch_history",
         "context_blocklist", "analysis_pins", "billing_reconciliation",
         "price_snapshot", "raw_provider_catalog", "raw_serverless_endpoints",
@@ -137,6 +142,158 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         inventory=inventory,
         context_excluded_cell_keys=(),
     )
+
+
+def _with_current_boundary_files(
+    prepared: phase3_main_live.PreparedMainRun,
+) -> phase3_main_live.PreparedMainRun:
+    manifest_sha256 = phase3_main_live.phase3_main_manifest.manifest_canonical_sha256(
+        prepared.manifest)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    prepared.authorization_path.write_text(
+        json.dumps(prepared.authorization, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    signature_path = prepared.authorization_path.with_name(
+        f"{prepared.authorization_path.name}.sig")
+    validation = {
+        **prepared.manifest_validation,
+        "manifest_canonical_sha256": manifest_sha256,
+    }
+    return replace(
+        prepared,
+        manifest_validation=validation,
+        authorization_raw_sha256=hashlib.sha256(
+            prepared.authorization_path.read_bytes()).hexdigest(),
+        authorization_signature_raw_sha256=hashlib.sha256(
+            signature_path.read_bytes()).hexdigest(),
+    )
+
+
+def _write_valid_analysis_snapshot(
+    prepared: phase3_main_live.PreparedMainRun,
+    monkeypatch,
+    *,
+    finalization_sha256: str,
+) -> dict:
+    prepared.identity.artifact_root.mkdir(parents=True, exist_ok=True)
+    prepared.identity.paths.results.write_text(
+        '{"fixture":"result"}\n', encoding="utf-8", newline="\n")
+    pins = {
+        "bootstrap": {
+            "B": 2000,
+            "seed": 20260829,
+            "precomputed_full_draw_matrix_sha256": "d" * 64,
+        },
+    }
+    pins_path = prepared.input_paths["analysis_pins"]
+    pins_path.write_text(
+        json.dumps(pins, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    manifest = cast(dict[str, Any], prepared.manifest)
+    protocol = cast(dict[str, Any], prepared.protocol)
+    manifest["input_bindings"]["analysis_pins"]["sha256"] = hashlib.sha256(
+        pins_path.read_bytes()).hexdigest()
+    manifest["toolchain"] = {"python_version": phase3_main_live.platform.python_version()}
+    protocol["planning_cell_identity"] = {
+        "question_bank_bundle_sha256": "e" * 64,
+    }
+    protocol["source_bindings"] = {
+        "canonical_json_sha256": {
+            "rejudge/phase2_protocol.json": "f" * 64,
+        },
+    }
+    protocol["roster"]["judges_final"] = ["fixture-judge"]
+    question_bank = {
+        "fixture-question": {
+            "question": "Which fixture is bound?",
+            "world": "fixture-world",
+        },
+    }
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_analysis,
+        "validate_analysis_pins",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_analysis,
+        "_snapshot_protocol_bound_question_bank",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            main_ids=("fixture-question",),
+            bank=question_bank,
+            stable_inputs=(),
+        ),
+    )
+    result: dict[str, Any] = {
+        field: {}
+        for field in phase3_main_live.ANALYSIS_RESULT_FIELDS
+    }
+    primary_ids = frozenset(phase3_main_live.phase3_main_analysis.PRIMARY_IDS)
+    estimand_ids = primary_ids | {"S1"}
+    result["domains"] = {estimand: ["fixture-question"] for estimand in estimand_ids}
+    result["primary"] = {estimand: {} for estimand in primary_ids}
+    result["valid_only_sensitivity"] = {estimand: {} for estimand in estimand_ids}
+    result["strict_support"] = {estimand: {} for estimand in estimand_ids}
+    result["per_judge_descriptive"] = {
+        "fixture-judge": {estimand: {} for estimand in estimand_ids},
+    }
+    result["claims"] = {"pooled": "fixture", "per_judge": "fixture", "prohibited": "fixture"}
+    result["all_invalid_scenarios"] = {
+        "role": "fixture",
+        "common_draw_matrix_sha256": "d" * 64,
+        "all_invalid_correct": {estimand: {} for estimand in estimand_ids},
+        "all_invalid_wrong": {estimand: {} for estimand in estimand_ids},
+    }
+    count_keys = {
+        f"fixture-judge|{condition}"
+        for condition in phase3_main_live.phase3_main_analysis.ALL_CONDITIONS
+    }
+    result["invalid_counts_by_judge_condition"] = {
+        key: 0 for key in count_keys
+    }
+    result["terminal_invalid_counts_by_judge_condition"] = {
+        key: 0 for key in count_keys
+    }
+    result["invalid_counts_by_budget_judge_replicate_block"] = []
+    result["schema_version"] = phase3_main_live.ANALYSIS_RESULT_SCHEMA
+    result["bootstrap"] = {
+        "B": 2000,
+        "seed": 20260829,
+        "prng": "CPython random.Random MT19937",
+        "draw_matrix_sha256": "d" * 64,
+        "strata": {"fixture-world": ["fixture-question"]},
+    }
+    result["integrity"] = {
+        "repository_head_at_analysis": prepared.manifest["source_commit"],
+        "engine_git_commit": prepared.manifest["source_commit"],
+        "engine_git_state": "clean_tracked_at_head",
+        "engine_git_status_porcelain": None,
+        "engine_raw_sha256": phase3_main_live._raw_sha256(
+            Path(phase3_main_live.phase3_main_analysis.__file__).resolve()),
+        "python_version": phase3_main_live.platform.python_version(),
+        "protocol_canonical_sha256": phase3_main_live.canonical_sha256(
+            prepared.protocol),
+        "protocol_question_bank_bundle_sha256": "e" * 64,
+        "protocol_phase2_question_source_canonical_sha256": "f" * 64,
+        "main_question_ids_canonical_sha256": phase3_main_live.canonical_sha256(
+            ["fixture-question"]),
+        "main_question_rows_canonical_sha256": phase3_main_live.canonical_sha256(
+            question_bank),
+        "pins_raw_sha256": hashlib.sha256(pins_path.read_bytes()).hexdigest(),
+        "results_raw_sha256": hashlib.sha256(
+            prepared.identity.paths.results.read_bytes()).hexdigest(),
+        "finalization_raw_sha256": finalization_sha256,
+        "terminal_cell_keys_raw_sha256": None,
+        "context_ineligible_cell_keys_raw_sha256": None,
+        "record_count": len(prepared.inventory.judgment_cells),
+    }
+    prepared.identity.paths.analysis_results.write_text(
+        json.dumps(result, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    return result
 
 
 def test_public_live_entry_has_no_client_factory_path_cap_or_resume_injection():
@@ -262,6 +419,13 @@ def test_strict_json_loader_rejects_duplicate_keys(tmp_path):
         phase3_main_live._load_strict_object(path, "manifest")
 
 
+def test_strict_json_loader_rejects_numeric_overflow(tmp_path):
+    path = tmp_path / "overflow.json"
+    path.write_text('{"estimate":1e999}\n', encoding="utf-8")
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="strict JSON"):
+        phase3_main_live._load_strict_object(path, "analysis")
+
+
 def test_bound_input_is_hashed_and_parsed_from_the_same_bytes(tmp_path):
     path = tmp_path / "bound.json"
     path.write_text('{"value":"original"}\n', encoding="utf-8")
@@ -362,6 +526,187 @@ def test_runtime_revalidation_rejects_same_semantics_with_different_signed_bytes
         phase3_main_live._revalidate_authenticated_authorization(prepared)
 
 
+@pytest.mark.parametrize("mutated", ["manifest", "authorization", "signature"])
+def test_final_boundary_reopens_manifest_authorization_and_signature(
+    tmp_path, inventory, monkeypatch, mutated,
+):
+    prepared = _with_current_boundary_files(_prepared(tmp_path, inventory))
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_load_authenticated_owner_authorization",
+        lambda _path: dict(prepared.authorization),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *_args, **_kwargs: {
+            "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live, "_verify_clean_git_identity", lambda *_args: None)
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        lambda *_args, **_kwargs: {},
+    )
+    if mutated == "manifest":
+        changed = dict(prepared.manifest)
+        changed["run_id"] = "mutated-after-analysis"
+        prepared.manifest_path.write_text(
+            json.dumps(changed) + "\n", encoding="utf-8", newline="\n")
+    elif mutated == "authorization":
+        prepared.authorization_path.write_bytes(
+            prepared.authorization_path.read_bytes() + b" ")
+    else:
+        signature_path = prepared.authorization_path.with_name(
+            f"{prepared.authorization_path.name}.sig")
+        signature_path.write_bytes(signature_path.read_bytes() + b"x")
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="changed before completion"):
+        phase3_main_live._revalidate_final_boundary_inputs(
+            prepared,
+            {"recorded_at_utc": "2026-08-29T20:30:00Z"},
+        )
+
+
+def test_final_boundary_uses_approved_time_for_post_expiry_closeout(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    authorization = {
+        **prepared.authorization,
+        "valid_until_utc": "2026-08-29T21:00:00Z",
+    }
+    prepared = _with_current_boundary_files(
+        replace(prepared, authorization=authorization))
+    observed_as_of = []
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_load_authenticated_owner_authorization",
+        lambda _path: dict(prepared.authorization),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *_args, **_kwargs: {
+            "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live, "_verify_clean_git_identity", lambda *_args: None)
+
+    def validate_authorization(_authorization, _manifest, *, as_of):
+        observed_as_of.append(as_of)
+        assert as_of.isoformat() == "2026-08-29T20:15:00+00:00"
+        return {}
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        validate_authorization,
+    )
+
+    assert phase3_main_live._revalidate_final_boundary_inputs(
+        prepared,
+        {"recorded_at_utc": "2026-08-29T21:00:00.000001Z"},
+    ) == prepared.authorization
+    assert len(observed_as_of) == 1
+
+
+def test_analysis_result_snapshot_binds_current_formal_inputs(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    finalization_sha256 = "9" * 64
+    _write_valid_analysis_snapshot(
+        prepared,
+        monkeypatch,
+        finalization_sha256=finalization_sha256,
+    )
+    expected_results_sha256 = hashlib.sha256(
+        prepared.identity.paths.results.read_bytes()).hexdigest()
+
+    raw, digest = phase3_main_live._validate_analysis_result_snapshot(
+        prepared,
+        expected_finalization_raw_sha256=finalization_sha256,
+        expected_results_raw_sha256=expected_results_sha256,
+        expected_analysis_raw=(
+            prepared.identity.paths.analysis_results.read_bytes()),
+    )
+
+    assert digest == hashlib.sha256(raw).hexdigest()
+    assert raw == prepared.identity.paths.analysis_results.read_bytes()
+
+
+@pytest.mark.parametrize("tamper", ["malformed", "integrity", "strata", "science"])
+def test_analysis_result_snapshot_rejects_unvalidated_or_drifted_output(
+    tmp_path, inventory, monkeypatch, tamper,
+):
+    prepared = _prepared(tmp_path, inventory)
+    finalization_sha256 = "9" * 64
+    result = _write_valid_analysis_snapshot(
+        prepared,
+        monkeypatch,
+        finalization_sha256=finalization_sha256,
+    )
+    if tamper == "malformed":
+        changed = {}
+    elif tamper == "integrity":
+        changed = json.loads(json.dumps(result))
+        changed["integrity"]["results_raw_sha256"] = "0" * 64
+    elif tamper == "strata":
+        changed = json.loads(json.dumps(result))
+        changed["bootstrap"]["strata"] = {}
+    else:
+        changed = json.loads(json.dumps(result))
+        changed["primary"] = "not-an-object"
+    prepared.identity.paths.analysis_results.write_text(
+        json.dumps(changed, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="analysis"):
+        phase3_main_live._validate_analysis_result_snapshot(
+            prepared,
+            expected_finalization_raw_sha256=finalization_sha256,
+            expected_results_raw_sha256=hashlib.sha256(
+                prepared.identity.paths.results.read_bytes()).hexdigest(),
+            expected_analysis_raw=(
+                prepared.identity.paths.analysis_results.read_bytes()),
+        )
+
+
+def test_analysis_result_snapshot_rejects_shape_preserving_replacement(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    finalization_sha256 = "9" * 64
+    result = _write_valid_analysis_snapshot(
+        prepared,
+        monkeypatch,
+        finalization_sha256=finalization_sha256,
+    )
+    trusted_raw = prepared.identity.paths.analysis_results.read_bytes()
+    changed = json.loads(json.dumps(result))
+    changed["primary"]["D1"] = {"estimate": 0.123}
+    prepared.identity.paths.analysis_results.write_text(
+        json.dumps(changed, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="trusted in-process output",
+    ):
+        phase3_main_live._validate_analysis_result_snapshot(
+            prepared,
+            expected_finalization_raw_sha256=finalization_sha256,
+            expected_results_raw_sha256=hashlib.sha256(
+                prepared.identity.paths.results.read_bytes()).hexdigest(),
+            expected_analysis_raw=trusted_raw,
+        )
+
+
 def test_paid_call_revalidates_authorization_and_price_before_dispatch(
     tmp_path, inventory, monkeypatch,
 ):
@@ -370,25 +715,259 @@ def test_paid_call_revalidates_authorization_and_price_before_dispatch(
 
     monkeypatch.setattr(
         phase3_main_live,
-        "_revalidate_authenticated_authorization",
-        lambda _prepared: events.append("authorization"),
-    )
-    monkeypatch.setattr(
-        phase3_main_live,
-        "_revalidate_price_snapshot",
-        lambda _prepared: events.append("price"),
+        "_authorize_provider_logical_dispatch",
+        lambda _prepared: (
+            events.append("authorization")
+            or "2026-08-30T12:00:00+00:00"),
     )
 
     class Inner:
         dry_run = False
 
-        def complete(self, *args, **kwargs):
+        def complete(
+            self, *args, _logical_dispatch_authorization_hook=None, **kwargs,
+        ):
+            events.append("raw")
+            assert _logical_dispatch_authorization_hook() == (
+                "2026-08-30T12:00:00+00:00")
             events.append("provider")
             return "response"
 
     client = phase3_main_live._AuthorizationDeadlineClient(prepared, Inner())
     assert client.complete(messages=[], model="judge") == "response"
-    assert events == ["authorization", "price", "provider"]
+    assert events == ["raw", "authorization", "provider"]
+
+
+def test_provider_authorization_hook_runs_price_before_exact_timed_authority(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    events = []
+    authorized_at = phase3_main_live.datetime.now(
+        phase3_main_live.timezone.utc)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_price_snapshot",
+        lambda candidate: events.append(("price", candidate)),
+    )
+
+    def reload_authorization(candidate):
+        events.append(("signature", candidate))
+        return prepared.authorization
+
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_load_unchanged_authenticated_authorization",
+        reload_authorization,
+    )
+
+    def validate(authorization, manifest, *, as_of=None):
+        events.append(("authorization", authorization, manifest, as_of))
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        validate,
+    )
+
+    class FrozenDateTime:
+        @staticmethod
+        def now(_timezone):
+            return authorized_at
+
+    monkeypatch.setattr(phase3_main_live, "datetime", FrozenDateTime)
+
+    assert phase3_main_live._authorize_provider_logical_dispatch(prepared) == (
+        authorized_at.isoformat())
+    assert events == [
+        ("price", prepared),
+        ("signature", prepared),
+        (
+            "authorization",
+            prepared.authorization,
+            prepared.manifest,
+            authorized_at,
+        ),
+    ]
+
+
+def test_provider_authorization_expiry_during_signature_check_blocks_before_reservation(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    signature_verified = False
+    expired_at = phase3_main_live.datetime.fromisoformat(
+        "2026-10-13T20:15:00.000001+00:00")
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_price_snapshot",
+        lambda candidate: None,
+    )
+
+    def reload_authorization(candidate):
+        nonlocal signature_verified
+        assert candidate is prepared
+        signature_verified = True
+        return prepared.authorization
+
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_load_unchanged_authenticated_authorization",
+        reload_authorization,
+    )
+
+    class ExpiredAfterSignatureDateTime:
+        @staticmethod
+        def now(_timezone):
+            assert signature_verified
+            return expired_at
+
+    monkeypatch.setattr(
+        phase3_main_live, "datetime", ExpiredAfterSignatureDateTime)
+
+    def reject_expired(authorization, manifest, *, as_of=None):
+        assert authorization is prepared.authorization
+        assert manifest is prepared.manifest
+        assert as_of == expired_at
+        raise phase3_main_live.phase3_main_manifest.MainManifestError(
+            "main authorization is not active at the validation time")
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        reject_expired,
+    )
+
+    class SDK:
+        def __init__(self):
+            self.calls = 0
+            outer = self
+
+            class Completions:
+                @staticmethod
+                def create(**_kwargs):
+                    outer.calls += 1
+                    raise AssertionError("expired authorization reached provider")
+
+            self.chat = SimpleNamespace(completions=Completions())
+
+    sdk = SDK()
+    raw = phase3_main_live.api_client.RejudgeClient(
+        approved_cap_usd=1.0,
+        _sdk_client=sdk,
+        max_retries=0,
+    )
+    client = phase3_main_live._AuthorizationDeadlineClient(prepared, raw)
+
+    with pytest.raises(
+        phase3_main_live.phase3_main_manifest.MainManifestError,
+        match="not active",
+    ):
+        client.complete(
+            messages=[{"role": "user", "content": "question"}],
+            model="fixture-model",
+            temperature=0.0,
+            seed=1,
+            max_tokens=8,
+        )
+
+    assert raw.usage_events == []
+    assert sdk.calls == 0
+
+
+def test_full_provider_stack_replays_after_expiry_but_blocks_a_new_journal_miss(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    authorization_calls = []
+    expired = False
+
+    def authorize(candidate):
+        assert candidate is prepared
+        authorization_calls.append("checked")
+        if expired:
+            raise phase3_main_live.Phase3MainLiveError("authorization expired")
+        return "2026-08-30T12:00:00Z"
+
+    monkeypatch.setattr(
+        phase3_main_live, "_authorize_provider_logical_dispatch", authorize)
+
+    class Sdk:
+        def __init__(self):
+            self.calls = []
+            outer = self
+
+            class Completions:
+                @staticmethod
+                def create(**kwargs):
+                    outer.calls.append(dict(kwargs))
+                    return SimpleNamespace(
+                        usage=SimpleNamespace(
+                            prompt_tokens=2, completion_tokens=1),
+                        choices=[SimpleNamespace(
+                            message=SimpleNamespace(content="response"),
+                            finish_reason="stop",
+                        )],
+                        model="fixture-model",
+                        id="fixture-response",
+                        system_fingerprint=None,
+                    )
+
+            self.chat = SimpleNamespace(completions=Completions())
+
+    sdk = Sdk()
+    raw = phase3_main_live.api_client.RejudgeClient(
+        approved_cap_usd=1.0,
+        _sdk_client=sdk,
+        max_retries=0,
+    )
+    authorized = phase3_main_live._AuthorizationDeadlineClient(prepared, raw)
+    resolved = phase3_main_live.RoleLimitResolvingClient(authorized, {})
+    client = phase3_main_live.JournalingClient(
+        resolved,
+        phase3_main_live.RequestJournal(
+            tmp_path / "provider-stack-journal.jsonl",
+            execution_identity="provider-stack-expiry-test",
+        ),
+    )
+    common = dict(
+        messages=[{"role": "user", "content": "question"}],
+        model="fixture-model",
+        temperature=0.0,
+        seed=1,
+        max_tokens=8,
+        kind="verdict",
+    )
+    first_metadata = {
+        "cell_key": "cell-1",
+        "call_role": "judge_verdict",
+        "slot": 0,
+        "attempt": 0,
+    }
+    assert client.complete(
+        **common, request_metadata=first_metadata) == "response"
+    assert authorization_calls == ["checked"]
+    assert len(sdk.calls) == 1
+
+    expired = True
+    assert client.complete(
+        **common, request_metadata=first_metadata) == "response"
+    assert authorization_calls == ["checked"]
+    assert len(sdk.calls) == 1
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="authorization expired",
+    ):
+        client.complete(
+            **common,
+            request_metadata={
+                **first_metadata,
+                "cell_key": "cell-2",
+            },
+        )
+    assert authorization_calls == ["checked", "checked"]
+    assert len(sdk.calls) == 1
 
 
 def test_finalization_revalidates_exact_authorization_and_binds_stored_raw_hashes(
@@ -422,7 +1001,7 @@ def test_finalization_revalidates_exact_authorization_and_binds_stored_raw_hashe
         raise FinalizationReached
 
     monkeypatch.setattr(
-        phase3_main_live, "_revalidate_authenticated_authorization", revalidate)
+        phase3_main_live, "_revalidate_authenticated_authorization_scope", revalidate)
     monkeypatch.setattr(
         phase3_main_live.phase3_main_finalization,
         "build_finalization_admission",
@@ -467,7 +1046,7 @@ def test_finalization_completion_timestamp_and_write_follow_final_authority_chec
         return prepared.authorization
 
     monkeypatch.setattr(
-        phase3_main_live, "_revalidate_authenticated_authorization", revalidate)
+        phase3_main_live, "_revalidate_authenticated_authorization_scope", revalidate)
     monkeypatch.setattr(
         phase3_main_live.phase3_main_finalization,
         "build_finalization_admission",
@@ -480,12 +1059,6 @@ def test_finalization_completion_timestamp_and_write_follow_final_authority_chec
         "validate_finalization_admission",
         lambda *args, **kwargs: events.append("validate") or {},
     )
-    monkeypatch.setattr(
-        phase3_main_live.phase3_main_manifest,
-        "validate_main_authorization",
-        lambda *args, **kwargs: events.append("completion-window") or {},
-    )
-
     class FinalizationWritten(Exception):
         pass
 
@@ -515,10 +1088,314 @@ def test_finalization_completion_timestamp_and_write_follow_final_authority_chec
         "build",
         "validate",
         "authorization",
-        "completion-window",
         "write",
     ]
     assert captured["recorded_at_utc"] != "provisional"
+
+
+def test_completion_revalidates_capacity_evidence_after_analysis(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared = replace(
+        prepared,
+        protocol={
+            **prepared.protocol,
+            "roster": {
+                **prepared.protocol["roster"],
+                "oracle": "fixture oracle",
+            },
+        },
+    )
+    prepared.identity.artifact_root.mkdir(parents=True)
+    capacity_result_path = prepared.input_paths["capacity_result"]
+    expected_capacity_sha = hashlib.sha256(
+        capacity_result_path.read_bytes()).hexdigest()
+    validate_calls = []
+
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization_scope",
+        lambda _prepared: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "build_finalization_admission",
+        lambda **_kwargs: {"recorded_at_utc": "provisional"},
+    )
+
+    def validate(_record, **kwargs):
+        validate_calls.append(kwargs)
+        if len(validate_calls) == 2:
+            observed = hashlib.sha256(capacity_result_path.read_bytes()).hexdigest()
+            if observed != kwargs["expected_capacity_result_raw_sha256"]:
+                raise phase3_main_live.phase3_main_finalization.MainFinalizationError(
+                    "capacity evidence drifted after analysis")
+        return {}
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "validate_finalization_admission",
+        validate,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_final_boundary_inputs",
+        lambda *_args, **_kwargs: prepared.authorization,
+    )
+
+    def write_finalization(path, record):
+        path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "write_finalization_admission",
+        write_finalization,
+    )
+
+    def analysis(_argv):
+        capacity_result_path.write_text('{"tampered":true}\n', encoding="utf-8")
+        prepared.identity.paths.analysis_results.write_text(
+            "{}\n", encoding="utf-8")
+        return phase3_main_live.phase3_main_analysis.AnalysisRunReceipt(
+            returncode=0,
+            output_raw=prepared.identity.paths.analysis_results.read_bytes(),
+        )
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_analysis,
+        "run_analysis",
+        analysis,
+    )
+    terminal_store = (
+        phase3_main_live.phase3_main_finalization.MainTerminalDispositionStore(
+            tmp_path / "terminal-post-analysis.jsonl",
+            run_id=prepared.identity.run_id,
+            manifest_canonical_sha256=prepared.identity.manifest_sha256,
+            inventory=prepared.inventory,
+        )
+    )
+
+    with pytest.raises(
+        phase3_main_live.phase3_main_finalization.MainFinalizationError,
+        match="capacity evidence drifted after analysis",
+    ):
+        phase3_main_live._finalize_main(prepared, terminal_store)
+
+    assert len(validate_calls) == 2
+    assert validate_calls[0]["expected_capacity_result_raw_sha256"] == (
+        expected_capacity_sha)
+    assert not prepared.identity.paths.completion.exists()
+
+
+def test_completion_rejects_zero_return_with_unvalidated_analysis_output(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared = replace(
+        prepared,
+        protocol={
+            **prepared.protocol,
+            "roster": {
+                **prepared.protocol["roster"],
+                "oracle": "fixture oracle",
+            },
+        },
+    )
+    prepared.identity.artifact_root.mkdir(parents=True)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization_scope",
+        lambda _prepared: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_final_boundary_inputs",
+        lambda *_args, **_kwargs: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "build_finalization_admission",
+        lambda **_kwargs: {
+            "recorded_at_utc": "provisional",
+            "artifact_hashes": {
+                "result_store": {"raw_sha256": "7" * 64},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "validate_finalization_admission",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "write_finalization_admission",
+        lambda path, record: path.write_text(
+            json.dumps(record) + "\n", encoding="utf-8"),
+    )
+
+    def analysis(_argv):
+        prepared.identity.paths.analysis_results.write_text(
+            "{}\n", encoding="utf-8", newline="\n")
+        return phase3_main_live.phase3_main_analysis.AnalysisRunReceipt(
+            returncode=0,
+            output_raw=prepared.identity.paths.analysis_results.read_bytes(),
+        )
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_analysis, "run_analysis", analysis)
+    terminal_store = (
+        phase3_main_live.phase3_main_finalization.MainTerminalDispositionStore(
+            tmp_path / "terminal-malformed-analysis.jsonl",
+            run_id=prepared.identity.run_id,
+            manifest_canonical_sha256=prepared.identity.manifest_sha256,
+            inventory=prepared.inventory,
+        )
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="analysis result fields drifted",
+    ):
+        phase3_main_live._finalize_main(prepared, terminal_store)
+
+    assert not prepared.identity.paths.completion.exists()
+    assert not phase3_main_live._identity_complete_path(prepared.identity).exists()
+
+
+@pytest.mark.parametrize(
+    "mutated", ["results", "analysis", "decisions", "review_packets"])
+def test_completion_rejects_post_validation_output_mutation(
+    tmp_path, inventory, monkeypatch, mutated,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared = replace(
+        prepared,
+        protocol={
+            **prepared.protocol,
+            "roster": {
+                **prepared.protocol["roster"],
+                "oracle": "fixture oracle",
+            },
+        },
+    )
+    prepared.identity.artifact_root.mkdir(parents=True)
+    prepared.identity.paths.results.write_bytes(b"stable-results\n")
+    expected_results_sha256 = hashlib.sha256(
+        prepared.identity.paths.results.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization_scope",
+        lambda _prepared: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_final_boundary_inputs",
+        lambda *_args, **_kwargs: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_authorization",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "build_finalization_admission",
+        lambda **_kwargs: {
+            "recorded_at_utc": "provisional",
+            "artifact_hashes": {
+                "result_store": {"raw_sha256": expected_results_sha256},
+            },
+        },
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "validate_finalization_admission",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization,
+        "write_finalization_admission",
+        lambda path, record: path.write_text(
+            json.dumps(record) + "\n", encoding="utf-8"),
+    )
+
+    def analysis(_argv):
+        prepared.identity.paths.analysis_results.write_bytes(b"stable-analysis\n")
+        return phase3_main_live.phase3_main_analysis.AnalysisRunReceipt(
+            returncode=0,
+            output_raw=prepared.identity.paths.analysis_results.read_bytes(),
+        )
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_analysis, "run_analysis", analysis)
+
+    def validate_analysis(_prepared, **_kwargs):
+        raw = prepared.identity.paths.analysis_results.read_bytes()
+        return raw, hashlib.sha256(raw).hexdigest()
+
+    monkeypatch.setattr(
+        phase3_main_live, "_validate_analysis_result_snapshot", validate_analysis)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_require_completion_hashes_match_finalization",
+        lambda *_args, **_kwargs: None,
+    )
+
+    hash_calls = 0
+    def output_hashes(_prepared, *, analysis_results_raw_sha256=None):
+        nonlocal hash_calls
+        hash_calls += 1
+        if mutated == "results":
+            prepared.identity.paths.results.write_bytes(b"changed-results\n")
+        else:
+            if mutated == "analysis" and hash_calls > 1:
+                prepared.identity.paths.analysis_results.write_bytes(
+                    b"changed-analysis\n")
+        return {
+            "results": hashlib.sha256(
+                prepared.identity.paths.results.read_bytes()).hexdigest(),
+            "finalization": hashlib.sha256(
+                prepared.identity.paths.finalization.read_bytes()).hexdigest(),
+            "analysis_results": (
+                analysis_results_raw_sha256
+                or hashlib.sha256(
+                    prepared.identity.paths.analysis_results.read_bytes()).hexdigest()),
+            "decisions": (
+                "b" * 64 if mutated == "decisions" and hash_calls > 1 else "a" * 64),
+            "review_packets_root": (
+                "d" * 64
+                if mutated == "review_packets" and hash_calls > 1
+                else "c" * 64),
+        }
+
+    monkeypatch.setattr(
+        phase3_main_live, "_completion_output_hashes", output_hashes)
+    terminal_store = (
+        phase3_main_live.phase3_main_finalization.MainTerminalDispositionStore(
+            tmp_path / f"terminal-{mutated}-mutation.jsonl",
+            run_id=prepared.identity.run_id,
+            manifest_canonical_sha256=prepared.identity.manifest_sha256,
+            inventory=prepared.inventory,
+        )
+    )
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError):
+        phase3_main_live._finalize_main(prepared, terminal_store)
+
+    assert not prepared.identity.paths.completion.exists()
+    assert not phase3_main_live._identity_complete_path(prepared.identity).exists()
 
 
 def test_price_revalidation_reloads_the_bound_snapshot(
@@ -722,6 +1599,88 @@ def test_capacity_measurement_is_bound_to_actual_reviewer_runtime_and_host(
             plan=plan, result=result, runtime=runtime)
 
 
+@pytest.mark.parametrize(
+    ("field", "replacement", "message"),
+    [
+        ("codex_cli_wrapper_raw_sha256", "b" * 64, "wrapper hash"),
+        ("codex_cli_wrapper_byte_count", 124, "wrapper size"),
+        ("host_identity", "other-host", "capacity-measured host"),
+    ],
+)
+def test_live_reviewer_invocation_must_match_capacity_wrapper_and_host(
+    field, replacement, message,
+):
+    configuration = {
+        "reviewer_cli_resolved_path": "C:/measured/codex.cmd",
+        "reviewer_cli_wrapper_raw_sha256": "a" * 64,
+        "reviewer_cli_wrapper_byte_count": 123,
+    }
+    invocation = {
+        "codex_cli_resolved_path": Path(
+            configuration["reviewer_cli_resolved_path"]).resolve().as_posix(),
+        "codex_cli_wrapper_raw_sha256": "a" * 64,
+        "codex_cli_wrapper_byte_count": 123,
+        "codex_cli_version": "codex-cli fixture",
+        "host_identity": "fixture-host",
+    }
+    capacity_validation = {"runtime": {
+        "host_identity": "fixture-host",
+        "reviewer_cli_version": "codex-cli fixture",
+    }}
+    assert phase3_main_live._validate_reviewer_invocation_capacity_binding(
+        invocation,
+        reviewer_configuration=configuration,
+        capacity_validation=capacity_validation,
+    ) == invocation["codex_cli_resolved_path"]
+
+    changed = dict(invocation)
+    changed[field] = replacement
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match=message):
+        phase3_main_live._validate_reviewer_invocation_capacity_binding(
+            changed,
+            reviewer_configuration=configuration,
+            capacity_validation=capacity_validation,
+        )
+
+
+def test_live_reviewer_invocation_starts_within_capacity_window():
+    capacity_expires_at = phase3_main_live.phase3_main_manifest._utc(
+        "2026-08-30T19:00:00Z", "fixture capacity expiry")
+    capacity_validation = {
+        "capacity_completed_at": phase3_main_live.phase3_main_manifest._utc(
+            "2026-08-29T19:00:00Z", "fixture capacity completion"),
+        "capacity_expires_at": capacity_expires_at,
+    }
+    authorization = {
+        "approved_at_utc": "2026-08-29T18:00:00Z",
+        "valid_until_utc": "2026-08-31T19:00:00Z",
+    }
+    outcome = {
+        "started_at_utc": capacity_expires_at.isoformat(),
+        "completed_at_utc": "2026-08-30T19:00:01Z",
+    }
+    assert phase3_main_live._validate_reviewer_invocation_time_binding(
+        outcome,
+        authorization=authorization,
+        capacity_validation=capacity_validation,
+        observed_at=phase3_main_live.phase3_main_manifest._utc(
+            "2026-08-30T19:00:02Z", "fixture observation"),
+    )[0] == capacity_expires_at
+
+    outcome["started_at_utc"] = "2026-08-30T19:00:00.000001Z"
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="outside the capacity validity window",
+    ):
+        phase3_main_live._validate_reviewer_invocation_time_binding(
+            outcome,
+            authorization=authorization,
+            capacity_validation=capacity_validation,
+            observed_at=phase3_main_live.phase3_main_manifest._utc(
+                "2026-08-30T19:00:02Z", "fixture observation"),
+        )
+
+
 def test_reviewer_loop_uses_measured_wave_and_covers_worst_case_payloads():
     plan = {
         "reviewer_configuration": {
@@ -744,10 +1703,18 @@ def test_reviewer_loop_uses_measured_wave_and_covers_worst_case_payloads():
         phase3_main_live._reviewer_loop_contract(plan)
 
 
+@pytest.mark.parametrize("mutate_invocation_evidence", [False, True])
 def test_reviewer_wave_uses_the_capacity_bound_cli_path(
-    tmp_path, inventory, monkeypatch,
+    tmp_path, inventory, monkeypatch, mutate_invocation_evidence,
 ):
     prepared = _prepared(tmp_path, inventory)
+    now = phase3_main_live.datetime.now(phase3_main_live.timezone.utc)
+    prepared = replace(prepared, authorization={
+        **prepared.authorization,
+        "approved_at_utc": (now - timedelta(hours=2)).isoformat(),
+        "valid_until_utc": (now + timedelta(hours=2)).isoformat(),
+    })
+    prepared = _with_current_boundary_files(prepared)
     paths = prepared.identity.paths
     paths.review_packets_root.mkdir(parents=True)
     payload_sha = "d" * 64
@@ -760,9 +1727,14 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
             "subagent_prompt_sha256": prompt_sha,
         }],
     }
-    capacity_plan = {
+    cli_path = (tmp_path / "measured-codex.cmd").resolve()
+    cli_raw = b"@echo fixture\r\n"
+    cli_path.write_bytes(cli_raw)
+    capacity_plan: dict[str, Any] = {
         "reviewer_configuration": {
-            "reviewer_cli_resolved_path": "C:/measured/codex.cmd",
+            "reviewer_cli_resolved_path": cli_path.as_posix(),
+            "reviewer_cli_wrapper_raw_sha256": hashlib.sha256(cli_raw).hexdigest(),
+            "reviewer_cli_wrapper_byte_count": len(cli_raw),
         },
     }
     captured = {}
@@ -775,13 +1747,29 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
     monkeypatch.setattr(
         phase3_main_live,
         "_revalidate_capacity_snapshot",
-        lambda _prepared: (capacity_plan, {"validation": "pass"}),
+        lambda _prepared: (
+            capacity_plan,
+            {
+                "runtime": {
+                    "host_identity": "fixture-host",
+                    "reviewer_cli_version": "codex-cli fixture",
+                },
+                "capacity_completed_at": now - timedelta(hours=1),
+                "capacity_expires_at": now + timedelta(hours=23),
+            },
+        ),
     )
+    def fake_export(_pending, _prompt, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(worklist, ensure_ascii=False, indent=1) + "\n",
+            encoding="utf-8",
+            newline="",
+        )
+        return worklist
+
     monkeypatch.setattr(
-        phase3_main_live,
-        "export_reviewer_worklist",
-        lambda *args, **kwargs: worklist,
-    )
+        phase3_main_live, "export_reviewer_worklist", fake_export)
     monkeypatch.setattr(
         phase3_main_live.phase3_main_manifest,
         "validate_main_manifest",
@@ -793,30 +1781,295 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
     def fake_run(command, **kwargs):
         captured["command"] = command
         out_path = Path(command[command.index("--out") + 1])
+        guard_path = Path(command[command.index("--dispatch-guard") + 1])
+        guard = json.loads(guard_path.read_text(encoding="utf-8"))
+        assert guard["schema_version"] == (
+            phase3_main_live.codex_reviewer_batch.DISPATCH_GUARD_SCHEMA)
+        assert guard["reviewer_model"] == prepared.manifest["runtime"][
+            "reviewer_model"]
+        assert guard["reviewer_reasoning_effort"] == prepared.manifest["runtime"][
+            "reviewer_reasoning_effort"]
+        assert guard["reviewer_concurrency"] == prepared.manifest["runtime"][
+            "reviewer_concurrency"]
+        assert guard["reviewer_cli_version"] == "codex-cli fixture"
+        assert guard["capacity_host_identity"] == "fixture-host"
+        assert guard["packet_directory"] == guard_path.parent.resolve().as_posix()
+        assert guard["output_path"] == out_path.resolve().as_posix()
+        assert out_path.read_bytes() == b""
+        assert guard["packet_bindings"] == [{
+            "file": f"00001_{payload_sha[:12]}.txt",
+            "payload_sha256": payload_sha,
+            "prompt_sha256": prompt_sha,
+            "byte_count": len(prompt.encode("utf-8")),
+        }]
+        assert set(guard["artifact_bindings"]) == {
+            "authorization",
+            "authorization_signature",
+            "capacity_plan",
+            "capacity_result",
+            "capacity_dispatch_history",
+            "reviewer_cli_wrapper",
+            "worklist_snapshot",
+            "packet_index",
+            "batch_runner",
+        }
+        raw_output = "LABEL: ACCEPT\nCLAUSE: Allowed\nRATIONALE: Valid."
         out_path.write_text(
             json.dumps({
                 "payload_sha256": payload_sha,
                 "prompt_sha256": prompt_sha,
-                "raw_output": "LABEL: ACCEPT\nCLAUSE: Allowed\nRATIONALE: Valid.",
+                "raw_output": raw_output,
                 "tool_uses": 0,
+                "evidence": {"fixture": True},
             }) + "\n",
             encoding="utf-8",
         )
+        packet = next(
+            path for path in guard_path.parent.glob("*.txt")
+            if path.name.startswith("00001_"))
+        captured["receipt"] = make_receipt(packet)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(phase3_main_live.subprocess, "run", fake_run)
+
+    def make_receipt(packet):
+        retained = packet.parent / "retained-ruling.txt"
+        retained.write_text(
+            "LABEL: ACCEPT\nCLAUSE: Allowed\nRATIONALE: Valid.",
+            encoding="utf-8",
+            newline="",
+        )
+        guard_sha = captured["command"][
+            captured["command"].index("--dispatch-guard-raw-sha256") + 1]
+        started_at = (now - timedelta(minutes=5)).isoformat()
+        out_path = Path(captured["command"][
+            captured["command"].index("--out") + 1])
+        reservation_dir_name = (
+            phase3_main_live.codex_reviewer_batch.
+            DISPATCH_RESERVATION_DIRECTORY_NAME)
+        reservation_relative = (
+            f"{reservation_dir_name}/"
+            f"{guard_sha}_{payload_sha}.json"
+        )
+        reservation_path = packet.parent / reservation_relative
+        reservation_path.parent.mkdir()
+        reservation_raw = (json.dumps({
+            "schema_version": (
+                phase3_main_live.codex_reviewer_batch.DISPATCH_RESERVATION_SCHEMA),
+            "guard_raw_sha256": guard_sha,
+            "payload_sha256": payload_sha,
+            "prompt_sha256": prompt_sha,
+            "packet_file": packet.name,
+            "packet_directory": packet.parent.resolve().as_posix(),
+            "output_path": out_path.resolve().as_posix(),
+            "reviewer_model": prepared.manifest["runtime"]["reviewer_model"],
+            "reviewer_reasoning_effort": prepared.manifest["runtime"][
+                "reviewer_reasoning_effort"],
+            "reviewer_concurrency": prepared.manifest["runtime"][
+                "reviewer_concurrency"],
+            "reviewer_cli_version": "codex-cli fixture",
+            "capacity_host_identity": "fixture-host",
+            "reserved_at_utc": started_at,
+        }, ensure_ascii=True, sort_keys=True) + "\n").encode("utf-8")
+        reservation_path.write_bytes(reservation_raw)
+        return {
+            "invocation": {
+                "codex_cli_resolved_path": Path(
+                    capacity_plan["reviewer_configuration"][
+                        "reviewer_cli_resolved_path"]
+                ).resolve().as_posix(),
+                "codex_cli_wrapper_raw_sha256": hashlib.sha256(cli_raw).hexdigest(),
+                "codex_cli_wrapper_byte_count": len(cli_raw),
+                "codex_cli_version": "codex-cli fixture",
+                "host_identity": "fixture-host",
+            },
+            "outcome": {
+                "authorization_deadline_utc": prepared.authorization[
+                    "valid_until_utc"],
+                "started_at_utc": started_at,
+                "completed_at_utc": (now - timedelta(minutes=1)).isoformat(),
+                "result_ok": True,
+                "event_stream_errors": [],
+                "commands": [],
+            },
+            "artifacts": {"ruling": {"path": retained.name}},
+            "dispatch_guard": {
+                "verified": True,
+                "checked_at_utc": started_at,
+                "released_at_utc": started_at,
+                "authorization_approved_at_utc": prepared.authorization[
+                    "approved_at_utc"],
+                "authorization_valid_until_utc": prepared.authorization[
+                    "valid_until_utc"],
+                "capacity_completed_at_utc": (
+                    now - timedelta(hours=1)).isoformat(),
+                "capacity_expires_at_utc": (
+                    now + timedelta(hours=23)).isoformat(),
+                "reviewer_cli_version": "codex-cli fixture",
+                "snapshot_raw_sha256": guard_sha,
+                "reservation": {
+                    "path": reservation_relative,
+                    "raw_sha256": hashlib.sha256(reservation_raw).hexdigest(),
+                    "byte_count": len(reservation_raw),
+                },
+            },
+        }
+
+    def fake_validate(packet, _evidence, **kwargs):
+        assert kwargs == {
+            "expected_model": prepared.manifest["runtime"]["reviewer_model"],
+            "expected_effort": prepared.manifest["runtime"][
+                "reviewer_reasoning_effort"],
+            "expected_concurrency": prepared.manifest["runtime"][
+                "reviewer_concurrency"],
+        }
+        assert packet.name == f"00001_{payload_sha[:12]}.txt"
+        if mutate_invocation_evidence:
+            retained = packet.parent / "retained-ruling.txt"
+            retained.write_bytes(retained.read_bytes() + b"\n")
+        return captured["receipt"]
+
+    monkeypatch.setattr(
+        phase3_main_live.codex_reviewer_batch,
+        "validate_invocation_evidence",
+        fake_validate,
+    )
+    commits = []
+
+    def fake_commit(*args, **kwargs):
+        commits.append((args, kwargs))
+        return {
+            "parsed": 1,
+            "malformed": 0,
+            "reviewer_error": 0,
+        }
+
+    monkeypatch.setattr(
+        phase3_main_live, "commit_decisions_into", fake_commit)
+
+    if mutate_invocation_evidence:
+        with pytest.raises(
+            phase3_main_live.Phase3MainLiveError,
+            match="reviewer wave evidence tree changed before decision commit",
+        ):
+            phase3_main_live._review_wave_same_process(
+                prepared, [{"payload_sha256": payload_sha}], wave=1)
+        assert commits == []
+    else:
+        phase3_main_live._review_wave_same_process(
+            prepared, [{"payload_sha256": payload_sha}], wave=1)
+        assert len(commits) == 1
+    command = captured["command"]
+    assert command[command.index("--codex") + 1] == cli_path.as_posix()
+    assert command[command.index("--not-after-utc") + 1] == (
+        prepared.authorization["valid_until_utc"])
+
+
+def test_two_packet_guard_abort_cannot_commit_main_decisions_or_wave(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    now = phase3_main_live.datetime.now(phase3_main_live.timezone.utc)
+    prepared = replace(prepared, authorization={
+        **prepared.authorization,
+        "approved_at_utc": (now - timedelta(hours=2)).isoformat(),
+        "valid_until_utc": (now + timedelta(hours=2)).isoformat(),
+    })
+    prepared = _with_current_boundary_files(prepared)
+    paths = prepared.identity.paths
+    paths.review_packets_root.mkdir(parents=True)
+    cli_path = (tmp_path / "guarded-codex.cmd").resolve()
+    cli_raw = b"@echo fixture\r\n"
+    cli_path.write_bytes(cli_raw)
+    capacity_plan = {
+        "reviewer_configuration": {
+            "reviewer_cli_resolved_path": cli_path.as_posix(),
+            "reviewer_cli_wrapper_raw_sha256": hashlib.sha256(cli_raw).hexdigest(),
+            "reviewer_cli_wrapper_byte_count": len(cli_raw),
+        },
+    }
+    payloads = ("d" * 64, "e" * 64)
+    worklist_items = []
+    for number, payload_sha in enumerate(payloads, 1):
+        prompt = f"review exact packet {number}"
+        worklist_items.append({
+            "payload_sha256": payload_sha,
+            "subagent_prompt": prompt,
+            "subagent_prompt_sha256": hashlib.sha256(
+                prompt.encode("utf-8")).hexdigest(),
+        })
+    worklist = {"items": worklist_items}
+
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization",
+        lambda _prepared: prepared.authorization,
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_capacity_snapshot",
+        lambda _prepared: (
+            capacity_plan,
+                {
+                    "runtime": {
+                        "host_identity": "fixture-host",
+                        "reviewer_cli_version": "codex-cli fixture",
+                    },
+                "capacity_completed_at": now - timedelta(hours=1),
+                "capacity_expires_at": now + timedelta(hours=23),
+            },
+        ),
+    )
+
+    def fake_export(_pending, _prompt, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(worklist, ensure_ascii=False, indent=1) + "\n",
+            encoding="utf-8",
+            newline="",
+        )
+        return worklist
+
+    monkeypatch.setattr(phase3_main_live, "export_reviewer_worklist", fake_export)
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(phase3_main_live, "_verify_execution_code_root", lambda *args: None)
+    monkeypatch.setattr(phase3_main_live, "_verify_clean_git_identity", lambda *args: None)
+
+    def fake_batch(command, **_kwargs):
+        packet_dir = Path(command[command.index("--packets") + 1])
+        packet_index = json.loads(
+            (packet_dir / "INDEX.json").read_text(encoding="utf-8"))
+        assert packet_index["count"] == 2
+        assert command[command.index("--concurrency") + 1] == "12"
+        return SimpleNamespace(
+            returncode=3,
+            stdout="",
+            stderr="dispatch guard rejected the second invocation",
+        )
+
+    monkeypatch.setattr(phase3_main_live.subprocess, "run", fake_batch)
     monkeypatch.setattr(
         phase3_main_live,
         "commit_decisions_into",
-        lambda *args, **kwargs: {"committed": 1},
+        lambda *args, **kwargs: pytest.fail("guard-aborted wave reached decision commit"),
     )
 
-    phase3_main_live._review_wave_same_process(
-        prepared, [{"payload_sha256": payload_sha}], wave=1)
-    command = captured["command"]
-    assert command[command.index("--codex") + 1] == "C:/measured/codex.cmd"
-    assert command[command.index("--not-after-utc") + 1] == (
-        prepared.authorization["valid_until_utc"])
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="reviewer wave 1 failed with exit 3",
+    ):
+        phase3_main_live._review_wave_same_process(
+            prepared,
+            [{"payload_sha256": payload_sha} for payload_sha in payloads],
+            wave=1,
+        )
+
+    assert not paths.decisions.exists()
+    assert not paths.reviewer_index.exists()
 
 
 def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
@@ -831,7 +2084,9 @@ def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
         return raw
 
     def fake_resolver(inner, limits):
-        assert inner is raw
+        assert isinstance(inner, phase3_main_live._AuthorizationDeadlineClient)
+        assert inner._inner is raw
+        assert inner._prepared is prepared
         assert limits == {}
         return "resolved"
 
@@ -1115,6 +2370,42 @@ def test_completion_hashes_bind_directory_tree_and_leave_only_self_null(
     hashes = phase3_main_live._completion_output_hashes(prepared)
     assert hashes["completion"] is None
     assert all(value is not None for name, value in hashes.items() if name != "completion")
+
+
+def test_completion_hashes_must_match_finalization_artifacts_and_reviewer_tree():
+    mapped = (
+        phase3_main_live.phase3_main_finalization
+        .FINALIZATION_ARTIFACT_TO_MANIFEST_OUTPUT
+    )
+    output_hashes = {output_name: "a" * 64 for output_name in mapped.values()}
+    output_hashes["review_packets_root"] = "b" * 64
+    finalization = {
+        "artifact_hashes": {
+            artifact_name: {"raw_sha256": "a" * 64}
+            for artifact_name in mapped
+        },
+        "reviewer_provenance": {
+            "review_packets_tree_canonical_sha256": "b" * 64,
+        },
+    }
+
+    phase3_main_live._require_completion_hashes_match_finalization(
+        output_hashes, finalization)
+
+    changed = dict(output_hashes)
+    changed["decisions"] = "c" * 64
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="decisions"):
+        phase3_main_live._require_completion_hashes_match_finalization(
+            changed, finalization)
+
+    changed = dict(output_hashes)
+    changed["review_packets_root"] = "d" * 64
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="packet tree",
+    ):
+        phase3_main_live._require_completion_hashes_match_finalization(
+            changed, finalization)
 
 
 def test_cli_requires_an_explicit_mode():

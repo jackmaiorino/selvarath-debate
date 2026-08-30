@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import random
 import statistics
@@ -34,6 +35,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from rejudge import (  # noqa: E402
+    phase2_plan,
     phase3_main_authorization,
     phase3_main_context,
     phase3_main_finalization,
@@ -97,6 +99,14 @@ MAIN_FINALIZATION_STATUS = phase3_main_finalization.FINALIZATION_STATUS
 
 class AnalysisError(ValueError):
     """Raised when an input or analysis invariant fails closed."""
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisRunReceipt:
+    """Exact bytes produced by one successful in-process analysis execution."""
+
+    returncode: int
+    output_raw: bytes
 
 
 @dataclass(frozen=True)
@@ -183,6 +193,27 @@ def _require_unchanged(path: Path, expected: bytes, label: str) -> None:
         raise AnalysisError(f"{label} changed during analysis")
 
 
+def _write_analysis_output(path: Path, result: Mapping[str, Any]) -> bytes:
+    output_raw = (
+        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("xb") as handle:
+            handle.write(output_raw)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError as exc:
+        raise AnalysisError(
+            f"analysis output already exists and is immutable: {path}") from exc
+    try:
+        if path.read_bytes() != output_raw:
+            raise AnalysisError("analysis output changed during its durable write")
+    except OSError as exc:
+        raise AnalysisError("analysis output became unreadable after its durable write") from exc
+    return output_raw
+
+
 def _snapshot_sha256_bound_input(
     path: Path, expected_sha256: str, label: str,
 ) -> tuple[Path, bytes, str]:
@@ -221,40 +252,146 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return _read_jsonl_bytes(_read_stable_bytes(path, "result store"), path)
 
 
-def _load_protocol_bound_question_bank(
+@dataclass(frozen=True, slots=True)
+class _QuestionBankSnapshot:
+    bank: dict[str, dict[str, Any]]
+    main_ids: tuple[str, ...]
+    held_out_ids: tuple[str, ...]
+    stable_inputs: tuple[tuple[Path, bytes, str], ...]
+
+
+def _parse_unique_json_bytes(raw: bytes, label: str) -> Any:
+    try:
+        return json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except AnalysisError:
+        raise
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise AnalysisError(f"{label} is not valid unique-key UTF-8 JSON") from exc
+
+
+def _snapshot_protocol_bound_question_bank(
     protocol: Mapping[str, Any], root: Path,
-) -> dict[str, dict[str, Any]]:
-    """Load the bank paths whose hashes were validated by the protocol loader."""
+) -> _QuestionBankSnapshot:
+    """Load each bound question source once and retain bytes for the final stability check."""
     sources = protocol.get("sources")
-    if not isinstance(sources, Mapping):
-        raise AnalysisError("protocol question sources are missing")
+    source_bindings = protocol.get("source_bindings")
+    if not isinstance(sources, Mapping) or not isinstance(source_bindings, Mapping):
+        raise AnalysisError("protocol question sources or source bindings are missing")
+    phase3_bound_json = source_bindings.get("canonical_json_sha256")
+    if not isinstance(phase3_bound_json, Mapping):
+        raise AnalysisError("protocol canonical source bindings are missing")
     phase2_relative = sources.get("phase2_protocol")
     if not isinstance(phase2_relative, str) or not phase2_relative:
         raise AnalysisError("protocol phase-2 question source is missing")
-    phase2_protocol = json.loads((root / phase2_relative).read_text(encoding="utf-8"))
+    phase2_path = (root / phase2_relative).resolve()
+    phase2_raw = _read_stable_bytes(phase2_path, "bound phase-2 protocol")
+    phase2_protocol = _parse_unique_json_bytes(
+        phase2_raw, "bound phase-2 protocol")
+    if not isinstance(phase2_protocol, Mapping):
+        raise AnalysisError("bound phase-2 protocol must be a JSON object")
+    expected_phase2_sha = phase3_bound_json.get(phase2_relative)
+    if canonical_sha256(phase2_protocol) != expected_phase2_sha:
+        raise AnalysisError("bound phase-2 protocol differs from the phase-3 binding")
+    try:
+        phase2_plan.validate_protocol(phase2_protocol)
+    except (phase2_plan.ProtocolValidationError, KeyError, TypeError, ValueError) as exc:
+        raise AnalysisError(f"bound phase-2 protocol is invalid: {exc}") from exc
+
     question_set = phase2_protocol.get("question_set")
-    if not isinstance(question_set, Mapping):
-        raise AnalysisError("bound phase-2 question set is missing")
+    phase2_bindings = phase2_protocol.get("source_bindings")
+    if not isinstance(question_set, Mapping) or not isinstance(phase2_bindings, Mapping):
+        raise AnalysisError("bound phase-2 question set or source bindings are missing")
     question_sources = question_set.get("question_sources")
-    if (not isinstance(question_sources, list)
-            or not all(isinstance(path, str) and path for path in question_sources)):
-        raise AnalysisError("bound phase-2 question-source list is malformed")
+    bound_json = phase2_bindings.get("canonical_json_sha256")
+    if (
+        not isinstance(question_sources, list)
+        or not all(isinstance(path, str) and path for path in question_sources)
+        or len(set(question_sources)) != len(question_sources)
+        or not isinstance(bound_json, Mapping)
+    ):
+        raise AnalysisError("bound phase-2 question-source contract is malformed")
+
     bank: dict[str, dict[str, Any]] = {}
+    payloads: dict[str, Any] = {}
+    stable_inputs: list[tuple[Path, bytes, str]] = [
+        (phase2_path, phase2_raw, "bound phase-2 protocol")]
     for relative in question_sources:
-        payload = json.loads((root / relative).read_text(encoding="utf-8"))
+        path = (root / relative).resolve()
+        label = f"bound question source {relative}"
+        raw = _read_stable_bytes(path, label)
+        payload = _parse_unique_json_bytes(raw, label)
         if not isinstance(payload, list):
-            raise AnalysisError(f"bound question source is not a JSON array: {relative}")
+            raise AnalysisError(f"{label} must be a JSON array")
+        expected_sha = bound_json.get(relative)
+        if canonical_sha256(payload) != expected_sha:
+            raise AnalysisError(f"{label} differs from the phase-2 binding")
+        payloads[relative] = payload
+        stable_inputs.append((path, raw, label))
         for row in payload:
-            if not isinstance(row, dict) or not isinstance(row.get("id"), str) or not row["id"]:
-                raise AnalysisError(f"bound question source contains a malformed row: {relative}")
+            if (
+                not isinstance(row, dict)
+                or not isinstance(row.get("id"), str)
+                or not row["id"]
+            ):
+                raise AnalysisError(f"{label} contains a malformed row")
             question_id = str(row["id"])
             if question_id in bank:
                 raise AnalysisError(f"duplicate bound question ID {question_id}")
             bank[question_id] = row
+
+    bundle_sha = canonical_sha256(payloads)
+    expected_bundle_hashes = (
+        phase2_bindings.get("question_bank_bundle_sha256"),
+        source_bindings.get("question_bank_bundle_sha256"),
+        (
+            protocol.get("planning_cell_identity", {}).get(
+                "question_bank_bundle_sha256")
+            if isinstance(protocol.get("planning_cell_identity"), Mapping)
+            else None
+        ),
+    )
+    if any(expected != bundle_sha for expected in expected_bundle_hashes):
+        raise AnalysisError("bound question-bank bundle hash drifted")
+
     expected_total = question_set.get("expected_total_question_count")
-    if type(expected_total) is not int or len(bank) != expected_total:
-        raise AnalysisError("bound question-bank total differs from the protocol")
-    return bank
+    excluded = question_set.get("calibration_excluded_question_ids")
+    if (
+        type(expected_total) is not int
+        or len(bank) != expected_total
+        or not isinstance(excluded, list)
+        or not all(isinstance(value, str) and value for value in excluded)
+        or len(set(excluded)) != len(excluded)
+    ):
+        raise AnalysisError("bound question-bank partition is malformed")
+    held_out_ids = tuple(sorted(excluded))
+    missing_exclusions = set(held_out_ids) - set(bank)
+    if missing_exclusions:
+        raise AnalysisError(
+            f"bound question bank lacks held-out IDs: {sorted(missing_exclusions)}")
+    main_ids = tuple(sorted(set(bank) - set(held_out_ids)))
+    phase3_question_set = protocol.get("question_set")
+    if not isinstance(phase3_question_set, Mapping):
+        raise AnalysisError("phase-3 question-set contract is missing")
+    if (
+        len(main_ids) != question_set.get("expected_main_question_count")
+        or len(main_ids) != phase3_question_set.get("expected_main_question_count")
+        or len(held_out_ids) != phase3_question_set.get("held_out_question_count")
+    ):
+        raise AnalysisError("bound question-bank partition counts drifted")
+    return _QuestionBankSnapshot(
+        bank=bank,
+        main_ids=main_ids,
+        held_out_ids=held_out_ids,
+        stable_inputs=tuple(stable_inputs),
+    )
+
+
+def _load_protocol_bound_question_bank(
+    protocol: Mapping[str, Any], root: Path,
+) -> dict[str, dict[str, Any]]:
+    """Compatibility wrapper returning the exact hash-verified snapshot payload."""
+    return _snapshot_protocol_bound_question_bank(protocol, root).bank
 
 
 def _rendered_correct_position(
@@ -1092,7 +1229,7 @@ def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise AnalysisError(f"finalization JSON repeats key {key!r}")
+            raise AnalysisError(f"JSON repeats key {key!r}")
         result[key] = value
     return result
 
@@ -1113,6 +1250,18 @@ def _load_finalization_exclusions(
     authorization_valid_until_utc: str,
     expected_context_blocklist_path: Path,
     expected_manifest_output_paths: Mapping[str, Path],
+    expected_provider_input_paths: Mapping[str, Path],
+    expected_provider_input_raw_sha256s: Mapping[str, str],
+    expected_reviewer_input_paths: Mapping[str, Path],
+    expected_reviewer_input_raw_sha256s: Mapping[str, str],
+    expected_capacity_result_path: Path,
+    expected_capacity_result_raw_sha256: str,
+    expected_capacity_dispatch_history_path: Path,
+    expected_capacity_dispatch_history_raw_sha256: str,
+    expected_review_packets_root_path: Path,
+    expected_reviewer_model: str,
+    expected_reviewer_reasoning_effort: str,
+    expected_reviewer_concurrency: int,
     prior_reconciled_usd: str,
     stage_cap_usd: str,
     expected_results_raw_sha256: str | None = None,
@@ -1166,8 +1315,27 @@ def _load_finalization_exclusions(
             expected_analysis_pins_path=pins_path.resolve(),
             expected_context_blocklist_path=expected_context_blocklist_path.resolve(),
             expected_manifest_output_paths=expected_manifest_output_paths,
+            expected_provider_input_paths=expected_provider_input_paths,
+            expected_provider_input_raw_sha256s=(
+                expected_provider_input_raw_sha256s),
+            expected_reviewer_input_paths=expected_reviewer_input_paths,
+            expected_reviewer_input_raw_sha256s=(
+                expected_reviewer_input_raw_sha256s),
+            expected_capacity_result_path=expected_capacity_result_path,
+            expected_capacity_result_raw_sha256=(
+                expected_capacity_result_raw_sha256),
+            expected_capacity_dispatch_history_path=(
+                expected_capacity_dispatch_history_path),
+            expected_capacity_dispatch_history_raw_sha256=(
+                expected_capacity_dispatch_history_raw_sha256),
+            expected_review_packets_root_path=(
+                expected_review_packets_root_path),
             expected_checker_model=str(protocol["roster"]["query_checker"]),
             expected_oracle_model=str(protocol["roster"]["oracle"]),
+            expected_reviewer_model=expected_reviewer_model,
+            expected_reviewer_reasoning_effort=(
+                expected_reviewer_reasoning_effort),
+            expected_reviewer_concurrency=expected_reviewer_concurrency,
             prior_reconciled_usd=prior_reconciled_usd,
             stage_cap_usd=stage_cap_usd,
         )
@@ -1213,6 +1381,18 @@ def _resolve_exclusions(
     authorization_valid_until_utc: str,
     expected_context_blocklist_path: Path,
     expected_manifest_output_paths: Mapping[str, Path],
+    expected_provider_input_paths: Mapping[str, Path],
+    expected_provider_input_raw_sha256s: Mapping[str, str],
+    expected_reviewer_input_paths: Mapping[str, Path],
+    expected_reviewer_input_raw_sha256s: Mapping[str, str],
+    expected_capacity_result_path: Path,
+    expected_capacity_result_raw_sha256: str,
+    expected_capacity_dispatch_history_path: Path,
+    expected_capacity_dispatch_history_raw_sha256: str,
+    expected_review_packets_root_path: Path,
+    expected_reviewer_model: str,
+    expected_reviewer_reasoning_effort: str,
+    expected_reviewer_concurrency: int,
     prior_reconciled_usd: str,
     stage_cap_usd: str,
     expected_results_raw_sha256: str | None = None,
@@ -1239,6 +1419,25 @@ def _resolve_exclusions(
             authorization_valid_until_utc=authorization_valid_until_utc,
             expected_context_blocklist_path=expected_context_blocklist_path,
             expected_manifest_output_paths=expected_manifest_output_paths,
+            expected_provider_input_paths=expected_provider_input_paths,
+            expected_provider_input_raw_sha256s=(
+                expected_provider_input_raw_sha256s),
+            expected_reviewer_input_paths=expected_reviewer_input_paths,
+            expected_reviewer_input_raw_sha256s=(
+                expected_reviewer_input_raw_sha256s),
+            expected_capacity_result_path=expected_capacity_result_path,
+            expected_capacity_result_raw_sha256=(
+                expected_capacity_result_raw_sha256),
+            expected_capacity_dispatch_history_path=(
+                expected_capacity_dispatch_history_path),
+            expected_capacity_dispatch_history_raw_sha256=(
+                expected_capacity_dispatch_history_raw_sha256),
+            expected_review_packets_root_path=(
+                expected_review_packets_root_path),
+            expected_reviewer_model=expected_reviewer_model,
+            expected_reviewer_reasoning_effort=(
+                expected_reviewer_reasoning_effort),
+            expected_reviewer_concurrency=expected_reviewer_concurrency,
             prior_reconciled_usd=prior_reconciled_usd,
             stage_cap_usd=stage_cap_usd,
             expected_results_raw_sha256=expected_results_raw_sha256,
@@ -1248,6 +1447,40 @@ def _resolve_exclusions(
     context = _load_key_list(context_path)
     _require_admitted_exclusions(terminal, context)
     return terminal, context, None
+
+
+def _require_finalization_admission_unchanged(
+    path: Path,
+    *,
+    results_path: Path,
+    protocol: Mapping[str, Any],
+    pins_path: Path,
+    project_root: Path,
+    validation_kwargs: Mapping[str, Any],
+    expected_results_raw_sha256: str,
+    expected_pins_raw_sha256: str,
+    expected_terminal_cell_keys: Sequence[str],
+    expected_context_ineligible_cell_keys: Sequence[str],
+    expected_finalization_raw_sha256: str,
+) -> None:
+    """Repeat the complete evidence-graph admission immediately before writing PASS."""
+    terminal, context, raw_sha256 = _load_finalization_exclusions(
+        path,
+        results_path=results_path,
+        protocol=protocol,
+        pins_path=pins_path,
+        project_root=project_root,
+        **dict(validation_kwargs),
+        expected_results_raw_sha256=expected_results_raw_sha256,
+        expected_pins_raw_sha256=expected_pins_raw_sha256,
+    )
+    if (
+        terminal != list(expected_terminal_cell_keys)
+        or context != list(expected_context_ineligible_cell_keys)
+        or raw_sha256 != expected_finalization_raw_sha256
+    ):
+        raise AnalysisError(
+            "main finalization admission changed during confirmatory analysis")
 
 
 def _capability_anchor_proportions(
@@ -1416,7 +1649,7 @@ def _git_path_status(root: Path, path: Path) -> str:
         return "unavailable"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def run_analysis(argv: Sequence[str] | None = None) -> AnalysisRunReceipt:
     parser = argparse.ArgumentParser(prog="phase3_main_analysis")
     parser.add_argument("--results", required=True)
     parser.add_argument("--manifest", required=True)
@@ -1515,10 +1748,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         raise AnalysisError(
             "analysis paths differ from the signed launch manifest")
+    manifest_input_snapshots = tuple(
+        _snapshot_sha256_bound_input(
+            input_paths[name],
+            str(manifest["input_bindings"][name]["sha256"]),
+            f"manifest input {name}",
+        )
+        for name in sorted(input_paths)
+    )
     phase3_plan.validate_protocol(protocol)
     validate_analysis_pins(pins, protocol, root=root)
     judges = tuple(protocol["roster"]["judges_final"])
-    main_ids, _held_out = phase3_plan.load_reference_question_ids(protocol, root)
+    question_bank_snapshot = _snapshot_protocol_bound_question_bank(protocol, root)
+    main_ids = question_bank_snapshot.main_ids
     plan_cells = phase3_plan.enumerate_cells(protocol, judges, main_ids)
     context_snapshots: list[tuple[Path, bytes, str]] = []
     context_inputs: dict[str, Mapping[str, Any]] = {}
@@ -1543,13 +1785,58 @@ def main(argv: Sequence[str] | None = None) -> int:
     except phase3_main_context.MainContextBlocklistError as exc:
         raise AnalysisError(f"main context blocklist failed recomputation: {exc}") from exc
     rows = _read_jsonl_bytes(results_raw, results_path)
-    question_bank = _load_protocol_bound_question_bank(protocol, root)
+    question_bank = question_bank_snapshot.bank
     missing_main_questions = set(main_ids) - set(question_bank)
     if missing_main_questions:
         raise AnalysisError(
             f"question bank lacks protocol-derived main IDs: {sorted(missing_main_questions)}")
     terminal_path: Path | None = None
     context_path: Path | None = None
+    finalization_validation_kwargs: dict[str, Any] = {
+        "expected_run_id": str(manifest["run_id"]),
+        "expected_manifest_canonical_sha256": (
+            phase3_main_manifest.manifest_canonical_sha256(manifest)),
+        "expected_authorization_canonical_sha256": canonical_sha256(authorization),
+        "expected_authorization_raw_sha256": (
+            hashlib.sha256(authorization_raw).hexdigest()),
+        "expected_authorization_signature_raw_sha256": (
+            hashlib.sha256(authorization_signature_raw).hexdigest()),
+        "authorization_approved_at_utc": str(authorization["approved_at_utc"]),
+        "authorization_valid_until_utc": str(authorization["valid_until_utc"]),
+        "expected_context_blocklist_path": input_paths["context_blocklist"],
+        "expected_manifest_output_paths": output_paths,
+        "expected_provider_input_paths": {
+            name: input_paths[name]
+            for name in phase3_main_finalization.PROVIDER_INPUT_FIELDS
+        },
+        "expected_provider_input_raw_sha256s": {
+            name: str(manifest["input_bindings"][name]["sha256"])
+            for name in phase3_main_finalization.PROVIDER_INPUT_FIELDS
+        },
+        "expected_reviewer_input_paths": {
+            name: input_paths[name]
+            for name in phase3_main_finalization.REVIEWER_INPUT_FIELDS
+        },
+        "expected_reviewer_input_raw_sha256s": {
+            name: str(manifest["input_bindings"][name]["sha256"])
+            for name in phase3_main_finalization.REVIEWER_INPUT_FIELDS
+        },
+        "expected_capacity_result_path": input_paths["capacity_result"],
+        "expected_capacity_result_raw_sha256": str(
+            manifest["input_bindings"]["capacity_result"]["sha256"]),
+        "expected_capacity_dispatch_history_path": input_paths[
+            "capacity_dispatch_history"],
+        "expected_capacity_dispatch_history_raw_sha256": str(
+            manifest["input_bindings"]["capacity_dispatch_history"]["sha256"]),
+        "expected_review_packets_root_path": output_paths["review_packets_root"],
+        "expected_reviewer_model": str(manifest["runtime"]["reviewer_model"]),
+        "expected_reviewer_reasoning_effort": str(
+            manifest["runtime"]["reviewer_reasoning_effort"]),
+        "expected_reviewer_concurrency": int(
+            manifest["runtime"]["reviewer_concurrency"]),
+        "prior_reconciled_usd": str(manifest["spend"]["prior_reconciled_usd"]),
+        "stage_cap_usd": str(authorization["stage_cap_usd"]),
+    }
     (terminal_cell_keys,
      context_ineligible_cell_keys,
      finalization_raw_sha256) = _resolve_exclusions(
@@ -1560,20 +1847,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         protocol=protocol,
         pins_path=pins_path,
         project_root=root,
-        expected_run_id=str(manifest["run_id"]),
-        expected_manifest_canonical_sha256=(
-            phase3_main_manifest.manifest_canonical_sha256(manifest)),
-        expected_authorization_canonical_sha256=canonical_sha256(authorization),
-        expected_authorization_raw_sha256=(
-            hashlib.sha256(authorization_raw).hexdigest()),
-        expected_authorization_signature_raw_sha256=(
-            hashlib.sha256(authorization_signature_raw).hexdigest()),
-        authorization_approved_at_utc=str(authorization["approved_at_utc"]),
-        authorization_valid_until_utc=str(authorization["valid_until_utc"]),
-        expected_context_blocklist_path=input_paths["context_blocklist"],
-        expected_manifest_output_paths=output_paths,
-        prior_reconciled_usd=str(manifest["spend"]["prior_reconciled_usd"]),
-        stage_cap_usd=str(authorization["stage_cap_usd"]),
+        **finalization_validation_kwargs,
         expected_results_raw_sha256=hashlib.sha256(results_raw).hexdigest(),
         expected_pins_raw_sha256=hashlib.sha256(pins_raw).hexdigest(),
     )
@@ -1595,6 +1869,8 @@ def main(argv: Sequence[str] | None = None) -> int:
          "owner authorization signature"),
         finalization_input,
         *context_snapshots,
+        *question_bank_snapshot.stable_inputs,
+        *manifest_input_snapshots,
     )
     for path, expected, label in stable_inputs:
         _require_unchanged(path, expected, label)
@@ -1648,14 +1924,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     for path, expected, label in stable_inputs:
         _require_unchanged(path, expected, label)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _require_finalization_admission_unchanged(
+        finalization_path,
+        results_path=results_path,
+        protocol=protocol,
+        pins_path=pins_path,
+        project_root=root,
+        validation_kwargs=finalization_validation_kwargs,
+        expected_results_raw_sha256=hashlib.sha256(results_raw).hexdigest(),
+        expected_pins_raw_sha256=hashlib.sha256(pins_raw).hexdigest(),
+        expected_terminal_cell_keys=terminal_cell_keys,
+        expected_context_ineligible_cell_keys=context_ineligible_cell_keys,
+        expected_finalization_raw_sha256=finalization_raw_sha256,
+    )
+    output_raw = _write_analysis_output(out_path, result)
     print(json.dumps({
         "status": "pass",
         "out": str(out_path),
         "draw_matrix_sha256": result["bootstrap"]["draw_matrix_sha256"],
     }, sort_keys=True))
-    return 0
+    return AnalysisRunReceipt(returncode=0, output_raw=output_raw)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    return run_analysis(argv).returncode
 
 
 if __name__ == "__main__":

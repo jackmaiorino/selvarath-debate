@@ -1,0 +1,12 @@
+{
+ "schema_version": "phase3_main_reviewer_failure_policy_v1",
+ "stage": "main",
+ "status": "offline_contract_pending_exact_manifest_authorization",
+ "reviewer_prompt_sha256": "b48a125af874b287aa93e73671c9c12c9d8c4245d50e61013c690209139815f4",
+ "overrides_reviewer_prompt_field": "failure_rule",
+ "parse_failure": "commit_malformed_non_allow",
+ "tool_use": "commit_evidenced_reviewer_error_non_allow",
+ "timeout_or_unavailability": "abort_wave_without_decision_and_void_no_resume_identity",
+ "execution_authorized": false,
+ "provider_calls_authorized": false
+}

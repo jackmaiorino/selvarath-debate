@@ -14,6 +14,14 @@ from rejudge import run_manifest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _expected_display_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT.resolve()).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
 @pytest.fixture
 def fixed_git(monkeypatch):
     state = {"sha": "a" * 40, "dirty": False}
@@ -54,7 +62,7 @@ def test_create_and_validate_same_manifest(run_args):
     identity = created["identity"]
     assert identity["mode"] == "dry-run"
     assert identity["dry_run"] is True
-    assert identity["output"] == output.resolve().as_posix()
+    assert identity["output"] == _expected_display_path(output)
     assert identity["source_files"]["transcripts"]["sha256"] == hashlib.sha256(
         source.read_bytes()).hexdigest()
     assert identity["source_files"]["transcripts"]["bytes"] == source.stat().st_size

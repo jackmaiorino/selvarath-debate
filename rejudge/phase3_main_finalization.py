@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import threading
@@ -30,7 +31,15 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, cast
 
-from rejudge import api_client, oracle_channel, phase3_main_manifest, phase3_plan
+from rejudge import (
+    api_client,
+    oracle_channel,
+    phase3_main_manifest,
+    phase3_main_provider_provenance,
+    phase3_main_reviewer_provenance,
+    phase3_main_transcript_provenance,
+    phase3_plan,
+)
 from rejudge.config import ARMS, judgment_seed, position_for
 from rejudge.parsers import PARSER_VERSION, parse_both
 from rejudge.phase2_call_cache import request_fingerprint
@@ -53,7 +62,7 @@ from rejudge.request_journal import (
 
 
 TERMINAL_SCHEMA = "phase3_main_terminal_disposition_v1"
-FINALIZATION_SCHEMA = "phase3_main_finalization_admission_v1"
+FINALIZATION_SCHEMA = "phase3_main_finalization_admission_v3"
 FINALIZATION_STATUS = "admitted_for_confirmatory_analysis"
 TERMINAL_REASON = "checker_malformed"
 QUERY_CHECKER_ROLE = "query_checker"
@@ -130,6 +139,7 @@ FINALIZATION_FIELDS = frozenset({
     "terminal_bounds",
     "checker_truncation_diagnostic",
     "provider_provenance",
+    "reviewer_provenance",
     "accounting",
     "artifact_hashes",
     "reconciliation",
@@ -199,6 +209,56 @@ PROVIDER_PROVENANCE_FIELDS = frozenset({
     "result_store_raw_sha256",
     "request_journal_raw_sha256",
     "usage_ledger_raw_sha256",
+    "normal_execution_replay_status",
+    "replayed_judgment_count",
+    "replayed_terminal_count",
+    "logical_request_count",
+    "provider_request_count",
+    "logical_request_hashes_sha256",
+    "provider_request_hashes_sha256",
+    "authorization_dispatch_status",
+    "latest_logical_dispatch_at_utc",
+    "latest_provider_completion_at_utc",
+    "protocol_raw_sha256",
+    "prompt_bundle_raw_sha256",
+    "role_limits_raw_sha256",
+    "main_transcript_bundle_raw_sha256",
+    "transcript_verification_raw_sha256",
+    "main_transcript_bundle_canonical_sha256",
+    "transcript_results_canonical_sha256",
+})
+PROVIDER_INPUT_FIELDS = frozenset({
+    "protocol",
+    "prompt_bundle",
+    "role_limits",
+    "main_transcript_bundle",
+    "transcript_verification",
+})
+REVIEWER_INPUT_FIELDS = frozenset({
+    "reviewer_prompt",
+    "reviewer_failure_policy",
+    "capacity_plan",
+})
+CAPACITY_EVIDENCE_FIELDS = frozenset({
+    "capacity_result",
+    "capacity_dispatch_history",
+})
+REVIEWER_PROVENANCE_FIELDS = frozenset({
+    "reviewer_provenance_status",
+    "reviewer_wave_count",
+    "reviewed_payload_count",
+    "parsed_decision_count",
+    "malformed_decision_count",
+    "reviewer_error_decision_count",
+    "review_packets_root",
+    "review_packets_tree_canonical_sha256",
+    "reviewer_index_raw_sha256",
+    "reviewer_worklist_raw_sha256",
+    "reviewer_prompt_raw_sha256",
+    "reviewer_failure_policy_raw_sha256",
+    "capacity_plan_raw_sha256",
+    "capacity_result_raw_sha256",
+    "capacity_dispatch_history_raw_sha256",
 })
 ACCOUNTING_FIELDS = frozenset({
     "prior_reconciled_usd",
@@ -289,6 +349,13 @@ def _non_negative_int(value: Any, label: str) -> int:
     return value
 
 
+def _positive_int(value: Any, label: str) -> int:
+    parsed = _non_negative_int(value, label)
+    if parsed == 0:
+        raise MainFinalizationError(f"{label} must be positive")
+    return parsed
+
+
 def _utc(value: Any, label: str) -> str:
     text = _text(value, label)
     try:
@@ -299,6 +366,12 @@ def _utc(value: Any, label: str) -> str:
     if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
         raise MainFinalizationError(f"{label} must use UTC")
     return text
+
+
+def _utc_datetime(value: Any, label: str) -> datetime:
+    text = _utc(value, label)
+    return datetime.fromisoformat(
+        text[:-1] + "+00:00" if text.endswith("Z") else text)
 
 
 def _exact_keys(value: Any, expected: frozenset[str], label: str) -> Mapping[str, Any]:
@@ -441,6 +514,201 @@ def _read_stable_bytes(path: Path, label: str) -> bytes:
     if first != second:
         raise MainFinalizationError(f"{label} changed while finalization read it")
     return first
+
+
+def _load_bound_json_inputs(
+    paths: Mapping[str, str | Path],
+    raw_sha256s: Mapping[str, str],
+    *,
+    expected_fields: frozenset[str],
+    group_label: str,
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, bytes]]:
+    if set(paths) != expected_fields:
+        raise MainFinalizationError(
+            f"{group_label} input paths drifted: "
+            f"missing={sorted(expected_fields - set(paths))!r}, "
+            f"unexpected={sorted(set(paths) - expected_fields)!r}")
+    if set(raw_sha256s) != expected_fields:
+        raise MainFinalizationError(
+            f"{group_label} input hashes drifted: "
+            f"missing={sorted(expected_fields - set(raw_sha256s))!r}, "
+            f"unexpected={sorted(set(raw_sha256s) - expected_fields)!r}")
+    values: dict[str, Mapping[str, Any]] = {}
+    raw_values: dict[str, bytes] = {}
+    for name in sorted(expected_fields):
+        raw_path = paths[name]
+        if not isinstance(raw_path, (str, Path)):
+            raise MainFinalizationError(
+                f"{group_label} input path {name!r} must be a path")
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise MainFinalizationError(
+                f"{group_label} input path {name!r} must be absolute")
+        expected_sha = _sha256(
+            raw_sha256s[name], f"{group_label} input {name} raw SHA-256")
+        raw = _read_stable_bytes(path.resolve(), f"{group_label} input {name}")
+        if _sha256_bytes(raw) != expected_sha:
+            raise MainFinalizationError(
+                f"{group_label} input {name} differs from its manifest binding")
+        try:
+            value = json.loads(
+                raw.decode("utf-8"), object_pairs_hook=_unique_object)
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise MainFinalizationError(
+                f"{group_label} input {name} is not unique-key UTF-8 JSON") from exc
+        if not isinstance(value, Mapping):
+            raise MainFinalizationError(
+                f"{group_label} input {name} must be a JSON object")
+        values[name] = value
+        raw_values[name] = raw
+    return values, raw_values
+
+
+def _load_bound_provider_inputs(
+    paths: Mapping[str, str | Path],
+    raw_sha256s: Mapping[str, str],
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, bytes]]:
+    return _load_bound_json_inputs(
+        paths,
+        raw_sha256s,
+        expected_fields=PROVIDER_INPUT_FIELDS,
+        group_label="provider provenance",
+    )
+
+
+def _load_bound_reviewer_inputs(
+    paths: Mapping[str, str | Path],
+    raw_sha256s: Mapping[str, str],
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, bytes]]:
+    return _load_bound_json_inputs(
+        paths,
+        raw_sha256s,
+        expected_fields=REVIEWER_INPUT_FIELDS,
+        group_label="reviewer provenance",
+    )
+
+
+def _require_bound_inputs_unchanged(
+    paths: Mapping[str, str | Path],
+    raw_values: Mapping[str, bytes],
+    *,
+    expected_fields: frozenset[str],
+    group_label: str,
+) -> None:
+    for name in sorted(expected_fields):
+        path = Path(paths[name]).resolve()
+        try:
+            observed = path.read_bytes()
+        except OSError as exc:
+            raise MainFinalizationError(
+                f"{group_label} input {name} became unreadable") from exc
+        if observed != raw_values[name]:
+            raise MainFinalizationError(
+                f"{group_label} input {name} changed during finalization")
+
+
+def _require_bound_provider_inputs_unchanged(
+    paths: Mapping[str, str | Path], raw_values: Mapping[str, bytes],
+) -> None:
+    _require_bound_inputs_unchanged(
+        paths,
+        raw_values,
+        expected_fields=PROVIDER_INPUT_FIELDS,
+        group_label="provider provenance",
+    )
+
+
+def _require_bound_reviewer_inputs_unchanged(
+    paths: Mapping[str, str | Path], raw_values: Mapping[str, bytes],
+) -> None:
+    _require_bound_inputs_unchanged(
+        paths,
+        raw_values,
+        expected_fields=REVIEWER_INPUT_FIELDS,
+        group_label="reviewer provenance",
+    )
+
+
+def _load_bound_capacity_evidence(
+    *,
+    capacity_result_path: str | Path,
+    expected_capacity_result_raw_sha256: str,
+    capacity_dispatch_history_path: str | Path,
+    expected_capacity_dispatch_history_raw_sha256: str,
+) -> tuple[dict[str, Path], dict[str, bytes]]:
+    paths = {
+        "capacity_result": capacity_result_path,
+        "capacity_dispatch_history": capacity_dispatch_history_path,
+    }
+    hashes = {
+        "capacity_result": expected_capacity_result_raw_sha256,
+        "capacity_dispatch_history": expected_capacity_dispatch_history_raw_sha256,
+    }
+    resolved: dict[str, Path] = {}
+    raw_values: dict[str, bytes] = {}
+    for name in sorted(CAPACITY_EVIDENCE_FIELDS):
+        raw_path = paths[name]
+        if not isinstance(raw_path, (str, Path)):
+            raise MainFinalizationError(
+                f"capacity evidence path {name!r} must be a path")
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise MainFinalizationError(
+                f"capacity evidence path {name!r} must be absolute")
+        expected_sha = _sha256(
+            hashes[name], f"capacity evidence {name} raw SHA-256")
+        resolved_path = path.resolve()
+        raw = _read_stable_bytes(resolved_path, f"capacity evidence {name}")
+        if _sha256_bytes(raw) != expected_sha:
+            raise MainFinalizationError(
+                f"capacity evidence {name} differs from its manifest binding")
+        resolved[name] = resolved_path
+        raw_values[name] = raw
+    return resolved, raw_values
+
+
+def _require_bound_capacity_evidence_unchanged(
+    paths: Mapping[str, str | Path], raw_values: Mapping[str, bytes],
+) -> None:
+    _require_bound_inputs_unchanged(
+        paths,
+        raw_values,
+        expected_fields=CAPACITY_EVIDENCE_FIELDS,
+        group_label="capacity evidence",
+    )
+
+
+def _reviewer_max_passes(capacity_plan: Mapping[str, Any]) -> int:
+    try:
+        reviewer = capacity_plan["reviewer_configuration"]
+        workload = capacity_plan["workload"]
+        thresholds = capacity_plan["capacity_thresholds"]
+        wave_size = reviewer["actual_capacity_wave_size"]
+        pending_limit = reviewer["wave_pending_payload_limit"]
+        measured_wave_size = workload["wave_size"]
+        maximum_payloads = thresholds["maximum_unique_review_payloads_zero_dedup"]
+    except (KeyError, TypeError) as exc:
+        raise MainFinalizationError(
+            "capacity plan omits the reviewer loop contract") from exc
+    for label, value in (
+        ("reviewer wave size", wave_size),
+        ("reviewer pending limit", pending_limit),
+        ("reviewer measured wave size", measured_wave_size),
+        ("maximum reviewer payload count", maximum_payloads),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise MainFinalizationError(f"{label} must be an integer")
+    if wave_size <= 0 or wave_size > pending_limit or wave_size != measured_wave_size:
+        raise MainFinalizationError(
+            "capacity plan reviewer wave contract is inconsistent")
+    if maximum_payloads < 0:
+        raise MainFinalizationError(
+            "capacity plan maximum reviewer payload count is negative")
+    return (
+        math.ceil(maximum_payloads / wave_size)
+        + MAX_TERMINAL_JUDGMENT_CELLS
+        + 2
+    )
 
 
 def _thaw(value: Any) -> Any:
@@ -1755,17 +2023,18 @@ def _validate_ledger_call_metadata(
             "main usage-ledger event has no journal-bound request metadata")
     try:
         key = journal_key(metadata)
-    except (KeyError, TypeError, ValueError) as exc:
+    except (KeyError, TypeError, ValueError, RuntimeError) as exc:
         raise MainFinalizationError(
             "main usage-ledger event has invalid call identity metadata") from exc
     role = key.call_role
     if role not in ALLOWED_MAIN_CALL_ROLES:
         raise MainFinalizationError(
             f"main usage ledger contains forbidden call role {role!r}")
-    if metadata.get("condition") != cell.get("condition"):
-        raise MainFinalizationError(
-            "main usage-ledger call disagrees with its planned condition")
-    if role != QUERY_CHECKER_ROLE:
+    if role == QUERY_CHECKER_ROLE:
+        if metadata.get("condition") != cell.get("condition"):
+            raise MainFinalizationError(
+                "main query-checker call disagrees with its planned condition")
+    else:
         expected = {
             "stage": "judgment",
             "question_id": cell["question_id"],
@@ -1801,11 +2070,20 @@ def _validate_main_provider_provenance(
     ledger_events: Sequence[Mapping[str, Any]],
     journal_rows: Sequence[Mapping[str, Any]],
     reviewer_decisions: Mapping[str, Any],
+    review_decisions_path: str | Path,
+    protocol: Mapping[str, Any],
+    prompt_bundle: Mapping[str, Any],
+    role_limits: Mapping[str, Any],
+    transcript_provenance: (
+        phase3_main_transcript_provenance.MainTranscriptProvenance),
     expected_checker_model: str,
     expected_oracle_model: str,
     result_store_raw_sha256: str,
     request_journal_raw_sha256: str,
     usage_ledger_raw_sha256: str,
+    authorization_approved_at_utc: str,
+    authorization_valid_until_utc: str,
+    finalization_recorded_at_utc: str,
 ) -> dict[str, Any]:
     transcripts, judgments = _inventory_index(inventory)
     expected_checker_model = _text(
@@ -2014,6 +2292,35 @@ def _validate_main_provider_provenance(
     if verdict_success_count != len(observed_judgments):
         raise MainFinalizationError(
             "judge_verdict ledger successes do not equal observed judgment results")
+    try:
+        transcript_verification = (
+            phase3_main_transcript_provenance.verify_main_transcript_partition(
+                result_rows=result_rows,
+                provenance=transcript_provenance,
+                result_store_raw_sha256=result_store_raw_sha256,
+            )
+        )
+        replay = phase3_main_provider_provenance.verify_main_provider_replay(
+            cells=inventory.cells,
+            result_rows=result_rows,
+            terminal_cell_keys=terminal,
+            context_ineligible_cell_keys=context,
+            protocol=protocol,
+            prompt_bundle=prompt_bundle,
+            role_limits=role_limits,
+            review_decisions_path=review_decisions_path,
+            journal_rows=journal_rows,
+            ledger_events=ledger_events,
+            authorization_approved_at_utc=authorization_approved_at_utc,
+            authorization_valid_until_utc=authorization_valid_until_utc,
+            finalization_recorded_at_utc=finalization_recorded_at_utc,
+        )
+    except (
+        phase3_main_provider_provenance.MainProviderProvenanceError,
+        phase3_main_transcript_provenance.MainTranscriptProvenanceError,
+    ) as exc:
+        raise MainFinalizationError(
+            f"exact main provider reconstruction failed: {exc}") from exc
     return {
         "status": "exact_provider_join",
         "allowed_main_call_roles": sorted(ALLOWED_MAIN_CALL_ROLES),
@@ -2029,6 +2336,29 @@ def _validate_main_provider_provenance(
             request_journal_raw_sha256, "request journal raw SHA-256"),
         "usage_ledger_raw_sha256": _sha256(
             usage_ledger_raw_sha256, "usage ledger raw SHA-256"),
+        "normal_execution_replay_status": replay["status"],
+        "replayed_judgment_count": replay["replayed_judgment_count"],
+        "replayed_terminal_count": replay["replayed_terminal_count"],
+        "logical_request_count": replay["logical_request_count"],
+        "provider_request_count": replay["provider_request_count"],
+        "logical_request_hashes_sha256": replay[
+            "logical_request_hashes_sha256"],
+        "provider_request_hashes_sha256": replay[
+            "provider_request_hashes_sha256"],
+        "authorization_dispatch_status": replay[
+            "authorization_dispatch_status"],
+        "latest_logical_dispatch_at_utc": replay[
+            "latest_logical_dispatch_at_utc"],
+        "latest_provider_completion_at_utc": replay[
+            "latest_provider_completion_at_utc"],
+        "main_transcript_bundle_raw_sha256": (
+            transcript_provenance.main_bundle_raw_sha256),
+        "transcript_verification_raw_sha256": (
+            transcript_provenance.transcript_verification_raw_sha256),
+        "main_transcript_bundle_canonical_sha256": (
+            transcript_provenance.main_bundle_canonical_sha256),
+        "transcript_results_canonical_sha256": (
+            transcript_verification.expected_results_canonical_sha256),
     }
 
 
@@ -2153,8 +2483,22 @@ def build_finalization_admission(
     request_journal_path: str | Path,
     journal_execution_identity: str,
     analysis_pins_path: str | Path,
+    provider_input_paths: Mapping[str, str | Path],
+    provider_input_raw_sha256s: Mapping[str, str],
+    reviewer_input_paths: Mapping[str, str | Path],
+    reviewer_input_raw_sha256s: Mapping[str, str],
+    capacity_result_path: str | Path,
+    expected_capacity_result_raw_sha256: str,
+    capacity_dispatch_history_path: str | Path,
+    expected_capacity_dispatch_history_raw_sha256: str,
+    review_packets_root_path: str | Path,
     artifact_paths: Mapping[str, str | Path],
     expected_oracle_model: str,
+    expected_reviewer_model: str,
+    expected_reviewer_reasoning_effort: str,
+    expected_reviewer_concurrency: int,
+    authorization_approved_at_utc: str,
+    authorization_valid_until_utc: str,
     prior_reconciled_usd: str,
     stage_cap_usd: str,
     recorded_at_utc: str,
@@ -2172,6 +2516,8 @@ def build_finalization_admission(
         "authorization_signature_raw_sha256",
     )
     recorded_at_utc = _utc(recorded_at_utc, "recorded_at_utc")
+    authorization_approved_at_utc = _utc(
+        authorization_approved_at_utc, "authorization_approved_at_utc")
     inventory_sha = inventory_canonical_sha256(inventory)
     _inventory_index(inventory)
     if (terminal_store.run_id != run_id
@@ -2188,6 +2534,55 @@ def build_finalization_admission(
     if pins_sha != FROZEN_ANALYSIS_PINS_CANONICAL_SHA256:
         raise MainFinalizationError(
             "analysis pins differ from the frozen main analysis contract")
+    provider_inputs, provider_input_raw = _load_bound_provider_inputs(
+        provider_input_paths, provider_input_raw_sha256s)
+    reviewer_inputs, reviewer_input_raw = _load_bound_reviewer_inputs(
+        reviewer_input_paths, reviewer_input_raw_sha256s)
+    capacity_evidence_paths, capacity_evidence_raw = _load_bound_capacity_evidence(
+        capacity_result_path=capacity_result_path,
+        expected_capacity_result_raw_sha256=expected_capacity_result_raw_sha256,
+        capacity_dispatch_history_path=capacity_dispatch_history_path,
+        expected_capacity_dispatch_history_raw_sha256=(
+            expected_capacity_dispatch_history_raw_sha256),
+    )
+    expected_reviewer_model = _text(
+        expected_reviewer_model, "expected_reviewer_model")
+    expected_reviewer_reasoning_effort = _text(
+        expected_reviewer_reasoning_effort,
+        "expected_reviewer_reasoning_effort",
+    )
+    expected_reviewer_concurrency = _positive_int(
+        expected_reviewer_concurrency, "expected_reviewer_concurrency")
+    authorization_valid_until_utc = _utc(
+        authorization_valid_until_utc, "authorization_valid_until_utc")
+    approved_at = _utc_datetime(
+        authorization_approved_at_utc, "authorization_approved_at_utc")
+    finalized_at = _utc_datetime(recorded_at_utc, "recorded_at_utc")
+    valid_until = _utc_datetime(
+        authorization_valid_until_utc, "authorization_valid_until_utc")
+    if valid_until <= approved_at:
+        raise MainFinalizationError(
+            "signed authorization dispatch window is empty")
+    if finalized_at < approved_at:
+        raise MainFinalizationError(
+            "finalization predates the signed authorization")
+    try:
+        transcript_provenance = (
+            phase3_main_transcript_provenance.
+            load_manifest_bound_main_transcript_provenance(
+                inventory=inventory,
+                main_bundle_path=provider_input_paths["main_transcript_bundle"],
+                transcript_verification_path=provider_input_paths[
+                    "transcript_verification"],
+                expected_main_bundle_raw_sha256=provider_input_raw_sha256s[
+                    "main_transcript_bundle"],
+                expected_transcript_verification_raw_sha256=(
+                    provider_input_raw_sha256s["transcript_verification"]),
+            )
+        )
+    except phase3_main_transcript_provenance.MainTranscriptProvenanceError as exc:
+        raise MainFinalizationError(
+            f"main transcript provenance failed: {exc}") from exc
 
     result_path = Path(result_store_path).resolve()
     ledger_path = Path(usage_ledger_path).resolve()
@@ -2201,6 +2596,14 @@ def build_finalization_admission(
         manifest_sha256=manifest_sha,
         journal_execution_identity=journal_execution_identity,
     )
+    review_packets_root = Path(review_packets_root_path)
+    if not review_packets_root.is_absolute():
+        raise MainFinalizationError(
+            "review packet root path must be absolute")
+    review_packets_root = review_packets_root.resolve()
+    if review_packets_root.parent != result_path.parent:
+        raise MainFinalizationError(
+            "review packet root is outside the main artifact root")
     result_rows, result_raw = _load_result_rows_material(result_path)
     result_keys = tuple(str(row["cell_key"]) for row in result_rows)
     terminal_store.verify_all_evidence(
@@ -2240,12 +2643,87 @@ def build_finalization_admission(
         ledger_events=ledger_material["events"],
         journal_rows=journal_rows,
         reviewer_decisions=reviewer_decisions,
+        review_decisions_path=artifact_paths["review_decisions"],
+        protocol=provider_inputs["protocol"],
+        prompt_bundle=provider_inputs["prompt_bundle"],
+        role_limits=provider_inputs["role_limits"],
+        transcript_provenance=transcript_provenance,
         expected_checker_model=terminal_store.checker_model,
         expected_oracle_model=expected_oracle_model,
         result_store_raw_sha256=_sha256_bytes(result_raw),
         request_journal_raw_sha256=_sha256_bytes(journal_raw),
         usage_ledger_raw_sha256=ledger_material["ledger_raw_sha256"],
+        authorization_approved_at_utc=authorization_approved_at_utc,
+        authorization_valid_until_utc=authorization_valid_until_utc,
+        finalization_recorded_at_utc=recorded_at_utc,
     )
+    provenance = {
+        **provenance,
+        "protocol_raw_sha256": _sha256_bytes(provider_input_raw["protocol"]),
+        "prompt_bundle_raw_sha256": _sha256_bytes(
+            provider_input_raw["prompt_bundle"]),
+        "role_limits_raw_sha256": _sha256_bytes(provider_input_raw["role_limits"]),
+    }
+    capacity_configuration = reviewer_inputs["capacity_plan"].get(
+        "reviewer_configuration")
+    if not isinstance(capacity_configuration, Mapping):
+        raise MainFinalizationError(
+            "capacity plan omits reviewer_configuration")
+    expected_reviewer_cli_path = _text(
+        capacity_configuration.get("reviewer_cli_resolved_path"),
+        "capacity plan reviewer CLI path",
+    )
+    try:
+        reviewer_provenance = (
+            phase3_main_reviewer_provenance.verify_main_reviewer_provenance(
+                reviewer_index_path=artifact_paths["reviewer_index"],
+                reviewer_worklist_path=artifact_paths["reviewer_worklist"],
+                review_packets_root=review_packets_root,
+                reviewer_prompt_path=reviewer_input_paths["reviewer_prompt"],
+                expected_reviewer_prompt_raw_sha256=(
+                    reviewer_input_raw_sha256s["reviewer_prompt"]),
+                reviewer_failure_policy_path=(
+                    reviewer_input_paths["reviewer_failure_policy"]),
+                expected_reviewer_failure_policy_raw_sha256=(
+                    reviewer_input_raw_sha256s["reviewer_failure_policy"]),
+                capacity_plan_path=reviewer_input_paths["capacity_plan"],
+                expected_capacity_plan_raw_sha256=(
+                    reviewer_input_raw_sha256s["capacity_plan"]),
+                capacity_result_path=capacity_evidence_paths["capacity_result"],
+                expected_capacity_result_raw_sha256=(
+                    expected_capacity_result_raw_sha256),
+                capacity_dispatch_history_path=(
+                    capacity_evidence_paths["capacity_dispatch_history"]),
+                expected_capacity_dispatch_history_raw_sha256=(
+                    expected_capacity_dispatch_history_raw_sha256),
+                expected_run_id=run_id,
+                expected_manifest_canonical_sha256=manifest_sha,
+                expected_authorization_canonical_sha256=authorization_sha,
+                expected_authorization_raw_sha256=authorization_raw_sha,
+                expected_authorization_signature_raw_sha256=(
+                    authorization_signature_raw_sha),
+                expected_reviewer_model=expected_reviewer_model,
+                expected_reviewer_reasoning_effort=(
+                    expected_reviewer_reasoning_effort),
+                expected_reviewer_concurrency=expected_reviewer_concurrency,
+                expected_reviewer_cli_resolved_path=(
+                    expected_reviewer_cli_path),
+                expected_authorization_approved_at_utc=(
+                    authorization_approved_at_utc),
+                expected_authorization_deadline_utc=(
+                    authorization_valid_until_utc),
+                expected_finalization_recorded_at_utc=recorded_at_utc,
+                max_passes=_reviewer_max_passes(
+                    reviewer_inputs["capacity_plan"]),
+                decisions_path=artifact_paths["review_decisions"],
+                # The provider reconstruction above independently proves that
+                # these are exactly the non-DONE journaled query payloads.
+                expected_reviewed_payload_sha256s=set(reviewer_decisions),
+            )
+        )
+    except phase3_main_reviewer_provenance.MainReviewerProvenanceError as exc:
+        raise MainFinalizationError(
+            f"main reviewer provenance failed: {exc}") from exc
     accounting = _accounting_section(
         ledger_material,
         prior_reconciled_usd=prior_reconciled_usd,
@@ -2286,12 +2764,51 @@ def build_finalization_admission(
             reviewer_decisions_raw):
         raise MainFinalizationError(
             "review decision store changed after semantic validation")
+    for artifact_name, provenance_field in (
+        ("reviewer_index", "reviewer_index_raw_sha256"),
+        ("reviewer_worklist", "reviewer_worklist_raw_sha256"),
+    ):
+        if artifacts[artifact_name]["raw_sha256"] != reviewer_provenance[
+                provenance_field]:
+            raise MainFinalizationError(
+                f"{artifact_name.replace('_', ' ')} changed after reviewer "
+                "provenance validation")
     if artifacts["usage_ledger"]["raw_sha256"] != accounting[
             "usage_ledger_raw_sha256"]:
         raise MainFinalizationError("usage ledger changed after exact accounting")
     if artifacts["usage_ledger_state"]["raw_sha256"] != accounting[
             "usage_ledger_state_raw_sha256"]:
         raise MainFinalizationError("usage ledger state changed after exact accounting")
+    _require_bound_provider_inputs_unchanged(
+        provider_input_paths, provider_input_raw)
+    _require_bound_reviewer_inputs_unchanged(
+        reviewer_input_paths, reviewer_input_raw)
+    _require_bound_capacity_evidence_unchanged(
+        capacity_evidence_paths, capacity_evidence_raw)
+    for artifact_name, provenance_field in (
+        ("reviewer_index", "reviewer_index_raw_sha256"),
+        ("reviewer_worklist", "reviewer_worklist_raw_sha256"),
+    ):
+        current_raw = _read_stable_bytes(
+            Path(artifacts[artifact_name]["path"]),
+            f"{artifact_name.replace('_', ' ')} final snapshot",
+        )
+        if _sha256_bytes(current_raw) != reviewer_provenance[provenance_field]:
+            raise MainFinalizationError(
+                f"{artifact_name.replace('_', ' ')} changed after reviewer "
+                "provenance validation")
+    try:
+        current_review_tree_sha = (
+            phase3_main_reviewer_provenance.
+            review_packets_tree_canonical_sha256(review_packets_root)
+        )
+    except phase3_main_reviewer_provenance.MainReviewerProvenanceError as exc:
+        raise MainFinalizationError(
+            f"review packet tree became invalid after provenance validation: {exc}") from exc
+    if current_review_tree_sha != reviewer_provenance[
+            "review_packets_tree_canonical_sha256"]:
+        raise MainFinalizationError(
+            "review packet tree changed after reviewer provenance validation")
 
     return {
         "schema_version": FINALIZATION_SCHEMA,
@@ -2317,6 +2834,7 @@ def build_finalization_admission(
         "terminal_bounds": bounds,
         "checker_truncation_diagnostic": diagnostic,
         "provider_provenance": provenance,
+        "reviewer_provenance": reviewer_provenance,
         "accounting": accounting,
         "artifact_hashes": artifacts,
         "reconciliation": reconciliation,
@@ -2399,6 +2917,9 @@ def validate_finalization_admission(
     )
     if provenance["status"] != "exact_provider_join":
         raise MainFinalizationError("provider provenance status is not exact")
+    if provenance["normal_execution_replay_status"] != "exact_normal_execution_replay":
+        raise MainFinalizationError(
+            "provider provenance normal-execution replay status is not exact")
     if provenance["allowed_main_call_roles"] != sorted(ALLOWED_MAIN_CALL_ROLES):
         raise MainFinalizationError("provider provenance call roles drifted")
     for field in (
@@ -2407,14 +2928,74 @@ def validate_finalization_admission(
         "settled_success_call_count",
         "verdict_journal_count",
         "verdict_ledger_success_count",
+        "replayed_judgment_count",
+        "replayed_terminal_count",
+        "logical_request_count",
+        "provider_request_count",
     ):
         _non_negative_int(provenance[field], f"provider_provenance.{field}")
     for field in (
         "result_store_raw_sha256",
         "request_journal_raw_sha256",
         "usage_ledger_raw_sha256",
+        "logical_request_hashes_sha256",
+        "provider_request_hashes_sha256",
+        "protocol_raw_sha256",
+        "prompt_bundle_raw_sha256",
+        "role_limits_raw_sha256",
+        "main_transcript_bundle_raw_sha256",
+        "transcript_verification_raw_sha256",
+        "main_transcript_bundle_canonical_sha256",
+        "transcript_results_canonical_sha256",
     ):
         _sha256(provenance[field], f"provider_provenance.{field}")
+
+    reviewer_provenance = _exact_keys(
+        record.get("reviewer_provenance"),
+        REVIEWER_PROVENANCE_FIELDS,
+        "reviewer_provenance",
+    )
+    if (
+        reviewer_provenance["reviewer_provenance_status"]
+        != "reviewer_provenance_verified"
+    ):
+        raise MainFinalizationError(
+            "reviewer provenance status is not verified")
+    for field in (
+        "reviewer_wave_count",
+        "reviewed_payload_count",
+        "parsed_decision_count",
+        "malformed_decision_count",
+        "reviewer_error_decision_count",
+    ):
+        _non_negative_int(
+            reviewer_provenance[field], f"reviewer_provenance.{field}")
+    if reviewer_provenance["reviewed_payload_count"] != sum(
+        int(reviewer_provenance[field])
+        for field in (
+            "parsed_decision_count",
+            "malformed_decision_count",
+            "reviewer_error_decision_count",
+        )
+    ):
+        raise MainFinalizationError(
+            "reviewer provenance decision counts do not cover reviewed payloads")
+    _text(
+        reviewer_provenance["review_packets_root"],
+        "reviewer_provenance.review_packets_root",
+    )
+    for field in (
+        "review_packets_tree_canonical_sha256",
+        "reviewer_index_raw_sha256",
+        "reviewer_worklist_raw_sha256",
+        "reviewer_prompt_raw_sha256",
+        "reviewer_failure_policy_raw_sha256",
+        "capacity_plan_raw_sha256",
+        "capacity_result_raw_sha256",
+        "capacity_dispatch_history_raw_sha256",
+    ):
+        _sha256(
+            reviewer_provenance[field], f"reviewer_provenance.{field}")
 
     accounting = _exact_keys(
         record.get("accounting"), ACCOUNTING_FIELDS, "accounting")
@@ -2490,8 +3071,20 @@ def validate_finalization_from_bound_artifacts(
     expected_analysis_pins_path: str | Path,
     expected_context_blocklist_path: str | Path,
     expected_manifest_output_paths: Mapping[str, str | Path],
+    expected_provider_input_paths: Mapping[str, str | Path],
+    expected_provider_input_raw_sha256s: Mapping[str, str],
+    expected_reviewer_input_paths: Mapping[str, str | Path],
+    expected_reviewer_input_raw_sha256s: Mapping[str, str],
+    expected_capacity_result_path: str | Path,
+    expected_capacity_result_raw_sha256: str,
+    expected_capacity_dispatch_history_path: str | Path,
+    expected_capacity_dispatch_history_raw_sha256: str,
+    expected_review_packets_root_path: str | Path,
     expected_checker_model: str,
     expected_oracle_model: str,
+    expected_reviewer_model: str,
+    expected_reviewer_reasoning_effort: str,
+    expected_reviewer_concurrency: int,
     prior_reconciled_usd: str,
     stage_cap_usd: str,
 ) -> dict[str, Any]:
@@ -2542,6 +3135,98 @@ def validate_finalization_from_bound_artifacts(
             raise MainFinalizationError(
                 f"finalization artifact {artifact_label} does not equal the signed "
                 f"manifest output path {output_name}")
+
+    if not isinstance(expected_provider_input_paths, Mapping):
+        raise MainFinalizationError(
+            "expected provider input paths must be a complete object")
+    if not isinstance(expected_provider_input_raw_sha256s, Mapping):
+        raise MainFinalizationError(
+            "expected provider input hashes must be a complete object")
+    provider_input_paths: dict[str, Path] = {}
+    provider_input_raw_sha256s: dict[str, str] = {}
+    if set(expected_provider_input_paths) != PROVIDER_INPUT_FIELDS:
+        raise MainFinalizationError(
+            "expected provider input path fields drifted: "
+            f"missing={sorted(PROVIDER_INPUT_FIELDS - set(expected_provider_input_paths))!r}, "
+            f"unexpected={sorted(set(expected_provider_input_paths) - PROVIDER_INPUT_FIELDS)!r}")
+    if set(expected_provider_input_raw_sha256s) != PROVIDER_INPUT_FIELDS:
+        raise MainFinalizationError(
+            "expected provider input hash fields drifted: "
+            f"missing={sorted(PROVIDER_INPUT_FIELDS - set(expected_provider_input_raw_sha256s))!r}, "
+            f"unexpected={sorted(set(expected_provider_input_raw_sha256s) - PROVIDER_INPUT_FIELDS)!r}")
+    for name in sorted(PROVIDER_INPUT_FIELDS):
+        raw_path = expected_provider_input_paths[name]
+        if not isinstance(raw_path, (str, Path)):
+            raise MainFinalizationError(
+                f"expected provider input path {name!r} must be a path")
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise MainFinalizationError(
+                f"expected provider input path {name!r} must be absolute")
+        provider_input_paths[name] = path.resolve()
+        provider_input_raw_sha256s[name] = _sha256(
+            expected_provider_input_raw_sha256s[name],
+            f"expected provider input {name} raw SHA-256",
+        )
+
+    if not isinstance(expected_reviewer_input_paths, Mapping):
+        raise MainFinalizationError(
+            "expected reviewer input paths must be a complete object")
+    if not isinstance(expected_reviewer_input_raw_sha256s, Mapping):
+        raise MainFinalizationError(
+            "expected reviewer input hashes must be a complete object")
+    reviewer_input_paths: dict[str, Path] = {}
+    reviewer_input_raw_sha256s: dict[str, str] = {}
+    if set(expected_reviewer_input_paths) != REVIEWER_INPUT_FIELDS:
+        raise MainFinalizationError(
+            "expected reviewer input path fields drifted: "
+            f"missing={sorted(REVIEWER_INPUT_FIELDS - set(expected_reviewer_input_paths))!r}, "
+            f"unexpected={sorted(set(expected_reviewer_input_paths) - REVIEWER_INPUT_FIELDS)!r}")
+    if set(expected_reviewer_input_raw_sha256s) != REVIEWER_INPUT_FIELDS:
+        raise MainFinalizationError(
+            "expected reviewer input hash fields drifted: "
+            f"missing={sorted(REVIEWER_INPUT_FIELDS - set(expected_reviewer_input_raw_sha256s))!r}, "
+            f"unexpected={sorted(set(expected_reviewer_input_raw_sha256s) - REVIEWER_INPUT_FIELDS)!r}")
+    for name in sorted(REVIEWER_INPUT_FIELDS):
+        raw_path = expected_reviewer_input_paths[name]
+        if not isinstance(raw_path, (str, Path)):
+            raise MainFinalizationError(
+                f"expected reviewer input path {name!r} must be a path")
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise MainFinalizationError(
+                f"expected reviewer input path {name!r} must be absolute")
+        reviewer_input_paths[name] = path.resolve()
+        reviewer_input_raw_sha256s[name] = _sha256(
+            expected_reviewer_input_raw_sha256s[name],
+            f"expected reviewer input {name} raw SHA-256",
+        )
+    capacity_result_path = Path(expected_capacity_result_path)
+    capacity_dispatch_history_path = Path(expected_capacity_dispatch_history_path)
+    if (
+        not capacity_result_path.is_absolute()
+        or not capacity_dispatch_history_path.is_absolute()
+    ):
+        raise MainFinalizationError(
+            "expected capacity evidence paths must be absolute")
+    capacity_result_path = capacity_result_path.resolve()
+    capacity_dispatch_history_path = capacity_dispatch_history_path.resolve()
+    capacity_result_raw_sha256 = _sha256(
+        expected_capacity_result_raw_sha256,
+        "expected capacity result raw SHA-256",
+    )
+    capacity_dispatch_history_raw_sha256 = _sha256(
+        expected_capacity_dispatch_history_raw_sha256,
+        "expected capacity dispatch history raw SHA-256",
+    )
+    review_packets_root = Path(expected_review_packets_root_path)
+    if not review_packets_root.is_absolute():
+        raise MainFinalizationError(
+            "expected review packet root path must be absolute")
+    review_packets_root = review_packets_root.resolve()
+    if review_packets_root != manifest_output_paths["review_packets_root"]:
+        raise MainFinalizationError(
+            "expected review packet root differs from the signed manifest output path")
 
     result_path = Path(expected_result_store_path)
     pins_path = Path(expected_analysis_pins_path)
@@ -2604,14 +3289,22 @@ def validate_finalization_from_bound_artifacts(
     ):
         raise MainFinalizationError(
             "finalization authorization signature bytes differ from the signed launch")
-    approved_at = _utc(
+    approved_at_utc = _utc(
         authorization_approved_at_utc, "authorization_approved_at_utc")
-    valid_until = _utc(
+    valid_until_utc = _utc(
         authorization_valid_until_utc, "authorization_valid_until_utc")
-    finalized_at = _utc(record.get("recorded_at_utc"), "recorded_at_utc")
-    if not approved_at <= finalized_at <= valid_until:
+    approved_at = _utc_datetime(
+        approved_at_utc, "authorization_approved_at_utc")
+    valid_until = _utc_datetime(
+        valid_until_utc, "authorization_valid_until_utc")
+    finalized_at = _utc_datetime(
+        record.get("recorded_at_utc"), "recorded_at_utc")
+    if valid_until <= approved_at:
         raise MainFinalizationError(
-            "finalization was recorded outside the signed authorization window")
+            "signed authorization dispatch window is empty")
+    if finalized_at < approved_at:
+        raise MainFinalizationError(
+            "finalization predates the signed authorization")
     root = result_path.parent
     root_sha = _sha256_text(root.as_posix())
     journal_identity = f"{run_id}:{manifest_sha}:{root_sha}"
@@ -2645,9 +3338,31 @@ def validate_finalization_from_bound_artifacts(
         request_journal_path=artifact_paths["request_journal"],
         journal_execution_identity=journal_identity,
         analysis_pins_path=pins_path,
+        provider_input_paths=provider_input_paths,
+        provider_input_raw_sha256s=provider_input_raw_sha256s,
+        reviewer_input_paths=reviewer_input_paths,
+        reviewer_input_raw_sha256s=reviewer_input_raw_sha256s,
+        capacity_result_path=capacity_result_path,
+        expected_capacity_result_raw_sha256=capacity_result_raw_sha256,
+        capacity_dispatch_history_path=capacity_dispatch_history_path,
+        expected_capacity_dispatch_history_raw_sha256=(
+            capacity_dispatch_history_raw_sha256),
+        review_packets_root_path=review_packets_root,
         artifact_paths=artifact_paths,
         expected_oracle_model=_text(
             expected_oracle_model, "expected_oracle_model"),
+        expected_reviewer_model=_text(
+            expected_reviewer_model, "expected_reviewer_model"),
+        expected_reviewer_reasoning_effort=_text(
+            expected_reviewer_reasoning_effort,
+            "expected_reviewer_reasoning_effort",
+        ),
+        expected_reviewer_concurrency=_positive_int(
+            expected_reviewer_concurrency,
+            "expected_reviewer_concurrency",
+        ),
+        authorization_approved_at_utc=approved_at_utc,
+        authorization_valid_until_utc=valid_until_utc,
         prior_reconciled_usd=prior_reconciled_usd,
         stage_cap_usd=stage_cap_usd,
     )

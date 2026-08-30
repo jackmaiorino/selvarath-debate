@@ -22,6 +22,28 @@ from types import SimpleNamespace
 from typing import Any
 
 
+LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD = (
+    "logical_dispatch_authorized_at_utc")
+
+
+def _is_exact_streaming_required_rejection(exc: BaseException) -> bool:
+    """Recognize only Together's structured HTTP 400 capability rejection.
+
+    Error text is not proof that an attempt was rejected before inference. In particular,
+    a transport or midstream failure can repeat the words ``streaming_required`` after the
+    provider may already have billed the call. Together's status exceptions retain both the
+    HTTP status and decoded response body, so no-charge negotiation is limited to that exact
+    structured signal.
+    """
+    if getattr(exc, "status_code", None) != 400:
+        return False
+    body = getattr(exc, "body", None)
+    if not isinstance(body, Mapping):
+        return False
+    error = body.get("error")
+    return isinstance(error, Mapping) and error.get("code") == "streaming_required"
+
+
 class CapExceededError(RuntimeError):
     pass
 
@@ -1473,7 +1495,8 @@ class RejudgeClient:
         return value
 
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
-                 request_metadata: dict | None = None) -> str:
+                 request_metadata: dict | None = None,
+                 _logical_dispatch_authorization_hook=None) -> str:
         max_tokens = self._resolve_max_tokens(model, max_tokens)
         estimated_prompt, estimated_completion = _estimate_usage(messages, max_tokens)
         # Two different questions, deliberately kept apart.
@@ -1508,6 +1531,11 @@ class RejudgeClient:
             if kind not in _DRY:
                 raise ValueError(f"unknown kind: {kind!r}")
             return _DRY[kind]
+        ledger_request_metadata = dict(request_metadata or {})
+        if LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD in ledger_request_metadata:
+            raise ValueError(
+                f"request_metadata reserves {LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD!r} "
+                "for the live authorization hook")
         last = None
         for attempt in range(self.max_retries + 1):
             streaming = model in self._streaming_models
@@ -1516,6 +1544,32 @@ class RejudgeClient:
                 max_tokens=max_tokens, seed=seed, streaming=streaming)
             request_fields_sha256 = hashlib.sha256(
                 _canonical_json(request_kwargs).encode("utf-8")).hexdigest()
+            if attempt == 0 and _logical_dispatch_authorization_hook is not None:
+                if not callable(_logical_dispatch_authorization_hook):
+                    raise TypeError(
+                        "logical dispatch authorization hook must be callable")
+                authorized_at = _logical_dispatch_authorization_hook()
+                if not isinstance(authorized_at, str) or not authorized_at:
+                    raise ValueError(
+                        "logical dispatch authorization hook must return a UTC timestamp")
+                try:
+                    parsed_authorized_at = datetime.fromisoformat(
+                        authorized_at[:-1] + "+00:00"
+                        if authorized_at.endswith("Z") else authorized_at)
+                except (ValueError, OverflowError) as exc:
+                    raise ValueError(
+                        "logical dispatch authorization hook returned an invalid timestamp"
+                    ) from exc
+                if (
+                    parsed_authorized_at.tzinfo is None
+                    or parsed_authorized_at.utcoffset()
+                    != timezone.utc.utcoffset(parsed_authorized_at)
+                ):
+                    raise ValueError(
+                        "logical dispatch authorization hook timestamp must use UTC")
+                ledger_request_metadata[
+                    LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD
+                ] = parsed_authorized_at.astimezone(timezone.utc).isoformat()
             input_price, output_price, estimated_cost, attempt_id = self._reserve_attempt(
                 model=model, prompt_tokens=estimated_prompt,
                 # Deliberately NOT estimated_completion. That value feeds the context-ceiling
@@ -1524,7 +1578,7 @@ class RejudgeClient:
                 # Only the RESERVATION carries the reasoning allowance.
                 completion_tokens=reserved_completion,
                 kind=kind, seed=seed,
-                attempt=attempt, request_metadata=request_metadata)
+                attempt=attempt, request_metadata=ledger_request_metadata)
 
             def _invoke():
                 if streaming:
@@ -1552,16 +1606,23 @@ class RejudgeClient:
                             "application-level wall-clock ceiling; treating as unknown_charge "
                             "rather than trusting a delayed response")
             except Exception as exc:                     # transient API error, no charge known
-                if "streaming_required" in str(exc) or "supports streaming" in str(exc):
+                if (
+                    attempt == 0
+                    and not streaming
+                    and _is_exact_streaming_required_rejection(exc)
+                ):
                     # Capability negotiation is a rejected request, not an inference. Release
                     # its reservation and retry immediately through the required transport.
+                    # This exception is deliberately narrow: later or already-streaming
+                    # failures are conservatively unknown-charge outcomes even if their text
+                    # repeats the capability code.
                     self._release_reservation(
                         estimated_cost, reserved_tokens,
                         reserved_prompt_tokens=estimated_prompt,
                         reserved_completion_tokens=reserved_completion,
                         attempt_id=attempt_id,
                         model=model, kind=kind, seed=seed, attempt=attempt,
-                        request_metadata=request_metadata)
+                        request_metadata=ledger_request_metadata)
                     self._streaming_models.add(model)
                     last = exc
                     continue
@@ -1572,7 +1633,7 @@ class RejudgeClient:
                     reserved_completion_tokens=reserved_completion,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
-                    request_metadata=request_metadata)
+                    request_metadata=ledger_request_metadata)
                 self._log_error(attempt, model, exc)
                 if self.halt_on_unknown_charge:
                     raise UnknownChargeHalt(
@@ -1607,7 +1668,7 @@ class RejudgeClient:
                     reserved_completion_tokens=reserved_completion,
                     model=model, kind=kind, seed=seed, attempt=attempt,
                     attempt_id=attempt_id, exc=exc,
-                    request_metadata=request_metadata)
+                    request_metadata=ledger_request_metadata)
                 self._log_error(attempt, model, exc)
                 if self.halt_on_unknown_charge:
                     raise UnknownChargeHalt(
@@ -1627,7 +1688,7 @@ class RejudgeClient:
                     prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                     input_price=input_price, output_price=output_price, model=model,
                     kind=kind, seed=seed, attempt=attempt, status="charged_malformed",
-                    attempt_id=attempt_id, request_metadata=request_metadata,
+                    attempt_id=attempt_id, request_metadata=ledger_request_metadata,
                     response_metadata=self._response_metadata(resp, request_fields_sha256))
                 raise RuntimeError(
                     f"malformed API response after successful charge: {exc}") from exc
@@ -1639,7 +1700,7 @@ class RejudgeClient:
                 prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                 input_price=input_price, output_price=output_price, model=model,
                 kind=kind, seed=seed, attempt=attempt, status="success",
-                attempt_id=attempt_id, request_metadata=request_metadata,
+                attempt_id=attempt_id, request_metadata=ledger_request_metadata,
                 response_metadata=response_metadata)
             if (self.require_returned_model_match
                     and response_metadata["returned_model_id"] != model):

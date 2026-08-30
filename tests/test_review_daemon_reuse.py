@@ -68,8 +68,13 @@ def test_a_regenerated_payload_set_is_actually_redispatched_not_replayed(tmp_pat
 
     dispatched = []
 
-    def fake_run_one(packet, model, effort, codex):
+    def fake_run_one(
+        packet, model, effort, codex,
+        not_after_utc=None, batch_concurrency=1,
+    ):
         """Stands in for the external reviewer: proves it was actually called."""
+        assert not_after_utc is None
+        assert batch_concurrency == 2
         dispatched.append(packet.name)
         prompt_sha = hashlib.sha256(packet.read_bytes()).hexdigest()
         return {"packet": packet.name, "prompt_sha256": prompt_sha, "ok": True,
