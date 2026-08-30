@@ -164,8 +164,8 @@ SSH_KEYGEN_PATH = phase3_main_authorization.SSH_KEYGEN_PATH
 PRODUCTION_EXECUTION_BLOCKERS = (
     "the owner signing key is not pinned",
     "the protocol cap and proposed main cap are not ratified to one value",
-    "provider-authenticated billing evidence is not implemented",
-    "environmental-successor provider settlement finality is not implemented",
+    "Together billing-usage API access is not enabled for the selected organization",
+    "no authenticated provider settlement watermark has been materialized",
     "the runtime credential is not bound to the reconciled provider account",
     "predecessor-ledger completeness has no independent authoritative inventory",
     "the signed run has no authorized response to in-run provider price changes",
@@ -1577,6 +1577,24 @@ def _require_clean_pre_main_billing(
     if validation.get("run_id") != manifest.get("run_id"):
         raise Phase3MainLiveError(
             "pre-main billing reconciliation run ID differs from the manifest")
+    billing_scope = validation.get("billing_scope")
+    settlement = validation.get("provider_settlement")
+    settlement_fields = {
+        "status", "account_identity_sha256", "finalized_through_utc",
+    }
+    if (
+        validation.get("evidence_kind")
+        != phase3_main_billing_reconciliation.AUTHENTICATED_EVIDENCE_KIND
+        or not isinstance(billing_scope, Mapping)
+        or not isinstance(settlement, Mapping)
+        or set(settlement) != settlement_fields
+        or settlement.get("status")
+        != phase3_main_billing_reconciliation.PROVIDER_SETTLEMENT_STATUS
+        or settlement.get("account_identity_sha256")
+        != billing_scope.get("account_identity_sha256")
+    ):
+        raise Phase3MainLiveError(
+            "pre-main billing reconciliation is not provider-authenticated and finalized")
     disposition = validation.get("disposition")
     if (
         disposition not in phase3_main_billing_reconciliation.CLOSED_DISPOSITIONS

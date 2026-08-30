@@ -1,10 +1,11 @@
 # Phase 3 main offline closure and next gates
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
-capacity-foundation, billing-inventory, process-reset reconciliation, and offline hardening
-work complete. Production remains blocked on external authority, authenticated account
-evidence, and fresh measurement. This document authorizes no external execution, reviewer
-dispatch, provider call, or spend.
+capacity-foundation, billing-inventory, authenticated billing-capture foundation,
+process-reset reconciliation, and offline hardening work complete. Production remains blocked
+on external authority, provider enablement, approved runtime account binding, authoritative
+source selection, and fresh measurement. This document authorizes no external execution,
+reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -179,9 +180,10 @@ match; and requires exactly one validated billing-reconciliation row for the pre
 ledger path and raw hash. Its authenticated billing window must cover the whole predecessor
 lifetime. The provider delta may never exceed the accounted upper bound, and a successor also
 requires a validated account-matched provider settlement watermark strictly after the void and
-strictly inside the half-open billing window. The current billing validator cannot yet issue
-that watermark, so real environmental successors remain explicitly blocked rather than
-assuming that an immediate dashboard capture is final.
+strictly inside the half-open billing window. The authenticated billing validator can now issue
+that watermark from a complete hourly API capture only after the provider HTTP Date is beyond
+the requested whole-hour target plus the documented lag. No real watermark exists because the
+selected organization does not currently have billing-usage API access.
 
 Persistent registry records are staged in a fully fsynced sibling file and published without
 replacement. POSIX uses a hard link followed by a parent-directory fsync. Windows uses a
@@ -221,8 +223,50 @@ Verification on the process-reset tree:
   provider-settlement, prior-upper-bound, directory-durability, crash-alias, and cross-volume
   publication gaps. The settled snapshot has no remaining P0, P1, or P2 finding.
 
-No provider call, reviewer dispatch, capacity measurement, production launch, push, or spend
-occurred during this work.
+No inference request, paid provider call, reviewer dispatch, capacity measurement, production
+launch, push, or spend occurred during this work. The provider exploration consisted only of
+one authenticated identity GET and one authenticated billing-usage GET.
+
+## Authenticated Together billing foundation
+
+The successor now has a separate read-only Together capture command. It permits only fixed
+HTTPS GET requests to `/v1/whoami` and `/v1/billing/usage`, follows no redirects, performs no
+retries, constructs no inference client, and publishes no index unless every response and
+binding validates. The API-key secret remains in memory only. Raw response sidecars are
+SHA-256 bound and published before an index through exclusive write-through moves, with exact
+rollback on publication errors and process-level interruptions.
+
+The account identity hash binds the versioned API-key ID, project ID, organization ID, and
+provider tuple. Billing capture requires one complete hourly response per intersecting UTC
+month, `limit=1000`, no cursor, USD, exact fixed-point costs, and matching key and project
+attribution on every counted line item. Finality does not use `latest_window_end`, which marks
+only the latest window containing usage. It uses a caller-selected whole-hour target and
+requires the provider HTTP Date to be strictly beyond that target plus Together's documented
+one-hour current-month or 24-hour prior-month lag. Empty usage intervals can therefore be
+covered without inventing usage.
+
+Reconciliation v3 reopens the raw authenticated sidecars, recomputes exact provider and ledger
+arithmetic independently of ambient Decimal context, applies a half-open ledger-event window,
+and emits the exact account-matched settlement map consumed by the live gate. Legacy v2
+dashboard evidence remains readable for archives but cannot enter any formal main run,
+including an initial identity.
+
+A sanitized live [identity GET](https://docs.together.ai/reference/whoami) returned 200. The
+[billing-usage GET](https://docs.together.ai/reference/billing-usage) returned 404, which
+Together documents as the beta endpoint not being enabled for the organization. The code path
+is ready, but no authenticated billing capture or settlement watermark was materialized. This
+work also does not independently bind the approved account to the later runtime credential,
+establish which local sources are authoritative and disjoint, or authorize any provider
+execution.
+
+Verification on this milestone:
+
+- Focused capture and reconciliation: 63 passed.
+- Complete Phase 3 main suite: 523 passed, 2 skipped in 120.03 seconds.
+- Full repository: 2,940 passed, 67 skipped in 651.98 seconds.
+- Scoped type checking, static compilation, diff checks, and the no-em-dash rule: passed.
+- Independent capture-security and reconciliation/live reviews found no remaining P0, P1, or
+  P2 finding.
 
 ## Remaining production blockers
 
@@ -235,9 +279,9 @@ enabled:
    the repository and inaccessible to Codex.
 2. The protocol still fixes a $450 stage cap while the sealed canary supports a proposed $875
    planning cap. One value must be ratified after a fresh certified forecast.
-3. Provider-authenticated billing evidence, runtime credential-to-account binding, an
-   authoritative predecessor-ledger inventory, and an authenticated settlement-finality
-   watermark do not exist yet.
+3. Together billing-usage beta access is not enabled for the selected organization. No live
+   authenticated capture or settlement watermark exists. Runtime credential-to-approved-account
+   binding and an authoritative, disjoint predecessor-ledger inventory also remain open.
 4. No signed response rule exists for a provider price change during the formal run.
 5. Codex reviewer usage has no separately ratified spend treatment. The representative
    capacity preflight has a frozen plan and a verified fake-only execution foundation, but no
@@ -263,13 +307,12 @@ cross-wave continuity, final store targets, and the complete packet tree.
 
 ## Next sequence
 
-1. Jack selects the stable Together account, organization, project, and API-key-ID scope;
-   supplies provider-authenticated dashboard evidence; and decides the exact predecessor
-   ledger and auxiliary source set.
-2. Materialize the explicit local billing inventory, bind the runtime credential to the
-   selected account scope, reconcile the inventory to the authenticated dashboard, and obtain
-   an authoritative completeness attestation plus a provider settlement watermark for any
-   environmental predecessor.
+1. Ask Together to enable the billing-usage beta endpoint for the selected organization, then
+   confirm the stable account, organization, project, and API-key-ID scope.
+2. Decide the exact predecessor ledger and auxiliary source set, establish its authoritative
+   completeness and disjointness, materialize the explicit inventory, bind the runtime
+   credential to the approved account scope, and run the read-only authenticated capture and
+   reconciliation. Any environmental predecessor also needs a post-void settlement watermark.
 3. Ratify the price-change response and reviewer usage treatment, then pin Jack's public
    signing key and fingerprint.
 4. Close the capacity real-enable gaps and request a separate bounded authorization for the

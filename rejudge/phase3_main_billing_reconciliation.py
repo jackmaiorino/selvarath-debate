@@ -20,17 +20,24 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, MAX_EMAX, MIN_EMIN, localcontext
 from pathlib import Path
 from typing import Any
 
 from rejudge import api_client
+from rejudge import phase3_main_together_billing_capture as together_billing
 
 
-SCHEMA_VERSION = "phase3_main_billing_reconciliation_v2"
+LEGACY_SCHEMA_VERSION = "phase3_main_billing_reconciliation_v2"
+SCHEMA_VERSION = "phase3_main_billing_reconciliation_v3"
 PROVIDER = "Together"
-BILLING_EVIDENCE_SCHEMA = "together_billing_dashboard_export_v2"
-BILLING_EVIDENCE_CAPTURE_METHOD = "together_billing_dashboard_export"
+LEGACY_BILLING_EVIDENCE_SCHEMA = "together_billing_dashboard_export_v2"
+LEGACY_BILLING_EVIDENCE_CAPTURE_METHOD = "together_billing_dashboard_export"
+BILLING_EVIDENCE_SCHEMA = together_billing.SCHEMA_VERSION
+BILLING_EVIDENCE_CAPTURE_METHOD = together_billing.CAPTURE_METHOD
+AUTHENTICATED_EVIDENCE_KIND = "together_authenticated_billing_api"
+LEGACY_EVIDENCE_KIND = "legacy_dashboard_export"
+PROVIDER_SETTLEMENT_STATUS = together_billing.SETTLEMENT_STATUS
 LEDGER_COVERAGE_SCHEMA = "phase3_main_billing_ledger_coverage_v1"
 FROZEN_TOLERANCE_USD = "0.01"
 MAX_PROVIDER_EVIDENCE_AGE = timedelta(hours=1)
@@ -233,6 +240,22 @@ def _decimal(value: Any, label: str, *, signed: bool = False) -> Decimal:
     return amount
 
 
+def _exact_sum(values: Sequence[Decimal]) -> Decimal:
+    """Add finite Decimals without inheriting ambient precision."""
+    if not values:
+        return Decimal("0")
+    minimum_exponent = min(int(value.as_tuple().exponent) for value in values)
+    maximum_adjusted = max(value.adjusted() for value in values)
+    carry_digits = len(str(len(values))) + 1
+    precision = max(1, maximum_adjusted - minimum_exponent + 1 + carry_digits)
+    with localcontext() as context:
+        context.prec = precision
+        context.Emax = MAX_EMAX
+        context.Emin = MIN_EMIN
+        context.clamp = 0
+        return sum(values, Decimal("0"))
+
+
 def _non_negative_int(value: Any, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise BillingReconciliationError(f"{label} must be a non-negative integer")
@@ -402,8 +425,8 @@ def _exact_ledger_summary(
     """Recompute exact totals and ambiguous attempts after lifecycle validation."""
     reservations: dict[str, Decimal] = {}
     unresolved: set[str] = set()
-    actual = Decimal("0")
-    uncertain = Decimal("0")
+    actual_costs: list[Decimal] = []
+    uncertain_costs: list[Decimal] = []
     for event_number, event in enumerate(events, 1):
         status = event.get("status")
         attempt_id = event.get("attempt_id")
@@ -412,11 +435,11 @@ def _exact_ledger_summary(
             assert isinstance(attempt_id, str)  # checked by api_client lifecycle validation
             reservations[attempt_id] = cost
         elif status in {"success", "charged_malformed"}:
-            actual += cost
+            actual_costs.append(cost)
             assert isinstance(attempt_id, str)
             reservations.pop(attempt_id)
         elif status == "unknown_charge":
-            uncertain += cost
+            uncertain_costs.append(cost)
             assert isinstance(attempt_id, str)
             reservations.pop(attempt_id)
             unresolved.add(attempt_id)
@@ -425,9 +448,12 @@ def _exact_ledger_summary(
             reservations.pop(attempt_id)
         else:  # pragma: no cover - rejected by api_client before this helper runs
             raise BillingReconciliationError(f"{label} has unknown usage status")
-    uncertain += sum(reservations.values(), Decimal("0"))
+    uncertain_costs.extend(reservations.values())
     unresolved.update(reservations)
-    return actual, uncertain, actual + uncertain, tuple(sorted(unresolved))
+    actual = _exact_sum(actual_costs)
+    uncertain = _exact_sum(uncertain_costs)
+    accounted = _exact_sum((actual, uncertain))
+    return actual, uncertain, accounted, tuple(sorted(unresolved))
 
 
 def _attempt_ids(value: Any, label: str) -> tuple[str, ...]:
@@ -540,6 +566,10 @@ def _validate_ledger(
         raise BillingReconciliationError(
             f"{label}.unresolved_attempt_ids do not match ledger lifecycle"
         )
+    event_times = tuple(
+        _utc(event.get("ts"), f"{label} event {event_number}.ts")
+        for event_number, event in enumerate(ordinary_events[1:], 1)
+    )
     return {
         "path": path,
         "ledger_id": identity["ledger_id"],
@@ -548,6 +578,7 @@ def _validate_ledger(
         "uncertain": uncertain,
         "accounted": accounted,
         "unresolved": unresolved,
+        "event_times": event_times,
     }
 
 
@@ -563,7 +594,7 @@ def _dashboard_delta(value: Any) -> Decimal:
             )
         if after < before:
             raise BillingReconciliationError("dashboard total decreased across evidence window")
-        return after - before
+        return _exact_sum((after, before.copy_negate()))
     if mode == DASHBOARD_MODE_DIRECT_DELTA:
         if dashboard["before_total_usd"] is not None or dashboard["after_total_usd"] is not None:
             raise BillingReconciliationError(
@@ -594,7 +625,11 @@ def validate_billing_reconciliation(
     """Validate one complete reconciliation against immutable local evidence."""
     root = Path(project_root).resolve()
     _exact_keys(record, RECORD_FIELDS, "record")
-    if record["schema_version"] != SCHEMA_VERSION or record["stage"] != "main":
+    schema_version = record["schema_version"]
+    if (
+        schema_version not in {LEGACY_SCHEMA_VERSION, SCHEMA_VERSION}
+        or record["stage"] != "main"
+    ):
         raise BillingReconciliationError("unsupported reconciliation schema or stage")
     run_id = _text(record["run_id"], "run_id")
     recorded_at = _utc(record["recorded_at_utc"], "recorded_at_utc")
@@ -614,28 +649,76 @@ def validate_billing_reconciliation(
     )
     evidence_sha = _sha256(evidence["raw_sha256"], "provider_evidence.raw_sha256")
     evidence_raw = _read_bound_bytes(evidence_path, evidence_sha, "provider evidence")
-    evidence_payload = _exact_keys(
-        _json_bytes(evidence_raw, "provider evidence", exact_numbers=True),
-        PROVIDER_EXPORT_FIELDS,
-        "provider evidence payload",
-    )
-    if (
-        evidence_payload["schema_version"] != BILLING_EVIDENCE_SCHEMA
-        or evidence_payload["provider"] != PROVIDER
-        or evidence_payload["currency"] != "USD"
-        or evidence_payload["capture_method"] != BILLING_EVIDENCE_CAPTURE_METHOD
-    ):
-        raise BillingReconciliationError(
-            "provider evidence is not the frozen Together USD dashboard export")
-    evidence_scope = _billing_scope(
-        evidence_payload["billing_scope"], "provider evidence billing_scope"
-    )
+    provider_settlement: Mapping[str, Any] | None = None
+    billing_observed_at: datetime | None = None
+    if schema_version == LEGACY_SCHEMA_VERSION:
+        evidence_payload = _exact_keys(
+            _json_bytes(evidence_raw, "provider evidence", exact_numbers=True),
+            PROVIDER_EXPORT_FIELDS,
+            "provider evidence payload",
+        )
+        if (
+            evidence_payload["schema_version"] != LEGACY_BILLING_EVIDENCE_SCHEMA
+            or evidence_payload["provider"] != PROVIDER
+            or evidence_payload["currency"] != "USD"
+            or evidence_payload["capture_method"]
+            != LEGACY_BILLING_EVIDENCE_CAPTURE_METHOD
+        ):
+            raise BillingReconciliationError(
+                "provider evidence is not the frozen legacy Together USD dashboard export")
+        evidence_scope = _billing_scope(
+            evidence_payload["billing_scope"], "provider evidence billing_scope"
+        )
+        payload_observed_at = _utc(
+            evidence_payload["observed_at_utc"],
+            "provider evidence payload observed_at_utc",
+        )
+        dashboard_payload = _exact_keys(
+            evidence_payload["dashboard"],
+            DASHBOARD_FIELDS,
+            "provider evidence payload dashboard",
+        )
+        provider_delta = _dashboard_delta(dashboard_payload)
+        evidence_kind = LEGACY_EVIDENCE_KIND
+    else:
+        authenticated_payload = _json_bytes(evidence_raw, "provider evidence")
+        if not isinstance(authenticated_payload, Mapping):
+            raise BillingReconciliationError(
+                "authenticated provider evidence must be an object")
+        try:
+            authenticated = together_billing.validate_capture(
+                authenticated_payload,
+                project_root=evidence_path.parent,
+                as_of=as_of,
+            )
+        except together_billing.TogetherBillingCaptureError as exc:
+            raise BillingReconciliationError(
+                f"authenticated Together billing capture failed: {exc}") from exc
+        evidence_scope = _billing_scope(
+            authenticated["billing_scope"], "provider evidence billing_scope")
+        payload_observed_at = _utc(
+            authenticated["observed_at_utc"],
+            "provider evidence payload observed_at_utc",
+        )
+        dashboard_payload = _exact_keys(
+            authenticated["dashboard"],
+            DASHBOARD_FIELDS,
+            "provider evidence payload dashboard",
+        )
+        provider_delta = _decimal(
+            authenticated["provider_delta_usd"],
+            "authenticated provider evidence delta",
+        )
+        provider_settlement = authenticated["provider_settlement"]
+        billing_observed_at = _utc(
+            authenticated["billing_observed_at_utc"],
+            "authenticated billing response observed_at_utc",
+        )
+        evidence_kind = AUTHENTICATED_EVIDENCE_KIND
     if evidence_scope["raw"] != record_scope["raw"]:
         raise BillingReconciliationError(
             "provider evidence billing scope differs from the reconciliation"
         )
-    payload_observed_at = _utc(
-        evidence_payload["observed_at_utc"], "provider evidence payload observed_at_utc")
     if payload_observed_at != observed_at:
         raise BillingReconciliationError(
             "provider evidence timestamp differs from its bound payload")
@@ -644,13 +727,9 @@ def validate_billing_reconciliation(
             "provider evidence predates the end of its billing window"
         )
     dashboard = _exact_keys(record["dashboard"], DASHBOARD_FIELDS, "dashboard")
-    if dict(dashboard) != dict(_exact_keys(
-        evidence_payload["dashboard"], DASHBOARD_FIELDS,
-        "provider evidence payload dashboard",
-    )):
+    if dict(dashboard) != dict(dashboard_payload):
         raise BillingReconciliationError(
             "dashboard claims differ from the machine-readable provider evidence")
-    provider_delta = _dashboard_delta(evidence_payload["dashboard"])
 
     coverage = _validate_coverage_artifact(
         record["ledger_coverage"], project_root=root
@@ -666,7 +745,8 @@ def validate_billing_reconciliation(
         current = as_of.astimezone(timezone.utc)
         if recorded_at > current or observed_at > current:
             raise BillingReconciliationError("billing evidence or reconciliation lies in the future")
-        if current - observed_at > MAX_PROVIDER_EVIDENCE_AGE:
+        freshness_time = billing_observed_at or observed_at
+        if current - freshness_time > MAX_PROVIDER_EVIDENCE_AGE:
             raise BillingReconciliationError("provider billing evidence is stale")
 
     raw_ledgers = record["ledgers"]
@@ -678,6 +758,16 @@ def validate_billing_reconciliation(
         _validate_ledger(entry, project_root=root, index=index)
         for index, entry in enumerate(raw_ledgers)
     ]
+    if provider_settlement is not None:
+        finalized_through = _utc(
+            provider_settlement["finalized_through_utc"],
+            "provider settlement finalized_through_utc",
+        )
+        for index, item in enumerate(ledgers):
+            for event_time in item["event_times"]:
+                if not record_scope["window_start"] <= event_time < finalized_through:
+                    raise BillingReconciliationError(
+                        f"ledger {index} event lies outside authenticated settlement coverage")
     canonical_paths = [item["path"].as_posix() for item in ledgers]
     if canonical_paths != sorted(set(canonical_paths)):
         raise BillingReconciliationError("ledger paths must be sorted and unique")
@@ -695,9 +785,9 @@ def validate_billing_reconciliation(
             "reconciliation ledgers do not exactly match the bound coverage inventory"
         )
 
-    actual = sum((item["actual"] for item in ledgers), Decimal("0"))
-    uncertain = sum((item["uncertain"] for item in ledgers), Decimal("0"))
-    accounted = actual + uncertain
+    actual = _exact_sum(tuple(item["actual"] for item in ledgers))
+    uncertain = _exact_sum(tuple(item["uncertain"] for item in ledgers))
+    accounted = _exact_sum((actual, uncertain))
     unresolved_items = [
         attempt_id for item in ledgers for attempt_id in item["unresolved"]
     ]
@@ -735,7 +825,7 @@ def validate_billing_reconciliation(
         raise BillingReconciliationError(
             "reconciliation.provider_delta_usd does not match dashboard evidence arithmetic"
         )
-    discrepancy = provider_delta - actual
+    discrepancy = _exact_sum((provider_delta, actual.copy_negate()))
     claimed_discrepancy = _decimal(
         reconciliation["discrepancy_usd"], "reconciliation.discrepancy_usd", signed=True
     )
@@ -778,6 +868,7 @@ def validate_billing_reconciliation(
     return {
         "run_id": run_id,
         "provider": PROVIDER,
+        "evidence_kind": evidence_kind,
         "evidence_path": evidence_path,
         "coverage_path": coverage["path"],
         "billing_scope": record_scope["raw"],
@@ -792,6 +883,9 @@ def validate_billing_reconciliation(
         "within_conservative_envelope": within_conservative_envelope,
         "closed": expected_disposition in CLOSED_DISPOSITIONS,
         "disposition": expected_disposition,
+        "provider_settlement": (
+            dict(provider_settlement) if provider_settlement is not None else None
+        ),
     }
 
 
@@ -815,6 +909,7 @@ def load_and_validate_billing_reconciliation(
 
 
 __all__ = [
+    "AUTHENTICATED_EVIDENCE_KIND",
     "BILLING_EVIDENCE_CAPTURE_METHOD",
     "BILLING_EVIDENCE_SCHEMA",
     "BillingReconciliationError",
@@ -828,7 +923,12 @@ __all__ = [
     "DISPOSITION_OPEN_UNRESOLVED",
     "FROZEN_TOLERANCE_USD",
     "LEDGER_COVERAGE_SCHEMA",
+    "LEGACY_BILLING_EVIDENCE_CAPTURE_METHOD",
+    "LEGACY_BILLING_EVIDENCE_SCHEMA",
+    "LEGACY_EVIDENCE_KIND",
+    "LEGACY_SCHEMA_VERSION",
     "PROVIDER",
+    "PROVIDER_SETTLEMENT_STATUS",
     "SCHEMA_VERSION",
     "load_and_validate_billing_reconciliation",
     "validate_billing_reconciliation",

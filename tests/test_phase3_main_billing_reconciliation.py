@@ -5,14 +5,16 @@ import hashlib
 import json
 from copy import deepcopy
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import pytest
 
 from rejudge import api_client
 from rejudge import phase3_main_billing_reconciliation as billing
+from rejudge import phase3_main_live
+from rejudge import phase3_main_together_billing_capture as together_capture
 
 
 def _sha(path: Path) -> str:
@@ -32,7 +34,7 @@ def _rewrite_bound_json(
     binding["raw_sha256"] = _sha(path)
 
 
-def _usage_fields(*, cost: float, attempt_id: str) -> dict[str, Any]:
+def _usage_fields(*, cost: float | str, attempt_id: str) -> dict[str, Any]:
     return {
         "attempt_id": attempt_id,
         "model": "model/test",
@@ -52,6 +54,8 @@ def _usage_fields(*, cost: float, attempt_id: str) -> dict[str, Any]:
 def _write_ledger(
     path: Path, *, ledger_id: str, events: list[dict[str, Any]],
     actual: str, uncertain: str, unresolved: list[str],
+    event_ts: str = "2026-08-29T19:01:00+00:00",
+    genesis_ts: str = "2026-08-29T19:00:00+00:00",
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = [
         {
@@ -60,13 +64,13 @@ def _write_ledger(
             "ledger_id": ledger_id,
             "sequence": 0,
             "prev_event_hash": None,
-            "ts": "2026-08-29T19:00:00+00:00",
+            "ts": genesis_ts,
         }
     ]
     rows[0]["event_hash"] = api_client._usage_event_hash(rows[0])
     for event in events:
         chained = {
-            "ts": "2026-08-29T19:01:00+00:00",
+            "ts": event_ts,
             **event,
             "ledger_id": ledger_id,
             "sequence": len(rows),
@@ -112,11 +116,21 @@ def _write_ledger(
     }
 
 
-def _settled_ledger(tmp_path: Path) -> dict[str, Any]:
-    reserved = {"status": "reserved", **_usage_fields(cost=0.12, attempt_id="a-settled")}
+def _settled_ledger(
+    tmp_path: Path,
+    *,
+    event_ts: str = "2026-08-29T19:01:00+00:00",
+    actual_cost: str = "0.10",
+    reservation_cost: str = "0.12",
+    genesis_ts: str = "2026-08-29T19:00:00+00:00",
+) -> dict[str, Any]:
+    reserved = {
+        "status": "reserved",
+        **_usage_fields(cost=reservation_cost, attempt_id="a-settled"),
+    }
     success = {
         "status": "success",
-        **_usage_fields(cost=0.10, attempt_id="a-settled"),
+        **_usage_fields(cost=actual_cost, attempt_id="a-settled"),
         "prompt_tokens": 8,
         "completion_tokens": 9,
     }
@@ -124,9 +138,11 @@ def _settled_ledger(tmp_path: Path) -> dict[str, Any]:
         tmp_path / "ledger-a.jsonl",
         ledger_id="ledger-a",
         events=[reserved, success],
-        actual="0.10",
+        actual=actual_cost,
         uncertain="0",
         unresolved=[],
+        event_ts=event_ts,
+        genesis_ts=genesis_ts,
     )
 
 
@@ -213,12 +229,12 @@ def _record(
     evidence.parent.mkdir(parents=True, exist_ok=True)
     evidence.write_text(
         json.dumps({
-            "schema_version": billing.BILLING_EVIDENCE_SCHEMA,
+            "schema_version": billing.LEGACY_BILLING_EVIDENCE_SCHEMA,
             "provider": billing.PROVIDER,
             "billing_scope": billing_scope,
             "currency": "USD",
             "observed_at_utc": "2026-08-29T20:00:00Z",
-            "capture_method": billing.BILLING_EVIDENCE_CAPTURE_METHOD,
+            "capture_method": billing.LEGACY_BILLING_EVIDENCE_CAPTURE_METHOD,
             "dashboard": dashboard,
         }, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -251,7 +267,7 @@ def _record(
         encoding="utf-8",
     )
     return {
-        "schema_version": billing.SCHEMA_VERSION,
+        "schema_version": billing.LEGACY_SCHEMA_VERSION,
         "stage": "main",
         "run_id": "phase3-main-test",
         "recorded_at_utc": "2026-08-29T20:01:00Z",
@@ -301,6 +317,227 @@ def test_valid_reconciliation_recomputes_dashboard_ledger_and_disposition(
     assert validated["provider_delta_usd"] == "0.10"
     assert validated["unresolved_attempt_ids"] == ()
     assert validated["disposition"] == billing.DISPOSITION_CLOSED
+    assert validated["evidence_kind"] == "legacy_dashboard_export"
+    assert validated["provider_settlement"] is None
+
+
+def _authenticated_v3_record(
+    tmp_path: Path,
+    *,
+    event_ts: str = "2026-08-29T19:01:00+00:00",
+    genesis_ts: str = "2026-08-29T19:00:00+00:00",
+    actual_cost: str = "0.10",
+    provider_cost: str = "0.10",
+    whoami_date: str = "Sat, 29 Aug 2026 21:00:00 GMT",
+    billing_date: str = "Sat, 29 Aug 2026 21:00:01 GMT",
+    recorded_at_utc: str = "2026-08-29T21:00:02Z",
+) -> tuple[dict[str, Any], str]:
+    api_key_id = "key-main"
+    project_id = "project-main"
+    organization_id = "organization-main"
+    account = together_capture.account_identity_sha256(
+        api_key_id=api_key_id,
+        project_id=project_id,
+        organization_id=organization_id,
+    )
+    scope = {
+        "account_identity_sha256": account,
+        "window_start_utc": "2026-08-29T18:00:00Z",
+        "window_end_utc": "2026-08-29T21:00:00Z",
+    }
+    ledger = _settled_ledger(
+        tmp_path,
+        event_ts=event_ts,
+        actual_cost=actual_cost,
+        reservation_cost=actual_cost,
+        genesis_ts=genesis_ts,
+    )
+    record = _record(tmp_path, [ledger], provider_delta=provider_cost)
+    record["schema_version"] = billing.SCHEMA_VERSION
+    record["recorded_at_utc"] = recorded_at_utc
+    record["billing_scope"] = scope
+    coverage_path = Path(record["ledger_coverage"]["path"])
+    coverage_payload = json.loads(coverage_path.read_text(encoding="utf-8"))
+    coverage_payload["billing_scope"] = scope
+    _rewrite_bound_json(record, "ledger_coverage", coverage_payload)
+
+    whoami = {
+        "api_key_id": api_key_id,
+        "project_id": project_id,
+        "project_name": "Main Project",
+        "project_slug": "main-project",
+        "organization_id": organization_id,
+        "organization_name": "Main Organization",
+    }
+    usage = {
+        "object": "list",
+        "organization_id": organization_id,
+        "billing_period": "2026-08",
+        "earliest_window_start": "2026-08-29T19:00:00Z",
+        "latest_window_end": "2026-08-29T20:00:00Z",
+        "currency": "USD",
+        "data": [{
+            "date": "2026-08-29",
+            "start_time": "2026-08-29T19:00:00Z",
+            "end_time": "2026-08-29T20:00:00Z",
+            "line_items": [{
+                "product_name": "Serverless Inference",
+                "quantity": "100",
+                "unit_price": "0.001",
+                "cost": provider_cost,
+                "pricing_dimensions": {},
+                "attributes": {
+                    "api_key_id": api_key_id,
+                    "project_id": project_id,
+                },
+            }],
+        }],
+        "next_cursor": None,
+    }
+
+    def transport(
+        url: str, headers: Mapping[str, str], timeout: float,
+    ) -> together_capture.HttpGetResponse:
+        assert headers["Authorization"] == "Bearer secret-test"
+        assert timeout == 30.0
+        if url == together_capture.WHOAMI_URL:
+            return together_capture.HttpGetResponse(
+                200,
+                {
+                    "Date": whoami_date,
+                    "Content-Type": "application/json",
+                },
+                (json.dumps(whoami) + "\n").encode("utf-8"),
+            )
+        assert url.startswith(together_capture.BILLING_USAGE_URL + "?")
+        return together_capture.HttpGetResponse(
+            200,
+            {
+                "Date": billing_date,
+                "Content-Type": "application/json",
+            },
+            (json.dumps(usage) + "\n").encode("utf-8"),
+        )
+
+    capture_path = tmp_path / "together-billing-capture.json"
+    capture_record, materials = together_capture.build_capture(
+        output_path=capture_path,
+        window_start_utc=scope["window_start_utc"],
+        window_end_utc=scope["window_end_utc"],
+        finalized_through_utc="2026-08-29T20:00:00Z",
+        expected_account_identity_sha256=account,
+        api_key="secret-test",
+        transport=transport,
+    )
+    captured = together_capture.write_capture_exclusive(
+        capture_path, capture_record, materials)
+    record["provider_evidence"] = {
+        "observed_at_utc": captured["observed_at_utc"],
+        "path": capture_path.as_posix(),
+        "raw_sha256": captured["capture_raw_sha256"],
+    }
+    record["dashboard"] = capture_record["dashboard"]
+    return record, account
+
+
+def test_authenticated_v3_reconciliation_returns_exact_settlement_map(
+    tmp_path: Path,
+) -> None:
+    record, account = _authenticated_v3_record(tmp_path)
+
+    validated = billing.validate_billing_reconciliation(
+        record,
+        project_root=tmp_path,
+        as_of=datetime(2026, 8, 29, 21, 0, 30, tzinfo=timezone.utc),
+    )
+
+    assert validated["evidence_kind"] == "together_authenticated_billing_api"
+    assert validated["provider_delta_usd"] == "0.10"
+    assert validated["provider_settlement"] == {
+        "status": together_capture.SETTLEMENT_STATUS,
+        "account_identity_sha256": account,
+        "finalized_through_utc": "2026-08-29T20:00:00Z",
+    }
+    phase3_main_live._require_clean_pre_main_billing(
+        validated,
+        {
+            "run_id": record["run_id"],
+            "spend": {"prior_reconciled_usd": "0.10"},
+        },
+    )
+
+
+def test_authenticated_v3_arithmetic_ignores_ambient_decimal_precision(
+    tmp_path: Path,
+) -> None:
+    record, _account = _authenticated_v3_record(
+        tmp_path,
+        actual_cost="1000",
+        provider_cost="1001",
+    )
+
+    with localcontext() as context:
+        context.prec = 3
+        context.Emax = 2
+        context.Emin = -2
+        validated = billing.validate_billing_reconciliation(
+            record,
+            project_root=tmp_path,
+            as_of=datetime(2026, 8, 29, 21, 0, 30, tzinfo=timezone.utc),
+        )
+
+    assert validated["actual_spend_usd"] == "1000"
+    assert validated["provider_delta_usd"] == "1001"
+    assert validated["discrepancy_usd"] == "1"
+
+
+def test_stale_billing_response_cannot_be_masked_by_fresh_whoami(
+    tmp_path: Path,
+) -> None:
+    record, _account = _authenticated_v3_record(
+        tmp_path,
+        whoami_date="Sat, 29 Aug 2026 22:29:00 GMT",
+        billing_date="Sat, 29 Aug 2026 21:00:01 GMT",
+        recorded_at_utc="2026-08-29T22:29:01Z",
+    )
+
+    with pytest.raises(billing.BillingReconciliationError, match="evidence is stale"):
+        billing.validate_billing_reconciliation(
+            record,
+            project_root=tmp_path,
+            as_of=datetime(2026, 8, 29, 22, 30, 30, tzinfo=timezone.utc),
+        )
+
+
+@pytest.mark.parametrize(
+    ("event_ts", "accepted"),
+    [
+        ("2026-08-29T17:59:59+00:00", False),
+        ("2026-08-29T18:00:00+00:00", True),
+        ("2026-08-29T19:59:59.999999+00:00", True),
+        ("2026-08-29T20:00:00+00:00", False),
+    ],
+)
+def test_authenticated_ledger_events_use_half_open_settlement_window(
+    tmp_path: Path, event_ts: str, accepted: bool,
+) -> None:
+    record, _account = _authenticated_v3_record(
+        tmp_path,
+        event_ts=event_ts,
+        genesis_ts="2026-08-29T17:00:00+00:00",
+    )
+    kwargs = {
+        "project_root": tmp_path,
+        "as_of": datetime(2026, 8, 29, 21, 0, 30, tzinfo=timezone.utc),
+    }
+    if accepted:
+        billing.validate_billing_reconciliation(record, **kwargs)
+    else:
+        with pytest.raises(
+            billing.BillingReconciliationError,
+            match="outside authenticated settlement coverage",
+        ):
+            billing.validate_billing_reconciliation(record, **kwargs)
 
 
 def test_record_is_strict_and_cannot_authorize_or_use_json_numbers(tmp_path: Path) -> None:

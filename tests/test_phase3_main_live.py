@@ -21,6 +21,29 @@ from scripts import phase3_preseed_transcripts
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _authenticated_billing_fields() -> dict[str, Any]:
+    account = "a" * 64
+    return {
+        "evidence_kind": (
+            phase3_main_live.phase3_main_billing_reconciliation
+            .AUTHENTICATED_EVIDENCE_KIND
+        ),
+        "billing_scope": {
+            "account_identity_sha256": account,
+            "window_start_utc": "2026-08-29T18:00:00Z",
+            "window_end_utc": "2026-08-29T21:00:00Z",
+        },
+        "provider_settlement": {
+            "status": (
+                phase3_main_live.phase3_main_billing_reconciliation
+                .PROVIDER_SETTLEMENT_STATUS
+            ),
+            "account_identity_sha256": account,
+            "finalized_through_utc": "2026-08-29T20:00:00Z",
+        },
+    }
+
+
 @pytest.fixture(scope="module")
 def inventory():
     return phase3_main_runner.build_canonical_main_inventory(ROOT)
@@ -766,7 +789,8 @@ def test_production_blockers_exclude_closed_provenance_work():
     assert not any(
         "reviewer packet and worklist provenance" in item for item in blockers)
     assert any("owner signing key" in item for item in blockers)
-    assert any("provider-authenticated billing" in item for item in blockers)
+    assert any("billing-usage API access" in item for item in blockers)
+    assert any("settlement watermark" in item for item in blockers)
     assert any("reviewer capacity evidence" in item for item in blockers)
     assert not any("wave-index closeout" in item for item in blockers)
 
@@ -1897,6 +1921,7 @@ def test_launch_freshness_and_in_run_capacity_integrity_are_separate(
         phase3_main_live.phase3_main_billing_reconciliation,
         "validate_billing_reconciliation",
         lambda *args, **kwargs: {
+            **_authenticated_billing_fields(),
             "run_id": prepared.manifest["run_id"],
             "disposition": "closed",
             "closed": True,
@@ -2622,6 +2647,7 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
 ):
     prepared = _prepared(tmp_path, inventory)
     validation = {
+        **_authenticated_billing_fields(),
         "run_id": prepared.manifest["run_id"],
         "disposition": "closed_conservative_envelope",
         "closed": True,
@@ -2633,6 +2659,20 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
     }
     phase3_main_live._require_clean_pre_main_billing(
         validation, prepared.manifest)
+
+    legacy = {
+        **validation,
+        "evidence_kind": (
+            phase3_main_live.phase3_main_billing_reconciliation.LEGACY_EVIDENCE_KIND
+        ),
+        "provider_settlement": None,
+    }
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="not provider-authenticated and finalized",
+    ):
+        phase3_main_live._require_clean_pre_main_billing(
+            legacy, prepared.manifest)
 
     validation["run_id"] = "another-main-run"
     with pytest.raises(
@@ -2689,6 +2729,7 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
         phase3_main_live.phase3_main_billing_reconciliation,
         "validate_billing_reconciliation",
         lambda *args, **kwargs: {
+            **_authenticated_billing_fields(),
             "run_id": prepared.manifest["run_id"],
             "disposition": "closed",
             "closed": True,
@@ -3171,6 +3212,7 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
         phase3_main_live.phase3_main_billing_reconciliation,
         "validate_billing_reconciliation",
         lambda *args, **kwargs: {
+            **_authenticated_billing_fields(),
             "run_id": prepared.manifest["run_id"],
             "disposition": "closed",
             "closed": True,
