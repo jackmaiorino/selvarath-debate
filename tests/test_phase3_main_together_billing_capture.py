@@ -375,6 +375,25 @@ def test_default_transport_rejects_duplicate_headers_and_wraps_http_failures(
         capture._default_transport(capture.WHOAMI_URL, {}, 30.0)
     assert connection.closed
 
+    connection = FakeConnection(fail_read=False)
+    connection.response.getheaders = lambda: [
+        ("Date", WHOAMI_DATE),
+        ("Content-Type", "application/json"),
+        ("Set-Cookie", "first=discarded"),
+        ("Set-Cookie", "second=discarded"),
+    ]
+    monkeypatch.setattr(
+        capture.http.client,
+        "HTTPSConnection",
+        lambda *_args, **_kwargs: connection,
+    )
+    response = capture._default_transport(capture.WHOAMI_URL, {}, 30.0)
+    assert response.headers == {
+        "date": WHOAMI_DATE,
+        "content-type": "application/json",
+    }
+    assert connection.closed
+
     connection = FakeConnection(fail_read=True)
     monkeypatch.setattr(
         capture.http.client,

@@ -45,6 +45,7 @@ BILLING_USAGE_URL = f"{API_BASE_URL}/billing/usage"
 CURRENT_MONTH_LAG = timedelta(hours=1)
 PRIOR_MONTH_LAG = timedelta(hours=24)
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+RETAINED_RESPONSE_HEADERS = frozenset({"date", "content-type"})
 
 CAPTURE_FIELDS = frozenset({
     "schema_version",
@@ -385,6 +386,8 @@ def _response_headers(headers: Mapping[str, str]) -> dict[str, str]:
         if not isinstance(key, str) or not isinstance(value, str):
             raise TogetherBillingCaptureError("HTTP response headers must be text")
         lowered = key.lower()
+        if lowered not in RETAINED_RESPONSE_HEADERS:
+            continue
         if lowered in normalized:
             raise TogetherBillingCaptureError(f"HTTP response repeats header {lowered!r}")
         normalized[lowered] = value
@@ -806,6 +809,8 @@ def _default_transport(
         response_headers: dict[str, str] = {}
         for key, value in response.getheaders():
             lowered = key.lower()
+            if lowered not in RETAINED_RESPONSE_HEADERS:
+                continue
             if lowered in response_headers:
                 raise TogetherBillingCaptureError(
                     f"Together response repeats header {lowered!r}")

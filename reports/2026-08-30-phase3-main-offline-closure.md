@@ -236,6 +236,11 @@ binding validates. The API-key secret remains in memory only. Raw response sidec
 SHA-256 bound and published before an index through exclusive write-through moves, with exact
 rollback on publication errors and process-level interruptions.
 
+A fresh live check showed that Together legitimately repeats `Set-Cookie`. The transport now
+discards cookies and all other irrelevant response metadata, retaining and duplicate-checking
+only `Date` and `Content-Type`. This preserves the security-relevant ambiguity checks without
+rejecting a standards-compliant live response or persisting cookie material.
+
 The account identity hash binds the versioned API-key ID, project ID, organization ID, and
 provider tuple. Billing capture requires one complete hourly response per intersecting UTC
 month, `limit=1000`, no cursor, USD, exact fixed-point costs, and matching key and project
@@ -256,7 +261,8 @@ A sanitized live [identity GET](https://docs.together.ai/reference/whoami) retur
 Together documents as the beta endpoint not being enabled for the organization. The code path
 is ready, but no authenticated billing capture or settlement watermark was materialized. This
 work does not establish which local sources are authoritative and disjoint or authorize any
-provider execution.
+provider execution. A fresh recheck at provider time `Sun, 30 Aug 2026 18:13:54 GMT` again
+returned 200 for identity and 404 for billing usage.
 
 Verification on this milestone:
 
@@ -291,8 +297,8 @@ credential.
 Verification on this milestone:
 
 - Focused boundary suites: 252 passed, 2 skipped; installed SDK pin smoke: 1 passed.
-- Complete Phase 3 suite: 979 passed, 3 skipped in 297.17 seconds.
-- Full repository: 2,954 passed, 67 skipped in 677.71 seconds.
+- Complete Phase 3 suite: 979 passed, 3 skipped in 262.79 seconds.
+- Full repository: 2,954 passed, 67 skipped in 664.08 seconds.
 - Scoped type checking, static compilation, diff checks, and the no-em-dash rule: passed.
 - No inference request, paid provider call, reviewer dispatch, production launch, push, or spend
   occurred.
