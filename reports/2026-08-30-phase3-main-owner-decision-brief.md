@@ -14,6 +14,7 @@ production run, or spend.
 | Billing journal-validation ledger | Include the separate `phase3-v3-journal-validation` ledger. It has its own ledger identity and no repeated attempt ID in the local inventory. | Same source-selection proposal |
 | Billing auxiliary screens | Exclude the two auxiliary screens from the authoritative ledger union, but retain them as explanatory side evidence. They have no durable cross-format call identity, so including them would require an owner assertion of disjointness that the artifacts cannot prove. | Same source-selection proposal |
 | Owner signing key | Select the only discovered public-key candidate, if it is the key Jack intends to control for Phase 3 signing: `C:/Users/Jack/.ssh/id_ed25519.pub`, fingerprint `SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk`. The private key must remain outside the repository and inaccessible to Codex. | Local public-key fingerprint check on 2026-08-30 |
+| Together account scope | Select the currently authenticated key scope if it is the intended Phase 3 account: account identity SHA-256 `8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e`. | Read-only `/v1/whoami` returned 200 at provider time `Sun, 30 Aug 2026 20:03:33 GMT`; API-key-ID SHA-256 `ef05836c3edeca61b0d88a363fac5656845fff51401c395d206db782c7b378ee`, project-ID SHA-256 `47a130970616d501ac049d52e7ae27c9c15ac32cc90e96513b3a934a37e32d7f`, organization-ID SHA-256 `7e985a2e00e7e185006561c2d86fccb813cd7d6d8511c0811bc98b08a605fda1` |
 
 The recommended billing selection produces a local ledger envelope of actual
 `$95.68306917999999801859`, uncertain `$23.5893157200000000378`, and accounted upper bound
@@ -32,21 +33,27 @@ If the recommendations are correct, Jack can reply with the following text:
 > journal-validation ledger, exclude the two auxiliary screens from the authoritative ledger
 > union while retaining them as explanatory evidence, and treat that selection as complete for
 > the bound 2026-08-18T00:00:00Z through 2026-08-30T00:00:00Z half-open window. I select the
-> public signing key fingerprint SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk. This
-> ratification grants no reviewer dispatch, provider call, main run, or spend authority.
+> public signing key fingerprint SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk. I also
+> select Together account identity SHA-256
+> 8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e as the intended Phase 3
+> account scope. This ratification grants no reviewer dispatch, provider call, main run, or spend
+> authority.
 
 Any amendment should name the exact row or hash being changed. A general instruction to continue
 does not count as this ratification.
 
 ## Decisions that must wait
 
-1. Together must enable `/v1/billing/usage` for the selected organization. A fresh authenticated
-   account identity, complete billing capture, and settlement watermark must then be materialized.
+1. Together must enable `/v1/billing/usage` for the selected organization. The current read-only
+   recheck returned 404 at provider time `Sun, 30 Aug 2026 20:03:33 GMT`, while `/v1/whoami`
+   returned 200. After enablement, a fresh authenticated account identity, complete billing
+   capture, and settlement watermark must be materialized.
 2. The 180-dispatch reviewer-capacity preflight requires a fresh execution manifest and a separate
    short-lived signed authorization. The frozen plan raw SHA-256 is
    `11989a20c09f46093759ce0c7a5bf643b8e52d0a9b262b78a4a1bf6459bb855f`. It grants no Together
-   or main-run authority. Real dispatch remains disabled until its remaining launch-input handoff
-   and downstream provenance checks are implemented and reviewed.
+   or main-run authority. The launch-input handoff, crash accounting, fixed production wiring,
+   and v6 main provenance checks are implemented and verified. Execution still requires Jack to
+   ratify the signing key, then separately sign the exact 180-dispatch capacity authorization.
 3. The main stage cap cannot be ratified from the current `$875` proposal. It must follow the
    authenticated billing reconciliation, fresh prices, capacity result, and fresh certified
    forecast. The frozen protocol's `$450` value and the `$875` proposal remain unresolved until
