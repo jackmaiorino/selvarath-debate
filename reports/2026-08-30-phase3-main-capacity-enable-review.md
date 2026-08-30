@@ -1,0 +1,60 @@
+# Phase 3 reviewer-capacity enable review
+
+Date: 2026-08-30. Status: read-only implementation review. No reviewer dispatch or external
+execution occurred, and `--run` remains hard-disabled.
+
+## Findings
+
+1. P1, public execution is not connected. `phase3_main_capacity_execution.py` contains a
+   fake-validated 180-dispatch engine, exact manifest and authorization validators, and detached
+   SSH signature verification. Its public `execute_capacity_preflight` function still raises
+   unconditionally, and the CLI refuses `--run` before loading context. Consequence: a correct
+   signed capacity authorization cannot currently produce capacity evidence.
+2. P1, hard-crash usage is bounded but not exactly reconstructible. The engine durably writes one
+   attempt reservation before its dispatch history start and refuses any reuse, so a crashed
+   identity cannot redispatch. Per-child attempted count exists only in memory until ordinary
+   exception closeout or the successful result. Consequence: after process death, the exact number
+   of released reviewer calls cannot be recovered from capacity-owned records.
+3. P1, the last input check is outside the child launch. `_recheck_dispatch_inputs` verifies packet,
+   CLI, runner, and host immediately before calling the reviewer runner, but the unguarded
+   `codex_reviewer_batch.run_one` then reopens the packet and executable without comparing them to
+   manifest-supplied hashes. Consequence: a change in that handoff gap can reach the reviewer and
+   be detected only after external work.
+4. P1, main admission authenticates only the base capacity result. `phase3_main_live._validate_capacity`
+   calls the base plan and result validator. The main manifest does not bind the capacity execution
+   manifest, signed capacity authorization, detached signature, attempt reservation, or 180 reopened
+   invocation receipts. Consequence: the stronger execution provenance already checked by
+   `phase3_main_capacity_execution.validate_execution_result` is not a launch prerequisite.
+5. P2, blocker strings are stale relative to partial implementation. Detached signature
+   verification and ordinary failure receipts exist, but the public blocker still groups them with
+   unimplemented work. Consequence: the remaining closure scope is harder to review precisely.
+
+## Minimal closure contract
+
+1. Add a capacity-specific durable reservation for each packet before child release. Bind run,
+   attempt, manifest bytes, authorization bytes, wave, packet, payload, prompt, reviewer runtime,
+   UTC reservation time, usage unit, and quantity one. A reservation survives success, failure, or
+   hard crash and can never be reused.
+2. Give `codex_reviewer_batch.run_one` optional exact expected hashes for packet bytes, CLI wrapper,
+   and batch-runner bytes. Capacity execution must supply all three. The internal last read must
+   compare them before `subprocess.run`; partial or mismatched bindings release no child.
+3. Bind all 180 reservation records into successful usage evidence. Add a read-only crash auditor
+   that reopens any exact reservation prefix without requiring active authorization and reports a
+   conservative observed dispatch count. It must never resume or redispatch.
+4. Wire the public capacity function only to fixed production dependencies: the exact reviewer
+   runner, monotonic and UTC clocks, repository and host probes, CLI version reader, and pinned-key
+   signature verifier. Preserve the current noninjectable public signature and exact 180-dispatch
+   authorization limit.
+5. Extend the v5 main manifest with raw bindings for the capacity execution manifest,
+   authorization, and detached signature. Main preparation must authenticate the signature,
+   validate the capacity authorization at its recorded execution time, and call the strong
+   execution-result validator to reopen the attempt reservation, dispatch history anchors, wave
+   outputs, and 180 unique invocation receipts.
+6. Remove the real-capacity and downstream-admission blockers only after focused crash-window,
+   handoff-race, signature-drift, reservation-prefix, and main-integration tests pass. Keep all
+   provider and main-run authority false. Running the 180 external reviews still requires a fresh
+   clean manifest and a separate short-lived owner-signed authorization.
+
+The existing fake engine proves result construction on an ordinary successful process. It does
+not yet prove this closure contract, and no existing instruction to continue grants the missing
+180-dispatch authority.

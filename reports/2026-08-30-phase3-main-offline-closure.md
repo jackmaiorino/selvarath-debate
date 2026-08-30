@@ -360,7 +360,9 @@ The remaining items require owner decisions, internal contract reconciliation, o
 external evidence. The already closed main request provenance, reviewer provenance, and
 reviewer-closeout crash consistency remain intact. The new capacity lane is deliberately not
 enabled. The exact current decisions and non-execution ratification text are consolidated in
-`reports/2026-08-30-phase3-main-owner-decision-brief.md`:
+`reports/2026-08-30-phase3-main-owner-decision-brief.md`. The remaining capacity implementation
+gaps and minimal closure contract are in
+`reports/2026-08-30-phase3-main-capacity-enable-review.md`:
 
 1. Jack's public signing key and fingerprint are not pinned. The private key must remain outside
    the repository and inaccessible to Codex.
