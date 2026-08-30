@@ -90,3 +90,16 @@ receipts. Capacity evidence remains non-authorizing on its own. A combined fake-
 the actual capacity executor and main admission join end to end. Verification is 324 passed and 2
 skipped across the related main, capacity, reviewer provenance, reviewer commit, recovery, and
 failure-path suites. Finding 1 is the only implementation gap left in this review.
+
+Finding 1 is now closed in code. The public capacity function retains its three-keyword-only
+signature and supplies only the production reviewer runner, monotonic and UTC clocks, repository,
+CLI and host probes, and detached-signature verifier. The CLI `--run` route accepts only the bound
+manifest, capacity authorization, and derived context. Neither surface exposes a runner, clock,
+probe, verifier, concurrency, packet limit, or resume injection point.
+
+This wiring is not dispatch authority. The capacity owner public key and fingerprint remain
+unpinned, no signed 180-dispatch authorization exists, and the main production blocker still
+requires fresh measured capacity evidence. A focused test proves the unpinned key fails before
+signature verification can invoke a subprocess. No reviewer call or external execution occurred
+during this implementation work. This review now has no remaining code gap; owner key selection,
+exact authorization, and the actual single-shot capacity measurement remain external decisions.

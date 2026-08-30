@@ -41,10 +41,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--attempt-id")
     args = parser.parse_args(argv)
 
-    if args.run:
-        raise execution.CapacityExecutionError(
-            execution.REAL_CAPACITY_DISPATCH_BLOCKER
-        )
     context = _context(args)
     if args.write_manifest is not None:
         required = {
@@ -83,6 +79,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.manifest is None or args.authorization is None:
         parser.error("--manifest and --authorization are required")
+    if args.run:
+        outcome = execution.execute_capacity_preflight(
+            manifest_path=args.manifest.resolve(),
+            authorization_path=args.authorization.resolve(),
+            context=context,
+        )
+        print(json.dumps(outcome, indent=1))
+        return 0
     if args.validate_authority:
         manifest_raw, manifest = execution.load_execution_manifest(
             args.manifest.resolve(), context=context
@@ -105,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         }, indent=1))
         return 0
 
-    raise execution.CapacityExecutionError(execution.REAL_CAPACITY_DISPATCH_BLOCKER)
+    raise execution.CapacityExecutionError("capacity action routing failed closed")
 
 
 if __name__ == "__main__":

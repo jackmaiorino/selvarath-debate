@@ -16,6 +16,7 @@ import stat
 import subprocess
 import tempfile
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -39,10 +40,6 @@ CAPACITY_SIGNATURE_PRINCIPAL = "jack-maiorino"
 OWNER_SIGNING_PUBLIC_KEY: str | None = None
 OWNER_SIGNING_KEY_FINGERPRINT: str | None = None
 SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
-REAL_CAPACITY_DISPATCH_BLOCKER = (
-    "real capacity dispatch is disabled: the public execution surface and CLI run "
-    "path remain intentionally unwired"
-)
 DOWNSTREAM_LAUNCH_BLOCKER = (
     "capacity evidence alone cannot authorize provider calls or main launch"
 )
@@ -1009,6 +1006,10 @@ def _default_cli_version(cli: str) -> str:
 
 def _default_host() -> str:
     return codex_reviewer_batch._host_identity()  # noqa: SLF001
+
+
+def _default_utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _load_exact_json(path: Path, *, subject: str) -> tuple[bytes, dict[str, Any]]:
@@ -2387,9 +2388,19 @@ def execute_capacity_preflight(
     authorization_path: Path,
     context: CapacityContext,
 ) -> dict[str, Any]:
-    """Reject real dispatch until the named capacity launch blockers are closed."""
-    _ = manifest_path, authorization_path, context
-    raise CapacityExecutionError(REAL_CAPACITY_DISPATCH_BLOCKER)
+    """Run one signed cohort with fixed production dependencies and no injection seam."""
+    return _execute_capacity_preflight(
+        manifest_path=manifest_path,
+        authorization_path=authorization_path,
+        context=context,
+        reviewer_runner=codex_reviewer_batch.run_one,
+        monotonic=time.monotonic,
+        utc_now=_default_utc_now,
+        repository_probe=_default_repository_probe,
+        cli_version_reader=_default_cli_version,
+        host_reader=_default_host,
+        authorization_verifier=verify_capacity_authorization_signature,
+    )
 
 
 def repository_probe(project_root: Path) -> tuple[str, bool]:
@@ -2412,7 +2423,6 @@ __all__ = [
     "CapacityContext",
     "CapacityExecutionError",
     "MANIFEST_SCHEMA",
-    "REAL_CAPACITY_DISPATCH_BLOCKER",
     "SCOPE",
     "USAGE_LIMIT_SCHEMA",
     "USAGE_RECEIPT_SCHEMA",

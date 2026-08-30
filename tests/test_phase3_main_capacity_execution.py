@@ -12,7 +12,7 @@ import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -655,61 +655,103 @@ def test_cli_authority_validation_rejects_manifest_before_loading_authority(
     assert authorization_loads == []
 
 
-def test_cli_run_is_unconditionally_blocked_before_context_or_execution(
+def test_cli_run_routes_only_manifest_authorization_and_fixed_context(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    context_calls: list[str] = []
-    execution_calls: list[str] = []
+    context = cast(execution.CapacityContext, object())
+    execution_calls: list[dict[str, Any]] = []
     monkeypatch.setattr(
         capacity_cli,
         "_context",
-        lambda _args: context_calls.append("context"),
+        lambda _args: context,
     )
     monkeypatch.setattr(
         execution,
         "execute_capacity_preflight",
-        lambda **_kwargs: execution_calls.append("execution"),
+        lambda **kwargs: execution_calls.append(kwargs) or {"execution": "pass"},
+    )
+    manifest_path = tmp_path / "manifest.json"
+    authorization_path = tmp_path / "authorization.json"
+
+    assert capacity_cli.main([
+        "--run",
+        "--manifest",
+        str(manifest_path),
+        "--authorization",
+        str(authorization_path),
+    ]) == 0
+
+    assert execution_calls == [{
+        "manifest_path": manifest_path.resolve(),
+        "authorization_path": authorization_path.resolve(),
+        "context": context,
+    }]
+
+
+def test_public_execution_uses_only_fixed_production_dependencies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, Any] = {}
+    context = cast(execution.CapacityContext, object())
+
+    def capture(**kwargs: Any) -> dict[str, Any]:
+        observed.update(kwargs)
+        return {"execution": "pass"}
+
+    monkeypatch.setattr(execution, "_execute_capacity_preflight", capture)
+    manifest_path = tmp_path / "manifest.json"
+    authorization_path = tmp_path / "authorization.json"
+
+    assert execution.execute_capacity_preflight(
+        manifest_path=manifest_path,
+        authorization_path=authorization_path,
+        context=context,
+    ) == {"execution": "pass"}
+
+    assert observed == {
+        "manifest_path": manifest_path,
+        "authorization_path": authorization_path,
+        "context": context,
+        "reviewer_runner": codex_reviewer_batch.run_one,
+        "monotonic": execution.time.monotonic,
+        "utc_now": execution._default_utc_now,  # noqa: SLF001
+        "repository_probe": execution._default_repository_probe,  # noqa: SLF001
+        "cli_version_reader": execution._default_cli_version,  # noqa: SLF001
+        "host_reader": execution._default_host,  # noqa: SLF001
+        "authorization_verifier": execution.verify_capacity_authorization_signature,
+    }
+    observed_utc = execution._default_utc_now()  # noqa: SLF001
+    assert observed_utc.tzinfo is not None
+    assert observed_utc.utcoffset() == timezone.utc.utcoffset(observed_utc)
+
+
+def test_unpinned_capacity_owner_key_blocks_before_signature_or_subprocess(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authorization_path = tmp_path / "authorization.json"
+    authorization_raw = b"{}\n"
+    authorization_path.write_bytes(authorization_raw)
+    monkeypatch.setattr(execution, "OWNER_SIGNING_PUBLIC_KEY", None)
+    monkeypatch.setattr(execution, "OWNER_SIGNING_KEY_FINGERPRINT", None)
+    monkeypatch.setattr(
+        execution.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail(
+            "unpinned capacity key reached a subprocess"
+        ),
     )
 
     with pytest.raises(
         execution.CapacityExecutionError,
-        match="real capacity dispatch is disabled",
+        match="owner signing key is not pinned",
     ):
-        capacity_cli.main(["--run"])
-
-    assert context_calls == []
-    assert execution_calls == []
-
-
-def test_public_execution_is_unconditionally_blocked_before_reads_or_subprocesses(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fixture = _fixture(tmp_path)
-
-    def forbidden_subprocess(*_args: Any, **_kwargs: Any) -> None:
-        raise AssertionError("disabled real dispatch reached a subprocess")
-
-    def forbidden_read(*_args: Any, **_kwargs: Any) -> bytes:
-        raise AssertionError("disabled real dispatch read an artifact")
-
-    monkeypatch.setattr(execution.subprocess, "run", forbidden_subprocess)
-    monkeypatch.setattr(execution, "_stable_read", forbidden_read)
-
-    with pytest.raises(
-        execution.CapacityExecutionError,
-        match="real capacity dispatch is disabled",
-    ):
-        execution.execute_capacity_preflight(
-            manifest_path=fixture["manifest_path"],
-            authorization_path=fixture["authorization_path"],
-            context=fixture["context"],
+        execution.verify_capacity_authorization_signature(
+            authorization_path,
+            authorization_raw,
         )
-
-    assert _history_events(fixture) == ()
-    assert not Path(
-        fixture["manifest"]["dispatch_history"]["attempt_reservation_path"]
-    ).exists()
-    assert not fixture["result_path"].exists()
 
 
 @pytest.mark.parametrize(
