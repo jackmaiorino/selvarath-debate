@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from rejudge.phase2_execution import canonical_sha256
+from rejudge import phase3_main_runtime_policies
 from rejudge.phase3_main_runner import (
     CONFIRMED_MAIN_JUDGES,
     EXPECTED_MAIN_INVENTORY_SHA256,
@@ -27,8 +28,8 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v4"
-AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v4"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v5"
+AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v5"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -62,8 +63,11 @@ AUTHORIZATION_FIELDS = frozenset({
     "reviewer_concurrency",
     "stage_cap_usd",
     "price_snapshot_sha256",
+    "price_change_policy_sha256",
     "prior_reconciliation_sha256",
     "forecast_sha256",
+    "reviewer_usage_policy_sha256",
+    "maximum_reviewer_dispatches",
     "harness_execution_count",
     "formal_main_attempt_count",
     "approver",
@@ -105,10 +109,12 @@ REQUIRED_INPUT_BINDINGS = frozenset({
     "capacity_dispatch_history",
     "capacity_result",
     "price_snapshot",
+    "price_change_policy",
     "raw_provider_catalog",
     "raw_serverless_endpoints",
     "billing_reconciliation",
     "certified_cost_forecast",
+    "reviewer_usage_policy",
     "harness_receipt",
     "canary_finalization",
 })
@@ -136,6 +142,7 @@ OUTPUT_PATH_FIELDS = frozenset({
     "reviewer_worklist",
     "reviewer_index",
     "review_packets_root",
+    "price_change_signal",
     "terminal_dispositions",
     "run_log",
     "finalization",
@@ -153,6 +160,7 @@ OUTPUT_FILENAMES = {
     "reviewer_worklist": "reviewer_worklist.json",
     "reviewer_index": "main_reviewer_index.jsonl",
     "review_packets_root": "main_review_packets",
+    "price_change_signal": phase3_main_runtime_policies.PRICE_CHANGE_SIGNAL_FILENAME,
     "terminal_dispositions": "main_terminal_dispositions.jsonl",
     "run_log": "main_run_log.jsonl",
     "finalization": "main_finalization.json",
@@ -320,7 +328,12 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
         "exact authorization. "
         "valid_until_utc is the latest start of a new logical provider call or individual "
         "reviewer invocation; already-started work and local evidence closeout may finish "
-        "later."
+        "later. Any detected provider price change stops new logical provider calls, permits "
+        "only already-started work to finish and be accounted, and requires a fresh price "
+        "snapshot, forecast, manifest, cap, and exact authorization. External reviewer usage "
+        f"is separately capped at {phase3_main_runtime_policies.MAXIMUM_REVIEWER_DISPATCHES} "
+        "dispatches. Dispatch count is neither USD nor token accounting and is excluded from "
+        "the Together USD stage cap."
     )
 
 
@@ -531,6 +544,14 @@ def validate_main_manifest(
 
     input_paths = _validate_input_bindings(
         manifest["input_bindings"], project_root=root, verify_files=verify_files)
+    if verify_files:
+        try:
+            phase3_main_runtime_policies.load_and_validate_price_change_policy(
+                input_paths["price_change_policy"])
+            phase3_main_runtime_policies.load_and_validate_reviewer_usage_policy(
+                input_paths["reviewer_usage_policy"])
+        except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+            raise MainManifestError(f"main runtime policy validation failed: {exc}") from exc
     inventory = _exact_keys(manifest["inventory"], INVENTORY_FIELDS, "inventory")
     expected_inventory = {
         "question_count": EXPECTED_MAIN_QUESTION_COUNT,
@@ -682,10 +703,29 @@ def validate_main_authorization(
     inputs = manifest["input_bindings"]
     if authorization["price_snapshot_sha256"] != inputs["price_snapshot"]["sha256"]:
         raise MainManifestError("authorization price binding differs from the manifest")
+    if authorization["price_change_policy_sha256"] != inputs[
+        "price_change_policy"
+    ]["sha256"]:
+        raise MainManifestError(
+            "authorization price-change policy binding differs from the manifest")
     if authorization["prior_reconciliation_sha256"] != inputs["billing_reconciliation"]["sha256"]:
         raise MainManifestError("authorization reconciliation binding differs from the manifest")
     if authorization["forecast_sha256"] != inputs["certified_cost_forecast"]["sha256"]:
         raise MainManifestError("authorization forecast binding differs from the manifest")
+    if authorization["reviewer_usage_policy_sha256"] != inputs[
+        "reviewer_usage_policy"
+    ]["sha256"]:
+        raise MainManifestError(
+            "authorization reviewer-usage policy binding differs from the manifest")
+    maximum_reviewer_dispatches = _non_negative_int(
+        authorization["maximum_reviewer_dispatches"],
+        "authorization.maximum_reviewer_dispatches",
+    )
+    if maximum_reviewer_dispatches != (
+        phase3_main_runtime_policies.MAXIMUM_REVIEWER_DISPATCHES
+    ):
+        raise MainManifestError(
+            "authorization reviewer dispatch ceiling differs from the frozen policy")
     if authorization["harness_execution_count"] != 2:
         raise MainManifestError("authorization must bind exactly two isolated harness executions")
     if _non_negative_int(

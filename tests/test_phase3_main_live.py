@@ -15,6 +15,7 @@ from typing import Any, cast
 import pytest
 
 from rejudge import phase3_main_live, phase3_main_runner
+from rejudge import phase3_main_runtime_policies
 from scripts import phase3_preseed_transcripts
 
 
@@ -62,6 +63,7 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         "capacity_plan", "capacity_result", "capacity_dispatch_history",
         "context_blocklist", "analysis_pins", "billing_reconciliation",
         "price_snapshot", "raw_provider_catalog", "raw_serverless_endpoints",
+        "price_change_policy", "reviewer_usage_policy",
     ):
         path = inputs / f"{name}.json"
         path.write_text("{}\n", encoding="utf-8")
@@ -123,6 +125,26 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         phase3_main_live.hashlib.sha256(
             input_paths["price_snapshot"].read_bytes()).hexdigest()
     )
+    input_paths["price_change_policy"].write_text(
+        json.dumps(
+            phase3_main_runtime_policies.EXPECTED_PRICE_CHANGE_POLICY,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    input_paths["reviewer_usage_policy"].write_text(
+        json.dumps(
+            phase3_main_runtime_policies.EXPECTED_REVIEWER_USAGE_POLICY,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    for name in ("price_change_policy", "reviewer_usage_policy"):
+        manifest["input_bindings"][name]["sha256"] = (
+            phase3_main_live.hashlib.sha256(input_paths[name].read_bytes()).hexdigest()
+        )
     authorization_path = (inputs / "authorization.json").resolve()
     authorization_path.write_text("{}\n", encoding="utf-8")
     authorization_signature_path = authorization_path.with_name(
@@ -167,6 +189,19 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         billing_reconciliation={},
         cost_forecast={},
         capacity_validation={},
+        price_change_policy_validation={
+            "schema_version": phase3_main_runtime_policies.PRICE_CHANGE_POLICY_SCHEMA,
+            "operator_signal_filename": (
+                phase3_main_runtime_policies.PRICE_CHANGE_SIGNAL_FILENAME
+            ),
+            "execution_authorized": False,
+        },
+        reviewer_usage_policy_validation={
+            "schema_version": phase3_main_runtime_policies.REVIEWER_USAGE_POLICY_SCHEMA,
+            "usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+            "maximum_reviewer_dispatches": 59_040,
+            "execution_authorized": False,
+        },
         harness_validation={},
         inventory=inventory,
         context_excluded_cell_keys=(),
@@ -182,6 +217,24 @@ def _seed_started_identity(
     phase3_main_live._durably_create_directory_tree(registry_root / "identities")
     ledger_path = prepared.identity.paths.usage_ledger
     snapshot, _ = phase3_main_live.phase3_main_runner._fresh_ledger_snapshot(
+        ledger_path)
+    start_path = phase3_main_live._start_identity(prepared, snapshot)
+    return start_path, ledger_path
+
+
+def _seed_price_signal_identity(
+    prepared: phase3_main_live.PreparedMainRun,
+) -> tuple[Path, Path]:
+    prepared.identity.artifact_root.mkdir(parents=True, exist_ok=True)
+    registry_root = prepared.identity.identity_registry_root
+    assert registry_root is not None
+    phase3_main_live._durably_create_directory_tree(registry_root / "identities")
+    phase3_main_live.phase3_main_runner._write_active_marker(  # noqa: SLF001
+        prepared.identity, prepared.identity.paths)
+    phase3_main_live.phase3_main_runner._write_identity_binding(  # noqa: SLF001
+        prepared.identity, prepared.identity.paths)
+    ledger_path = prepared.identity.paths.usage_ledger
+    snapshot, _ = phase3_main_live.phase3_main_runner._fresh_ledger_snapshot(  # noqa: SLF001
         ledger_path)
     start_path = phase3_main_live._start_identity(prepared, snapshot)
     return start_path, ledger_path
@@ -795,6 +848,8 @@ def test_production_blockers_exclude_closed_provenance_work():
     assert any("settlement watermark" in item for item in blockers)
     assert any("approved provider account identity" in item for item in blockers)
     assert any("reviewer capacity evidence" in item for item in blockers)
+    assert not any("price changes" in item for item in blockers)
+    assert not any("reviewer usage" in item for item in blockers)
     assert not any("wave-index closeout" in item for item in blockers)
 
 
@@ -1316,6 +1371,160 @@ def test_provider_authorization_hook_runs_price_before_exact_timed_authority(
             authorized_at,
         ),
     ]
+
+
+def test_price_change_signal_blocks_before_price_or_authorization_revalidation(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.identity.artifact_root.mkdir(parents=True)
+    prepared.identity.paths.price_change_signal.write_text(
+        "{}\n", encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_price_snapshot",
+        lambda *_args: pytest.fail("price-change signal reached price revalidation"),
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_load_unchanged_authenticated_authorization",
+        lambda *_args: pytest.fail("price-change signal reached authorization"),
+    )
+
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="price-change signal or publish stage is present",
+    ):
+        phase3_main_live._authorize_provider_logical_dispatch(prepared)
+
+
+def test_price_change_signal_publish_stage_is_also_fail_safe(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.identity.artifact_root.mkdir(parents=True)
+    prepared.identity.paths.price_change_signal_publish_temp.write_text(
+        '{"partial":', encoding="utf-8", newline="\n")
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_price_snapshot",
+        lambda *_args: pytest.fail("price-change publish stage reached price revalidation"),
+    )
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="price-change signal or publish stage is present",
+    ):
+        phase3_main_live._authorize_provider_logical_dispatch(prepared)
+
+
+def test_price_change_signal_writer_binds_started_identity_and_evidence(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *_args, **_kwargs: prepared.manifest_validation,
+    )
+    _seed_price_signal_identity(prepared)
+    evidence = (tmp_path / "provider-price-notice.json").resolve()
+    evidence.write_text(
+        '{"model":"fixture","price_changed":true}\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = phase3_main_live.record_provider_price_change(
+        prepared.manifest_path,
+        trigger_kind="provider_notification",
+        evidence_path=evidence,
+        note="Provider notice reports a changed model price.",
+    )
+
+    signal_path = prepared.identity.paths.price_change_signal
+    signal = json.loads(signal_path.read_text(encoding="utf-8"))
+    assert result["signal_path"] == signal_path.as_posix()
+    assert result["signal_raw_sha256"] == hashlib.sha256(
+        signal_path.read_bytes()).hexdigest()
+    assert result["stop_new_logical_provider_calls"] is True
+    assert result["execution_authorized"] is False
+    assert signal["manifest_canonical_sha256"] == prepared.identity.manifest_sha256
+    assert signal["evidence"] == {
+        "path": evidence.as_posix(),
+        "raw_sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+        "byte_count": len(evidence.read_bytes()),
+    }
+    assert phase3_main_runtime_policies.load_and_validate_price_change_signal(
+        signal_path,
+        run_id=prepared.identity.run_id,
+        manifest_canonical_sha256=prepared.identity.manifest_sha256,
+        artifact_root=prepared.identity.artifact_root,
+        journal_execution_identity=prepared.identity.journal_execution_identity,
+    )["stop_new_logical_provider_calls"] is True
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="price-change signal or publish stage is present",
+    ):
+        phase3_main_live._authorize_provider_logical_dispatch(prepared)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="already exists",
+    ):
+        phase3_main_live.record_provider_price_change(
+            prepared.manifest_path,
+            trigger_kind="provider_notification",
+            evidence_path=evidence,
+            note="A duplicate signal must not replace the first record.",
+        )
+
+
+def test_price_change_signal_writer_rejects_evidence_drift_before_publication(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    prepared.manifest_path.write_text(
+        json.dumps(prepared.manifest, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest,
+        "validate_main_manifest",
+        lambda *_args, **_kwargs: prepared.manifest_validation,
+    )
+    _seed_price_signal_identity(prepared)
+    evidence = (tmp_path / "provider-price-notice.json").resolve()
+    evidence.write_text("first observation\n", encoding="utf-8", newline="\n")
+    real_stable_read = phase3_main_live._stable_regular_file_bytes
+    changed = False
+
+    def change_after_first_read(path, label):
+        nonlocal changed
+        raw = real_stable_read(path, label)
+        if label == "provider price-change evidence" and not changed:
+            changed = True
+            evidence.write_text("changed observation\n", encoding="utf-8", newline="\n")
+        return raw
+
+    monkeypatch.setattr(
+        phase3_main_live, "_stable_regular_file_bytes", change_after_first_read)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="signal is invalid|evidence changed",
+    ):
+        phase3_main_live.record_provider_price_change(
+            prepared.manifest_path,
+            trigger_kind="operator_observation",
+            evidence_path=evidence,
+            note="The evidence changed during stop-signal preparation.",
+        )
+    assert changed is True
+    assert not prepared.identity.paths.price_change_signal.exists()
 
 
 def test_provider_authorization_expiry_during_signature_check_blocks_before_reservation(
@@ -2230,6 +2439,35 @@ def test_reviewer_loop_uses_measured_wave_and_covers_worst_case_payloads():
     plan["reviewer_configuration"]["actual_capacity_wave_size"] = 64
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="measured workload"):
         phase3_main_live._reviewer_loop_contract(plan)
+
+
+def test_reviewer_usage_admission_enforces_exact_aggregate_ceiling(
+    tmp_path, inventory,
+):
+    prepared = _prepared(tmp_path, inventory)
+    assert phase3_main_live._admit_reviewer_wave_quantity(
+        prepared,
+        previously_admitted=59_000,
+        incoming=40,
+    ) == 59_040
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="exceed the exact authorized usage ceiling",
+    ):
+        phase3_main_live._admit_reviewer_wave_quantity(
+            prepared,
+            previously_admitted=59_000,
+            incoming=41,
+        )
+
+
+def test_reviewer_usage_reservation_is_durable_before_child_release() -> None:
+    source = inspect.getsource(phase3_main_live._drive_and_finalize)
+    reservation = source.index('"event": "reviewer_usage_reserved"')
+    release = source.index("_review_wave_same_process(")
+    completion = source.index('"event": "reviewer_usage_wave_completed"')
+    assert reservation < release < completion
+    assert '"failed_or_ambiguous_dispatches_count": True' in source
 
 
 def test_reviewer_wave_rejects_an_unheld_lease_before_any_boundary_work(

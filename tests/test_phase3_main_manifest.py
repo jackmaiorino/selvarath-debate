@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import platform
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -10,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from rejudge import phase3_main_manifest as main_manifest
+from rejudge import phase3_main_runtime_policies as runtime_policies
 from rejudge.phase3_main_runner import (
     CONFIRMED_MAIN_JUDGES,
     EXPECTED_MAIN_CELL_COUNT,
@@ -33,7 +35,17 @@ def _manifest(tmp_path: Path) -> dict:
     bindings = {}
     for name in sorted(main_manifest.REQUIRED_INPUT_BINDINGS):
         path = input_root / f"{name}.json"
-        path.write_text(f'{{"name":"{name}"}}\n', encoding="utf-8")
+        if name == "price_change_policy":
+            value = runtime_policies.EXPECTED_PRICE_CHANGE_POLICY
+        elif name == "reviewer_usage_policy":
+            value = runtime_policies.EXPECTED_REVIEWER_USAGE_POLICY
+        else:
+            value = {"name": name}
+        path.write_text(
+            json.dumps(value, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         bindings[name] = {
             "path": str(path.resolve()),
             "sha256": _sha(path),
@@ -129,8 +141,11 @@ def _authorization(manifest: dict) -> dict:
         "reviewer_concurrency": manifest["runtime"]["reviewer_concurrency"],
         "stage_cap_usd": manifest["spend"]["stage_cap_usd"],
         "price_snapshot_sha256": inputs["price_snapshot"]["sha256"],
+        "price_change_policy_sha256": inputs["price_change_policy"]["sha256"],
         "prior_reconciliation_sha256": inputs["billing_reconciliation"]["sha256"],
         "forecast_sha256": inputs["certified_cost_forecast"]["sha256"],
+        "reviewer_usage_policy_sha256": inputs["reviewer_usage_policy"]["sha256"],
+        "maximum_reviewer_dispatches": 59_040,
         "harness_execution_count": 2,
         "formal_main_attempt_count": 1,
         "approver": "Jack Maiorino",
@@ -148,7 +163,9 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     manifest = _manifest(tmp_path)
     result = main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
     assert set(manifest) == main_manifest.MANIFEST_FIELDS
-    assert manifest["schema_version"] == "phase3_main_launch_manifest_v4"
+    assert manifest["schema_version"] == "phase3_main_launch_manifest_v5"
+    assert "price_change_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
+    assert "reviewer_usage_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "tokenizer_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "exact_context_index" not in main_manifest.REQUIRED_INPUT_BINDINGS
     assert manifest["execution_authorized"] is False
@@ -289,12 +306,15 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
     result = main_manifest.validate_main_authorization(
         authorization, manifest, as_of=NOW)
     assert result["approved_cap_usd"] == "875.00"
-    assert authorization["schema_version"] == "phase3_main_exact_authorization_v4"
+    assert authorization["schema_version"] == "phase3_main_exact_authorization_v5"
     assert "Together account identity SHA-256" in authorization["exact_text"]
     assert manifest["runtime"]["provider_account_identity_sha256"] in (
         authorization["exact_text"])
     assert "latest start of a new logical provider call" in authorization["exact_text"]
     assert "local evidence closeout may finish later" in authorization["exact_text"]
+    assert "detected provider price change stops" in authorization["exact_text"]
+    assert "separately capped at 59040 dispatches" in authorization["exact_text"]
+    assert "neither USD nor token accounting" in authorization["exact_text"]
 
     mutations = [
         ("run_id", "phase3-main-other", "run ID"),
@@ -304,6 +324,9 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
         ("reviewer_model", "different-reviewer", "reviewer runtime"),
         ("reviewer_concurrency", 11, "reviewer runtime"),
         ("forecast_sha256", "0" * 64, "forecast binding"),
+        ("price_change_policy_sha256", "0" * 64, "price-change policy binding"),
+        ("reviewer_usage_policy_sha256", "0" * 64, "reviewer-usage policy binding"),
+        ("maximum_reviewer_dispatches", 59_041, "reviewer dispatch ceiling"),
         ("prior_reconciliation_sha256", "0" * 64, "reconciliation binding"),
         ("formal_main_attempt_count", 2, "one formal main attempt"),
         ("formal_main_attempt_count", True, "non-negative integer"),

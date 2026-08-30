@@ -203,6 +203,14 @@ class MainRunPaths:
         return self.root / "main_review_packets"
 
     @property
+    def price_change_signal(self) -> Path:
+        return self.root / "main_price_change.signal.json"
+
+    @property
+    def price_change_signal_publish_temp(self) -> Path:
+        return self.root / ".main_price_change.signal.json.publish.tmp"
+
+    @property
     def terminal_dispositions(self) -> Path:
         return self.root / "main_terminal_dispositions.jsonl"
 
@@ -240,6 +248,8 @@ class MainRunPaths:
             ("reviewer worklist", self.reviewer_worklist),
             ("reviewer index", self.reviewer_index),
             ("review packet root", self.review_packets_root),
+            ("price change signal", self.price_change_signal),
+            ("price change signal publish stage", self.price_change_signal_publish_temp),
             ("terminal dispositions", self.terminal_dispositions),
             ("run log", self.run_log),
             ("finalization record", self.finalization),

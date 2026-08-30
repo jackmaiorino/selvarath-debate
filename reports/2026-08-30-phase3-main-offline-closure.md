@@ -2,10 +2,11 @@
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
 capacity-foundation, billing-inventory, authenticated billing-capture foundation,
-process-reset reconciliation, runtime account-binding implementation, and offline hardening work
-complete. Production remains blocked on external authority, provider enablement, materialized
-approved-account evidence, authoritative source selection, and fresh measurement. This document
-authorizes no external execution, reviewer dispatch, provider call, or spend.
+process-reset reconciliation, runtime account-binding implementation, runtime response-policy
+implementation, and offline hardening work complete. Production remains blocked on external
+authority, provider enablement, materialized approved-account evidence, authoritative source
+selection, and fresh measurement. This document authorizes no external execution, reviewer
+dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -316,6 +317,43 @@ Verification on this milestone:
 - No inference request, paid provider call, reviewer dispatch, production launch, push, or spend
   occurred.
 
+## Runtime price and reviewer usage contracts
+
+The v5 launch manifest and exact owner authorization now bind two tracked, non-authorizing
+runtime policy candidates by raw SHA-256. The authorization also binds an exact maximum of
+59,040 external reviewer dispatches, equal to the capacity plan's worst-case unique payload
+bound. Each reviewer wave is admitted against the cumulative count before release, every
+durable reservation counts even when the dispatch later fails or is ambiguous, and the run log
+records the wave and cumulative quantities. This count is separate from Together provider
+usage, is excluded from the Together USD stage cap, and is explicitly neither USD nor token
+accounting. No claim of zero monetary cost or unlimited reviewer capacity is made.
+
+Every new logical Together call now checks both the fixed price-change signal path and its
+deterministic publication stage before price-snapshot and signed-authorization revalidation.
+Either path halts new calls. Already-started work may finish and be accounted, but the identity
+cannot resume. A successor requires a fresh price snapshot, forecast, manifest, cap, and exact
+authorization.
+
+The standalone `scripts/phase3_main_record_price_change.py` command creates the stop signal
+without accepting an authorization or constructing a provider client. It requires the exact
+manifest-derived identity to have matching persistent start, active-marker, and root-binding
+evidence; binds a stable local evidence file by canonical path, byte count, and raw SHA-256; and
+publishes the signal exclusively. A duplicate cannot replace the first signal. Signal presence
+is the safety boundary, so malformed or partially staged signal material still blocks new calls.
+The structured payload remains independently reopenable for diagnosis and carries all authority
+flags as false.
+
+The exact candidate policies remain proposals until Jack's final v5 authorization binds their
+hashes and exact text. That missing authorization prevents execution, but no additional runtime
+mechanism is required for these two response rules. Verification on this successor:
+
+- Focused runner, manifest, policy, and live-driver suite: 141 passed, 2 skipped.
+- Complete Phase 3 main suite: 561 passed, 2 skipped in 121.83 seconds.
+- Static compilation of the policy, manifest, runner, live driver, and stop-signal command:
+  passed.
+- No inference request, paid provider call, reviewer dispatch, production launch, push, or spend
+  occurred.
+
 ## Remaining production blockers
 
 The remaining items require owner decisions, internal contract reconciliation, or fresh
@@ -328,14 +366,13 @@ enabled:
 2. The protocol still fixes a $450 stage cap while the sealed canary supports a proposed $875
    planning cap. One value must be ratified after a fresh certified forecast.
 3. Together billing-usage beta access is not enabled for the selected organization. No live
-   authenticated capture, settlement watermark, or v4 signed approved-account selection exists.
+   authenticated capture, settlement watermark, or v5 signed approved-account selection exists.
    The binding mechanism is complete; an authoritative, disjoint predecessor-ledger inventory
    remains open.
-4. No signed response rule exists for a provider price change during the formal run.
-5. Codex reviewer usage has no separately ratified spend treatment. The representative
-   capacity preflight has a frozen plan and a verified fake-only execution foundation, but no
-   authorized external measurement result. Real dispatch remains hard-disabled.
-6. Fresh prices, capacity evidence, billing evidence, forecast, regenerated exact-source
+4. The representative reviewer-capacity preflight has a frozen plan and a verified fake-only
+   execution foundation, but no authorized external measurement result. Real dispatch remains
+   hard-disabled.
+5. Fresh prices, capacity evidence, billing evidence, forecast, regenerated exact-source
    harness receipt, exact manifest, and detached owner authorization have not been
    materialized for a production identity.
 
@@ -360,11 +397,12 @@ cross-wave continuity, final store targets, and the complete packet tree.
    confirm the stable account, organization, project, and API-key-ID scope.
 2. Ratify or amend the three exact source groups in the tracked source-selection proposal,
    establish authoritative completeness and semantic disjointness, and bind the approved account
-   scope. Then run the read-only authenticated capture and reconciliation. The v4 launch gate will
+   scope. Then run the read-only authenticated capture and reconciliation. The v5 launch gate will
    bind the exact runtime credential to that signed scope. Any environmental predecessor also
    needs a post-void settlement watermark.
-3. Ratify the price-change response and reviewer usage treatment, then pin Jack's public
-   signing key and fingerprint.
+3. Ratify or amend the tracked price-change and reviewer-usage policy candidates, then bind
+   their exact hashes, the 59,040 reviewer ceiling, and the required response text in the final
+   v5 authorization. Pin Jack's public signing key and fingerprint.
 4. Close the capacity real-enable gaps and request a separate bounded authorization for the
    representative reviewer-capacity preflight. Do not treat this report, the existing plan,
    or fake-only tests as dispatch authority.

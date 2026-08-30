@@ -1,0 +1,27 @@
+{
+  "schema_version": "phase3_main_reviewer_usage_policy_v1",
+  "policy_id": "phase3-main-reviewer-usage-policy-2026-08-30",
+  "stage": "main",
+  "status": "proposal_pending_exact_main_authorization",
+  "usage_unit": "external_reviewer_dispatch",
+  "maximum_reviewer_dispatches": 59040,
+  "quantity_source": "one_durable_dispatch_reservation_per_reviewer_child_release",
+  "reservation_treatment": {
+    "count_before_child_release": true,
+    "failed_or_ambiguous_dispatch_counts": true,
+    "redispatch_after_reservation": false,
+    "hard_crash_with_reservation_makes_identity_non_resumable": true
+  },
+  "accounting_treatment": {
+    "separate_from_together_provider_usage_ledger": true,
+    "excluded_from_together_usd_stage_cap": true,
+    "dispatch_count_is_usd_accounting": false,
+    "dispatch_count_is_token_accounting": false,
+    "zero_monetary_cost_claimed": false,
+    "unlimited_service_capacity_claimed": false
+  },
+  "execution_authorized": false,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false
+}

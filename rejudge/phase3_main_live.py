@@ -37,6 +37,7 @@ from rejudge import (
     phase3_main_context,
     phase3_main_finalization,
     phase3_main_manifest,
+    phase3_main_runtime_policies,
     phase3_main_together_billing_capture,
     phase3_main_reviewer_provenance,
     phase3_main_reviewer_commit,
@@ -169,10 +170,20 @@ PRODUCTION_EXECUTION_BLOCKERS = (
     "no authenticated provider settlement watermark has been materialized",
     "no approved provider account identity has been materialized in a signed main manifest",
     "predecessor-ledger completeness has no independent authoritative inventory",
-    "the signed run has no authorized response to in-run provider price changes",
-    "Codex reviewer usage has no separately ratified spend accounting",
     "fresh reviewer capacity evidence has not been authorized or measured",
 )
+
+ACTIVE_MARKER_FIELDS = frozenset({
+    "schema_version",
+    "status",
+    "run_id",
+    "manifest_sha256",
+    "artifact_root",
+    "artifact_root_sha256",
+    "journal_execution_identity",
+    "started_at_utc",
+    "pid",
+})
 
 
 class Phase3MainLiveError(RuntimeError, ValueError):
@@ -251,6 +262,8 @@ class PreparedMainRun:
     billing_reconciliation: Mapping[str, Any]
     cost_forecast: Mapping[str, Any]
     capacity_validation: Mapping[str, Any]
+    price_change_policy_validation: Mapping[str, Any]
+    reviewer_usage_policy_validation: Mapping[str, Any]
     harness_validation: Mapping[str, Any]
     inventory: phase3_main_runner.MainInventory
     context_excluded_cell_keys: tuple[str, ...]
@@ -670,6 +683,32 @@ def _reviewer_loop_contract(plan: Mapping[str, Any]) -> tuple[int, int]:
         + 2
     )
     return pending_limit, max_passes
+
+
+def _admit_reviewer_wave_quantity(
+    prepared: PreparedMainRun,
+    *,
+    previously_admitted: int,
+    incoming: int,
+) -> int:
+    """Apply the signed aggregate reviewer-dispatch ceiling before child release."""
+    maximum = prepared.reviewer_usage_policy_validation.get(
+        "maximum_reviewer_dispatches")
+    for value, label in (
+        (previously_admitted, "previous reviewer dispatch count"),
+        (incoming, "incoming reviewer dispatch count"),
+        (maximum, "maximum reviewer dispatch count"),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise Phase3MainLiveError(f"{label} must be an integer")
+    assert isinstance(maximum, int)
+    if previously_admitted < 0 or incoming <= 0 or maximum <= 0:
+        raise Phase3MainLiveError("reviewer dispatch counts must be positive and monotone")
+    admitted = previously_admitted + incoming
+    if admitted > maximum:
+        raise Phase3MainLiveError(
+            "reviewer dispatch wave would exceed the exact authorized usage ceiling")
+    return admitted
 
 
 def _validate_reviewer_invocation_capacity_binding(
@@ -1129,6 +1168,12 @@ def _revalidate_authenticated_authorization(
 
 def _authorize_provider_logical_dispatch(prepared: PreparedMainRun) -> str:
     """Return the durable start time after all local paid-call prerequisites pass."""
+    signal_path = prepared.identity.paths.price_change_signal
+    signal_publish_temp = prepared.identity.paths.price_change_signal_publish_temp
+    if os.path.lexists(signal_path) or os.path.lexists(signal_publish_temp):
+        raise Phase3MainLiveError(
+            "provider price-change signal or publish stage is present; "
+            "no new logical provider call is allowed")
     _revalidate_price_snapshot(prepared)
     current = _load_unchanged_authenticated_authorization(prepared)
     authorized_at = datetime.now(timezone.utc)
@@ -1985,6 +2030,20 @@ def load_prepared_main(
     capacity_runtime = _validate_capacity_runtime_binding(
         plan=capacity_plan, result=capacity_result, runtime=manifest["runtime"])
     capacity_validation = {**capacity_validation, "runtime": capacity_runtime}
+    try:
+        price_change_policy_validation = (
+            phase3_main_runtime_policies.load_and_validate_price_change_policy(
+                input_paths["price_change_policy"]
+            )
+        )
+        reviewer_usage_policy_validation = (
+            phase3_main_runtime_policies.load_and_validate_reviewer_usage_policy(
+                input_paths["reviewer_usage_policy"],
+                capacity_plan=capacity_plan,
+            )
+        )
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"main runtime policy validation failed: {exc}") from exc
 
     price = _load_bound_input_object(
         manifest, input_paths, "price_snapshot", "price snapshot")
@@ -2071,6 +2130,8 @@ def load_prepared_main(
         billing_reconciliation=billing_record,
         cost_forecast=forecast,
         capacity_validation=capacity_validation,
+        price_change_policy_validation=price_change_policy_validation,
+        reviewer_usage_policy_validation=reviewer_usage_policy_validation,
         harness_validation=harness_validation,
         inventory=inventory,
         context_excluded_cell_keys=excluded,
@@ -2627,6 +2688,211 @@ def _start_identity(
     return start
 
 
+def _stable_regular_file_bytes(path: Path, label: str) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise Phase3MainLiveError(f"{label} must be a regular file: {path}")
+    try:
+        first = path.read_bytes()
+        second = path.read_bytes()
+    except OSError as exc:
+        raise Phase3MainLiveError(f"could not read {label}: {path}") from exc
+    if first != second:
+        raise Phase3MainLiveError(f"{label} changed while read")
+    return first
+
+
+def _load_stable_strict_object(path: Path, label: str) -> tuple[dict[str, Any], bytes]:
+    raw = _stable_regular_file_bytes(path, label)
+    value = _parse_strict_json(raw, path)
+    if not isinstance(value, dict):
+        raise Phase3MainLiveError(f"{label} must be a JSON object")
+    return value, raw
+
+
+def _price_change_start_evidence(
+    identity: phase3_main_runner.MainRunIdentity,
+    manifest: Mapping[str, Any],
+) -> tuple[bytes, bytes, bytes]:
+    """Reopen exact start evidence without taking the formal run lease."""
+    start_path = _identity_start_path(identity)
+    if _identity_void_path(identity).exists():
+        raise Phase3MainLiveError(
+            "a provider price change cannot be recorded for a voided identity")
+    if _identity_complete_path(identity).exists() or identity.paths.completion.exists():
+        raise Phase3MainLiveError(
+            "a provider price change cannot be recorded for a completed identity")
+    start, start_raw = _load_stable_strict_object(
+        start_path, "formal identity start record")
+    if set(start) != IDENTITY_START_FIELDS:
+        raise Phase3MainLiveError("formal identity start record fields drifted")
+    if (
+        start.get("schema_version") != IDENTITY_START_SCHEMA
+        or start.get("status") != "started_single_shot"
+        or start.get("run_id") != identity.run_id
+        or start.get("manifest_canonical_sha256") != identity.manifest_sha256
+        or start.get("manifest_identity_sha256")
+        != manifest.get("manifest_identity_sha256")
+        or start.get("artifact_root") != identity.artifact_root.as_posix()
+    ):
+        raise Phase3MainLiveError("formal identity start record binding drifted")
+    phase3_main_manifest._utc(  # noqa: SLF001
+        start.get("recorded_at_utc"), "formal identity start recorded_at_utc")
+
+    active, active_raw = _load_stable_strict_object(
+        identity.paths.active_marker, "formal active marker")
+    if set(active) != ACTIVE_MARKER_FIELDS:
+        raise Phase3MainLiveError("formal active marker fields drifted")
+    expected_active = {
+        "schema_version": phase3_main_runner.ACTIVE_MARKER_SCHEMA,
+        "status": "active",
+        "run_id": identity.run_id,
+        "manifest_sha256": identity.manifest_sha256,
+        "artifact_root": identity.artifact_root.as_posix(),
+        "artifact_root_sha256": identity.artifact_root_sha256,
+        "journal_execution_identity": identity.journal_execution_identity,
+    }
+    if any(active.get(field) != expected for field, expected in expected_active.items()):
+        raise Phase3MainLiveError("formal active marker binding drifted")
+    phase3_main_manifest._utc(  # noqa: SLF001
+        active.get("started_at_utc"), "formal active marker started_at_utc")
+    active_pid = active.get("pid")
+    if isinstance(active_pid, bool) or not isinstance(active_pid, int) or active_pid <= 0:
+        raise Phase3MainLiveError("formal active marker pid is invalid")
+
+    binding_raw = _stable_regular_file_bytes(
+        identity.paths.identity_binding, "formal identity binding")
+    if binding_raw != phase3_main_runner._identity_binding_bytes(identity):  # noqa: SLF001
+        raise Phase3MainLiveError("formal identity binding bytes drifted")
+    return start_raw, active_raw, binding_raw
+
+
+def record_provider_price_change(
+    manifest_path: str | Path,
+    *,
+    trigger_kind: str,
+    evidence_path: str | Path,
+    note: str,
+) -> dict[str, Any]:
+    """Exclusively record a non-authorizing stop signal for one active identity."""
+    manifest_file = Path(manifest_path).resolve()
+    manifest, manifest_raw = _load_stable_strict_object(
+        manifest_file, "main manifest")
+    try:
+        validation = phase3_main_manifest.validate_main_manifest(
+            manifest,
+            project_root=LIVE_PROJECT_ROOT,
+            verify_files=False,
+            verify_runtime=False,
+        )
+    except phase3_main_manifest.MainManifestError as exc:
+        raise Phase3MainLiveError(
+            f"main manifest cannot identify the price-change stop target: {exc}") from exc
+    identity = phase3_main_runner.MainRunIdentity(
+        run_id=str(validation["run_id"]),
+        manifest_sha256=str(validation["manifest_canonical_sha256"]),
+        artifact_root=Path(validation["artifact_root"]),
+        identity_registry_root=Path(validation["identity_registry_root"]),
+    )
+    if identity.paths.price_change_signal.name != (
+        phase3_main_runtime_policies.PRICE_CHANGE_SIGNAL_FILENAME
+    ):
+        raise Phase3MainLiveError("price-change signal filename drifted")
+    if _exclusive_publish_temp_path(identity.paths.price_change_signal) != (
+        identity.paths.price_change_signal_publish_temp
+    ):
+        raise Phase3MainLiveError("price-change signal publish-stage filename drifted")
+    if os.path.lexists(identity.paths.price_change_signal):
+        raise Phase3MainLiveError(
+            f"provider price-change signal already exists: "
+            f"{identity.paths.price_change_signal}")
+    initial_start_evidence = _price_change_start_evidence(identity, manifest)
+
+    evidence = Path(evidence_path).resolve()
+    if evidence == identity.paths.price_change_signal:
+        raise Phase3MainLiveError("price-change evidence cannot be the signal itself")
+    evidence_raw = _stable_regular_file_bytes(evidence, "provider price-change evidence")
+    if not evidence_raw:
+        raise Phase3MainLiveError("provider price-change evidence cannot be empty")
+    observed_at_utc = datetime.now(timezone.utc).isoformat()
+    signal = {
+        "schema_version": phase3_main_runtime_policies.PRICE_CHANGE_SIGNAL_SCHEMA,
+        "status": "provider_price_change_observed",
+        "run_id": identity.run_id,
+        "manifest_canonical_sha256": identity.manifest_sha256,
+        "artifact_root": identity.artifact_root.as_posix(),
+        "artifact_root_sha256": identity.artifact_root_sha256,
+        "journal_execution_identity": identity.journal_execution_identity,
+        "observed_at_utc": observed_at_utc,
+        "trigger_kind": trigger_kind,
+        "evidence": {
+            "path": evidence.as_posix(),
+            "raw_sha256": hashlib.sha256(evidence_raw).hexdigest(),
+            "byte_count": len(evidence_raw),
+        },
+        "note": note,
+        "stop_new_logical_provider_calls": True,
+        "execution_authorized": False,
+        "provider_calls_authorized": False,
+        "main_run_spend_authorized": False,
+    }
+    try:
+        phase3_main_runtime_policies.validate_price_change_signal(
+            signal,
+            run_id=identity.run_id,
+            manifest_canonical_sha256=identity.manifest_sha256,
+            artifact_root=identity.artifact_root,
+            journal_execution_identity=identity.journal_execution_identity,
+            verify_evidence=True,
+        )
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"provider price-change signal is invalid: {exc}") from exc
+
+    current_manifest_raw = _stable_regular_file_bytes(manifest_file, "main manifest")
+    current_start_evidence = _price_change_start_evidence(identity, manifest)
+    current_evidence_raw = _stable_regular_file_bytes(
+        evidence, "provider price-change evidence")
+    if manifest_raw != current_manifest_raw:
+        raise Phase3MainLiveError("main manifest changed before stop-signal publication")
+    if initial_start_evidence != current_start_evidence:
+        raise Phase3MainLiveError(
+            "formal identity start evidence changed before stop-signal publication")
+    if evidence_raw != current_evidence_raw:
+        raise Phase3MainLiveError(
+            "provider price-change evidence changed before stop-signal publication")
+    _write_exclusive_json(
+        identity.paths.price_change_signal,
+        signal,
+        label="provider price-change signal",
+    )
+    try:
+        signal_validation = (
+            phase3_main_runtime_policies.load_and_validate_price_change_signal(
+                identity.paths.price_change_signal,
+                run_id=identity.run_id,
+                manifest_canonical_sha256=identity.manifest_sha256,
+                artifact_root=identity.artifact_root,
+                journal_execution_identity=identity.journal_execution_identity,
+                verify_evidence=True,
+            )
+        )
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(
+            "provider price-change signal was published but did not reopen exactly; "
+            "signal presence still blocks new provider calls"
+        ) from exc
+    return {
+        "status": "provider_price_change_observed",
+        "run_id": identity.run_id,
+        "signal_path": identity.paths.price_change_signal.as_posix(),
+        "signal_raw_sha256": _raw_sha256(identity.paths.price_change_signal),
+        "trigger_kind": signal_validation["trigger_kind"],
+        "stop_new_logical_provider_calls": True,
+        "execution_authorized": False,
+        "provider_calls_authorized": False,
+        "main_run_spend_authorized": False,
+    }
+
+
 def record_environmental_interruption(
     manifest_path: str | Path,
     *,
@@ -2864,6 +3130,9 @@ def _drive_and_finalize(
     capacity_plan = _load_bound_input_object(
         prepared.manifest, prepared.input_paths, "capacity_plan", "capacity plan")
     pending_limit, max_passes = _reviewer_loop_contract(capacity_plan)
+    reviewer_dispatches = 0
+    reviewer_dispatch_ceiling = int(
+        prepared.reviewer_usage_policy_validation["maximum_reviewer_dispatches"])
     _append_jsonl(paths.run_log, {
         "event": "formal_main_started",
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -2874,6 +3143,8 @@ def _drive_and_finalize(
         "provider_worker_concurrency": 1,
         "reviewer_concurrency": 12,
         "reviewer_wave_size": pending_limit,
+        "reviewer_usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+        "maximum_reviewer_dispatches": reviewer_dispatch_ceiling,
         "maximum_driver_passes": max_passes,
     })
 
@@ -2938,12 +3209,38 @@ def _drive_and_finalize(
         if complete == target:
             return _finalize_main(prepared, terminal_store)
         if outcome.pending_payloads:
+            reviewer_dispatches = _admit_reviewer_wave_quantity(
+                prepared,
+                previously_admitted=reviewer_dispatches,
+                incoming=len(outcome.pending_payloads),
+            )
+            _append_jsonl(paths.run_log, {
+                "event": "reviewer_usage_reserved",
+                "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                "wave": pass_index,
+                "usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+                "dispatches_this_wave": len(outcome.pending_payloads),
+                "cumulative_reviewer_dispatches": reviewer_dispatches,
+                "maximum_reviewer_dispatches": reviewer_dispatch_ceiling,
+                "failed_or_ambiguous_dispatches_count": True,
+                "non_claim": "dispatch count is not USD or token accounting",
+            })
             _review_wave_same_process(
                 prepared,
                 outcome.pending_payloads,
                 wave=pass_index,
                 held_run_lease=held_run_lease,
             )
+            _append_jsonl(paths.run_log, {
+                "event": "reviewer_usage_wave_completed",
+                "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                "wave": pass_index,
+                "usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+                "dispatches_this_wave": len(outcome.pending_payloads),
+                "cumulative_reviewer_dispatches": reviewer_dispatches,
+                "maximum_reviewer_dispatches": reviewer_dispatch_ceiling,
+                "non_claim": "dispatch count is not USD or token accounting",
+            })
             continue
         if outcome.completed == 0:
             raise Phase3MainLiveError(
@@ -3777,6 +4074,7 @@ __all__ = [
     "load_prepared_main",
     "main",
     "record_environmental_interruption",
+    "record_provider_price_change",
     "run_main",
 ]
 

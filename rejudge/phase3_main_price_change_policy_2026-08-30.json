@@ -1,0 +1,29 @@
+{
+  "schema_version": "phase3_main_price_change_policy_v1",
+  "policy_id": "phase3-main-price-change-policy-2026-08-30",
+  "stage": "main",
+  "provider": "Together",
+  "status": "proposal_pending_exact_main_authorization",
+  "detection_contract": {
+    "bound_price_snapshot_revalidated_before_each_new_logical_provider_call": true,
+    "operator_signal_filename": "main_price_change.signal.json",
+    "operator_signal_presence_halts_before_new_logical_provider_call": true,
+    "provider_side_change_without_snapshot_drift_or_operator_signal_detected": false
+  },
+  "response": {
+    "stop_new_logical_provider_calls": true,
+    "allow_already_started_call_to_finish_and_be_accounted": true,
+    "identity_disposition": "halt_preserve_no_resume",
+    "automatic_reprice": false,
+    "automatic_cap_change": false,
+    "automatic_model_substitution": false,
+    "automatic_resume": false,
+    "successor_requires_fresh_price_snapshot": true,
+    "successor_requires_fresh_forecast": true,
+    "successor_requires_fresh_manifest": true,
+    "successor_requires_fresh_exact_authorization": true
+  },
+  "execution_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false
+}
