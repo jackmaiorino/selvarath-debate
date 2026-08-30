@@ -37,6 +37,7 @@ from rejudge import (
     phase3_main_context,
     phase3_main_finalization,
     phase3_main_manifest,
+    phase3_main_together_billing_capture,
     phase3_main_reviewer_provenance,
     phase3_main_reviewer_commit,
     phase3_main_runner,
@@ -166,7 +167,7 @@ PRODUCTION_EXECUTION_BLOCKERS = (
     "the protocol cap and proposed main cap are not ratified to one value",
     "Together billing-usage API access is not enabled for the selected organization",
     "no authenticated provider settlement watermark has been materialized",
-    "the runtime credential is not bound to the reconciled provider account",
+    "no approved provider account identity has been materialized in a signed main manifest",
     "predecessor-ledger completeness has no independent authoritative inventory",
     "the signed run has no authorized response to in-run provider price changes",
     "Codex reviewer usage has no separately ratified spend accounting",
@@ -176,6 +177,16 @@ PRODUCTION_EXECUTION_BLOCKERS = (
 
 class Phase3MainLiveError(RuntimeError, ValueError):
     """A Phase 3 main launch or execution invariant failed closed."""
+
+
+def _subprocess_environment_without_together_credentials() -> dict[str, str]:
+    """Return the current environment without provider credentials or endpoint overrides."""
+    forbidden = {"TOGETHER_API_KEY", "TOGETHER_BASE_URL"}
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name.upper() not in forbidden
+    }
 
 
 def _require_production_execution_unblocked() -> None:
@@ -369,10 +380,12 @@ def _verify_clean_git_identity(manifest: Mapping[str, Any], root: Path) -> None:
     try:
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=root, check=True,
-            capture_output=True, text=True).stdout.strip()
+            capture_output=True, text=True,
+            env=_subprocess_environment_without_together_credentials()).stdout.strip()
         status = subprocess.run(
             ["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root,
-            check=True, capture_output=True, text=True).stdout
+            check=True, capture_output=True, text=True,
+            env=_subprocess_environment_without_together_credentials()).stdout
     except (OSError, subprocess.CalledProcessError) as exc:
         raise Phase3MainLiveError("could not verify the launch Git identity") from exc
     if head != manifest["source_commit"]:
@@ -550,6 +563,7 @@ def _reviewer_cli_version(path: Path) -> str:
     try:
         completed = subprocess.run(
             [str(path), "--version"], capture_output=True, text=True, timeout=30,
+            env=_subprocess_environment_without_together_credentials(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise Phase3MainLiveError(
@@ -1592,6 +1606,8 @@ def _require_clean_pre_main_billing(
         != phase3_main_billing_reconciliation.PROVIDER_SETTLEMENT_STATUS
         or settlement.get("account_identity_sha256")
         != billing_scope.get("account_identity_sha256")
+        or billing_scope.get("account_identity_sha256")
+        != manifest.get("runtime", {}).get("provider_account_identity_sha256")
     ):
         raise Phase3MainLiveError(
             "pre-main billing reconciliation is not provider-authenticated and finalized")
@@ -2072,7 +2088,10 @@ def _model_prices(price_snapshot: Mapping[str, Any]) -> dict[str, dict[str, floa
 
 
 def _construct_provider_client(
-    prepared: PreparedMainRun, snapshot: api_client.UsageLedgerSnapshot,
+    prepared: PreparedMainRun,
+    snapshot: api_client.UsageLedgerSnapshot,
+    *,
+    sdk_client: Any,
 ) -> Any:
     """Construct the sole live client. Tests may monkeypatch this private seam."""
     request = prepared.role_limits["request_settings"]
@@ -2090,6 +2109,7 @@ def _construct_provider_client(
         initial_uncertain_spend_usd=0.0,
         usage_log_path=str(snapshot.path),
         _ledger_snapshot=snapshot,
+        _sdk_client=sdk_client,
         _accounting_factory_token=api_client._LIVE_ACCOUNTING_FACTORY_TOKEN,
         require_explicit_reasoning_max_tokens=True,
         model_context_limits={
@@ -2114,6 +2134,35 @@ def _construct_provider_client(
     authorized = _AuthorizationDeadlineClient(prepared, raw)
     return RoleLimitResolvingClient(
         authorized, prepared.role_limits["model_role_limits"])
+
+
+def _construct_verified_runtime_provider_sdk(prepared: PreparedMainRun) -> Any:
+    """Bind one environment snapshot to the approved account and inference transport."""
+    expected_account = prepared.manifest["runtime"][
+        "provider_account_identity_sha256"]
+    transport = prepared.role_limits["request_settings"]["transport"]
+    api_key = os.environ.get("TOGETHER_API_KEY")
+    if api_key is None:
+        raise Phase3MainLiveError(
+            "TOGETHER_API_KEY is missing; runtime account identity cannot be verified")
+    try:
+        phase3_main_together_billing_capture.verify_runtime_account_identity(
+            api_key=api_key,
+            expected_account_identity_sha256=expected_account,
+        )
+        return api_client.build_pinned_together_client(
+            api_key=api_key,
+            base_url=api_client.PINNED_TOGETHER_INFERENCE_BASE_URL,
+            follow_redirects=False,
+            http_timeout=dict(transport["http_timeout"]),
+            sdk_internal_max_retries=int(transport["sdk_internal_max_retries"]),
+        )
+    except phase3_main_together_billing_capture.TogetherBillingCaptureError as exc:
+        raise Phase3MainLiveError(
+            f"runtime Together account verification failed: {exc}") from exc
+    except (TypeError, ValueError, RuntimeError) as exc:
+        raise Phase3MainLiveError(
+            "could not construct the identity-bound Together inference client") from exc
 
 
 def _identity_start_path(identity: phase3_main_runner.MainRunIdentity) -> Path:
@@ -2701,6 +2750,9 @@ def run_main(
     _require_production_execution_unblocked()
     prepared = load_prepared_main(
         manifest_path, authorization_path, verify_git=True)
+    _validate_launch_freshness(prepared)
+    _revalidate_authenticated_authorization(prepared)
+    sdk_client = _construct_verified_runtime_provider_sdk(prepared)
     identity = prepared.identity
     paths = identity.paths
     registry_root = identity.identity_registry_root
@@ -2766,7 +2818,8 @@ def run_main(
                 project_root=prepared.project_root,
             )
             _probe_artifact_publication(paths.root)
-            raw_client = _construct_provider_client(prepared, snapshot)
+            raw_client = _construct_provider_client(
+                prepared, snapshot, sdk_client=sdk_client)
             client = JournalingClient(raw_client, journal)
             _start_identity(prepared, snapshot)
             return _drive_and_finalize(
@@ -3093,7 +3146,13 @@ def _review_wave_same_process(
     )
     _verify_execution_code_root(prepared.project_root)
     _verify_clean_git_identity(prepared.manifest, prepared.project_root)
-    completed = subprocess.run(command, cwd=prepared.project_root, capture_output=True, text=True)
+    completed = subprocess.run(
+        command,
+        cwd=prepared.project_root,
+        capture_output=True,
+        text=True,
+        env=_subprocess_environment_without_together_credentials(),
+    )
     if completed.returncode != 0:
         raise Phase3MainLiveError(
             f"reviewer wave {wave} failed with exit {completed.returncode}: "

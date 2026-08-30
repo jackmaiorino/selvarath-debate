@@ -78,6 +78,7 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         },
         "restart": {"mode": "initial", "predecessor": None},
         "runtime": {
+            "provider_account_identity_sha256": "a" * 64,
             "reviewer_cli_binary": "codex.cmd",
             "reviewer_model": "gpt-5.6-sol",
             "reviewer_reasoning_effort": "high",
@@ -138,6 +139,7 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         manifest=manifest,
         authorization={
             "authorization_id": "owner-test",
+            "provider_account_identity_sha256": "a" * 64,
             "stage_cap_usd": "40.00",
             "approved_at_utc": "2026-08-29T20:15:00Z",
             "valid_until_utc": "2026-10-13T20:15:00Z",
@@ -791,6 +793,7 @@ def test_production_blockers_exclude_closed_provenance_work():
     assert any("owner signing key" in item for item in blockers)
     assert any("billing-usage API access" in item for item in blockers)
     assert any("settlement watermark" in item for item in blockers)
+    assert any("approved provider account identity" in item for item in blockers)
     assert any("reviewer capacity evidence" in item for item in blockers)
     assert not any("wave-index closeout" in item for item in blockers)
 
@@ -879,6 +882,60 @@ def test_authorization_is_rechecked_after_launch_freshness_before_identity_start
         phase3_main_live.run_main("manifest", "authorization")
     assert events == ["freshness", "authorization"]
     assert not phase3_main_live._identity_start_path(prepared.identity).exists()
+
+
+def test_runtime_account_failure_follows_local_gates_and_precedes_all_formal_state(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    events = []
+
+    monkeypatch.setattr(
+        phase3_main_live, "load_prepared_main", lambda *args, **kwargs: prepared)
+    monkeypatch.setattr(
+        phase3_main_live, "_require_production_execution_unblocked", lambda: None)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_validate_launch_freshness",
+        lambda _prepared: events.append("freshness"),
+    )
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_revalidate_authenticated_authorization",
+        lambda _prepared: events.append("authorization"),
+    )
+
+    def reject_runtime_identity(_prepared):
+        events.append("whoami")
+        raise phase3_main_live.Phase3MainLiveError("runtime account rejected")
+
+    monkeypatch.setattr(
+        phase3_main_live, "_construct_verified_runtime_provider_sdk", reject_runtime_identity)
+    monkeypatch.setattr(
+        phase3_main_live,
+        "_durably_prepare_identity_registry",
+        lambda _root: pytest.fail("runtime identity failure mutated the registry"),
+    )
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="runtime account rejected"):
+        phase3_main_live.run_main("manifest", "authorization")
+    assert events == ["freshness", "authorization", "whoami"]
+    assert not prepared.identity.artifact_root.exists()
+    registry_root = prepared.identity.identity_registry_root
+    assert registry_root is not None
+    assert not registry_root.exists()
+
+
+def test_child_environment_scrubs_together_credentials_case_insensitively(monkeypatch):
+    monkeypatch.setenv("together_api_key", "secret")
+    monkeypatch.setenv("TOGETHER_BASE_URL", "https://override.invalid/v1")
+    monkeypatch.setenv("PHASE3_UNRELATED_TEST_VALUE", "retained")
+
+    child = phase3_main_live._subprocess_environment_without_together_credentials()
+
+    assert "TOGETHER_API_KEY" not in {name.upper() for name in child}
+    assert "TOGETHER_BASE_URL" not in {name.upper() for name in child}
+    assert child["PHASE3_UNRELATED_TEST_VALUE"] == "retained"
 
 
 def test_strict_json_loader_rejects_duplicate_keys(tmp_path):
@@ -2242,6 +2299,8 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
         },
     }
     captured = {}
+    monkeypatch.setenv("TOGETHER_API_KEY", "must-not-reach-reviewer")
+    monkeypatch.setenv("together_base_url", "https://must-not-reach.invalid/v1")
 
     monkeypatch.setattr(
         phase3_main_live,
@@ -2284,6 +2343,10 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
 
     def fake_run(command, **kwargs):
         captured["command"] = command
+        assert "TOGETHER_API_KEY" not in {
+            name.upper() for name in kwargs["env"]}
+        assert "TOGETHER_BASE_URL" not in {
+            name.upper() for name in kwargs["env"]}
         out_path = Path(command[command.index("--out") + 1])
         guard_path = Path(command[command.index("--dispatch-guard") + 1])
         guard = json.loads(guard_path.read_text(encoding="utf-8"))
@@ -2629,8 +2692,9 @@ def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
         last_sequence=0,
         last_event_hash="genesis",
     )
+    sdk = object()
     result = phase3_main_live._construct_provider_client(
-        prepared, snapshot)
+        prepared, snapshot, sdk_client=sdk)
     assert result == "resolved"
     assert captured["approved_cap_usd"] == 40.0
     assert captured["initial_spend_usd"] == 10.25
@@ -2638,8 +2702,68 @@ def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
     assert captured["strict_model_pricing"] is True
     assert captured["halt_on_unknown_charge"] is True
     assert captured["require_returned_model_match"] is True
+    assert captured["_sdk_client"] is sdk
     assert captured["_accounting_factory_token"] is (
         phase3_main_live.api_client._LIVE_ACCOUNTING_FACTORY_TOKEN)
+
+
+def test_runtime_sdk_factory_uses_one_verified_key_snapshot(monkeypatch, tmp_path, inventory):
+    prepared = _prepared(tmp_path, inventory)
+    monkeypatch.setenv("TOGETHER_API_KEY", "verified-key-A")
+    monkeypatch.setenv("TOGETHER_BASE_URL", "https://unapproved.invalid/v1")
+    events = []
+    sdk = object()
+
+    def fake_verify(**kwargs):
+        events.append(("whoami", kwargs.copy()))
+        assert kwargs["api_key"] == "verified-key-A"
+        assert kwargs["expected_account_identity_sha256"] == "a" * 64
+        monkeypatch.setenv("TOGETHER_API_KEY", "changed-key-B")
+        return {"account_identity_sha256": "a" * 64}
+
+    def fake_build(**kwargs):
+        events.append(("sdk", kwargs.copy()))
+        return sdk
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_together_billing_capture,
+        "verify_runtime_account_identity",
+        fake_verify,
+    )
+    monkeypatch.setattr(
+        phase3_main_live.api_client, "build_pinned_together_client", fake_build)
+
+    assert phase3_main_live._construct_verified_runtime_provider_sdk(prepared) is sdk
+    assert [event[0] for event in events] == ["whoami", "sdk"]
+    sdk_args = events[1][1]
+    assert sdk_args["api_key"] == "verified-key-A"
+    assert sdk_args["base_url"] == (
+        phase3_main_live.api_client.PINNED_TOGETHER_INFERENCE_BASE_URL)
+    assert sdk_args["follow_redirects"] is False
+    assert sdk_args["sdk_internal_max_retries"] == 0
+
+
+def test_runtime_sdk_factory_rejects_identity_failure_before_sdk_construction(
+    monkeypatch, tmp_path, inventory,
+):
+    prepared = _prepared(tmp_path, inventory)
+    monkeypatch.setenv("TOGETHER_API_KEY", "wrong-key")
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_together_billing_capture,
+        "verify_runtime_account_identity",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            phase3_main_live.phase3_main_together_billing_capture
+            .TogetherBillingCaptureError("account differs")
+        ),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.api_client,
+        "build_pinned_together_client",
+        lambda **_kwargs: pytest.fail("identity failure constructed an inference SDK"),
+    )
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="account differs"):
+        phase3_main_live._construct_verified_runtime_provider_sdk(prepared)
 
 
 def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
@@ -2683,6 +2807,24 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
             validation, prepared.manifest)
     validation["run_id"] = prepared.manifest["run_id"]
 
+    other_account = {
+        **validation,
+        "billing_scope": {
+            **validation["billing_scope"],
+            "account_identity_sha256": "b" * 64,
+        },
+        "provider_settlement": {
+            **validation["provider_settlement"],
+            "account_identity_sha256": "b" * 64,
+        },
+    }
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="not provider-authenticated and finalized",
+    ):
+        phase3_main_live._require_clean_pre_main_billing(
+            other_account, prepared.manifest)
+
     validation["accounted_spend_usd"] = "10.24"
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
@@ -2710,6 +2852,8 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
         phase3_main_live, "load_prepared_main", lambda *args, **kwargs: prepared)
     monkeypatch.setattr(
         phase3_main_live, "_require_production_execution_unblocked", lambda: None)
+    monkeypatch.setattr(
+        phase3_main_live, "_construct_verified_runtime_provider_sdk", lambda _prepared: object())
     monkeypatch.setattr(
         phase3_main_live, "_revalidate_authenticated_authorization",
         lambda _prepared: prepared.authorization)
@@ -2749,7 +2893,8 @@ def test_identity_registry_survives_artifact_root_loss_and_blocks_reuse(
         def complete(self, *args, **kwargs):
             return "unused"
 
-    def fake_factory(_prepared, _snapshot):
+    def fake_factory(_prepared, _snapshot, *, sdk_client):
+        assert sdk_client is not None
         events.append("factory")
         assert prepared.identity.paths.active_marker.is_file()
         assert prepared.identity.paths.identity_binding.is_file()
@@ -3193,6 +3338,8 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
     monkeypatch.setattr(
         phase3_main_live, "_require_production_execution_unblocked", lambda: None)
     monkeypatch.setattr(
+        phase3_main_live, "_construct_verified_runtime_provider_sdk", lambda _prepared: object())
+    monkeypatch.setattr(
         phase3_main_live, "_revalidate_authenticated_authorization",
         lambda _prepared: prepared.authorization)
     monkeypatch.setattr(phase3_main_live, "_verify_execution_code_root", lambda *args: None)
@@ -3228,7 +3375,8 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
         Path(kwargs["target_store_path"]).touch()
         return {"main_bundle_count": 492, "written": 492, "skipped": 0}
 
-    def fake_factory(_prepared, _snapshot):
+    def fake_factory(_prepared, _snapshot, *, sdk_client):
+        assert sdk_client is not None
         factory_calls.append(True)
         assert not phase3_main_live._identity_start_path(prepared.identity).exists()
         return object()

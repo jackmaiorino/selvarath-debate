@@ -26,6 +26,7 @@ from rejudge import durable_fs
 
 LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD = (
     "logical_dispatch_authorized_at_utc")
+PINNED_TOGETHER_INFERENCE_BASE_URL = "https://api.together.xyz/v1"
 
 
 def _is_exact_streaming_required_rejection(exc: BaseException) -> bool:
@@ -814,11 +815,15 @@ def check_sdk_constructor_compatibility(
 def build_pinned_together_client(
     *, http_timeout: Mapping[str, float] | None = None,
     sdk_internal_max_retries: int | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    follow_redirects: bool | None = None,
 ) -> Any:
-    """Construct a real ``together.Together`` client, threading ``http_timeout``/
-    ``sdk_internal_max_retries`` into its OWN constructor kwargs -- NEVER hardcoded -- and
-    asserting the constructed client's ACTUAL ``.timeout``/``.max_retries`` equal the pins
-    immediately afterward.
+    """Construct a real ``together.Together`` client with explicit, verified pins.
+
+    ``http_timeout`` and ``sdk_internal_max_retries`` retain their legacy additive behavior.
+    The optional credential, base URL, and redirect policy pins let a formal caller use the
+    exact key it already verified without allowing the SDK to reread mutable environment state.
 
     Fails closed with :class:`SdkTransportPinMismatchError` on any mismatch, proving the
     constructor kwarg genuinely took effect rather than merely being accepted (see
@@ -834,9 +839,13 @@ def build_pinned_together_client(
     sites. Imports ``together``/``httpx`` lazily, matching every other real-SDK import in this
     module.
     """
-    from together import Together
+    from together import DefaultHttpxClient, Together
 
     construct_kwargs: dict[str, Any] = {}
+    if api_key is not None:
+        construct_kwargs["api_key"] = api_key
+    if base_url is not None:
+        construct_kwargs["base_url"] = base_url
     expected_timeout = None
     if http_timeout is not None:
         import httpx
@@ -844,22 +853,58 @@ def build_pinned_together_client(
         construct_kwargs["timeout"] = expected_timeout
     if sdk_internal_max_retries is not None:
         construct_kwargs["max_retries"] = sdk_internal_max_retries
-    client = Together(**construct_kwargs)
-    if expected_timeout is not None:
-        observed_timeout = getattr(client, "timeout", None)
-        if observed_timeout != expected_timeout:
+    owned_http_client = None
+    if follow_redirects is not None:
+        http_client_kwargs: dict[str, Any] = {
+            "follow_redirects": follow_redirects,
+        }
+        if expected_timeout is not None:
+            http_client_kwargs["timeout"] = expected_timeout
+        owned_http_client = DefaultHttpxClient(**http_client_kwargs)
+        construct_kwargs["http_client"] = owned_http_client
+    try:
+        client = Together(**construct_kwargs)
+    except BaseException:
+        if owned_http_client is not None:
+            owned_http_client.close()
+        raise
+    try:
+        if expected_timeout is not None:
+            observed_timeout = getattr(client, "timeout", None)
+            if observed_timeout != expected_timeout:
+                raise SdkTransportPinMismatchError(
+                    f"installed together SDK client's constructed timeout {observed_timeout!r} "
+                    f"does not equal the pinned {expected_timeout!r}; refusing to use a client "
+                    "whose actual transport configuration cannot be proven")
+        if sdk_internal_max_retries is not None:
+            observed_max_retries = getattr(client, "max_retries", None)
+            if observed_max_retries != sdk_internal_max_retries:
+                raise SdkTransportPinMismatchError(
+                    "installed together SDK client's constructed max_retries "
+                    f"{observed_max_retries!r} does not equal the pinned "
+                    f"{sdk_internal_max_retries!r}; refusing to use a client whose actual "
+                    "transport configuration cannot be proven")
+        if api_key is not None and getattr(client, "api_key", None) != api_key:
             raise SdkTransportPinMismatchError(
-                f"installed together SDK client's constructed timeout {observed_timeout!r} "
-                f"does not equal the pinned {expected_timeout!r}; refusing to use a client "
-                "whose actual transport configuration cannot be proven")
-    if sdk_internal_max_retries is not None:
-        observed_max_retries = getattr(client, "max_retries", None)
-        if observed_max_retries != sdk_internal_max_retries:
-            raise SdkTransportPinMismatchError(
-                "installed together SDK client's constructed max_retries "
-                f"{observed_max_retries!r} does not equal the pinned "
-                f"{sdk_internal_max_retries!r}; refusing to use a client whose actual "
-                "transport configuration cannot be proven")
+                "installed together SDK client did not retain the explicitly pinned API key")
+        if base_url is not None:
+            observed_base_url = str(getattr(client, "base_url", "")).rstrip("/")
+            if observed_base_url != base_url.rstrip("/"):
+                raise SdkTransportPinMismatchError(
+                    "installed together SDK client's base URL differs from the explicit pin")
+        if follow_redirects is not None:
+            observed_redirects = getattr(
+                getattr(client, "_client", None), "follow_redirects", None)
+            if observed_redirects is not follow_redirects:
+                raise SdkTransportPinMismatchError(
+                    "installed together SDK client's redirect policy differs from the explicit pin")
+    except BaseException:
+        close = getattr(client, "close", None)
+        if callable(close):
+            close()
+        elif owned_http_client is not None:
+            owned_http_client.close()
+        raise
     return client
 
 

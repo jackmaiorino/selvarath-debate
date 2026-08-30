@@ -821,6 +821,46 @@ def _default_transport(
         connection.close()
 
 
+def verify_runtime_account_identity(
+    *,
+    api_key: str,
+    expected_account_identity_sha256: str,
+    transport: Transport = _default_transport,
+    timeout_seconds: float = 30.0,
+) -> dict[str, str]:
+    """Verify one runtime key against the approved account without publishing evidence.
+
+    The caller must retain and pass the exact same ``api_key`` object into the inference SDK.
+    This helper performs one fixed, direct, read-only ``GET /v1/whoami`` and returns only
+    irreversible identity hashes. It never persists the key or any raw provider identifiers.
+    """
+    key = _text(api_key, "api_key")
+    expected_account = _sha256_text(
+        expected_account_identity_sha256, "expected_account_identity_sha256")
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+        "Accept-Encoding": "identity",
+        "User-Agent": "selvarath-phase3-runtime-identity/1",
+    }
+    response = transport(WHOAMI_URL, headers, timeout_seconds)
+    _response_date, _response_date_http, raw = _checked_response(
+        response, label="runtime whoami", unavailable_on_404=False)
+    payload = _json_bytes(raw, "runtime whoami response")
+    _reject_secret_in_payload(
+        payload, secret=key, label="runtime whoami response")
+    identity = _identity_from_whoami(payload)
+    if identity["account_identity_sha256"] != expected_account:
+        raise TogetherBillingCaptureError(
+            "runtime Together credential differs from the approved account identity")
+    return {
+        "account_identity_sha256": identity["account_identity_sha256"],
+        "api_key_id_sha256": identity["api_key_id_sha256"],
+        "project_id_sha256": identity["project_id_sha256"],
+        "organization_id_sha256": identity["organization_id_sha256"],
+    }
+
+
 def _sidecar_paths(output: Path, months: Sequence[str]) -> tuple[Path, dict[str, Path]]:
     whoami = output.with_name(f"{output.name}.whoami.response.json")
     reports = {
@@ -1178,6 +1218,7 @@ __all__ = [
     "build_capture",
     "capture_and_write",
     "load_and_validate_capture",
+    "verify_runtime_account_identity",
     "validate_capture",
     "write_capture_exclusive",
 ]

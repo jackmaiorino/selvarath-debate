@@ -1511,6 +1511,60 @@ def test_unpinned_client_construction_leaves_together_defaults_untouched(monkeyp
     assert captured == {}
 
 
+def test_explicit_sdk_identity_and_transport_pins_override_mutable_environment(monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_KEY", "environment-key-must-not-win")
+    monkeypatch.setenv("TOGETHER_BASE_URL", "https://unapproved.invalid/v1")
+    captured = {}
+
+    class _FakeTogether:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.api_key = kwargs["api_key"]
+            self.base_url = kwargs["base_url"]
+            self.timeout = kwargs["timeout"]
+            self.max_retries = kwargs["max_retries"]
+            self._client = kwargs["http_client"]
+
+    import together
+    monkeypatch.setattr(together, "Together", _FakeTogether)
+    sdk = ac.build_pinned_together_client(
+        api_key="verified-key-A",
+        base_url=ac.PINNED_TOGETHER_INFERENCE_BASE_URL,
+        follow_redirects=False,
+        http_timeout=_V5_HTTP_TIMEOUT,
+        sdk_internal_max_retries=0,
+    )
+    try:
+        assert captured["api_key"] == "verified-key-A"
+        assert captured["base_url"] == ac.PINNED_TOGETHER_INFERENCE_BASE_URL
+        assert captured["http_client"].follow_redirects is False
+        assert sdk.api_key == "verified-key-A"
+        assert str(sdk.base_url) == ac.PINNED_TOGETHER_INFERENCE_BASE_URL
+    finally:
+        captured["http_client"].close()
+
+
+def test_installed_sdk_accepts_the_formal_identity_and_redirect_pins(monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_KEY", "environment-key-must-not-win")
+    monkeypatch.setenv("TOGETHER_BASE_URL", "https://unapproved.invalid/v1")
+
+    sdk = ac.build_pinned_together_client(
+        api_key="constructor-only-test-key",
+        base_url=ac.PINNED_TOGETHER_INFERENCE_BASE_URL,
+        follow_redirects=False,
+        http_timeout=_V5_HTTP_TIMEOUT,
+        sdk_internal_max_retries=0,
+    )
+    try:
+        assert sdk.api_key == "constructor-only-test-key"
+        assert str(sdk.base_url).rstrip("/") == ac.PINNED_TOGETHER_INFERENCE_BASE_URL
+        assert sdk._client.follow_redirects is False
+        assert sdk.timeout.connect == 10.0
+        assert sdk.max_retries == 0
+    finally:
+        sdk.close()
+
+
 def test_sdk_transport_pin_mismatch_on_timeout_fails_closed(monkeypatch):
     monkeypatch.setenv("TOGETHER_API_KEY", "sk-test-not-a-real-key")
 

@@ -83,6 +83,7 @@ def _manifest(tmp_path: Path) -> dict:
         "restart": {"mode": "initial", "predecessor": None},
         "runtime": {
             "provider": "Together",
+            "provider_account_identity_sha256": "d" * 64,
             "model_ids": list(CONFIRMED_MAIN_JUDGES),
             "provider_worker_concurrency": 1,
             "reviewer_cli_binary": "codex.cmd",
@@ -120,6 +121,8 @@ def _authorization(manifest: dict) -> dict:
         "manifest_canonical_sha256": main_manifest.manifest_canonical_sha256(manifest),
         "manifest_identity_sha256": manifest["manifest_identity_sha256"],
         "provider": "Together",
+        "provider_account_identity_sha256": (
+            manifest["runtime"]["provider_account_identity_sha256"]),
         "exact_model_ids": list(CONFIRMED_MAIN_JUDGES),
         "reviewer_model": manifest["runtime"]["reviewer_model"],
         "reviewer_reasoning_effort": manifest["runtime"]["reviewer_reasoning_effort"],
@@ -145,6 +148,7 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     manifest = _manifest(tmp_path)
     result = main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
     assert set(manifest) == main_manifest.MANIFEST_FIELDS
+    assert manifest["schema_version"] == "phase3_main_launch_manifest_v4"
     assert "tokenizer_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "exact_context_index" not in main_manifest.REQUIRED_INPUT_BINDINGS
     assert manifest["execution_authorized"] is False
@@ -264,6 +268,20 @@ def test_manifest_identity_covers_every_operational_field(tmp_path):
         main_manifest.validate_main_manifest(changed, project_root=tmp_path)
 
 
+def test_manifest_runtime_account_hash_is_strict_and_identity_bound(tmp_path):
+    manifest = _manifest(tmp_path)
+
+    malformed = deepcopy(manifest)
+    malformed["runtime"]["provider_account_identity_sha256"] = "D" * 64
+    with pytest.raises(main_manifest.MainManifestError, match="lowercase SHA-256"):
+        main_manifest.validate_main_manifest(malformed, project_root=tmp_path)
+
+    changed = deepcopy(manifest)
+    changed["runtime"]["provider_account_identity_sha256"] = "e" * 64
+    with pytest.raises(main_manifest.MainManifestError, match="identity digest"):
+        main_manifest.validate_main_manifest(changed, project_root=tmp_path)
+
+
 def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliation(tmp_path):
     manifest = _manifest(tmp_path)
     main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
@@ -271,12 +289,17 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
     result = main_manifest.validate_main_authorization(
         authorization, manifest, as_of=NOW)
     assert result["approved_cap_usd"] == "875.00"
+    assert authorization["schema_version"] == "phase3_main_exact_authorization_v4"
+    assert "Together account identity SHA-256" in authorization["exact_text"]
+    assert manifest["runtime"]["provider_account_identity_sha256"] in (
+        authorization["exact_text"])
     assert "latest start of a new logical provider call" in authorization["exact_text"]
     assert "local evidence closeout may finish later" in authorization["exact_text"]
 
     mutations = [
         ("run_id", "phase3-main-other", "run ID"),
         ("stage_cap_usd", "875.0", "exactly equal"),
+        ("provider_account_identity_sha256", "e" * 64, "account identity"),
         ("exact_model_ids", list(reversed(CONFIRMED_MAIN_JUDGES)), "endpoint roster"),
         ("reviewer_model", "different-reviewer", "reviewer runtime"),
         ("reviewer_concurrency", 11, "reviewer runtime"),

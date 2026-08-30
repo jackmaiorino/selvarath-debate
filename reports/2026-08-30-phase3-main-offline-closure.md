@@ -2,10 +2,10 @@
 
 Date: 2026-08-30. Status: offline provenance, finalization, analysis, reviewer-closeout,
 capacity-foundation, billing-inventory, authenticated billing-capture foundation,
-process-reset reconciliation, and offline hardening work complete. Production remains blocked
-on external authority, provider enablement, approved runtime account binding, authoritative
-source selection, and fresh measurement. This document authorizes no external execution,
-reviewer dispatch, provider call, or spend.
+process-reset reconciliation, runtime account-binding implementation, and offline hardening work
+complete. Production remains blocked on external authority, provider enablement, materialized
+approved-account evidence, authoritative source selection, and fresh measurement. This document
+authorizes no external execution, reviewer dispatch, provider call, or spend.
 
 This report supersedes the current-state claims in the 2026-08-29 launch foundation,
 run ask package, and protocol pre-review. Those documents remain useful historical records.
@@ -255,9 +255,8 @@ A sanitized live [identity GET](https://docs.together.ai/reference/whoami) retur
 [billing-usage GET](https://docs.together.ai/reference/billing-usage) returned 404, which
 Together documents as the beta endpoint not being enabled for the organization. The code path
 is ready, but no authenticated billing capture or settlement watermark was materialized. This
-work also does not independently bind the approved account to the later runtime credential,
-establish which local sources are authoritative and disjoint, or authorize any provider
-execution.
+work does not establish which local sources are authoritative and disjoint or authorize any
+provider execution.
 
 Verification on this milestone:
 
@@ -267,6 +266,36 @@ Verification on this milestone:
 - Scoped type checking, static compilation, diff checks, and the no-em-dash rule: passed.
 - Independent capture-security and reconciliation/live reviews found no remaining P0, P1, or
   P2 finding.
+
+## Runtime account binding and credential isolation
+
+The launch manifest and detached owner authorization are now v4. Both visibly and exactly name
+the approved `provider_account_identity_sha256`, and the signed authorization text includes that
+hash. The live billing gate requires its authenticated scope and settlement account to equal the
+same manifest account, so a self-consistent reconciliation for another account cannot enter the
+run.
+
+After all local freshness and authorization checks, but before creating the persistent identity
+registry or formal artifact tree, the runner reads `TOGETHER_API_KEY` once and performs one fixed
+read-only `/v1/whoami`. The verifier accepts no redirect, retry, schema drift, secret echo, HTTP
+error, or account mismatch. It returns only irreversible identity hashes. The exact same in-memory
+key is immediately passed to the Together SDK with the inference base URL, timeouts, retry count,
+and no-redirect policy explicitly pinned. Later environment changes therefore cannot substitute a
+different key or endpoint.
+
+Every child process launched by the main runner now receives an environment with Together API-key
+and base-URL variables removed case-insensitively. This includes Git identity checks, reviewer CLI
+version checks, and formal reviewer waves. The Codex reviewer can no longer inherit the inference
+credential.
+
+Verification on this milestone:
+
+- Focused boundary suites: 252 passed, 2 skipped; installed SDK pin smoke: 1 passed.
+- Complete Phase 3 suite: 979 passed, 3 skipped in 297.17 seconds.
+- Full repository: 2,954 passed, 67 skipped in 677.71 seconds.
+- Scoped type checking, static compilation, diff checks, and the no-em-dash rule: passed.
+- No inference request, paid provider call, reviewer dispatch, production launch, push, or spend
+  occurred.
 
 ## Remaining production blockers
 
@@ -280,8 +309,9 @@ enabled:
 2. The protocol still fixes a $450 stage cap while the sealed canary supports a proposed $875
    planning cap. One value must be ratified after a fresh certified forecast.
 3. Together billing-usage beta access is not enabled for the selected organization. No live
-   authenticated capture or settlement watermark exists. Runtime credential-to-approved-account
-   binding and an authoritative, disjoint predecessor-ledger inventory also remain open.
+   authenticated capture, settlement watermark, or v4 signed approved-account selection exists.
+   The binding mechanism is complete; an authoritative, disjoint predecessor-ledger inventory
+   remains open.
 4. No signed response rule exists for a provider price change during the formal run.
 5. Codex reviewer usage has no separately ratified spend treatment. The representative
    capacity preflight has a frozen plan and a verified fake-only execution foundation, but no
@@ -310,9 +340,10 @@ cross-wave continuity, final store targets, and the complete packet tree.
 1. Ask Together to enable the billing-usage beta endpoint for the selected organization, then
    confirm the stable account, organization, project, and API-key-ID scope.
 2. Decide the exact predecessor ledger and auxiliary source set, establish its authoritative
-   completeness and disjointness, materialize the explicit inventory, bind the runtime
-   credential to the approved account scope, and run the read-only authenticated capture and
-   reconciliation. Any environmental predecessor also needs a post-void settlement watermark.
+   completeness and disjointness, materialize the explicit inventory and approved account scope,
+   then run the read-only authenticated capture and reconciliation. The v4 launch gate will bind
+   the exact runtime credential to that signed scope. Any environmental predecessor also needs a
+   post-void settlement watermark.
 3. Ratify the price-change response and reviewer usage treatment, then pin Jack's public
    signing key and fingerprint.
 4. Close the capacity real-enable gaps and request a separate bounded authorization for the

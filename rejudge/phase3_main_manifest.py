@@ -27,8 +27,8 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v3"
-AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v3"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v4"
+AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v4"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -55,6 +55,7 @@ AUTHORIZATION_FIELDS = frozenset({
     "manifest_canonical_sha256",
     "manifest_identity_sha256",
     "provider",
+    "provider_account_identity_sha256",
     "exact_model_ids",
     "reviewer_model",
     "reviewer_reasoning_effort",
@@ -177,6 +178,7 @@ PREDECESSOR_FIELDS = frozenset({
 })
 RUNTIME_FIELDS = frozenset({
     "provider",
+    "provider_account_identity_sha256",
     "model_ids",
     "provider_worker_concurrency",
     "reviewer_cli_binary",
@@ -307,8 +309,9 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
             f"{restart['predecessor']['run_id']}"
         )
     return (
-        f"Approved: {manifest['run_id']} Phase 3 main with Together endpoints exactly "
-        f"{models[0]} and {models[1]}, plus Codex reviewer dispatches using "
+        f"Approved: {manifest['run_id']} Phase 3 main on Together account identity SHA-256 "
+        f"{runtime['provider_account_identity_sha256']}, with endpoints exactly {models[0]} "
+        f"and {models[1]}, plus Codex reviewer dispatches using "
         f"{runtime['reviewer_model']} at {runtime['reviewer_reasoning_effort']} effort and "
         f"concurrency {runtime['reviewer_concurrency']}, {identity_description}, one "
         f"single-shot formal measurement, ${manifest['spend']['stage_cap_usd']} USD "
@@ -550,6 +553,10 @@ def validate_main_manifest(
     runtime = _exact_keys(manifest["runtime"], RUNTIME_FIELDS, "runtime")
     if runtime["provider"] != "Together":
         raise MainManifestError("main provider must be Together")
+    _sha256(
+        runtime["provider_account_identity_sha256"],
+        "runtime.provider_account_identity_sha256",
+    )
     if tuple(runtime["model_ids"]) != CONFIRMED_MAIN_JUDGES:
         raise MainManifestError("runtime model IDs differ from the confirmed endpoint roster")
     if _non_negative_int(
@@ -644,6 +651,17 @@ def validate_main_authorization(
     runtime = manifest["runtime"]
     if authorization["provider"] != runtime["provider"]:
         raise MainManifestError("authorization provider differs from the manifest")
+    authorization_account = _sha256(
+        authorization["provider_account_identity_sha256"],
+        "authorization.provider_account_identity_sha256",
+    )
+    manifest_account = _sha256(
+        runtime["provider_account_identity_sha256"],
+        "runtime.provider_account_identity_sha256",
+    )
+    if authorization_account != manifest_account:
+        raise MainManifestError(
+            "authorization provider account identity differs from the manifest")
     if authorization["exact_model_ids"] != runtime["model_ids"]:
         raise MainManifestError("authorization endpoint roster differs from the manifest")
     for field in ("reviewer_model", "reviewer_reasoning_effort"):

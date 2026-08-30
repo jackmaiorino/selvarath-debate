@@ -462,6 +462,7 @@ def test_authenticated_v3_reconciliation_returns_exact_settlement_map(
         validated,
         {
             "run_id": record["run_id"],
+            "runtime": {"provider_account_identity_sha256": account},
             "spend": {"prior_reconciled_usd": "0.10"},
         },
     )

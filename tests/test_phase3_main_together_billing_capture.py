@@ -133,6 +133,71 @@ def _build(
     return record, materials, fake, output
 
 
+def test_runtime_identity_verifier_is_one_fixed_read_only_whoami() -> None:
+    fake = FakeTransport()
+
+    verified = capture.verify_runtime_account_identity(
+        api_key=API_KEY,
+        expected_account_identity_sha256=_account(),
+        transport=fake,
+    )
+
+    assert fake.calls == [(
+        capture.WHOAMI_URL,
+        {
+            "Authorization": f"Bearer {API_KEY}",
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+            "User-Agent": "selvarath-phase3-runtime-identity/1",
+        },
+        30.0,
+    )]
+    assert verified == {
+        "account_identity_sha256": _account(),
+        "api_key_id_sha256": hashlib.sha256(API_KEY_ID.encode()).hexdigest(),
+        "project_id_sha256": hashlib.sha256(PROJECT_ID.encode()).hexdigest(),
+        "organization_id_sha256": hashlib.sha256(ORGANIZATION_ID.encode()).hexdigest(),
+    }
+    assert API_KEY not in json.dumps(verified)
+    assert API_KEY_ID not in json.dumps(verified)
+    assert PROJECT_ID not in json.dumps(verified)
+    assert ORGANIZATION_ID not in json.dumps(verified)
+
+
+@pytest.mark.parametrize("status", [302, 401, 403, 429, 500])
+def test_runtime_identity_verifier_rejects_non_success_without_fallback(status: int) -> None:
+    fake = FakeTransport(whoami_status=status)
+
+    with pytest.raises(capture.TogetherBillingCaptureError, match="returned HTTP"):
+        capture.verify_runtime_account_identity(
+            api_key=API_KEY,
+            expected_account_identity_sha256=_account(),
+            transport=fake,
+        )
+
+    assert len(fake.calls) == 1
+    assert fake.calls[0][0] == capture.WHOAMI_URL
+
+
+def test_runtime_identity_verifier_rejects_account_drift_and_secret_echo() -> None:
+    with pytest.raises(capture.TogetherBillingCaptureError, match="approved account"):
+        capture.verify_runtime_account_identity(
+            api_key=API_KEY,
+            expected_account_identity_sha256="f" * 64,
+            transport=FakeTransport(),
+        )
+
+    escaped_key = "".join(f"\\u{ord(character):04x}" for character in API_KEY)
+    whoami_raw = _json_bytes(_whoami()).replace(
+        b'"Test Organization"', f'"{escaped_key}"'.encode("ascii"))
+    with pytest.raises(capture.TogetherBillingCaptureError, match="API-key secret"):
+        capture.verify_runtime_account_identity(
+            api_key=API_KEY,
+            expected_account_identity_sha256=_account(),
+            transport=FakeTransport(whoami_body=whoami_raw),
+        )
+
+
 def test_build_uses_only_fixed_authenticated_gets_and_never_persists_secret(
     tmp_path: Path,
 ) -> None:
