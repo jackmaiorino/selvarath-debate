@@ -1,0 +1,154 @@
+{
+  "schema_version": "phase3_main_analysis_pins_v1",
+  "record_id": "phase3_main_analysis_pins_2026-08-29",
+  "recorded_at_date": "2026-08-29",
+  "status": "offline_analysis_design_only",
+  "bindings": {
+    "protocol_path": "rejudge/phase3_protocol_v3_r6.json",
+    "protocol_canonical_sha256": "e366147d54f65d9c033f94fc7f8dfd2803c3d147a326212a8dd36c5f84b7ef85",
+    "protocol_content_sha256": "ba2726b171ac1c6f3149115066bef2c8b16563405f147622a38d05771e423b64",
+    "scope_decision_path": "rejudge/phase3_main_scope_capacity_decision_2026-08-29.json",
+    "scope_decision_raw_sha256": "e8eaf716733aaabcce14e345d4d8691385ac05df16d114d1b90c9b005868aa2e",
+    "reused_inference_code": {
+      "path": "scripts/phase2_main_analysis.py",
+      "raw_sha256": "fd844c157aba39542f47c09cc2d26d9da86564b2992e935e2c06b30404d1ae75",
+      "functions": ["percentile_ci", "bootstrap_p_two_sided", "holm"]
+    }
+  },
+  "scope": {
+    "judges": [
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "Qwen/Qwen3.8-2.4T-A95B"
+    ],
+    "questions": 82,
+    "world_question_counts": {
+      "carath_norn": 27,
+      "selvarath": 28,
+      "vethun_sarak": 27
+    },
+    "conditions": [
+      "b0",
+      "sequential_b1",
+      "sequential_b2",
+      "sequential_b4",
+      "sequential_b8"
+    ],
+    "judgment_slots": 9840,
+    "domain": "all 82 questions for D1, D2, D4, D8, and S1",
+    "fallback_disposition": "inactive; activating the frozen 41-question fallback requires a new pre-measurement pins artifact. If activated, D4 and D8 use the 41-question domain and S1 restricts both b8 and b2 to that same domain. The common full-question draw matrix is retained and normalized within each subset world; no separate subset bootstrap is allowed."
+  },
+  "estimands": {
+    "primary_family": {
+      "D1": "error(sequential_b1) - error(b0)",
+      "D2": "error(sequential_b2) - error(b0)",
+      "D4": "error(sequential_b4) - error(b0)",
+      "D8": "error(sequential_b8) - error(b0)"
+    },
+    "confirmatory_secondary_family_of_one": {
+      "S1": "error(sequential_b8) - error(sequential_b2)"
+    },
+    "sign": "positive means more error in the first named condition"
+  },
+  "aggregation": {
+    "slot_identity_without_condition": [
+      "question_id",
+      "judge_model",
+      "debater_model",
+      "transcript_index",
+      "side",
+      "within_side_replicate"
+    ],
+    "contrast_support": "match the two arms on the exact condition-free slot identity. Context-ineligible slots are omitted from both arms and are never coded INVALID. Zero support for any required question x judge x debater stratum fails closed.",
+    "weighting": "within each question x judge x debater x condition average matched slots, then equal debater weights, equal judge weights, and equal question weights",
+    "mirror_rule": "retain and equally average both rendered sides in every primary and S1 estimate. A terminal cell counts wrong and its independently completed partner remains in the strict primary. Exclude the whole affected mirror unit only from paired-position diagnostics.",
+    "replicate_translation": "The protocol phrase 'replicate index 1 per (transcript, side)' is one-based prose. The plan is zero-based and folds side into replicate_index. Under configuration A, plan indices 0 and 1 decode to (side 0, within-side replicate 0) and (side 1, within-side replicate 0). The sensitivity therefore pins within_side_replicate = 0 and retains both sides; filtering global replicate_index == 1 is prohibited."
+  },
+  "invalid_policy": {
+    "primary": "strict INVALID, including a terminal INVALID, counts wrong",
+    "principal_valid_only_sensitivity": "for each contrast separately, drop a matched slot from both arms when either arm is strict INVALID; retain the opposite mirror side and every other supported slot",
+    "descriptive_all_invalid_scenarios": "for D1, D2, D4, D8, and S1, report all-INVALID-correct and all-INVALID-wrong scenario estimates and type-7 percentile intervals using the common question-cluster draws; these are descriptive and have no p-values",
+    "invalid_count_strata": "report every budget x named judge x zero-based folded replicate block, including explicit zero-count strata",
+    "exclusion_admission": "bare terminal or context-ineligible key arrays are not admissible for confirmatory output. Until a production finalization artifact validates terminal evidence and stop bounds, the frozen context-blocklist hash, and the exact partition, any nonempty exclusion list fails closed.",
+    "judgment_tolerant_parser": "none; no alternative or repaired judgment parse is analyzed",
+    "capability_anchor": "the frozen syntax-only parser ^ANSWER: ([AB])\\.?$ after whitespace stripping is primary for capability anchors; the exact no-period parser is a sensitivity. With the observed tolerant tie, the capability slope is not estimable because anchor-score spread is zero. Any strict-anchor two-judge slope is estimate-and-plot only with no p-value."
+  },
+  "capability_anchor_scores": {
+    "source": {
+      "finalization_record_path": "rejudge/phase3_v3_finalization_record_2026-08-29.json",
+      "finalization_record_raw_sha256": "d600d4b421ad7097046a6195927865307112158bbc22026550eca64b7b6f1796",
+      "finalization_run_id": "phase3-v3-82c8f75feba42a9e",
+      "sealed_canary_report_sha256": "2d9b34e7806d726c0aa9006784e76fdfe74f60f556cb4248e5c7d520a4cf6d27",
+      "closeout_report_path": "reports/2026-08-29-phase3-v3-successor-canary-closeout.md",
+      "closeout_report_raw_sha256": "2710d8e03d1d9ab23fda23abf3f76ecfb39d484ddac8396d7afd921a27b9f744",
+      "closeout_evidence": "Capability anchors (48 held-out per judge): Qwen 47/48 strict and tolerant (97.9%). Llama 47/48 tolerant (97.9%), 33/48 strict (68.8%); the strict-parse shortfall is format compliance, not knowledge, consistent with phase-2 behavior."
+    },
+    "score_unit": "correct_count / 48 held-out questions",
+    "tolerant": {
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"correct_count": 47, "total_count": 48},
+      "Qwen/Qwen3.8-2.4T-A95B": {"correct_count": 47, "total_count": 48}
+    },
+    "strict": {
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"correct_count": 33, "total_count": 48},
+      "Qwen/Qwen3.8-2.4T-A95B": {"correct_count": 47, "total_count": 48}
+    },
+    "analysis": {
+      "tolerant": "zero anchor-score spread; slope is not estimable and no interval or p-value is reported",
+      "strict": "estimate-and-plot-only sensitivity using the same D8 point estimate and common question-cluster bootstrap draws; report a descriptive type-7 percentile 95% interval and no p-value",
+      "anchor_treatment": "scores are fixed across bootstrap draws",
+      "slope_unit": "D8 error-rate difference per 1.0 anchor-score proportion"
+    }
+  },
+  "bootstrap": {
+    "B": 10000,
+    "seed": 20260829,
+    "prng": "CPython random.Random Mersenne Twister; randrange over sorted question IDs; worlds iterated in sorted order; Python version recorded in the result artifact",
+    "draw": "independently within each world, draw that world's observed number of questions with replacement. A draw is one question-multiplicity vector.",
+    "common_draws": "one immutable draw sequence is shared by D1, D2, D4, D8, S1, all valid-only sensitivities, all-INVALID-correct and all-INVALID-wrong scenarios, every endpoint-specific descriptive, and the sup-t band",
+    "draw_matrix_serialization": "JSON array of multiplicity objects with keys sorted, separators ',' and ':', ASCII encoding; SHA-256 recorded",
+    "precomputed_full_draw_matrix_sha256": "8ee28ad44b7db3ff32481303333f9f4ccfe75c35310436f46058af75183d7a54",
+    "fallback_zero_support_preflight": "PASS: all 10,000 frozen draws were checked against the frozen 41-question subset (carath_norn 14, selvarath 14, vethun_sarak 13); zero draws had zero retained multiplicity in any subset world",
+    "domain_normalization": "within each world normalize by that draw's multiplicity on the estimand domain, then combine worlds using their fixed question share in that domain",
+    "ci": "marginal percentile 95% interval using type-7 linear interpolation between order statistics",
+    "p_value": "p = min(1, 2 * min((1 + count(T <= 0))/(B + 1), (1 + count(T >= 0))/(B + 1))); exact zero is included in both tails",
+    "holm": "step-down over D1, D2, D4, and D8 only, with monotonicity enforcement and lexicographic estimand-ID tie breaking. S1 is a separate family of one."
+  },
+  "sup_t": {
+    "scope": "D1, D2, D4, and D8 only; descriptive and never a significance criterion",
+    "standard_error": "sample standard deviation of the B bootstrap estimates using denominator B - 1",
+    "maximum": "for draw r, max_j abs(T_j(r) - point_j) / se_j",
+    "critical_value": "type-7 95th percentile of the B maxima",
+    "band": "point_j plus or minus critical_value * se_j",
+    "zero_se": "if se_j is zero and every draw is within 1e-15 of the point estimate, its maximum component is zero and its band is [point, point]; otherwise fail closed"
+  },
+  "rounding": {
+    "computation": "IEEE-754 binary64 with no intermediate rounding; all tests and decisions use unrounded values",
+    "structured_output": "raw shortest-roundtrip JSON numbers",
+    "display_effects": "percentage points to 3 decimal places using Decimal(str(value)) and ROUND_HALF_EVEN",
+    "display_p_values": "6 decimal places using Decimal(str(value)) and ROUND_HALF_EVEN"
+  },
+  "reporting": {
+    "pooled_confirmatory_claim": "the equal-weight fixed roster of the two exact Together serverless model endpoints only",
+    "per_judge": "always report D1, D2, D4, D8, and S1 separately for each named endpoint with the same common draws and marginal intervals; these are descriptive and receive no p-values or Holm claims",
+    "invalid_descriptives": "report all-INVALID-correct and all-INVALID-wrong scenarios plus every budget x judge x replicate-block INVALID count stratum, including zeros; no scenario p-values or confirmatory claims",
+    "non_claims": [
+      "No conclusion generalizes to model scale, frontier models, or a population of possible judges.",
+      "The sup-t band cannot declare or deny significance.",
+      "The capability slope has no inferential p-value with this two-judge roster."
+    ]
+  },
+  "integrity": {
+    "input": "record the main result-store SHA-256, protocol hash, pins hash, engine commit, exact partition count, and any terminal or context-ineligible key artifact hashes",
+    "engine_source": "record the raw analysis-engine SHA-256 and repository HEAD separately; report an engine_git_commit only when the engine path is clean and tracked at that HEAD",
+    "question_bank": "derive the exact 82 main IDs through the protocol-bound phase-2 references, record their canonical SHA-256, the protocol question-bank bundle SHA-256, and the canonical SHA-256 of the projected 82 source rows",
+    "exclusion_admission": "nonempty terminal or context-ineligible key artifacts are a launch blocker until a future production finalization/admission artifact validates their evidence, bounds, hashes, and partition",
+    "outcome_derivation": "derive the correct A/B position from the rendered prompt and frozen question bank; stored correctness is a cross-check only",
+    "dry_run": "synthetic outcomes must recover hand-computed D1, D2, D4, D8, and S1; preserve world totals and common draws; exercise strict INVALID, valid-only support, mirror pairing, Holm, sup-t, endpoint weighting, and zero-support failures before any main outcome is read",
+    "freeze": "after main outcomes exist, no change to B, seed, draw mechanics, domains, support, quantiles, p-values, Holm, sup-t, rounding, or claim roles"
+  },
+  "authority": {
+    "provider_calls_authorized": false,
+    "paid_execution_authorized": false,
+    "main_run_authorized": false,
+    "spend_authorized_usd": 0
+  }
+}

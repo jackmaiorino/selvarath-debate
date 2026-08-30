@@ -1,0 +1,149 @@
+{
+ "schema_version": "phase3_main_review_capacity_preflight_plan_v1",
+ "plan_id": "phase3_main_review_capacity_preflight_2026_08_29",
+ "recorded_on_date": "2026-08-29",
+ "status": "owner_confirmed_offline_plan_pending_separate_execution",
+ "owner_decision": {
+  "approver": "Jack Maiorino",
+  "channel": "active Codex project session",
+  "decision": "replace the obsolete eight-one-hour-window rule with a representative review-capacity preflight and continue the offline main design"
+ },
+ "execution_authorized": false,
+ "provider_calls_authorized": false,
+ "main_spend_authorized": false,
+ "source_locations": {
+  "finalization_record": "rejudge/phase3_v3_finalization_record_2026-08-29.json",
+  "sealed_archive": "E:/selvarath-archive/phase3-v3r15-clean-2026-08-29",
+  "decision_store": "phase3_v3_reviewer_decisions.jsonl",
+  "reviewer_index": "reviewer_index.jsonl"
+ },
+ "source_bindings": {
+  "finalization_record_raw_sha256": "d600d4b421ad7097046a6195927865307112158bbc22026550eca64b7b6f1796",
+  "reviewer_decision_store_raw_sha256": "9d1beff1aa9d63fb8530ab7840e20782097cc165bef2b31a81b56cad106e1b83",
+  "reviewer_index_raw_sha256": "fc1158778de616e2029ddd877e2554d55cc810b70fd81757e58f88efc9bfe994",
+  "reviewer_prompt_prefix_sha256": "d36da2195e26a0180b23a542c8deea68ac50d7c6a33d6020ae6ff30719fbd98d",
+  "packet_directories_canonical_sha256": "343af81617f83ac684eb56399b175d04829f3641e40b8160e7176f99cac98118"
+ },
+ "workload": {
+  "derivation_tag": "phase3-main-review-capacity-v1",
+  "transformation": "swap_candidate_a_and_candidate_b_only",
+  "historical_exclusion": "exclude_every_variant_prompt_sha256_seen_in_source_packets",
+  "source_unique_packet_count": 576,
+  "historical_prompt_sha256_count": 576,
+  "byte_new_eligible_count": 368,
+  "historical_collision_count": 208,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_size": 60,
+  "wave_sizes_per_cohort": [
+   60,
+   60,
+   60
+  ],
+  "unused_byte_new_reserve_count": 8,
+  "cohort_records_canonical_sha256s": [
+   "da8e536272e19d29d87c011ca9e81b1994d3195708aae9a07940663b0de4abe7",
+   "9e5c332dc8f0c8ba43a1e57ae2ab263f8837cee56529045273108c7e4805bbe7"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "a0a3f6d8344b5eb344462e06bf778c2d834b4efc047ba2f30c63e7d70e0a5546",
+   "fd13a27f86af1d45acddc90ff0d52c34dc6254be1fd7963881e9a90361c4cfb2"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "62789908c000fc55d453ab8ffee7fa80d92ff224e53fa67de918ac680fdf0205",
+   "1c54b30766ac187a0368418af71b416c36d3344d84baa87ec50adb36284ba197"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "87f9b07912cc4b99a2afad86656ca16f990227956e14d8f777f013c5feb032ed",
+   "1db018b26a187748d3b76ed9c3a82735e851919f9449288ece81996bbec19823"
+  ],
+  "historical_collision_sources_canonical_sha256": "7fac6c32f1b62554dd301c22872c0179901d36f36295e02c58730a7d8cedce46"
+ },
+ "reviewer_configuration": {
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "reviewer_cli_binary": "codex.cmd",
+  "reviewer_cli_resolved_path": "C:/Users/Jack/AppData/Roaming/npm/codex.cmd",
+  "reviewer_cli_wrapper_raw_sha256": "c54db6755e710c39703f7c37512f9e35ed41042d8080558d2b84b8d2694323c3",
+  "reviewer_cli_wrapper_byte_count": 341,
+  "concurrency": 12,
+  "fresh_ephemeral_context_per_packet": true,
+  "tool_use_permitted": false,
+  "wave_pending_payload_limit": 64,
+  "actual_capacity_wave_size": 60
+ },
+ "capacity_thresholds": {
+  "total_judgment_slots": 9840,
+  "slots_per_judge_per_condition": 984,
+  "judge_count": 2,
+  "positive_query_budget_sum": 15,
+  "attempts_per_budget_slot_including_free_retry": 2,
+  "maximum_unique_review_payloads_zero_dedup": 59040,
+  "D_max_elapsed_days": 45,
+  "required_rulings_per_24h": 1312.0,
+  "certified_rulings_per_24h": 1440,
+  "maximum_seconds_per_60_packet_wave": 3600,
+  "maximum_seconds_for_three_waves": 10800,
+  "worst_case_projected_elapsed_days": 41.0,
+  "elapsed_day_margin": 4.0,
+  "rate_reserve_fraction": 0.09756097560975618
+ },
+ "dispatch_history_contract": {
+  "schema_version": "phase3_main_review_capacity_dispatch_event_v1",
+  "required_path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/dispatch_history.jsonl",
+  "anchor_directory": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/dispatch_history_anchors",
+  "interruption_evidence_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/interruption_evidence",
+  "required_initial_raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "append_only": true,
+  "anchor_validation_required": true,
+  "initialization_receipt_required": true,
+  "writer_mode": "process-scoped OS lock plus durable canonical initialization and append intents; recover only an exact intended history-line prefix, fsync the completed line, retain an exclusive prefix receipt, then clear the intent",
+  "crash_recovery": "an interrupted initialization is retry-completed only from its exact durable intent; an interrupted append is completed from the exact prior bytes or exact intended-line prefix and is then treated as committed, never redispatched; any other byte state is terminal and fail-closed",
+  "write_dispatch_started_before_first_reviewer_child": true,
+  "maximum_attempts": 2,
+  "retry_unlock": "only a hash-chained and receipt-bound attempt_interrupted event for cohort 1 whose absolute evidence path, byte count, and raw SHA-256 verify under the frozen evidence root unlocks cohort 2",
+  "terminal_completed_failure": "attempt_completed_fail is terminal and cannot be followed by another dispatch or omitted from result validation",
+  "no_replay": "a cohort may be dispatched at most once; cohort 2 is the only retry cohort and no third cohort exists"
+ },
+ "measurement_contract": {
+  "cohort_scope": "pre-freeze two disjoint 180-packet cohorts, each split into three nonoverlapping 60-packet waves; dispatch cohort 1 first and cohort 2 only after one verified environmental interruption of cohort 1",
+  "timing": "for each wave use a monotonic clock from immediately before reviewer child-process spawn through validated and fsynced result output",
+  "pass": [
+   "each of the three waves contains exactly its 60 expected unique packet and result identities",
+   "every result is nonempty and parses under the frozen reviewer-output parser, including valid LABEL and CLAUSE pairing",
+   "zero timeout, process error, tool use, prompt-hash mismatch, unexpected row, duplicate row, or missing row",
+   "each 60-packet wave completes within 3600 seconds and all three complete within 10800 seconds"
+  ],
+  "failure": "any completed attempt that misses a pass condition is FAIL; do not select a different cohort to erase the result",
+  "evidence": "record the resolved reviewer CLI wrapper path, wrapper raw SHA-256 and byte count, reported CLI version, host identity, monotonic durations, UTC boundaries, packet and result hashes, zero-valued failure counters, and one result row per expected prompt",
+  "materialization_only_now": "this plan and its script authorize only offline validation and packet materialization"
+ },
+ "retry_policy": {
+  "environmental_interruption": "void cohort 1 evidence only after appending a verified, structured environmental-interruption event to the bound hash-chained dispatch history",
+  "freshness_requirement": "the sole retry uses pre-frozen cohort 2, whose 180 prompt hashes are disjoint from historical prompts and cohort 1",
+  "completed_failure": "any completed failure is terminal; it cannot unlock cohort 2, be erased, or be replaced by a later result",
+  "current_reserve": "368 byte-new swaps support exactly two pre-frozen 180-packet cohorts with eight variants unused",
+  "blocked_action": "after cohort 2 starts, any interruption or completed failure is terminal for this source; a further attempt requires separately reviewed source expansion or semantic-preserving transformation, and whitespace or nonce padding is prohibited"
+ },
+ "validity": {
+  "valid_for_hours": 24,
+  "invalidated_by": [
+   "reviewer model change",
+   "reasoning-effort change",
+   "reviewer CLI resolved wrapper path, wrapper bytes, or reported version change",
+   "frozen reviewer prompt change",
+   "concurrency or wave-size change",
+   "host identity change"
+  ]
+ },
+ "non_claims": [
+  "This plan does not launch the reviewer or any provider client.",
+  "This plan does not authorize main-run provider calls, spend, or formal measurement.",
+  "The source semantics were reviewed in fresh prior sessions. Candidate-order swapping makes request bytes new and prevents exact-prompt replay, but this capacity check is not new semantic-validity evidence.",
+  "Cohort 2 is a one-time environmental-interruption retry, not a way to erase a completed failure.",
+  "The eight unused eligible swaps do not form another cohort and cannot authorize a third attempt.",
+  "The append API, hash chain, byte-verified interruption evidence, and retained prefix receipts fail closed for missing or inconsistent artifacts, but they are not tamper-proof against an actor who can deliberately delete or replace the history, evidence, and receipts together on the trusted local filesystem.",
+  "The interruption verifier field is an operator attestation and does not independently prove that the recorded cause was environmental.",
+  "The frozen codex.cmd path, wrapper bytes, and reported version identify the reviewer CLI entry point; the wrapper hash alone is not an attestation of the entire installed Codex package."
+ ]
+}

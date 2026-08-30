@@ -1,0 +1,42 @@
+{
+  "schema_version": "phase3_main_scope_capacity_decision_v1",
+  "record_id": "phase3_main_scope_capacity_decision_2026-08-29",
+  "owner_decision": {
+    "approver": "Jack Maiorino",
+    "channel": "direct chat, 2026-08-29",
+    "exact_quote": "Confirmed, continue",
+    "quote_context": "Reply to Codex's explicit interpretation that the two endpoint-specific judges are confirmed, the obsolete eight-full-hour pace rule is replaced by a representative review-capacity preflight, and no provider call or spend is authorized."
+  },
+  "confirmed_scope": {
+    "judges": [
+      "Qwen/Qwen3.8-2.4T-A95B",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    ],
+    "claim_boundary": "Claims are endpoint-specific and do not generalize to model scale or a broader judge population.",
+    "inventory": {
+      "questions": 82,
+      "conditions": ["b0", "b1", "b2", "b4", "b8"],
+      "judgment_slots_per_judge_per_condition": 984,
+      "judgment_slots_total": 9840
+    }
+  },
+  "capacity_decision": {
+    "retired_rule": "eight full one-hour configuration-review windows with an L90 pace statistic",
+    "replacement": "representative review-only capacity preflight",
+    "requirements": [
+      "use fresh representative review packets drawn by a frozen deterministic rule from the main workload shape",
+      "measure completed valid rulings and elapsed active review time",
+      "exclude cached packet replay, retrospective padding, and unattended clock time",
+      "remain retryable operational preflight evidence outside formal measurement"
+    ],
+    "status": "design and offline implementation authorized; capacity evidence not yet collected"
+  },
+  "authority_boundary": {
+    "provider_calls_authorized": false,
+    "paid_execution_authorized": false,
+    "main_run_authorized": false,
+    "spend_authorized_usd": 0,
+    "required_later_authority": "Any main provider call requires a separate exact owner authorization bound to the final main manifest and dollar cap."
+  },
+  "recorded_at_date": "2026-08-29"
+}
