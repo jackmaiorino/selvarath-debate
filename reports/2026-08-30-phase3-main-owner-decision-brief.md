@@ -54,6 +54,14 @@ does not count as this ratification.
    or main-run authority. The launch-input handoff, crash accounting, fixed production wiring,
    and v6 main provenance checks are implemented and verified. Execution still requires Jack to
    ratify the signing key, then separately sign the exact 180-dispatch capacity authorization.
+   The offline cohort-1 workload is materialized at
+   `E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/cohort_01_workload`
+   with exactly 180 packet files and an empty dispatch history. A non-authorizing readiness
+   manifest for source commit `786870649d86c11b7714a21ace747ea38ea3f6e5` has raw SHA-256
+   `4b973af20b7d89a1d32d6b0aeda49110904a9ceb8445567984b79a3593d57a83` and canonical SHA-256
+   `c2077ced6a937c87be007e06f1a8c2401021231777bf082544554c8ac3c08807`. It is only a validated
+   readiness specimen. Pinning the selected owner key changes the source commit, so the exact
+   execution manifest must be rebuilt afterward before any authorization is signed.
 3. The main stage cap cannot be ratified from the current `$875` proposal. It must follow the
    authenticated billing reconciliation, fresh prices, capacity result, and fresh certified
    forecast. The frozen protocol's `$450` value and the `$875` proposal remain unresolved until
