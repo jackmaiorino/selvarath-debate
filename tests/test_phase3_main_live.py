@@ -1035,12 +1035,17 @@ def test_bound_input_is_hashed_and_parsed_from_the_same_bytes(tmp_path):
             manifest, {"bound": path}, "bound", "test input")
 
 
-def test_live_authorization_is_blocked_until_owner_signing_key_is_pinned(tmp_path):
+def test_live_authorization_still_requires_signature_with_pinned_owner_key(tmp_path):
     authorization = tmp_path / "authorization.json"
     authorization.write_text("{}\n", encoding="utf-8")
-    assert phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY is None
-    assert phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT is None
-    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="signing key is not pinned"):
+    assert phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY is not None
+    assert phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT == (
+        "SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk"
+    )
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="could not load signed main authorization and sidecar",
+    ):
         phase3_main_live._load_authenticated_owner_authorization(authorization)
 
 

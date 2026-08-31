@@ -1,0 +1,124 @@
+{
+  "schema_version": "phase3_main_owner_ratification_v1",
+  "ratification_id": "phase3-main-non-execution-ratification-2026-08-31",
+  "stage": "main",
+  "owner_authorization": {
+    "approver": "Jack Maiorino",
+    "channel": "direct chat, 2026-08-31, exact free-text ratification requested by the decision brief",
+    "recorded_at_utc": "2026-08-31T11:34:24.7765470Z",
+    "exact_text": "I ratify the two exact runtime policy files and hashes in the 2026-08-30 Phase 3 main owner decision brief, including the 59,040-dispatch reviewer ceiling and separate non-USD usage treatment. For predecessor billing, include all 17 measurement ledgers and the separate journal-validation ledger, exclude the two auxiliary screens from the authoritative ledger union while retaining them as explanatory evidence, and treat that selection as complete for the bound 2026-08-18T00:00:00Z through 2026-08-30T00:00:00Z half-open window. I select the public signing key fingerprint SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk. I also select Together account identity SHA-256 8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e as the intended Phase 3 account scope. This ratification grants no reviewer dispatch, provider call, main run, or spend authority."
+  },
+  "decision_brief": {
+    "tracked_path": "reports/2026-08-30-phase3-main-owner-decision-brief.md",
+    "raw_sha256": "745d064699852c93817d3e9377c98aa04a69b8969e0134800f1682c89c78704b"
+  },
+  "runtime_policy_decisions": [
+    {
+      "policy_id": "phase3-main-price-change-policy-2026-08-30",
+      "tracked_path": "rejudge/phase3_main_price_change_policy_2026-08-30.json",
+      "raw_sha256": "88714908541e9957d6150186adad4a23c87876de7c7cf5654c9c585e8f14cd8d",
+      "disposition": "ratified_unchanged"
+    },
+    {
+      "policy_id": "phase3-main-reviewer-usage-policy-2026-08-30",
+      "tracked_path": "rejudge/phase3_main_reviewer_usage_policy_2026-08-30.json",
+      "raw_sha256": "8e22e89ce2a816aca5008160f846e0085661813d853ae4e9e380cbcf260f5251",
+      "disposition": "ratified_unchanged",
+      "external_reviewer_dispatch_ceiling": 59040,
+      "usage_treatment": "separate_non_usd_accounting"
+    }
+  ],
+  "predecessor_billing_selection": {
+    "proposal": {
+      "tracked_path": "rejudge/phase3_main_billing_source_selection_proposal_2026-08-30.json",
+      "raw_sha256": "ac4769f39d1a7a9418cd9e0720625413205af090fb27b05dc41a2355cea2f1cc"
+    },
+    "candidate_inventory": {
+      "tracked_path": "rejudge/phase3_main_billing_evidence_inventory_candidate_2026-08-30.json",
+      "raw_sha256": "45916d663963f372f33458f9ae89d27a78011377543f30512fcedc6c5ca1318d"
+    },
+    "billing_window": {
+      "window_start_utc": "2026-08-18T00:00:00Z",
+      "window_end_utc": "2026-08-30T00:00:00Z",
+      "interval": "half_open"
+    },
+    "authoritative_completeness": "owner_confirmed_complete_for_bound_window",
+    "included_ledger_semantic_disjointness": "owner_confirmed_by_exact_source_selection",
+    "auxiliary_cross_format_disjointness": "not_asserted_and_not_required_for_excluded_sources",
+    "source_groups": [
+      {
+        "group_id": "measurement-ledgers",
+        "disposition": "include_authoritative",
+        "source_ids": [
+          "phase3-v1",
+          "phase3-v2",
+          "phase3-v3-r01",
+          "phase3-v3-r02",
+          "phase3-v3-r03",
+          "phase3-v3-r04",
+          "phase3-v3-r05",
+          "phase3-v3-r06",
+          "phase3-v3-r07",
+          "phase3-v3-r08",
+          "phase3-v3-r09",
+          "phase3-v3-r10",
+          "phase3-v3-r11",
+          "phase3-v3-r12",
+          "phase3-v3-r13",
+          "phase3-v3-r14",
+          "phase3-v3-r15"
+        ]
+      },
+      {
+        "group_id": "journal-validation-ledger",
+        "disposition": "include_authoritative",
+        "source_ids": [
+          "phase3-v3-journal-validation"
+        ]
+      },
+      {
+        "group_id": "auxiliary-screens",
+        "disposition": "exclude_authoritative_retain_explanatory",
+        "source_ids": [
+          "phase3-v3-judgment-screen",
+          "phase3-v3-llama-checker-screen"
+        ]
+      }
+    ],
+    "authoritative_union": {
+      "source_count": 18,
+      "row_count": 49353,
+      "actual_spend_usd": "95.68306917999999801859",
+      "uncertain_spend_usd": "23.5893157200000000378",
+      "accounted_spend_usd": "119.27238489999999805639",
+      "uncertain_line_ref_count": 827
+    },
+    "excluded_explanatory_evidence": {
+      "source_count": 2,
+      "row_count": 788,
+      "actual_spend_usd": "5.2360874299999999661",
+      "uncertain_spend_usd": "0.23533403",
+      "accounted_spend_usd": "5.4714214599999999661",
+      "uncertain_line_ref_count": 13
+    }
+  },
+  "owner_signing_key": {
+    "public_key_candidate_path": "C:/Users/Jack/.ssh/id_ed25519.pub",
+    "public_key_raw_sha256": "c75737fdd877cb1b4753b0bed915d02ef18fe0322f5195624979c1b9d22874a7",
+    "public_key_fingerprint": "SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk",
+    "private_key_handling": "outside_repository_and_inaccessible_to_codex"
+  },
+  "together_account_scope": {
+    "account_identity_sha256": "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e",
+    "api_key_id_sha256": "ef05836c3edeca61b0d88a363fac5656845fff51401c395d206db782c7b378ee",
+    "project_id_sha256": "47a130970616d501ac049d52e7ae27c9c15ac32cc90e96513b3a934a37e32d7f",
+    "organization_id_sha256": "7e985a2e00e7e185006561c2d86fccb813cd7d6d8511c0811bc98b08a605fda1"
+  },
+  "authority_limits": {
+    "reviewer_dispatch_authorized": false,
+    "provider_calls_authorized": false,
+    "main_run_authorized": false,
+    "spend_authorized": false
+  },
+  "note": "Append-only owner decision record. This artifact grants no execution authority."
+}

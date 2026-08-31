@@ -4,13 +4,19 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
+
+from rejudge import phase3_owner_signing
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROPOSAL_PATH = (
     REPO_ROOT / "rejudge/phase3_main_billing_source_selection_proposal_2026-08-30.json"
+)
+RATIFICATION_PATH = (
+    REPO_ROOT / "rejudge/phase3_main_owner_ratification_2026-08-31.json"
 )
 
 
@@ -152,3 +158,97 @@ def test_replica_and_time_interval_observations_match_candidate() -> None:
     ] == 0
     assert observations["cross_format_durable_call_identity_present"] is False
     assert proposal["semantic_disjointness"] == "not_established"
+
+
+def test_owner_ratification_binds_exact_selection_without_execution_authority() -> None:
+    _ratification_raw, ratification = _load(RATIFICATION_PATH)
+    decision_brief = ratification["decision_brief"]
+    brief_raw = (REPO_ROOT / decision_brief["tracked_path"]).read_bytes()
+    assert hashlib.sha256(brief_raw).hexdigest() == decision_brief["raw_sha256"]
+
+    policies = ratification["runtime_policy_decisions"]
+    assert len(policies) == 2
+    for policy in policies:
+        policy_raw = (REPO_ROOT / policy["tracked_path"]).read_bytes()
+        assert hashlib.sha256(policy_raw).hexdigest() == policy["raw_sha256"]
+        assert policy["disposition"] == "ratified_unchanged"
+    reviewer_policy = next(
+        policy for policy in policies if "reviewer-usage" in policy["policy_id"]
+    )
+    assert reviewer_policy["external_reviewer_dispatch_ceiling"] == 59040
+    assert reviewer_policy["usage_treatment"] == "separate_non_usd_accounting"
+
+    selection = ratification["predecessor_billing_selection"]
+    proposal_claim = selection["proposal"]
+    proposal_raw, proposal = _load(REPO_ROOT / proposal_claim["tracked_path"])
+    assert hashlib.sha256(proposal_raw).hexdigest() == proposal_claim["raw_sha256"]
+    inventory_claim = selection["candidate_inventory"]
+    inventory_raw, inventory = _load(REPO_ROOT / inventory_claim["tracked_path"])
+    assert hashlib.sha256(inventory_raw).hexdigest() == inventory_claim["raw_sha256"]
+    assert selection["billing_window"] == {
+        **proposal["candidate_inventory"]["billing_window"],
+        "interval": "half_open",
+    }
+    assert selection["authoritative_completeness"] == (
+        "owner_confirmed_complete_for_bound_window"
+    )
+    assert selection["included_ledger_semantic_disjointness"] == (
+        "owner_confirmed_by_exact_source_selection"
+    )
+    assert selection["auxiliary_cross_format_disjointness"] == (
+        "not_asserted_and_not_required_for_excluded_sources"
+    )
+
+    groups = {group["group_id"]: group for group in selection["source_groups"]}
+    assert groups["measurement-ledgers"]["disposition"] == "include_authoritative"
+    assert len(groups["measurement-ledgers"]["source_ids"]) == 17
+    assert groups["journal-validation-ledger"] == {
+        "group_id": "journal-validation-ledger",
+        "disposition": "include_authoritative",
+        "source_ids": ["phase3-v3-journal-validation"],
+    }
+    assert groups["auxiliary-screens"]["disposition"] == (
+        "exclude_authoritative_retain_explanatory"
+    )
+    assert len(groups["auxiliary-screens"]["source_ids"]) == 2
+
+    included_ids = {
+        source_id
+        for group in groups.values()
+        if group["disposition"] == "include_authoritative"
+        for source_id in group["source_ids"]
+    }
+    excluded_ids = set(groups["auxiliary-screens"]["source_ids"])
+    sources = {source["source_id"]: source for source in inventory["sources"]}
+    assert included_ids.isdisjoint(excluded_ids)
+    assert included_ids | excluded_ids == set(sources)
+
+    def aggregate(source_ids: set[str]) -> dict[str, Any]:
+        selected = [sources[source_id] for source_id in source_ids]
+        return {
+            "source_count": len(selected),
+            "row_count": sum(source["row_count"] for source in selected),
+            "actual_spend_usd": str(sum(
+                Decimal(source["actual_spend_usd"]) for source in selected
+            )),
+            "uncertain_spend_usd": str(sum(
+                Decimal(source["uncertain_spend_usd"]) for source in selected
+            )),
+            "accounted_spend_usd": str(sum(
+                Decimal(source["accounted_spend_usd"]) for source in selected
+            )),
+            "uncertain_line_ref_count": sum(
+                len(source["uncertain_line_refs"]) for source in selected
+            ),
+        }
+
+    assert aggregate(included_ids) == selection["authoritative_union"]
+    assert aggregate(excluded_ids) == selection["excluded_explanatory_evidence"]
+    assert ratification["together_account_scope"]["account_identity_sha256"] == (
+        "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e"
+    )
+    assert ratification["owner_signing_key"]["public_key_fingerprint"] == (
+        phase3_owner_signing.OWNER_SIGNING_KEY_FINGERPRINT
+    )
+    assert phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY is not None
+    assert set(ratification["authority_limits"].values()) == {False}
