@@ -2179,7 +2179,7 @@ def _execute_capacity_preflight(
                     effort=str(reviewer["reasoning_effort"]),
                     codex=str(cli["path"]),
                     not_after_utc=deadline,
-                    concurrency=int(reviewer["concurrency"]),
+                    batch_concurrency=int(reviewer["concurrency"]),
                     expected_prompt_raw_sha256=str(binding["raw_sha256"]),
                     expected_cli_raw_sha256=str(cli["raw_sha256"]),
                     expected_batch_runner_raw_sha256=str(
