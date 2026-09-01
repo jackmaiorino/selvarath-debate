@@ -1,0 +1,229 @@
+{
+ "schema_version": "phase3_main_review_capacity_v4_successor_proposal_v1",
+ "proposal_id": "phase3-main-review-capacity-v4-successor-2026-09-01",
+ "proposal_only": true,
+ "proposal_status": "owner_decision_required",
+ "execution_authorized": false,
+ "external_reviewer_dispatch_authorized": false,
+ "provider_calls_authorized": false,
+ "together_calls_authorized": false,
+ "main_run_authorized": false,
+ "spend_authorized": false,
+ "predecessor_v3_attempt": {
+  "disposition": "terminal_completed_failure_retained",
+  "source_commit": "23733f897cf704ece687874e0f4756305d5cbe49",
+  "plan": {
+   "tracked_path": "rejudge/phase3_main_review_capacity_preflight_plan_v3_2026-09-01.json",
+   "raw_sha256": "ceb9b101a91beda2c05a7969e5e67980ad6b04fd3ecca5cdd719d228ac8bb838",
+   "canonical_sha256": "51855e21123799950ff0daaf7803dc30e02ab6a1744a0eea1dc665eef09421d3"
+  },
+  "workload_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/capacity_workload_cohort_01_23733f8/WORKLOAD_MANIFEST.json",
+   "raw_sha256": "7b83ae974fb146e294a5da0df80ef357113a9e9b994bc1960924b2b773f64e4f"
+  },
+  "execution_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/capacity_execution_manifest_2026-09-01_23733f8.json",
+   "raw_sha256": "17978ae188d204b4663f560e654ffb23b3c5968c5d37e75c578ca8acafe94234",
+   "canonical_sha256": "eb740425022669b467439867398b46ff6be0977cc43ed3f0228396abc1c94357"
+  },
+  "authorization": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/capacity_authorization_draft_2026-09-01_23733f8.json",
+   "raw_sha256": "002a92efcab28029f6d63e755c4ff4e52ebcab29f6b6f695b36a34aaa4781192",
+   "canonical_sha256": "8ac0a0ddb6ae8fdd6f8317b9c1b6bedf6995ab2c1cc2e09c5bdd9bf20de3932f",
+   "detached_signature_raw_sha256": "5f32d6db8fb2c7ce6c729beeba28150ef19f94e12ac8379562f3baafacf3040c"
+  },
+  "dispatch_history": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/dispatch_history.jsonl",
+   "raw_sha256": "5b1b00b904d247a553cf9e264d92648dce6424d03a25c39b22612dd0f78e77e8",
+   "event_count": 2,
+   "dispatch_started_event_hash": "8892072cfe5f2d8a2d8762d37f2550a31178008bbba372eb41fe6b40c7b5d9d9",
+   "attempt_completed_fail_event_hash": "cd4f8d3b2a3be5d05fe01c6b43ed26a81adafaf851196ff3886b872b2a496ac7"
+  },
+  "attempt_reservation": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/capacity-v3-attempt-20260901-01-23733f8.capacity_attempt_reservation.json",
+   "raw_sha256": "af3b72ffd44ea58be243a88ee89edda5826b4128cbbd6412c146b109907d0aa1"
+  },
+  "failure_receipt": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01/capacity-v3-attempt-20260901-01-23733f8.capacity_failure_receipt.json",
+   "raw_sha256": "22d3494a706aad4c9e9c5791af45aa56246054717a88a0d9d1d89d24ced477bf",
+   "failed_at_utc": "2026-09-01T21:44:20.333451+00:00",
+   "attempted_dispatches": 60,
+   "dispatch_reservation_count": 60,
+   "validated_invocation_receipts": 58,
+   "error_type": "CapacityExecutionError",
+   "error": "capacity reviewer failed for 059_6bb503df0d74.txt: exit=0, ruling_empty=False, ruling_utf8_error=False, event_stream_error='line 3 reports error'"
+  },
+  "full_offline_audit": {
+   "dispatch_reservation_count": 60,
+   "dispatch_reservation_bindings_canonical_sha256": "b5fc7f286dfd12f92eff6f652205f83d69e1210d3ae6ce802c3c6efa0a51df57",
+   "durable_invocation_bundle_count": 60,
+   "durable_invocation_receipt_hashes_canonical_sha256": "389d5f72fd7db8bac450a2e2b5676e4193b2b182fd88005870471d665ea266ba",
+   "durable_ruling_hashes_canonical_sha256": "5491ed08cfeb5652670c23085468decb69301e9c9979e79e646af449b056daf3",
+   "fully_valid_result_count": 58,
+   "failed_result_count": 2,
+   "result_file_present": false,
+   "wave_output_file_count": 0
+  },
+  "failed_results": [
+   {
+    "packet": "059_6bb503df0d74.txt",
+    "source_payload_sha256": "6bb503df0d74ad5e17ea22115883ea986d46e5fe8f53643ed2c5b13f08e747e1",
+    "packet_raw_sha256": "58572fddc306761d09fdac3399ab894d829b49e36d1c5818c834d45965b66d9c",
+    "query_was_empty": false,
+    "ruling_raw_sha256": "164193e8308248237e4c95595fdc8dc0df747626f9eb5ed2891bd6dbecd9cdff",
+    "invocation_receipt_raw_sha256": "317590efb79f7b7e5b0d66074c1bea50dee4315993a3127593c45992dd01a968",
+    "event_stream_raw_sha256": "8ef07176a9021dc22348b4d58f3fc8a3d687af9c5d72a3e76a3a1d9e068d41ea",
+    "stderr_raw_sha256": "290f12f2a74da5afcce4de9af536394f0d8aa854b865187ae383e9ccd04ab775",
+    "observed_label": "ALLOW",
+    "observed_clause": "Allowed",
+    "failure": "valid ruling rejected because WebSocket 403 retries and HTTPS fallback produced a nonclean event stream"
+   },
+   {
+    "packet": "060_a88386493783.txt",
+    "source_payload_sha256": "a88386493783e73182d47d572a32d0a72bb6c28c450a146c769a2864be153721",
+    "packet_raw_sha256": "6e6bfdd074e42f19265f42aea4c283fc8f9335e7a444a8e3ecb65723168a3f45",
+    "query_was_empty": false,
+    "ruling_raw_sha256": "fd222d18e4ed9160957085e2d596ddcb4a7b56469aa8ef664995bd24aa144f04",
+    "invocation_receipt_raw_sha256": "7b3faeb829e36b5745ac8257499169559756a06010fd3bb3383a13c9c7c55134",
+    "event_stream_raw_sha256": "4faaec8b1c1cc07b6485e828d11b06589ee7babd56a7978ea2bf47c3be51c046",
+    "stderr_raw_sha256": "2eda1ff308a61e633f4210f20434fddd6d5f960a1aed250ed3960b233b2124f3",
+    "observed_label": "ALLOW",
+    "observed_clause": "Allowed",
+    "failure": "valid ruling rejected because WebSocket 403 retries and HTTPS fallback produced a nonclean event stream"
+   }
+  ],
+  "accounting": {
+   "counted_reservations_before_v3": 120,
+   "v3_counted_reservations": 60,
+   "cumulative_counted_reservations": 180,
+   "cumulative_durable_invocation_bundles": 120,
+   "ratified_reviewer_ceiling": 59040,
+   "remaining_reviewer_ceiling_after_counted_reservations": 58860,
+   "treatment": "reservations are counted once as external reviewer usage; durable invocation bundles are evidence and are not added again",
+   "non_claim": "external reviewer usage is separate from USD, token, provider, or Together accounting"
+  },
+  "non_reuse": "The completed v3 cohort and its frozen retry cohort are terminal under the v3 contract and are not reused."
+ },
+ "transport_repair": {
+  "disposition": "offline_commit_complete_pending_owner_ratification",
+  "commit": "89420e3d2f2c7b7411dc84654f26422fcfff4f6c",
+  "configuration_key": "model_providers.openai.supports_websockets",
+  "configuration_value": false,
+  "codex_exec_arguments": [
+   "-c",
+   "model_providers.openai.supports_websockets=false"
+  ],
+  "documented_behavior": "the OpenAI provider supports_websockets setting controls whether Codex uses the Responses API WebSocket transport",
+  "documentation_url": "https://developers.openai.com/codex/config-reference",
+  "runtime_invariant": "the capacity reviewer and any later main reviewer run must pass the same explicit false setting",
+  "evidence_invariant": "the exact setting is retained in each invocation receipt argv and revalidated against the capacity plan",
+  "event_stream_policy": "the zero-event-error gate is unchanged; a fallback trace remains a failure",
+  "compatibility": "legacy archived invocation receipts without the transport field remain readable, but a v4 receipt must bind false exactly",
+  "files": [
+   {
+    "path": "scripts/codex_reviewer_batch.py",
+    "raw_sha256": "903d0f1142fe16d49bad4aff6f7f44eb2c074267b23d43b35ddbe50bcfc472d2",
+    "byte_count": 99124
+   },
+   {
+    "path": "rejudge/phase3_main_capacity_execution.py",
+    "raw_sha256": "b8e060d7d4084ab8dc28e96502ce2a1c5190f0fdd4177a01a5ba9217f2b9542c",
+    "byte_count": 104473
+   },
+   {
+    "path": "rejudge/phase3_main_live.py",
+    "raw_sha256": "e6bb30dc899449a199f0761e9e47843663e776d9802e7522338b670e9a716fa9",
+    "byte_count": 190203
+   },
+   {
+    "path": "tests/test_reviewer_unavailable_aborts.py",
+    "raw_sha256": "56b53ba4cf5421770bc2786a6f0521c2d41e941c4b849c4712ddcd394abac716",
+    "byte_count": 41586
+   },
+   {
+    "path": "tests/test_phase3_main_capacity_execution.py",
+    "raw_sha256": "63d940ebed8956681886bb7bad362c79c3958eaf4553dfa3f3f528e437fbfe63",
+    "byte_count": 49690
+   }
+  ],
+  "offline_validation": {
+   "reviewer_and_capacity_tests": "86 passed",
+   "main_live_provenance_and_finalization_tests": "182 passed, 2 skipped",
+   "provider_calls_made": false
+  }
+ },
+ "successor_v4_design": {
+  "derivation_tag": "phase3-main-review-capacity-v4",
+  "transformation": "render_candidate_a_line_then_query_line_then_candidate_b_line_without_changing_labels_or_contents",
+  "semantic_invariant": "The frozen reviewer prefix, query text, candidate labels, and candidate text are unchanged. Only the order of the three explicitly labeled payload lines changes.",
+  "source_filter": "exclude every source packet whose query text is empty",
+  "reviewer_transport": {
+   "openai_provider_supports_websockets": false,
+   "purpose": "start directly on HTTPS and avoid the observed WebSocket 403 fallback events"
+  },
+  "prohibited_shortcuts": [
+   "no whitespace-only variants",
+   "no nonce padding",
+   "no candidate-text edits",
+   "no query-text edits",
+   "no reuse of any source, v1, v2, or v3 prompt",
+   "no reuse of either v3 cohort",
+   "no relaxation of the zero-event-error gate"
+  ],
+  "source_packet_count": 576,
+  "empty_query_source_count": 5,
+  "empty_query_source_payloads_canonical_sha256": "42df2fd4da75472a6e71a1865da14632317f679f1fc36b77d14f90e66bb47a8c",
+  "excluded_prompt_sets": {
+   "sealed_source_prompt_count": 576,
+   "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+   "v1_candidate_swap_prompt_count": 368,
+   "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+   "v2_candidate_line_order_prompt_count": 576,
+   "v2_candidate_line_order_prompt_set_canonical_sha256": "f99a4b4aace3d4063357cb8aa86ad8206200712155b2a530b7c7de46ddb25f16",
+   "v3_candidate_line_order_prompt_count": 571,
+   "v3_candidate_line_order_prompt_set_canonical_sha256": "93f51616a86253d05c33c49951509bbe1e17d68b3a1cec72df57e38cd291455f",
+   "combined_excluded_prompt_count": 2091,
+   "combined_excluded_prompt_set_canonical_sha256": "d4f39a30125343144de1e1b279b19b5ac4b40477ca4814cbf63de45beebe7947"
+  },
+  "eligible_variant_count": 571,
+  "collision_count": 0,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_sizes_per_cohort": [
+   60,
+   60,
+   60
+  ],
+  "empty_query_count_per_cohort": [
+   0,
+   0
+  ],
+  "unused_variant_count": 211,
+  "all_ranked_prompt_list_canonical_sha256": "b05a383dd5b3582a2b4c21ca2ae894c80ddf156d9e5113e9e0483fc25fa4bf68",
+  "all_ranked_source_payload_list_canonical_sha256": "02e49ed2c1df5a49d13ae26af17127c1fa86f6110bec309f0f0cd2baf5190583",
+  "cohort_records_canonical_sha256s": [
+   "1cecccf8ab3ffea2eaa7e60ab982985cbe3977195d31021d85e50fe77328990e",
+   "19d6107dd33cfac69aac1f52be0a3bb9d16dda68c4942ae478aba649ebf3eee1"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "0a4eb9b4ee548e69eb073f0d37d8d62de866348e44bde87cecbe92c0277ef745",
+   "efca6f5bec74638ccdfec1ef82984471249f09f225bd82d45fee4399385850fd"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "0a4eb9b4ee548e69eb073f0d37d8d62de866348e44bde87cecbe92c0277ef745",
+   "efca6f5bec74638ccdfec1ef82984471249f09f225bd82d45fee4399385850fd"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "58edab2b87904a38c1d1e4ae6379524c79266518fae0984b48e33475549f789f",
+   "d0fa00aa1f808fff407df92a008160fe057b716cace1011cbd6662f538964b40"
+  ],
+  "proposed_external_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v4-2026-09-01",
+  "history_requirement": "fresh empty append-only dispatch history under the v4 root",
+  "authority_requirement": "fresh clean-commit manifest and separately signed authorization capped at 180 external reviewer dispatches"
+ },
+ "owner_decisions_required": [
+  "Ratify or amend the exact HTTPS transport pin, empty-query exclusion, and candidate-A, query, candidate-B field order.",
+  "After offline materialization and a clean source commit, separately sign the exact v4 180-dispatch authorization."
+ ],
+ "exact_non_execution_ratification_text": "I ratify the exact Phase 3 capacity v4 successor proposal dated 2026-09-01, including the terminal v3 completed failure, cumulative 180 counted reviewer reservations, 60 durable v3 invocation bundles with 58 fully valid rulings and two HTTPS-fallback-tainted rulings, the commit-bound model_providers.openai.supports_websockets=false transport setting, exclusion of all five empty-query sources, the candidate-A then query then candidate-B field-order transformation, exclusion of every sealed source, v1, v2, and v3 prompt, two fresh 180-packet cohorts, and 211 unused variants. This ratification authorizes offline v4 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority."
+}
