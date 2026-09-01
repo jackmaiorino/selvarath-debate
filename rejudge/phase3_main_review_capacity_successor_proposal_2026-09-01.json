@@ -1,0 +1,114 @@
+{
+  "schema_version": "phase3_main_review_capacity_successor_proposal_v1",
+  "proposal_id": "phase3-main-review-capacity-successor-2026-09-01",
+  "proposal_only": true,
+  "proposal_status": "owner_decision_required",
+  "execution_authorized": false,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_authorized": false,
+  "predecessor_attempt": {
+    "disposition": "terminal_completed_failure_retained",
+    "source_commit": "558da84d2ac737c99677a83ba12498aee4a86837",
+    "plan": {
+      "tracked_path": "rejudge/phase3_main_review_capacity_preflight_plan_2026-08-29.json",
+      "raw_sha256": "11989a20c09f46093759ce0c7a5bf643b8e52d0a9b262b78a4a1bf6459bb855f",
+      "canonical_sha256": "0805888c9f99b27999c82b4038f6be5498ceee22baf86703b4a1339e80988ec3"
+    },
+    "manifest": {
+      "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/capacity_execution_manifest_2026-08-31_558da84.json",
+      "raw_sha256": "a8eda0c835e1293c855e9fe67f5b613e1a383f98ba0bae2c1800402ef00216b4"
+    },
+    "authorization": {
+      "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/capacity_authorization_draft_2026-08-31_558da84.json",
+      "raw_sha256": "307792138044feacabbfd9bf63ed87cdbd1eddd41c5de3aa681246a966cab8f0",
+      "detached_signature_raw_sha256": "bb7f2a48d8e270c5b5b8762595c34a5ffd0d8c5e5bef359eb7785bb90be57271"
+    },
+    "dispatch_history": {
+      "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/dispatch_history.jsonl",
+      "raw_sha256": "dd93f54138bad3c3f02b38d8b80c7c19fbdfcfc02cb31a040f859de394bf1be8",
+      "event_count": 2,
+      "dispatch_started_event_hash": "4348888ae7a44f065de52624624a66c908089f526ee1a612e88bdcaf2d859800",
+      "attempt_completed_fail_event_hash": "7428607e516a92897cf583e7ebca8cf971e5ffefcb772e8f7fc4549eac2442ce"
+    },
+    "attempt_reservation": {
+      "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/capacity-attempt-20260831-01-558da84.capacity_attempt_reservation.json",
+      "raw_sha256": "070a7e53f8ef61eb7e3438b0552847b9aa00ff69429cf67d15d8d05ee1c56db6"
+    },
+    "failure_receipt": {
+      "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-2026-08-29/capacity-attempt-20260831-01-558da84.capacity_failure_receipt.json",
+      "raw_sha256": "ae1f32fbea1290a157d017fd641e43a53ce0aa697a65ea58752c5803cd6daa53",
+      "failed_at_utc": "2026-09-01T01:00:31.774853+00:00",
+      "attempted_dispatches": 60,
+      "dispatch_reservation_count": 60,
+      "validated_invocation_receipts": 0,
+      "wave_output_count": 0,
+      "error_type": "TypeError",
+      "error": "run_one() got an unexpected keyword argument 'concurrency'"
+    },
+    "accounting": "The 60 reservations remain counted as external reviewer dispatch usage. No validated reviewer invocation or result is claimed. The failed cohort and its retry cohort are not reused."
+  },
+  "repair": {
+    "commit": "041644018861b2a9cb4ab62c0003edde336e3fd3",
+    "change": "Pass batch_concurrency to the production reviewer runner and make the execution fake use the production keyword contract.",
+    "executor_raw_sha256": "1dd3b2e76740d7fa2355887d2afeae2030b36aab97800043c896cd6debd99d33",
+    "capacity_test_raw_sha256": "abe25a8356f4bf8874ce61064dc3715e892fd17a07e5f3bdd983484cce202152",
+    "verification": "100 capacity builder and execution tests passed; targeted type, syntax, diff, and no-em-dash checks passed"
+  },
+  "successor_design": {
+    "derivation_tag": "phase3-main-review-capacity-v2",
+    "transformation": "render_candidate_b_line_before_candidate_a_without_changing_labels_or_contents",
+    "semantic_invariant": "The frozen reviewer prefix, query, candidate labels, and candidate text are unchanged. Only the order of the two explicitly labeled candidate lines changes.",
+    "prohibited_shortcuts": [
+      "no whitespace-only variants",
+      "no nonce padding",
+      "no candidate-text edits",
+      "no query edits",
+      "no reuse of either predecessor cohort"
+    ],
+    "source_packet_count": 576,
+    "excluded_prompt_sets": {
+      "sealed_source_prompt_count": 576,
+      "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+      "v1_candidate_swap_prompt_count": 368,
+      "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+      "combined_excluded_prompt_set_canonical_sha256": "33940b6a88f6b49a55df4c044ae9f13213164e3af78e63e281ca9b9eeb0c8b12"
+    },
+    "eligible_variant_count": 576,
+    "collision_count": 0,
+    "cohort_count": 2,
+    "selection_count_per_cohort": 180,
+    "wave_sizes_per_cohort": [
+      60,
+      60,
+      60
+    ],
+    "unused_variant_count": 216,
+    "all_ranked_prompt_list_canonical_sha256": "d723fe085ea6c3eb2190f1d3390dec7e935d99fb26974373c0bc0d92ad8df37c",
+    "all_ranked_source_payload_list_canonical_sha256": "b67e59a133d2b455d282ee33e73f034b301e3a430f58bf4948d15fa00062d728",
+    "cohort_records_canonical_sha256s": [
+      "c41a90543c180085651007b91f054efe601af246f754258215763ef46e50fd7c",
+      "33983070f97755d183de59a30e967709589703a0f0f59fd17639dece3c2a5838"
+    ],
+    "cohort_source_payloads_canonical_sha256s": [
+      "bc3a2741f8b323defd0634bf37aa2bd779e95a49dc52f28ddaa8f6627ea03af8",
+      "a0dffab81d5a26280934a91588906a061f67b04ae423c7f6bf12680ab34315eb"
+    ],
+    "cohort_variant_payloads_canonical_sha256s": [
+      "bc3a2741f8b323defd0634bf37aa2bd779e95a49dc52f28ddaa8f6627ea03af8",
+      "a0dffab81d5a26280934a91588906a061f67b04ae423c7f6bf12680ab34315eb"
+    ],
+    "cohort_variant_prompts_canonical_sha256s": [
+      "0f71932e3914e75fb42673a720a37b4bff23b4fde649034a585b5a1dff040595",
+      "daedcdf51e1da564a098886b5488ec919a67d24c7820e4cbe45dcfa5a1b32402"
+    ],
+    "proposed_external_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01",
+    "history_requirement": "fresh empty append-only dispatch history under the successor root",
+    "authority_requirement": "fresh clean-commit manifest and separately signed authorization capped at 180 external reviewer dispatches"
+  },
+  "owner_decisions_required": [
+    "Ratify or amend the exact candidate-line-order transformation and exclusion sets.",
+    "After offline materialization and a clean source commit, separately sign the exact successor 180-dispatch authorization."
+  ],
+  "exact_non_execution_ratification_text": "I ratify the exact Phase 3 capacity successor proposal dated 2026-09-01, including the terminal predecessor failure, its 60 counted reservations, the candidate-line-order transformation, exclusion of all sealed source prompts and all v1 candidate-swap prompts, two fresh 180-packet cohorts, and 216 unused variants. This ratification authorizes offline plan and workload materialization only. It grants no reviewer dispatch, provider call, main run, or spend authority."
+}
