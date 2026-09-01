@@ -2180,15 +2180,22 @@ def main(argv=None) -> int:
           flush=True)
 
     written = clean = refused = failed = 0
+    transport_kwargs = (
+        {}
+        if openai_provider_supports_websockets is None
+        else {
+            "openai_provider_supports_websockets": (
+                openai_provider_supports_websockets
+            )
+        }
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         if not_after_utc is None and dispatch_guard_path is None:
             futures = {
                 pool.submit(
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, None, args.concurrency,
-                    openai_provider_supports_websockets=(
-                        openai_provider_supports_websockets
-                    ),
+                    **transport_kwargs,
                 ): item
                 for item in todo
             }
@@ -2197,9 +2204,7 @@ def main(argv=None) -> int:
                 pool.submit(
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, not_after_utc, args.concurrency,
-                    openai_provider_supports_websockets=(
-                        openai_provider_supports_websockets
-                    ),
+                    **transport_kwargs,
                 ): item
                 for item in todo
             }
@@ -2209,9 +2214,7 @@ def main(argv=None) -> int:
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, not_after_utc, args.concurrency,
                     dispatch_guard_path, dispatch_guard_raw_sha256, out_path,
-                    openai_provider_supports_websockets=(
-                        openai_provider_supports_websockets
-                    ),
+                    **transport_kwargs,
                 ): item
                 for item in todo
             }
