@@ -47,7 +47,15 @@ def _clean_events(*items):
     )
 
 
-def _run_with_evidence(tmp_path, monkeypatch, *, events, ruling=None, stderr=b""):
+def _run_with_evidence(
+    tmp_path,
+    monkeypatch,
+    *,
+    events,
+    ruling=None,
+    stderr=b"",
+    openai_provider_supports_websockets=None,
+):
     packet_root = tmp_path / "packets"
     packet_root.mkdir()
     packet = packet_root / "00001_payload.txt"
@@ -64,6 +72,11 @@ def _run_with_evidence(tmp_path, monkeypatch, *, events, ruling=None, stderr=b""
         assert command[0] == str(cli)
         assert command[command.index("-m") + 1] == "reviewer-model"
         assert command[command.index("-c") + 1] == 'model_reasoning_effort="high"'
+        transport_argument = "model_providers.openai.supports_websockets=false"
+        if openai_provider_supports_websockets is False:
+            assert transport_argument in command
+        else:
+            assert transport_argument not in command
         assert kwargs["input"] == packet.read_bytes()
         out_file = Path(command[command.index("-o") + 1])
         out_file.write_text(ruling_text, encoding="utf-8", newline="")
@@ -75,7 +88,14 @@ def _run_with_evidence(tmp_path, monkeypatch, *, events, ruling=None, stderr=b""
 
     monkeypatch.setattr(codex_reviewer_batch.subprocess, "run", fake_run)
     result = codex_reviewer_batch.run_one(
-        packet, "reviewer-model", "high", str(cli))
+        packet,
+        "reviewer-model",
+        "high",
+        str(cli),
+        openai_provider_supports_websockets=(
+            openai_provider_supports_websockets
+        ),
+    )
     return packet, cli, event_raw, result
 
 
@@ -913,6 +933,33 @@ def test_run_one_persists_exact_event_stream_and_runtime_receipt(
     row = classify_result(_meta(), result, packet_ok=True)
     assert row["tool_uses"] == 0
     assert row["evidence"] == reference
+
+
+def test_run_one_pins_https_transport_and_binds_it_in_evidence(
+    tmp_path, monkeypatch,
+):
+    packet, _cli, _event_raw, result = _run_with_evidence(
+        tmp_path,
+        monkeypatch,
+        events=_clean_events(),
+        openai_provider_supports_websockets=False,
+    )
+
+    receipt = codex_reviewer_batch.validate_invocation_evidence(
+        packet,
+        result["evidence"],
+        expected_openai_provider_supports_websockets=False,
+    )
+    invocation = receipt["invocation"]
+    assert invocation["openai_provider_supports_websockets"] is False
+    assert invocation["argv"].count("-c") == 2
+    assert "model_providers.openai.supports_websockets=false" in invocation["argv"]
+    with pytest.raises(ValueError, match="transport differs"):
+        codex_reviewer_batch.validate_invocation_evidence(
+            packet,
+            result["evidence"],
+            expected_openai_provider_supports_websockets=True,
+        )
 
 
 def test_tool_use_event_is_preserved_and_still_refused(tmp_path, monkeypatch):

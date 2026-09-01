@@ -132,7 +132,11 @@ def _write_json(path: Path, value: dict[str, Any]) -> bytes:
     return raw
 
 
-def _fixture(tmp_path: Path) -> dict[str, Any]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    openai_provider_supports_websockets: bool | None = None,
+) -> dict[str, Any]:
     capacity_root = (tmp_path / "capacity-only").resolve()
     history_path = capacity_root / "dispatch_history.jsonl"
     cli_path = (tmp_path / "codex.cmd").resolve()
@@ -181,6 +185,10 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
         },
         "validity": {"valid_for_hours": 24},
     }
+    if openai_provider_supports_websockets is not None:
+        plan["reviewer_configuration"][
+            "openai_provider_supports_websockets"
+        ] = openai_provider_supports_websockets
     plan_path = (tmp_path / "capacity_plan.json").resolve()
     plan_raw = _write_json(plan_path, plan)
     workload = _workload()
@@ -301,6 +309,7 @@ class FakeReviewer:
         expected_prompt_raw_sha256: str,
         expected_cli_raw_sha256: str,
         expected_batch_runner_raw_sha256: str,
+        openai_provider_supports_websockets: bool | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             call_number = len(self.calls)
@@ -324,14 +333,21 @@ class FakeReviewer:
             '{"type":"turn.completed","usage":{}}\n'
         ).encode("utf-8")
         normalized = ruling.encode("utf-8")
-        invocation = {
-            "argv": [
+        argv = [
                 codex,
                 "exec",
                 "-m",
                 model,
                 "-c",
                 f'model_reasoning_effort="{effort}"',
+        ]
+        if openai_provider_supports_websockets is not None:
+            argv.extend([
+                "-c",
+                "model_providers.openai.supports_websockets="
+                + str(openai_provider_supports_websockets).lower(),
+            ])
+        argv.extend([
                 "-C",
                 str(working),
                 "--skip-git-repo-check",
@@ -344,7 +360,9 @@ class FakeReviewer:
                 "-o",
                 str(working / "ruling.txt"),
                 "-",
-            ],
+        ])
+        invocation = {
+            "argv": argv,
             "model_requested": model,
             "reasoning_effort_requested": effort,
             "batch_concurrency": batch_concurrency,
@@ -368,6 +386,10 @@ class FakeReviewer:
             "batch_runner_raw_sha256": runner_sha,
             "batch_runner_byte_count": runner_size,
         }
+        if openai_provider_supports_websockets is not None:
+            invocation["openai_provider_supports_websockets"] = (
+                openai_provider_supports_websockets
+            )
         outcome = {
             "authorization_deadline_utc": not_after_utc.isoformat(),
             "deadline_active_before_dispatch": True,
@@ -441,7 +463,10 @@ def _history_events(fixture: dict[str, Any]) -> tuple[dict[str, Any], ...]:
 def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fixture = _fixture(tmp_path)
+    fixture = _fixture(
+        tmp_path,
+        openai_provider_supports_websockets=False,
+    )
     reviewer = FakeReviewer()
     anchor_validation_modes: list[bool] = []
     original_private_validator = capacity._validate_result  # noqa: SLF001
@@ -462,6 +487,12 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
     ]
     result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
     assert result["reviewer_usage_receipt"]["observed_quantity"] == 180
+    assert fixture["manifest"]["reviewer"][
+        "openai_provider_supports_websockets"
+    ] is False
+    assert result["reviewer_configuration"][
+        "openai_provider_supports_websockets"
+    ] is False
     assert len(result["reviewer_usage_receipt"]["dispatch_reservations"]) == 180
     assert result["reviewer_usage_receipt"]["non_claim"] == (
         "dispatch count is not USD or token accounting"

@@ -3601,6 +3601,18 @@ def _review_wave_same_process(
         "--dispatch-guard", str(dispatch_guard_path),
         "--dispatch-guard-raw-sha256", dispatch_guard_raw_sha256,
     ]
+    if "openai_provider_supports_websockets" in reviewer_configuration:
+        transport_value = reviewer_configuration[
+            "openai_provider_supports_websockets"
+        ]
+        if not isinstance(transport_value, bool):
+            raise Phase3MainLiveError(
+                "capacity plan reviewer transport configuration is invalid"
+            )
+        command.extend([
+            "--openai-provider-supports-websockets",
+            str(transport_value).lower(),
+        ])
     phase3_main_manifest.validate_main_manifest(
         prepared.manifest,
         project_root=prepared.project_root,
@@ -3681,12 +3693,21 @@ def _review_wave_same_process(
             raise Phase3MainLiveError(
                 "reviewer ruling omits its invocation evidence reference")
         try:
+            evidence_validation_kwargs: dict[str, Any] = {
+                "expected_model": expected_model,
+                "expected_effort": expected_effort,
+                "expected_concurrency": expected_concurrency,
+            }
+            if "openai_provider_supports_websockets" in reviewer_configuration:
+                evidence_validation_kwargs[
+                    "expected_openai_provider_supports_websockets"
+                ] = reviewer_configuration[
+                    "openai_provider_supports_websockets"
+                ]
             receipt = codex_reviewer_batch.validate_invocation_evidence(
                 packet_dir / str(packet_meta["file"]),
                 evidence,
-                expected_model=expected_model,
-                expected_effort=expected_effort,
-                expected_concurrency=expected_concurrency,
+                **evidence_validation_kwargs,
             )
         except (OSError, TypeError, ValueError) as exc:
             raise Phase3MainLiveError(

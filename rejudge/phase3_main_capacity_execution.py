@@ -655,6 +655,13 @@ def build_execution_manifest(
         or reviewer.get("concurrency") != 12
     ):
         raise CapacityExecutionError("capacity reviewer configuration drifted")
+    if (
+        "openai_provider_supports_websockets" in reviewer
+        and not isinstance(
+            reviewer.get("openai_provider_supports_websockets"), bool
+        )
+    ):
+        raise CapacityExecutionError("capacity reviewer transport configuration drifted")
     cli_path = Path(_text(
         reviewer.get("reviewer_cli_resolved_path"), field="reviewer_cli_resolved_path"
     )).resolve()
@@ -787,6 +794,20 @@ def build_execution_manifest(
     thresholds = plan.get("capacity_thresholds")
     if not isinstance(thresholds, Mapping):
         raise CapacityExecutionError("capacity plan lacks timing thresholds")
+    manifest_reviewer = {
+        "model": reviewer["model"],
+        "reasoning_effort": reviewer["reasoning_effort"],
+        "concurrency": reviewer["concurrency"],
+        "cli": {
+            **cli_binding,
+            "version": reviewer_cli_version,
+        },
+        "host_identity": host_identity,
+    }
+    if "openai_provider_supports_websockets" in reviewer:
+        manifest_reviewer["openai_provider_supports_websockets"] = reviewer[
+            "openai_provider_supports_websockets"
+        ]
     return {
         "schema_version": MANIFEST_SCHEMA,
         "scope": SCOPE,
@@ -805,16 +826,7 @@ def build_execution_manifest(
             "tracked_clean_required": True,
         },
         "code_bindings": code_bindings,
-        "reviewer": {
-            "model": reviewer["model"],
-            "reasoning_effort": reviewer["reasoning_effort"],
-            "concurrency": reviewer["concurrency"],
-            "cli": {
-                **cli_binding,
-                "version": reviewer_cli_version,
-            },
-            "host_identity": host_identity,
-        },
+        "reviewer": manifest_reviewer,
         "cohort": {
             "cohort_number": 1,
             "packet_count": PACKET_COUNT,
@@ -1300,12 +1312,19 @@ def _validate_one_result(
         raise CapacityExecutionError(f"capacity reviewer evidence is absent for {packet.name}")
     reviewer = cast(Mapping[str, Any], manifest["reviewer"])
     try:
+        validation_kwargs: dict[str, Any] = {
+            "expected_model": str(reviewer["model"]),
+            "expected_effort": str(reviewer["reasoning_effort"]),
+            "expected_concurrency": int(reviewer["concurrency"]),
+        }
+        if "openai_provider_supports_websockets" in reviewer:
+            validation_kwargs[
+                "expected_openai_provider_supports_websockets"
+            ] = reviewer["openai_provider_supports_websockets"]
         receipt = codex_reviewer_batch.validate_invocation_evidence(
             packet,
             reference,
-            expected_model=str(reviewer["model"]),
-            expected_effort=str(reviewer["reasoning_effort"]),
-            expected_concurrency=int(reviewer["concurrency"]),
+            **validation_kwargs,
         )
     except (OSError, TypeError, ValueError) as exc:
         raise CapacityExecutionError(
@@ -2176,20 +2195,27 @@ def _execute_capacity_preflight(
                         dispatch_reservation
                     )
                     attempted_dispatches += 1
-                return reviewer_runner(
-                    packet=packet,
-                    model=str(reviewer["model"]),
-                    effort=str(reviewer["reasoning_effort"]),
-                    codex=str(cli["path"]),
-                    not_after_utc=deadline,
-                    batch_concurrency=int(reviewer["concurrency"]),
-                    expected_prompt_raw_sha256=str(binding["raw_sha256"]),
-                    expected_cli_raw_sha256=str(cli["raw_sha256"]),
-                    expected_batch_runner_raw_sha256=str(
+                reviewer_kwargs: dict[str, Any] = {
+                    "packet": packet,
+                    "model": str(reviewer["model"]),
+                    "effort": str(reviewer["reasoning_effort"]),
+                    "codex": str(cli["path"]),
+                    "not_after_utc": deadline,
+                    "batch_concurrency": int(reviewer["concurrency"]),
+                    "expected_prompt_raw_sha256": str(binding["raw_sha256"]),
+                    "expected_cli_raw_sha256": str(cli["raw_sha256"]),
+                    "expected_batch_runner_raw_sha256": str(
                         cast(Mapping[str, Any], manifest["code_bindings"])[
                             "reviewer_batch"
                         ]["raw_sha256"]
                     ),
+                }
+                if "openai_provider_supports_websockets" in reviewer:
+                    reviewer_kwargs[
+                        "openai_provider_supports_websockets"
+                    ] = reviewer["openai_provider_supports_websockets"]
+                return reviewer_runner(
+                    **reviewer_kwargs,
                 )
 
             ordered_results: list[Mapping[str, Any] | None] = [None] * WAVE_SIZE

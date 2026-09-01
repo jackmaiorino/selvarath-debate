@@ -105,6 +105,10 @@ _INVOCATION_FIELDS = frozenset({
     "batch_runner_raw_sha256",
     "batch_runner_byte_count",
 })
+_INVOCATION_FIELDS_WITH_TRANSPORT = _INVOCATION_FIELDS | frozenset({
+    "openai_provider_supports_websockets",
+})
+_EXPECTED_TRANSPORT_UNSET = object()
 _OUTCOME_FIELDS = frozenset({
     "authorization_deadline_utc",
     "deadline_active_before_dispatch",
@@ -465,6 +469,7 @@ def _evaluate_dispatch_guard_snapshot(
     model: str | None = None,
     effort: str | None = None,
     concurrency: int | None = None,
+    openai_provider_supports_websockets: bool | None = None,
     packet_directory: Path | None = None,
     output_path: Path | None = None,
     selected_packet: Path | None = None,
@@ -592,6 +597,12 @@ def _evaluate_dispatch_guard_snapshot(
             if reviewer_configuration.get(field) != expected:
                 raise ValueError(
                     f"reviewer dispatch guard capacity configuration {field} drifted")
+        if reviewer_configuration.get(
+            "openai_provider_supports_websockets"
+        ) != openai_provider_supports_websockets:
+            raise ValueError(
+                "reviewer dispatch guard capacity configuration transport drifted"
+            )
         result_configuration = capacity_result.get("reviewer_configuration")
         if result_configuration != reviewer_configuration:
             raise ValueError("reviewer dispatch guard measured capacity configuration drifted")
@@ -706,6 +717,7 @@ def evaluate_dispatch_guard_snapshot(
     model: str | None = None,
     effort: str | None = None,
     concurrency: int | None = None,
+    openai_provider_supports_websockets: bool | None = None,
     packet_directory: Path | None = None,
     output_path: Path | None = None,
     checked_at: datetime | None = None,
@@ -718,6 +730,9 @@ def evaluate_dispatch_guard_snapshot(
         model=model,
         effort=effort,
         concurrency=concurrency,
+        openai_provider_supports_websockets=(
+            openai_provider_supports_websockets
+        ),
         packet_directory=packet_directory,
         output_path=output_path,
         checked_at=checked_at,
@@ -1154,6 +1169,9 @@ def validate_invocation_evidence(
     expected_model: str | None = None,
     expected_effort: str | None = None,
     expected_concurrency: int | None = None,
+    expected_openai_provider_supports_websockets: object = (
+        _EXPECTED_TRANSPORT_UNSET
+    ),
 ) -> dict[str, Any]:
     """Reopen and strictly validate one persisted reviewer invocation bundle."""
     if set(reference) != _EVIDENCE_REFERENCE_FIELDS:
@@ -1220,7 +1238,10 @@ def validate_invocation_evidence(
         raise ValueError("reviewer evidence packet bytes drifted")
 
     invocation = receipt.get("invocation")
-    if not isinstance(invocation, Mapping) or set(invocation) != _INVOCATION_FIELDS:
+    if not isinstance(invocation, Mapping) or set(invocation) not in {
+        _INVOCATION_FIELDS,
+        _INVOCATION_FIELDS_WITH_TRANSPORT,
+    }:
         raise ValueError("reviewer evidence invocation fields drifted")
     model = invocation.get("model_requested")
     effort = invocation.get("reasoning_effort_requested")
@@ -1236,6 +1257,19 @@ def validate_invocation_evidence(
         expected_concurrency, field="expected_concurrency",
     ):
         raise ValueError("reviewer evidence concurrency differs from the expected runtime")
+    transport_value = invocation.get("openai_provider_supports_websockets")
+    if transport_value is not None and not isinstance(transport_value, bool):
+        raise ValueError(
+            "reviewer evidence OpenAI WebSocket support must be boolean or null"
+        )
+    if (
+        expected_openai_provider_supports_websockets
+        is not _EXPECTED_TRANSPORT_UNSET
+        and transport_value != expected_openai_provider_supports_websockets
+    ):
+        raise ValueError(
+            "reviewer evidence transport differs from the expected runtime"
+        )
     for field in (
         "codex_cli_argument",
         "working_directory",
@@ -1301,6 +1335,14 @@ def validate_invocation_evidence(
         model,
         "-c",
         f'model_reasoning_effort="{effort}"',
+    ]
+    if transport_value is not None:
+        expected_argv.extend([
+            "-c",
+            "model_providers.openai.supports_websockets="
+            + str(transport_value).lower(),
+        ])
+    expected_argv.extend([
         "-C",
         invocation["working_directory"],
         "--skip-git-repo-check",
@@ -1313,7 +1355,7 @@ def validate_invocation_evidence(
         "-o",
         invocation["output_file"],
         "-",
-    ]
+    ])
     if argv != expected_argv:
         raise ValueError("reviewer evidence argv differs from the frozen invocation")
     if Path(str(invocation["output_file"])) != (
@@ -1582,10 +1624,18 @@ def run_one(
     expected_prompt_raw_sha256: str | None = None,
     expected_cli_raw_sha256: str | None = None,
     expected_batch_runner_raw_sha256: str | None = None,
+    openai_provider_supports_websockets: bool | None = None,
 ) -> dict:
     """Review one packet and durably retain its exact local invocation evidence."""
     batch_concurrency = _strict_positive_int(
         batch_concurrency, field="batch_concurrency")
+    if (
+        openai_provider_supports_websockets is not None
+        and not isinstance(openai_provider_supports_websockets, bool)
+    ):
+        raise ValueError(
+            "openai_provider_supports_websockets must be boolean or null"
+        )
     frozen_binding_values = (
         expected_prompt_raw_sha256,
         expected_cli_raw_sha256,
@@ -1619,6 +1669,14 @@ def run_one(
         model,
         "-c",
         f'model_reasoning_effort="{effort}"',
+    ]
+    if openai_provider_supports_websockets is not None:
+        argv.extend([
+            "-c",
+            "model_providers.openai.supports_websockets="
+            + str(openai_provider_supports_websockets).lower(),
+        ])
+    argv.extend([
         "-C",
         str(workdir),
         "--skip-git-repo-check",
@@ -1631,7 +1689,7 @@ def run_one(
         "-o",
         str(out_file),
         "-",
-    ]
+    ])
     cli_path, cli_sha, cli_bytes = _executable_identity(codex)
     runner_path, runner_sha, runner_bytes = _batch_runner_identity()
     frozen_binding_error: str | None = None
@@ -1659,6 +1717,9 @@ def run_one(
             model=model,
             effort=effort,
             concurrency=batch_concurrency,
+            openai_provider_supports_websockets=(
+                openai_provider_supports_websockets
+            ),
             packet_directory=packet.parent,
             output_path=batch_output_path,
             selected_packet=packet,
@@ -1854,6 +1915,9 @@ def run_one(
             "model_requested": model,
             "reasoning_effort_requested": effort,
             "batch_concurrency": batch_concurrency,
+            "openai_provider_supports_websockets": (
+                openai_provider_supports_websockets
+            ),
             "codex_cli_argument": codex,
             "codex_cli_resolved_path": cli_path,
             "codex_cli_wrapper_raw_sha256": cli_sha,
@@ -1975,6 +2039,12 @@ def main(argv=None) -> int:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument(
+        "--openai-provider-supports-websockets",
+        choices=("true", "false"),
+        default=None,
+        help="pin the OpenAI provider WebSocket capability in the Codex CLI",
+    )
+    ap.add_argument(
         "--not-after-utc",
         help="signed authorization deadline checked immediately before every reviewer call",
     )
@@ -1987,6 +2057,11 @@ def main(argv=None) -> int:
         help="expected raw SHA-256 of the Phase 3 dispatch guard snapshot",
     )
     args = ap.parse_args(argv)
+    openai_provider_supports_websockets = (
+        None
+        if args.openai_provider_supports_websockets is None
+        else args.openai_provider_supports_websockets == "true"
+    )
     if args.concurrency < 1:
         ap.error("--concurrency must be positive")
     try:
@@ -2031,6 +2106,9 @@ def main(argv=None) -> int:
             model=args.model,
             effort=args.effort,
             concurrency=args.concurrency,
+            openai_provider_supports_websockets=(
+                openai_provider_supports_websockets
+            ),
             packet_directory=packets_dir,
             output_path=out_path,
         )
@@ -2108,6 +2186,9 @@ def main(argv=None) -> int:
                 pool.submit(
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, None, args.concurrency,
+                    openai_provider_supports_websockets=(
+                        openai_provider_supports_websockets
+                    ),
                 ): item
                 for item in todo
             }
@@ -2116,6 +2197,9 @@ def main(argv=None) -> int:
                 pool.submit(
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, not_after_utc, args.concurrency,
+                    openai_provider_supports_websockets=(
+                        openai_provider_supports_websockets
+                    ),
                 ): item
                 for item in todo
             }
@@ -2125,6 +2209,9 @@ def main(argv=None) -> int:
                     run_one, packets_dir / item["file"], args.model, args.effort,
                     args.codex, not_after_utc, args.concurrency,
                     dispatch_guard_path, dispatch_guard_raw_sha256, out_path,
+                    openai_provider_supports_websockets=(
+                        openai_provider_supports_websockets
+                    ),
                 ): item
                 for item in todo
             }
