@@ -37,6 +37,7 @@ ARCHIVE_DIR_DEFAULT = Path("E:/selvarath-archive/phase3-v3r15-clean-2026-08-29")
 
 SCHEMA_VERSION_V1 = "phase3_main_review_capacity_preflight_plan_v1"
 SCHEMA_VERSION_V2 = "phase3_main_review_capacity_preflight_plan_v2"
+SCHEMA_VERSION_V3 = "phase3_main_review_capacity_preflight_plan_v3"
 SCHEMA_VERSION = SCHEMA_VERSION_V1
 MATERIALIZATION_SCHEMA_VERSION = "phase3_main_review_capacity_workload_v1"
 RESULT_SCHEMA_VERSION = "phase3_main_review_capacity_result_v1"
@@ -50,10 +51,14 @@ DISPATCH_INITIALIZATION_SCHEMA_VERSION = (
 )
 DERIVATION_TAG_V1 = "phase3-main-review-capacity-v1"
 DERIVATION_TAG_V2 = "phase3-main-review-capacity-v2"
+DERIVATION_TAG_V3 = "phase3-main-review-capacity-v3"
 DERIVATION_TAG = DERIVATION_TAG_V1
 EXPECTED_PLAN_CANONICAL_SHA256 = "0805888c9f99b27999c82b4038f6be5498ceee22baf86703b4a1339e80988ec3"
 EXPECTED_PLAN_CANONICAL_SHA256_V2 = (
     "ee14a65c8a2810480a5613720420fedfd486030b4c66d02ef9f1c36638155c5a"
+)
+EXPECTED_PLAN_CANONICAL_SHA256_V3 = (
+    "51855e21123799950ff0daaf7803dc30e02ab6a1744a0eea1dc665eef09421d3"
 )
 PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
 _PAYLOAD_RE = re.compile(
@@ -186,7 +191,11 @@ def derivation_tag_from_plan(plan: Mapping[str, Any]) -> str:
     if not isinstance(workload, Mapping):
         raise CapacityPreflightError("plan lacks workload")
     derivation_tag = workload.get("derivation_tag")
-    if derivation_tag not in {DERIVATION_TAG_V1, DERIVATION_TAG_V2}:
+    if derivation_tag not in {
+        DERIVATION_TAG_V1,
+        DERIVATION_TAG_V2,
+        DERIVATION_TAG_V3,
+    }:
         raise CapacityPreflightError("plan has an unsupported capacity derivation tag")
     return cast(str, derivation_tag)
 
@@ -387,7 +396,11 @@ def derive_workload(
         or cohort_count not in {1, 2}
     ):
         raise CapacityPreflightError("selection_count must be a positive multiple of wave_size")
-    if derivation_tag not in {DERIVATION_TAG_V1, DERIVATION_TAG_V2}:
+    if derivation_tag not in {
+        DERIVATION_TAG_V1,
+        DERIVATION_TAG_V2,
+        DERIVATION_TAG_V3,
+    }:
         raise CapacityPreflightError("unsupported capacity derivation tag")
 
     def v1_variant(source: SourcePacket) -> tuple[str, str]:
@@ -402,6 +415,18 @@ def derive_workload(
             rendered,
         )
 
+    def v2_variant(source: SourcePacket) -> tuple[str, str]:
+        rendered = (
+            source.prompt_prefix
+            + f"QUERY: {source.query}\n"
+            + f"CANDIDATE B: {source.candidate_b}\n"
+            + f"CANDIDATE A: {source.candidate_a}"
+        )
+        return (
+            payload_sha256(source.query, source.candidate_a, source.candidate_b),
+            rendered,
+        )
+
     v1_prompt_hashes: set[str] = set()
     for source in snapshot.source_packets:
         _v1_payload, v1_rendered = v1_variant(source)
@@ -409,26 +434,42 @@ def derive_workload(
         if v1_prompt not in snapshot.historical_prompt_hashes:
             v1_prompt_hashes.add(v1_prompt)
 
+    v2_prompt_hashes: set[str] = set()
+    prior_prompt_hashes = set(snapshot.historical_prompt_hashes) | v1_prompt_hashes
+    for source in snapshot.source_packets:
+        _v2_payload, v2_rendered = v2_variant(source)
+        v2_prompt = hashlib.sha256(v2_rendered.encode("utf-8")).hexdigest()
+        if v2_prompt not in prior_prompt_hashes:
+            v2_prompt_hashes.add(v2_prompt)
+
     excluded_prompt_hashes = set(snapshot.historical_prompt_hashes)
-    if derivation_tag == DERIVATION_TAG_V2:
+    if derivation_tag in {DERIVATION_TAG_V2, DERIVATION_TAG_V3}:
         excluded_prompt_hashes.update(v1_prompt_hashes)
+    if derivation_tag == DERIVATION_TAG_V3:
+        excluded_prompt_hashes.update(v2_prompt_hashes)
 
     eligible: list[VariantPacket] = []
     collisions: list[str] = []
     variant_prompt_hashes: set[str] = set()
     variant_payload_hashes: set[str] = set()
     for source in snapshot.source_packets:
+        if derivation_tag == DERIVATION_TAG_V3 and not source.query:
+            continue
         if derivation_tag == DERIVATION_TAG_V1:
             variant_payload, rendered = v1_variant(source)
+        elif derivation_tag == DERIVATION_TAG_V2:
+            variant_payload, rendered = v2_variant(source)
         else:
             variant_payload = payload_sha256(
-                source.query, source.candidate_a, source.candidate_b
+                source.query,
+                source.candidate_a,
+                source.candidate_b,
             )
             rendered = (
                 source.prompt_prefix
-                + f"QUERY: {source.query}\n"
+                + f"CANDIDATE A: {source.candidate_a}\n"
                 + f"CANDIDATE B: {source.candidate_b}\n"
-                + f"CANDIDATE A: {source.candidate_a}"
+                + f"QUERY: {source.query}"
             )
         variant_prompt = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
         if variant_prompt in excluded_prompt_hashes:
@@ -473,18 +514,32 @@ def derive_workload(
             for item in items
         ]
 
+    transformations = {
+        DERIVATION_TAG_V1: "swap_candidate_a_and_candidate_b_only",
+        DERIVATION_TAG_V2: (
+            "render_candidate_b_line_before_candidate_a_without_changing_labels_or_contents"
+        ),
+        DERIVATION_TAG_V3: (
+            "render_candidate_a_line_then_candidate_b_line_then_query_line_without_"
+            "changing_labels_or_contents"
+        ),
+    }
+    historical_exclusions = {
+        DERIVATION_TAG_V1: (
+            "exclude_every_variant_prompt_sha256_seen_in_source_packets"
+        ),
+        DERIVATION_TAG_V2: (
+            "exclude_every_source_prompt_and_v1_candidate_swap_prompt_sha256"
+        ),
+        DERIVATION_TAG_V3: (
+            "exclude_every_source_v1_candidate_swap_and_v2_candidate_line_order_"
+            "prompt_sha256"
+        ),
+    }
     summary = {
         "derivation_tag": derivation_tag,
-        "transformation": (
-            "swap_candidate_a_and_candidate_b_only"
-            if derivation_tag == DERIVATION_TAG_V1
-            else "render_candidate_b_line_before_candidate_a_without_changing_labels_or_contents"
-        ),
-        "historical_exclusion": (
-            "exclude_every_variant_prompt_sha256_seen_in_source_packets"
-            if derivation_tag == DERIVATION_TAG_V1
-            else "exclude_every_source_prompt_and_v1_candidate_swap_prompt_sha256"
-        ),
+        "transformation": transformations[derivation_tag],
+        "historical_exclusion": historical_exclusions[derivation_tag],
         "source_unique_packet_count": len(snapshot.source_packets),
         "historical_prompt_sha256_count": len(snapshot.historical_prompt_hashes),
         "byte_new_eligible_count": len(eligible),
@@ -523,6 +578,41 @@ def derive_workload(
                 ),
                 "v1_candidate_swap_prompt_set_canonical_sha256": canonical_sha256(
                     sorted(v1_prompt_hashes)
+                ),
+                "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(excluded_prompt_hashes)
+                ),
+                "all_ranked_prompt_list_canonical_sha256": canonical_sha256(
+                    [item.variant_prompt_sha256 for item in eligible]
+                ),
+                "all_ranked_source_payload_list_canonical_sha256": canonical_sha256(
+                    [item.source_payload_sha256 for item in eligible]
+                ),
+            }
+        )
+    if derivation_tag == DERIVATION_TAG_V3:
+        empty_query_sources = sorted(
+            source.source_payload_sha256
+            for source in snapshot.source_packets
+            if not source.query
+        )
+        summary.update(
+            {
+                "empty_query_source_count": len(empty_query_sources),
+                "empty_query_source_payloads_canonical_sha256": canonical_sha256(
+                    empty_query_sources
+                ),
+                "v1_candidate_swap_prompt_sha256_count": len(v1_prompt_hashes),
+                "v2_candidate_line_order_prompt_sha256_count": len(v2_prompt_hashes),
+                "combined_excluded_prompt_sha256_count": len(excluded_prompt_hashes),
+                "sealed_source_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(snapshot.historical_prompt_hashes)
+                ),
+                "v1_candidate_swap_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v1_prompt_hashes)
+                ),
+                "v2_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v2_prompt_hashes)
                 ),
                 "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
                     sorted(excluded_prompt_hashes)
@@ -582,6 +672,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
     expected_hashes = {
         SCHEMA_VERSION_V1: EXPECTED_PLAN_CANONICAL_SHA256,
         SCHEMA_VERSION_V2: EXPECTED_PLAN_CANONICAL_SHA256_V2,
+        SCHEMA_VERSION_V3: EXPECTED_PLAN_CANONICAL_SHA256_V3,
     }
     if schema_version not in expected_hashes:
         raise CapacityPreflightError("unexpected capacity preflight schema")
@@ -593,6 +684,11 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         raise CapacityPreflightError("capacity preflight plan must not authorize provider calls")
     if plan.get("main_spend_authorized") is not False:
         raise CapacityPreflightError("capacity preflight plan must not authorize main spend")
+    if schema_version == SCHEMA_VERSION_V3:
+        if plan.get("external_reviewer_dispatch_authorized") is not False:
+            raise CapacityPreflightError("v3 plan must not authorize reviewer dispatch")
+        if plan.get("together_calls_authorized") is not False:
+            raise CapacityPreflightError("v3 plan must not authorize Together calls")
 
 
 def dispatch_history_event_hash(event: Mapping[str, Any]) -> str:
@@ -1497,7 +1593,7 @@ def validate_plan(
             list(snapshot.packet_directories)
         ),
     }
-    if schema_version == SCHEMA_VERSION_V2:
+    if schema_version in {SCHEMA_VERSION_V2, SCHEMA_VERSION_V3}:
         locations = plan.get("source_locations")
         if not isinstance(locations, Mapping):
             raise CapacityPreflightError("successor plan lacks source_locations")
@@ -1532,24 +1628,30 @@ def validate_plan(
         expected_text = proposal.get("exact_non_execution_ratification_text")
         proposal_binding = ratification.get("proposal")
         authority = ratification.get("authority")
+        expected_ratification_schema = {
+            SCHEMA_VERSION_V2: "phase3_main_review_capacity_successor_ratification_v1",
+            SCHEMA_VERSION_V3: "phase3_main_review_capacity_v3_successor_ratification_v1",
+        }[cast(str, schema_version)]
+        expected_authority = {
+            "offline_plan_materialization_authorized": True,
+            "offline_workload_materialization_authorized": True,
+            "external_reviewer_dispatch_authorized": False,
+            "provider_calls_authorized": False,
+            "main_run_authorized": False,
+            "spend_authorized": False,
+        }
+        if schema_version == SCHEMA_VERSION_V3:
+            expected_authority["together_calls_authorized"] = False
         if (
             ratification.get("schema_version")
-            != "phase3_main_review_capacity_successor_ratification_v1"
+            != expected_ratification_schema
             or ratification.get("approved_by") != "Jack Maiorino"
             or ratification.get("ratification_text") != expected_text
             or not isinstance(proposal_binding, Mapping)
             or proposal_binding.get("path") != proposal_value
             or proposal_binding.get("raw_sha256") != raw_sha256(proposal_path)
             or proposal_binding.get("canonical_sha256") != canonical_sha256(proposal)
-            or authority
-            != {
-                "offline_plan_materialization_authorized": True,
-                "offline_workload_materialization_authorized": True,
-                "external_reviewer_dispatch_authorized": False,
-                "provider_calls_authorized": False,
-                "main_run_authorized": False,
-                "spend_authorized": False,
-            }
+            or authority != expected_authority
         ):
             raise CapacityPreflightError(
                 "successor ratification does not bind the exact non-execution proposal"
