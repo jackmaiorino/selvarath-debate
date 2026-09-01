@@ -1,0 +1,174 @@
+{
+ "schema_version": "phase3_main_review_capacity_v3_successor_proposal_v1",
+ "proposal_id": "phase3-main-review-capacity-v3-successor-2026-09-01",
+ "proposal_only": true,
+ "proposal_status": "owner_decision_required",
+ "execution_authorized": false,
+ "external_reviewer_dispatch_authorized": false,
+ "provider_calls_authorized": false,
+ "together_calls_authorized": false,
+ "main_run_authorized": false,
+ "spend_authorized": false,
+ "predecessor_v2_attempt": {
+  "disposition": "terminal_completed_failure_retained",
+  "source_commit": "0896497d570140dfa20f7f6ed05bb2af26e75223",
+  "plan": {
+   "tracked_path": "rejudge/phase3_main_review_capacity_preflight_plan_v2_2026-09-01.json",
+   "raw_sha256": "0c9716b23a23b3acdcfc078d158ac37a4221dad4c1dae96a3e4f200b91d73e6b",
+   "canonical_sha256": "ee14a65c8a2810480a5613720420fedfd486030b4c66d02ef9f1c36638155c5a"
+  },
+  "workload_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/capacity_workload_cohort_01_0896497/WORKLOAD_MANIFEST.json",
+   "raw_sha256": "6862d2e262e7d92203b78011b66ba7699f3b32f4e006e3919d93a566f2e45d41"
+  },
+  "execution_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/capacity_execution_manifest_2026-09-01_0896497.json",
+   "raw_sha256": "6ec27d686f2b07e991bb952b5ec4c76f30a062e36c3c60a5ae16f35dd09d9bfc",
+   "canonical_sha256": "123460fb557b69fb6a1c45ffe7fe18ed6fa29ccef7c04e2f4b63ac9c078adb25"
+  },
+  "authorization": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/capacity_authorization_draft_2026-09-01_0896497.json",
+   "raw_sha256": "504fd86d6d79f27464c67cee756f96bed2f23011fe651cbc576b5a7ef951102e",
+   "canonical_sha256": "fa8eb88ab2f68d2d5588904d4dc9404554ee5a589ffd36832a4e93e97d246242",
+   "detached_signature_raw_sha256": "8456f223b377f9292e85defca1357585d6d8bc73e1580dc9276205efe7672142"
+  },
+  "dispatch_history": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/dispatch_history.jsonl",
+   "raw_sha256": "5f6e7cac0d98f127241291e95ed35a15e89e745d5cbfffb8ea288954c43bc069",
+   "event_count": 2,
+   "dispatch_started_event_hash": "fb0cd9e167693976a738b5a2fce60cd58eccec7f8ca49b268a8bc8ed524ecd2d",
+   "attempt_completed_fail_event_hash": "1b5541bcb0dea63494357b88156600b4b43e1b612d492f92002732ee9aa14351"
+  },
+  "attempt_reservation": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/capacity-v2-attempt-20260901-01-0896497.capacity_attempt_reservation.json",
+   "raw_sha256": "1634a86b26fb2d0596ca28f14a359f27c86f8e581c923905ed94d4a77fc06a49"
+  },
+  "failure_receipt": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/capacity-v2-attempt-20260901-01-0896497.capacity_failure_receipt.json",
+   "raw_sha256": "adb4a4c8d3389aa10912265b085268730b4226730b46d819fc52e05b2ec496b0",
+   "failed_at_utc": "2026-09-01T12:40:37.398244+00:00",
+   "attempted_dispatches": 60,
+   "dispatch_reservation_count": 60,
+   "validated_invocation_receipts_before_first_failure": 28,
+   "error_type": "CapacityExecutionError",
+   "error": "capacity reviewer output does not parse for 029_27db4a1175ba.txt"
+  },
+  "full_offline_audit": {
+   "dispatch_reservation_count": 60,
+   "dispatch_reservation_bindings_canonical_sha256": "78d1475852f71fa724e95d420463b815bf5fde4930a9d5750a4fcbcdf31d0ef5",
+   "durable_invocation_bundle_count": 60,
+   "durable_invocation_receipt_hashes_canonical_sha256": "7a8e8dba1049f56f6f6ba820b6b15a6e4868977db51f5315f88fc5ee6745bfe8",
+   "durable_ruling_hashes_canonical_sha256": "006f9e4c48b627436a3885e02ff25460f72bbbd58c83bb35d1db435bdc4fe1a7",
+   "fully_valid_result_count": 58,
+   "failed_result_count": 2,
+   "result_file_present": false,
+   "wave_output_file_count": 0
+  },
+  "failed_results": [
+   {
+    "packet": "029_27db4a1175ba.txt",
+    "source_payload_sha256": "27db4a1175bae764ab0e59d27b6ef426418b051b47a1dd22b5165668679dd793",
+    "packet_raw_sha256": "c4ac4ef8ca6fe76368d65ffe04c6cb999eb638197782dcf060c3893358daf4f1",
+    "query_was_empty": true,
+    "ruling_raw_sha256": "aaa8ef2f7c16d80d8b38ce0a06d3438418f7db0555f6cdf3cc5adaa136fe1ffb",
+    "invocation_receipt_raw_sha256": "ffe632ce44b50185c41c8b967198f6272e52a8fbfd91ad5a7a6f9bef8d14f2fb",
+    "event_stream_raw_sha256": "ced4c05309e0f1c203f26f567b3fcea927a596dc356a248102abd09d60ee808a",
+    "stderr_raw_sha256": "41172410978341eef867fe0f39f48007cca1ad4bc6e464a35054775b6da0e188",
+    "observed_label": "REJECT",
+    "observed_clause": "Allowed",
+    "failure": "contradictory label and clause pair rejected by the frozen parser"
+   },
+   {
+    "packet": "060_57e76b266e3c.txt",
+    "source_payload_sha256": "57e76b266e3c6553766fcd8aec586f096eafabe1d1f1c722ccdff80536c50548",
+    "packet_raw_sha256": "26bfcafad94699403edb1dea4fc424c9fb54ff52cad1af4c48df5ee552962881",
+    "query_was_empty": false,
+    "ruling_raw_sha256": "c57f69fbb1dbb7a4ee0d4b86e8bbeb406401d430bc18691b387eb1717136b3b1",
+    "invocation_receipt_raw_sha256": "e4d6ce83ef70bc15b8f26ad044e364f7d0f12a55c85b3840f8bf414af0c40a99",
+    "event_stream_raw_sha256": "f42527c48883e29a49b2a24a0de2f027be7843cf45169f6717f52f91444e0a49",
+    "stderr_raw_sha256": "5158299a4586c95eb54f10bad47fee147f91e9f6d99088191636f83b4c513c86",
+    "observed_label": "ALLOW",
+    "observed_clause": "Allowed",
+    "failure": "WebSocket 403 retries and HTTPS fallback produced a nonclean event stream"
+   }
+  ],
+  "accounting": {
+   "original_predecessor_counted_reservations": 60,
+   "v2_counted_reservations": 60,
+   "cumulative_counted_reservations": 120,
+   "cumulative_durable_invocation_bundles": 60,
+   "ratified_reviewer_ceiling": 59040,
+   "remaining_reviewer_ceiling_after_counted_reservations": 58920,
+   "treatment": "reservations are counted once as external reviewer usage; durable invocation bundles are evidence and are not added again",
+   "non_claim": "external reviewer usage is separate from USD, token, provider, or Together accounting"
+  },
+  "non_reuse": "The completed v2 cohort and its frozen retry cohort are terminal under the v2 contract and are not reused."
+ },
+ "successor_v3_design": {
+  "derivation_tag": "phase3-main-review-capacity-v3",
+  "transformation": "render_candidate_a_line_then_candidate_b_line_then_query_line_without_changing_labels_or_contents",
+  "semantic_invariant": "The frozen reviewer prefix, query text, candidate labels, and candidate text are unchanged. Only the order of the three explicitly labeled payload lines changes.",
+  "source_filter": "exclude every source packet whose query text is empty",
+  "prohibited_shortcuts": [
+   "no whitespace-only variants",
+   "no nonce padding",
+   "no candidate-text edits",
+   "no query-text edits",
+   "no reuse of any source, v1, or v2 prompt",
+   "no reuse of either v2 cohort"
+  ],
+  "source_packet_count": 576,
+  "empty_query_source_count": 5,
+  "empty_query_source_payloads_canonical_sha256": "42df2fd4da75472a6e71a1865da14632317f679f1fc36b77d14f90e66bb47a8c",
+  "excluded_prompt_sets": {
+   "sealed_source_prompt_count": 576,
+   "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+   "v1_candidate_swap_prompt_count": 368,
+   "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+   "v2_candidate_line_order_prompt_count": 576,
+   "v2_candidate_line_order_prompt_set_canonical_sha256": "f99a4b4aace3d4063357cb8aa86ad8206200712155b2a530b7c7de46ddb25f16",
+   "combined_excluded_prompt_count": 1520,
+   "combined_excluded_prompt_set_canonical_sha256": "f2b47b26c6dfa80876a21db8b986a205158e7e6111ffc48ff05fd761b3e93140"
+  },
+  "eligible_variant_count": 571,
+  "collision_count": 0,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_sizes_per_cohort": [
+   60,
+   60,
+   60
+  ],
+  "empty_query_count_per_cohort": [
+   0,
+   0
+  ],
+  "unused_variant_count": 211,
+  "all_ranked_prompt_list_canonical_sha256": "c141660a1339f0ff91869f086e3c1a9df4b9d803c1131f5dea30b71caa463796",
+  "all_ranked_source_payload_list_canonical_sha256": "06f897f172985a4704682fd540d4fc975a4d6f707be9c0e7073eecfedc284088",
+  "cohort_records_canonical_sha256s": [
+   "4c5ff9b3b3a690c62afbefea02b1716324274fd7bb033079474089b0d479265a",
+   "d819726b7a9179f836a806f998bd038580f0896ec33e1dd52c05413a173d8670"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "1a18cd9eae585696449e4f1bcb34fc71e5c95042d8624d441e728f70ed2b48f5",
+   "35ea45ed6eb78a7f46fba566224774f1dae4b6a886f88aeaf72a253ba9b18924"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "1a18cd9eae585696449e4f1bcb34fc71e5c95042d8624d441e728f70ed2b48f5",
+   "35ea45ed6eb78a7f46fba566224774f1dae4b6a886f88aeaf72a253ba9b18924"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "224c0c7706c241892976937ce87c208ef4ac88029ea0f9d80495d2ef530c33a1",
+   "693c2ef052cdd71a9eba299539025a8e3aed42b42c9e4296d9f7b1909e459dd7"
+  ],
+  "proposed_external_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v3-2026-09-01",
+  "history_requirement": "fresh empty append-only dispatch history under the v3 root",
+  "authority_requirement": "fresh clean-commit manifest and separately signed authorization capped at 180 external reviewer dispatches"
+ },
+ "owner_decisions_required": [
+  "Ratify or amend the exact empty-query exclusion and candidate-A, candidate-B, query field order.",
+  "After offline materialization and a clean source commit, separately sign the exact v3 180-dispatch authorization."
+ ],
+ "exact_non_execution_ratification_text": "I ratify the exact Phase 3 capacity v3 successor proposal dated 2026-09-01, including the terminal v2 completed failure, cumulative 120 counted reviewer reservations, 60 durable v2 invocation bundles, exclusion of all five empty-query sources, the candidate-A then candidate-B then query field-order transformation, exclusion of every sealed source, v1, and v2 prompt, two fresh 180-packet cohorts, and 211 unused variants. This ratification authorizes offline v3 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority."
+}
