@@ -1,0 +1,171 @@
+{
+ "schema_version": "phase3_main_review_capacity_preflight_plan_v2",
+ "plan_id": "phase3_main_review_capacity_preflight_v2_2026_09_01",
+ "recorded_on_date": "2026-09-01",
+ "status": "owner_confirmed_offline_plan_pending_separate_execution",
+ "owner_decision": {
+  "approver": "Jack Maiorino",
+  "channel": "active Codex project task",
+  "decision": "ratify the exact non-execution successor proposal and authorize offline plan and workload materialization only"
+ },
+ "execution_authorized": false,
+ "provider_calls_authorized": false,
+ "main_spend_authorized": false,
+ "source_locations": {
+  "finalization_record": "rejudge/phase3_v3_finalization_record_2026-08-29.json",
+  "sealed_archive": "E:/selvarath-archive/phase3-v3r15-clean-2026-08-29",
+  "decision_store": "phase3_v3_reviewer_decisions.jsonl",
+  "reviewer_index": "reviewer_index.jsonl",
+  "successor_proposal": "rejudge/phase3_main_review_capacity_successor_proposal_2026-09-01.json",
+  "successor_ratification": "rejudge/phase3_main_review_capacity_successor_ratification_2026-09-01.json"
+ },
+ "source_bindings": {
+  "finalization_record_raw_sha256": "d600d4b421ad7097046a6195927865307112158bbc22026550eca64b7b6f1796",
+  "reviewer_decision_store_raw_sha256": "9d1beff1aa9d63fb8530ab7840e20782097cc165bef2b31a81b56cad106e1b83",
+  "reviewer_index_raw_sha256": "fc1158778de616e2029ddd877e2554d55cc810b70fd81757e58f88efc9bfe994",
+  "reviewer_prompt_prefix_sha256": "d36da2195e26a0180b23a542c8deea68ac50d7c6a33d6020ae6ff30719fbd98d",
+  "packet_directories_canonical_sha256": "343af81617f83ac684eb56399b175d04829f3641e40b8160e7176f99cac98118",
+  "successor_proposal_raw_sha256": "38c855688d6899a886a0f2aaa3d694c93b1dfb20cd101d4f0169df04bee74c3a",
+  "successor_proposal_canonical_sha256": "a57f54a81e44cc4c8cef1cf9be849e1c5479e4c5fe1a51eb3c947a0741dba105",
+  "successor_ratification_raw_sha256": "2dc040205e7c31ac2ea1e7097005ac93dc8a2b96f1534f9d858cc067698e64a4",
+  "successor_ratification_canonical_sha256": "4edc45713ebf0e10bab53b60cbfd50d932ae1e2d247b3c3251f82520b9e68539"
+ },
+ "predecessor_usage_accounting": {
+  "proposal_bound_terminal_failure": true,
+  "counted_reviewer_dispatch_reservations": 60,
+  "validated_reviewer_invocation_receipts": 0,
+  "predecessor_cohorts_reused": false,
+  "accounting_treatment": "retain the 60 reservations as external reviewer usage without claiming a validated reviewer invocation"
+ },
+ "workload": {
+  "derivation_tag": "phase3-main-review-capacity-v2",
+  "transformation": "render_candidate_b_line_before_candidate_a_without_changing_labels_or_contents",
+  "historical_exclusion": "exclude_every_source_prompt_and_v1_candidate_swap_prompt_sha256",
+  "source_unique_packet_count": 576,
+  "historical_prompt_sha256_count": 576,
+  "byte_new_eligible_count": 576,
+  "historical_collision_count": 0,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_size": 60,
+  "wave_sizes_per_cohort": [
+   60,
+   60,
+   60
+  ],
+  "unused_byte_new_reserve_count": 216,
+  "cohort_records_canonical_sha256s": [
+   "c41a90543c180085651007b91f054efe601af246f754258215763ef46e50fd7c",
+   "33983070f97755d183de59a30e967709589703a0f0f59fd17639dece3c2a5838"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "bc3a2741f8b323defd0634bf37aa2bd779e95a49dc52f28ddaa8f6627ea03af8",
+   "a0dffab81d5a26280934a91588906a061f67b04ae423c7f6bf12680ab34315eb"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "bc3a2741f8b323defd0634bf37aa2bd779e95a49dc52f28ddaa8f6627ea03af8",
+   "a0dffab81d5a26280934a91588906a061f67b04ae423c7f6bf12680ab34315eb"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "0f71932e3914e75fb42673a720a37b4bff23b4fde649034a585b5a1dff040595",
+   "daedcdf51e1da564a098886b5488ec919a67d24c7820e4cbe45dcfa5a1b32402"
+  ],
+  "historical_collision_sources_canonical_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "v1_candidate_swap_prompt_sha256_count": 368,
+  "combined_excluded_prompt_sha256_count": 944,
+  "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+  "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+  "combined_excluded_prompt_set_canonical_sha256": "33940b6a88f6b49a55df4c044ae9f13213164e3af78e63e281ca9b9eeb0c8b12",
+  "all_ranked_prompt_list_canonical_sha256": "d723fe085ea6c3eb2190f1d3390dec7e935d99fb26974373c0bc0d92ad8df37c",
+  "all_ranked_source_payload_list_canonical_sha256": "b67e59a133d2b455d282ee33e73f034b301e3a430f58bf4948d15fa00062d728"
+ },
+ "reviewer_configuration": {
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "reviewer_cli_binary": "codex.cmd",
+  "reviewer_cli_resolved_path": "C:/Users/Jack/AppData/Roaming/npm/codex.cmd",
+  "reviewer_cli_wrapper_raw_sha256": "c54db6755e710c39703f7c37512f9e35ed41042d8080558d2b84b8d2694323c3",
+  "reviewer_cli_wrapper_byte_count": 341,
+  "concurrency": 12,
+  "fresh_ephemeral_context_per_packet": true,
+  "tool_use_permitted": false,
+  "wave_pending_payload_limit": 64,
+  "actual_capacity_wave_size": 60
+ },
+ "capacity_thresholds": {
+  "total_judgment_slots": 9840,
+  "slots_per_judge_per_condition": 984,
+  "judge_count": 2,
+  "positive_query_budget_sum": 15,
+  "attempts_per_budget_slot_including_free_retry": 2,
+  "maximum_unique_review_payloads_zero_dedup": 59040,
+  "D_max_elapsed_days": 45,
+  "required_rulings_per_24h": 1312.0,
+  "certified_rulings_per_24h": 1440,
+  "maximum_seconds_per_60_packet_wave": 3600,
+  "maximum_seconds_for_three_waves": 10800,
+  "worst_case_projected_elapsed_days": 41.0,
+  "elapsed_day_margin": 4.0,
+  "rate_reserve_fraction": 0.09756097560975618
+ },
+ "dispatch_history_contract": {
+  "schema_version": "phase3_main_review_capacity_dispatch_event_v1",
+  "required_path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/dispatch_history.jsonl",
+  "anchor_directory": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/dispatch_history_anchors",
+  "interruption_evidence_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v2-2026-09-01/interruption_evidence",
+  "required_initial_raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "append_only": true,
+  "anchor_validation_required": true,
+  "initialization_receipt_required": true,
+  "writer_mode": "process-scoped OS lock plus durable canonical initialization and append intents; recover only an exact intended history-line prefix, fsync the completed line, retain an exclusive prefix receipt, then clear the intent",
+  "crash_recovery": "an interrupted initialization is retry-completed only from its exact durable intent; an interrupted append is completed from the exact prior bytes or exact intended-line prefix and is then treated as committed, never redispatched; any other byte state is terminal and fail-closed",
+  "write_dispatch_started_before_first_reviewer_child": true,
+  "maximum_attempts": 2,
+  "retry_unlock": "only a hash-chained and receipt-bound attempt_interrupted event for cohort 1 whose absolute evidence path, byte count, and raw SHA-256 verify under the frozen evidence root unlocks cohort 2",
+  "terminal_completed_failure": "attempt_completed_fail is terminal and cannot be followed by another dispatch or omitted from result validation",
+  "no_replay": "a cohort may be dispatched at most once; cohort 2 is the only retry cohort and no third cohort exists"
+ },
+ "measurement_contract": {
+  "cohort_scope": "pre-freeze two disjoint 180-packet cohorts, each split into three nonoverlapping 60-packet waves; dispatch cohort 1 first and cohort 2 only after one verified environmental interruption of cohort 1",
+  "timing": "for each wave use a monotonic clock from immediately before reviewer child-process spawn through validated and fsynced result output",
+  "pass": [
+   "each of the three waves contains exactly its 60 expected unique packet and result identities",
+   "every result is nonempty and parses under the frozen reviewer-output parser, including valid LABEL and CLAUSE pairing",
+   "zero timeout, process error, tool use, prompt-hash mismatch, unexpected row, duplicate row, or missing row",
+   "each 60-packet wave completes within 3600 seconds and all three complete within 10800 seconds"
+  ],
+  "failure": "any completed attempt that misses a pass condition is FAIL; do not select a different cohort to erase the result",
+  "evidence": "record the resolved reviewer CLI wrapper path, wrapper raw SHA-256 and byte count, reported CLI version, host identity, monotonic durations, UTC boundaries, packet and result hashes, zero-valued failure counters, and one result row per expected prompt",
+  "materialization_only_now": "the owner ratification authorizes only offline plan and workload materialization"
+ },
+ "retry_policy": {
+  "environmental_interruption": "void cohort 1 evidence only after appending a verified, structured environmental-interruption event to the bound hash-chained dispatch history",
+  "freshness_requirement": "the sole retry uses pre-frozen cohort 2, whose 180 prompt hashes are disjoint from all sealed source prompts, all v1 candidate-swap prompts, and cohort 1",
+  "completed_failure": "any completed failure is terminal; it cannot unlock cohort 2, be erased, or be replaced by a later result",
+  "current_reserve": "576 byte-new line-order variants support exactly two pre-frozen 180-packet cohorts with 216 variants unused",
+  "blocked_action": "after cohort 2 starts, any interruption or completed failure is terminal for this source; a further attempt requires separately reviewed source expansion or semantic-preserving transformation, and whitespace or nonce padding is prohibited"
+ },
+ "validity": {
+  "valid_for_hours": 24,
+  "invalidated_by": [
+   "reviewer model change",
+   "reasoning-effort change",
+   "reviewer CLI resolved wrapper path, wrapper bytes, or reported version change",
+   "frozen reviewer prompt change",
+   "concurrency or wave-size change",
+   "host identity change"
+  ]
+ },
+ "non_claims": [
+  "This plan does not launch the reviewer or any provider client.",
+  "This plan does not authorize reviewer dispatch, main-run provider calls, spend, or formal measurement.",
+  "The source semantics were reviewed in fresh prior sessions. Reordering the two explicitly labeled candidate lines makes request bytes new without changing query, label, or candidate contents, but this capacity check is not new semantic-validity evidence.",
+  "The 60 predecessor reservations remain counted as external reviewer usage even though no validated invocation receipt exists.",
+  "Neither predecessor cohort is reused.",
+  "Cohort 2 is a one-time environmental-interruption retry, not a way to erase a completed failure.",
+  "The 216 unused eligible variants do not authorize another attempt.",
+  "The append API, hash chain, byte-verified interruption evidence, and retained prefix receipts fail closed for missing or inconsistent artifacts, but they are not tamper-proof against an actor who can deliberately delete or replace the history, evidence, and receipts together on the trusted local filesystem.",
+  "The interruption verifier field is an operator attestation and does not independently prove that the recorded cause was environmental.",
+  "The frozen codex.cmd path, wrapper bytes, and reported version identify the reviewer CLI entry point; the wrapper hash alone is not an attestation of the entire installed Codex package."
+ ]
+}

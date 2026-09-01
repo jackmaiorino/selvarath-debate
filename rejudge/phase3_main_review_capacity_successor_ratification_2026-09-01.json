@@ -1,0 +1,21 @@
+{
+ "schema_version": "phase3_main_review_capacity_successor_ratification_v1",
+ "ratification_id": "phase3-main-review-capacity-successor-ratification-2026-09-01",
+ "recorded_at_utc": "2026-09-01T02:27:18.0653284+00:00",
+ "approved_by": "Jack Maiorino",
+ "channel": "active Codex project task",
+ "proposal": {
+  "path": "rejudge/phase3_main_review_capacity_successor_proposal_2026-09-01.json",
+  "raw_sha256": "38c855688d6899a886a0f2aaa3d694c93b1dfb20cd101d4f0169df04bee74c3a",
+  "canonical_sha256": "a57f54a81e44cc4c8cef1cf9be849e1c5479e4c5fe1a51eb3c947a0741dba105"
+ },
+ "ratification_text": "I ratify the exact Phase 3 capacity successor proposal dated 2026-09-01, including the terminal predecessor failure, its 60 counted reservations, the candidate-line-order transformation, exclusion of all sealed source prompts and all v1 candidate-swap prompts, two fresh 180-packet cohorts, and 216 unused variants. This ratification authorizes offline plan and workload materialization only. It grants no reviewer dispatch, provider call, main run, or spend authority.",
+ "authority": {
+  "offline_plan_materialization_authorized": true,
+  "offline_workload_materialization_authorized": true,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_authorized": false,
+  "spend_authorized": false
+ }
+}

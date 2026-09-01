@@ -35,7 +35,9 @@ FINALIZATION_PATH_DEFAULT = (
 )
 ARCHIVE_DIR_DEFAULT = Path("E:/selvarath-archive/phase3-v3r15-clean-2026-08-29")
 
-SCHEMA_VERSION = "phase3_main_review_capacity_preflight_plan_v1"
+SCHEMA_VERSION_V1 = "phase3_main_review_capacity_preflight_plan_v1"
+SCHEMA_VERSION_V2 = "phase3_main_review_capacity_preflight_plan_v2"
+SCHEMA_VERSION = SCHEMA_VERSION_V1
 MATERIALIZATION_SCHEMA_VERSION = "phase3_main_review_capacity_workload_v1"
 RESULT_SCHEMA_VERSION = "phase3_main_review_capacity_result_v1"
 DISPATCH_HISTORY_SCHEMA_VERSION = "phase3_main_review_capacity_dispatch_event_v1"
@@ -46,8 +48,13 @@ DISPATCH_APPEND_INTENT_SCHEMA_VERSION = (
 DISPATCH_INITIALIZATION_SCHEMA_VERSION = (
     "phase3_main_review_capacity_dispatch_initialization_v1"
 )
-DERIVATION_TAG = "phase3-main-review-capacity-v1"
+DERIVATION_TAG_V1 = "phase3-main-review-capacity-v1"
+DERIVATION_TAG_V2 = "phase3-main-review-capacity-v2"
+DERIVATION_TAG = DERIVATION_TAG_V1
 EXPECTED_PLAN_CANONICAL_SHA256 = "0805888c9f99b27999c82b4038f6be5498ceee22baf86703b4a1339e80988ec3"
+EXPECTED_PLAN_CANONICAL_SHA256_V2 = (
+    "ee14a65c8a2810480a5613720420fedfd486030b4c66d02ef9f1c36638155c5a"
+)
 PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
 _PAYLOAD_RE = re.compile(
     r"QUERY: (?P<query>.*?)\r?\nCANDIDATE A: (?P<candidate_a>.*?)"
@@ -172,6 +179,16 @@ class DispatchHistorySnapshot:
     events: tuple[Mapping[str, Any], ...]
     prefix_raw_sha256s: tuple[str, ...] = ()
     prefix_byte_counts: tuple[int, ...] = ()
+
+
+def derivation_tag_from_plan(plan: Mapping[str, Any]) -> str:
+    workload = plan.get("workload")
+    if not isinstance(workload, Mapping):
+        raise CapacityPreflightError("plan lacks workload")
+    derivation_tag = workload.get("derivation_tag")
+    if derivation_tag not in {DERIVATION_TAG_V1, DERIVATION_TAG_V2}:
+        raise CapacityPreflightError("plan has an unsupported capacity derivation tag")
+    return cast(str, derivation_tag)
 
 
 def _parse_prompt(prompt_bytes: bytes, *, source: Path) -> tuple[str, str, str, str]:
@@ -361,6 +378,7 @@ def derive_workload(
     selection_count: int = 180,
     wave_size: int = 60,
     cohort_count: int = 2,
+    derivation_tag: str = DERIVATION_TAG,
 ) -> DerivedWorkload:
     if (
         selection_count < 1
@@ -369,30 +387,59 @@ def derive_workload(
         or cohort_count not in {1, 2}
     ):
         raise CapacityPreflightError("selection_count must be a positive multiple of wave_size")
-    eligible: list[VariantPacket] = []
-    collisions: list[str] = []
-    variant_prompt_hashes: set[str] = set()
-    variant_payload_hashes: set[str] = set()
-    for source in snapshot.source_packets:
-        variant_payload = payload_sha256(
-            source.query, source.candidate_b, source.candidate_a
-        )
+    if derivation_tag not in {DERIVATION_TAG_V1, DERIVATION_TAG_V2}:
+        raise CapacityPreflightError("unsupported capacity derivation tag")
+
+    def v1_variant(source: SourcePacket) -> tuple[str, str]:
         rendered = (
             source.prompt_prefix
             + f"QUERY: {source.query}\n"
             + f"CANDIDATE A: {source.candidate_b}\n"
             + f"CANDIDATE B: {source.candidate_a}"
         )
+        return (
+            payload_sha256(source.query, source.candidate_b, source.candidate_a),
+            rendered,
+        )
+
+    v1_prompt_hashes: set[str] = set()
+    for source in snapshot.source_packets:
+        _v1_payload, v1_rendered = v1_variant(source)
+        v1_prompt = hashlib.sha256(v1_rendered.encode("utf-8")).hexdigest()
+        if v1_prompt not in snapshot.historical_prompt_hashes:
+            v1_prompt_hashes.add(v1_prompt)
+
+    excluded_prompt_hashes = set(snapshot.historical_prompt_hashes)
+    if derivation_tag == DERIVATION_TAG_V2:
+        excluded_prompt_hashes.update(v1_prompt_hashes)
+
+    eligible: list[VariantPacket] = []
+    collisions: list[str] = []
+    variant_prompt_hashes: set[str] = set()
+    variant_payload_hashes: set[str] = set()
+    for source in snapshot.source_packets:
+        if derivation_tag == DERIVATION_TAG_V1:
+            variant_payload, rendered = v1_variant(source)
+        else:
+            variant_payload = payload_sha256(
+                source.query, source.candidate_a, source.candidate_b
+            )
+            rendered = (
+                source.prompt_prefix
+                + f"QUERY: {source.query}\n"
+                + f"CANDIDATE B: {source.candidate_b}\n"
+                + f"CANDIDATE A: {source.candidate_a}"
+            )
         variant_prompt = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-        if variant_prompt in snapshot.historical_prompt_hashes:
+        if variant_prompt in excluded_prompt_hashes:
             collisions.append(source.source_payload_sha256)
             continue
         if variant_prompt in variant_prompt_hashes or variant_payload in variant_payload_hashes:
-            raise CapacityPreflightError("candidate swap produced duplicate byte-new variants")
+            raise CapacityPreflightError("capacity derivation produced duplicate variants")
         variant_prompt_hashes.add(variant_prompt)
         variant_payload_hashes.add(variant_payload)
         rank = hashlib.sha256(
-            f"{DERIVATION_TAG}|{source.source_payload_sha256}".encode("utf-8")
+            f"{derivation_tag}|{source.source_payload_sha256}".encode("utf-8")
         ).hexdigest()
         eligible.append(
             VariantPacket(
@@ -427,9 +474,17 @@ def derive_workload(
         ]
 
     summary = {
-        "derivation_tag": DERIVATION_TAG,
-        "transformation": "swap_candidate_a_and_candidate_b_only",
-        "historical_exclusion": "exclude_every_variant_prompt_sha256_seen_in_source_packets",
+        "derivation_tag": derivation_tag,
+        "transformation": (
+            "swap_candidate_a_and_candidate_b_only"
+            if derivation_tag == DERIVATION_TAG_V1
+            else "render_candidate_b_line_before_candidate_a_without_changing_labels_or_contents"
+        ),
+        "historical_exclusion": (
+            "exclude_every_variant_prompt_sha256_seen_in_source_packets"
+            if derivation_tag == DERIVATION_TAG_V1
+            else "exclude_every_source_prompt_and_v1_candidate_swap_prompt_sha256"
+        ),
         "source_unique_packet_count": len(snapshot.source_packets),
         "historical_prompt_sha256_count": len(snapshot.historical_prompt_hashes),
         "byte_new_eligible_count": len(eligible),
@@ -458,6 +513,28 @@ def derive_workload(
             sorted(collisions)
         ),
     }
+    if derivation_tag == DERIVATION_TAG_V2:
+        summary.update(
+            {
+                "v1_candidate_swap_prompt_sha256_count": len(v1_prompt_hashes),
+                "combined_excluded_prompt_sha256_count": len(excluded_prompt_hashes),
+                "sealed_source_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(snapshot.historical_prompt_hashes)
+                ),
+                "v1_candidate_swap_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v1_prompt_hashes)
+                ),
+                "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(excluded_prompt_hashes)
+                ),
+                "all_ranked_prompt_list_canonical_sha256": canonical_sha256(
+                    [item.variant_prompt_sha256 for item in eligible]
+                ),
+                "all_ranked_source_payload_list_canonical_sha256": canonical_sha256(
+                    [item.source_payload_sha256 for item in eligible]
+                ),
+            }
+        )
     return DerivedWorkload(
         selected=selected,
         eligible=tuple(eligible),
@@ -501,7 +578,14 @@ def _expected_thresholds() -> dict[str, Any]:
 
 
 def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
-    if canonical_sha256(plan) != EXPECTED_PLAN_CANONICAL_SHA256:
+    schema_version = plan.get("schema_version")
+    expected_hashes = {
+        SCHEMA_VERSION_V1: EXPECTED_PLAN_CANONICAL_SHA256,
+        SCHEMA_VERSION_V2: EXPECTED_PLAN_CANONICAL_SHA256_V2,
+    }
+    if schema_version not in expected_hashes:
+        raise CapacityPreflightError("unexpected capacity preflight schema")
+    if canonical_sha256(plan) != expected_hashes[schema_version]:
         raise CapacityPreflightError("capacity preflight plan canonical hash mismatch")
     if plan.get("execution_authorized") is not False:
         raise CapacityPreflightError("capacity preflight plan must not authorize execution")
@@ -1397,8 +1481,7 @@ def validate_plan(
     plan: Mapping[str, Any], *, snapshot: SourceSnapshot, workload: DerivedWorkload
 ) -> dict[str, Any]:
     _validate_frozen_plan(plan)
-    if plan.get("schema_version") != SCHEMA_VERSION:
-        raise CapacityPreflightError("unexpected capacity preflight schema")
+    schema_version = plan.get("schema_version")
     if plan.get("status") != "owner_confirmed_offline_plan_pending_separate_execution":
         raise CapacityPreflightError("capacity preflight plan has an unexpected status")
 
@@ -1414,6 +1497,63 @@ def validate_plan(
             list(snapshot.packet_directories)
         ),
     }
+    if schema_version == SCHEMA_VERSION_V2:
+        locations = plan.get("source_locations")
+        if not isinstance(locations, Mapping):
+            raise CapacityPreflightError("successor plan lacks source_locations")
+        proposal_value = locations.get("successor_proposal")
+        ratification_value = locations.get("successor_ratification")
+        if not isinstance(proposal_value, str) or not isinstance(
+            ratification_value, str
+        ):
+            raise CapacityPreflightError("successor plan lacks proposal or ratification path")
+        proposal_path = (REPO_ROOT / proposal_value).resolve()
+        ratification_path = (REPO_ROOT / ratification_value).resolve()
+        for label, path in (
+            ("successor proposal", proposal_path),
+            ("successor ratification", ratification_path),
+        ):
+            try:
+                path.relative_to(REPO_ROOT)
+            except ValueError as exc:
+                raise CapacityPreflightError(f"{label} must remain within the repository") from exc
+        proposal = _load_json_object(proposal_path)
+        ratification = _load_json_object(ratification_path)
+        observed_source.update(
+            {
+                "successor_proposal_raw_sha256": raw_sha256(proposal_path),
+                "successor_proposal_canonical_sha256": canonical_sha256(proposal),
+                "successor_ratification_raw_sha256": raw_sha256(ratification_path),
+                "successor_ratification_canonical_sha256": canonical_sha256(
+                    ratification
+                ),
+            }
+        )
+        expected_text = proposal.get("exact_non_execution_ratification_text")
+        proposal_binding = ratification.get("proposal")
+        authority = ratification.get("authority")
+        if (
+            ratification.get("schema_version")
+            != "phase3_main_review_capacity_successor_ratification_v1"
+            or ratification.get("approved_by") != "Jack Maiorino"
+            or ratification.get("ratification_text") != expected_text
+            or not isinstance(proposal_binding, Mapping)
+            or proposal_binding.get("path") != proposal_value
+            or proposal_binding.get("raw_sha256") != raw_sha256(proposal_path)
+            or proposal_binding.get("canonical_sha256") != canonical_sha256(proposal)
+            or authority
+            != {
+                "offline_plan_materialization_authorized": True,
+                "offline_workload_materialization_authorized": True,
+                "external_reviewer_dispatch_authorized": False,
+                "provider_calls_authorized": False,
+                "main_run_authorized": False,
+                "spend_authorized": False,
+            }
+        ):
+            raise CapacityPreflightError(
+                "successor ratification does not bind the exact non-execution proposal"
+            )
     if dict(source) != observed_source:
         raise CapacityPreflightError("plan source bindings differ from the sealed archive")
     if plan.get("workload") != dict(workload.summary):
@@ -1971,7 +2111,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     snapshot = collect_source_snapshot(
         archive_dir=args.archive, finalization_path=args.finalization_record
     )
-    workload = derive_workload(snapshot)
+    workload = derive_workload(
+        snapshot,
+        derivation_tag=derivation_tag_from_plan(plan),
+    )
     result = validate_plan(plan, snapshot=snapshot, workload=workload)
     if args.initialize_dispatch_history:
         result["dispatch_history_initialization"] = initialize_dispatch_history(

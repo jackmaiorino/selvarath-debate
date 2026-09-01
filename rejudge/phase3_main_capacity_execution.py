@@ -476,7 +476,10 @@ def load_capacity_context(
             archive_dir=Path(archive).resolve(),
             finalization_path=Path(finalization).resolve(),
         )
-        workload = capacity.derive_workload(snapshot)
+        workload = capacity.derive_workload(
+            snapshot,
+            derivation_tag=capacity.derivation_tag_from_plan(plan),
+        )
         capacity.validate_plan(plan, snapshot=snapshot, workload=workload)
     except (OSError, ValueError) as exc:
         raise CapacityExecutionError(f"capacity plan validation failed: {exc}") from exc

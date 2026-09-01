@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from rejudge import phase3_main_capacity_execution as execution
 from scripts import phase3_main_review_capacity_preflight as capacity
 
 
@@ -16,6 +18,16 @@ PROPOSAL_PATH = (
     REPO_ROOT
     / "rejudge"
     / "phase3_main_review_capacity_successor_proposal_2026-09-01.json"
+)
+RATIFICATION_PATH = (
+    REPO_ROOT
+    / "rejudge"
+    / "phase3_main_review_capacity_successor_ratification_2026-09-01.json"
+)
+PLAN_PATH = (
+    REPO_ROOT
+    / "rejudge"
+    / "phase3_main_review_capacity_preflight_plan_v2_2026-09-01.json"
 )
 
 
@@ -30,6 +42,16 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _load(path: Path) -> tuple[bytes, dict[str, Any]]:
     raw = path.read_bytes()
     return raw, json.loads(raw, object_pairs_hook=_unique_object)
+
+
+def _git_blob(commit: str, path: str) -> bytes:
+    completed = subprocess.run(
+        ["git", "show", f"{commit}:{path}"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return completed.stdout
 
 
 def test_successor_proposal_binds_repair_and_grants_no_authority() -> None:
@@ -55,10 +77,88 @@ def test_successor_proposal_binds_repair_and_grants_no_authority() -> None:
     assert "not reused" in predecessor["accounting"]
 
     repair = proposal["repair"]
-    executor_raw = (REPO_ROOT / "rejudge/phase3_main_capacity_execution.py").read_bytes()
-    test_raw = (REPO_ROOT / "tests/test_phase3_main_capacity_execution.py").read_bytes()
+    executor_raw = _git_blob(
+        repair["commit"], "rejudge/phase3_main_capacity_execution.py"
+    )
+    test_raw = _git_blob(
+        repair["commit"], "tests/test_phase3_main_capacity_execution.py"
+    )
     assert hashlib.sha256(executor_raw).hexdigest() == repair["executor_raw_sha256"]
     assert hashlib.sha256(test_raw).hexdigest() == repair["capacity_test_raw_sha256"]
+
+
+def test_successor_ratification_and_plan_grant_offline_materialization_only() -> None:
+    proposal_raw, proposal = _load(PROPOSAL_PATH)
+    ratification_raw, ratification = _load(RATIFICATION_PATH)
+    _plan_raw, plan = _load(PLAN_PATH)
+
+    assert ratification["ratification_text"] == proposal[
+        "exact_non_execution_ratification_text"
+    ]
+    assert ratification["proposal"] == {
+        "path": PROPOSAL_PATH.relative_to(REPO_ROOT).as_posix(),
+        "raw_sha256": hashlib.sha256(proposal_raw).hexdigest(),
+        "canonical_sha256": capacity.canonical_sha256(proposal),
+    }
+    assert ratification["authority"] == {
+        "offline_plan_materialization_authorized": True,
+        "offline_workload_materialization_authorized": True,
+        "external_reviewer_dispatch_authorized": False,
+        "provider_calls_authorized": False,
+        "main_run_authorized": False,
+        "spend_authorized": False,
+    }
+    source = plan["source_bindings"]
+    assert source["successor_ratification_raw_sha256"] == hashlib.sha256(
+        ratification_raw
+    ).hexdigest()
+    assert source["successor_ratification_canonical_sha256"] == (
+        capacity.canonical_sha256(ratification)
+    )
+    assert plan["execution_authorized"] is False
+    assert plan["provider_calls_authorized"] is False
+    assert plan["main_spend_authorized"] is False
+
+
+def test_v2_plan_recomputes_exact_ratified_workload() -> None:
+    _proposal_raw, proposal = _load(PROPOSAL_PATH)
+    _plan_raw, plan = _load(PLAN_PATH)
+    if not capacity.ARCHIVE_DIR_DEFAULT.is_dir():
+        pytest.skip("sealed external source archive is unavailable")
+
+    snapshot = capacity.collect_source_snapshot(
+        archive_dir=capacity.ARCHIVE_DIR_DEFAULT,
+        finalization_path=capacity.FINALIZATION_PATH_DEFAULT,
+    )
+    workload = capacity.derive_workload(
+        snapshot,
+        derivation_tag=capacity.DERIVATION_TAG_V2,
+    )
+    validation = capacity.validate_plan(
+        plan,
+        snapshot=snapshot,
+        workload=workload,
+    )
+    context = execution.load_capacity_context(
+        PLAN_PATH,
+        project_root=REPO_ROOT,
+    )
+
+    assert validation["plan_canonical_sha256"] == (
+        capacity.EXPECTED_PLAN_CANONICAL_SHA256_V2
+    )
+    assert context.workload == workload
+    assert plan["workload"] == dict(workload.summary)
+    design = proposal["successor_design"]
+    assert workload.summary["cohort_records_canonical_sha256s"] == design[
+        "cohort_records_canonical_sha256s"
+    ]
+    assert workload.summary["cohort_variant_prompts_canonical_sha256s"] == design[
+        "cohort_variant_prompts_canonical_sha256s"
+    ]
+    assert workload.summary["unused_byte_new_reserve_count"] == design[
+        "unused_variant_count"
+    ]
 
 
 def test_bound_terminal_failure_evidence_matches_when_available() -> None:
