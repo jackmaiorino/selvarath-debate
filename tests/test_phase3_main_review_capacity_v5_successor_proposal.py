@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from rejudge import phase3_main_capacity_execution as execution
 from scripts import codex_reviewer_batch
 from scripts import phase3_main_review_capacity_preflight as capacity
 
@@ -18,6 +19,16 @@ PROPOSAL_PATH = (
     REPO_ROOT
     / "rejudge"
     / "phase3_main_review_capacity_v5_successor_proposal_2026-09-01.json"
+)
+RATIFICATION_PATH = (
+    REPO_ROOT
+    / "rejudge"
+    / "phase3_main_review_capacity_v5_successor_ratification_2026-09-01.json"
+)
+PLAN_PATH = (
+    REPO_ROOT
+    / "rejudge"
+    / "phase3_main_review_capacity_preflight_plan_v5_2026-09-01.json"
 )
 
 
@@ -112,6 +123,94 @@ def test_custom_provider_repair_is_commit_bound_and_exact() -> None:
         raw = _git_blob(repair["commit"], binding["path"])
         assert len(raw) == binding["byte_count"]
         assert hashlib.sha256(raw).hexdigest() == binding["raw_sha256"]
+
+
+def test_v5_ratification_and_plan_grant_offline_materialization_only() -> None:
+    proposal_raw, proposal = _load(PROPOSAL_PATH)
+    ratification_raw, ratification = _load(RATIFICATION_PATH)
+    _plan_raw, plan = _load(PLAN_PATH)
+
+    assert ratification["ratification_text"] == proposal[
+        "exact_non_execution_ratification_text"
+    ]
+    assert ratification["proposal"] == {
+        "path": PROPOSAL_PATH.relative_to(REPO_ROOT).as_posix(),
+        "raw_sha256": hashlib.sha256(proposal_raw).hexdigest(),
+        "canonical_sha256": capacity.canonical_sha256(proposal),
+    }
+    assert ratification["authority"] == {
+        "offline_plan_materialization_authorized": True,
+        "offline_workload_materialization_authorized": True,
+        "external_reviewer_dispatch_authorized": False,
+        "provider_calls_authorized": False,
+        "together_calls_authorized": False,
+        "main_run_authorized": False,
+        "spend_authorized": False,
+    }
+    source = plan["source_bindings"]
+    assert source["successor_ratification_raw_sha256"] == hashlib.sha256(
+        ratification_raw
+    ).hexdigest()
+    assert source["successor_ratification_canonical_sha256"] == (
+        capacity.canonical_sha256(ratification)
+    )
+    assert plan["reviewer_configuration"]["model_provider_profile"] == proposal[
+        "successor_v5_design"
+    ]["reviewer_transport"]["model_provider_profile"]
+    for field in (
+        "execution_authorized",
+        "external_reviewer_dispatch_authorized",
+        "provider_calls_authorized",
+        "together_calls_authorized",
+        "main_run_authorized",
+        "main_spend_authorized",
+        "spend_authorized",
+    ):
+        assert plan[field] is False
+
+
+def test_v5_plan_recomputes_exact_ratified_workload() -> None:
+    _proposal_raw, proposal = _load(PROPOSAL_PATH)
+    _plan_raw, plan = _load(PLAN_PATH)
+    if not capacity.ARCHIVE_DIR_DEFAULT.is_dir():
+        pytest.skip("sealed external source archive is unavailable")
+
+    snapshot = capacity.collect_source_snapshot(
+        archive_dir=capacity.ARCHIVE_DIR_DEFAULT,
+        finalization_path=capacity.FINALIZATION_PATH_DEFAULT,
+    )
+    workload = capacity.derive_workload(
+        snapshot,
+        derivation_tag=capacity.DERIVATION_TAG_V5,
+    )
+    validation = capacity.validate_plan(
+        plan,
+        snapshot=snapshot,
+        workload=workload,
+    )
+    context = execution.load_capacity_context(
+        PLAN_PATH,
+        project_root=REPO_ROOT,
+    )
+
+    assert validation["plan_canonical_sha256"] == (
+        capacity.EXPECTED_PLAN_CANONICAL_SHA256_V5
+    )
+    assert context.workload == workload
+    assert plan["workload"] == dict(workload.summary)
+    design = proposal["successor_v5_design"]
+    assert workload.summary["cohort_records_canonical_sha256s"] == design[
+        "cohort_records_canonical_sha256s"
+    ]
+    assert workload.summary["cohort_variant_prompts_canonical_sha256s"] == design[
+        "cohort_variant_prompts_canonical_sha256s"
+    ]
+    assert workload.summary["v4_candidate_line_order_prompt_sha256_count"] == design[
+        "excluded_prompt_sets"
+    ]["v4_candidate_line_order_prompt_count"]
+    assert workload.summary["unused_byte_new_reserve_count"] == design[
+        "unused_variant_count"
+    ]
 
 
 def test_v4_predecessor_archive_recomputes_exact_failure_when_available() -> None:

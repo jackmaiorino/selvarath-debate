@@ -1,0 +1,22 @@
+{
+ "schema_version": "phase3_main_review_capacity_v5_successor_ratification_v1",
+ "ratification_id": "phase3-main-review-capacity-v5-successor-ratification-2026-09-01",
+ "recorded_at_utc": "2026-09-02T11:49:43.7429669+00:00",
+ "approved_by": "Jack Maiorino",
+ "channel": "active Codex project task",
+ "proposal": {
+  "path": "rejudge/phase3_main_review_capacity_v5_successor_proposal_2026-09-01.json",
+  "raw_sha256": "8a605cc08dc15a95e7e1870598109d23df428b6ba183824ed673ebdcd6f84052",
+  "canonical_sha256": "cddd365df36e5e45425611eb326c513e2f331ac840a4a75ff6cf530b6c1e4618"
+ },
+ "ratification_text": "I ratify the exact Phase 3 capacity v5 successor proposal dated 2026-09-01, including the terminal v4 completed failure, cumulative 240 counted reviewer reservations, 60 durable v4 invocation bundles with zero valid rulings and 60 identical reserved-provider configuration failures, the commit-bound custom model_provider=openai-http profile with name=OpenAI, wire_api=responses, requires_openai_auth=true, supports_websockets=false, no base_url, and http_headers.version=0.149.0, exclusion of all five empty-query sources, the candidate-B then query then candidate-A field-order transformation, exclusion of every sealed source, v1, v2, v3, and v4 prompt, two fresh 180-packet cohorts, and 211 unused variants. This ratification authorizes offline v5 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority.",
+ "authority": {
+  "offline_plan_materialization_authorized": true,
+  "offline_workload_materialization_authorized": true,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "together_calls_authorized": false,
+  "main_run_authorized": false,
+  "spend_authorized": false
+ }
+}

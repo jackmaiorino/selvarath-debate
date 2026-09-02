@@ -39,6 +39,7 @@ SCHEMA_VERSION_V1 = "phase3_main_review_capacity_preflight_plan_v1"
 SCHEMA_VERSION_V2 = "phase3_main_review_capacity_preflight_plan_v2"
 SCHEMA_VERSION_V3 = "phase3_main_review_capacity_preflight_plan_v3"
 SCHEMA_VERSION_V4 = "phase3_main_review_capacity_preflight_plan_v4"
+SCHEMA_VERSION_V5 = "phase3_main_review_capacity_preflight_plan_v5"
 SCHEMA_VERSION = SCHEMA_VERSION_V1
 MATERIALIZATION_SCHEMA_VERSION = "phase3_main_review_capacity_workload_v1"
 RESULT_SCHEMA_VERSION = "phase3_main_review_capacity_result_v1"
@@ -65,6 +66,9 @@ EXPECTED_PLAN_CANONICAL_SHA256_V3 = (
 )
 EXPECTED_PLAN_CANONICAL_SHA256_V4 = (
     "ef9121b49b1c62ff61ceceb2de376faaac406f48eef86c20bde705f3e58a8f2e"
+)
+EXPECTED_PLAN_CANONICAL_SHA256_V5 = (
+    "6b3300dc8006b6ea312cc62ca89b28f0049577248e1ddf862b1c55d9effee85a"
 )
 PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
 _PAYLOAD_RE = re.compile(
@@ -849,6 +853,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         SCHEMA_VERSION_V2: EXPECTED_PLAN_CANONICAL_SHA256_V2,
         SCHEMA_VERSION_V3: EXPECTED_PLAN_CANONICAL_SHA256_V3,
         SCHEMA_VERSION_V4: EXPECTED_PLAN_CANONICAL_SHA256_V4,
+        SCHEMA_VERSION_V5: EXPECTED_PLAN_CANONICAL_SHA256_V5,
     }
     if schema_version not in expected_hashes:
         raise CapacityPreflightError("unexpected capacity preflight schema")
@@ -860,7 +865,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         raise CapacityPreflightError("capacity preflight plan must not authorize provider calls")
     if plan.get("main_spend_authorized") is not False:
         raise CapacityPreflightError("capacity preflight plan must not authorize main spend")
-    if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
+    if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
         if plan.get("external_reviewer_dispatch_authorized") is not False:
             raise CapacityPreflightError(
                 "successor plan must not authorize reviewer dispatch"
@@ -1777,6 +1782,7 @@ def validate_plan(
         SCHEMA_VERSION_V2,
         SCHEMA_VERSION_V3,
         SCHEMA_VERSION_V4,
+        SCHEMA_VERSION_V5,
     }:
         locations = plan.get("source_locations")
         if not isinstance(locations, Mapping):
@@ -1816,6 +1822,7 @@ def validate_plan(
             SCHEMA_VERSION_V2: "phase3_main_review_capacity_successor_ratification_v1",
             SCHEMA_VERSION_V3: "phase3_main_review_capacity_v3_successor_ratification_v1",
             SCHEMA_VERSION_V4: "phase3_main_review_capacity_v4_successor_ratification_v1",
+            SCHEMA_VERSION_V5: "phase3_main_review_capacity_v5_successor_ratification_v1",
         }[cast(str, schema_version)]
         expected_authority = {
             "offline_plan_materialization_authorized": True,
@@ -1825,7 +1832,7 @@ def validate_plan(
             "main_run_authorized": False,
             "spend_authorized": False,
         }
-        if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4}:
+        if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
             expected_authority["together_calls_authorized"] = False
         if (
             ratification.get("schema_version")
@@ -1874,6 +1881,15 @@ def validate_plan(
     }
     if schema_version == SCHEMA_VERSION_V4:
         expected_reviewer["openai_provider_supports_websockets"] = False
+    if schema_version == SCHEMA_VERSION_V5:
+        expected_reviewer["model_provider_profile"] = {
+            "id": "openai-http",
+            "name": "OpenAI",
+            "wire_api": "responses",
+            "requires_openai_auth": True,
+            "supports_websockets": False,
+            "http_headers": {"version": "0.149.0"},
+        }
     if reviewer != expected_reviewer:
         raise CapacityPreflightError("reviewer configuration differs from the main configuration")
     configured_cli_path = _required_absolute_path(
