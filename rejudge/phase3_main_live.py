@@ -3613,6 +3613,33 @@ def _review_wave_same_process(
             "--openai-provider-supports-websockets",
             str(transport_value).lower(),
         ])
+    try:
+        model_provider_profile = (
+            codex_reviewer_batch.normalize_model_provider_profile(
+                reviewer_configuration.get("model_provider_profile")
+            )
+        )
+    except ValueError as exc:
+        raise Phase3MainLiveError(
+            f"capacity plan reviewer model provider configuration is invalid: {exc}"
+        ) from exc
+    if (
+        "openai_provider_supports_websockets" in reviewer_configuration
+        and model_provider_profile is not None
+    ):
+        raise Phase3MainLiveError(
+            "capacity plan reviewer transport configurations are mutually exclusive"
+        )
+    if model_provider_profile is not None:
+        command.extend([
+            "--model-provider-profile-json",
+            json.dumps(
+                model_provider_profile,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        ])
     phase3_main_manifest.validate_main_manifest(
         prepared.manifest,
         project_root=prepared.project_root,
@@ -3704,6 +3731,10 @@ def _review_wave_same_process(
                 ] = reviewer_configuration[
                     "openai_provider_supports_websockets"
                 ]
+            if "model_provider_profile" in reviewer_configuration:
+                evidence_validation_kwargs[
+                    "expected_model_provider_profile"
+                ] = reviewer_configuration["model_provider_profile"]
             receipt = codex_reviewer_batch.validate_invocation_evidence(
                 packet_dir / str(packet_meta["file"]),
                 evidence,

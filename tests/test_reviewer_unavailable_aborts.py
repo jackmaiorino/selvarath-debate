@@ -28,6 +28,16 @@ from scripts import codex_reviewer_batch
 from scripts.codex_reviewer_batch import ReviewerUnavailable, classify_result
 
 
+MODEL_PROVIDER_PROFILE = {
+    "id": "openai-http",
+    "name": "OpenAI",
+    "wire_api": "responses",
+    "requires_openai_auth": True,
+    "supports_websockets": False,
+    "http_headers": {"version": "0.149.0"},
+}
+
+
 def _meta(sha="a" * 64):
     return {"payload_sha256": sha}
 
@@ -55,6 +65,7 @@ def _run_with_evidence(
     ruling=None,
     stderr=b"",
     openai_provider_supports_websockets=None,
+    model_provider_profile=None,
 ):
     packet_root = tmp_path / "packets"
     packet_root.mkdir()
@@ -77,6 +88,14 @@ def _run_with_evidence(
             assert transport_argument in command
         else:
             assert transport_argument not in command
+        provider_arguments = codex_reviewer_batch._model_provider_argv(  # noqa: SLF001
+            MODEL_PROVIDER_PROFILE
+        )
+        if model_provider_profile is not None:
+            for argument in provider_arguments:
+                assert argument in command
+        else:
+            assert 'model_provider="openai-http"' not in command
         assert kwargs["input"] == packet.read_bytes()
         out_file = Path(command[command.index("-o") + 1])
         out_file.write_text(ruling_text, encoding="utf-8", newline="")
@@ -95,6 +114,7 @@ def _run_with_evidence(
         openai_provider_supports_websockets=(
             openai_provider_supports_websockets
         ),
+        model_provider_profile=model_provider_profile,
     )
     return packet, cli, event_raw, result
 
@@ -959,6 +979,65 @@ def test_run_one_pins_https_transport_and_binds_it_in_evidence(
             packet,
             result["evidence"],
             expected_openai_provider_supports_websockets=True,
+        )
+
+
+def test_run_one_uses_custom_openai_http_provider_and_binds_v5_evidence(
+    tmp_path, monkeypatch,
+):
+    packet, _cli, _event_raw, result = _run_with_evidence(
+        tmp_path,
+        monkeypatch,
+        events=_clean_events(),
+        model_provider_profile=MODEL_PROVIDER_PROFILE,
+    )
+
+    receipt = codex_reviewer_batch.validate_invocation_evidence(
+        packet,
+        result["evidence"],
+        expected_model_provider_profile=MODEL_PROVIDER_PROFILE,
+    )
+    assert receipt["schema_version"] == "codex_reviewer_invocation_evidence_v5"
+    invocation = receipt["invocation"]
+    assert invocation["model_provider_profile"] == MODEL_PROVIDER_PROFILE
+    assert "model_providers.openai.supports_websockets=false" not in invocation["argv"]
+    assert invocation["argv"].count("-c") == 7
+    assert 'model_provider="openai-http"' in invocation["argv"]
+    assert (
+        'model_providers.openai-http.http_headers.version="0.149.0"'
+        in invocation["argv"]
+    )
+    changed = {**MODEL_PROVIDER_PROFILE, "id": "openai-http-other"}
+    with pytest.raises(ValueError, match="model provider differs"):
+        codex_reviewer_batch.validate_invocation_evidence(
+            packet,
+            result["evidence"],
+            expected_model_provider_profile=changed,
+        )
+
+
+def test_custom_provider_rejects_reserved_id_and_legacy_transport_combination(
+    tmp_path, monkeypatch,
+):
+    packet = tmp_path / "packet.txt"
+    packet.write_text("review", encoding="utf-8")
+    reserved = {**MODEL_PROVIDER_PROFILE, "id": "openai"}
+    with pytest.raises(ValueError, match="invalid or reserved"):
+        codex_reviewer_batch.run_one(
+            packet,
+            "reviewer-model",
+            "high",
+            "codex",
+            model_provider_profile=reserved,
+        )
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        codex_reviewer_batch.run_one(
+            packet,
+            "reviewer-model",
+            "high",
+            "codex",
+            openai_provider_supports_websockets=False,
+            model_provider_profile=MODEL_PROVIDER_PROFILE,
         )
 
 

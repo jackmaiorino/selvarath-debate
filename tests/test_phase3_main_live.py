@@ -20,6 +20,14 @@ from scripts import phase3_preseed_transcripts
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MODEL_PROVIDER_PROFILE = {
+    "id": "openai-http",
+    "name": "OpenAI",
+    "wire_api": "responses",
+    "requires_openai_auth": True,
+    "supports_websockets": False,
+    "http_headers": {"version": "0.149.0"},
+}
 
 
 def _authenticated_billing_fields() -> dict[str, Any]:
@@ -2689,6 +2697,7 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
             "reviewer_cli_resolved_path": cli_path.as_posix(),
             "reviewer_cli_wrapper_raw_sha256": hashlib.sha256(cli_raw).hexdigest(),
             "reviewer_cli_wrapper_byte_count": len(cli_raw),
+            "model_provider_profile": MODEL_PROVIDER_PROFILE,
         },
     }
     captured = {}
@@ -2882,6 +2891,7 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
                 "reviewer_reasoning_effort"],
             "expected_concurrency": prepared.manifest["runtime"][
                 "reviewer_concurrency"],
+            "expected_model_provider_profile": MODEL_PROVIDER_PROFILE,
         }
         assert packet.name == f"00001_{payload_sha[:12]}.txt"
         if mutate_invocation_evidence:
@@ -2950,6 +2960,9 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
     assert command[command.index("--codex") + 1] == cli_path.as_posix()
     assert command[command.index("--not-after-utc") + 1] == (
         prepared.authorization["valid_until_utc"])
+    assert json.loads(command[
+        command.index("--model-provider-profile-json") + 1
+    ]) == MODEL_PROVIDER_PROFILE
 
 
 def test_two_packet_guard_abort_cannot_commit_main_decisions_or_wave(

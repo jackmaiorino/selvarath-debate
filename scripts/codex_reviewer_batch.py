@@ -40,7 +40,8 @@ from typing import Any, cast
 MODEL_DEFAULT = "gpt-5.6-sol"
 EFFORT_DEFAULT = "high"
 PER_REVIEW_TIMEOUT_SECONDS = 600
-INVOCATION_EVIDENCE_SCHEMA = "codex_reviewer_invocation_evidence_v4"
+INVOCATION_EVIDENCE_SCHEMA = "codex_reviewer_invocation_evidence_v5"
+LEGACY_INVOCATION_EVIDENCE_SCHEMA = "codex_reviewer_invocation_evidence_v4"
 RULING_EVIDENCE_REFERENCE_SCHEMA = "codex_reviewer_evidence_reference_v1"
 DISPATCH_GUARD_SCHEMA = "phase3_main_reviewer_dispatch_guard_v2"
 DISPATCH_GUARD_EVIDENCE_SCHEMA = "codex_reviewer_dispatch_guard_evidence_v2"
@@ -105,10 +106,24 @@ _INVOCATION_FIELDS = frozenset({
     "batch_runner_raw_sha256",
     "batch_runner_byte_count",
 })
-_INVOCATION_FIELDS_WITH_TRANSPORT = _INVOCATION_FIELDS | frozenset({
+_INVOCATION_FIELDS_WITH_LEGACY_TRANSPORT = _INVOCATION_FIELDS | frozenset({
     "openai_provider_supports_websockets",
 })
+_INVOCATION_FIELDS_WITH_MODEL_PROVIDER = _INVOCATION_FIELDS | frozenset({
+    "model_provider_profile",
+})
 _EXPECTED_TRANSPORT_UNSET = object()
+_EXPECTED_MODEL_PROVIDER_UNSET = object()
+_MODEL_PROVIDER_PROFILE_FIELDS = frozenset({
+    "id",
+    "name",
+    "wire_api",
+    "requires_openai_auth",
+    "supports_websockets",
+    "http_headers",
+})
+_RESERVED_MODEL_PROVIDER_IDS = frozenset({"openai", "ollama", "lmstudio"})
+_MODEL_PROVIDER_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 _OUTCOME_FIELDS = frozenset({
     "authorization_deadline_utc",
     "deadline_active_before_dispatch",
@@ -250,6 +265,62 @@ def _canonical_sha256(value: object) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return _raw_sha256(raw)
+
+
+def normalize_model_provider_profile(
+    value: object,
+) -> dict[str, object] | None:
+    """Validate the exact custom OpenAI HTTP profile used by governed reviewers."""
+    if value is None:
+        return None
+    if not isinstance(value, Mapping) or set(value) != _MODEL_PROVIDER_PROFILE_FIELDS:
+        raise ValueError("model provider profile fields drifted")
+    provider_id = value.get("id")
+    if (
+        not isinstance(provider_id, str)
+        or _MODEL_PROVIDER_ID_RE.fullmatch(provider_id) is None
+        or provider_id in _RESERVED_MODEL_PROVIDER_IDS
+    ):
+        raise ValueError("model provider profile ID is invalid or reserved")
+    if value.get("name") != "OpenAI":
+        raise ValueError("model provider profile name must be OpenAI")
+    if value.get("wire_api") != "responses":
+        raise ValueError("model provider profile wire API must be responses")
+    if value.get("requires_openai_auth") is not True:
+        raise ValueError("model provider profile must require OpenAI authentication")
+    if value.get("supports_websockets") is not False:
+        raise ValueError("model provider profile must disable WebSocket transport")
+    headers = value.get("http_headers")
+    if not isinstance(headers, Mapping) or set(headers) != {"version"}:
+        raise ValueError("model provider profile HTTP headers drifted")
+    version = headers.get("version")
+    if not isinstance(version, str) or re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        raise ValueError("model provider profile version header is invalid")
+    return {
+        "id": provider_id,
+        "name": "OpenAI",
+        "wire_api": "responses",
+        "requires_openai_auth": True,
+        "supports_websockets": False,
+        "http_headers": {"version": version},
+    }
+
+
+def _model_provider_argv(profile: Mapping[str, object]) -> list[str]:
+    normalized = normalize_model_provider_profile(profile)
+    if normalized is None:  # pragma: no cover - guarded by the Mapping input
+        raise ValueError("model provider profile is required")
+    provider_id = str(normalized["id"])
+    prefix = f"model_providers.{provider_id}"
+    version = cast(Mapping[str, object], normalized["http_headers"])["version"]
+    return [
+        "-c", f"model_provider={json.dumps(provider_id)}",
+        "-c", f"{prefix}.name={json.dumps(normalized['name'])}",
+        "-c", f"{prefix}.wire_api={json.dumps(normalized['wire_api'])}",
+        "-c", f"{prefix}.requires_openai_auth=true",
+        "-c", f"{prefix}.supports_websockets=false",
+        "-c", f"{prefix}.http_headers.version={json.dumps(version)}",
+    ]
 
 
 def _utc_now() -> datetime:
@@ -470,11 +541,20 @@ def _evaluate_dispatch_guard_snapshot(
     effort: str | None = None,
     concurrency: int | None = None,
     openai_provider_supports_websockets: bool | None = None,
+    model_provider_profile: Mapping[str, object] | None = None,
     packet_directory: Path | None = None,
     output_path: Path | None = None,
     selected_packet: Path | None = None,
     checked_at: datetime | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None, bytes | None]:
+    normalized_model_provider = normalize_model_provider_profile(model_provider_profile)
+    if (
+        openai_provider_supports_websockets is not None
+        and normalized_model_provider is not None
+    ):
+        raise ValueError(
+            "legacy OpenAI transport override and model provider profile are mutually exclusive"
+        )
     expected_sha = _strict_sha256(
         expected_snapshot_raw_sha256,
         field="expected_dispatch_guard_snapshot_raw_sha256",
@@ -603,6 +683,10 @@ def _evaluate_dispatch_guard_snapshot(
             raise ValueError(
                 "reviewer dispatch guard capacity configuration transport drifted"
             )
+        if reviewer_configuration.get("model_provider_profile") != normalized_model_provider:
+            raise ValueError(
+                "reviewer dispatch guard capacity model provider profile drifted"
+            )
         result_configuration = capacity_result.get("reviewer_configuration")
         if result_configuration != reviewer_configuration:
             raise ValueError("reviewer dispatch guard measured capacity configuration drifted")
@@ -718,6 +802,7 @@ def evaluate_dispatch_guard_snapshot(
     effort: str | None = None,
     concurrency: int | None = None,
     openai_provider_supports_websockets: bool | None = None,
+    model_provider_profile: Mapping[str, object] | None = None,
     packet_directory: Path | None = None,
     output_path: Path | None = None,
     checked_at: datetime | None = None,
@@ -733,6 +818,7 @@ def evaluate_dispatch_guard_snapshot(
         openai_provider_supports_websockets=(
             openai_provider_supports_websockets
         ),
+        model_provider_profile=model_provider_profile,
         packet_directory=packet_directory,
         output_path=output_path,
         checked_at=checked_at,
@@ -879,8 +965,13 @@ def _persist_invocation_evidence(
     _durable_write_bytes(ruling_path, ruling_raw)
 
     root = packet.parent.resolve()
+    receipt_schema = (
+        INVOCATION_EVIDENCE_SCHEMA
+        if "model_provider_profile" in invocation
+        else LEGACY_INVOCATION_EVIDENCE_SCHEMA
+    )
     receipt = {
-        "schema_version": INVOCATION_EVIDENCE_SCHEMA,
+        "schema_version": receipt_schema,
         "packet": {
             "file": packet.name,
             "raw_sha256": _raw_sha256(prompt_bytes),
@@ -1172,6 +1263,7 @@ def validate_invocation_evidence(
     expected_openai_provider_supports_websockets: object = (
         _EXPECTED_TRANSPORT_UNSET
     ),
+    expected_model_provider_profile: object = _EXPECTED_MODEL_PROVIDER_UNSET,
 ) -> dict[str, Any]:
     """Reopen and strictly validate one persisted reviewer invocation bundle."""
     if set(reference) != _EVIDENCE_REFERENCE_FIELDS:
@@ -1209,7 +1301,11 @@ def validate_invocation_evidence(
         raise ValueError("reviewer evidence receipt is not strict UTF-8 JSON") from exc
     if not isinstance(receipt, dict) or set(receipt) != _RECEIPT_FIELDS:
         raise ValueError("reviewer evidence receipt fields drifted")
-    if receipt.get("schema_version") != INVOCATION_EVIDENCE_SCHEMA:
+    receipt_schema = receipt.get("schema_version")
+    if receipt_schema not in {
+        LEGACY_INVOCATION_EVIDENCE_SCHEMA,
+        INVOCATION_EVIDENCE_SCHEMA,
+    }:
         raise ValueError("unsupported reviewer invocation evidence schema")
     canonical_receipt_raw = (
         json.dumps(
@@ -1238,10 +1334,15 @@ def validate_invocation_evidence(
         raise ValueError("reviewer evidence packet bytes drifted")
 
     invocation = receipt.get("invocation")
-    if not isinstance(invocation, Mapping) or set(invocation) not in {
-        _INVOCATION_FIELDS,
-        _INVOCATION_FIELDS_WITH_TRANSPORT,
-    }:
+    allowed_invocation_fields = (
+        {_INVOCATION_FIELDS_WITH_MODEL_PROVIDER}
+        if receipt_schema == INVOCATION_EVIDENCE_SCHEMA
+        else {
+            _INVOCATION_FIELDS,
+            _INVOCATION_FIELDS_WITH_LEGACY_TRANSPORT,
+        }
+    )
+    if not isinstance(invocation, Mapping) or set(invocation) not in allowed_invocation_fields:
         raise ValueError("reviewer evidence invocation fields drifted")
     model = invocation.get("model_requested")
     effort = invocation.get("reasoning_effort_requested")
@@ -1269,6 +1370,21 @@ def validate_invocation_evidence(
     ):
         raise ValueError(
             "reviewer evidence transport differs from the expected runtime"
+        )
+    model_provider_profile = normalize_model_provider_profile(
+        invocation.get("model_provider_profile")
+    )
+    if (
+        expected_model_provider_profile is not _EXPECTED_MODEL_PROVIDER_UNSET
+        and model_provider_profile
+        != normalize_model_provider_profile(expected_model_provider_profile)
+    ):
+        raise ValueError(
+            "reviewer evidence model provider differs from the expected runtime"
+        )
+    if transport_value is not None and model_provider_profile is not None:
+        raise ValueError(
+            "reviewer evidence combines legacy and custom provider transports"
         )
     for field in (
         "codex_cli_argument",
@@ -1342,6 +1458,8 @@ def validate_invocation_evidence(
             "model_providers.openai.supports_websockets="
             + str(transport_value).lower(),
         ])
+    if model_provider_profile is not None:
+        expected_argv.extend(_model_provider_argv(model_provider_profile))
     expected_argv.extend([
         "-C",
         invocation["working_directory"],
@@ -1625,6 +1743,7 @@ def run_one(
     expected_cli_raw_sha256: str | None = None,
     expected_batch_runner_raw_sha256: str | None = None,
     openai_provider_supports_websockets: bool | None = None,
+    model_provider_profile: Mapping[str, object] | None = None,
 ) -> dict:
     """Review one packet and durably retain its exact local invocation evidence."""
     batch_concurrency = _strict_positive_int(
@@ -1635,6 +1754,14 @@ def run_one(
     ):
         raise ValueError(
             "openai_provider_supports_websockets must be boolean or null"
+        )
+    normalized_model_provider = normalize_model_provider_profile(model_provider_profile)
+    if (
+        openai_provider_supports_websockets is not None
+        and normalized_model_provider is not None
+    ):
+        raise ValueError(
+            "legacy OpenAI transport override and model provider profile are mutually exclusive"
         )
     frozen_binding_values = (
         expected_prompt_raw_sha256,
@@ -1676,6 +1803,8 @@ def run_one(
             "model_providers.openai.supports_websockets="
             + str(openai_provider_supports_websockets).lower(),
         ])
+    if normalized_model_provider is not None:
+        argv.extend(_model_provider_argv(normalized_model_provider))
     argv.extend([
         "-C",
         str(workdir),
@@ -1720,6 +1849,7 @@ def run_one(
             openai_provider_supports_websockets=(
                 openai_provider_supports_websockets
             ),
+            model_provider_profile=normalized_model_provider,
             packet_directory=packet.parent,
             output_path=batch_output_path,
             selected_packet=packet,
@@ -1915,9 +2045,6 @@ def run_one(
             "model_requested": model,
             "reasoning_effort_requested": effort,
             "batch_concurrency": batch_concurrency,
-            "openai_provider_supports_websockets": (
-                openai_provider_supports_websockets
-            ),
             "codex_cli_argument": codex,
             "codex_cli_resolved_path": cli_path,
             "codex_cli_wrapper_raw_sha256": cli_sha,
@@ -1942,6 +2069,12 @@ def run_one(
             "batch_runner_raw_sha256": runner_sha,
             "batch_runner_byte_count": runner_bytes,
         }
+        if normalized_model_provider is not None:
+            invocation["model_provider_profile"] = normalized_model_provider
+        else:
+            invocation["openai_provider_supports_websockets"] = (
+                openai_provider_supports_websockets
+            )
         outcome = {
             "authorization_deadline_utc": (
                 not_after_utc.astimezone(timezone.utc).isoformat()
@@ -2045,6 +2178,11 @@ def main(argv=None) -> int:
         help="pin the OpenAI provider WebSocket capability in the Codex CLI",
     )
     ap.add_argument(
+        "--model-provider-profile-json",
+        default=None,
+        help="exact JSON object for the governed custom OpenAI HTTP provider",
+    )
+    ap.add_argument(
         "--not-after-utc",
         help="signed authorization deadline checked immediately before every reviewer call",
     )
@@ -2062,6 +2200,27 @@ def main(argv=None) -> int:
         if args.openai_provider_supports_websockets is None
         else args.openai_provider_supports_websockets == "true"
     )
+    try:
+        model_provider_profile = (
+            None
+            if args.model_provider_profile_json is None
+            else normalize_model_provider_profile(
+                _strict_json_object(
+                    args.model_provider_profile_json.encode("utf-8"),
+                    subject="--model-provider-profile-json",
+                )
+            )
+        )
+    except (UnicodeError, ValueError) as exc:
+        ap.error(str(exc))
+    if (
+        openai_provider_supports_websockets is not None
+        and model_provider_profile is not None
+    ):
+        ap.error(
+            "--openai-provider-supports-websockets and "
+            "--model-provider-profile-json are mutually exclusive"
+        )
     if args.concurrency < 1:
         ap.error("--concurrency must be positive")
     try:
@@ -2109,6 +2268,7 @@ def main(argv=None) -> int:
             openai_provider_supports_websockets=(
                 openai_provider_supports_websockets
             ),
+            model_provider_profile=model_provider_profile,
             packet_directory=packets_dir,
             output_path=out_path,
         )
@@ -2180,15 +2340,13 @@ def main(argv=None) -> int:
           flush=True)
 
     written = clean = refused = failed = 0
-    transport_kwargs = (
-        {}
-        if openai_provider_supports_websockets is None
-        else {
-            "openai_provider_supports_websockets": (
-                openai_provider_supports_websockets
-            )
-        }
-    )
+    transport_kwargs: dict[str, object] = {}
+    if openai_provider_supports_websockets is not None:
+        transport_kwargs["openai_provider_supports_websockets"] = (
+            openai_provider_supports_websockets
+        )
+    if model_provider_profile is not None:
+        transport_kwargs["model_provider_profile"] = model_provider_profile
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         if not_after_utc is None and dispatch_guard_path is None:
             futures = {

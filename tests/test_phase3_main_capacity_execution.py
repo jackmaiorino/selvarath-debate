@@ -29,6 +29,14 @@ NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
 HEAD = "a" * 40
 HOST = "capacity-test-host"
 CLI_VERSION = "codex-cli capacity-test"
+MODEL_PROVIDER_PROFILE = {
+    "id": "openai-http",
+    "name": "OpenAI",
+    "wire_api": "responses",
+    "requires_openai_auth": True,
+    "supports_websockets": False,
+    "http_headers": {"version": "0.149.0"},
+}
 
 
 class IncrementingClock:
@@ -136,6 +144,7 @@ def _fixture(
     tmp_path: Path,
     *,
     openai_provider_supports_websockets: bool | None = None,
+    model_provider_profile: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     capacity_root = (tmp_path / "capacity-only").resolve()
     history_path = capacity_root / "dispatch_history.jsonl"
@@ -189,6 +198,10 @@ def _fixture(
         plan["reviewer_configuration"][
             "openai_provider_supports_websockets"
         ] = openai_provider_supports_websockets
+    if model_provider_profile is not None:
+        plan["reviewer_configuration"][
+            "model_provider_profile"
+        ] = model_provider_profile
     plan_path = (tmp_path / "capacity_plan.json").resolve()
     plan_raw = _write_json(plan_path, plan)
     workload = _workload()
@@ -218,7 +231,15 @@ def _fixture(
         run_id="capacity-run-0001",
         attempt_id="capacity-attempt-0001",
         repository_head=HEAD,
-        reviewer_cli_version=CLI_VERSION,
+        reviewer_cli_version=(
+            CLI_VERSION
+            if model_provider_profile is None
+            else "codex-cli " + str(
+                cast(dict[str, object], model_provider_profile["http_headers"])[
+                    "version"
+                ]
+            )
+        ),
         host_identity=HOST,
         runner_script_path=runner_script,
     )
@@ -310,6 +331,7 @@ class FakeReviewer:
         expected_cli_raw_sha256: str,
         expected_batch_runner_raw_sha256: str,
         openai_provider_supports_websockets: bool | None = None,
+        model_provider_profile: dict[str, object] | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             call_number = len(self.calls)
@@ -347,6 +369,12 @@ class FakeReviewer:
                 "model_providers.openai.supports_websockets="
                 + str(openai_provider_supports_websockets).lower(),
             ])
+        if model_provider_profile is not None:
+            argv.extend(
+                codex_reviewer_batch._model_provider_argv(  # noqa: SLF001
+                    model_provider_profile
+                )
+            )
         argv.extend([
                 "-C",
                 str(working),
@@ -390,6 +418,8 @@ class FakeReviewer:
             invocation["openai_provider_supports_websockets"] = (
                 openai_provider_supports_websockets
             )
+        if model_provider_profile is not None:
+            invocation["model_provider_profile"] = model_provider_profile
         outcome = {
             "authorization_deadline_utc": not_after_utc.isoformat(),
             "deadline_active_before_dispatch": True,
@@ -588,6 +618,44 @@ def test_fake_only_capacity_execution_reopens_exactly_180_receipts(
         "reopened_invocation_receipts"
     ] == 180
     assert anchor_validation_modes == [False, True, True, True]
+
+
+def test_custom_model_provider_profile_reaches_every_capacity_receipt(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(
+        tmp_path,
+        model_provider_profile=MODEL_PROVIDER_PROFILE,
+    )
+    reviewer = FakeReviewer()
+
+    outcome = _execute(
+        fixture,
+        reviewer,
+        cli_version_reader=lambda _cli: "codex-cli 0.149.0",
+    )
+
+    assert outcome["execution"] == "pass"
+    assert len(reviewer.calls) == 180
+    assert fixture["manifest"]["reviewer"][
+        "model_provider_profile"
+    ] == MODEL_PROVIDER_PROFILE
+    result = json.loads(fixture["result_path"].read_text(encoding="utf-8"))
+    assert result["reviewer_configuration"][
+        "model_provider_profile"
+    ] == MODEL_PROVIDER_PROFILE
+    receipt_path = next(
+        Path(fixture["manifest"]["workload"]["root"]).glob(
+            "wave_01/reviewer_evidence/*.evidence/invocation_receipt.json"
+        )
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["schema_version"] == "codex_reviewer_invocation_evidence_v5"
+    assert receipt["invocation"]["model_provider_profile"] == MODEL_PROVIDER_PROFILE
+    assert 'model_provider="openai-http"' in receipt["invocation"]["argv"]
+    assert "model_providers.openai.supports_websockets=false" not in receipt[
+        "invocation"
+    ]["argv"]
 
 
 @pytest.mark.parametrize("failure", ["missing", "false", "expired", "mismatch"])

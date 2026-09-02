@@ -662,6 +662,29 @@ def build_execution_manifest(
         )
     ):
         raise CapacityExecutionError("capacity reviewer transport configuration drifted")
+    try:
+        model_provider_profile = codex_reviewer_batch.normalize_model_provider_profile(
+            reviewer.get("model_provider_profile")
+        )
+    except ValueError as exc:
+        raise CapacityExecutionError(
+            f"capacity reviewer model provider configuration drifted: {exc}"
+        ) from exc
+    if (
+        "openai_provider_supports_websockets" in reviewer
+        and model_provider_profile is not None
+    ):
+        raise CapacityExecutionError(
+            "capacity reviewer transport configurations are mutually exclusive"
+        )
+    if model_provider_profile is not None:
+        version_header = cast(
+            Mapping[str, object], model_provider_profile["http_headers"]
+        )["version"]
+        if reviewer_cli_version != f"codex-cli {version_header}":
+            raise CapacityExecutionError(
+                "capacity reviewer model provider version header differs from the CLI"
+            )
     cli_path = Path(_text(
         reviewer.get("reviewer_cli_resolved_path"), field="reviewer_cli_resolved_path"
     )).resolve()
@@ -808,6 +831,8 @@ def build_execution_manifest(
         manifest_reviewer["openai_provider_supports_websockets"] = reviewer[
             "openai_provider_supports_websockets"
         ]
+    if model_provider_profile is not None:
+        manifest_reviewer["model_provider_profile"] = model_provider_profile
     return {
         "schema_version": MANIFEST_SCHEMA,
         "scope": SCOPE,
@@ -1321,6 +1346,10 @@ def _validate_one_result(
             validation_kwargs[
                 "expected_openai_provider_supports_websockets"
             ] = reviewer["openai_provider_supports_websockets"]
+        if "model_provider_profile" in reviewer:
+            validation_kwargs["expected_model_provider_profile"] = reviewer[
+                "model_provider_profile"
+            ]
         receipt = codex_reviewer_batch.validate_invocation_evidence(
             packet,
             reference,
@@ -2214,6 +2243,10 @@ def _execute_capacity_preflight(
                     reviewer_kwargs[
                         "openai_provider_supports_websockets"
                     ] = reviewer["openai_provider_supports_websockets"]
+                if "model_provider_profile" in reviewer:
+                    reviewer_kwargs["model_provider_profile"] = reviewer[
+                        "model_provider_profile"
+                    ]
                 return reviewer_runner(
                     **reviewer_kwargs,
                 )
