@@ -240,7 +240,7 @@ def test_terminal_attempt_cannot_change_reserved_token_split(protocol, planned_c
 
 def test_incomplete_slot_set_and_unmatched_reservations_block(protocol, planned_cells):
     events = _complete_usage(protocol, planned_cells)
-    with pytest.raises(forecast.ForecastInputError, match="differs from plan"):
+    with pytest.raises(forecast.ForecastInputError, match="resolved judgment set"):
         forecast.build_slot_role_frame(
             protocol=protocol,
             planned_cells=planned_cells,
@@ -254,6 +254,68 @@ def test_incomplete_slot_set_and_unmatched_reservations_block(protocol, planned_
     unmatched.pop()
     with pytest.raises(forecast.ForecastInputError, match="unmatched reservation"):
         _build(protocol, planned_cells, unmatched)
+
+
+def test_terminal_disposition_resolves_slot_without_charged_verdict(
+    protocol, planned_cells,
+):
+    terminal_key = planned_cells[0]["cell_key"]
+    events = [
+        event for event in _complete_usage(protocol, planned_cells)
+        if event.get("attempt_id") != "verdict-0"
+    ]
+    completed = [
+        cell["cell_key"] for cell in planned_cells
+        if cell["cell_key"] != terminal_key
+    ]
+    artifact = forecast.build_slot_role_frame(
+        protocol=protocol,
+        planned_cells=planned_cells,
+        completed_cell_keys=completed,
+        completed_results_sha256="e" * 64,
+        usage_events=events,
+        usage_ledger_sha256="f" * 64,
+        terminal_cell_keys=[terminal_key],
+        terminal_dispositions_sha256="d" * 64,
+    )
+    assert artifact["completed_judgment_slot_count"] == 7
+    assert artifact["terminal_judgment_slot_count"] == 1
+    assert artifact["resolved_judgment_slot_count"] == 8
+    assert artifact["terminal_dispositions_sha256"] == "d" * 64
+    terminal_verdict = next(
+        record for record in artifact["role_records"]
+        if record["cell_key"] == terminal_key and record["role"] == "judge_verdict"
+    )
+    assert terminal_verdict["zero_filled"] is True
+    assert terminal_verdict["actual_token_attempt_count"] == 0
+
+
+def test_terminal_disposition_binding_rejects_overlap_and_missing_hash(
+    protocol, planned_cells,
+):
+    keys = [cell["cell_key"] for cell in planned_cells]
+    events = _complete_usage(protocol, planned_cells)
+    with pytest.raises(forecast.ForecastInputError, match="sets overlap"):
+        forecast.build_slot_role_frame(
+            protocol=protocol,
+            planned_cells=planned_cells,
+            completed_cell_keys=keys,
+            completed_results_sha256="e" * 64,
+            usage_events=events,
+            usage_ledger_sha256="f" * 64,
+            terminal_cell_keys=[keys[0]],
+            terminal_dispositions_sha256="d" * 64,
+        )
+    with pytest.raises(forecast.ForecastInputError, match="terminal_dispositions_sha256"):
+        forecast.build_slot_role_frame(
+            protocol=protocol,
+            planned_cells=planned_cells,
+            completed_cell_keys=keys[1:],
+            completed_results_sha256="e" * 64,
+            usage_events=events,
+            usage_ledger_sha256="f" * 64,
+            terminal_cell_keys=[keys[0]],
+        )
 
 
 def test_dynamic_residual_subtracts_static_context_once_per_billed_attempt(

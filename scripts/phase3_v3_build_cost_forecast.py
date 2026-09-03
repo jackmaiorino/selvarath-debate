@@ -12,7 +12,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from rejudge import phase3_plan, phase3_v3_forecast, phase3_v3_inputs  # noqa: E402
+from rejudge import (  # noqa: E402
+    phase3_plan,
+    phase3_v3_forecast,
+    phase3_v3_inputs,
+    phase3_v3_live,
+)
+from rejudge.phase2_canary_order import CellResultStore  # noqa: E402
 from rejudge.phase2_execution import canonical_sha256  # noqa: E402
 
 
@@ -87,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--price-as-of-utc", required=True)
     parser.add_argument("--canary-results", type=Path, required=True)
     parser.add_argument("--canary-usage-ledger", type=Path, required=True)
+    parser.add_argument("--canary-run-manifest", type=Path)
+    parser.add_argument("--terminal-records-directory", type=Path)
     parser.add_argument("--cumulative-spend", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -95,6 +103,9 @@ def main(argv: list[str] | None = None) -> int:
     if output.exists():
         raise ForecastMaterializationError(
             f"refusing to overwrite existing forecast output directory: {output}")
+    if (args.canary_run_manifest is None) != (args.terminal_records_directory is None):
+        raise ForecastMaterializationError(
+            "canary-run-manifest and terminal-records-directory must be supplied together")
     protocol = phase3_plan.load_protocol(args.protocol.resolve())
     tokenizer_manifest = _load_json_object(
         args.tokenizer_manifest.resolve(), "tokenizer manifest")
@@ -109,12 +120,22 @@ def main(argv: list[str] | None = None) -> int:
         for cell in canary_cells
         if cell["kind"] == phase3_plan.CANARY_JUDGMENT_KIND
     }
-    result_rows = _load_jsonl(args.canary_results.resolve())
-    completed_keys = [
-        str(row["cell_key"])
-        for row in result_rows
-        if row.get("cell_key") in canary_judgment_keys
-    ]
+    canary_results_path = args.canary_results.resolve()
+    result_store = CellResultStore(canary_results_path)
+    completed_keys = sorted(set(result_store._results) & canary_judgment_keys)
+    terminal_records: list[dict] = []
+    if args.canary_run_manifest is not None:
+        run_manifest = _load_json_object(
+            args.canary_run_manifest.resolve(), "canary run manifest")
+        if run_manifest.get("final_roster") != judges:
+            raise ForecastMaterializationError(
+                "canary run manifest final_roster differs from the resolved protocol")
+        terminal_records = phase3_v3_live.load_terminal_halt_records(
+            {"root": REPO_ROOT, "protocol": protocol, "manifest": run_manifest},
+            result_store,
+            records_directory=args.terminal_records_directory.resolve(),
+        )
+    terminal_keys = sorted(str(record["cell_key"]) for record in terminal_records)
     usage_events = _load_jsonl(args.canary_usage_ledger.resolve())
     exact_context = phase3_v3_inputs.load_exact_context_index(
         tokenizer_manifest,
@@ -125,10 +146,13 @@ def main(argv: list[str] | None = None) -> int:
         protocol=protocol,
         planned_cells=canary_cells,
         completed_cell_keys=completed_keys,
-        completed_results_sha256=phase3_v3_inputs.sha256_file(args.canary_results.resolve()),
+        completed_results_sha256=phase3_v3_inputs.sha256_file(canary_results_path),
         usage_events=usage_events,
         usage_ledger_sha256=phase3_v3_inputs.sha256_file(
             args.canary_usage_ledger.resolve()),
+        terminal_cell_keys=terminal_keys,
+        terminal_dispositions_sha256=(
+            canonical_sha256(terminal_records) if terminal_records else None),
     )
     residual_frame = phase3_v3_forecast.build_dynamic_residual_frame(
         protocol=protocol,

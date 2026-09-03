@@ -1,0 +1,115 @@
+{
+ "execution_authorized": false,
+ "schema_version": "phase3_main_cumulative_spend_segments_v1",
+ "selection": "owner-ratified 17 measurement ledgers plus separate journal-validation ledger; auxiliary screens excluded",
+ "segments": [
+  {
+   "actual_spend_usd": 15.30535811000000007213,
+   "ledger_sha256": "bc8a8f895c4acdc4c08812543da5cbe3d58a925f79059bd2d830f60aa3ac021a",
+   "name": "phase3-v1",
+   "uncertain_spend_usd": 4.4770910200000000078
+  },
+  {
+   "actual_spend_usd": 13.69589112000000009621,
+   "ledger_sha256": "6f7aebcb784f2da757623df71a78505e861624ab5e986ad08e0f1e2cca2e0520",
+   "name": "phase3-v2",
+   "uncertain_spend_usd": 1.0910951900000000183
+  },
+  {
+   "actual_spend_usd": 0.3216446099999999924,
+   "ledger_sha256": "0df1078ac14b65df0a5fbdd4344f7b758f2e59829375c654aa2cf77fc954d976",
+   "name": "phase3-v3-journal-validation",
+   "uncertain_spend_usd": 0
+  },
+  {
+   "actual_spend_usd": 0.16820808999999999491,
+   "ledger_sha256": "b583c2aed470543310c28061f725ba2b003ff60d405c5ac7f8db41ac4d1042ab",
+   "name": "phase3-v3-r01",
+   "uncertain_spend_usd": 0.048904800000000005
+  },
+  {
+   "actual_spend_usd": 0,
+   "ledger_sha256": "adfd086dcd9246673963191c1ebc41ada23a2c430fe0dea6c35484b3e08dd37d",
+   "name": "phase3-v3-r02",
+   "uncertain_spend_usd": 0.09274
+  },
+  {
+   "actual_spend_usd": 4.57550159999999990914,
+   "ledger_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60",
+   "name": "phase3-v3-r03",
+   "uncertain_spend_usd": 0.091856220000000001
+  },
+  {
+   "actual_spend_usd": 3.1564756299999999442,
+   "ledger_sha256": "cbad43ba62d4f29613596357d4f15b25925240dcd84b898b84473cc82a703dd9",
+   "name": "phase3-v3-r04",
+   "uncertain_spend_usd": 0.0338147700000000037
+  },
+  {
+   "actual_spend_usd": 6.3602235399999998964,
+   "ledger_sha256": "64a6604c9f44c7077a9edf955e4690b59b62952c9a459197a8dba8507804eda7",
+   "name": "phase3-v3-r05",
+   "uncertain_spend_usd": 0.198389170000000005
+  },
+  {
+   "actual_spend_usd": 6.007793009999999896,
+   "ledger_sha256": "c5d5229de09016c51c817a3f97c170339963381bdeca55025a16d322425b3632",
+   "name": "phase3-v3-r06",
+   "uncertain_spend_usd": 0.929299790000000011
+  },
+  {
+   "actual_spend_usd": 1.3422268199999999844,
+   "ledger_sha256": "261feae2a1c1435b511dae363fe77e47202a20987997e4ad541f156d2b023aff",
+   "name": "phase3-v3-r07",
+   "uncertain_spend_usd": 2.401119649999999999
+  },
+  {
+   "actual_spend_usd": 2.7803216799999999532,
+   "ledger_sha256": "531f440cc27af6353283d10660aa5035714ab3e670484a7ee77dab3b302182b1",
+   "name": "phase3-v3-r08",
+   "uncertain_spend_usd": 2.339683669999999994
+  },
+  {
+   "actual_spend_usd": 0.00130943,
+   "ledger_sha256": "3f3b545dac035473a6e4c5d5323763911803acf70db91ffe9526a0fd47047ec4",
+   "name": "phase3-v3-r09",
+   "uncertain_spend_usd": 0
+  },
+  {
+   "actual_spend_usd": 4.1022215999999999,
+   "ledger_sha256": "71277f4d19584b4cbbda4b9b5f21161dc5dd92a486f8bea862fd486c54c02206",
+   "name": "phase3-v3-r10",
+   "uncertain_spend_usd": 0.020467199999999998
+  },
+  {
+   "actual_spend_usd": 5.6543376599999998398,
+   "ledger_sha256": "f87ebcbf1cf3d953766f78441fb6e6c39ce060f1c7302fca1cdc17e2e6b21f9d",
+   "name": "phase3-v3-r11",
+   "uncertain_spend_usd": 2.226365
+  },
+  {
+   "actual_spend_usd": 3.3174514699999999038,
+   "ledger_sha256": "fe9eefb2d30c5949151f7476aeac3e3345ec826b4bfb73b3394d2c6506cff0d3",
+   "name": "phase3-v3-r12",
+   "uncertain_spend_usd": 4.602845
+  },
+  {
+   "actual_spend_usd": 3.8316945899999999036,
+   "ledger_sha256": "5459c76473d0a541110817cc967a86016b3c9cfc2c464c21f19b7773e98cf346",
+   "name": "phase3-v3-r13",
+   "uncertain_spend_usd": 0.37340458
+  },
+  {
+   "actual_spend_usd": 8.7535125599999996321,
+   "ledger_sha256": "d66827a97e54111ffeeb2c43cd6c97839be6fafc135b35519d24b9cddd4aa0c4",
+   "name": "phase3-v3-r14",
+   "uncertain_spend_usd": 1.415975
+  },
+  {
+   "actual_spend_usd": 16.3088976599999991003,
+   "ledger_sha256": "cd057c85488ce1b5c663465a10ca73a927476695dd60a7c1b04782f2659874d5",
+   "name": "phase3-v3-r15",
+   "uncertain_spend_usd": 3.246264659999999995
+  }
+ ]
+}

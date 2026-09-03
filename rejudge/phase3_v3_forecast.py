@@ -271,8 +271,10 @@ def build_slot_role_frame(
     completed_results_sha256: str,
     usage_events: Sequence[Mapping[str, Any]],
     usage_ledger_sha256: str,
+    terminal_cell_keys: Iterable[str] = (),
+    terminal_dispositions_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """Aggregate every attempt into exactly one record per planned judgment slot and role."""
+    """Aggregate every attempt into exactly one record per resolved slot and role."""
     phase3_plan.validate_protocol(protocol)
     if protocol.get("schema_version") != "phase3_plan_v3":
         raise ForecastInputError("slot-role frames require a resolved v3 protocol")
@@ -303,13 +305,33 @@ def build_slot_role_frame(
         raise ForecastInputError("completed_cell_keys must contain non-empty strings")
     if len(completed) != len(set(completed)):
         raise ForecastInputError("completed_cell_keys contains duplicates")
-    expected_keys = set(cell_by_key)
+    terminal_cells = list(terminal_cell_keys)
+    if not all(isinstance(cell_key, str) and cell_key for cell_key in terminal_cells):
+        raise ForecastInputError("terminal_cell_keys must contain non-empty strings")
+    if len(terminal_cells) != len(set(terminal_cells)):
+        raise ForecastInputError("terminal_cell_keys contains duplicates")
+    terminal_keys = set(terminal_cells)
     completed_keys = set(completed)
-    if completed_keys != expected_keys:
-        missing = sorted(expected_keys - completed_keys)
-        extra = sorted(completed_keys - expected_keys)
+    overlap = sorted(completed_keys & terminal_keys)
+    if overlap:
         raise ForecastInputError(
-            f"completed judgment set differs from plan: missing={len(missing)}, extra={len(extra)}")
+            f"completed and terminal judgment sets overlap at {len(overlap)} slot(s)")
+    if terminal_keys:
+        terminal_sha = _sha256(
+            terminal_dispositions_sha256, "terminal_dispositions_sha256")
+    elif terminal_dispositions_sha256 is not None:
+        raise ForecastInputError(
+            "terminal_dispositions_sha256 requires at least one terminal cell")
+    else:
+        terminal_sha = None
+    expected_keys = set(cell_by_key)
+    resolved_keys = completed_keys | terminal_keys
+    if resolved_keys != expected_keys:
+        missing = sorted(expected_keys - resolved_keys)
+        extra = sorted(resolved_keys - expected_keys)
+        raise ForecastInputError(
+            f"resolved judgment set differs from plan: missing={len(missing)}, "
+            f"extra={len(extra)}")
 
     aggregates: dict[tuple[str, str], dict[str, int]] = defaultdict(
         lambda: {
@@ -404,7 +426,8 @@ def build_slot_role_frame(
 
     verdict_records = [record for record in role_records if record["role"] == "judge_verdict"]
     missing_verdicts = [record["cell_key"] for record in verdict_records
-                        if record["actual_token_attempt_count"] == 0]
+                        if record["cell_key"] in completed_keys
+                        and record["actual_token_attempt_count"] == 0]
     if missing_verdicts:
         raise ForecastInputError(
             f"{len(missing_verdicts)} completed slot(s) have no charged verdict attempt")
@@ -468,8 +491,13 @@ def build_slot_role_frame(
         "usage_ledger_sha256": ledger_sha,
         "completed_results_sha256": results_sha,
         "completed_cell_keys_sha256": canonical_sha256(sorted(completed)),
+        "terminal_cell_keys_sha256": canonical_sha256(sorted(terminal_cells)),
+        "terminal_dispositions_sha256": terminal_sha,
+        "resolved_cell_keys_sha256": canonical_sha256(sorted(resolved_keys)),
         "planned_judgment_slot_count": len(cells),
         "completed_judgment_slot_count": len(completed),
+        "terminal_judgment_slot_count": len(terminal_cells),
+        "resolved_judgment_slot_count": len(resolved_keys),
         "role_record_count": len(role_records),
         "expected_role_record_count": len(cells) * len(CALL_ROLES),
         "planned_judgment_cells_sha256": canonical_sha256(cells),
