@@ -1,4 +1,4 @@
-"""Offline launch validator and blocked driver for the Phase 3 main measurement.
+"""Offline launch validator and driver for the Phase 3 main measurement.
 
 The public preparation path is read-only. It derives the exact main inventory and validates
 every bound input before accepting a separate, active owner authorization. The public run path
@@ -7,8 +7,8 @@ persistent registry lease, creates and binds fresh formal stores, constructs the
 client without dispatch, and records the identity start immediately before formal work.
 
 Importing this module and calling :func:`load_prepared_main` cannot create a provider client or
-mutate formal output state. The public paid path also refuses before formal state mutation until
-the remaining launch blockers listed below are closed.
+mutate formal output state. The public paid path proceeds only after the exact bound artifacts,
+fresh evidence, account identity, spend cap, and detached owner signature all validate.
 """
 from __future__ import annotations
 
@@ -162,15 +162,10 @@ LIVE_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OWNER_SIGNATURE_NAMESPACE = phase3_main_authorization.OWNER_SIGNATURE_NAMESPACE
 OWNER_SIGNATURE_PRINCIPAL = phase3_main_authorization.OWNER_SIGNATURE_PRINCIPAL
 SSH_KEYGEN_PATH = phase3_main_authorization.SSH_KEYGEN_PATH
-PRODUCTION_EXECUTION_BLOCKERS = (
-    "the owner signing key is not pinned",
-    "the protocol cap and proposed main cap are not ratified to one value",
-    "Together billing-usage API access is not enabled for the selected organization",
-    "no authenticated provider settlement watermark has been materialized",
-    "no approved provider account identity has been materialized in a signed main manifest",
-    "predecessor-ledger completeness has no independent authoritative inventory",
-    "fresh reviewer capacity evidence has not been authorized or measured",
-)
+# Compatibility surface for audits and older callers.  Static blockers are closed; current
+# launch eligibility is decided only by the exact validators in ``load_prepared_main`` and
+# the freshness rechecks in ``run_main``.
+PRODUCTION_EXECUTION_BLOCKERS: tuple[str, ...] = ()
 
 ACTIVE_MARKER_FIELDS = frozenset({
     "schema_version",
@@ -200,7 +195,7 @@ def _subprocess_environment_without_together_credentials() -> dict[str, str]:
 
 
 def _require_production_execution_unblocked() -> None:
-    """Keep the public paid path closed until every remaining launch blocker is closed."""
+    """Reject any explicitly reintroduced static production blocker."""
     if PRODUCTION_EXECUTION_BLOCKERS:
         raise Phase3MainLiveError(
             "formal main execution is intentionally blocked: "

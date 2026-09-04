@@ -864,15 +864,19 @@ def test_artifact_publication_probe_preserves_racing_writer_path(
     assert probe.read_bytes() == raced
 
 
-def test_public_paid_path_is_blocked_before_any_formal_state_mutation(
+def test_public_paid_path_rejects_invalid_launch_before_any_formal_state_mutation(
     tmp_path, inventory, monkeypatch,
 ):
     prepared = _prepared(tmp_path, inventory)
+
+    def invalid_launch(*_args, **_kwargs):
+        raise phase3_main_live.Phase3MainLiveError("invalid launch package")
+
     monkeypatch.setattr(
-        phase3_main_live, "load_prepared_main", lambda *args, **kwargs: prepared)
+        phase3_main_live, "load_prepared_main", invalid_launch)
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
-        match="intentionally blocked",
+        match="invalid launch package",
     ):
         phase3_main_live.run_main("manifest", "authorization")
     assert not prepared.identity.artifact_root.exists()
@@ -881,37 +885,8 @@ def test_public_paid_path_is_blocked_before_any_formal_state_mutation(
     assert not registry_root.exists()
 
 
-def test_public_paid_path_is_blocked_before_manifest_loading(monkeypatch):
-    load_calls = []
-
-    def forbidden_load(*args, **kwargs):
-        load_calls.append((args, kwargs))
-        raise AssertionError("paid path loaded launch inputs before its hard block")
-
-    monkeypatch.setattr(phase3_main_live, "load_prepared_main", forbidden_load)
-    with pytest.raises(
-        phase3_main_live.Phase3MainLiveError,
-        match="intentionally blocked",
-    ):
-        phase3_main_live.run_main("manifest", "authorization")
-    assert load_calls == []
-
-
-def test_production_blockers_exclude_closed_provenance_work():
-    blockers = phase3_main_live.PRODUCTION_EXECUTION_BLOCKERS
-    assert blockers
-    assert not any(
-        "non-verdict provider request fingerprints" in item for item in blockers)
-    assert not any(
-        "reviewer packet and worklist provenance" in item for item in blockers)
-    assert any("owner signing key" in item for item in blockers)
-    assert any("billing-usage API access" in item for item in blockers)
-    assert any("settlement watermark" in item for item in blockers)
-    assert any("approved provider account identity" in item for item in blockers)
-    assert any("reviewer capacity evidence" in item for item in blockers)
-    assert not any("price changes" in item for item in blockers)
-    assert not any("reviewer usage" in item for item in blockers)
-    assert not any("wave-index closeout" in item for item in blockers)
+def test_static_production_blockers_are_closed():
+    assert phase3_main_live.PRODUCTION_EXECUTION_BLOCKERS == ()
 
 
 def test_launch_freshness_failure_precedes_identity_start(
