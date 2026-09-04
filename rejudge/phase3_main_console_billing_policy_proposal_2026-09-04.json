@@ -1,0 +1,105 @@
+{
+  "schema_version": "phase3_main_console_billing_policy_proposal_v1",
+  "stage": "main",
+  "provider": "Together",
+  "proposal_status": "owner_decision_required",
+  "recorded_at_utc": "2026-09-04T19:28:43.0800674Z",
+  "execution_authorized": false,
+  "reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false,
+  "predecessor_policy": {
+    "required_route": "authenticated /v1/billing/usage capture",
+    "disposition": "retire_for_selected_account_if_owner_ratifies",
+    "reason": "Together support states that the endpoint cannot be enabled per organization from support and directs current reconciliation to Cost Analytics and invoices."
+  },
+  "proposed_policy": {
+    "supported_route": "Together organization Cost Analytics plus the completed monthly usage invoice",
+    "numeric_authority": "Cost Analytics exact UTC-window total",
+    "finality_authority": "completed monthly usage invoice covering the exact window",
+    "account_binding": "owner-ratified account identity plus matching hashed organization, project, and API-key identifiers",
+    "invoice_limit": "the invoice amount due is prepaid-credit settlement, not the exact-window usage total",
+    "freshness": "completed monthly invoice evidence does not expire after one hour",
+    "enterprise_hourly_api": "not required for this Phase 3 predecessor reconciliation"
+  },
+  "billing_scope": {
+    "account_identity_sha256": "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e",
+    "window_start_utc": "2026-08-18T00:00:00Z",
+    "window_end_utc": "2026-08-30T00:00:00Z",
+    "interval": "half_open"
+  },
+  "account_component_hashes": {
+    "api_key_id_sha256": "ef05836c3edeca61b0d88a363fac5656845fff51401c395d206db782c7b378ee",
+    "project_id_sha256": "47a130970616d501ac049d52e7ae27c9c15ac32cc90e96513b3a934a37e32d7f",
+    "organization_id_sha256": "7e985a2e00e7e185006561c2d86fccb813cd7d6d8511c0811bc98b08a605fda1"
+  },
+  "evidence_bindings": {
+    "owner_ratification": {
+      "path": "rejudge/phase3_main_owner_ratification_2026-08-31.json",
+      "raw_sha256": "33e2e285ebd73e79feec05795ec21a5fd84c158a45c3c8fa9f8203ee34326586"
+    },
+    "support_disposition": {
+      "path": "rejudge/phase3_main_together_support_disposition_2026-09-04.json",
+      "raw_sha256": "c43bbe3bf2d6b2099247854928e3f6e0bd1c9358d12510a9de0c6520dcb27ff4",
+      "canonical_sha256": "983182b2ae13204bfc3d0dc745d698e3586b87feb1a72fa3766d825d06ee92c5"
+    },
+    "console_evidence": {
+      "path": "rejudge/phase3_main_together_console_billing_evidence_2026-09-04.json",
+      "raw_sha256": "70a50eef5098cc7de07cbacf09dedea942be5140a653c43bc58b9d443e4c41bb",
+      "canonical_sha256": "ea49ced30cdf765df40261c54758ab17dbc78ada2319fa414d74598febe8cff8"
+    },
+    "ledger_coverage_candidate": {
+      "path": "rejudge/phase3_main_billing_ledger_coverage_candidate_2026-09-04.json",
+      "raw_sha256": "955903cfe429586748198ce8368b0ca91abedf5b6e7b2f558d04080d005667a5",
+      "canonical_sha256": "2a8e1b82a985e7df589fb40af36494496038e7ba068cdd43de6f50a62895cfd9"
+    },
+    "reconciliation_candidate": {
+      "path": "rejudge/phase3_main_billing_reconciliation_candidate_2026-09-04.json",
+      "raw_sha256": "120320396a089ddea20ec5ea8ddcaf5c1ae56825179b76acf5fdbee1a458bab9",
+      "canonical_sha256": "5936751e409569c841cf7f478831d53ec2933a15c47b9e17a2a804cc7e48ff94"
+    },
+    "cost_analytics_csv": {
+      "path": "E:/selvarath-archive/phase3-main-billing-ui-2026-09-02/cost-analytics_2026-08-18_to_2026-08-30.csv",
+      "raw_sha256": "361ba804efffa7be3828f7fbb5f0cdd968abf474ded6a7f272948b9447b56223"
+    },
+    "august_invoice_pdf": {
+      "path": "E:/selvarath-archive/phase3-main-billing-console-2026-09-04/Invoice-August-2026.pdf",
+      "raw_sha256": "c7feba10c9efdcfd6a147df1582499b9f3c51928a642aaaed66e935194dcdca4"
+    }
+  },
+  "cost_analytics_validation": {
+    "ui_date_start_utc": "2026-08-18",
+    "ui_date_end_inclusive_utc": "2026-08-29",
+    "row_count": 146,
+    "all_twelve_utc_days_present": true,
+    "line_item_amount_sum_usd": "94.02",
+    "derived_cost_sum_usd": "94.068746110",
+    "display_total_usd": "94.07",
+    "csv_rounding_gap_usd": "0.05",
+    "sole_explicit_api_key_hash_matches_owner_ratification": true,
+    "sole_project_hash_matches_owner_ratification": true,
+    "organization_url_hash_matches_owner_ratification": true
+  },
+  "invoice_validation": {
+    "issue_date": "2026-09-01",
+    "service_period_start": "2026-08-01",
+    "service_period_end_inclusive": "2026-08-31",
+    "amount_due_usd": "0.00",
+    "settlement": "usage offset by prepaid commitments",
+    "exact_window_numeric_authority": false
+  },
+  "reconciliation_result": {
+    "ledger_count": 18,
+    "unresolved_attempt_count": 827,
+    "local_actual_spend_usd": "95.68306917999999801859",
+    "local_uncertain_spend_usd": "23.5893157200000000378",
+    "local_accounted_spend_usd": "119.27238489999999805639",
+    "retained_prior_spend_upper_bound_usd": "119.27238490",
+    "provider_exact_window_total_usd": "94.07",
+    "provider_minus_local_actual_usd": "-1.61306917999999801859",
+    "disposition": "closed_provider_final_below_local_actual",
+    "history_treatment": "preserve all ledger bytes and unresolved reservation records; do not redispatch or rewrite history"
+  },
+  "owner_decision_requested": "Ratify or reject this exact console reconciliation route and the closed-provider-final-below-local-actual disposition while retaining the 119.27238490 USD predecessor upper bound.",
+  "note": "This proposal and every bound evidence artifact are non-authorizing."
+}

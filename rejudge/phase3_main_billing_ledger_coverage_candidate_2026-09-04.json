@@ -1,0 +1,88 @@
+{
+  "billing_scope": {
+    "account_identity_sha256": "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e",
+    "window_end_utc": "2026-08-30T00:00:00Z",
+    "window_start_utc": "2026-08-18T00:00:00Z"
+  },
+  "execution_authorized": false,
+  "ledger_count": 18,
+  "ledgers": [
+    {
+      "ledger_id": "027006286f184a01bd5578aa13cd510a",
+      "raw_sha256": "261feae2a1c1435b511dae363fe77e47202a20987997e4ad541f156d2b023aff"
+    },
+    {
+      "ledger_id": "0609ebab607f49e0bccbb233f04503b3",
+      "raw_sha256": "64a6604c9f44c7077a9edf955e4690b59b62952c9a459197a8dba8507804eda7"
+    },
+    {
+      "ledger_id": "2a35a32d73fd46388a1dea791a467e45",
+      "raw_sha256": "8bca5ed880dedfb5c780b3df758d3db01f1e42eb2ef8cccd5e48ed2edb3a9d60"
+    },
+    {
+      "ledger_id": "39f1cfd261464685803ab1a38cc55b7c",
+      "raw_sha256": "adfd086dcd9246673963191c1ebc41ada23a2c430fe0dea6c35484b3e08dd37d"
+    },
+    {
+      "ledger_id": "3b5a467e39904a16bcf940430676ed65",
+      "raw_sha256": "cbad43ba62d4f29613596357d4f15b25925240dcd84b898b84473cc82a703dd9"
+    },
+    {
+      "ledger_id": "3cea0e65af5743f5824ec53b6ed81eb0",
+      "raw_sha256": "cd057c85488ce1b5c663465a10ca73a927476695dd60a7c1b04782f2659874d5"
+    },
+    {
+      "ledger_id": "50add235c3aa4e81b532faf856064603",
+      "raw_sha256": "c5d5229de09016c51c817a3f97c170339963381bdeca55025a16d322425b3632"
+    },
+    {
+      "ledger_id": "5116ce0bf7104ceeba4b9971c9b875f7",
+      "raw_sha256": "6f7aebcb784f2da757623df71a78505e861624ab5e986ad08e0f1e2cca2e0520"
+    },
+    {
+      "ledger_id": "629d8d2595db442bb4b12103cd7093d5",
+      "raw_sha256": "0df1078ac14b65df0a5fbdd4344f7b758f2e59829375c654aa2cf77fc954d976"
+    },
+    {
+      "ledger_id": "76638844511a4bfdb387e36a516af62e",
+      "raw_sha256": "d66827a97e54111ffeeb2c43cd6c97839be6fafc135b35519d24b9cddd4aa0c4"
+    },
+    {
+      "ledger_id": "8c2aed0e492e4a9f87296b00ebc41fa3",
+      "raw_sha256": "bc8a8f895c4acdc4c08812543da5cbe3d58a925f79059bd2d830f60aa3ac021a"
+    },
+    {
+      "ledger_id": "92538dfeee7b489182839e7c32de1017",
+      "raw_sha256": "5459c76473d0a541110817cc967a86016b3c9cfc2c464c21f19b7773e98cf346"
+    },
+    {
+      "ledger_id": "ae4bd4a9f86b48b59b54d18604e02859",
+      "raw_sha256": "3f3b545dac035473a6e4c5d5323763911803acf70db91ffe9526a0fd47047ec4"
+    },
+    {
+      "ledger_id": "ca2c80990b3c4142ad98bbc9bb865a2e",
+      "raw_sha256": "71277f4d19584b4cbbda4b9b5f21161dc5dd92a486f8bea862fd486c54c02206"
+    },
+    {
+      "ledger_id": "cf846d6358554a7cab3a554fcf9414fe",
+      "raw_sha256": "531f440cc27af6353283d10660aa5035714ab3e670484a7ee77dab3b302182b1"
+    },
+    {
+      "ledger_id": "e4522c9dedf8415f9b12494b6afe6b1c",
+      "raw_sha256": "f87ebcbf1cf3d953766f78441fb6e6c39ce060f1c7302fca1cdc17e2e6b21f9d"
+    },
+    {
+      "ledger_id": "ee18c88809d6459b9fc96e732641e6c7",
+      "raw_sha256": "b583c2aed470543310c28061f725ba2b003ff60d405c5ac7f8db41ac4d1042ab"
+    },
+    {
+      "ledger_id": "f835b0ce7dca44f69b19358b91412fa5",
+      "raw_sha256": "fe9eefb2d30c5949151f7476aeac3e3345ec826b4bfb73b3394d2c6506cff0d3"
+    }
+  ],
+  "main_run_spend_authorized": false,
+  "provider": "Together",
+  "provider_calls_authorized": false,
+  "schema_version": "phase3_main_billing_ledger_coverage_v1",
+  "stage": "main"
+}

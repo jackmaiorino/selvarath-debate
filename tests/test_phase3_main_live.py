@@ -50,6 +50,7 @@ def _authenticated_billing_fields() -> dict[str, Any]:
             "account_identity_sha256": account,
             "finalized_through_utc": "2026-08-29T20:00:00Z",
         },
+        "prior_spend_upper_bound_usd": "10.25",
     }
 
 
@@ -3183,6 +3184,7 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
         "closed": True,
         "within_conservative_envelope": True,
         "accounted_spend_usd": "10.25",
+        "prior_spend_upper_bound_usd": "10.25",
         "provider_delta_usd": "10.21",
         "uncertain_spend_usd": "0.04",
         "unresolved_attempt_ids": ("attempt-unknown",),
@@ -3199,7 +3201,7 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
     }
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
-        match="not provider-authenticated and finalized",
+        match="not provider-verified and finalized",
     ):
         phase3_main_live._require_clean_pre_main_billing(
             legacy, prepared.manifest)
@@ -3226,23 +3228,70 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
     }
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
-        match="not provider-authenticated and finalized",
+        match="not provider-verified and finalized",
     ):
         phase3_main_live._require_clean_pre_main_billing(
             other_account, prepared.manifest)
 
-    validation["accounted_spend_usd"] = "10.24"
+    validation["prior_spend_upper_bound_usd"] = "10.24"
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
         match="not closed at the manifest upper bound",
     ):
         phase3_main_live._require_clean_pre_main_billing(
             validation, prepared.manifest)
-    validation["accounted_spend_usd"] = "10.25"
+    validation["prior_spend_upper_bound_usd"] = "10.25"
     validation["provider_delta_usd"] = "10.26"
     with pytest.raises(
         phase3_main_live.Phase3MainLiveError,
         match="not closed at the manifest upper bound",
+    ):
+        phase3_main_live._require_clean_pre_main_billing(
+            validation, prepared.manifest)
+
+
+def test_launch_accepts_final_console_billing_below_local_actual(
+    tmp_path, inventory,
+):
+    prepared = _prepared(tmp_path, inventory)
+    account = prepared.manifest["runtime"]["provider_account_identity_sha256"]
+    validation = {
+        "evidence_kind": (
+            phase3_main_live.phase3_main_billing_reconciliation.CONSOLE_EVIDENCE_KIND
+        ),
+        "billing_scope": {
+            "account_identity_sha256": account,
+            "window_start_utc": "2026-08-18T00:00:00Z",
+            "window_end_utc": "2026-08-30T00:00:00Z",
+        },
+        "provider_settlement": {
+            "status": (
+                phase3_main_live.phase3_main_billing_reconciliation
+                .CONSOLE_SETTLEMENT_STATUS
+            ),
+            "account_identity_sha256": account,
+            "finalized_through_utc": "2026-08-30T00:00:00Z",
+        },
+        "run_id": prepared.manifest["run_id"],
+        "disposition": "closed_provider_final_below_local_actual",
+        "closed": True,
+        "within_conservative_envelope": False,
+        "accounted_spend_usd": "10.249999999",
+        "prior_spend_upper_bound_usd": "10.25",
+        "provider_delta_usd": "9.75",
+        "uncertain_spend_usd": "0.50",
+        "unresolved_attempt_ids": ("attempt-unknown",),
+    }
+
+    phase3_main_live._require_clean_pre_main_billing(
+        validation, prepared.manifest)
+
+    validation["provider_settlement"]["status"] = (
+        phase3_main_live.phase3_main_billing_reconciliation.PROVIDER_SETTLEMENT_STATUS
+    )
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="not provider-verified and finalized",
     ):
         phase3_main_live._require_clean_pre_main_billing(
             validation, prepared.manifest)

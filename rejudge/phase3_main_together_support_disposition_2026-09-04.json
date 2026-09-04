@@ -1,0 +1,24 @@
+{
+  "schema_version": "together_billing_support_disposition_v1",
+  "provider": "Together",
+  "recorded_at_utc": "2026-09-04T19:20:16.9950035Z",
+  "source": "owner-provided Together support reply from Vish",
+  "source_authentication": "not independently authenticated; exact policy change still requires owner ratification",
+  "endpoint_status": "billing_usage_api_not_individually_enableable",
+  "supported_reconciliation_route": "cost_analytics_and_invoices",
+  "support_facts": [
+    "Together support cannot enable /v1/billing/usage per organization from the support inbox.",
+    "Together directs current reconciliation to Cost Analytics and invoices in Settings then Billing.",
+    "An enterprise hourly settlement API requires a separate contact-sales review.",
+    "The support ticket is closed, with follow-up available for a missing console day or amount."
+  ],
+  "phase3_disposition": {
+    "billing_usage_api_route": "retired_for_this_account",
+    "console_route": "candidate_replacement_pending_owner_ratification",
+    "contact_sales": "not_required_for_current_phase3_reconciliation"
+  },
+  "execution_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false,
+  "note": "Provider correspondence is evidence only and grants no project authority."
+}

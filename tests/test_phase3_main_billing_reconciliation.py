@@ -353,7 +353,7 @@ def _authenticated_v3_record(
         genesis_ts=genesis_ts,
     )
     record = _record(tmp_path, [ledger], provider_delta=provider_cost)
-    record["schema_version"] = billing.SCHEMA_VERSION
+    record["schema_version"] = billing.AUTHENTICATED_SCHEMA_VERSION
     record["recorded_at_utc"] = recorded_at_utc
     record["billing_scope"] = scope
     coverage_path = Path(record["ledger_coverage"]["path"])
@@ -466,6 +466,54 @@ def test_authenticated_v3_reconciliation_returns_exact_settlement_map(
             "spend": {"prior_reconciled_usd": "0.10"},
         },
     )
+
+
+def test_console_v4_final_total_below_local_actual_closes(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    record = _record(
+        tmp_path,
+        [_settled_ledger(tmp_path, actual_cost="0.100000001", reservation_cost="0.100000001")],
+        direct_delta=True,
+        provider_delta="0.09",
+    )
+    record["schema_version"] = billing.SCHEMA_VERSION
+    record["reconciliation"]["disposition"] = (
+        billing.DISPOSITION_CLOSED_PROVIDER_FINAL_BELOW_LOCAL_ACTUAL
+    )
+    evidence_path = Path(record["provider_evidence"]["path"])
+    evidence_path.write_text("{}\n", encoding="utf-8")
+    record["provider_evidence"]["raw_sha256"] = _sha(evidence_path)
+    scope = record["billing_scope"]
+    monkeypatch.setattr(
+        billing.console_billing,
+        "validate_capture",
+        lambda *_args, **_kwargs: {
+            "observed_at_utc": record["provider_evidence"]["observed_at_utc"],
+            "billing_observed_at_utc": record["provider_evidence"]["observed_at_utc"],
+            "billing_scope": scope,
+            "dashboard": record["dashboard"],
+            "provider_delta_usd": "0.09",
+            "provider_settlement": {
+                "status": billing.CONSOLE_SETTLEMENT_STATUS,
+                "account_identity_sha256": scope["account_identity_sha256"],
+                "finalized_through_utc": scope["window_end_utc"],
+            },
+        },
+    )
+
+    validated = billing.validate_billing_reconciliation(
+        record,
+        project_root=tmp_path,
+        as_of=datetime(2027, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert validated["evidence_kind"] == billing.CONSOLE_EVIDENCE_KIND
+    assert validated["closed"] is True
+    assert validated["disposition"] == (
+        billing.DISPOSITION_CLOSED_PROVIDER_FINAL_BELOW_LOCAL_ACTUAL
+    )
+    assert validated["prior_spend_upper_bound_usd"] == "0.10000001"
 
 
 def test_authenticated_v3_arithmetic_ignores_ambient_decimal_precision(
@@ -724,7 +772,7 @@ def test_uncertain_spend_closes_only_inside_conservative_envelope(tmp_path: Path
 
     assert validated["uncertain_spend_usd"] == "0.04"
     assert validated["accounted_spend_usd"] == "0.14"
-    assert validated["prior_spend_upper_bound_usd"] == "0.14"
+    assert validated["prior_spend_upper_bound_usd"] == "0.14000000"
     assert validated["unresolved_attempt_ids"] == ("a-unknown",)
     assert validated["within_conservative_envelope"] is True
     assert validated["closed"] is True

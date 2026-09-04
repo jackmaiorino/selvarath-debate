@@ -1,0 +1,70 @@
+{
+  "schema_version": "together_console_billing_evidence_v1",
+  "provider": "Together",
+  "currency": "USD",
+  "capture_method": "together_console_cost_analytics_and_invoice",
+  "observed_at_utc": "2026-09-04T19:23:37.4333277Z",
+  "execution_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false,
+  "billing_scope": {
+    "account_identity_sha256": "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e",
+    "window_start_utc": "2026-08-18T00:00:00Z",
+    "window_end_utc": "2026-08-30T00:00:00Z"
+  },
+  "account_binding": {
+    "owner_ratification": {
+      "path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-v3-codex/rejudge/phase3_main_owner_ratification_2026-08-31.json",
+      "raw_sha256": "33e2e285ebd73e79feec05795ec21a5fd84c158a45c3c8fa9f8203ee34326586"
+    },
+    "api_key_id_sha256": "ef05836c3edeca61b0d88a363fac5656845fff51401c395d206db782c7b378ee",
+    "project_id_sha256": "47a130970616d501ac049d52e7ae27c9c15ac32cc90e96513b3a934a37e32d7f",
+    "organization_id_sha256": "7e985a2e00e7e185006561c2d86fccb813cd7d6d8511c0811bc98b08a605fda1"
+  },
+  "support_disposition": {
+    "path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-v3-codex/rejudge/phase3_main_together_support_disposition_2026-09-04.json",
+    "raw_sha256": "c43bbe3bf2d6b2099247854928e3f6e0bd1c9358d12510a9de0c6520dcb27ff4",
+    "endpoint_status": "billing_usage_api_not_individually_enableable",
+    "supported_reconciliation_route": "cost_analytics_and_invoices"
+  },
+  "cost_analytics": {
+    "path": "E:/selvarath-archive/phase3-main-billing-ui-2026-09-02/cost-analytics_2026-08-18_to_2026-08-30.csv",
+    "raw_sha256": "361ba804efffa7be3828f7fbb5f0cdd968abf474ded6a7f272948b9447b56223",
+    "ui_date_start_utc": "2026-08-18",
+    "ui_date_end_inclusive_utc": "2026-08-29",
+    "row_count": 146,
+    "line_item_amount_sum_usd": "94.02",
+    "derived_cost_sum_usd": "94.068746110",
+    "display_total_usd": "94.07",
+    "csv_rounding_gap_usd": "0.05"
+  },
+  "invoice": {
+    "path": "E:/selvarath-archive/phase3-main-billing-console-2026-09-04/Invoice-August-2026.pdf",
+    "raw_sha256": "c7feba10c9efdcfd6a147df1582499b9f3c51928a642aaaed66e935194dcdca4",
+    "issue_date": "2026-09-01",
+    "service_period_start": "2026-08-01",
+    "service_period_end_inclusive": "2026-08-31",
+    "subtotal_usd": "-0.06",
+    "total_usd": "-0.06",
+    "applied_balance_usd": "0.06",
+    "amount_due_usd": "0.00",
+    "usage_offset_by_prepaid_commit": true,
+    "scope_role": "monthly_finality_only_not_exact_window_total"
+  },
+  "dashboard": {
+    "mode": "direct_delta",
+    "before_total_usd": null,
+    "after_total_usd": null,
+    "reported_delta_usd": "94.07"
+  },
+  "provider_settlement": {
+    "status": "finalized_by_cost_analytics_and_monthly_invoice",
+    "account_identity_sha256": "8a54a740aa7098d51327ed0ab1c40b533a005ff5cf20566fff0b4fe44e9d2c3e",
+    "finalized_through_utc": "2026-08-30T00:00:00Z"
+  },
+  "limitations": [
+    "Cost Analytics is the exact-window numeric source.",
+    "The monthly invoice corroborates final settlement and prepaid-credit treatment only.",
+    "The invoice amount due is not the exact-window usage total."
+  ]
+}

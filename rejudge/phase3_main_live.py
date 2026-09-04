@@ -25,7 +25,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, MAX_EMAX, MIN_EMIN, ROUND_HALF_UP, localcontext
 from pathlib import Path
 from typing import Any, cast
 
@@ -1785,6 +1785,16 @@ def _decimal_number(value: Any, label: str) -> Decimal:
     return amount
 
 
+def _normalized_predecessor_segment(value: Any, label: str) -> Decimal:
+    """Recover the frozen eight-decimal ledger-cost representation."""
+    amount = _decimal_number(value, label)
+    with localcontext() as context:
+        context.prec = max(100, len(amount.as_tuple().digits) + 10)
+        context.Emax = MAX_EMAX
+        context.Emin = MIN_EMIN
+        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
+
+
 def _require_clean_pre_main_billing(
     validation: Mapping[str, Any], manifest: Mapping[str, Any],
 ) -> None:
@@ -1797,21 +1807,27 @@ def _require_clean_pre_main_billing(
     settlement_fields = {
         "status", "account_identity_sha256", "finalized_through_utc",
     }
+    settlement_status_by_kind = {
+        phase3_main_billing_reconciliation.AUTHENTICATED_EVIDENCE_KIND:
+            phase3_main_billing_reconciliation.PROVIDER_SETTLEMENT_STATUS,
+        phase3_main_billing_reconciliation.CONSOLE_EVIDENCE_KIND:
+            phase3_main_billing_reconciliation.CONSOLE_SETTLEMENT_STATUS,
+    }
+    evidence_kind = validation.get("evidence_kind")
     if (
-        validation.get("evidence_kind")
-        != phase3_main_billing_reconciliation.AUTHENTICATED_EVIDENCE_KIND
+        evidence_kind not in settlement_status_by_kind
         or not isinstance(billing_scope, Mapping)
         or not isinstance(settlement, Mapping)
         or set(settlement) != settlement_fields
         or settlement.get("status")
-        != phase3_main_billing_reconciliation.PROVIDER_SETTLEMENT_STATUS
+        != settlement_status_by_kind.get(evidence_kind)
         or settlement.get("account_identity_sha256")
         != billing_scope.get("account_identity_sha256")
         or billing_scope.get("account_identity_sha256")
         != manifest.get("runtime", {}).get("provider_account_identity_sha256")
     ):
         raise Phase3MainLiveError(
-            "pre-main billing reconciliation is not provider-authenticated and finalized")
+            "pre-main billing reconciliation is not provider-verified and finalized")
     disposition = validation.get("disposition")
     if (
         disposition not in phase3_main_billing_reconciliation.CLOSED_DISPOSITIONS
@@ -1823,9 +1839,11 @@ def _require_clean_pre_main_billing(
         or _decimal_number(
             validation.get("provider_delta_usd"), "provider predecessor spend")
         > _decimal_number(
-            validation.get("accounted_spend_usd"), "accounted predecessor spend")
+            validation.get("prior_spend_upper_bound_usd"),
+            "predecessor spend upper bound")
         or _decimal_number(
-            validation.get("accounted_spend_usd"), "accounted predecessor spend")
+            validation.get("prior_spend_upper_bound_usd"),
+            "predecessor spend upper bound")
         != _decimal_number(
             manifest["spend"]["prior_reconciled_usd"], "manifest predecessor spend")
     ):
@@ -2042,8 +2060,10 @@ def _validate_cost_forecast(
         raise Phase3MainLiveError("billing reconciliation ledger rows are missing")
     expected = {
         str(row["raw_sha256"]): (
-            Decimal(str(row["actual_spend_usd"])),
-            Decimal(str(row["uncertain_spend_usd"])),
+            _normalized_predecessor_segment(
+                row["actual_spend_usd"], "reconciled segment actual spend"),
+            _normalized_predecessor_segment(
+                row["uncertain_spend_usd"], "reconciled segment uncertain spend"),
         )
         for row in ledger_rows if isinstance(row, Mapping)
     }
@@ -2058,8 +2078,10 @@ def _validate_cost_forecast(
         if digest in observed:
             raise Phase3MainLiveError("cost forecast repeats a cumulative ledger")
         observed[digest] = (
-            _decimal_number(segment.get("actual_spend_usd"), "segment actual spend"),
-            _decimal_number(segment.get("uncertain_spend_usd"), "segment uncertain spend"),
+            _normalized_predecessor_segment(
+                segment.get("actual_spend_usd"), "segment actual spend"),
+            _normalized_predecessor_segment(
+                segment.get("uncertain_spend_usd"), "segment uncertain spend"),
         )
     if observed != expected:
         raise Phase3MainLiveError("cost forecast segments differ from reconciled ledgers")
