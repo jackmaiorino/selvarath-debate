@@ -56,6 +56,7 @@ DERIVATION_TAG_V2 = "phase3-main-review-capacity-v2"
 DERIVATION_TAG_V3 = "phase3-main-review-capacity-v3"
 DERIVATION_TAG_V4 = "phase3-main-review-capacity-v4"
 DERIVATION_TAG_V5 = "phase3-main-review-capacity-v5"
+DERIVATION_TAG_V6 = "phase3-main-review-capacity-v6"
 DERIVATION_TAG = DERIVATION_TAG_V1
 EXPECTED_PLAN_CANONICAL_SHA256 = "0805888c9f99b27999c82b4038f6be5498ceee22baf86703b4a1339e80988ec3"
 EXPECTED_PLAN_CANONICAL_SHA256_V2 = (
@@ -211,6 +212,7 @@ def derivation_tag_from_plan(plan: Mapping[str, Any]) -> str:
         DERIVATION_TAG_V3,
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
+        DERIVATION_TAG_V6,
     }:
         raise CapacityPreflightError("plan has an unsupported capacity derivation tag")
     return cast(str, derivation_tag)
@@ -418,6 +420,7 @@ def derive_workload(
         DERIVATION_TAG_V3,
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
+        DERIVATION_TAG_V6,
     }:
         raise CapacityPreflightError("unsupported capacity derivation tag")
 
@@ -481,6 +484,18 @@ def derive_workload(
             rendered,
         )
 
+    def v6_variant(source: SourcePacket) -> tuple[str, str]:
+        rendered = (
+            source.prompt_prefix
+            + f"CANDIDATE B: {source.candidate_b}\n"
+            + f"CANDIDATE A: {source.candidate_a}\n"
+            + f"QUERY: {source.query}"
+        )
+        return (
+            payload_sha256(source.query, source.candidate_a, source.candidate_b),
+            rendered,
+        )
+
     v1_prompt_hashes: set[str] = set()
     for source in snapshot.source_packets:
         _v1_payload, v1_rendered = v1_variant(source)
@@ -516,24 +531,38 @@ def derive_workload(
         if v4_prompt not in prior_prompt_hashes:
             v4_prompt_hashes.add(v4_prompt)
 
+    v5_prompt_hashes: set[str] = set()
+    prior_prompt_hashes.update(v4_prompt_hashes)
+    for source in snapshot.source_packets:
+        if not source.query:
+            continue
+        _v5_payload, v5_rendered = v5_variant(source)
+        v5_prompt = hashlib.sha256(v5_rendered.encode("utf-8")).hexdigest()
+        if v5_prompt not in prior_prompt_hashes:
+            v5_prompt_hashes.add(v5_prompt)
+
     excluded_prompt_hashes = set(snapshot.historical_prompt_hashes)
     if derivation_tag in {
         DERIVATION_TAG_V2,
         DERIVATION_TAG_V3,
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
+        DERIVATION_TAG_V6,
     }:
         excluded_prompt_hashes.update(v1_prompt_hashes)
     if derivation_tag in {
         DERIVATION_TAG_V3,
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
+        DERIVATION_TAG_V6,
     }:
         excluded_prompt_hashes.update(v2_prompt_hashes)
-    if derivation_tag in {DERIVATION_TAG_V4, DERIVATION_TAG_V5}:
+    if derivation_tag in {DERIVATION_TAG_V4, DERIVATION_TAG_V5, DERIVATION_TAG_V6}:
         excluded_prompt_hashes.update(v3_prompt_hashes)
-    if derivation_tag == DERIVATION_TAG_V5:
+    if derivation_tag in {DERIVATION_TAG_V5, DERIVATION_TAG_V6}:
         excluded_prompt_hashes.update(v4_prompt_hashes)
+    if derivation_tag == DERIVATION_TAG_V6:
+        excluded_prompt_hashes.update(v5_prompt_hashes)
 
     eligible: list[VariantPacket] = []
     collisions: list[str] = []
@@ -544,6 +573,7 @@ def derive_workload(
             DERIVATION_TAG_V3,
             DERIVATION_TAG_V4,
             DERIVATION_TAG_V5,
+            DERIVATION_TAG_V6,
         } and not source.query:
             continue
         if derivation_tag == DERIVATION_TAG_V1:
@@ -554,8 +584,10 @@ def derive_workload(
             variant_payload, rendered = v3_variant(source)
         elif derivation_tag == DERIVATION_TAG_V4:
             variant_payload, rendered = v4_variant(source)
-        else:
+        elif derivation_tag == DERIVATION_TAG_V5:
             variant_payload, rendered = v5_variant(source)
+        else:
+            variant_payload, rendered = v6_variant(source)
         variant_prompt = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
         if variant_prompt in excluded_prompt_hashes:
             collisions.append(source.source_payload_sha256)
@@ -616,6 +648,10 @@ def derive_workload(
             "render_candidate_b_line_then_query_line_then_candidate_a_line_without_"
             "changing_labels_or_contents"
         ),
+        DERIVATION_TAG_V6: (
+            "render_candidate_b_line_then_candidate_a_line_then_query_line_without_"
+            "changing_labels_or_contents"
+        ),
     }
     historical_exclusions = {
         DERIVATION_TAG_V1: (
@@ -634,6 +670,10 @@ def derive_workload(
         ),
         DERIVATION_TAG_V5: (
             "exclude_every_source_v1_candidate_swap_v2_v3_and_v4_candidate_line_order_"
+            "prompt_sha256"
+        ),
+        DERIVATION_TAG_V6: (
+            "exclude_every_source_v1_candidate_swap_v2_v3_v4_and_v5_candidate_line_order_"
             "prompt_sha256"
         ),
     }
@@ -796,6 +836,53 @@ def derive_workload(
                 ),
                 "v4_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
                     sorted(v4_prompt_hashes)
+                ),
+                "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(excluded_prompt_hashes)
+                ),
+                "all_ranked_prompt_list_canonical_sha256": canonical_sha256(
+                    [item.variant_prompt_sha256 for item in eligible]
+                ),
+                "all_ranked_source_payload_list_canonical_sha256": canonical_sha256(
+                    [item.source_payload_sha256 for item in eligible]
+                ),
+            }
+        )
+    if derivation_tag == DERIVATION_TAG_V6:
+        empty_query_sources = sorted(
+            source.source_payload_sha256
+            for source in snapshot.source_packets
+            if not source.query
+        )
+        summary.update(
+            {
+                "empty_query_source_count": len(empty_query_sources),
+                "empty_query_source_payloads_canonical_sha256": canonical_sha256(
+                    empty_query_sources
+                ),
+                "v1_candidate_swap_prompt_sha256_count": len(v1_prompt_hashes),
+                "v2_candidate_line_order_prompt_sha256_count": len(v2_prompt_hashes),
+                "v3_candidate_line_order_prompt_sha256_count": len(v3_prompt_hashes),
+                "v4_candidate_line_order_prompt_sha256_count": len(v4_prompt_hashes),
+                "v5_candidate_line_order_prompt_sha256_count": len(v5_prompt_hashes),
+                "combined_excluded_prompt_sha256_count": len(excluded_prompt_hashes),
+                "sealed_source_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(snapshot.historical_prompt_hashes)
+                ),
+                "v1_candidate_swap_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v1_prompt_hashes)
+                ),
+                "v2_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v2_prompt_hashes)
+                ),
+                "v3_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v3_prompt_hashes)
+                ),
+                "v4_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v4_prompt_hashes)
+                ),
+                "v5_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v5_prompt_hashes)
                 ),
                 "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
                     sorted(excluded_prompt_hashes)

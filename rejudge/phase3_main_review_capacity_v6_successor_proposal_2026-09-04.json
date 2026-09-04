@@ -1,0 +1,157 @@
+{
+ "schema_version": "phase3_main_review_capacity_v6_successor_proposal_v1",
+ "proposal_id": "phase3-main-review-capacity-v6-successor-2026-09-04",
+ "proposal_only": true,
+ "proposal_status": "owner_decision_required",
+ "execution_authorized": false,
+ "external_reviewer_dispatch_authorized": false,
+ "provider_calls_authorized": false,
+ "together_calls_authorized": false,
+ "main_run_authorized": false,
+ "spend_authorized": false,
+ "predecessor_v5_attempt": {
+  "disposition": "completed_pass_historical_evidence_expired",
+  "plan": {
+   "tracked_path": "rejudge/phase3_main_review_capacity_preflight_plan_v5_2026-09-01.json",
+   "raw_sha256": "c80e7aa1f93a181e1b7c2f661b2efb4283e8ba49d8632987843f0b7b6ea99fc7",
+   "canonical_sha256": "6b3300dc8006b6ea312cc62ca89b28f0049577248e1ddf862b1c55d9effee85a"
+  },
+  "workload_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/capacity_workload_cohort_01_42906f5/WORKLOAD_MANIFEST.json",
+   "raw_sha256": "4755c95bc9068d02b619b625beff1dfe6282578e160c1f0656917a017b1aba28"
+  },
+  "execution_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/capacity_execution_manifest_2026-09-02_42906f5.json",
+   "raw_sha256": "33f0f7ca334ab831e77582eb0eeb7d91369f89d3b29b226dce8d6ada6cb5feed",
+   "canonical_sha256": "913d1cf36caaaa19b057e03c91d907cacbad28d6f7cec5802435ba034379010a"
+  },
+  "authorization": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/capacity_authorization_draft_2026-09-02_42906f5.json",
+   "raw_sha256": "3b3100da08709f5fc5a5dc41d8a233e2c39d4411352f00e2dea6be82928e67eb",
+   "canonical_sha256": "2269a46ea61877b82b23f26fef35d294b056f9f3ddc2afeecb92cf80b570ae24",
+   "detached_signature_raw_sha256": "e1637d7b22f1e6722cef49ba3803050036c70d92360ac30d63f9bf2bd6c3266f"
+  },
+  "dispatch_history": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/dispatch_history.jsonl",
+   "raw_sha256": "f8cbb5e7e49dce4c04f580b966b21909c26147ed35b65ce17483e1ee699b416a",
+   "event_count": 2
+  },
+  "attempt_reservation": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/capacity-v5-attempt-20260902-01-42906f5.capacity_attempt_reservation.json",
+   "raw_sha256": "2735112c474d77fb55ee5326c9f4a19f862fec45a24b172647f82cbf29ce7e70"
+  },
+  "result": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v5-2026-09-01/capacity_result_2026-09-02_42906f5.json",
+   "raw_sha256": "91669a62cce498771c6e7bc83fe3df890e5f38ad7798744ba773e50e7dcf81f5",
+   "canonical_sha256": "d7162debebe180fc422a1f295574b72bd6804e47827f927fbbe304d392c348ae",
+   "attempt_status": "complete",
+   "completed_at_utc": "2026-09-02T12:17:04.166976Z",
+   "evidence_expired_at_utc": "2026-09-03T12:17:04.166976Z",
+   "elapsed_monotonic_seconds": 117.48771380000107,
+   "result_row_count": 180,
+   "fully_valid_result_count": 180,
+   "dispatch_reservation_count": 180,
+   "durable_invocation_receipt_count": 180,
+   "certified_rulings_per_24h": 1440
+  },
+  "accounting": {
+   "counted_reservations_before_v5": 240,
+   "v5_counted_reservations": 180,
+   "cumulative_counted_reservations": 420,
+   "ratified_reviewer_ceiling": 59040,
+   "remaining_reviewer_ceiling_after_counted_reservations": 58620,
+   "treatment": "reservations are counted once as external reviewer usage and remain separate from USD, token, provider, and Together accounting"
+  },
+  "non_reuse": "The completed v5 cohort, its unused retry cohort, and every v5 prompt are excluded from v6."
+ },
+ "successor_v6_design": {
+  "derivation_tag": "phase3-main-review-capacity-v6",
+  "transformation": "render_candidate_b_line_then_candidate_a_line_then_query_line_without_changing_labels_or_contents",
+  "semantic_invariant": "The frozen reviewer prefix, query text, candidate labels, and candidate text are unchanged. Only the order of the three explicitly labeled payload lines changes.",
+  "source_filter": "exclude every source packet whose query text is empty",
+  "reviewer_transport": {
+   "model_provider_profile": {
+    "id": "openai-http",
+    "name": "OpenAI",
+    "wire_api": "responses",
+    "requires_openai_auth": true,
+    "supports_websockets": false,
+    "http_headers": {
+     "version": "0.149.0"
+    }
+   },
+   "base_url": null
+  },
+  "prohibited_shortcuts": [
+   "no whitespace-only variants",
+   "no nonce padding",
+   "no candidate-text edits",
+   "no query-text edits",
+   "no reuse of any sealed source, v1, v2, v3, v4, or v5 prompt",
+   "no reuse of either v5 cohort",
+   "no relaxation of the zero-event-error gate"
+  ],
+  "source_packet_count": 576,
+  "empty_query_source_count": 5,
+  "empty_query_source_payloads_canonical_sha256": "42df2fd4da75472a6e71a1865da14632317f679f1fc36b77d14f90e66bb47a8c",
+  "excluded_prompt_sets": {
+   "sealed_source_prompt_count": 576,
+   "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+   "v1_candidate_swap_prompt_count": 368,
+   "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+   "v2_candidate_line_order_prompt_count": 576,
+   "v2_candidate_line_order_prompt_set_canonical_sha256": "f99a4b4aace3d4063357cb8aa86ad8206200712155b2a530b7c7de46ddb25f16",
+   "v3_candidate_line_order_prompt_count": 571,
+   "v3_candidate_line_order_prompt_set_canonical_sha256": "93f51616a86253d05c33c49951509bbe1e17d68b3a1cec72df57e38cd291455f",
+   "v4_candidate_line_order_prompt_count": 571,
+   "v4_candidate_line_order_prompt_set_canonical_sha256": "25a6caa8c29b5047a10e8eece01e968994059d78100edd5aa639706cf826b2c7",
+   "v5_candidate_line_order_prompt_count": 571,
+   "v5_candidate_line_order_prompt_set_canonical_sha256": "cc187ba61f0af023c4b39eb69e707f0c5d6906614609f9a9d514ab89bbbd4574",
+   "combined_excluded_prompt_count": 3233,
+   "combined_excluded_prompt_set_canonical_sha256": "3ef0f1ab4d28235b694dda79ba6c7a5972c6bcc6947f72bcc2b2d89b38940faa"
+  },
+  "eligible_variant_count": 571,
+  "collision_count": 0,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_sizes_per_cohort": [60, 60, 60],
+  "empty_query_count_per_cohort": [0, 0],
+  "unused_variant_count": 211,
+  "all_ranked_prompt_list_canonical_sha256": "c28d7399c819d01b85765f8cebc14cd3bf05cf8803ce1f03e7d85155ca521442",
+  "all_ranked_source_payload_list_canonical_sha256": "3b93d3e40501b22016e74b7c36640831bfa90bbac0be1748eabf5f724e491b74",
+  "cohort_records_canonical_sha256s": [
+   "4438dcaa3cb249e98fd964cac2a4ba3ae7a58b9ad0fde2b60396b05a1c457c46",
+   "56a5205a6f434f9a15940c7d3c3e08186fbdf788cdf6481e54188666a0511495"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "7c884a619641bb0b8fe0b4bc2efd448f955c8f96a0fe0e3cf305c009e498e739",
+   "2f11329517d9ec3f04b16ee4f393d8eefeaa0dc9c9f3b09b643f0d5ba6e7a226"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "7c884a619641bb0b8fe0b4bc2efd448f955c8f96a0fe0e3cf305c009e498e739",
+   "2f11329517d9ec3f04b16ee4f393d8eefeaa0dc9c9f3b09b643f0d5ba6e7a226"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "2ac4b266fbbd87343b8a391ea3e917baebc82a4ea19ba8bfe519e4acfd0d154d",
+   "a60e8ad3ffde032c53374d742e90640d0cf7b0439956d07476dd7830f0160814"
+  ],
+  "validity": {
+   "valid_for_hours": 1080,
+   "basis": "match the predeclared 45-day D_max because every individual reviewer invocation must start inside the measured capacity window",
+   "invalidated_immediately_by": [
+    "reviewer model or reasoning-effort change",
+    "reviewer CLI path, bytes, or version change",
+    "custom model-provider profile or version-header change",
+    "concurrency, wave-size, prompt, or host change"
+   ]
+  },
+  "proposed_external_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04",
+  "history_requirement": "fresh empty append-only dispatch history under the v6 root",
+  "authority_requirement": "fresh clean-commit manifest and separately signed authorization capped at 180 external reviewer dispatches"
+ },
+ "owner_decisions_required": [
+  "Ratify or amend the exact completed-v5 accounting, candidate-B then candidate-A then query transformation, exclusions, workload hashes, and 1,080-hour capacity window.",
+  "After offline materialization and a clean source commit, separately sign the exact v6 180-dispatch authorization."
+ ],
+ "exact_non_execution_ratification_text": "I ratify the exact Phase 3 capacity v6 successor proposal dated 2026-09-04, including the completed v5 capacity pass, its 180 fully valid rulings, expiry at 2026-09-03T12:17:04.166976Z, cumulative 420 counted reviewer reservations, exclusion of all five empty-query sources, the candidate-B then candidate-A then query field-order transformation, exclusion of every sealed source, v1, v2, v3, v4, and v5 prompt, two fresh 180-packet cohorts, 211 unused variants, the unchanged openai-http Responses HTTPS reviewer profile, and a 1,080-hour capacity window matching the predeclared 45-day D_max and invalidated immediately by any measured runtime change. This ratification authorizes offline v6 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority."
+}
