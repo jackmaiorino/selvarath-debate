@@ -13,7 +13,14 @@ import os
 import platform
 import subprocess
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import (
+    Decimal,
+    InvalidOperation,
+    MAX_EMAX,
+    MIN_EMIN,
+    ROUND_HALF_UP,
+    localcontext,
+)
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -119,6 +126,15 @@ def _money(value: Any, label: str) -> Decimal:
 def _money_text(value: Any, label: str) -> str:
     amount = _money(value, label)
     return format(amount, "f")
+
+
+def _predecessor_money(value: Any, label: str) -> Decimal:
+    amount = _money(value, label)
+    with localcontext() as context:
+        context.prec = max(100, len(amount.as_tuple().digits) + 10)
+        context.Emax = MAX_EMAX
+        context.Emin = MIN_EMIN
+        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
 
 
 def _path_text(path: Path, project_root: Path) -> str:
@@ -264,7 +280,9 @@ def _build_spend(
     projected = _money(forecast.get("projected_main_usd"), "projected main spend")
     if forecast.get("certification") != "pass" or forecast.get("within_stage_cap") is not True:
         raise MainLaunchMaterializationError("cost forecast is not an in-cap certification")
-    if _money(forecast.get("cumulative_spend_usd"), "cumulative spend") != prior:
+    if _predecessor_money(
+        forecast.get("cumulative_spend_usd"), "cumulative spend"
+    ) != prior:
         raise MainLaunchMaterializationError(
             "cost forecast does not carry the ratified predecessor upper bound"
         )

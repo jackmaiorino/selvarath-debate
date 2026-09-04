@@ -477,6 +477,34 @@ def test_owner_ratification_supplies_the_main_stage_cap(tmp_path: Path):
     assert result["within_stage_cap"] is True
 
 
+def test_cumulative_spend_recovers_eight_decimal_ledger_values(
+    protocol, tmp_path: Path,
+):
+    cells, exact, dynamic, prices = _full_projection_inputs(protocol, tmp_path)
+    result = forecast.build_cost_forecast(
+        protocol=protocol,
+        planned_main_cells=cells,
+        dynamic_residual_frame=dynamic,
+        exact_context_index=exact,
+        price_snapshot=prices,
+        price_as_of=datetime(2026, 8, 29, 2, tzinfo=timezone.utc),
+        cumulative_spend_segments=[{
+            "name": "binary-float-ledger-total",
+            "ledger_sha256": "b" * 64,
+            "actual_spend_usd": 119.27238489999999,
+            "uncertain_spend_usd": 0.0,
+        }],
+        project_root=str(tmp_path),
+    )
+    assert result["cumulative_spend_usd"] == 119.2723849
+    assert result["cumulative_spend_segments"] == [{
+        "name": "binary-float-ledger-total",
+        "ledger_sha256": "b" * 64,
+        "actual_spend_usd": 119.2723849,
+        "uncertain_spend_usd": 0.0,
+    }]
+
+
 def test_cost_forecast_blocks_missing_exact_main_context(protocol, tmp_path: Path):
     cells, exact, dynamic, prices = _full_projection_inputs(protocol, tmp_path)
     exact["prompt_tokens"].pop(next(iter(exact["prompt_tokens"])))

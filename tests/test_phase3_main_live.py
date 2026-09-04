@@ -889,6 +889,69 @@ def test_static_production_blockers_are_closed():
     assert phase3_main_live.PRODUCTION_EXECUTION_BLOCKERS == ()
 
 
+def test_forecast_recomputation_uses_original_certification_clock():
+    price = {"verified_at_utc": "2026-09-04T21:18:47.663553Z"}
+    forecast = {
+        "price_validation": {
+            "validation": "pass",
+            "canonical_sha256": "a" * 64,
+            "verified_at_utc": "2026-09-04T21:18:47.663553Z",
+            "age_seconds": 57.83706,
+            "required_models": ["model-a", "model-b"],
+            "raw_catalog_checked": True,
+            "raw_serverless_endpoints_checked": True,
+        }
+    }
+    recovered = phase3_main_live._forecast_recomputation_as_of(
+        forecast,
+        price,
+        current_as_of=datetime(2026, 9, 4, 22, tzinfo=timezone.utc),
+    )
+    assert recovered == datetime(
+        2026, 9, 4, 21, 19, 45, 500613, tzinfo=timezone.utc
+    )
+
+
+def test_forecast_recomputation_rejects_stale_original_certification():
+    price = {"verified_at_utc": "2026-09-04T21:18:47.663553Z"}
+    forecast = {
+        "price_validation": {
+            "validation": "pass",
+            "canonical_sha256": "a" * 64,
+            "verified_at_utc": "2026-09-04T21:18:47.663553Z",
+            "age_seconds": 86_401,
+            "required_models": ["model-a", "model-b"],
+            "raw_catalog_checked": True,
+            "raw_serverless_endpoints_checked": True,
+        }
+    }
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError,
+        match="certified with stale price evidence",
+    ):
+        phase3_main_live._forecast_recomputation_as_of(
+            forecast,
+            price,
+            current_as_of=datetime(2026, 9, 6, tzinfo=timezone.utc),
+        )
+
+
+def test_main_inventory_thaws_to_the_forecast_plan_shape(inventory):
+    cells = [
+        phase3_main_live.phase3_main_runner._thaw_value(cell)
+        for cell in inventory.cells
+    ]
+    assert all(isinstance(cell["dependency_keys"], list) for cell in cells)
+    phase3_main_live.phase3_plan.validate_cells(
+        cells,
+        str(json.loads(
+            (ROOT / "rejudge" / "phase3_protocol_v3_r6.json").read_text(
+                encoding="utf-8"
+            )
+        )["cell_key_namespace"]),
+    )
+
+
 def test_launch_freshness_failure_precedes_identity_start(
     tmp_path, inventory, monkeypatch,
 ):

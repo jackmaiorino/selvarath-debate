@@ -4,7 +4,14 @@ from __future__ import annotations
 import math
 import statistics
 from collections import defaultdict
-from decimal import Decimal, ROUND_CEILING
+from decimal import (
+    Decimal,
+    MAX_EMAX,
+    MIN_EMIN,
+    ROUND_CEILING,
+    ROUND_HALF_UP,
+    localcontext,
+)
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Sequence, cast
 
@@ -29,6 +36,7 @@ ACTUAL_TOKEN_STATUSES = frozenset({"success", "charged_malformed"})
 TOKEN_METRICS = (
     "prompt_tokens", "completion_tokens", "attempt_count", "billed_attempt_count",
 )
+PREDECESSOR_SPEND_QUANTUM = Decimal("0.00000001")
 
 
 class ForecastInputError(ValueError):
@@ -695,6 +703,16 @@ def _ceil_cents(value: Decimal) -> Decimal:
         rounding=ROUND_CEILING) / Decimal("100")
 
 
+def _predecessor_spend(value: Any, label: str) -> Decimal:
+    """Recover the ledger's frozen eight-decimal monetary representation."""
+    amount = Decimal(str(_non_negative_number(value, label)))
+    with localcontext() as context:
+        context.prec = max(100, len(amount.as_tuple().digits) + 10)
+        context.Emax = MAX_EMAX
+        context.Emin = MIN_EMIN
+        return amount.quantize(PREDECESSOR_SPEND_QUANTUM, rounding=ROUND_HALF_UP)
+
+
 def build_cost_forecast(
     *,
     protocol: Mapping[str, Any],
@@ -903,10 +921,12 @@ def build_cost_forecast(
         segment_names.add(name)
         ledger_sha = _sha256(
             segment.get("ledger_sha256"), f"cumulative segment {name}.ledger_sha256")
-        actual = Decimal(str(_non_negative_number(
-            segment.get("actual_spend_usd"), f"cumulative segment {name}.actual")))
-        uncertain = Decimal(str(_non_negative_number(
-            segment.get("uncertain_spend_usd"), f"cumulative segment {name}.uncertain")))
+        actual = _predecessor_spend(
+            segment.get("actual_spend_usd"), f"cumulative segment {name}.actual"
+        )
+        uncertain = _predecessor_spend(
+            segment.get("uncertain_spend_usd"), f"cumulative segment {name}.uncertain"
+        )
         cumulative_cost += actual + uncertain
         normalized_segments.append({
             "name": name,

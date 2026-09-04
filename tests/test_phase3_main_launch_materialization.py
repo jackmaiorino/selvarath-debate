@@ -77,7 +77,7 @@ def _inputs(tmp_path: Path, monkeypatch) -> tuple[Path, dict[str, Path]]:
             value = {
                 "certification": "pass",
                 "within_stage_cap": True,
-                "cumulative_spend_usd": 119.2723849,
+                "cumulative_spend_usd": 119.27238489999999,
                 "projected_main_usd": 908.82,
                 "stage_cap_usd": 1100.0,
             }

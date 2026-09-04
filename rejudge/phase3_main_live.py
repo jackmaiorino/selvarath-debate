@@ -24,7 +24,7 @@ import tempfile
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, MAX_EMAX, MIN_EMIN, ROUND_HALF_UP, localcontext
 from pathlib import Path
 from typing import Any, cast
@@ -1799,6 +1799,41 @@ def _normalized_predecessor_segment(value: Any, label: str) -> Decimal:
         return amount.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP)
 
 
+def _forecast_recomputation_as_of(
+    forecast: Mapping[str, Any], price: Mapping[str, Any], *, current_as_of: datetime,
+) -> datetime:
+    """Recover the forecast's original certification clock for stable recomputation."""
+    validation = forecast.get("price_validation")
+    if not isinstance(validation, Mapping) or set(validation) != {
+        "validation",
+        "canonical_sha256",
+        "verified_at_utc",
+        "age_seconds",
+        "required_models",
+        "raw_catalog_checked",
+        "raw_serverless_endpoints_checked",
+    }:
+        raise Phase3MainLiveError("cost forecast price validation fields drifted")
+    verified_at = phase3_main_manifest._utc(
+        price.get("verified_at_utc"), "price_snapshot.verified_at_utc"
+    )
+    if (
+        validation.get("validation") != "pass"
+        or validation.get("verified_at_utc")
+        != verified_at.isoformat().replace("+00:00", "Z")
+    ):
+        raise Phase3MainLiveError("cost forecast price validation binding drifted")
+    age_seconds = _decimal_number(
+        validation.get("age_seconds"), "cost forecast price age"
+    )
+    if age_seconds > Decimal("86400"):
+        raise Phase3MainLiveError("cost forecast was certified with stale price evidence")
+    recomputation_as_of = verified_at + timedelta(seconds=float(age_seconds))
+    if recomputation_as_of > current_as_of.astimezone(timezone.utc):
+        raise Phase3MainLiveError("cost forecast certification clock is in the future")
+    return recomputation_as_of
+
+
 def _require_clean_pre_main_billing(
     validation: Mapping[str, Any], manifest: Mapping[str, Any],
 ) -> None:
@@ -2051,7 +2086,9 @@ def _validate_cost_forecast(
     cap = Decimal(spend["stage_cap_usd"])
     if _decimal_number(forecast.get("projected_main_usd"), "projected main") != projected:
         raise Phase3MainLiveError("manifest main forecast differs from the certified forecast")
-    if _decimal_number(forecast.get("cumulative_spend_usd"), "cumulative spend") != prior:
+    if _normalized_predecessor_segment(
+        forecast.get("cumulative_spend_usd"), "cumulative spend"
+    ) != prior:
         raise Phase3MainLiveError("manifest prior spend differs from the certified forecast")
     if _decimal_number(forecast.get("stage_cap_usd"), "stage cap") != cap:
         raise Phase3MainLiveError("manifest cap differs from the certified forecast")
@@ -2107,14 +2144,21 @@ def _validate_cost_forecast(
         )
     if observed != expected:
         raise Phase3MainLiveError("cost forecast segments differ from reconciled ledgers")
+    forecast_as_of = _forecast_recomputation_as_of(
+        forecast, price, current_as_of=as_of
+    )
+    forecast_cells = [
+        cast(dict[str, Any], phase3_main_runner._thaw_value(cell))  # noqa: SLF001
+        for cell in inventory.cells
+    ]
     try:
         recomputed = phase3_v3_forecast.build_cost_forecast(
             protocol=protocol,
-            planned_main_cells=[dict(cell) for cell in inventory.cells],
+            planned_main_cells=forecast_cells,
             dynamic_residual_frame=dynamic_frame,
             exact_context_index=exact_context_index,
             price_snapshot=price,
-            price_as_of=as_of,
+            price_as_of=forecast_as_of,
             cumulative_spend_segments=segments,
             stage_cap_ratification=stage_cap_ratification,
             project_root=str(root),
