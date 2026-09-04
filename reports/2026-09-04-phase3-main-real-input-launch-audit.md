@@ -59,6 +59,25 @@ endpoint inventory, 18-ledger reconciliation, and owner-ratified cap.
 
 The focused forecast, launch-materialization, and main-live suite passed with 117 tests passed
 and two skipped. The actual 28-input dry manifest also passed construction with the corrected
-forecast. The remaining historical v5 capacity inputs are intentionally not launchable because
-their measured validity expired. They will be replaced by the v6 capacity result after exact
-owner ratification and detached authorization.
+forecast.
+
+The corrected non-authorizing audit manifest is stored at
+`E:/selvarath-archive/phase3-main-real-input-audit-2026-09-04/non-authorizing-expired-v5-audit-manifest-r2.json`.
+Its raw SHA-256 is `2dfff8b66240c9a134f5ae6a990c23638f2dcc55e6a85606ab61e7aebcabc46f`,
+its canonical SHA-256 is `1614c3d6c79a4ea1edf27469286ef2c1e7def5eff4ff7190039cb93f5eaef182`,
+and its run ID is `phase3-main-3eeb61535ab5755d`. Normal live admission with the existing
+v5 inputs cleared the protocol, inventory, prompt, role-limit, analysis-pin, scope, transcript,
+and final r6 context gates, then failed exactly at `capacity evidence has expired`.
+
+A separate read-only audit disabled only current capacity freshness in memory and supplied an
+unsigned authorization-shaped object in memory. `load_prepared_main` then returned successfully,
+which exercised the remaining capacity provenance, runtime-policy, authorization-shape, current
+price, catalog context, billing, environmental-restart, exact-context, forecast, harness, and
+canary-binding gates. The later diagnostic print failed on a nonexistent convenience `status`
+field only after the loader had returned. The manifest's deliberately impossible formal output
+root remained absent throughout. This audit does not create owner authority and is not launch
+readiness evidence.
+
+The remaining historical v5 capacity inputs are intentionally not launchable because their
+measured validity expired. They will be replaced by the v6 capacity result after exact owner
+ratification and detached authorization.
