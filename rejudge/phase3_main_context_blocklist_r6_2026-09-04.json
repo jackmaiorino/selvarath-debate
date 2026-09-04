@@ -1,0 +1,16 @@
+{
+ "ceilings_used": {
+  "Qwen/Qwen3.8-2.4T-A95B": 1010000,
+  "meta-llama/Llama-3.3-70B-Instruct-Turbo": 131072
+ },
+ "cell_key_namespace": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab",
+ "counts_by_judge_and_condition": [],
+ "estimator_provenance": {
+  "function": "estimate_context_tokens",
+  "module": "rejudge.api_client"
+ },
+ "excluded": [],
+ "excluded_count": 0,
+ "generated_at": "2026-09-04T00:00:00Z",
+ "scope": "main"
+}

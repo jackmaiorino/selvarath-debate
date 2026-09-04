@@ -27,6 +27,13 @@ forecast even while the price snapshot remained fresh. Live validation now recon
 validates the original certification clock from the bound snapshot time plus recorded age.
 Current price freshness remains a separate launch-time gate and is not weakened.
 
+The full live-input path then rejected the 2026-08-21 main context blocklist. That file predates
+the final r6 namespace, two-model roster, and r10 role limits. A fresh deterministic r6 report
+is now tracked at `rejudge/phase3_main_context_blocklist_r6_2026-09-04.json`, raw SHA-256
+`07c16736b1ae02c904af72a670e884ec562131e44a7186f2741986c4a2bc114e`. It recomputes exactly
+from the frozen protocol, prompt bundle, role limits, 492 transcripts, and 10,332 main cells.
+All 9,840 judgment cells remain context-eligible, so the exclusion count is zero.
+
 ## Corrected forecast
 
 The corrected forecast was materialized without a provider call by reusing the still-fresh
