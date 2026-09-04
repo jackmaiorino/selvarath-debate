@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from rejudge import phase3_plan, phase3_v3_forecast as forecast
+from rejudge import phase3_main_stage_cap
 from rejudge import phase3_v3_materialization as materialization
 from rejudge.phase2_execution import canonical_sha256
 
@@ -444,6 +445,36 @@ def test_cost_forecast_prices_complete_main_grid_and_cumulative_spend(protocol, 
         item["rounded_line_cost_usd"] == round(item["rounded_line_cost_usd"], 2)
         for item in result["line_items"]
     )
+
+
+def test_owner_ratification_supplies_the_main_stage_cap(tmp_path: Path):
+    protocol = phase3_plan.load_protocol(
+        ROOT / "rejudge" / "phase3_protocol_v3_r6.json"
+    )
+    cells, exact, dynamic, prices = _full_projection_inputs(protocol, tmp_path)
+    ratification = json.loads(
+        phase3_main_stage_cap.RATIFICATION_PATH.read_text(encoding="utf-8")
+    )
+    result = forecast.build_cost_forecast(
+        protocol=protocol,
+        planned_main_cells=cells,
+        dynamic_residual_frame=dynamic,
+        exact_context_index=exact,
+        price_snapshot=prices,
+        price_as_of=datetime(2026, 8, 29, 2, tzinfo=timezone.utc),
+        cumulative_spend_segments=[{
+            "name": "owner-ratified-predecessor-upper-bound",
+            "ledger_sha256": "b" * 64,
+            "actual_spend_usd": 119.27238490,
+            "uncertain_spend_usd": 0.0,
+        }],
+        stage_cap_ratification=ratification,
+        project_root=str(tmp_path),
+    )
+    assert result["schema_version"] == "phase3_v3_cost_forecast_v2"
+    assert result["stage_cap_usd"] == 1100.0
+    assert result["stage_cap_binding"]["kind"] == "owner_ratification"
+    assert result["within_stage_cap"] is True
 
 
 def test_cost_forecast_blocks_missing_exact_main_context(protocol, tmp_path: Path):

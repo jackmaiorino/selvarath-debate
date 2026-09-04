@@ -8,13 +8,13 @@ from decimal import Decimal, ROUND_CEILING
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Sequence, cast
 
-from rejudge import phase3_plan, phase3_v3_inputs
+from rejudge import phase3_main_stage_cap, phase3_plan, phase3_v3_inputs
 from rejudge.phase2_execution import canonical_sha256
 
 
 SCHEMA_VERSION = "phase3_v3_slot_role_frame_v2"
 DYNAMIC_SCHEMA_VERSION = "phase3_v3_dynamic_residual_frame_v1"
-COST_SCHEMA_VERSION = "phase3_v3_cost_forecast_v1"
+COST_SCHEMA_VERSION = "phase3_v3_cost_forecast_v2"
 CALL_ROLES = (
     "judge_query",
     "judge_verdict",
@@ -704,6 +704,7 @@ def build_cost_forecast(
     price_snapshot: Mapping[str, Any],
     price_as_of: datetime,
     cumulative_spend_segments: Sequence[Mapping[str, Any]],
+    stage_cap_ratification: Mapping[str, Any] | None = None,
     project_root: str | None = None,
     verify_price_catalog: bool = True,
 ) -> dict[str, Any]:
@@ -919,7 +920,28 @@ def build_cost_forecast(
     projected_main = sum(
         (Decimal(str(item["rounded_line_cost_usd"])) for item in line_items), Decimal("0"))
     stage_total = cumulative_cost + projected_main
-    stage_cap = Decimal(str(protocol["decisions"]["spend"]["stage_cap_usd"]))
+    if stage_cap_ratification is None:
+        stage_cap = Decimal(str(protocol["decisions"]["spend"]["stage_cap_usd"]))
+        stage_cap_binding = {
+            "kind": "protocol",
+            "canonical_sha256": protocol_sha,
+        }
+    else:
+        try:
+            ratification_validation = (
+                phase3_main_stage_cap.validate_stage_cap_ratification(
+                    stage_cap_ratification,
+                    protocol_canonical_sha256=protocol_sha,
+                )
+            )
+        except phase3_main_stage_cap.StageCapRatificationError as exc:
+            raise ForecastInputError(f"stage-cap ratification failed: {exc}") from exc
+        stage_cap = ratification_validation["stage_cap_usd"]
+        stage_cap_binding = {
+            "kind": "owner_ratification",
+            "canonical_sha256": ratification_validation["canonical_sha256"],
+            "ratification_id": ratification_validation["ratification_id"],
+        }
     return {
         "schema_version": COST_SCHEMA_VERSION,
         "certification": "pass",
@@ -939,6 +961,7 @@ def build_cost_forecast(
         "cumulative_spend_usd": float(cumulative_cost),
         "projected_stage_total_usd": float(stage_total),
         "stage_cap_usd": float(stage_cap),
+        "stage_cap_binding": stage_cap_binding,
         "within_stage_cap": stage_total <= stage_cap,
         "non_claim": "A passing forecast does not authorize provider calls or GPU work.",
     }

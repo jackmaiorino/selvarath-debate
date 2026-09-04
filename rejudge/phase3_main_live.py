@@ -39,6 +39,7 @@ from rejudge import (
     phase3_main_finalization,
     phase3_main_manifest,
     phase3_main_runtime_policies,
+    phase3_main_stage_cap,
     phase3_main_together_billing_capture,
     phase3_main_reviewer_provenance,
     phase3_main_reviewer_commit,
@@ -545,7 +546,15 @@ def _validate_capacity(
             finalization = Path(__file__).resolve().parents[1] / finalization
         snapshot = phase3_main_review_capacity_preflight.collect_source_snapshot(
             archive_dir=archive, finalization_path=finalization)
-        workload = phase3_main_review_capacity_preflight.derive_workload(snapshot)
+        derivation_tag = (
+            phase3_main_review_capacity_preflight.derivation_tag_from_plan(plan)
+        )
+        if derivation_tag == phase3_main_review_capacity_preflight.DERIVATION_TAG_V1:
+            workload = phase3_main_review_capacity_preflight.derive_workload(snapshot)
+        else:
+            workload = phase3_main_review_capacity_preflight.derive_workload(
+                snapshot, derivation_tag=derivation_tag
+            )
         plan_validation = phase3_main_review_capacity_preflight.validate_plan(
             plan, snapshot=snapshot, workload=workload)
         history = phase3_main_review_capacity_preflight.load_bound_dispatch_history(
@@ -1799,9 +1808,10 @@ def _require_clean_pre_main_billing(
     validation: Mapping[str, Any], manifest: Mapping[str, Any],
 ) -> None:
     """Require a closed exact or conservative prior-spend upper bound."""
-    if validation.get("run_id") != manifest.get("run_id"):
-        raise Phase3MainLiveError(
-            "pre-main billing reconciliation run ID differs from the manifest")
+    # This record settles the predecessor stage window, not the fresh main identity. Its raw
+    # bytes are already bound by the manifest. Requiring its descriptive run_id to equal the
+    # derived manifest run_id creates a hash cycle because the reconciliation hash contributes
+    # to that derived identity.
     billing_scope = validation.get("billing_scope")
     settlement = validation.get("provider_settlement")
     settlement_fields = {
@@ -2029,6 +2039,7 @@ def _validate_cost_forecast(
     inventory: phase3_main_runner.MainInventory, dynamic_frame: Mapping[str, Any],
     exact_context_index: Mapping[str, Any], price: Mapping[str, Any],
     reconciliation_record: Mapping[str, Any], manifest: Mapping[str, Any],
+    stage_cap_ratification: Mapping[str, Any],
     root: Path, as_of: datetime,
 ) -> None:
     if forecast.get("schema_version") != phase3_v3_forecast.COST_SCHEMA_VERSION:
@@ -2049,8 +2060,24 @@ def _validate_cost_forecast(
         raise Phase3MainLiveError("manifest prior spend differs from the certified forecast")
     if _decimal_number(forecast.get("stage_cap_usd"), "stage cap") != cap:
         raise Phase3MainLiveError("manifest cap differs from the certified forecast")
-    if _decimal_number(protocol["decisions"]["spend"]["stage_cap_usd"], "protocol cap") != cap:
-        raise Phase3MainLiveError("protocol cap differs from the exact main authorization cap")
+    try:
+        cap_validation = phase3_main_stage_cap.validate_stage_cap_ratification(
+            stage_cap_ratification,
+            protocol_canonical_sha256=canonical_sha256(protocol),
+        )
+    except phase3_main_stage_cap.StageCapRatificationError as exc:
+        raise Phase3MainLiveError(f"stage-cap ratification failed: {exc}") from exc
+    if cap_validation["stage_cap_usd"] != cap:
+        raise Phase3MainLiveError(
+            "owner-ratified stage cap differs from the exact main authorization cap"
+        )
+    expected_cap_binding = {
+        "kind": "owner_ratification",
+        "canonical_sha256": cap_validation["canonical_sha256"],
+        "ratification_id": cap_validation["ratification_id"],
+    }
+    if forecast.get("stage_cap_binding") != expected_cap_binding:
+        raise Phase3MainLiveError("cost forecast stage-cap ratification binding drifted")
 
     raw_segments = forecast.get("cumulative_spend_segments")
     if isinstance(raw_segments, (str, bytes)) or not isinstance(raw_segments, Sequence):
@@ -2094,6 +2121,7 @@ def _validate_cost_forecast(
             price_snapshot=price,
             price_as_of=as_of,
             cumulative_spend_segments=segments,
+            stage_cap_ratification=stage_cap_ratification,
             project_root=str(root),
             verify_price_catalog=True,
         )
@@ -2266,10 +2294,17 @@ def load_prepared_main(
         manifest, input_paths=input_paths, protocol=protocol, root=root)
     forecast = _load_bound_input_object(
         manifest, input_paths, "certified_cost_forecast", "certified cost forecast")
+    stage_cap_ratification = _load_bound_input_object(
+        manifest,
+        input_paths,
+        "stage_cap_ratification",
+        "stage-cap ratification",
+    )
     _validate_cost_forecast(
         forecast, protocol=protocol, inventory=inventory, dynamic_frame=dynamic_frame,
         exact_context_index=exact_context_index, price=price,
-        reconciliation_record=billing_record, manifest=manifest, root=root, as_of=now)
+        reconciliation_record=billing_record, manifest=manifest,
+        stage_cap_ratification=stage_cap_ratification, root=root, as_of=now)
 
     harness_receipt = _load_bound_input_object(
         manifest, input_paths, "harness_receipt", "harness receipt")

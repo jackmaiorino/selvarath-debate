@@ -12,6 +12,7 @@ import pytest
 
 from rejudge import phase3_main_manifest as main_manifest
 from rejudge import phase3_main_runtime_policies as runtime_policies
+from rejudge import phase3_main_stage_cap as stage_cap
 from rejudge.phase3_main_runner import (
     CONFIRMED_MAIN_JUDGES,
     EXPECTED_MAIN_CELL_COUNT,
@@ -42,6 +43,8 @@ def _manifest(tmp_path: Path) -> dict:
             value = runtime_policies.EXPECTED_PRICE_CHANGE_POLICY
         elif name == "reviewer_usage_policy":
             value = runtime_policies.EXPECTED_REVIEWER_USAGE_POLICY
+        elif name == "stage_cap_ratification":
+            value = json.loads(stage_cap.RATIFICATION_PATH.read_text(encoding="utf-8"))
         else:
             value = {"name": name}
         if name == "capacity_execution_authorization_signature":
@@ -111,9 +114,9 @@ def _manifest(tmp_path: Path) -> dict:
             "gpu_ordinal": "not_applicable",
         },
         "spend": {
-            "prior_reconciled_usd": "84.38130485",
+            "prior_reconciled_usd": "119.27238490",
             "forecast_main_usd": "640.27",
-            "stage_cap_usd": "875.00",
+            "stage_cap_usd": "1100.00",
         },
         "harness_check": {
             "receipt_input_name": "harness_receipt",
@@ -146,6 +149,7 @@ def _authorization(manifest: dict) -> dict:
         "reviewer_reasoning_effort": manifest["runtime"]["reviewer_reasoning_effort"],
         "reviewer_concurrency": manifest["runtime"]["reviewer_concurrency"],
         "stage_cap_usd": manifest["spend"]["stage_cap_usd"],
+        "stage_cap_ratification_sha256": inputs["stage_cap_ratification"]["sha256"],
         "price_snapshot_sha256": inputs["price_snapshot"]["sha256"],
         "price_change_policy_sha256": inputs["price_change_policy"]["sha256"],
         "prior_reconciliation_sha256": inputs["billing_reconciliation"]["sha256"],
@@ -169,10 +173,11 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     manifest = _manifest(tmp_path)
     result = main_manifest.validate_main_manifest(manifest, project_root=tmp_path)
     assert set(manifest) == main_manifest.MANIFEST_FIELDS
-    assert manifest["schema_version"] == "phase3_main_launch_manifest_v6"
+    assert manifest["schema_version"] == "phase3_main_launch_manifest_v7"
     assert "price_change_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "reviewer_usage_policy" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "tokenizer_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
+    assert "stage_cap_ratification" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "capacity_execution_manifest" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert "capacity_execution_authorization" in main_manifest.REQUIRED_INPUT_BINDINGS
     assert (
@@ -182,7 +187,7 @@ def test_manifest_is_small_exact_non_authorizing_and_file_bound(tmp_path):
     assert "exact_context_index" not in main_manifest.REQUIRED_INPUT_BINDINGS
     assert manifest["execution_authorized"] is False
     assert result["run_id"] == manifest["run_id"]
-    assert result["stage_cap_usd"] == "875.00"
+    assert result["stage_cap_usd"] == "1100.00"
     assert result["artifact_root"] == (tmp_path / "formal").resolve()
 
 
@@ -285,7 +290,9 @@ def test_manifest_rejects_inventory_output_concurrency_runtime_and_forecast_drif
         ("runtime", "provider_worker_concurrency", 2, "concurrency"),
         ("runtime", "provider_worker_concurrency", True, "non-negative integer"),
         ("runtime", "gpu_ordinal", 1, "GPU ordinal"),
-        ("spend", "forecast_main_usd", "900.00", "fit inside"),
+        ("spend", "forecast_main_usd", "1000.00", "fit inside"),
+        ("spend", "stage_cap_usd", "1099.00", "owner-ratified stage cap"),
+        ("spend", "prior_reconciled_usd", "119.27", "owner-ratified upper bound"),
     ]
     for section, field, value, message in cases:
         changed = deepcopy(manifest)
@@ -331,8 +338,8 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
     authorization = _authorization(manifest)
     result = main_manifest.validate_main_authorization(
         authorization, manifest, as_of=NOW)
-    assert result["approved_cap_usd"] == "875.00"
-    assert authorization["schema_version"] == "phase3_main_exact_authorization_v6"
+    assert result["approved_cap_usd"] == "1100.00"
+    assert authorization["schema_version"] == "phase3_main_exact_authorization_v7"
     assert "Together account identity SHA-256" in authorization["exact_text"]
     assert manifest["runtime"]["provider_account_identity_sha256"] in (
         authorization["exact_text"])
@@ -344,7 +351,8 @@ def test_exact_authorization_binds_identity_cap_models_forecast_and_reconciliati
 
     mutations = [
         ("run_id", "phase3-main-other", "run ID"),
-        ("stage_cap_usd", "875.0", "exactly equal"),
+        ("stage_cap_usd", "1100.0", "exactly equal"),
+        ("stage_cap_ratification_sha256", "0" * 64, "stage-cap ratification binding"),
         ("provider_account_identity_sha256", "e" * 64, "account identity"),
         ("exact_model_ids", list(reversed(CONFIRMED_MAIN_JUDGES)), "endpoint roster"),
         ("reviewer_model", "different-reviewer", "reviewer runtime"),

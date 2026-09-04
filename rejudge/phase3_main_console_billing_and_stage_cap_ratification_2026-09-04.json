@@ -1,0 +1,69 @@
+{
+  "schema_version": "phase3_main_console_billing_and_stage_cap_ratification_v1",
+  "ratification_id": "phase3-main-console-billing-and-stage-cap-ratification-2026-09-04",
+  "recorded_at_utc": "2026-09-04T20:40:36.8318905Z",
+  "approved_by": "Jack Maiorino",
+  "channel": "active Codex project task",
+  "exact_text": "I ratify the exact Phase 3 console billing policy proposal dated 2026-09-04, raw SHA-256 5c2a4997cf9ee64d457e855bcb869e2b53ae47e9ce146ff9f9c2330499da73a3 and canonical SHA-256 51e1bdaa687dbc8969b00819e89ad4475b025be8275b328f841cbcfe19f86c71. This includes retiring the unavailable /v1/billing/usage route for the selected Together account, using the exact-window Cost Analytics total of 94.07 USD as numeric settlement evidence, using the completed August invoice only for monthly finality and prepaid-credit treatment, preserving all 18 selected ledgers and all 827 unresolved reservation records unchanged, closing the provider-final total below local actual spend with disposition closed_provider_final_below_local_actual, and retaining 119.27238490 USD as the predecessor spend upper bound. I also ratify a 1,100.00 USD Phase 3 stage cap as proposed in the unchanged 2026-09-03 stage-cap brief with raw SHA-256 17ecafec8a9a91eb18ae40c74a59f7abf34e9a6db17a194508b43be79531c88c. This ratification authorizes offline policy, protocol, reconciliation, forecast, and manifest materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority.",
+  "console_billing_policy": {
+    "path": "rejudge/phase3_main_console_billing_policy_proposal_2026-09-04.json",
+    "raw_sha256": "5c2a4997cf9ee64d457e855bcb869e2b53ae47e9ce146ff9f9c2330499da73a3",
+    "canonical_sha256": "51e1bdaa687dbc8969b00819e89ad4475b025be8275b328f841cbcfe19f86c71",
+    "disposition": "ratified_unchanged"
+  },
+  "billing_decision": {
+    "unavailable_route": "/v1/billing/usage",
+    "numeric_settlement_source": "Together Cost Analytics exact-window total",
+    "numeric_settlement_usd": "94.07",
+    "monthly_finality_source": "completed August 2026 invoice",
+    "invoice_treatment": "monthly finality and prepaid-credit treatment only",
+    "selected_ledger_count": 18,
+    "unresolved_reservation_count": 827,
+    "history_treatment": "preserve selected ledger bytes and unresolved reservation records unchanged",
+    "disposition": "closed_provider_final_below_local_actual",
+    "predecessor_spend_upper_bound_usd": "119.27238490"
+  },
+  "stage_cap_decision": {
+    "decision_brief_path": "reports/2026-09-03-phase3-main-stage-cap-decision-brief.md",
+    "decision_brief_raw_sha256": "17ecafec8a9a91eb18ae40c74a59f7abf34e9a6db17a194508b43be79531c88c",
+    "amends_protocol": {
+      "path": "rejudge/phase3_protocol_v3_r6.json",
+      "raw_sha256": "3571b195b6ac806bbdeb3a629878bb2c01cc7cd6f6979baefb2c5276c7a8f484",
+      "canonical_sha256": "e366147d54f65d9c033f94fc7f8dfd2803c3d147a326212a8dd36c5f84b7ef85",
+      "field": "decisions.spend.stage_cap_usd",
+      "previous_value_usd": "450.00"
+    },
+    "superseded_planning_proposal_usd": "875.00",
+    "stage_cap_usd": "1100.00",
+    "forecast_basis": {
+      "path": "E:/selvarath-archive/phase3-main-forecast-2026-09-03/cost_forecast.json",
+      "raw_sha256": "919ae1d984a10a8f5305fb96a6ff229ef57f93f7b79c7a29a3e91f8bf952310a",
+      "canonical_sha256": "59c20f3cfda2f33bc086e3bb13afb707f12064e13f2a12c9b7bef676673c9670",
+      "predecessor_spend_upper_bound_usd": "119.27238490",
+      "projected_main_spend_usd": "908.82",
+      "projected_stage_total_usd": "1028.09238490",
+      "headroom_usd": "71.90761510",
+      "launch_freshness": "historical_only_refresh_price_before_launch"
+    },
+    "scope": {
+      "judge_count": 2,
+      "condition_count": 5,
+      "question_count": 82,
+      "judgment_slot_count": 9840,
+      "design_changed": false
+    }
+  },
+  "authority": {
+    "offline_policy_materialization_authorized": true,
+    "offline_protocol_materialization_authorized": true,
+    "offline_reconciliation_materialization_authorized": true,
+    "offline_forecast_materialization_authorized": true,
+    "offline_manifest_materialization_authorized": true,
+    "external_reviewer_dispatch_authorized": false,
+    "provider_calls_authorized": false,
+    "together_calls_authorized": false,
+    "main_run_authorized": false,
+    "spend_authorized": false
+  },
+  "note": "Append-only owner decision record. The ratified cap is an offline protocol amendment and does not authorize execution."
+}

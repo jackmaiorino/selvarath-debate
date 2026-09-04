@@ -199,8 +199,12 @@ class DispatchHistorySnapshot:
 def derivation_tag_from_plan(plan: Mapping[str, Any]) -> str:
     workload = plan.get("workload")
     if not isinstance(workload, Mapping):
+        if plan.get("schema_version") == SCHEMA_VERSION:
+            return DERIVATION_TAG_V1
         raise CapacityPreflightError("plan lacks workload")
     derivation_tag = workload.get("derivation_tag")
+    if derivation_tag is None and plan.get("schema_version") == SCHEMA_VERSION:
+        return DERIVATION_TAG_V1
     if derivation_tag not in {
         DERIVATION_TAG_V1,
         DERIVATION_TAG_V2,

@@ -435,7 +435,15 @@ def _load_frozen_inputs(
             archive_dir=archive,
             finalization_path=finalization,
         )
-        derived_workload = phase3_main_review_capacity_preflight.derive_workload(snapshot)
+        derivation_tag = (
+            phase3_main_review_capacity_preflight.derivation_tag_from_plan(capacity)
+        )
+        if derivation_tag == phase3_main_review_capacity_preflight.DERIVATION_TAG_V1:
+            derived_workload = phase3_main_review_capacity_preflight.derive_workload(snapshot)
+        else:
+            derived_workload = phase3_main_review_capacity_preflight.derive_workload(
+                snapshot, derivation_tag=derivation_tag
+            )
         phase3_main_review_capacity_preflight.validate_plan(
             capacity,
             snapshot=snapshot,

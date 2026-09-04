@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--canary-run-manifest", type=Path)
     parser.add_argument("--terminal-records-directory", type=Path)
     parser.add_argument("--cumulative-spend", type=Path, required=True)
+    parser.add_argument("--stage-cap-ratification", type=Path)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args(argv)
 
@@ -167,6 +168,13 @@ def main(argv: list[str] | None = None) -> int:
         price_snapshot=price_snapshot,
         price_as_of=_timestamp(args.price_as_of_utc),
         cumulative_spend_segments=_segments(args.cumulative_spend.resolve()),
+        stage_cap_ratification=(
+            _load_json_object(
+                args.stage_cap_ratification.resolve(), "stage-cap ratification"
+            )
+            if args.stage_cap_ratification is not None
+            else None
+        ),
         project_root=str(REPO_ROOT),
     )
 

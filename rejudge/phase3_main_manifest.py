@@ -10,6 +10,7 @@ directory, ledger, client, or provider connection.
 from __future__ import annotations
 
 import hashlib
+import json
 import platform
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from rejudge.phase2_execution import canonical_sha256
-from rejudge import phase3_main_runtime_policies
+from rejudge import phase3_main_runtime_policies, phase3_main_stage_cap
 from rejudge.phase3_main_runner import (
     CONFIRMED_MAIN_JUDGES,
     EXPECTED_MAIN_INVENTORY_SHA256,
@@ -28,8 +29,8 @@ from rejudge.phase3_main_runner import (
 )
 
 
-MANIFEST_SCHEMA = "phase3_main_launch_manifest_v6"
-AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v6"
+MANIFEST_SCHEMA = "phase3_main_launch_manifest_v7"
+AUTHORIZATION_SCHEMA = "phase3_main_exact_authorization_v7"
 MANIFEST_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -62,6 +63,7 @@ AUTHORIZATION_FIELDS = frozenset({
     "reviewer_reasoning_effort",
     "reviewer_concurrency",
     "stage_cap_usd",
+    "stage_cap_ratification_sha256",
     "price_snapshot_sha256",
     "price_change_policy_sha256",
     "prior_reconciliation_sha256",
@@ -117,6 +119,7 @@ REQUIRED_INPUT_BINDINGS = frozenset({
     "raw_serverless_endpoints",
     "billing_reconciliation",
     "certified_cost_forecast",
+    "stage_cap_ratification",
     "reviewer_usage_policy",
     "harness_receipt",
     "canary_finalization",
@@ -566,6 +569,21 @@ def validate_main_manifest(
                 input_paths["reviewer_usage_policy"])
         except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
             raise MainManifestError(f"main runtime policy validation failed: {exc}") from exc
+        try:
+            ratification = json.loads(
+                input_paths["stage_cap_ratification"].read_text(encoding="utf-8")
+            )
+            if not isinstance(ratification, Mapping):
+                raise phase3_main_stage_cap.StageCapRatificationError(
+                    "stage-cap ratification root must be an object"
+                )
+            phase3_main_stage_cap.validate_stage_cap_ratification(ratification)
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise MainManifestError(
+                f"stage-cap ratification could not be read: {exc}"
+            ) from exc
+        except phase3_main_stage_cap.StageCapRatificationError as exc:
+            raise MainManifestError(f"stage-cap ratification failed: {exc}") from exc
     inventory = _exact_keys(manifest["inventory"], INVENTORY_FIELDS, "inventory")
     expected_inventory = {
         "question_count": EXPECTED_MAIN_QUESTION_COUNT,
@@ -610,6 +628,12 @@ def validate_main_manifest(
     prior = _money(spend["prior_reconciled_usd"], "spend.prior_reconciled_usd")
     forecast = _money(spend["forecast_main_usd"], "spend.forecast_main_usd")
     cap = _money(spend["stage_cap_usd"], "spend.stage_cap_usd")
+    if cap != phase3_main_stage_cap.STAGE_CAP_USD:
+        raise MainManifestError("manifest cap differs from the owner-ratified stage cap")
+    if prior != phase3_main_stage_cap.PREDECESSOR_UPPER_BOUND_USD:
+        raise MainManifestError(
+            "manifest predecessor spend differs from the owner-ratified upper bound"
+        )
     if cap <= 0 or prior + forecast > cap:
         raise MainManifestError("certified main forecast must fit inside a positive stage cap")
 
@@ -715,6 +739,12 @@ def validate_main_authorization(
     if authorization["stage_cap_usd"] != manifest["spend"]["stage_cap_usd"]:
         raise MainManifestError("authorization cap must exactly equal the manifest stage cap")
     inputs = manifest["input_bindings"]
+    if authorization["stage_cap_ratification_sha256"] != inputs[
+        "stage_cap_ratification"
+    ]["sha256"]:
+        raise MainManifestError(
+            "authorization stage-cap ratification binding differs from the manifest"
+        )
     if authorization["price_snapshot_sha256"] != inputs["price_snapshot"]["sha256"]:
         raise MainManifestError("authorization price binding differs from the manifest")
     if authorization["price_change_policy_sha256"] != inputs[

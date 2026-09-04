@@ -59,6 +59,48 @@ def inventory():
     return phase3_main_runner.build_canonical_main_inventory(ROOT)
 
 
+def test_capacity_validation_uses_the_plan_derivation_tag(tmp_path, monkeypatch):
+    capacity = phase3_main_live.phase3_main_review_capacity_preflight
+    observed = {}
+    workload = object()
+    monkeypatch.setattr(capacity, "collect_source_snapshot", lambda **_kwargs: object())
+    monkeypatch.setattr(
+        capacity,
+        "derive_workload",
+        lambda _snapshot, **kwargs: observed.setdefault("tag", kwargs["derivation_tag"])
+        and workload,
+    )
+    monkeypatch.setattr(capacity, "validate_plan", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        capacity,
+        "load_bound_dispatch_history",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        capacity,
+        "validate_result",
+        lambda *_args, **_kwargs: {
+            "validation": "pass",
+            "evidence_expires_at_utc": "2026-09-02T13:00:00Z",
+        },
+    )
+    plan = {
+        "source_locations": {
+            "sealed_archive": str(tmp_path),
+            "finalization_record": str(tmp_path / "finalization.json"),
+        },
+        "workload": {"derivation_tag": capacity.DERIVATION_TAG_V5},
+    }
+    result = {"completed_at_utc": "2026-09-02T12:17:04Z"}
+    phase3_main_live._validate_capacity(
+        plan=plan,
+        result=result,
+        history_path=tmp_path / "history.jsonl",
+        as_of=datetime(2026, 9, 2, 12, 30, tzinfo=timezone.utc),
+    )
+    assert observed["tag"] == capacity.DERIVATION_TAG_V5
+
+
 def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
     artifact = (tmp_path / "formal").resolve()
     registry = (tmp_path / "registry").resolve()
@@ -2272,11 +2314,14 @@ def test_capacity_validation_authenticates_and_reopens_execution_provenance(
     now = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
     completed = now - timedelta(minutes=5)
     expires = now + timedelta(hours=23)
+    capacity = phase3_main_live.phase3_main_review_capacity_preflight
     plan = {
+        "schema_version": capacity.SCHEMA_VERSION,
         "source_locations": {
             "sealed_archive": str(tmp_path / "archive"),
             "finalization_record": str(tmp_path / "finalization.json"),
-        }
+        },
+        "workload": {"derivation_tag": capacity.DERIVATION_TAG_V1},
     }
     result = {"completed_at_utc": completed.isoformat()}
     plan_path = (tmp_path / "capacity-plan.json").resolve()
@@ -3207,12 +3252,8 @@ def test_launch_accepts_closed_conservative_billing_at_the_manifest_upper_bound(
             legacy, prepared.manifest)
 
     validation["run_id"] = "another-main-run"
-    with pytest.raises(
-        phase3_main_live.Phase3MainLiveError,
-        match="run ID differs from the manifest",
-    ):
-        phase3_main_live._require_clean_pre_main_billing(
-            validation, prepared.manifest)
+    phase3_main_live._require_clean_pre_main_billing(
+        validation, prepared.manifest)
     validation["run_id"] = prepared.manifest["run_id"]
 
     other_account = {

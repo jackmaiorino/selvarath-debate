@@ -69,6 +69,7 @@ def _capacity_workload() -> capacity_preflight.DerivedWorkload:
     )
     cohorts = (variants[:180], variants[180:])
     summary = {
+        "derivation_tag": capacity_preflight.DERIVATION_TAG_V1,
         "wave_size": 60,
         "cohort_records_canonical_sha256s": [
             capacity_preflight.canonical_sha256(
@@ -101,7 +102,7 @@ def _stub_capacity_source_validation(monkeypatch):
     monkeypatch.setattr(
         capacity_preflight,
         "derive_workload",
-        lambda _snapshot: workload,
+        lambda _snapshot, **_kwargs: workload,
     )
     monkeypatch.setattr(
         capacity_preflight,
