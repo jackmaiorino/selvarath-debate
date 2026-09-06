@@ -40,6 +40,7 @@ SCHEMA_VERSION_V2 = "phase3_main_review_capacity_preflight_plan_v2"
 SCHEMA_VERSION_V3 = "phase3_main_review_capacity_preflight_plan_v3"
 SCHEMA_VERSION_V4 = "phase3_main_review_capacity_preflight_plan_v4"
 SCHEMA_VERSION_V5 = "phase3_main_review_capacity_preflight_plan_v5"
+SCHEMA_VERSION_V6 = "phase3_main_review_capacity_preflight_plan_v6"
 SCHEMA_VERSION = SCHEMA_VERSION_V1
 MATERIALIZATION_SCHEMA_VERSION = "phase3_main_review_capacity_workload_v1"
 RESULT_SCHEMA_VERSION = "phase3_main_review_capacity_result_v1"
@@ -71,6 +72,13 @@ EXPECTED_PLAN_CANONICAL_SHA256_V4 = (
 EXPECTED_PLAN_CANONICAL_SHA256_V5 = (
     "6b3300dc8006b6ea312cc62ca89b28f0049577248e1ddf862b1c55d9effee85a"
 )
+EXPECTED_PLAN_CANONICAL_SHA256_V6 = "e7365057dcb5b535f7fd9b9fac996755e0707c1fd3364ad28e2b738e22391a9a"
+# The v1 through v5 measurements used the shared npm global codex.cmd. That prefix drifted
+# to codex-cli 0.153.4 after the v5 measurement, so v6 pins a dedicated codex-cli 0.149.0
+# copy whose wrapper bytes are identical; the execution manifest binds the reported version.
+REVIEWER_CLI_RESOLVED_PATH_SHARED_NPM = "C:/Users/Jack/AppData/Roaming/npm/codex.cmd"
+REVIEWER_CLI_RESOLVED_PATH_V6 = "E:/selvarath-tools/codex-0.149.0/codex.cmd"
+CAPACITY_VALIDITY_HOURS_V6 = 1080
 PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
 _PAYLOAD_RE = re.compile(
     r"QUERY: (?P<query>.*?)\r?\nCANDIDATE A: (?P<candidate_a>.*?)"
@@ -945,6 +953,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         SCHEMA_VERSION_V3: EXPECTED_PLAN_CANONICAL_SHA256_V3,
         SCHEMA_VERSION_V4: EXPECTED_PLAN_CANONICAL_SHA256_V4,
         SCHEMA_VERSION_V5: EXPECTED_PLAN_CANONICAL_SHA256_V5,
+        SCHEMA_VERSION_V6: EXPECTED_PLAN_CANONICAL_SHA256_V6,
     }
     if schema_version not in expected_hashes:
         raise CapacityPreflightError("unexpected capacity preflight schema")
@@ -956,7 +965,12 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         raise CapacityPreflightError("capacity preflight plan must not authorize provider calls")
     if plan.get("main_spend_authorized") is not False:
         raise CapacityPreflightError("capacity preflight plan must not authorize main spend")
-    if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
+    if schema_version in {
+        SCHEMA_VERSION_V3,
+        SCHEMA_VERSION_V4,
+        SCHEMA_VERSION_V5,
+        SCHEMA_VERSION_V6,
+    }:
         if plan.get("external_reviewer_dispatch_authorized") is not False:
             raise CapacityPreflightError(
                 "successor plan must not authorize reviewer dispatch"
@@ -1874,6 +1888,7 @@ def validate_plan(
         SCHEMA_VERSION_V3,
         SCHEMA_VERSION_V4,
         SCHEMA_VERSION_V5,
+        SCHEMA_VERSION_V6,
     }:
         locations = plan.get("source_locations")
         if not isinstance(locations, Mapping):
@@ -1914,6 +1929,7 @@ def validate_plan(
             SCHEMA_VERSION_V3: "phase3_main_review_capacity_v3_successor_ratification_v1",
             SCHEMA_VERSION_V4: "phase3_main_review_capacity_v4_successor_ratification_v1",
             SCHEMA_VERSION_V5: "phase3_main_review_capacity_v5_successor_ratification_v1",
+            SCHEMA_VERSION_V6: "phase3_main_review_capacity_v6_successor_ratification_v1",
         }[cast(str, schema_version)]
         expected_authority = {
             "offline_plan_materialization_authorized": True,
@@ -1923,7 +1939,12 @@ def validate_plan(
             "main_run_authorized": False,
             "spend_authorized": False,
         }
-        if schema_version in {SCHEMA_VERSION_V3, SCHEMA_VERSION_V4, SCHEMA_VERSION_V5}:
+        if schema_version in {
+            SCHEMA_VERSION_V3,
+            SCHEMA_VERSION_V4,
+            SCHEMA_VERSION_V5,
+            SCHEMA_VERSION_V6,
+        }:
             expected_authority["together_calls_authorized"] = False
         if (
             ratification.get("schema_version")
@@ -1959,7 +1980,11 @@ def validate_plan(
         "model": "gpt-5.6-sol",
         "reasoning_effort": "high",
         "reviewer_cli_binary": "codex.cmd",
-        "reviewer_cli_resolved_path": "C:/Users/Jack/AppData/Roaming/npm/codex.cmd",
+        "reviewer_cli_resolved_path": (
+            REVIEWER_CLI_RESOLVED_PATH_V6
+            if schema_version == SCHEMA_VERSION_V6
+            else REVIEWER_CLI_RESOLVED_PATH_SHARED_NPM
+        ),
         "reviewer_cli_wrapper_raw_sha256": (
             "c54db6755e710c39703f7c37512f9e35ed41042d8080558d2b84b8d2694323c3"
         ),
@@ -1972,7 +1997,7 @@ def validate_plan(
     }
     if schema_version == SCHEMA_VERSION_V4:
         expected_reviewer["openai_provider_supports_websockets"] = False
-    if schema_version == SCHEMA_VERSION_V5:
+    if schema_version in {SCHEMA_VERSION_V5, SCHEMA_VERSION_V6}:
         expected_reviewer["model_provider_profile"] = {
             "id": "openai-http",
             "name": "OpenAI",
@@ -2030,8 +2055,16 @@ def validate_plan(
     if history_contract.get("maximum_attempts") != 2:
         raise CapacityPreflightError("dispatch history must permit exactly two attempts")
     validity = plan.get("validity")
-    if not isinstance(validity, Mapping) or validity.get("valid_for_hours") != 24:
-        raise CapacityPreflightError("capacity evidence must expire after 24 hours")
+    expected_validity_hours = (
+        CAPACITY_VALIDITY_HOURS_V6 if schema_version == SCHEMA_VERSION_V6 else 24
+    )
+    if (
+        not isinstance(validity, Mapping)
+        or validity.get("valid_for_hours") != expected_validity_hours
+    ):
+        raise CapacityPreflightError(
+            f"capacity evidence must expire after {expected_validity_hours} hours"
+        )
     return {
         "validation": "pass",
         "cohort_count": 2,

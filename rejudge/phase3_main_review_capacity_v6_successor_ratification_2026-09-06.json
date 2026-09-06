@@ -1,0 +1,37 @@
+{
+ "schema_version": "phase3_main_review_capacity_v6_successor_ratification_v1",
+ "ratification_id": "phase3-main-review-capacity-v6-successor-ratification-2026-09-06",
+ "recorded_at_utc": "2026-09-06T14:23:02Z",
+ "approved_by": "Jack Maiorino",
+ "channel": "owner standing delegation, recorded by the Claude Code orchestrator session f817b4ab-a6df-441e-8ba2-719909635ba4 on 2026-09-06; the exact proposal text was adopted verbatim on Jack's behalf and Jack did not retype it",
+ "delegation_provenance": {
+  "owner_grant_2026_09_04": {
+   "channel": "active Codex project task, 2026-09-04",
+   "verbatim": "stepping away for a couple days. You have full spend and execute auth for the entire phase 3."
+  },
+  "owner_standing_authorization_2026_09_06": {
+   "channel": "global CLAUDE.md standing authorization dated 2026-09-06",
+   "verbatim": "I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return.",
+   "scope_note": "Do not block on explicit per-action authorization for launches, reruns, pins, or deviations; decide, act, and report the decisions and their evidence in the records and in the next message to Jack. Scientific laws still apply; only the authorization gate is delegated."
+  },
+  "orchestrator_decisions_disclosed": [
+   "The reviewer CLI in the shared npm prefix on the measurement host had drifted from codex-cli 0.149.0 (measured in v5) to codex-cli 0.153.4, and that prefix is in use by an unrelated live Codex session. A dedicated pinned copy of codex-cli 0.149.0 was installed at E:/selvarath-tools/codex-0.149.0 with npm install -g --prefix; its codex.cmd wrapper is byte-identical to the v5 wrapper (raw SHA-256 c54db6755e710c39703f7c37512f9e35ed41042d8080558d2b84b8d2694323c3, 341 bytes). The v6 plan pins that path so the ratified openai-http profile with http_headers.version=0.149.0 stays exact and the measured CLI cannot drift under the main run.",
+   "Every other v6 design element is exactly the ratified proposal."
+  ]
+ },
+ "proposal": {
+  "path": "rejudge/phase3_main_review_capacity_v6_successor_proposal_2026-09-04.json",
+  "raw_sha256": "b04cc7348763339d15469ab26b84effe0bc44775530b884f6ac3a09b26b52dd0",
+  "canonical_sha256": "d78cbfb64f51eacd75543020a34105d321e8ebbe98b24a81976733deff47becd"
+ },
+ "ratification_text": "I ratify the exact Phase 3 capacity v6 successor proposal dated 2026-09-04, including the completed v5 capacity pass, its 180 fully valid rulings, expiry at 2026-09-03T12:17:04.166976Z, cumulative 420 counted reviewer reservations, exclusion of all five empty-query sources, the candidate-B then candidate-A then query field-order transformation, exclusion of every sealed source, v1, v2, v3, v4, and v5 prompt, two fresh 180-packet cohorts, 211 unused variants, the unchanged openai-http Responses HTTPS reviewer profile, and a 1,080-hour capacity window matching the predeclared 45-day D_max and invalidated immediately by any measured runtime change. This ratification authorizes offline v6 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority.",
+ "authority": {
+  "offline_plan_materialization_authorized": true,
+  "offline_workload_materialization_authorized": true,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "together_calls_authorized": false,
+  "main_run_authorized": false,
+  "spend_authorized": false
+ }
+}
