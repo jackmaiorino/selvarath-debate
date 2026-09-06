@@ -179,6 +179,83 @@ Step 12 must follow the last commit. The capacity step 6 embeds the short commit
 names only; if any commit lands between step 6 and step 12, rerun step 13 with the new
 `$c` for the harness and manifest but keep `--capacity-commit` at the step 6 value.
 
+## Execution log, 2026-09-06 afternoon and evening
+
+Jack granted bypass permissions and said "continue yourself". The orchestrator then executed
+the runbook, with these deviations and findings.
+
+**Capacity v6 PASSED.** Plan canonical `e7365057dcb5b535f7fd9b9fac996755e0707c1fd3364ad28e2b738e22391a9a`
+(commit `ca0a05b`). Result `capacity_result_2026-09-06_a8c21af.json`: 180 of 180 rulings in
+108.48 s, certified 1,440 rulings per 24 h, evidence valid until `2026-10-21T17:09:02Z`.
+Execution manifest canonical `375c0951938b603bf694a74d2d10c4b10335ad97a6a1107b20ff4da9f8dc5987`;
+authorization raw `8a0ed56ebff9e1e2fcf37ba42d4e09f2071300b1c670cc12ffca5a4774169d67`, signature
+raw `8ada1ca0f6e75f02e0e2db240dc35f8fae938ba85eb5624d0c6bd6394b5874d7`. The signature was
+produced by the orchestrator with the owner's key under the recorded delegation; the
+disclosure with the wording the methods consult required is in
+`rejudge/phase3_main_delegated_signature_provenance_2026-09-06.json`. Two unsigned drafts
+from commit `ca0a05b` remain in the capacity root as superseded, never-used files.
+
+**Verifier defect fixed (commit `a8c21af`).** On this host's OpenSSH for Windows 9.5p2,
+`ssh-keygen -Y verify` never sees end-of-file when the message is piped through stdin and
+blocks instead of exiting nonzero when a signature does not verify. Both production
+verifiers now hand ssh-keygen a file handle over the exact bytes already read and treat the
+verifier deadline as an invalid signature. Acceptance requires exit 0 plus the
+Good-signature line for the pinned namespace and principal.
+
+**Blocking finding: the driver as built could not survive one provider timeout.** The
+main driver halted the identity on the first unknown charge, the journal latched after any
+raised call, and finalization required zero uncertain spend. The sealed canary ledgers show
+about two unknown charges per hour of serial execution (r15: 11 in 5.27 h, nine Qwen read
+timeouts and two Llama 503s, about $0.35 reserved each), so a 100-plus-hour run had no
+path to completion. A one-shot Codex methods consult (gpt-6-astra, ultra; tracked as
+`rejudge/phase3_main_codex_launch_consult_2026-09-06.md`) returned NO-GO on the driver as
+built and conditional GO with amendment 14.
+
+**Amendment 14 (record `rejudge/phase3_main_amendment_14_uncertain_tolerance_2026-09-06.json`).**
+Policy `rejudge/phase3_main_uncertain_spend_policy_2026-09-06.json`, raw SHA-256
+`199576d7455afb729b1a84c9cc7b66db6058c694c5b04be4b39054504762540f`, pinned in the runtime
+policies module and bound through the manifest's source commit: a $100 per-identity
+uncertain-spend ceiling checked before every reservation; the journal releases its marker
+only for an attempt-matched durable unknown charge with no content; unobserved transport
+failures are redispatched under a new attempt id with the same request, seed, and journaled
+history; a per-pass abandonment guard with a 30-minute cool-down and an 8-pass allowance;
+50 extra driver passes; finalization tolerates only the unknown-charge finding, labels the
+run PASS_CONSERVATIVE_UNCERTAIN when uncertain spend is positive, and reports redispatch
+rates by model, role, condition, and question. Role limits r11
+(`rejudge/phase3_v3_role_limits_r11_2026-09-06.json`) raise the HTTP read timeout from 120 s
+to 600 s for every model under the unchanged 1,200 s wall clock; the consult asked for 600 s
+on Qwen only, and the uniform pin is applied because the client builds one transport per
+identity and Llama's 512-token completions finish in seconds. Science content is unchanged.
+
+**Why 600 s matters.** The certified forecast sizes Qwen b0 verdicts at a per-question
+U90 of 11,012 completion tokens; the live probe observed about 65 tokens per second, so a
+typical long verdict needs about 170 s and the 16,384-token cap about 250 s, both above the
+old 120 s pin and below 600 s. Main verdict prompts are about 4.3k static tokens, far
+shorter than the 18k-token canary prompts that timed out.
+
+**Live probe 1** (`rejudge/phase3_main_long_verdict_probe_2026-09-06.json`): one real main
+b0 Qwen judgment cell through the production executor with the strict client, journal, and
+ledger under r11: completed in 25.5 s, 3,384 prompt tokens, 1,634 completion tokens, finish
+`stop`, $0.0166, zero uncertain.
+
+**Live probe 2** (`rejudge/phase3_main_long_verdict_probe_2_2026-09-06.json`): five real main
+b0 Qwen judgment cells on the five largest main transcripts (distinct questions SEL-015,
+CN-029, VS-021, SEL-022, VS-011), same production path under r11: 5 of 5 completed, zero
+abandoned, zero uncertain, $0.179 total, 132.7 s wall time. Completion tokens 928, 1,850,
+3,119, 5,728, and 10,476; the 10,476-token verdict took 54.4 s (about 190 tokens per second).
+No probe exceeded the old 120 s pin, so the probes demonstrate the r11 transport path live
+rather than a rescued timeout; the 600 s pin remains justified by the forecast's 11,012-token
+b0 completion U90 at the slower 65 tokens per second observed in probe 1. Both probe roots
+sit outside every formal identity and their rows never enter analysis.
+
+**Forecast coverage of uncertain reservations and replacement attempts.** The frozen
+forecast contract sums every attempt in its slot and role, prices unknown charges at their
+full reserved input and output tokens, takes per-question U90 estimates, and applies the
+1.15 transport multiplier before whole-cent ceilings. The canary's replacement attempts and
+unknown-charge reservations are therefore inside the certified $908.82; the $100 ceiling
+creates no additional spending authority and every uncertain dollar still counts toward
+the $1,100 cap.
+
 ## Operating notes for the run
 
 - Progress is written to `main_run_log.jsonl` under `$artifact`; the process prints one

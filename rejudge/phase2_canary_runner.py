@@ -45,6 +45,9 @@ class RunOutcome:
     # Cells whose call had an ambiguous billing outcome. Left unrecorded so a later pass
     # retries them, exactly like a paused cell, rather than stopping the whole run.
     abandoned: int = 0
+    # Additive (amendment 14, 2026-09-06): how many not-yet-complete cells this pass
+    # actually attempted, the explicit denominator of the per-pass abandonment guard.
+    attempted: int = 0
     halted_reason: str | None = None
     halted_cell_key: str | None = None
     pending_payloads: list[dict[str, str]] = field(default_factory=list)
@@ -246,6 +249,7 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                 and len(outcome.pending_payloads) >= pending_payload_limit):
             break
         attempted += 1
+        outcome.attempted = attempted
         try:
             execute_kwargs = ({"debater_model": cell.debater_model, "namespace": namespace}
                               if namespace is not None else {})

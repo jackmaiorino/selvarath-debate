@@ -1,0 +1,77 @@
+{
+ "schema_version": "phase3_main_uncertain_spend_policy_v1",
+ "policy_id": "phase3-main-uncertain-spend-policy-2026-09-06",
+ "stage": "main",
+ "provider": "Together",
+ "status": "frozen_execution_policy_pending_exact_main_authorization",
+ "amendment": "phase3 main amendment 14: bounded uncertain-spend tolerance",
+ "problem": "The main driver as built halted the identity on the first unknown provider charge and its finalization required zero uncertain spend. The sealed canary ledgers show about two unknown charges per hour of serial execution under the frozen transport pins (r15: 11 in 5.27 h, 9 Qwen read timeouts and 2 Llama 503s, about 0.35 USD reserved each), so a 100-plus-hour main run could not complete.",
+ "ceiling": {
+  "run_uncertain_ceiling_usd": 100.0,
+  "initial_run_uncertain_spend_usd": 0.0,
+  "fresh_ledger_required": true,
+  "pre_dispatch_check": "before every reservation the client requires run-local uncertain spend plus the next reservation to fit the ceiling; a projected excess raises UncertainCeilingHalt before dispatch",
+  "counts_fully_against_stage_cap": true,
+  "creates_additional_spending_authority": false,
+  "ceiling_trip_disposition": "identity halts fail-closed for owner review; no automatic successor, no automatic ceiling change"
+ },
+ "unknown_charge_treatment": {
+  "definition": "an attempt whose billing outcome the client could not observe: transport failure before a usage response, HTTP error after dispatch, or the per-call wall-clock ceiling",
+  "ledger_status": "unknown_charge",
+  "reservation_held_as_uncertain": true,
+  "journal_marker_resolution": "the journaling wrapper clears its unresolved-dispatch marker only when the raised failure is the accounting client's UnknownChargeHalt carrying the exact attempt id, the ledger's terminal event for that attempt id is unknown_charge with the same cell, role, slot, and attempt metadata, no generation content was returned, and no success exists for the key; every other failure keeps the marker and latches the client",
+  "redispatch": "permitted for an unobserved transport failure: the same exact request, slot seed, and accepted upstream history are dispatched again under a new attempt id; journaled upstream responses are never regenerated",
+  "ambiguous_completion": "a response received or settled as success without durable journal bytes remains fatal to the identity",
+  "double_billing_exposure": "bounded by the ceiling; the provider may have billed an abandoned generation"
+ },
+ "abandonment_guard": {
+  "scope": "per pass",
+  "denominator": "cells attempted in the pass",
+  "absolute_abandoned_cells": 100,
+  "abandoned_fraction": 0.9,
+  "abandoned_fraction_floor_attempted": 10,
+  "on_trip": "the pass halts with abandoned_cell_rate; the driver waits abandoned_rate_cooldown_seconds and starts the next pass; abandoned_rate_consecutive_pass_allowance consecutive trips halt the identity",
+  "abandoned_rate_cooldown_seconds": 1800,
+  "abandoned_rate_consecutive_pass_allowance": 8
+ },
+ "pass_bound": {
+  "base": "ceil(maximum unique reviewer payloads / measured wave size) + maximum terminal judgment cells + 2",
+  "unknown_charge_pass_allowance": 50,
+  "rationale": "about 150 to 250 unknown charges are expected at main scale; a pass that abandons cells still advances every other cell, so one extra pass per five events is conservative"
+ },
+ "finalization": {
+  "reconciliation_tolerated_finding": "unknown_charge",
+  "reconciliation_fatal_findings": [
+   "reservation_without_terminal_event",
+   "charged_malformed_response",
+   "success_without_journal_entry",
+   "success_without_valid_request_fingerprint_binding",
+   "ledger_journal_request_fingerprint_mismatch",
+   "duplicate_success_for_key",
+   "journal_entry_without_success"
+  ],
+  "completion_label_when_uncertain_is_zero": "PASS_CLEAN",
+  "completion_label_when_uncertain_is_positive": "PASS_CONSERVATIVE_UNCERTAIN",
+  "cap_check": "prior reconciled plus settled plus uncertain must not exceed the stage cap",
+  "exclusion_status": "unknown charges never create terminal-cell exclusions; exhausted bounds mean incomplete execution",
+  "retry_report": "unknown-charge counts and uncertain USD by model, by condition, and by question, plus the redispatch count per logical call; results are described as applying to the declared timeout and retry procedure"
+ },
+ "transport": {
+  "read_timeout_seconds": 600,
+  "read_timeout_note": "role limits r11 raises the HTTP read timeout from 120 to 600 seconds for every model under the unchanged 1,200-second per-call wall clock; non-streaming reasoning completions of up to 16,384 tokens regularly exceed 120 seconds"
+ },
+ "provenance": {
+  "owner_delegation": "Jack Maiorino, 2026-09-04: stepping away for a couple days. You have full spend and execute auth for the entire phase 3. Standing authorization 2026-09-06 and the 2026-09-06 instruction to continue.",
+  "methods_consult": "rejudge/phase3_main_codex_launch_consult_2026-09-06.md (Codex, gpt-6-astra ultra, session 01a077a1-a8d6-72d2-8015-bc7a0e48f437): NO-GO on the driver as built, conditional GO with this policy",
+  "evidence_ledgers": [
+   "E:/selvarath-archive/phase3-v3r15-clean-2026-08-29/phase3_v3_usage.jsonl",
+   "E:/selvarath-archive/phase3-v3r14-final-2026-08-29/phase3_v3_usage.jsonl",
+   "E:/selvarath-archive/phase3-v3r13-extended-2026-08-28/phase3_v3_usage.jsonl"
+  ],
+  "recorded_by": "Claude Code orchestrator session f817b4ab-a6df-441e-8ba2-719909635ba4",
+  "recorded_at_utc": "2026-09-06T17:20:00Z"
+ },
+ "execution_authorized": false,
+ "provider_calls_authorized": false,
+ "main_run_spend_authorized": false
+}

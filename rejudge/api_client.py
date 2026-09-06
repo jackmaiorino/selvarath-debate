@@ -76,6 +76,12 @@ class UsageLedgerError(RuntimeError, ValueError):
 class UnknownChargeHalt(RuntimeError):
     """Raised immediately when an attempt is recorded ``unknown_charge`` in strict mode.
 
+    Amendment 14 (2026-09-06): the instance carries ``attempt_id``, ``model``, and
+    ``ledger_event`` (the exact ``unknown_charge`` event that was durably recorded before
+    the raise) so a journaling wrapper can prove the failure was an unobserved transport
+    outcome for the exact attempt it began, and nothing else, before it releases its
+    unresolved-dispatch marker.
+
     Only raised when the client is constructed with ``halt_on_unknown_charge=True``. Legacy
     (default) behavior is unchanged: an unknown charge is recorded and the call quietly retries
     up to ``max_retries`` more times. In strict mode, the moment ANY attempt is recorded
@@ -84,6 +90,10 @@ class UnknownChargeHalt(RuntimeError):
     retries), this halts the call outright rather than risking a second, possibly also-unknown
     charge on top of the first. The caller must reconcile the ledger before resuming.
     """
+
+    attempt_id: str | None = None
+    model: str | None = None
+    ledger_event: dict | None = None
 
 
 class ModelAliasDriftError(RuntimeError):
@@ -1258,8 +1268,7 @@ class RejudgeClient:
                       attempt_id: str, exc: Exception,
                       request_metadata: dict | None) -> None:
         with self._lock:
-            try:
-                self._record_usage_event({
+            event = {
                     "status": "unknown_charge", "attempt_id": attempt_id,
                     "model": model, "kind": kind, "seed": seed, "attempt": attempt,
                     "prompt_tokens": None, "completion_tokens": None,
@@ -1268,13 +1277,16 @@ class RejudgeClient:
                     "estimated_tokens": estimated_tokens,
                     "cost_usd": estimated_cost, "error": str(exc),
                     "metadata": request_metadata or {},
-                })
+            }
+            try:
+                self._record_usage_event(event)
             except Exception as ledger_exc:
                 raise self._latch_accounting_error(ledger_exc) from ledger_exc
             self._active_reservations_usd -= estimated_cost
             self._uncertain_spend_usd += estimated_cost
             self._run_uncertain_spend_usd += estimated_cost
             self.uncertain_tokens += estimated_tokens
+        return event
 
     def _release_reservation(self, estimated_cost: float, estimated_tokens: int, *,
                              reserved_prompt_tokens: int,
@@ -1717,7 +1729,7 @@ class RejudgeClient:
                     last = exc
                     continue
                 last = exc
-                self._mark_unknown(
+                unknown_event = self._mark_unknown(
                     estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                     reserved_prompt_tokens=estimated_prompt,
                     reserved_completion_tokens=reserved_completion,
@@ -1726,10 +1738,14 @@ class RejudgeClient:
                     request_metadata=ledger_request_metadata)
                 self._log_error(attempt, model, exc)
                 if self.halt_on_unknown_charge:
-                    raise UnknownChargeHalt(
+                    halt = UnknownChargeHalt(
                         f"unknown charge recorded for model {model!r} on attempt {attempt}; "
                         f"halting instead of retrying (halt_on_unknown_charge=True): {exc}"
-                    ) from exc
+                    )
+                    halt.attempt_id = attempt_id
+                    halt.model = model
+                    halt.ledger_event = dict(unknown_event)
+                    raise halt from exc
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
                 continue
@@ -1752,7 +1768,7 @@ class RejudgeClient:
                     raise ValueError("provider usage tokens must be non-negative integers")
             except Exception as exc:          # usage itself unreadable -- unknown charge
                 last = exc
-                self._mark_unknown(
+                unknown_event = self._mark_unknown(
                     estimated_cost=estimated_cost, estimated_tokens=reserved_tokens,
                     reserved_prompt_tokens=estimated_prompt,
                     reserved_completion_tokens=reserved_completion,
@@ -1761,10 +1777,14 @@ class RejudgeClient:
                     request_metadata=ledger_request_metadata)
                 self._log_error(attempt, model, exc)
                 if self.halt_on_unknown_charge:
-                    raise UnknownChargeHalt(
+                    halt = UnknownChargeHalt(
                         f"unknown charge recorded for model {model!r} on attempt {attempt}; "
                         f"halting instead of retrying (halt_on_unknown_charge=True): {exc}"
-                    ) from exc
+                    )
+                    halt.attempt_id = attempt_id
+                    halt.model = model
+                    halt.ledger_event = dict(unknown_event)
+                    raise halt from exc
                 if attempt < self.max_retries:
                     self._sleep(min(2 ** attempt, 30))
                 continue

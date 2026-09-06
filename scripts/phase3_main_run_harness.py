@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--protocol", default="rejudge/phase3_protocol_v3_r6.json")
     parser.add_argument("--prompt-bundle", default="rejudge/phase2_prompt_bundle.json")
     parser.add_argument(
-        "--role-limits", default="rejudge/phase3_v3_role_limits_r10_2026-08-28.json"
+        "--role-limits", default="rejudge/phase3_v3_role_limits_r11_2026-09-06.json"
     )
     args = parser.parse_args(argv)
 

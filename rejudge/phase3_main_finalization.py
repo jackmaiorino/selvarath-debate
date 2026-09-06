@@ -143,6 +143,8 @@ FINALIZATION_FIELDS = frozenset({
     "accounting",
     "artifact_hashes",
     "reconciliation",
+    "uncertain_spend_policy",
+    "retry_report",
 })
 BINDING_FIELDS = frozenset({
     "manifest_canonical_sha256",
@@ -214,6 +216,9 @@ PROVIDER_PROVENANCE_FIELDS = frozenset({
     "replayed_terminal_count",
     "logical_request_count",
     "provider_request_count",
+    "redispatched_logical_call_count",
+    "unknown_charge_episode_count",
+    "unknown_charge_episodes_by_model",
     "logical_request_hashes_sha256",
     "provider_request_hashes_sha256",
     "authorization_dispatch_status",
@@ -273,6 +278,11 @@ ACCOUNTING_FIELDS = frozenset({
     "usage_ledger_id",
     "usage_ledger_tail_sequence",
     "usage_ledger_tail_event_hash",
+    "completion_label",
+    "run_uncertain_ceiling_usd",
+    "uncertain_within_ceiling",
+    "unknown_charge_attempt_count",
+    "unknown_charge_by_model",
 })
 ROOT_BOUND_ARTIFACTS = frozenset({
     "result_store",
@@ -945,6 +955,7 @@ def _exact_current_ledger_totals(
 def _accounting_section(
     material: Mapping[str, Any], *, prior_reconciled_usd: Any,
     stage_cap_usd: Any,
+    uncertain_spend_policy: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     prior_text, prior = _exact_decimal(
         prior_reconciled_usd, "prior_reconciled_usd")
@@ -953,9 +964,37 @@ def _accounting_section(
     if not isinstance(exact_events, Sequence):
         raise MainFinalizationError("exact usage-ledger events are missing")
     settled, uncertain = _exact_current_ledger_totals(exact_events)
-    if uncertain != 0:
-        raise MainFinalizationError(
-            "current main usage ledger has nonzero uncertain spend")
+    if uncertain_spend_policy is None:
+        if uncertain != 0:
+            raise MainFinalizationError(
+                "current main usage ledger has nonzero uncertain spend")
+        ceiling_text = None
+    else:
+        # Amendment 14: uncertain spend is bounded by the frozen per-identity ceiling and
+        # still counts fully toward the stage cap below.
+        _ceiling_text, ceiling = _exact_decimal(
+            format(Decimal(str(uncertain_spend_policy["run_uncertain_ceiling_usd"])), "f"),
+            "run_uncertain_ceiling_usd")
+        if uncertain > ceiling:
+            raise MainFinalizationError(
+                "current main uncertain spend exceeds the frozen policy ceiling")
+        ceiling_text = _decimal_text(ceiling)
+    unknown_counts: dict[str, int] = {}
+    unknown_sums: dict[str, Decimal] = {}
+    for event_number, event in enumerate(exact_events[1:], 1):
+        if event.get("status") != "unknown_charge":
+            continue
+        model = _text(event.get("model"), f"usage ledger event {event_number}.model")
+        unknown_counts[model] = unknown_counts.get(model, 0) + 1
+        unknown_sums[model] = unknown_sums.get(model, Decimal("0")) + _exact_event_cost(
+            event, f"usage ledger event {event_number}")
+    unknown_by_model = {
+        model: {
+            "events": unknown_counts[model],
+            "uncertain_usd": _decimal_text(unknown_sums[model]),
+        }
+        for model in sorted(unknown_counts)
+    }
     accounted = settled + uncertain
     stage_total = prior + accounted
     if stage_total > cap:
@@ -972,6 +1011,12 @@ def _accounting_section(
         "stage_total_usd": _decimal_text(stage_total),
         "stage_cap_usd": cap_text,
         "within_stage_cap": True,
+        "completion_label": (
+            "PASS_CLEAN" if uncertain == 0 else "PASS_CONSERVATIVE_UNCERTAIN"),
+        "run_uncertain_ceiling_usd": ceiling_text,
+        "uncertain_within_ceiling": True,
+        "unknown_charge_attempt_count": sum(unknown_counts.values()),
+        "unknown_charge_by_model": unknown_by_model,
         "usage_ledger_raw_sha256": material["ledger_raw_sha256"],
         "usage_ledger_state_raw_sha256": material["state_raw_sha256"],
         "usage_ledger_id": _text(
@@ -2341,6 +2386,9 @@ def _validate_main_provider_provenance(
         "replayed_terminal_count": replay["replayed_terminal_count"],
         "logical_request_count": replay["logical_request_count"],
         "provider_request_count": replay["provider_request_count"],
+        "redispatched_logical_call_count": replay["redispatched_logical_call_count"],
+        "unknown_charge_episode_count": replay["unknown_charge_episode_count"],
+        "unknown_charge_episodes_by_model": replay["unknown_charge_episodes_by_model"],
         "logical_request_hashes_sha256": replay[
             "logical_request_hashes_sha256"],
         "provider_request_hashes_sha256": replay[
@@ -2367,6 +2415,7 @@ def _derive_clean_reconciliation(
     usage_ledger_path: Path,
     request_journal_path: Path,
     journal_execution_identity: str,
+    tolerate_unknown_charges: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     material = _load_stable_usage_ledger_material(usage_ledger_path)
     snapshot = material["snapshot"]
@@ -2395,8 +2444,20 @@ def _derive_clean_reconciliation(
         if item.get("problem") == "success_without_journal_entry"
     })
     marker_present = journal.unresolved_marker_path.exists()
+    tolerated = [item for item in ambiguous if item.get("problem") == "unknown_charge"]
+    fatal_findings = [item for item in ambiguous if item.get("problem") != "unknown_charge"]
+    if tolerate_unknown_charges and {
+        str(item.get("attempt_id")) for item in tolerated
+    } != set(unknown):
+        raise MainFinalizationError(
+            "tolerated unknown-charge findings do not match the ledger's unknown charges")
+    status = "clean"
+    if tolerate_unknown_charges and tolerated:
+        # Amendment 14: unobserved transport failures stay booked as uncertain spend and
+        # are the only finding the frozen policy tolerates; every other finding is fatal.
+        status = "clean_with_tolerated_unknown_charges"
     reconciliation = {
-        "status": "clean",
+        "status": status,
         "ambiguous_dispatches": ambiguous,
         "unmatched_reservations": int(snapshot.summary["unmatched_reservations"]),
         "unknown_charge_attempt_ids": unknown,
@@ -2404,8 +2465,13 @@ def _derive_clean_reconciliation(
         "settled_success_without_journal_attempt_ids": success_without_journal,
         "unresolved_dispatch_marker_present": marker_present,
     }
-    if (ambiguous or reconciliation["unmatched_reservations"] != 0 or unknown
-            or charged_malformed or success_without_journal or marker_present):
+    blocked = (
+        fatal_findings or reconciliation["unmatched_reservations"] != 0
+        or charged_malformed or success_without_journal or marker_present
+    )
+    if not tolerate_unknown_charges:
+        blocked = blocked or bool(ambiguous) or bool(unknown)
+    if blocked:
         raise MainFinalizationError(
             "final ledger/journal reconciliation is not empty")
     return reconciliation, events
@@ -2468,6 +2534,104 @@ def _bound_artifact_root(
     }
 
 
+def _uncertain_spend_policy_section(
+    policy: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if policy is None:
+        return None
+    _ceiling_text, ceiling = _exact_decimal(
+        format(Decimal(str(policy["run_uncertain_ceiling_usd"])), "f"),
+        "run_uncertain_ceiling_usd")
+    return {
+        "policy_id": _text(policy["policy_id"], "uncertain_spend_policy.policy_id"),
+        "policy_raw_sha256": _sha256(
+            policy["policy_raw_sha256"], "uncertain_spend_policy.policy_raw_sha256"),
+        "run_uncertain_ceiling_usd": _decimal_text(ceiling),
+        "tolerated_finding": _text(
+            policy["tolerated_finding"], "uncertain_spend_policy.tolerated_finding"),
+        "unknown_charge_pass_allowance": _non_negative_int(
+            policy["unknown_charge_pass_allowance"],
+            "uncertain_spend_policy.unknown_charge_pass_allowance"),
+        "abandoned_rate_cooldown_seconds": _non_negative_int(
+            policy["abandoned_rate_cooldown_seconds"],
+            "uncertain_spend_policy.abandoned_rate_cooldown_seconds"),
+        "abandoned_rate_consecutive_pass_allowance": _non_negative_int(
+            policy["abandoned_rate_consecutive_pass_allowance"],
+            "uncertain_spend_policy.abandoned_rate_consecutive_pass_allowance"),
+        "read_timeout_seconds": _non_negative_int(
+            policy["read_timeout_seconds"], "uncertain_spend_policy.read_timeout_seconds"),
+    }
+
+
+def _retry_report(
+    *,
+    ledger_events: Sequence[Mapping[str, Any]],
+    inventory: MainInventory,
+    provenance: Mapping[str, Any],
+    accounting: Mapping[str, Any],
+    policy: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Report unobserved-transport-failure redispatches by model, condition, and question.
+
+    Amendment 14: results apply to the declared timeout and retry procedure, so the
+    redispatch pattern is part of the record rather than a hidden operational detail.
+    """
+    if policy is None:
+        return None
+    _transcripts, judgments = _inventory_index(inventory)
+    by_condition: dict[str, int] = {}
+    by_question: dict[str, int] = {}
+    by_role: dict[str, int] = {}
+    event_count = 0
+    for event_number, event in enumerate(ledger_events):
+        if event.get("status") != "unknown_charge":
+            continue
+        event_count += 1
+        metadata = event.get("metadata")
+        if not isinstance(metadata, Mapping):
+            raise MainFinalizationError(
+                f"unknown-charge ledger event {event_number} has no metadata")
+        cell = judgments.get(str(metadata.get("cell_key")))
+        if cell is None:
+            raise MainFinalizationError(
+                f"unknown-charge ledger event {event_number} names an unplanned cell")
+        condition = _text(cell.get("condition"), "inventory cell condition")
+        question = _text(cell.get("question_id"), "inventory cell question_id")
+        role = _text(metadata.get("call_role"), "unknown-charge call_role")
+        by_condition[condition] = by_condition.get(condition, 0) + 1
+        by_question[question] = by_question.get(question, 0) + 1
+        by_role[role] = by_role.get(role, 0) + 1
+    if event_count != _non_negative_int(
+            provenance["unknown_charge_episode_count"],
+            "provider_provenance.unknown_charge_episode_count"):
+        raise MainFinalizationError(
+            "unknown-charge ledger events differ from the replayed failed episodes")
+    if event_count != _non_negative_int(
+            accounting["unknown_charge_attempt_count"],
+            "accounting.unknown_charge_attempt_count"):
+        raise MainFinalizationError(
+            "unknown-charge ledger events differ from the accounting count")
+    return {
+        "unknown_charge_events": event_count,
+        "redispatched_logical_calls": _non_negative_int(
+            provenance["redispatched_logical_call_count"],
+            "provider_provenance.redispatched_logical_call_count"),
+        "uncertain_usd": accounting["current_uncertain_usd"],
+        "by_model": dict(accounting["unknown_charge_by_model"]),
+        "by_role": dict(sorted(by_role.items())),
+        "by_condition": dict(sorted(by_condition.items())),
+        "by_question": dict(sorted(by_question.items())),
+        "procedure": (
+            "unobserved transport failures (read timeout "
+            f"{int(policy['read_timeout_seconds'])} s, per-call wall clock, HTTP error "
+            "after dispatch) are booked as uncertain spend and redispatched under a new "
+            "attempt id with the same request, seed, and journaled upstream history; "
+            "bounded by the "
+            f"{_decimal_text(Decimal(str(policy['run_uncertain_ceiling_usd'])))} "
+            "USD per-identity ceiling; results apply to this declared procedure"),
+    }
+
+
 def build_finalization_admission(
     *,
     run_id: str,
@@ -2502,6 +2666,7 @@ def build_finalization_admission(
     prior_reconciled_usd: str,
     stage_cap_usd: str,
     recorded_at_utc: str,
+    uncertain_spend_policy: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the pre-analysis admission from final immutable main artifacts."""
     run_id = _text(run_id, "run_id")
@@ -2629,6 +2794,7 @@ def build_finalization_admission(
         usage_ledger_path=ledger_path,
         request_journal_path=journal_path,
         journal_execution_identity=journal_execution_identity,
+        tolerate_unknown_charges=uncertain_spend_policy is not None,
     )
     if ([event.get("event_hash") for event in ledger_events]
             != [event.get("event_hash") for event in ledger_material["events"]]
@@ -2714,7 +2880,11 @@ def build_finalization_admission(
                     authorization_valid_until_utc),
                 expected_finalization_recorded_at_utc=recorded_at_utc,
                 max_passes=_reviewer_max_passes(
-                    reviewer_inputs["capacity_plan"]),
+                    reviewer_inputs["capacity_plan"]) + (
+                    _non_negative_int(
+                        uncertain_spend_policy["unknown_charge_pass_allowance"],
+                        "uncertain_spend_policy.unknown_charge_pass_allowance")
+                    if uncertain_spend_policy is not None else 0),
                 decisions_path=artifact_paths["review_decisions"],
                 # The provider reconstruction above independently proves that
                 # these are exactly the non-DONE journaled query payloads.
@@ -2728,6 +2898,15 @@ def build_finalization_admission(
         ledger_material,
         prior_reconciled_usd=prior_reconciled_usd,
         stage_cap_usd=stage_cap_usd,
+        uncertain_spend_policy=uncertain_spend_policy,
+    )
+    policy_section = _uncertain_spend_policy_section(uncertain_spend_policy)
+    retry_report = _retry_report(
+        ledger_events=ledger_events,
+        inventory=inventory,
+        provenance=provenance,
+        accounting=accounting,
+        policy=uncertain_spend_policy,
     )
     diagnostic = checker_truncation_diagnostic(
         inventory=inventory,
@@ -2838,6 +3017,8 @@ def build_finalization_admission(
         "accounting": accounting,
         "artifact_hashes": artifacts,
         "reconciliation": reconciliation,
+        "uncertain_spend_policy": policy_section,
+        "retry_report": retry_report,
     }
 
 
@@ -2890,15 +3071,18 @@ def validate_finalization_admission(
 
     reconciliation = _exact_keys(
         record.get("reconciliation"), RECONCILIATION_FIELDS, "reconciliation")
-    if reconciliation["status"] != "clean":
+    policy_section = record.get("uncertain_spend_policy")
+    if policy_section is not None and not isinstance(policy_section, Mapping):
+        raise MainFinalizationError("uncertain_spend_policy must be an object or null")
+    tolerated_status = "clean_with_tolerated_unknown_charges"
+    allowed_statuses = {"clean"} | ({tolerated_status} if policy_section else set())
+    if reconciliation["status"] not in allowed_statuses:
         raise MainFinalizationError("final reconciliation status must be clean")
     if _non_negative_int(
             reconciliation["unmatched_reservations"],
             "reconciliation.unmatched_reservations") != 0:
         raise MainFinalizationError("final reconciliation has unmatched reservations")
     for field in (
-        "ambiguous_dispatches",
-        "unknown_charge_attempt_ids",
         "charged_malformed_attempt_ids",
         "settled_success_without_journal_attempt_ids",
     ):
@@ -2906,6 +3090,27 @@ def validate_finalization_admission(
         if not isinstance(value, list) or value:
             raise MainFinalizationError(
                 f"final reconciliation {field} must be an empty list")
+    ambiguous = reconciliation["ambiguous_dispatches"]
+    unknown_ids = reconciliation["unknown_charge_attempt_ids"]
+    if not isinstance(ambiguous, list) or not isinstance(unknown_ids, list):
+        raise MainFinalizationError("final reconciliation finding lists are malformed")
+    if reconciliation["status"] == "clean":
+        if ambiguous or unknown_ids:
+            raise MainFinalizationError(
+                "final reconciliation ambiguous_dispatches must be an empty list")
+    else:
+        if not unknown_ids or not ambiguous:
+            raise MainFinalizationError(
+                "tolerated reconciliation status requires unknown-charge findings")
+        if any(
+            not isinstance(item, Mapping) or item.get("problem") != "unknown_charge"
+            for item in ambiguous
+        ):
+            raise MainFinalizationError(
+                "final reconciliation tolerates only unknown_charge findings")
+        if {str(item.get("attempt_id")) for item in ambiguous} != set(unknown_ids):
+            raise MainFinalizationError(
+                "tolerated findings do not match the unknown-charge attempt ids")
     if reconciliation["unresolved_dispatch_marker_present"] is not False:
         raise MainFinalizationError(
             "final reconciliation has an unresolved dispatch marker")
@@ -3010,8 +3215,33 @@ def validate_finalization_admission(
     ):
         _text_value, amounts[field] = _exact_decimal(
             accounting[field], f"accounting.{field}")
-    if amounts["current_uncertain_usd"] != 0:
-        raise MainFinalizationError("final accounting uncertainty must be zero")
+    if policy_section is None:
+        if amounts["current_uncertain_usd"] != 0:
+            raise MainFinalizationError("final accounting uncertainty must be zero")
+        if accounting["run_uncertain_ceiling_usd"] is not None:
+            raise MainFinalizationError(
+                "final accounting names a ceiling without a bound policy")
+    else:
+        _ceiling_text, ceiling = _exact_decimal(
+            accounting["run_uncertain_ceiling_usd"], "accounting.run_uncertain_ceiling_usd")
+        if _decimal_text(ceiling) != policy_section["run_uncertain_ceiling_usd"]:
+            raise MainFinalizationError(
+                "final accounting ceiling differs from the bound policy")
+        if amounts["current_uncertain_usd"] > ceiling:
+            raise MainFinalizationError(
+                "final accounting uncertainty exceeds the frozen policy ceiling")
+    if accounting["uncertain_within_ceiling"] is not True:
+        raise MainFinalizationError("final accounting must be within the uncertain ceiling")
+    expected_label = (
+        "PASS_CLEAN" if amounts["current_uncertain_usd"] == 0
+        else "PASS_CONSERVATIVE_UNCERTAIN")
+    if accounting["completion_label"] != expected_label:
+        raise MainFinalizationError("final completion label is inconsistent")
+    if _non_negative_int(
+            accounting["unknown_charge_attempt_count"],
+            "accounting.unknown_charge_attempt_count") != len(unknown_ids):
+        raise MainFinalizationError(
+            "final accounting unknown-charge count differs from the reconciliation")
     if accounting["within_stage_cap"] is not True:
         raise MainFinalizationError("final accounting must be within the stage cap")
     if amounts["current_accounted_usd"] != (

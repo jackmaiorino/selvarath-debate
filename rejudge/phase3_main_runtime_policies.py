@@ -26,6 +26,26 @@ PRICE_CHANGE_SIGNAL_TRIGGERS = frozenset({
 })
 REVIEWER_USAGE_UNIT = "external_reviewer_dispatch"
 MAXIMUM_REVIEWER_DISPATCHES = 59_040
+# Amendment 14 (2026-09-06): bounded uncertain-spend tolerance for the main identity. The
+# policy bytes are pinned here by raw SHA-256 and the implementing commit is bound by the
+# main manifest, which the 2026-09-06 methods consult accepted in place of a manifest
+# input binding. The numbers below are re-read from the policy at load and must agree.
+UNCERTAIN_SPEND_POLICY_SCHEMA = "phase3_main_uncertain_spend_policy_v1"
+UNCERTAIN_SPEND_POLICY_ID = "phase3-main-uncertain-spend-policy-2026-09-06"
+UNCERTAIN_SPEND_POLICY_RELATIVE_PATH = (
+    "rejudge/phase3_main_uncertain_spend_policy_2026-09-06.json"
+)
+UNCERTAIN_SPEND_POLICY_RAW_SHA256 = "199576d7455afb729b1a84c9cc7b66db6058c694c5b04be4b39054504762540f"
+UNCERTAIN_SPEND_POLICY_FATAL_FINDINGS = frozenset({
+    "reservation_without_terminal_event",
+    "charged_malformed_response",
+    "success_without_journal_entry",
+    "success_without_valid_request_fingerprint_binding",
+    "ledger_journal_request_fingerprint_mismatch",
+    "duplicate_success_for_key",
+    "journal_entry_without_success",
+})
+UNCERTAIN_SPEND_TOLERATED_FINDING = "unknown_charge"
 PRICE_CHANGE_SIGNAL_FIELDS = frozenset({
     "schema_version",
     "status",
@@ -306,6 +326,126 @@ def validate_price_change_signal(
         "stop_new_logical_provider_calls": True,
         "execution_authorized": False,
     }
+
+
+def _positive_int(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise MainRuntimePolicyError(f"{label} must be a positive integer")
+    return value
+
+
+def validate_uncertain_spend_policy(
+    policy: Mapping[str, Any],
+    *,
+    raw: bytes,
+    role_limits: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Require the exact pinned amendment-14 policy bytes and extract its frozen numbers."""
+    observed_sha = hashlib.sha256(raw).hexdigest()
+    if observed_sha != UNCERTAIN_SPEND_POLICY_RAW_SHA256:
+        raise MainRuntimePolicyError(
+            "uncertain-spend policy bytes differ from the pinned raw SHA-256")
+    if policy.get("schema_version") != UNCERTAIN_SPEND_POLICY_SCHEMA:
+        raise MainRuntimePolicyError("uncertain-spend policy schema drifted")
+    if policy.get("policy_id") != UNCERTAIN_SPEND_POLICY_ID or policy.get("stage") != "main":
+        raise MainRuntimePolicyError("uncertain-spend policy identity drifted")
+    for flag in (
+        "execution_authorized", "provider_calls_authorized", "main_run_spend_authorized",
+    ):
+        if policy.get(flag) is not False:
+            raise MainRuntimePolicyError(f"uncertain-spend policy {flag} must be false")
+    ceiling = policy.get("ceiling")
+    if not isinstance(ceiling, Mapping):
+        raise MainRuntimePolicyError("uncertain-spend policy omits its ceiling")
+    ceiling_usd = ceiling.get("run_uncertain_ceiling_usd")
+    if (
+        isinstance(ceiling_usd, bool)
+        or not isinstance(ceiling_usd, (int, float))
+        or not math.isfinite(float(ceiling_usd))
+        or float(ceiling_usd) <= 0
+    ):
+        raise MainRuntimePolicyError("run_uncertain_ceiling_usd must be a positive number")
+    initial = ceiling.get("initial_run_uncertain_spend_usd")
+    if isinstance(initial, bool) or not isinstance(initial, (int, float)) or float(initial) != 0:
+        raise MainRuntimePolicyError("initial_run_uncertain_spend_usd must be zero")
+    if (
+        ceiling.get("fresh_ledger_required") is not True
+        or ceiling.get("counts_fully_against_stage_cap") is not True
+        or ceiling.get("creates_additional_spending_authority") is not False
+    ):
+        raise MainRuntimePolicyError("uncertain-spend ceiling treatment drifted")
+    guard = policy.get("abandonment_guard")
+    if not isinstance(guard, Mapping) or guard.get("scope") != "per pass":
+        raise MainRuntimePolicyError("abandonment guard must be scoped per pass")
+    from rejudge import phase2_canary_runner as runner  # local import: avoids a cycle
+
+    if (
+        guard.get("absolute_abandoned_cells") != runner.ABANDONED_ABSOLUTE
+        or guard.get("abandoned_fraction") != runner.ABANDONED_FRACTION
+        or guard.get("abandoned_fraction_floor_attempted") != runner.ABANDONED_FRACTION_FLOOR
+    ):
+        raise MainRuntimePolicyError(
+            "abandonment guard numbers differ from the pass runner constants")
+    cooldown = _positive_int(
+        guard.get("abandoned_rate_cooldown_seconds"), "abandoned_rate_cooldown_seconds")
+    consecutive = _positive_int(
+        guard.get("abandoned_rate_consecutive_pass_allowance"),
+        "abandoned_rate_consecutive_pass_allowance")
+    pass_bound = policy.get("pass_bound")
+    if not isinstance(pass_bound, Mapping):
+        raise MainRuntimePolicyError("uncertain-spend policy omits its pass bound")
+    pass_allowance = _positive_int(
+        pass_bound.get("unknown_charge_pass_allowance"), "unknown_charge_pass_allowance")
+    finalization = policy.get("finalization")
+    if not isinstance(finalization, Mapping):
+        raise MainRuntimePolicyError("uncertain-spend policy omits its finalization section")
+    if finalization.get("reconciliation_tolerated_finding") != UNCERTAIN_SPEND_TOLERATED_FINDING:
+        raise MainRuntimePolicyError("tolerated reconciliation finding drifted")
+    fatal = finalization.get("reconciliation_fatal_findings")
+    if not isinstance(fatal, list) or set(fatal) != UNCERTAIN_SPEND_POLICY_FATAL_FINDINGS:
+        raise MainRuntimePolicyError("fatal reconciliation findings drifted")
+    if (
+        finalization.get("completion_label_when_uncertain_is_zero") != "PASS_CLEAN"
+        or finalization.get("completion_label_when_uncertain_is_positive")
+        != "PASS_CONSERVATIVE_UNCERTAIN"
+    ):
+        raise MainRuntimePolicyError("completion labels drifted")
+    transport = policy.get("transport")
+    if not isinstance(transport, Mapping):
+        raise MainRuntimePolicyError("uncertain-spend policy omits its transport section")
+    read_timeout = _positive_int(
+        transport.get("read_timeout_seconds"), "transport.read_timeout_seconds")
+    if role_limits is not None:
+        try:
+            bound_read = role_limits["request_settings"]["transport"]["http_timeout"]["read"]
+        except (KeyError, TypeError) as exc:
+            raise MainRuntimePolicyError(
+                "role limits omit the HTTP read timeout pin") from exc
+        if isinstance(bound_read, bool) or bound_read != read_timeout:
+            raise MainRuntimePolicyError(
+                "role-limits read timeout differs from the uncertain-spend policy")
+    return {
+        "schema_version": UNCERTAIN_SPEND_POLICY_SCHEMA,
+        "policy_id": UNCERTAIN_SPEND_POLICY_ID,
+        "policy_raw_sha256": observed_sha,
+        "run_uncertain_ceiling_usd": float(ceiling_usd),
+        "initial_run_uncertain_spend_usd": 0.0,
+        "abandoned_rate_cooldown_seconds": cooldown,
+        "abandoned_rate_consecutive_pass_allowance": consecutive,
+        "unknown_charge_pass_allowance": pass_allowance,
+        "read_timeout_seconds": read_timeout,
+        "tolerated_finding": UNCERTAIN_SPEND_TOLERATED_FINDING,
+        "execution_authorized": False,
+    }
+
+
+def load_and_validate_uncertain_spend_policy(
+    project_root: str | Path, *, role_limits: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    path = Path(project_root).resolve() / UNCERTAIN_SPEND_POLICY_RELATIVE_PATH
+    raw = _stable_file_bytes(path, "uncertain-spend policy")
+    return validate_uncertain_spend_policy(
+        _load_object(path, "uncertain-spend policy"), raw=raw, role_limits=role_limits)
 
 
 def load_and_validate_price_change_policy(path: str | Path) -> dict[str, Any]:

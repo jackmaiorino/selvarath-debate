@@ -43,7 +43,7 @@ STABLE_INPUTS = {
     ),
     "reviewer_prompt": "rejudge/phase2_reviewer_prompt_2026-07-23.json",
     "reviewer_usage_policy": "rejudge/phase3_main_reviewer_usage_policy_2026-08-30.json",
-    "role_limits": "rejudge/phase3_v3_role_limits_r10_2026-08-28.json",
+    "role_limits": "rejudge/phase3_v3_role_limits_r11_2026-09-06.json",
     "scope_decision": "rejudge/phase3_main_scope_capacity_decision_2026-08-29.json",
     "stage_cap_ratification": (
         "rejudge/phase3_main_console_billing_and_stage_cap_ratification_2026-09-04.json"

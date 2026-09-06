@@ -1,0 +1,56 @@
+{
+ "schema_version": "phase3_main_long_verdict_probe_v1",
+ "record_id": "phase3-main-long-verdict-probe-2026-09-06",
+ "purpose": "amendment 14 transport probe: one representative long Qwen3.8 b0 judge verdict live under the 600-second read timeout of role limits r11",
+ "probe_root": "E:/selvarath-archive/phase3-main-transport-probe-2026-09-06",
+ "role_limits": {
+  "path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-v3-codex/rejudge/phase3_v3_role_limits_r11_2026-09-06.json",
+  "raw_sha256": "ca72ed643eff69142575ae74ae7219d981fe7c78cb0ebdad198c68673e5c87e8",
+  "read_timeout_seconds": 600,
+  "per_call_wall_clock_ceiling_seconds": 1200
+ },
+ "price_snapshot_raw_sha256": "a74715b4a7c5f6da6e6787c0f33b3838a17c6795b6532a788541d6ed3254dc78",
+ "selection": {
+  "algorithm": "qwen_b0_judgment_with_longest_transcript_bytes_v1",
+  "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:ff57f98b0555006acb368fb1eb7f6a8d60028533228e267c726adda692c0466b",
+  "question_id": "CN-028",
+  "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:7abf42145dd703c915662f9a8845f9077e49d49fe2be78ce912a8f56c2990e1e",
+  "transcript_bytes": -1
+ },
+ "outcome": {
+  "completed": 1,
+  "abandoned": 0,
+  "attempted": 1,
+  "halted_reason": null,
+  "started_at_utc": "2026-09-06T17:39:03.005109+00:00",
+  "finished_at_utc": "2026-09-06T17:39:29.614430+00:00",
+  "wall_seconds": 26.609
+ },
+ "calls": [
+  {
+   "attempt_id": "2ccce26da5484f1ab6877879fabde59b",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 25.531,
+   "prompt_tokens": 3384,
+   "completion_tokens": 1634,
+   "finish_reason": "stop",
+   "cost_usd": 0.016572,
+   "error": null
+  }
+ ],
+ "ledger_summary": {
+  "events": 2,
+  "actual_spend_usd": 0.016572,
+  "uncertain_spend_usd": 0.0,
+  "accounted_spend_usd": 0.016572,
+  "unmatched_reservations": 0
+ },
+ "ledger_raw_sha256": "508e7a2a47773ec01b1d2af6265022f634860f4a0723d978f3cfd219f6e6f2e2",
+ "journal_raw_sha256": "7f60f2f661841659b46ccadb9add97abc6ab95726724acf3dd0c6b078878e43b",
+ "results_raw_sha256": "82d15350f039069f7f9a4611208ed290504d698ade30093dd6922e6c30c0945f",
+ "analysis_use": "none; engineering evidence outside every formal identity",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false
+}

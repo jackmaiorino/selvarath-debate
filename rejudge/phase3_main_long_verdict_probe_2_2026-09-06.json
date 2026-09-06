@@ -1,0 +1,133 @@
+{
+ "schema_version": "phase3_main_long_verdict_probe_v1",
+ "record_id": "phase3-main-long-verdict-probe-2026-09-06",
+ "purpose": "amendment 14 transport probe: one representative long Qwen3.8 b0 judge verdict live under the 600-second read timeout of role limits r11",
+ "probe_root": "E:/selvarath-archive/phase3-main-transport-probe-2-2026-09-06",
+ "role_limits": {
+  "path": "C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-v3-codex/rejudge/phase3_v3_role_limits_r11_2026-09-06.json",
+  "raw_sha256": "ca72ed643eff69142575ae74ae7219d981fe7c78cb0ebdad198c68673e5c87e8",
+  "read_timeout_seconds": 600,
+  "per_call_wall_clock_ceiling_seconds": 1200
+ },
+ "price_snapshot_raw_sha256": "a74715b4a7c5f6da6e6787c0f33b3838a17c6795b6532a788541d6ed3254dc78",
+ "selection": {
+  "algorithm": "qwen_b0_judgments_distinct_questions_largest_transcript_payload_bytes_v2",
+  "count": 5,
+  "cells": [
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:5eedf982b83408b84db273f3fac23a874bd90997ccf1000f2b3f8e6920f9e81f",
+    "question_id": "SEL-015",
+    "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:d058570c7a6e42a39396dfab1cb5bd0555fb6eab091dc7ecb355540bd42587f4",
+    "transcript_payload_bytes": 24075
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:73ef104fabd28eda39f9926e45d672d0cb11ee133bb4612b869c316f52209b6d",
+    "question_id": "CN-029",
+    "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:d85a0b39a500c6deffb5e3b71351015093bcdbe47737bb144562d263c5000dea",
+    "transcript_payload_bytes": 23429
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:0ae60a6f7a02f21564b044c22db2ab570e2d618409b864a5f7b0b9b83cc3fcc5",
+    "question_id": "VS-021",
+    "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:4a573bd88aac5f0bed1093936d81caba82dd88c51c9af1015febd3ddbd91ed13",
+    "transcript_payload_bytes": 22682
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:32f6fa23b23b08705c9cc2287ee391a95030f7a1b9a89b9a4065c3e05e7483c6",
+    "question_id": "SEL-022",
+    "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:205467edc04227dd5bacc8c26963c2ede346d852bdf3de62c80ab765c8508e18",
+    "transcript_payload_bytes": 22636
+   },
+   {
+    "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:1dd5bbd11a12de17cffc509412539a6efb823087851fdcd02ee969b1b7779d57",
+    "question_id": "VS-011",
+    "transcript_cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_transcript_reference:42c6e1f238d066ba19a64acb09dbf666be742bc2a72f99709128edc279b1ef7c",
+    "transcript_payload_bytes": 22533
+   }
+  ]
+ },
+ "outcome": {
+  "completed": 5,
+  "abandoned": 0,
+  "attempted": 5,
+  "halted_reason": null,
+  "started_at_utc": "2026-09-06T17:42:58.326113+00:00",
+  "finished_at_utc": "2026-09-06T17:45:11.023925+00:00",
+  "wall_seconds": 132.698
+ },
+ "calls": [
+  {
+   "attempt_id": "d9f96a2363c548ccabd3413ab14efcc8",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 17.396,
+   "prompt_tokens": 4502,
+   "completion_tokens": 3119,
+   "finish_reason": "stop",
+   "cost_usd": 0.027718,
+   "error": null
+  },
+  {
+   "attempt_id": "410f0c1bfe014667811781ed18c7608c",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 10.359,
+   "prompt_tokens": 4459,
+   "completion_tokens": 1850,
+   "finish_reason": "stop",
+   "cost_usd": 0.020018,
+   "error": null
+  },
+  {
+   "attempt_id": "5df19ff240154ff18ced4648991823c6",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 30.012,
+   "prompt_tokens": 4503,
+   "completion_tokens": 5728,
+   "finish_reason": "stop",
+   "cost_usd": 0.043374,
+   "error": null
+  },
+  {
+   "attempt_id": "e1bd5dd109904aa780adbceb8dde5d15",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 54.357,
+   "prompt_tokens": 4892,
+   "completion_tokens": 10476,
+   "finish_reason": "stop",
+   "cost_usd": 0.07264,
+   "error": null
+  },
+  {
+   "attempt_id": "ff5218759f5f48718cdbe80c8a9bc633",
+   "status": "success",
+   "model": "Qwen/Qwen3.8-2.4T-A95B",
+   "call_role": "judge_verdict",
+   "elapsed_seconds": 5.519,
+   "prompt_tokens": 4854,
+   "completion_tokens": 928,
+   "finish_reason": "stop",
+   "cost_usd": 0.015276,
+   "error": null
+  }
+ ],
+ "ledger_summary": {
+  "events": 10,
+  "actual_spend_usd": 0.17902600000000002,
+  "uncertain_spend_usd": 0.0,
+  "accounted_spend_usd": 0.17902600000000002,
+  "unmatched_reservations": 0
+ },
+ "ledger_raw_sha256": "6221d69948a083d12ea2f346ec272ac592211639c1c69231a0a9c17808842b71",
+ "journal_raw_sha256": "3cfa00dfff5db9c166f622e822c85fbb253689ea9fd677ab18db94e42aac921d",
+ "results_raw_sha256": "1c8f40c6242c549a6210d2df61b464505994d7a713506821d8770da0d0e36a0f",
+ "analysis_use": "none; engineering evidence outside every formal identity",
+ "execution_authorized": false,
+ "main_run_spend_authorized": false
+}

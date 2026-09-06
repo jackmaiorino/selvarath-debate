@@ -1135,3 +1135,156 @@ def test_replay_rejects_result_for_terminal_cell(tmp_path: Path) -> None:
         match="exact completed judgment partition",
     ):
         provenance.verify_main_provider_replay(**inputs)
+
+
+# --- amendment 14: unknown-charge episodes ---
+
+
+def _failed_episode(inputs: dict, *, attempt_id: str = "provider-attempt-failed") -> list[dict]:
+    """One durable unknown-charge episode for the fixture's single logical call."""
+    reserved = inputs["ledger_events"][0]
+    dispatch_at = "2026-08-30T11:59:00.000000+00:00"
+    metadata = {
+        **copy.deepcopy(reserved["metadata"]),
+        api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD: dispatch_at,
+    }
+    reservation = {
+        **copy.deepcopy(reserved),
+        "attempt_id": attempt_id,
+        "metadata": metadata,
+        "ts": dispatch_at,
+    }
+    terminal = {
+        **copy.deepcopy(reservation),
+        "status": "unknown_charge",
+        "ts": "2026-08-30T11:59:30.000000+00:00",
+        "error": "Request timed out.",
+        "prompt_tokens": None,
+        "completion_tokens": None,
+    }
+    return [reservation, terminal]
+
+
+@pytest.mark.parametrize("judge_model", [
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "Qwen/Qwen3.8-2.4T-A95B",
+])
+def test_replay_accepts_a_durable_unknown_charge_episode_before_the_success(
+    tmp_path: Path, judge_model: str,
+) -> None:
+    inputs = _fixture(tmp_path, judge_model=judge_model)
+    reserved, success = inputs["ledger_events"]
+    inputs["ledger_events"] = [*_failed_episode(inputs), reserved, success]
+
+    result = provenance.verify_main_provider_replay(**inputs)
+
+    assert result["logical_request_count"] == 1
+    assert result["provider_request_count"] == 1
+    assert result["redispatched_logical_call_count"] == 1
+    assert result["unknown_charge_episode_count"] == 1
+    assert result["unknown_charge_episodes_by_model"] == {judge_model: 1}
+
+
+def test_replay_accepts_two_failed_episodes_with_distinct_attempt_ids(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    first = _failed_episode(inputs, attempt_id="provider-attempt-failed-1")
+    second = _failed_episode(inputs, attempt_id="provider-attempt-failed-2")
+    second[0]["ts"] = second[0]["metadata"][
+        api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD
+    ] = "2026-08-30T11:59:40.000000+00:00"
+    second[1]["metadata"] = second[0]["metadata"]
+    second[1]["ts"] = "2026-08-30T11:59:50.000000+00:00"
+    inputs["ledger_events"] = [*first, *second, reserved, success]
+
+    result = provenance.verify_main_provider_replay(**inputs)
+
+    assert result["redispatched_logical_call_count"] == 1
+    assert result["unknown_charge_episode_count"] == 2
+
+
+def test_replay_rejects_unknown_charge_episode_with_response_metadata(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    failed = _failed_episode(inputs)
+    failed[1]["response_metadata"] = {"request_fields_sha256": "0" * 64}
+    inputs["ledger_events"] = [*failed, reserved, success]
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError, match="carries response metadata",
+    ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_rejects_unknown_charge_episode_with_usage(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    failed = _failed_episode(inputs)
+    failed[1]["completion_tokens"] = 12
+    inputs["ledger_events"] = [*failed, reserved, success]
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError, match="carries provider usage",
+    ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_rejects_redispatch_after_a_settled_success(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    late = _failed_episode(inputs, attempt_id="provider-attempt-late")
+    late[0]["ts"] = late[0]["metadata"][
+        api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD
+    ] = _fixture_ledger_ts(2)
+    late[1]["metadata"] = late[0]["metadata"]
+    late[1]["ts"] = _fixture_ledger_ts(3)
+    inputs["ledger_events"] = [reserved, success, *late]
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError,
+        match="did not end in an unknown charge",
+    ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_rejects_a_trailing_unknown_charge_without_success(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    inputs["ledger_events"] = _failed_episode(inputs)
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError,
+        match="unsupported provider lifecycle",
+    ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_rejects_failed_episode_request_drift(tmp_path: Path) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    failed = _failed_episode(inputs)
+    for event in failed:
+        event["seed"] = int(event["seed"]) + 1
+    inputs["ledger_events"] = [*failed, reserved, success]
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError, match="seed differs",
+    ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_rejects_failed_episode_outside_the_authorization_window(
+    tmp_path: Path,
+) -> None:
+    inputs = _fixture(tmp_path, judge_model="Qwen/Qwen3.8-2.4T-A95B")
+    reserved, success = inputs["ledger_events"]
+    failed = _failed_episode(inputs)
+    early = "2019-12-31T23:59:59.000000+00:00"
+    failed[0]["metadata"][api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD] = early
+    failed[1]["metadata"] = failed[0]["metadata"]
+    inputs["ledger_events"] = [*failed, reserved, success]
+
+    with pytest.raises(
+        provenance.MainProviderProvenanceError,
+        match="outside the signed authorization window",
+    ):
+        provenance.verify_main_provider_replay(**inputs)

@@ -266,6 +266,8 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         harness_validation={},
         inventory=inventory,
         context_excluded_cell_keys=(),
+        uncertain_spend_policy_validation=(
+            phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(ROOT)),
     )
 
 
@@ -3843,7 +3845,7 @@ def test_completion_rejects_persistently_voided_identity(tmp_path, inventory):
         phase3_main_live._require_identity_not_voided(prepared.identity)
 
 
-def test_unknown_charge_is_identity_fatal_in_the_production_loop(
+def test_uncertain_ceiling_halt_is_identity_fatal_in_the_production_loop(
     tmp_path, inventory, monkeypatch,
 ):
     prepared = _prepared(tmp_path, inventory)
@@ -3918,12 +3920,12 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
     def fake_run_canary(**kwargs):
         loop_calls.append(kwargs)
         assert phase3_main_live._identity_start_path(prepared.identity).is_file()
-        assert kwargs["fatal_unknown_charge"] is True
+        assert kwargs["fatal_unknown_charge"] is False
         return SimpleNamespace(
             completed=0,
             skipped=0,
             pending_payloads=[],
-            halted_reason="unknown_charge",
+            halted_reason="UncertainCeilingHalt",
             halted_cell_key="main-judgment-cell",
         )
 
@@ -3944,7 +3946,7 @@ def test_unknown_charge_is_identity_fatal_in_the_production_loop(
         lambda *args, **kwargs: pytest.fail("unknown charge reached finalization"),
     )
 
-    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="unknown_charge"):
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="frozen ceiling"):
         phase3_main_live.run_main("manifest", "authorization")
     assert len(factory_calls) == 1
     assert len(loop_calls) == 1
@@ -4116,3 +4118,254 @@ def test_cli_run_is_separate_and_failures_refuse(
     assert captured.err == (
         "REFUSED: Phase3MainLiveError: authorization expired\n"
     )
+
+
+# --- amendment 14: bounded uncertain-spend tolerance ---
+
+
+def _production_loop(tmp_path, inventory, monkeypatch, fake_run_canary, *, on_finalize=None):
+    """Stand up run_main with every external boundary faked except the pass loop."""
+    prepared = _prepared(tmp_path, inventory)
+    prepared.input_paths["capacity_plan"].write_text(
+        json.dumps({
+            "reviewer_configuration": {
+                "wave_pending_payload_limit": 64,
+                "actual_capacity_wave_size": 60,
+            },
+            "workload": {"wave_size": 60},
+            "capacity_thresholds": {
+                "maximum_unique_review_payloads_zero_dedup": 59_040,
+            },
+        }) + "\n",
+        encoding="utf-8",
+    )
+    prepared.manifest["input_bindings"]["capacity_plan"]["sha256"] = (
+        phase3_main_live.hashlib.sha256(
+            prepared.input_paths["capacity_plan"].read_bytes()).hexdigest()
+    )
+    sleeps: list[int] = []
+    monkeypatch.setattr(phase3_main_live, "_ABANDONED_RATE_SLEEP", sleeps.append)
+    monkeypatch.setattr(
+        phase3_main_live, "load_prepared_main", lambda *args, **kwargs: prepared)
+    monkeypatch.setattr(
+        phase3_main_live, "_require_production_execution_unblocked", lambda: None)
+    monkeypatch.setattr(
+        phase3_main_live, "_construct_verified_runtime_provider_sdk", lambda _prepared: object())
+    monkeypatch.setattr(
+        phase3_main_live, "_revalidate_authenticated_authorization",
+        lambda _prepared: prepared.authorization)
+    monkeypatch.setattr(phase3_main_live, "_verify_execution_code_root", lambda *args: None)
+    monkeypatch.setattr(phase3_main_live, "_verify_clean_git_identity", lambda *args: None)
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest, "validate_main_manifest",
+        lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_manifest, "validate_main_authorization",
+        lambda *args, **kwargs: {})
+    monkeypatch.setattr(phase3_main_live, "_validate_price_bindings", lambda *args, **kwargs: {})
+    monkeypatch.setattr(phase3_main_live, "_validate_capacity", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        phase3_main_live, "_validate_capacity_runtime_binding",
+        lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_billing_reconciliation,
+        "validate_billing_reconciliation",
+        lambda *args, **kwargs: {
+            **_authenticated_billing_fields(),
+            "run_id": prepared.manifest["run_id"],
+            "disposition": "closed",
+            "closed": True,
+            "accounted_spend_usd": "10.25",
+            "provider_delta_usd": "10.25",
+            "uncertain_spend_usd": "0",
+            "unresolved_attempt_ids": (),
+        },
+    )
+
+    def fake_preseed(**kwargs):
+        Path(kwargs["target_store_path"]).touch()
+        return {"main_bundle_count": 492, "written": 492, "skipped": 0}
+
+    monkeypatch.setattr(phase3_preseed_transcripts, "preseed_main", fake_preseed)
+    monkeypatch.setattr(
+        phase3_main_live, "_construct_provider_client",
+        lambda _prepared, _snapshot, *, sdk_client: SimpleNamespace(
+            resolved_unknown_charges=[]))
+    monkeypatch.setattr(
+        phase3_main_live.phase3_runner,
+        "resolve_main_cells",
+        lambda *args, **kwargs: [SimpleNamespace(cell_key="main-judgment-cell")],
+    )
+    monkeypatch.setattr(phase3_main_live, "run_canary", fake_run_canary)
+    monkeypatch.setattr(
+        phase3_main_live, "_review_wave_same_process",
+        lambda *args, **kwargs: pytest.fail("test loop reached reviewer dispatch"),
+    )
+    monkeypatch.setattr(
+        phase3_main_live, "_finalize_main",
+        on_finalize or (lambda *args, **kwargs: pytest.fail("test loop reached finalization")),
+    )
+    return prepared, sleeps
+
+
+def _run_log_events(prepared):
+    path = prepared.identity.paths.run_log
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def _abandoned_outcome(**overrides):
+    base = dict(
+        completed=0, skipped=0, attempted=10, abandoned=9, pending_payloads=[],
+        halted_reason="abandoned_cell_rate", halted_cell_key="main-judgment-cell",
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_start_event_records_the_uncertain_spend_policy_and_pass_allowance(
+    tmp_path, inventory, monkeypatch,
+):
+    calls = []
+
+    def fake_run_canary(**kwargs):
+        calls.append(kwargs)
+        assert kwargs["fatal_unknown_charge"] is False
+        return SimpleNamespace(
+            completed=0, skipped=0, attempted=0, abandoned=0, pending_payloads=[],
+            halted_reason="GenerationForbiddenError", halted_cell_key="cell")
+
+    prepared, sleeps = _production_loop(tmp_path, inventory, monkeypatch, fake_run_canary)
+    with pytest.raises(phase3_main_live.GenerationForbiddenError):
+        phase3_main_live.run_main("manifest", "authorization")
+    started = next(e for e in _run_log_events(prepared) if e["event"] == "formal_main_started")
+    policy = prepared.uncertain_spend_policy_validation
+    assert started["uncertain_spend_policy_id"] == policy["policy_id"]
+    assert started["uncertain_spend_policy_raw_sha256"] == policy["policy_raw_sha256"]
+    assert started["run_uncertain_ceiling_usd"] == 100.0
+    assert started["unknown_charge_pass_allowance"] == 50
+    assert started["maximum_driver_passes"] == 984 + 20 + 2 + 50
+    assert started["abandoned_rate_cooldown_seconds"] == 1800
+    assert started["abandoned_rate_consecutive_pass_allowance"] == 8
+    assert sleeps == []
+
+
+def test_abandoned_rate_passes_cool_down_then_halt_past_the_allowance(
+    tmp_path, inventory, monkeypatch,
+):
+    calls = []
+
+    def fake_run_canary(**kwargs):
+        calls.append(kwargs)
+        return _abandoned_outcome()
+
+    prepared, sleeps = _production_loop(tmp_path, inventory, monkeypatch, fake_run_canary)
+    with pytest.raises(
+        phase3_main_live.Phase3MainLiveError, match="8-pass allowance",
+    ):
+        phase3_main_live.run_main("manifest", "authorization")
+    assert len(calls) == 9
+    assert sleeps == [1800] * 8
+    events = [e for e in _run_log_events(prepared) if e["event"] == "abandoned_cell_rate_pass"]
+    assert [e["consecutive_abandoned_rate_passes"] for e in events] == list(range(1, 10))
+    assert all(e["attempted_this_pass"] == 10 and e["abandoned_this_pass"] == 9 for e in events)
+    assert events[-1]["reason"] == "abandoned_cell_rate"
+    # The identity is single-shot: nothing resumes after the halt.
+    assert phase3_main_live._identity_start_path(prepared.identity).is_file()
+    assert not prepared.identity.paths.completion.exists()
+
+
+def test_abandoned_rate_counter_resets_after_a_productive_pass(
+    tmp_path, inventory, monkeypatch,
+):
+    calls = []
+    target = phase3_main_runner.EXPECTED_MAIN_CELL_COUNT
+
+    def fake_run_canary(**kwargs):
+        calls.append(kwargs)
+        if len(calls) in (1, 2, 4):
+            return _abandoned_outcome()
+        if len(calls) == 3:
+            return SimpleNamespace(
+                completed=1, skipped=0, attempted=1, abandoned=0, pending_payloads=[],
+                halted_reason=None, halted_cell_key=None)
+        return SimpleNamespace(
+            completed=5, skipped=0, attempted=5, abandoned=0, pending_payloads=[],
+            halted_reason=None, halted_cell_key=None)
+
+    observed = {"count": 0}
+
+    def fake_keys(_path):
+        observed["count"] += 1
+        return set(range(target)) if observed["count"] >= 2 else {"one"}
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization, "load_result_cell_keys", fake_keys)
+    prepared, sleeps = _production_loop(
+        tmp_path, inventory, monkeypatch, fake_run_canary,
+        on_finalize=lambda *args, **kwargs: {"finalized": True})
+    assert phase3_main_live.run_main("manifest", "authorization") == {"finalized": True}
+    assert len(calls) == 5
+    assert sleeps == [1800, 1800, 1800]
+    events = [e for e in _run_log_events(prepared) if e["event"] == "abandoned_cell_rate_pass"]
+    assert [e["consecutive_abandoned_rate_passes"] for e in events] == [1, 2, 1]
+
+
+def test_no_progress_with_abandonment_cools_down_instead_of_halting(
+    tmp_path, inventory, monkeypatch,
+):
+    calls = []
+
+    def fake_run_canary(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return SimpleNamespace(
+                completed=0, skipped=0, attempted=3, abandoned=3, pending_payloads=[],
+                halted_reason=None, halted_cell_key=None)
+        return SimpleNamespace(
+            completed=0, skipped=0, attempted=3, abandoned=0, pending_payloads=[],
+            halted_reason=None, halted_cell_key=None)
+
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization, "load_result_cell_keys",
+        lambda _path: {"one"})
+    prepared, sleeps = _production_loop(tmp_path, inventory, monkeypatch, fake_run_canary)
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="made no progress"):
+        phase3_main_live.run_main("manifest", "authorization")
+    assert len(calls) == 2
+    assert sleeps == [1800]
+    events = [e for e in _run_log_events(prepared) if e["event"] == "abandoned_cell_rate_pass"]
+    assert [e["reason"] for e in events] == ["no_progress_with_abandonment"]
+    pass_events = [e for e in _run_log_events(prepared) if e["event"] == "formal_main_pass_complete"]
+    assert pass_events[0]["abandoned_this_pass"] == 3
+    assert pass_events[0]["attempted_this_pass"] == 3
+
+
+def test_private_factory_binds_the_policy_ceiling_to_the_client(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared = _prepared(tmp_path, inventory)
+    captured = {}
+
+    monkeypatch.setattr(
+        phase3_main_live.api_client, "RejudgeClient",
+        lambda **kwargs: captured.update(kwargs) or object())
+    monkeypatch.setattr(
+        phase3_main_live, "RoleLimitResolvingClient", lambda inner, limits: "resolved")
+    usage_path = prepared.identity.paths.usage_ledger
+    snapshot = phase3_main_live.api_client.UsageLedgerSnapshot(
+        path=usage_path,
+        state_path=phase3_main_live.api_client.usage_ledger_state_path(usage_path),
+        identity={},
+        summary={"events": 0},
+        last_sequence=0,
+        last_event_hash="genesis",
+    )
+    assert phase3_main_live._construct_provider_client(
+        prepared, snapshot, sdk_client=object()) == "resolved"
+    assert captured["run_uncertain_ceiling_usd"] == 100.0
+    assert captured["initial_run_uncertain_spend_usd"] == 0.0
+    assert captured["halt_on_unknown_charge"] is True
+
+    used = replace(snapshot, summary={"events": 3})
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="fresh main ledger"):
+        phase3_main_live._construct_provider_client(prepared, used, sdk_client=object())

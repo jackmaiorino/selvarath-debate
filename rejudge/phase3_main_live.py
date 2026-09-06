@@ -13,6 +13,7 @@ fresh evidence, account identity, spend cap, and detached owner signature all va
 from __future__ import annotations
 
 import argparse
+import time
 import hashlib
 import json
 import math
@@ -261,6 +262,10 @@ class PreparedMainRun:
     harness_validation: Mapping[str, Any]
     inventory: phase3_main_runner.MainInventory
     context_excluded_cell_keys: tuple[str, ...]
+    # Amendment 14 (2026-09-06): the validated bounded uncertain-spend policy. ``None`` only
+    # for offline fixtures; the live path loads it during preparation and re-reads it
+    # through ``_uncertain_spend_policy`` before any provider client exists.
+    uncertain_spend_policy_validation: Mapping[str, Any] | None = None
 
     @property
     def identity(self) -> phase3_main_runner.MainRunIdentity:
@@ -2229,6 +2234,12 @@ def load_prepared_main(
         phase3_v3_live._validate_role_limits(role_limits, protocol)
     except phase3_v3_live.Phase3V3LiveError as exc:
         raise Phase3MainLiveError(f"role limits failed: {exc}") from exc
+    try:
+        uncertain_spend_policy_validation = (
+            phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
+                root, role_limits=role_limits))
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
 
     analysis_pins = _load_bound_input_object(
         manifest, input_paths, "analysis_pins", "analysis pins")
@@ -2397,6 +2408,7 @@ def load_prepared_main(
         harness_validation=harness_validation,
         inventory=inventory,
         context_excluded_cell_keys=excluded,
+        uncertain_spend_policy_validation=uncertain_spend_policy_validation,
     )
 
 
@@ -2410,6 +2422,23 @@ def _model_prices(price_snapshot: Mapping[str, Any]) -> dict[str, dict[str, floa
     }
 
 
+def _uncertain_spend_policy(prepared: PreparedMainRun) -> Mapping[str, Any]:
+    """Return the validated amendment-14 policy, loading it for offline fixtures."""
+    validation = prepared.uncertain_spend_policy_validation
+    if validation is not None:
+        return validation
+    try:
+        return phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
+            prepared.project_root, role_limits=prepared.role_limits)
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
+
+
+# Amendment 14: the cool-down between abandoned-rate passes. Module-level so tests can
+# replace the sleep without touching the drive loop.
+_ABANDONED_RATE_SLEEP = time.sleep
+
+
 def _construct_provider_client(
     prepared: PreparedMainRun,
     snapshot: api_client.UsageLedgerSnapshot,
@@ -2417,6 +2446,10 @@ def _construct_provider_client(
     sdk_client: Any,
 ) -> Any:
     """Construct the sole live client. Tests may monkeypatch this private seam."""
+    policy = _uncertain_spend_policy(prepared)
+    if int(dict(snapshot.summary).get("events", 0) or 0) != 0:
+        raise Phase3MainLiveError(
+            "uncertain-spend tolerance requires a fresh main ledger at client construction")
     request = prepared.role_limits["request_settings"]
     transport = request["transport"]
     prior = Decimal(prepared.manifest["spend"]["prior_reconciled_usd"])
@@ -2430,6 +2463,10 @@ def _construct_provider_client(
         strict_model_pricing=True,
         initial_spend_usd=float(prior),
         initial_uncertain_spend_usd=0.0,
+        # Amendment 14: bounded per-identity uncertain-spend ceiling, checked by the client
+        # before every reservation; uncertain reservations already count against the cap.
+        run_uncertain_ceiling_usd=float(policy["run_uncertain_ceiling_usd"]),
+        initial_run_uncertain_spend_usd=float(policy["initial_run_uncertain_spend_usd"]),
         usage_log_path=str(snapshot.path),
         _ledger_snapshot=snapshot,
         _sdk_client=sdk_client,
@@ -3392,7 +3429,40 @@ def _drive_and_finalize(
     capacity_plan = _load_bound_input_object(
         prepared.manifest, prepared.input_paths, "capacity_plan", "capacity plan")
     pending_limit, max_passes = _reviewer_loop_contract(capacity_plan)
+    policy = _uncertain_spend_policy(prepared)
+    unknown_charge_pass_allowance = int(policy["unknown_charge_pass_allowance"])
+    abandoned_cooldown = int(policy["abandoned_rate_cooldown_seconds"])
+    abandoned_allowance = int(policy["abandoned_rate_consecutive_pass_allowance"])
+    max_passes += unknown_charge_pass_allowance
+    consecutive_abandoned_rate = 0
     reviewer_dispatches = 0
+
+    def _resolved_unknown_charges() -> int:
+        return len(getattr(client, "resolved_unknown_charges", ()))
+
+    def _abandoned_rate_pass(outcome: Any, reason: str, pass_index: int) -> None:
+        """Log an abandoned-rate pass, cool down, or halt the identity past the allowance."""
+        nonlocal consecutive_abandoned_rate
+        consecutive_abandoned_rate += 1
+        _append_jsonl(paths.run_log, {
+            "event": "abandoned_cell_rate_pass",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+            "pass_index": pass_index,
+            "reason": reason,
+            "halted_cell_key": outcome.halted_cell_key,
+            "attempted_this_pass": outcome.attempted,
+            "abandoned_this_pass": outcome.abandoned,
+            "completed_this_pass": outcome.completed,
+            "consecutive_abandoned_rate_passes": consecutive_abandoned_rate,
+            "consecutive_pass_allowance": abandoned_allowance,
+            "cooldown_seconds": abandoned_cooldown,
+            "resolved_unknown_charges_total": _resolved_unknown_charges(),
+        })
+        if consecutive_abandoned_rate > abandoned_allowance:
+            raise Phase3MainLiveError(
+                "formal main halted: abandoned-cell rate exceeded the frozen "
+                f"{abandoned_allowance}-pass allowance ({reason}); owner review required")
+        _ABANDONED_RATE_SLEEP(abandoned_cooldown)
     reviewer_dispatch_ceiling = int(
         prepared.reviewer_usage_policy_validation["maximum_reviewer_dispatches"])
     _append_jsonl(paths.run_log, {
@@ -3408,6 +3478,12 @@ def _drive_and_finalize(
         "reviewer_usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
         "maximum_reviewer_dispatches": reviewer_dispatch_ceiling,
         "maximum_driver_passes": max_passes,
+        "unknown_charge_pass_allowance": unknown_charge_pass_allowance,
+        "uncertain_spend_policy_id": policy["policy_id"],
+        "uncertain_spend_policy_raw_sha256": policy["policy_raw_sha256"],
+        "run_uncertain_ceiling_usd": float(policy["run_uncertain_ceiling_usd"]),
+        "abandoned_rate_cooldown_seconds": abandoned_cooldown,
+        "abandoned_rate_consecutive_pass_allowance": abandoned_allowance,
     })
 
     for pass_index in range(1, max_passes + 1):
@@ -3429,7 +3505,10 @@ def _drive_and_finalize(
             namespace=str(prepared.protocol["cell_key_namespace"]),
             pending_payload_limit=pending_limit,
             role_limits=dict(prepared.role_limits),
-            fatal_unknown_charge=True,
+            # Amendment 14: an unobserved transport failure abandons the cell for this
+            # pass; the journal releases its marker only for an attempt-matched durable
+            # unknown charge, and the client's ceiling bounds the uncertain exposure.
+            fatal_unknown_charge=False,
         )
         if outcome.halted_reason == "GenerationForbiddenError":
             raise GenerationForbiddenError(
@@ -3450,10 +3529,18 @@ def _drive_and_finalize(
                 "terminal_count": len(terminal_store.cell_keys),
             })
             continue
+        if outcome.halted_reason == "abandoned_cell_rate":
+            _abandoned_rate_pass(outcome, "abandoned_cell_rate", pass_index)
+            continue
+        if outcome.halted_reason == "UncertainCeilingHalt":
+            raise Phase3MainLiveError(
+                f"formal main halted at {outcome.halted_cell_key}: run-local uncertain "
+                "spend reached the frozen ceiling; owner review required")
         if outcome.halted_reason is not None:
             raise Phase3MainLiveError(
                 f"formal main halted at {outcome.halted_cell_key}: "
                 f"{outcome.halted_reason}")
+        consecutive_abandoned_rate = 0
 
         observed_keys = phase3_main_finalization.load_result_cell_keys(paths.results)
         target = phase3_main_runner.EXPECTED_MAIN_CELL_COUNT - len(
@@ -3464,6 +3551,9 @@ def _drive_and_finalize(
             "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
             "pass_index": pass_index,
             "completed_this_pass": outcome.completed,
+            "attempted_this_pass": outcome.attempted,
+            "abandoned_this_pass": outcome.abandoned,
+            "resolved_unknown_charges_total": _resolved_unknown_charges(),
             "rows_complete": complete,
             "rows_target": target,
             "pending_payloads": len(outcome.pending_payloads),
@@ -3505,6 +3595,9 @@ def _drive_and_finalize(
             })
             continue
         if outcome.completed == 0:
+            if outcome.abandoned > 0:
+                _abandoned_rate_pass(outcome, "no_progress_with_abandonment", pass_index)
+                continue
             raise Phase3MainLiveError(
                 f"main made no progress with {target - complete} required rows remaining")
     raise Phase3MainLiveError(
@@ -4130,6 +4223,7 @@ def _finalize_main(
         prior_reconciled_usd=str(
             prepared.manifest["spend"]["prior_reconciled_usd"]),
         stage_cap_usd=str(current_authorization["stage_cap_usd"]),
+        uncertain_spend_policy=_uncertain_spend_policy(prepared),
     )
     finalization = phase3_main_finalization.build_finalization_admission(
         **finalization_inputs,

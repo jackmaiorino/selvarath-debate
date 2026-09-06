@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from decimal import Decimal
 import hashlib
 import json
 from collections import Counter
@@ -16,6 +17,7 @@ from rejudge import phase3_main_provider_provenance as provider_provenance
 from rejudge import phase3_main_reviewer_commit as reviewer_commit
 from rejudge import phase3_main_reviewer_provenance as reviewer_provenance
 from rejudge import phase3_main_manifest, phase3_main_runner
+from rejudge import phase3_main_runtime_policies
 from rejudge import phase3_main_transcript_provenance, phase3_runner, phase3_v3_live
 from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_call_cache import request_fingerprint
@@ -1751,6 +1753,11 @@ def test_finalization_admits_exact_provider_bound_run_and_is_immutable(
         "stage_total_usd": "0.30986789",
         "stage_cap_usd": STAGE_CAP_USD,
         "within_stage_cap": True,
+        "completion_label": "PASS_CLEAN",
+        "run_uncertain_ceiling_usd": None,
+        "uncertain_within_ceiling": True,
+        "unknown_charge_attempt_count": 0,
+        "unknown_charge_by_model": {},
         "usage_ledger_raw_sha256": record["artifact_hashes"]["usage_ledger"][
             "raw_sha256"],
         "usage_ledger_state_raw_sha256": record["artifact_hashes"][
@@ -2476,3 +2483,122 @@ def test_finalization_rejects_nonempty_reconciliation_and_artifact_drift(
             **build_inputs["artifact_paths"],
             "unexpected": build_inputs["result_store_path"],
         })
+
+
+# --- amendment 14: bounded uncertain-spend tolerance ---
+
+
+def _inject_failed_verdict_episode(ledger_path: Path) -> tuple[str, str]:
+    """Rebuild the fixture ledger with one durable unknown-charge episode for the verdict.
+
+    The failed episode precedes the settled success of the same logical call, carries a
+    distinct attempt id, no usage, no response metadata, and its reservation stays booked
+    as uncertain spend. Returns the failed attempt id and the verdict model.
+    """
+    raw_events = [
+        json.loads(line)
+        for line in ledger_path.read_text(encoding="utf-8").splitlines() if line]
+    chain_fields = {"ts", "ledger_id", "sequence", "prev_event_hash", "event_hash"}
+    provider = [
+        {k: v for k, v in event.items() if k not in chain_fields}
+        for event in raw_events if event.get("status") != "ledger_genesis"]
+    verdict_reservation = next(
+        event for event in provider
+        if event["status"] == "reserved"
+        and event["metadata"].get("call_role") == "judge_verdict")
+    failed_id = "captured-attempt-failed"
+    failed_reservation = {
+        **copy.deepcopy(verdict_reservation), "attempt_id": failed_id}
+    failed_unknown = {
+        **copy.deepcopy(failed_reservation),
+        "status": "unknown_charge",
+        "error": "Request timed out.",
+    }
+    position = provider.index(verdict_reservation)
+    rebuilt = provider[:position] + [failed_reservation, failed_unknown] + provider[position:]
+    ledger_path.unlink()
+    api_client.usage_ledger_state_path(ledger_path).unlink()
+    api_client.prepare_usage_ledger(ledger_path, allow_create=True)
+    _append_ledger_events(ledger_path, rebuilt)
+    return failed_id, str(verdict_reservation["model"])
+
+
+def test_finalization_tolerates_a_durable_unknown_charge_episode_under_the_policy(
+    tmp_path, inventory,
+):
+    build_inputs = _complete_finalization_inputs(tmp_path, inventory)
+    failed_id, model = _inject_failed_verdict_episode(Path(build_inputs["usage_ledger_path"]))
+    policy = phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(REPO_ROOT)
+    observed = dict(inventory.judgment_cells[0])
+
+    # Without the policy the same artifacts fail closed exactly as before.
+    with pytest.raises(finalization.MainFinalizationError, match="not empty"):
+        finalization.build_finalization_admission(
+            **build_inputs, recorded_at_utc="2026-08-29T13:00:03Z")
+
+    record = finalization.build_finalization_admission(
+        **build_inputs,
+        uncertain_spend_policy=policy,
+        recorded_at_utc="2026-08-29T13:00:03Z",
+    )
+    accounting = record["accounting"]
+    assert accounting["completion_label"] == "PASS_CONSERVATIVE_UNCERTAIN"
+    assert accounting["current_uncertain_usd"] == "0.00002"
+    assert Decimal(accounting["run_uncertain_ceiling_usd"]) == Decimal("100")
+    assert accounting["uncertain_within_ceiling"] is True
+    assert accounting["unknown_charge_attempt_count"] == 1
+    assert accounting["unknown_charge_by_model"] == {
+        model: {"events": 1, "uncertain_usd": "0.00002"}}
+    assert accounting["within_stage_cap"] is True
+    reconciliation = record["reconciliation"]
+    assert reconciliation["status"] == "clean_with_tolerated_unknown_charges"
+    assert reconciliation["unknown_charge_attempt_ids"] == [failed_id]
+    assert [item["problem"] for item in reconciliation["ambiguous_dispatches"]] == [
+        "unknown_charge"]
+    assert reconciliation["unmatched_reservations"] == 0
+    provenance = record["provider_provenance"]
+    assert provenance["redispatched_logical_call_count"] == 1
+    assert provenance["unknown_charge_episode_count"] == 1
+    assert provenance["unknown_charge_episodes_by_model"] == {model: 1}
+    assert provenance["provider_request_count"] == 1
+    report = record["retry_report"]
+    assert report["unknown_charge_events"] == 1
+    assert report["redispatched_logical_calls"] == 1
+    assert report["by_model"] == {model: {"events": 1, "uncertain_usd": "0.00002"}}
+    assert report["by_role"] == {"judge_verdict": 1}
+    assert report["by_condition"] == {observed["condition"]: 1}
+    assert report["by_question"] == {observed["question_id"]: 1}
+    assert "600 s" in report["procedure"]
+    assert record["uncertain_spend_policy"]["policy_raw_sha256"] == policy["policy_raw_sha256"]
+    assert Decimal(record["uncertain_spend_policy"]["run_uncertain_ceiling_usd"]) == Decimal("100")
+
+    validated = finalization.validate_finalization_admission(
+        record, **build_inputs, uncertain_spend_policy=policy)
+    assert validated == record
+
+    # A record that claims the clean status while carrying the finding is rejected.
+    tampered = copy.deepcopy(record)
+    tampered["reconciliation"]["status"] = "clean"
+    with pytest.raises(finalization.MainFinalizationError, match="ambiguous_dispatches"):
+        finalization.validate_finalization_admission(
+            tampered, **build_inputs, uncertain_spend_policy=policy)
+    # And the tolerant record is refused when no policy is bound.
+    with pytest.raises(
+        finalization.MainFinalizationError, match="not empty|status must be clean",
+    ):
+        finalization.validate_finalization_admission(record, **build_inputs)
+
+
+def test_finalization_rejects_unknown_charge_beyond_the_policy_ceiling(tmp_path, inventory):
+    build_inputs = _complete_finalization_inputs(tmp_path, inventory)
+    _inject_failed_verdict_episode(Path(build_inputs["usage_ledger_path"]))
+    policy = dict(phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
+        REPO_ROOT))
+    policy["run_uncertain_ceiling_usd"] = 0.00001
+
+    with pytest.raises(finalization.MainFinalizationError, match="exceeds the frozen policy"):
+        finalization.build_finalization_admission(
+            **build_inputs,
+            uncertain_spend_policy=policy,
+            recorded_at_utc="2026-08-29T13:00:03Z",
+        )

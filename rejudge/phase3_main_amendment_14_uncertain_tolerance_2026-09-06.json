@@ -1,0 +1,55 @@
+{
+ "schema_version": "phase3_main_amendment_v1",
+ "amendment_id": "phase3-main-amendment-14-uncertain-tolerance-2026-09-06",
+ "amendment_number": 14,
+ "stage": "main",
+ "title": "Bounded uncertain-spend tolerance, unknown-charge redispatch, and a 600-second read timeout for the Phase 3 main identity",
+ "status": "frozen_execution_policy_pending_exact_main_authorization",
+ "recorded_at_utc": "2026-09-06T18:40:00Z",
+ "recorded_by": "Claude Code orchestrator session f817b4ab-a6df-441e-8ba2-719909635ba4",
+ "problem": {
+  "as_built": "The main driver constructed its accounting client with halt_on_unknown_charge=True, ran passes with fatal_unknown_charge=True, raised on any halt other than checker_malformed, could not resume an identity after failure, latched the request journal after any raised call, and required zero uncertain spend and zero unknown-charge findings at finalization.",
+  "evidence": {
+   "ledgers": [
+    {"run": "phase3-v3-82c8f75feba42a9e (r15, converged canary)", "unknown_charge_events": 11, "span_hours": 5.27, "reservations": 2594, "by_model": {"Qwen/Qwen3.8-2.4T-A95B": 9, "meta-llama/Llama-3.3-70B-Instruct-Turbo": 2}, "errors": {"Request timed out.": 9, "HTTP 503 Service unavailable": 2}, "reserved_usd_per_qwen_event": 0.35},
+    {"run": "phase3-v3 r14", "unknown_charge_events": 4, "span_hours": 2.67},
+    {"run": "phase3-v3 r13", "unknown_charge_events": 2, "span_hours": 1.44}
+   ],
+   "rate": "about 1.5 to 2.1 unknown charges per hour of serial execution under the frozen transport pins (read timeout 120 s)",
+   "main_scale": "about 19x the canary's rows, serial, on the order of 100+ hours of provider execution and 150 to 250 expected unknown charges; expected time to identity death under the as-built policy about 30 minutes"
+  }
+ },
+ "decisions": {
+  "policy_artifact": {
+   "path": "rejudge/phase3_main_uncertain_spend_policy_2026-09-06.json",
+   "raw_sha256": "199576d7455afb729b1a84c9cc7b66db6058c694c5b04be4b39054504762540f",
+   "binding": "pinned by raw SHA-256 in rejudge/phase3_main_runtime_policies.py and bound through the main manifest's source commit; not a manifest input binding (methods consult item 4)"
+  },
+  "ceiling": {"run_uncertain_ceiling_usd": 100.0, "pre_dispatch_check": true, "counts_fully_against_stage_cap": true, "creates_additional_spending_authority": false, "trip_disposition": "identity halts fail-closed for owner review; no automatic successor"},
+  "journal": "the journaling wrapper releases its unresolved-dispatch marker only when the raised failure is the accounting client's UnknownChargeHalt carrying the exact attempt id and the durable unknown_charge ledger event for the same cell, role, slot, attempt, and request fingerprint, with no usage or response and no journaled success for the key; every other failure keeps the latch",
+  "redispatch": "permitted for an unobserved transport failure under a new attempt id with the same request, seed, and journaled upstream history; journaled responses are never regenerated; retry rates are reported by model, role, condition, and question; results are described as applying to the declared timeout and retry procedure",
+  "pass_runner": "fatal_unknown_charge=False; per-pass abandonment guard (100 absolute, or 90% of at least 10 attempted) halts the pass; the driver cools down 1,800 s and continues; 8 consecutive abandoned-rate passes halt the identity; a pass that completes nothing while abandoning cells is treated the same way",
+  "pass_bound": "ceil(59,040 / 60) + 20 + 2 + 50 unknown-charge pass allowance",
+  "finalization": "reconciliation tolerates only findings whose problem is unknown_charge; accounting allows bounded uncertain spend with completion label PASS_CONSERVATIVE_UNCERTAIN (PASS_CLEAN when zero); per-model counts and uncertain USD, and a retry report by model, role, condition, and question; prior + settled + uncertain must not exceed the stage cap; unknown charges never create terminal-cell exclusions",
+  "provider_provenance": "the exact-replay reconstruction accepts earlier dispatch episodes that ended in a durable unknown_charge before the final successful episode of the same logical call; failed episodes must be exactly [unknown_charge] or [released_no_charge, unknown_charge] with no response metadata or usage, and must match the replayed request except for their own dispatch authorization timestamp",
+  "transport": {"role_limits": "rejudge/phase3_v3_role_limits_r11_2026-09-06.json", "raw_sha256": "ca72ed643eff69142575ae74ae7219d981fe7c78cb0ebdad198c68673e5c87e8", "change": "HTTP read timeout 120 s to 600 s for every model; wall clock 1,200 s, connect, write, pool, and retry pins unchanged", "deviation_note": "the methods consult asked for 600 s on Qwen3.8 while retaining 120 s for Llama; the accounted client constructs one transport per identity, and Llama completions of at most 512 tokens finish in seconds, so the uniform pin is applied and disclosed"},
+  "authorization_window": "46 days from approval (D_max 45); expiry stops new dispatches; dispatched responses are still journaled and accounted; no automatic extension",
+  "delegated_signatures": "rejudge/phase3_main_delegated_signature_provenance_2026-09-06.json carries the required disclosure for every signature made with the owner's key under his dated delegation"
+ },
+ "science_content_unchanged": ["protocol r6", "prompt bundle", "question set", "judges", "conditions", "seeds", "token limits", "analysis pins", "terminal-cell bounds"],
+ "methods_review": {
+  "consult_path": "rejudge/phase3_main_codex_launch_consult_2026-09-06.md",
+  "session": "01a077a1-a8d6-72d2-8015-bc7a0e48f437",
+  "model": "gpt-6-astra, reasoning effort ultra",
+  "verdict": "NO-GO on the driver as built; conditional GO once amendments A to F with the stated changes and the final-package checks pass",
+  "required_final_checks": ["retry-after-unknown", "replay without redispatch", "fatal success-without-journal", "ceiling enforcement", "representative long Qwen verdict live under the 600-second read timeout", "refreshed forecast that explicitly covers uncertain reservations and replacement attempts"]
+ },
+ "owner_delegation": {
+  "grant_2026_09_04": "stepping away for a couple days. You have full spend and execute auth for the entire phase 3.",
+  "standing_authorization_2026_09_06": "I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return.",
+  "instruction_2026_09_06": "check if you have the perms you need. and continue yourself ensure you have everything you need"
+ },
+ "execution_authorized": false,
+ "provider_calls_authorized": false,
+ "main_run_spend_authorized": false
+}

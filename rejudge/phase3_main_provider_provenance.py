@@ -215,6 +215,15 @@ class _ReplayClient:
         self._lifecycles: dict[
             tuple[str, str, int, int], tuple[dict[str, Any], ...]
         ] = {}
+        # Amendment 14 (2026-09-06): a logical call may carry earlier dispatch episodes that
+        # ended in a durable ``unknown_charge`` (an unobserved transport failure) before its
+        # final successful episode. Each failed episode is kept apart from the success
+        # lifecycle so downstream request hashing keeps its exact single-success contract.
+        self._failed_episodes: dict[
+            tuple[str, str, int, int], list[tuple[dict[str, Any], ...]]
+        ] = {}
+        self.redispatch_counts: dict[tuple[str, str, int, int], int] = {}
+        self.unknown_charge_episodes_by_model: dict[str, int] = {}
         reservations: dict[str, dict[str, Any]] = {}
         open_attempt_keys: set[tuple[tuple[str, str, int, int], int]] = set()
         completed_attempt_ids: set[str] = set()
@@ -236,7 +245,7 @@ class _ReplayClient:
                         "main ledger contains a repeated or displaced genesis event")
                 genesis_seen = True
                 continue
-            if status not in {"reserved", "released_no_charge", "success"}:
+            if status not in {"reserved", "released_no_charge", "success", "unknown_charge"}:
                 raise MainProviderProvenanceError(
                     f"main ledger event {index} has unsupported status {status!r}")
             event_at = _utc_datetime(
@@ -262,6 +271,20 @@ class _ReplayClient:
                 if reservations:
                     raise MainProviderProvenanceError(
                         "serial main ledger contains overlapping provider reservations")
+                prior_episode = records.get(identity)
+                if transport_attempt == 0 and prior_episode:
+                    ordered_prior = tuple(
+                        prior_episode[position] for position in sorted(prior_episode))
+                    if ordered_prior[-1]["status"] != "unknown_charge":
+                        raise MainProviderProvenanceError(
+                            "main ledger redispatches a logical call whose prior episode "
+                            f"did not end in an unknown charge: {identity!r}")
+                    if pending_stream_retry == identity:
+                        raise MainProviderProvenanceError(
+                            "main ledger redispatches a logical call inside its streaming "
+                            f"retry: {identity!r}")
+                    self._failed_episodes.setdefault(identity, []).append(ordered_prior)
+                    records[identity] = {}
                 completed_for_identity = records.setdefault(identity, {})
                 if transport_attempt != len(completed_for_identity):
                     raise MainProviderProvenanceError(
@@ -399,6 +422,34 @@ class _ReplayClient:
         if pending_stream_retry is not None:
             raise MainProviderProvenanceError(
                 "main ledger omits the immediate streaming retry")
+        for identity, episodes in self._failed_episodes.items():
+            for episode in episodes:
+                episode_statuses = [str(item["status"]) for item in episode]
+                episode_attempts = [
+                    _transport_attempt(item["terminal"], label="failed provider attempt")
+                    for item in episode]
+                if not (
+                    (episode_attempts == [0] and episode_statuses == ["unknown_charge"])
+                    or (episode_attempts == [0, 1]
+                        and episode_statuses == ["released_no_charge", "unknown_charge"])
+                ):
+                    raise MainProviderProvenanceError(
+                        "main ledger has an unsupported failed provider episode for "
+                        f"{identity!r}: attempts={episode_attempts!r}, "
+                        f"statuses={episode_statuses!r}")
+                for item in episode:
+                    if item["terminal"].get("response_metadata") is not None:
+                        raise MainProviderProvenanceError(
+                            "unknown-charge attempt carries response metadata for "
+                            f"{identity!r}")
+                    if (item["terminal"].get("prompt_tokens") is not None
+                            or item["terminal"].get("completion_tokens") is not None):
+                        raise MainProviderProvenanceError(
+                            f"unknown-charge attempt carries provider usage for {identity!r}")
+                model = str(episode[-1]["terminal"].get("model"))
+                self.unknown_charge_episodes_by_model[model] = (
+                    self.unknown_charge_episodes_by_model.get(model, 0) + 1)
+            self.redispatch_counts[identity] = len(episodes)
         for identity, by_attempt in records.items():
             ordered = tuple(by_attempt[index] for index in sorted(by_attempt))
             attempts = sorted(by_attempt)
@@ -487,6 +538,31 @@ class _ReplayClient:
                 if event.get("seed") != seed:
                     raise MainProviderProvenanceError(
                         f"ledger seed differs from the exact replay for {identity!r}")
+        expected_without_dispatch_stamp = {
+            field: value for field, value in expected_metadata.items()
+            if field != _LOGICAL_DISPATCH_AUTHORIZED_AT_FIELD}
+        for episode in self._failed_episodes.get(identity, ()):
+            for item in episode:
+                for event in (item["reservation"], item["terminal"]):
+                    observed = event.get("metadata")
+                    if not isinstance(observed, Mapping):
+                        raise MainProviderProvenanceError(
+                            f"failed provider attempt has no metadata for {identity!r}")
+                    stripped = {
+                        field: value for field, value in observed.items()
+                        if field != _LOGICAL_DISPATCH_AUTHORIZED_AT_FIELD}
+                    if stripped != expected_without_dispatch_stamp:
+                        raise MainProviderProvenanceError(
+                            "failed provider attempt metadata differs from the exact "
+                            f"replayed request for {identity!r}")
+                    if event.get("model") != model or event.get("kind") != kind:
+                        raise MainProviderProvenanceError(
+                            "failed provider attempt model or kind differs from the exact "
+                            f"replay for {identity!r}")
+                    if event.get("seed") != seed:
+                        raise MainProviderProvenanceError(
+                            "failed provider attempt seed differs from the exact replay "
+                            f"for {identity!r}")
 
         effective_max_tokens = _effective_max_tokens(
             self._role_limits,
@@ -775,6 +851,11 @@ def verify_main_provider_replay(
         "replayed_terminal_count": replayed_terminals,
         "logical_request_count": len(replay_client.logical_request_hashes),
         "provider_request_count": len(replay_client.provider_request_hashes),
+        "redispatched_logical_call_count": sum(
+            1 for count in replay_client.redispatch_counts.values() if count > 0),
+        "unknown_charge_episode_count": sum(replay_client.redispatch_counts.values()),
+        "unknown_charge_episodes_by_model": dict(sorted(
+            replay_client.unknown_charge_episodes_by_model.items())),
         "logical_request_hashes_sha256": _request_hash_set_sha256(
             replay_client.logical_request_hashes),
         "provider_request_hashes_sha256": _request_hash_set_sha256(

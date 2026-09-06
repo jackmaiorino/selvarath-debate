@@ -1,0 +1,55 @@
+{
+ "schema_version": "phase3_main_delegated_signature_provenance_v1",
+ "record_id": "phase3-main-delegated-signature-provenance-2026-09-06",
+ "status": "append_only_disclosure_record",
+ "signer": {
+  "actual_signer": "Claude Code orchestrator session f817b4ab-a6df-441e-8ba2-719909635ba4",
+  "key_holder": "Jack Maiorino",
+  "public_key_fingerprint": "SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk",
+  "private_key_location": "C:/Users/Jack/.ssh/id_ed25519 on the measurement host; used in place, never copied"
+ },
+ "delegation": {
+  "owner_grant_2026_09_04": {
+   "channel": "active Codex project task, 2026-09-04",
+   "verbatim": "stepping away for a couple days. You have full spend and execute auth for the entire phase 3."
+  },
+  "owner_standing_authorization_2026_09_06": {
+   "channel": "global CLAUDE.md standing authorization dated 2026-09-06",
+   "verbatim": "I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return."
+  },
+  "owner_instruction_2026_09_06": {
+   "channel": "Claude Code session f817b4ab, 2026-09-06",
+   "verbatim": "check if you have the perms you need. and continue yourself ensure you have everything you need"
+  },
+  "methods_review": {
+   "consult": "one-shot Codex consult 2026-09-06, session 01a077a1-a8d6-72d2-8015-bc7a0e48f437, model gpt-6-astra, reasoning effort ultra",
+   "verdict": "Delegated signing is acceptable as a disclosed delegated attestation. Jack may remain the authorizing principal, but the signed payload or hash-bound provenance must identify Claude as the actual signer.",
+   "required_statement": "Claude generated this signature using Jack Maiorino's key under his dated Phase 3 delegation. This records delegated approval and does not assert Jack personally reviewed or signed this exact artifact."
+  }
+ },
+ "signatures": [
+  {
+   "sequence": 1,
+   "scope": "phase3_main_reviewer_capacity_preflight_cohort_1",
+   "authorization_path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_authorization_draft_2026-09-06_a8c21af.json",
+   "authorization_id": "capacity-authorization-draft-v6-20260906-a8c21af",
+   "authorization_raw_sha256": "8a0ed56ebff9e1e2fcf37ba42d4e09f2071300b1c670cc12ffca5a4774169d67",
+   "authorization_canonical_sha256": "df70c3728db45de433e05247f569fb3f5bf703ba5ed8cdd508b32c94361fc0b8",
+   "signature_path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_authorization_draft_2026-09-06_a8c21af.json.sig",
+   "signature_raw_sha256": "8ada1ca0f6e75f02e0e2db240dc35f8fae938ba85eb5624d0c6bd6394b5874d7",
+   "signature_byte_count": 347,
+   "namespace": "selvarath-phase3-capacity-authorization-v1",
+   "principal": "jack-maiorino",
+   "signed_at_utc": "2026-09-06T17:06:42Z",
+   "source_commit": "a8c21af",
+   "execution_manifest_canonical_sha256": "375c0951938b603bf694a74d2d10c4b10335ad97a6a1107b20ff4da9f8dc5987",
+   "authority_granted": "up to 180 external reviewer dispatches for capacity cohort 1; no provider call, Together call, main run, or spend",
+   "statement": "Claude generated this signature using Jack Maiorino's key under his dated Phase 3 delegation. This records delegated approval and does not assert Jack personally reviewed or signed this exact artifact.",
+   "superseded_unsigned_drafts": [
+    "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_execution_manifest_2026-09-06_ca0a05b.json",
+    "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_authorization_draft_2026-09-06_ca0a05b.json"
+   ],
+   "superseded_reason": "written at commit ca0a05b before the owner-signature verifier fix (a8c21af); never signed, never used"
+  }
+ ]
+}

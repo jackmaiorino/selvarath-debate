@@ -53,6 +53,7 @@ from typing import Any, Iterable, Iterator, Mapping
 
 # One source of truth for call identity and request fingerprints: the frozen cache module.
 # Re-deriving either here would let the two drift and break the mismatch guards.
+from rejudge.api_client import UnknownChargeHalt
 from rejudge.phase2_call_cache import CallKey, request_fingerprint
 # The slot/attempt derivations are deliberately imported from the caching client even though
 # they are module-private there: every call site numbers its calls through those exact
@@ -425,6 +426,47 @@ class JournalingClient:
         self.journal = journal
         self._dispatch_lock = threading.Lock()
         self._unresolved_dispatch: str | None = None
+        # Amendment 14 (2026-09-06): unobserved transport failures that the accounting
+        # client durably booked as ``unknown_charge`` release the marker instead of latching;
+        # each resolution is kept here for the run log and the retry report.
+        self.resolved_unknown_charges: list[dict[str, Any]] = []
+
+    def _unknown_charge_resolvable(
+            self, key: CallKey, fingerprint: str, exc: BaseException) -> bool:
+        """True only for an attempt-matched, durable, content-free unknown charge.
+
+        The accounting client attaches the exact ``unknown_charge`` ledger event it
+        recorded before raising. The marker may be released only when that event names
+        this dispatch's key and request fingerprint, carries no usage or response, and no
+        success for the key has been journaled. Anything else keeps the latch.
+        """
+        if not isinstance(exc, UnknownChargeHalt):
+            return False
+        attempt_id = getattr(exc, "attempt_id", None)
+        event = getattr(exc, "ledger_event", None)
+        if not isinstance(attempt_id, str) or not attempt_id:
+            return False
+        if not isinstance(event, Mapping):
+            return False
+        if event.get("status") != "unknown_charge" or event.get("attempt_id") != attempt_id:
+            return False
+        if event.get("prompt_tokens") is not None or event.get("completion_tokens") is not None:
+            return False
+        if "response_metadata" in event or "content" in event:
+            return False
+        metadata = event.get("metadata")
+        if not isinstance(metadata, Mapping):
+            return False
+        try:
+            if journal_key(metadata) != key:
+                return False
+        except Exception:  # noqa: BLE001 - malformed metadata keeps the latch
+            return False
+        if metadata.get(JOURNAL_REQUEST_SHA256_FIELD) != fingerprint:
+            return False
+        if self.journal.get(key, fingerprint) is not None:
+            return False
+        return True
 
     @property
     def dry_run(self) -> bool:
@@ -468,6 +510,24 @@ class JournalingClient:
                     self.journal._validate_put(key, fingerprint, response)
                     self.journal._put_guarded(key, fingerprint, response)
                     self.journal._finish_dispatch(marker)
+                except UnknownChargeHalt as exc:
+                    if not self._unknown_charge_resolvable(key, fingerprint, exc):
+                        self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                        raise
+                    # The reservation stays booked as uncertain spend in the ledger; no
+                    # response exists to journal; the key stays dispatchable under a new
+                    # attempt id. The marker is released only after the checks above.
+                    self.journal._finish_dispatch(marker)
+                    self.resolved_unknown_charges.append({
+                        "cell_key": key.cell_key,
+                        "call_role": key.call_role,
+                        "slot": key.slot,
+                        "attempt": key.attempt,
+                        "attempt_id": exc.attempt_id,
+                        "model": exc.model,
+                        "request_sha256": fingerprint,
+                    })
+                    raise
                 except BaseException as exc:
                     self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
                     raise
