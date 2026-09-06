@@ -1168,31 +1168,50 @@ def verify_capacity_authorization_signature(
                 raise CapacityExecutionError(
                     "capacity owner public key does not match its pinned fingerprint"
                 )
-            verified = subprocess.run(
-                [
-                    str(verifier),
-                    "-Y",
-                    "verify",
-                    "-f",
-                    str(allowed_signers),
-                    "-I",
-                    CAPACITY_SIGNATURE_PRINCIPAL,
-                    "-n",
-                    CAPACITY_SIGNATURE_NAMESPACE,
-                    "-s",
-                    str(signature_path),
-                ],
-                input=raw,
-                capture_output=True,
-                timeout=30,
-            )
+            # OpenSSH for Windows 9.5p2 never sees end-of-file on a pipe here, so
+            # ``ssh-keygen -Y verify`` blocks until the timeout when the message is fed
+            # through ``input=``. Hand it a real file handle over the exact bytes that
+            # were read above; the post-verification reread below still binds the file.
+            message_path = public_key_path.with_name("message.bin")
+            message_path.write_bytes(raw)
+            with message_path.open("rb") as message_handle:
+                verified = subprocess.run(
+                    [
+                        str(verifier),
+                        "-Y",
+                        "verify",
+                        "-f",
+                        str(allowed_signers),
+                        "-I",
+                        CAPACITY_SIGNATURE_PRINCIPAL,
+                        "-n",
+                        CAPACITY_SIGNATURE_NAMESPACE,
+                        "-s",
+                        str(signature_path),
+                    ],
+                    stdin=message_handle,
+                    capture_output=True,
+                    timeout=30,
+                )
     except CapacityExecutionError:
         raise
+    except subprocess.TimeoutExpired as exc:
+        # On OpenSSH for Windows 9.5p2 a signature that does not verify (tampered
+        # message or namespace mismatch) leaves ``ssh-keygen -Y verify`` blocked instead of
+        # exiting nonzero. A verifier that never confirms the signature is a failed
+        # verification; nothing is accepted without exit 0 and the "Good" line below.
+        raise CapacityExecutionError(
+            "capacity authorization signature is invalid "
+            "(verifier did not confirm it before its deadline)"
+        ) from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise CapacityExecutionError(
             "capacity authorization signature verification failed"
         ) from exc
-    if verified.returncode != 0:
+    if verified.returncode != 0 or not verified.stdout.startswith(
+        f'Good "{CAPACITY_SIGNATURE_NAMESPACE}" signature for '
+        f"{CAPACITY_SIGNATURE_PRINCIPAL}".encode("utf-8")
+    ):
         raise CapacityExecutionError("capacity authorization signature is invalid")
     if (
         _stable_read(source, subject="capacity authorization") != raw

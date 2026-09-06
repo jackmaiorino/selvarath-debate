@@ -93,25 +93,43 @@ def load_authenticated_owner_authorization(
             if fingerprint.returncode != 0 or observed_fingerprint != pinned_fingerprint:
                 raise MainAuthorizationSignatureError(
                     "pinned owner public key does not match its required fingerprint")
-            verified = subprocess.run(
-                [
-                    str(verifier),
-                    "-Y", "verify",
-                    "-f", str(allowed),
-                    "-I", OWNER_SIGNATURE_PRINCIPAL,
-                    "-n", OWNER_SIGNATURE_NAMESPACE,
-                    "-s", str(signature),
-                ],
-                input=raw,
-                capture_output=True,
-                timeout=30,
-            )
+            # OpenSSH for Windows 9.5p2 never sees end-of-file on a pipe here, so
+            # ``ssh-keygen -Y verify`` blocks until the timeout when the message is fed
+            # through ``input=``. Hand it a real file handle over the exact bytes that
+            # were read above; the post-verification reread below still binds the file.
+            message = temp / "message.bin"
+            message.write_bytes(raw)
+            with message.open("rb") as message_handle:
+                verified = subprocess.run(
+                    [
+                        str(verifier),
+                        "-Y", "verify",
+                        "-f", str(allowed),
+                        "-I", OWNER_SIGNATURE_PRINCIPAL,
+                        "-n", OWNER_SIGNATURE_NAMESPACE,
+                        "-s", str(signature),
+                    ],
+                    stdin=message_handle,
+                    capture_output=True,
+                    timeout=30,
+                )
     except MainAuthorizationSignatureError:
         raise
+    except subprocess.TimeoutExpired as exc:
+        # On OpenSSH for Windows 9.5p2 a signature that does not verify (tampered
+        # message or namespace mismatch) leaves ``ssh-keygen -Y verify`` blocked instead of
+        # exiting nonzero. A verifier that never confirms the signature is a failed
+        # verification; nothing is accepted without exit 0 and the "Good" line below.
+        raise MainAuthorizationSignatureError(
+            "owner authorization detached signature is invalid "
+            "(verifier did not confirm it before its deadline)") from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise MainAuthorizationSignatureError(
             "owner authorization signature verification failed") from exc
-    if verified.returncode != 0:
+    if verified.returncode != 0 or not verified.stdout.startswith(
+        f'Good "{OWNER_SIGNATURE_NAMESPACE}" signature for '
+        f"{OWNER_SIGNATURE_PRINCIPAL}".encode("utf-8")
+    ):
         raise MainAuthorizationSignatureError(
             "owner authorization detached signature is invalid")
     try:
