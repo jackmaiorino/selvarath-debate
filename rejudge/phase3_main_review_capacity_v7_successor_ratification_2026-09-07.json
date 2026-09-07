@@ -1,0 +1,41 @@
+{
+ "schema_version": "phase3_main_review_capacity_v7_successor_ratification_v1",
+ "ratification_id": "phase3-main-review-capacity-v7-successor-ratification-2026-09-07",
+ "recorded_at_utc": "2026-09-07T02:48:37.946956Z",
+ "approved_by": "Jack Maiorino",
+ "channel": "owner standing delegation, recorded by the Codex continuation task 01a079a8-d267-7652-87e4-bd3c81870a37 on 2026-09-07; the exact proposal text was adopted verbatim on Jack's behalf and Jack did not retype it",
+ "delegation_provenance": {
+  "owner_grant_2026_09_04": {
+   "channel": "active Codex project task, 2026-09-04",
+   "verbatim": "stepping away for a couple days. You have full spend and execute auth for the entire phase 3."
+  },
+  "owner_standing_authorization_2026_09_06": {
+   "channel": "global CLAUDE.md standing authorization dated 2026-09-06",
+   "verbatim": "I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return.",
+   "scope_note": "Do not block on explicit per-action authorization for launches, reruns, pins, or deviations; decide, act, and report the decisions and their evidence in the records and in the next message to Jack. Scientific laws still apply; only the authorization gate is delegated."
+  },
+  "owner_instruction_2026_09_07": {
+   "channel": "current Codex continuation task 01a079a8-d267-7652-87e4-bd3c81870a37",
+   "verbatim": "Can you pickup work on the project to ensure it continues?"
+  },
+  "orchestrator_decisions_disclosed": [
+   "v7 exists only because the reviewer batch runner changed at commit 278bee4 for amendment 15 and the v6 capacity execution manifest binds the runner bytes. The reviewer stack, workload design, and window are the v6 design on byte-new packets.",
+   "The Codex methods consult of 2026-09-07 (tracked) approved the fix and a corrective successor under the delegation; it was not asked about the capacity re-measurement, which the frozen v6 contract forces."
+  ]
+ },
+ "proposal": {
+  "path": "rejudge/phase3_main_review_capacity_v7_successor_proposal_2026-09-07.json",
+  "raw_sha256": "112f7bfd2e80183edb889db94e3eb1733af0744386ae4c831eb44962dc537814",
+  "canonical_sha256": "5eea6b67cda651eacca0e38953d686483253f1818cd6d103d422640fa5029799"
+ },
+ "ratification_text": "I ratify the exact Phase 3 capacity v7 successor proposal dated 2026-09-07, including the completed v6 capacity pass, its 180 fully valid rulings, cumulative 600 counted reviewer reservations, the reason for re-measurement (the reviewer batch runner changed for amendment 15 and the v6 execution manifest binds its bytes), exclusion of all five empty-query sources, the candidate-B then candidate-A then query transformation with the candidate contents swapped, exclusion of every sealed source, v1, v2, v3, v4, v5, and v6 prompt, two fresh 180-packet cohorts, the unchanged pinned codex-cli 0.149.0 wrapper and openai-http Responses HTTPS reviewer profile, and a 1,080-hour capacity window matching the predeclared 45-day D_max and invalidated immediately by any measured runtime change. This ratification authorizes offline v7 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority.",
+ "authority": {
+  "offline_plan_materialization_authorized": true,
+  "offline_workload_materialization_authorized": true,
+  "external_reviewer_dispatch_authorized": false,
+  "provider_calls_authorized": false,
+  "together_calls_authorized": false,
+  "main_run_authorized": false,
+  "spend_authorized": false
+ }
+}

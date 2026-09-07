@@ -2,7 +2,7 @@
 
 Offline only. The stable bindings are the ones audited in
 ``reports/2026-09-04-phase3-main-real-input-launch-audit.md``; the launch-time bindings
-(capacity v6 evidence, fresh price capture, fresh certified forecast, harness receipt) are
+(capacity v7 evidence, fresh price capture, fresh certified forecast, harness receipt) are
 supplied as arguments. Every path must already exist. The output must sit outside the
 clean source checkout because ``scripts/phase3_main_build_launch_package.py`` requires a
 clean tree including untracked files.
@@ -51,7 +51,7 @@ STABLE_INPUTS = {
     "tokenizer_manifest": "rejudge/phase3_v3_exact_tokenizer_manifest_r7_2026-08-28.json",
     "transcript_verification": "rejudge/phase3_transcript_verification_2026-08-18.json",
 }
-CAPACITY_PLAN = "rejudge/phase3_main_review_capacity_preflight_plan_v6_2026-09-06.json"
+CAPACITY_PLAN = "rejudge/phase3_main_review_capacity_preflight_plan_v7_2026-09-07.json"
 
 
 def _posix(path: Path) -> str:
@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capacity-root", type=Path, required=True)
     parser.add_argument("--capacity-commit", required=True, help="7-hex short commit tag")
-    parser.add_argument("--capacity-date", default="2026-09-06")
+    parser.add_argument("--capacity-date", default="2026-09-07")
     parser.add_argument("--price-root", type=Path, required=True)
     parser.add_argument("--forecast", type=Path, required=True)
     parser.add_argument("--harness-receipt", type=Path, required=True)

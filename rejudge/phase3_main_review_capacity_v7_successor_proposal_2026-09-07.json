@@ -1,0 +1,177 @@
+{
+ "schema_version": "phase3_main_review_capacity_v7_successor_proposal_v1",
+ "proposal_id": "phase3-main-review-capacity-v7-successor-2026-09-07",
+ "recorded_at_utc": "2026-09-07T02:48:37.946956Z",
+ "proposed_by": "Codex continuation task 01a079a8-d267-7652-87e4-bd3c81870a37 under Jack Maiorino's written Phase 3 delegation and explicit continuation request",
+ "proposal_only": true,
+ "proposal_status": "owner_decision_required",
+ "execution_authorized": false,
+ "external_reviewer_dispatch_authorized": false,
+ "provider_calls_authorized": false,
+ "together_calls_authorized": false,
+ "main_run_authorized": false,
+ "spend_authorized": false,
+ "reason_for_successor": {
+  "summary": "The reviewer batch runner scripts/codex_reviewer_batch.py changed at commit 278bee4 (amendment 15: the post-wave receipt recheck now carries the invocation's model provider profile). The v6 capacity execution manifest binds the runner's exact bytes, so the v6 evidence cannot validate against the corrected runner. The reviewer stack it certified (pinned CLI wrapper, model, effort, concurrency, host, provider profile) is unchanged; v7 re-measures it with the corrected runner on byte-new packets.",
+  "amendment_record": {
+   "path": "rejudge/phase3_main_amendment_15_predecessor_void_2026-09-07.json",
+   "raw_sha256": "c704984940c42cd487c19c8ad8e10d867b25f28be8be0a120f39adfd49f767f1",
+   "canonical_sha256": "462f4eb67e3eb236014390b1d73d437251eaf16b8fd6f5b15c5efbb68488edf0"
+  }
+ },
+ "predecessor_v6_attempt": {
+  "disposition": "completed_pass_superseded_by_runner_change",
+  "plan": {
+   "tracked_path": "rejudge/phase3_main_review_capacity_preflight_plan_v6_2026-09-06.json",
+   "raw_sha256": "7228d6dfa0fc28b5b28f23fa8872ea67e97b8810dca869b34b536a74ac2a7809",
+   "canonical_sha256": "e7365057dcb5b535f7fd9b9fac996755e0707c1fd3364ad28e2b738e22391a9a"
+  },
+  "workload_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_workload_cohort_01_ca0a05b/WORKLOAD_MANIFEST.json",
+   "raw_sha256": "22be0359bd5b44f1bcd505e4b953968ad0c296d1ac65ae0f746a242c8a999e10"
+  },
+  "execution_manifest": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_execution_manifest_2026-09-06_a8c21af.json",
+   "raw_sha256": "42fcdc81ab88b47f1b4fb26029c06be41bd2eca585a15d80a2f67fe45ebb34b1",
+   "canonical_sha256": "375c0951938b603bf694a74d2d10c4b10335ad97a6a1107b20ff4da9f8dc5987",
+   "bound_reviewer_batch_raw_sha256": "08de27d109a953e4f616e8864be49479ad86ecdf2dc8060e12961a4b30c26d00"
+  },
+  "authorization": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_authorization_draft_2026-09-06_a8c21af.json",
+   "raw_sha256": "8a0ed56ebff9e1e2fcf37ba42d4e09f2071300b1c670cc12ffca5a4774169d67",
+   "canonical_sha256": "df70c3728db45de433e05247f569fb3f5bf703ba5ed8cdd508b32c94361fc0b8",
+   "detached_signature_raw_sha256": "8ada1ca0f6e75f02e0e2db240dc35f8fae938ba85eb5624d0c6bd6394b5874d7"
+  },
+  "dispatch_history": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/dispatch_history.jsonl",
+   "raw_sha256": "b9f9344a821a41324bee1cf0243401029b1f4eea9da378224d696ec9b8b0bae1",
+   "event_count": 2
+  },
+  "attempt_reservation": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity-v6-attempt-20260906-01-a8c21af.capacity_attempt_reservation.json",
+   "raw_sha256": "f88ae0c8c351a5e0bc7af9a150a0f49376d5a679643fdffb5a7d0dc1e5ec4465"
+  },
+  "result": {
+   "path": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_result_2026-09-06_a8c21af.json",
+   "raw_sha256": "b1e3e3eb8881f658f8f0de88fe899d54e650505b84ae18dab901549756f51796",
+   "canonical_sha256": "81f8bc39b70a29b8931a6d06b14a7838aca1f3f6aee692f650aa69bb7fab73ba",
+   "attempt_status": "complete",
+   "completed_at_utc": "2026-09-06T17:09:02.454439Z",
+   "evidence_expires_at_utc": "2026-10-21T17:09:02.454439+00:00",
+   "elapsed_monotonic_seconds": 108.47764269998879,
+   "result_row_count": 180,
+   "fully_valid_result_count": 180,
+   "dispatch_reservation_count": 180,
+   "durable_invocation_receipt_count": 180,
+   "certified_rulings_per_24h": 1440
+  },
+  "accounting": {
+   "counted_reservations_before_v6": 420,
+   "v6_counted_reservations": 180,
+   "cumulative_counted_reservations": 600,
+   "ratified_reviewer_ceiling": 59040,
+   "remaining_reviewer_ceiling_after_counted_reservations": 58440,
+   "treatment": "reservations are counted once as external reviewer usage and remain separate from USD, token, provider, and Together accounting"
+  },
+  "non_reuse": "The completed v6 cohort, its unused retry cohort, and every v6 prompt are excluded from v7."
+ },
+ "successor_v7_design": {
+  "derivation_tag": "phase3-main-review-capacity-v7",
+  "transformation": "render_candidate_b_line_then_candidate_a_line_then_query_line_with_the_candidate_a_and_candidate_b_contents_swapped_without_editing_any_text",
+  "semantic_invariant": "The frozen reviewer prefix, query text, and candidate texts are preserved. The three explicitly labeled payload lines take the v6 order and the two candidate texts exchange labels, exactly as the v1 swap did.",
+  "source_filter": "exclude every source packet whose query text is empty",
+  "reviewer_transport": {
+   "model_provider_profile": {
+    "id": "openai-http",
+    "name": "OpenAI",
+    "wire_api": "responses",
+    "requires_openai_auth": true,
+    "supports_websockets": false,
+    "http_headers": {
+     "version": "0.149.0"
+    }
+   },
+   "base_url": null
+  },
+  "prohibited_shortcuts": [
+   "no whitespace-only variants",
+   "no nonce padding",
+   "no candidate-text edits",
+   "no query-text edits",
+   "no reuse of any sealed source, v1, v2, v3, v4, v5, or v6 prompt",
+   "no reuse of either v6 cohort",
+   "no relaxation of the zero-event-error gate"
+  ],
+  "source_packet_count": 576,
+  "empty_query_source_count": 5,
+  "empty_query_source_payloads_canonical_sha256": "42df2fd4da75472a6e71a1865da14632317f679f1fc36b77d14f90e66bb47a8c",
+  "excluded_prompt_sets": {
+   "sealed_source_prompt_count": 576,
+   "sealed_source_prompt_set_canonical_sha256": "f658a51db968b8dff1915fc104d99bec3f0e7c05cd244f466125cb05092c0ab7",
+   "v1_candidate_swap_prompt_count": 368,
+   "v1_candidate_swap_prompt_set_canonical_sha256": "3fd578d494cb9add0ae209434ce3efc5fd57822e734dbf36d8ba7c501e652459",
+   "v2_candidate_line_order_prompt_count": 576,
+   "v3_candidate_line_order_prompt_count": 571,
+   "v4_candidate_line_order_prompt_count": 571,
+   "v5_candidate_line_order_prompt_count": 571,
+   "v6_candidate_line_order_prompt_count": 571,
+   "v2_candidate_line_order_prompt_set_canonical_sha256": "f99a4b4aace3d4063357cb8aa86ad8206200712155b2a530b7c7de46ddb25f16",
+   "v3_candidate_line_order_prompt_set_canonical_sha256": "93f51616a86253d05c33c49951509bbe1e17d68b3a1cec72df57e38cd291455f",
+   "v4_candidate_line_order_prompt_set_canonical_sha256": "25a6caa8c29b5047a10e8eece01e968994059d78100edd5aa639706cf826b2c7",
+   "v5_candidate_line_order_prompt_set_canonical_sha256": "cc187ba61f0af023c4b39eb69e707f0c5d6906614609f9a9d514ab89bbbd4574",
+   "v6_candidate_line_order_prompt_set_canonical_sha256": "0d62df621985539a59688a094da18fde73998518490b637cbda20e893c955962",
+   "combined_excluded_prompt_count": 3804,
+   "combined_excluded_prompt_set_canonical_sha256": "77cc2c2657da75c61f6a34217aad52bfc9b6d5967413885ecc69ffb4db65907a"
+  },
+  "eligible_variant_count": 365,
+  "collision_count": 206,
+  "cohort_count": 2,
+  "selection_count_per_cohort": 180,
+  "wave_sizes_per_cohort": [
+   60,
+   60,
+   60
+  ],
+  "empty_query_count_per_cohort": [
+   0,
+   0
+  ],
+  "unused_variant_count": 5,
+  "all_ranked_prompt_list_canonical_sha256": "80ac5c0758af0db784fa23dce75dcee887aa4279819fa66d22e853c5d8444ea3",
+  "all_ranked_source_payload_list_canonical_sha256": "fbd62455e2f6f56c8c3cb87fb9796db40cb5ab1d3f993e072d0da3cf333942d8",
+  "cohort_records_canonical_sha256s": [
+   "94208a911cd6b6d1fe0708ce03eb419b0b0ccce773aee5c595c1e53c8fdb05a1",
+   "c3018584096d9b3929f42e9b5ebb5048eef8b333aa1adb516ca319cd2a518603"
+  ],
+  "cohort_source_payloads_canonical_sha256s": [
+   "051cefe3a66b5b376333a838825b0a2df75aafc6c794b860fb7b92ac62de5acf",
+   "baea3d3fbae9c28c91cc70f58b90efd4c30abcc75bd221db36fd8a9153ebd718"
+  ],
+  "cohort_variant_payloads_canonical_sha256s": [
+   "9489555489ac50587ff8f521f626250613b2f4d459e549ea12e9166138ba3391",
+   "4d6dff889a8118eb38256294dbc5634743ed0710976a2bb08d170bcbbeaa41b0"
+  ],
+  "cohort_variant_prompts_canonical_sha256s": [
+   "dccc5a2963d3ba7c015207c49cd499f4cb1a211435b569448b6359aaf2e4407e",
+   "97e9ca477bc49f21dbbc31d32970b3e921bac8c6ff63185d808d5b2a0be8693e"
+  ],
+  "validity": {
+   "valid_for_hours": 1080,
+   "basis": "match the predeclared 45-day D_max because every individual reviewer invocation must start inside the measured capacity window",
+   "invalidated_immediately_by": [
+    "reviewer model or reasoning-effort change",
+    "reviewer CLI path, bytes, or version change",
+    "custom model-provider profile or version-header change",
+    "concurrency, wave-size, prompt, or host change"
+   ]
+  },
+  "proposed_external_root": "E:/selvarath-archive/phase3-main-review-capacity-preflight-v7-2026-09-07",
+  "history_requirement": "fresh empty append-only dispatch history under the v7 root",
+  "authority_requirement": "fresh clean-commit manifest and separately signed authorization capped at 180 external reviewer dispatches"
+ },
+ "owner_decisions_required": [
+  "Ratify or amend the exact completed-v6 accounting, the reason for re-measurement, the candidate-swapped v6-order transformation, exclusions, workload hashes, and 1,080-hour capacity window.",
+  "After offline materialization and a clean source commit, separately sign the exact v7 180-dispatch authorization."
+ ],
+ "exact_non_execution_ratification_text": "I ratify the exact Phase 3 capacity v7 successor proposal dated 2026-09-07, including the completed v6 capacity pass, its 180 fully valid rulings, cumulative 600 counted reviewer reservations, the reason for re-measurement (the reviewer batch runner changed for amendment 15 and the v6 execution manifest binds its bytes), exclusion of all five empty-query sources, the candidate-B then candidate-A then query transformation with the candidate contents swapped, exclusion of every sealed source, v1, v2, v3, v4, v5, and v6 prompt, two fresh 180-packet cohorts, the unchanged pinned codex-cli 0.149.0 wrapper and openai-http Responses HTTPS reviewer profile, and a 1,080-hour capacity window matching the predeclared 45-day D_max and invalidated immediately by any measured runtime change. This ratification authorizes offline v7 plan and workload materialization only. It grants no reviewer dispatch, provider call, Together call, main run, or spend authority."
+}

@@ -41,6 +41,7 @@ SCHEMA_VERSION_V3 = "phase3_main_review_capacity_preflight_plan_v3"
 SCHEMA_VERSION_V4 = "phase3_main_review_capacity_preflight_plan_v4"
 SCHEMA_VERSION_V5 = "phase3_main_review_capacity_preflight_plan_v5"
 SCHEMA_VERSION_V6 = "phase3_main_review_capacity_preflight_plan_v6"
+SCHEMA_VERSION_V7 = "phase3_main_review_capacity_preflight_plan_v7"
 SCHEMA_VERSION = SCHEMA_VERSION_V1
 MATERIALIZATION_SCHEMA_VERSION = "phase3_main_review_capacity_workload_v1"
 RESULT_SCHEMA_VERSION = "phase3_main_review_capacity_result_v1"
@@ -58,6 +59,7 @@ DERIVATION_TAG_V3 = "phase3-main-review-capacity-v3"
 DERIVATION_TAG_V4 = "phase3-main-review-capacity-v4"
 DERIVATION_TAG_V5 = "phase3-main-review-capacity-v5"
 DERIVATION_TAG_V6 = "phase3-main-review-capacity-v6"
+DERIVATION_TAG_V7 = "phase3-main-review-capacity-v7"
 DERIVATION_TAG = DERIVATION_TAG_V1
 EXPECTED_PLAN_CANONICAL_SHA256 = "0805888c9f99b27999c82b4038f6be5498ceee22baf86703b4a1339e80988ec3"
 EXPECTED_PLAN_CANONICAL_SHA256_V2 = (
@@ -73,12 +75,18 @@ EXPECTED_PLAN_CANONICAL_SHA256_V5 = (
     "6b3300dc8006b6ea312cc62ca89b28f0049577248e1ddf862b1c55d9effee85a"
 )
 EXPECTED_PLAN_CANONICAL_SHA256_V6 = "e7365057dcb5b535f7fd9b9fac996755e0707c1fd3364ad28e2b738e22391a9a"
+EXPECTED_PLAN_CANONICAL_SHA256_V7 = "34dbc0952b6afae0b442df53f0d8e3e1f1a0b54bfac9439552ba6900aa564630"
 # The v1 through v5 measurements used the shared npm global codex.cmd. That prefix drifted
 # to codex-cli 0.153.4 after the v5 measurement, so v6 pins a dedicated codex-cli 0.149.0
 # copy whose wrapper bytes are identical; the execution manifest binds the reported version.
 REVIEWER_CLI_RESOLVED_PATH_SHARED_NPM = "C:/Users/Jack/AppData/Roaming/npm/codex.cmd"
 REVIEWER_CLI_RESOLVED_PATH_V6 = "E:/selvarath-tools/codex-0.149.0/codex.cmd"
 CAPACITY_VALIDITY_HOURS_V6 = 1080
+# v7 (2026-09-07): the reviewer batch runner changed for amendment 15, and the v6 capacity
+# execution manifest binds the runner bytes, so the same reviewer stack is re-measured on
+# byte-new packets. Same pinned CLI, profile, concurrency, host, and 1,080-hour window.
+REVIEWER_CLI_RESOLVED_PATH_V7 = REVIEWER_CLI_RESOLVED_PATH_V6
+CAPACITY_VALIDITY_HOURS_V7 = 1080
 PAYLOAD_SEPARATOR = "\n\n=== QUERY PAYLOAD ===\n"
 _PAYLOAD_RE = re.compile(
     r"QUERY: (?P<query>.*?)\r?\nCANDIDATE A: (?P<candidate_a>.*?)"
@@ -221,6 +229,7 @@ def derivation_tag_from_plan(plan: Mapping[str, Any]) -> str:
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
         DERIVATION_TAG_V6,
+        DERIVATION_TAG_V7,
     }:
         raise CapacityPreflightError("plan has an unsupported capacity derivation tag")
     return cast(str, derivation_tag)
@@ -429,6 +438,7 @@ def derive_workload(
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
         DERIVATION_TAG_V6,
+        DERIVATION_TAG_V7,
     }:
         raise CapacityPreflightError("unsupported capacity derivation tag")
 
@@ -504,6 +514,18 @@ def derive_workload(
             rendered,
         )
 
+    def v7_variant(source: SourcePacket) -> tuple[str, str]:
+        rendered = (
+            source.prompt_prefix
+            + f"CANDIDATE B: {source.candidate_a}\n"
+            + f"CANDIDATE A: {source.candidate_b}\n"
+            + f"QUERY: {source.query}"
+        )
+        return (
+            payload_sha256(source.query, source.candidate_b, source.candidate_a),
+            rendered,
+        )
+
     v1_prompt_hashes: set[str] = set()
     for source in snapshot.source_packets:
         _v1_payload, v1_rendered = v1_variant(source)
@@ -549,6 +571,16 @@ def derive_workload(
         if v5_prompt not in prior_prompt_hashes:
             v5_prompt_hashes.add(v5_prompt)
 
+    v6_prompt_hashes: set[str] = set()
+    prior_prompt_hashes.update(v5_prompt_hashes)
+    for source in snapshot.source_packets:
+        if not source.query:
+            continue
+        _v6_payload, v6_rendered = v6_variant(source)
+        v6_prompt = hashlib.sha256(v6_rendered.encode("utf-8")).hexdigest()
+        if v6_prompt not in prior_prompt_hashes:
+            v6_prompt_hashes.add(v6_prompt)
+
     excluded_prompt_hashes = set(snapshot.historical_prompt_hashes)
     if derivation_tag in {
         DERIVATION_TAG_V2,
@@ -556,6 +588,7 @@ def derive_workload(
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
         DERIVATION_TAG_V6,
+        DERIVATION_TAG_V7,
     }:
         excluded_prompt_hashes.update(v1_prompt_hashes)
     if derivation_tag in {
@@ -563,14 +596,19 @@ def derive_workload(
         DERIVATION_TAG_V4,
         DERIVATION_TAG_V5,
         DERIVATION_TAG_V6,
+        DERIVATION_TAG_V7,
     }:
         excluded_prompt_hashes.update(v2_prompt_hashes)
-    if derivation_tag in {DERIVATION_TAG_V4, DERIVATION_TAG_V5, DERIVATION_TAG_V6}:
+    if derivation_tag in {
+        DERIVATION_TAG_V4, DERIVATION_TAG_V5, DERIVATION_TAG_V6, DERIVATION_TAG_V7,
+    }:
         excluded_prompt_hashes.update(v3_prompt_hashes)
-    if derivation_tag in {DERIVATION_TAG_V5, DERIVATION_TAG_V6}:
+    if derivation_tag in {DERIVATION_TAG_V5, DERIVATION_TAG_V6, DERIVATION_TAG_V7}:
         excluded_prompt_hashes.update(v4_prompt_hashes)
-    if derivation_tag == DERIVATION_TAG_V6:
+    if derivation_tag in {DERIVATION_TAG_V6, DERIVATION_TAG_V7}:
         excluded_prompt_hashes.update(v5_prompt_hashes)
+    if derivation_tag == DERIVATION_TAG_V7:
+        excluded_prompt_hashes.update(v6_prompt_hashes)
 
     eligible: list[VariantPacket] = []
     collisions: list[str] = []
@@ -582,6 +620,7 @@ def derive_workload(
             DERIVATION_TAG_V4,
             DERIVATION_TAG_V5,
             DERIVATION_TAG_V6,
+            DERIVATION_TAG_V7,
         } and not source.query:
             continue
         if derivation_tag == DERIVATION_TAG_V1:
@@ -594,8 +633,10 @@ def derive_workload(
             variant_payload, rendered = v4_variant(source)
         elif derivation_tag == DERIVATION_TAG_V5:
             variant_payload, rendered = v5_variant(source)
-        else:
+        elif derivation_tag == DERIVATION_TAG_V6:
             variant_payload, rendered = v6_variant(source)
+        else:
+            variant_payload, rendered = v7_variant(source)
         variant_prompt = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
         if variant_prompt in excluded_prompt_hashes:
             collisions.append(source.source_payload_sha256)
@@ -660,6 +701,10 @@ def derive_workload(
             "render_candidate_b_line_then_candidate_a_line_then_query_line_without_"
             "changing_labels_or_contents"
         ),
+        DERIVATION_TAG_V7: (
+            "render_candidate_b_line_then_candidate_a_line_then_query_line_with_the_"
+            "candidate_a_and_candidate_b_contents_swapped_without_editing_any_text"
+        ),
     }
     historical_exclusions = {
         DERIVATION_TAG_V1: (
@@ -683,6 +728,10 @@ def derive_workload(
         DERIVATION_TAG_V6: (
             "exclude_every_source_v1_candidate_swap_v2_v3_v4_and_v5_candidate_line_order_"
             "prompt_sha256"
+        ),
+        DERIVATION_TAG_V7: (
+            "exclude_every_source_v1_candidate_swap_v2_v3_v4_v5_and_v6_candidate_line_"
+            "order_prompt_sha256"
         ),
     }
     summary = {
@@ -903,6 +952,57 @@ def derive_workload(
                 ),
             }
         )
+    if derivation_tag == DERIVATION_TAG_V7:
+        empty_query_sources = sorted(
+            source.source_payload_sha256
+            for source in snapshot.source_packets
+            if not source.query
+        )
+        summary.update(
+            {
+                "empty_query_source_count": len(empty_query_sources),
+                "empty_query_source_payloads_canonical_sha256": canonical_sha256(
+                    empty_query_sources
+                ),
+                "v1_candidate_swap_prompt_sha256_count": len(v1_prompt_hashes),
+                "v2_candidate_line_order_prompt_sha256_count": len(v2_prompt_hashes),
+                "v3_candidate_line_order_prompt_sha256_count": len(v3_prompt_hashes),
+                "v4_candidate_line_order_prompt_sha256_count": len(v4_prompt_hashes),
+                "v5_candidate_line_order_prompt_sha256_count": len(v5_prompt_hashes),
+                "v6_candidate_line_order_prompt_sha256_count": len(v6_prompt_hashes),
+                "combined_excluded_prompt_sha256_count": len(excluded_prompt_hashes),
+                "sealed_source_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(snapshot.historical_prompt_hashes)
+                ),
+                "v1_candidate_swap_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v1_prompt_hashes)
+                ),
+                "v2_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v2_prompt_hashes)
+                ),
+                "v3_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v3_prompt_hashes)
+                ),
+                "v4_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v4_prompt_hashes)
+                ),
+                "v5_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v5_prompt_hashes)
+                ),
+                "v6_candidate_line_order_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(v6_prompt_hashes)
+                ),
+                "combined_excluded_prompt_set_canonical_sha256": canonical_sha256(
+                    sorted(excluded_prompt_hashes)
+                ),
+                "all_ranked_prompt_list_canonical_sha256": canonical_sha256(
+                    [item.variant_prompt_sha256 for item in eligible]
+                ),
+                "all_ranked_source_payload_list_canonical_sha256": canonical_sha256(
+                    [item.source_payload_sha256 for item in eligible]
+                ),
+            }
+        )
     return DerivedWorkload(
         selected=selected,
         eligible=tuple(eligible),
@@ -954,6 +1054,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         SCHEMA_VERSION_V4: EXPECTED_PLAN_CANONICAL_SHA256_V4,
         SCHEMA_VERSION_V5: EXPECTED_PLAN_CANONICAL_SHA256_V5,
         SCHEMA_VERSION_V6: EXPECTED_PLAN_CANONICAL_SHA256_V6,
+        SCHEMA_VERSION_V7: EXPECTED_PLAN_CANONICAL_SHA256_V7,
     }
     if schema_version not in expected_hashes:
         raise CapacityPreflightError("unexpected capacity preflight schema")
@@ -970,6 +1071,7 @@ def _validate_frozen_plan(plan: Mapping[str, Any]) -> None:
         SCHEMA_VERSION_V4,
         SCHEMA_VERSION_V5,
         SCHEMA_VERSION_V6,
+        SCHEMA_VERSION_V7,
     }:
         if plan.get("external_reviewer_dispatch_authorized") is not False:
             raise CapacityPreflightError(
@@ -1889,6 +1991,7 @@ def validate_plan(
         SCHEMA_VERSION_V4,
         SCHEMA_VERSION_V5,
         SCHEMA_VERSION_V6,
+        SCHEMA_VERSION_V7,
     }:
         locations = plan.get("source_locations")
         if not isinstance(locations, Mapping):
@@ -1930,6 +2033,7 @@ def validate_plan(
             SCHEMA_VERSION_V4: "phase3_main_review_capacity_v4_successor_ratification_v1",
             SCHEMA_VERSION_V5: "phase3_main_review_capacity_v5_successor_ratification_v1",
             SCHEMA_VERSION_V6: "phase3_main_review_capacity_v6_successor_ratification_v1",
+            SCHEMA_VERSION_V7: "phase3_main_review_capacity_v7_successor_ratification_v1",
         }[cast(str, schema_version)]
         expected_authority = {
             "offline_plan_materialization_authorized": True,
@@ -1944,6 +2048,7 @@ def validate_plan(
             SCHEMA_VERSION_V4,
             SCHEMA_VERSION_V5,
             SCHEMA_VERSION_V6,
+            SCHEMA_VERSION_V7,
         }:
             expected_authority["together_calls_authorized"] = False
         if (
@@ -1982,7 +2087,7 @@ def validate_plan(
         "reviewer_cli_binary": "codex.cmd",
         "reviewer_cli_resolved_path": (
             REVIEWER_CLI_RESOLVED_PATH_V6
-            if schema_version == SCHEMA_VERSION_V6
+            if schema_version in {SCHEMA_VERSION_V6, SCHEMA_VERSION_V7}
             else REVIEWER_CLI_RESOLVED_PATH_SHARED_NPM
         ),
         "reviewer_cli_wrapper_raw_sha256": (
@@ -1997,7 +2102,7 @@ def validate_plan(
     }
     if schema_version == SCHEMA_VERSION_V4:
         expected_reviewer["openai_provider_supports_websockets"] = False
-    if schema_version in {SCHEMA_VERSION_V5, SCHEMA_VERSION_V6}:
+    if schema_version in {SCHEMA_VERSION_V5, SCHEMA_VERSION_V6, SCHEMA_VERSION_V7}:
         expected_reviewer["model_provider_profile"] = {
             "id": "openai-http",
             "name": "OpenAI",
@@ -2056,7 +2161,9 @@ def validate_plan(
         raise CapacityPreflightError("dispatch history must permit exactly two attempts")
     validity = plan.get("validity")
     expected_validity_hours = (
-        CAPACITY_VALIDITY_HOURS_V6 if schema_version == SCHEMA_VERSION_V6 else 24
+        CAPACITY_VALIDITY_HOURS_V6
+        if schema_version in {SCHEMA_VERSION_V6, SCHEMA_VERSION_V7}
+        else 24
     )
     if (
         not isinstance(validity, Mapping)
