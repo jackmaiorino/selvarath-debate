@@ -34,7 +34,7 @@ from rejudge.request_journal import (
 
 
 _ROLE_ALIASES = {"oracle_verification": "oracle"}
-_ALLOWED_TERMINAL_REASON = "checker_malformed"
+_ALLOWED_TERMINAL_REASONS = frozenset({"checker_malformed", "checker_unresolved"})
 _LOGICAL_DISPATCH_AUTHORIZED_AT_FIELD = (
     api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD)
 
@@ -817,7 +817,7 @@ def verify_main_provider_replay(
                 namespace=namespace,
             )
         except CanaryCellHalted as exc:
-            if cell.cell_key not in terminal or exc.reason != _ALLOWED_TERMINAL_REASON:
+            if cell.cell_key not in terminal or exc.reason not in _ALLOWED_TERMINAL_REASONS:
                 raise MainProviderProvenanceError(
                     f"normal execution unexpectedly halted {cell.cell_key}: {exc.reason}") from exc
             replayed_terminals += 1

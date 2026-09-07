@@ -344,15 +344,19 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
 
 
 def _voided_predecessor_sentence() -> str:
-    """Amendment 15: the signed text discloses the voided predecessor's accounted spend and
-    the enforceable ceiling of the identity being approved."""
+    """Disclose every stopped predecessor's liability and the enforced new-run ceiling."""
     void = phase3_main_runtime_policies.load_and_validate_predecessor_void_accounting(
         Path(__file__).resolve().parents[1], verify_ledger=False)
+    predecessor_ids = void.get("predecessor_run_ids", [void["predecessor_run_id"]])
     return (
-        f"Voided predecessor {void['predecessor_run_id']} settled "
+        f"Voided predecessors {', '.join(predecessor_ids)} accounted "
         f"{void['accounted_spend_usd']} USD counts against the cumulative stage cap outside "
         "the reconciled segments; this identity may spend at most "
-        f"{void['maximum_successor_expenditure_usd']} USD, enforced by its provider client."
+        f"{void['maximum_successor_expenditure_usd']} USD, enforced by its provider client. "
+        "This fresh identity applies the prospective checker_unresolved disposition policy: "
+        "mechanically proved checker_malformed and checker_unresolved cells are terminal "
+        "strict INVALIDs, counted wrong in primary analysis, sharing the unchanged "
+        "20-cell maximum and concentration bounds."
     )
 
 

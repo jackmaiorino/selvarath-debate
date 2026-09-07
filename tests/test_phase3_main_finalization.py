@@ -163,8 +163,8 @@ def _context_blocklist(
     }
 
 
-def _terminal_record(cell_key: str) -> dict:
-    return {"cell_key": cell_key, "reason": finalization.TERMINAL_REASON}
+def _terminal_record(cell_key: str, reason: str = finalization.TERMINAL_REASON) -> dict:
+    return {"cell_key": cell_key, "reason": reason}
 
 
 def _write_result_store(path: Path, rows_to_write) -> None:
@@ -1186,7 +1186,8 @@ def _checker_artifacts(
     return ledger_path, journal_path, attempt_id
 
 
-def test_exact_partition_exposes_terminal_and_context_keys(inventory):
+@pytest.mark.parametrize("reason", sorted(finalization.TERMINAL_REASONS))
+def test_exact_partition_exposes_terminal_and_context_keys(inventory, reason):
     terminal_cell = inventory.judgment_cells[0]
     context_cell = inventory.judgment_cells[1]
     excluded = {terminal_cell["cell_key"], context_cell["cell_key"]}
@@ -1198,7 +1199,7 @@ def test_exact_partition_exposes_terminal_and_context_keys(inventory):
     partition = finalization.validate_main_partition(
         inventory=inventory,
         result_cell_keys=results,
-        terminal_records=[_terminal_record(str(terminal_cell["cell_key"]))],
+        terminal_records=[_terminal_record(str(terminal_cell["cell_key"]), reason)],
         context_blocklist=_context_blocklist(inventory, [context_cell]),
     )
 
@@ -1238,16 +1239,27 @@ def test_partition_rejects_missing_overlap_and_non_checker_terminal(inventory):
         )
 
 
+@pytest.mark.parametrize("reason", ["checker_malformed", "checker_unresolved", "mixed"])
 def test_terminal_bounds_enforce_count_concentration_and_mirror_fraction(
-    inventory, monkeypatch,
+    inventory, monkeypatch, reason,
 ):
     judgments = list(inventory.judgment_cells)
+
+    def records(cells):
+        return [
+            _terminal_record(
+                str(cell["cell_key"]),
+                ("checker_malformed" if index % 2 else "checker_unresolved")
+                if reason == "mixed" else reason,
+            )
+            for index, cell in enumerate(cells)
+        ]
+
+    assert finalization.MAX_TERMINAL_JUDGMENT_CELLS == 20
     with pytest.raises(finalization.TerminalBoundError, match="exceed the frozen bound"):
         finalization.evaluate_terminal_bounds(
             inventory=inventory,
-            terminal_records=[
-                _terminal_record(str(cell["cell_key"])) for cell in judgments[:21]
-            ],
+            terminal_records=records(judgments[:21]),
         )
 
     group = [
@@ -1258,9 +1270,7 @@ def test_terminal_bounds_enforce_count_concentration_and_mirror_fraction(
     with pytest.raises(finalization.TerminalBoundError, match="concentration"):
         finalization.evaluate_terminal_bounds(
             inventory=inventory,
-            terminal_records=[
-                _terminal_record(str(cell["cell_key"])) for cell in group[:5]
-            ],
+            terminal_records=records(group[:5]),
         )
 
     monkeypatch.setattr(finalization, "MAX_TERMINAL_JUDGMENT_CELLS", 500)
@@ -1278,9 +1288,7 @@ def test_terminal_bounds_enforce_count_concentration_and_mirror_fraction(
     with pytest.raises(finalization.TerminalBoundError, match="4 percent"):
         finalization.evaluate_terminal_bounds(
             inventory=inventory,
-            terminal_records=[
-                _terminal_record(str(cell["cell_key"])) for cell in spread
-            ],
+            terminal_records=records(spread),
         )
 
 
@@ -1306,10 +1314,11 @@ def test_checker_malformed_is_reproved_from_ledger_and_journal(tmp_path, invento
     assert "exactly allow" in evidence["parse_failure"]
 
 
-def test_valid_checker_token_cannot_be_terminally_disposed(tmp_path, inventory):
+@pytest.mark.parametrize("response", ["allow", "reject", "unresolved"])
+def test_valid_checker_token_cannot_be_disposed_as_malformed(tmp_path, inventory, response):
     cell_key = str(inventory.judgment_cells[0]["cell_key"])
     ledger, journal, attempt_id = _checker_artifacts(
-        tmp_path, cell_key=cell_key, response="allow", finish_reason="stop")
+        tmp_path, cell_key=cell_key, response=response, finish_reason="stop")
     with pytest.raises(
             finalization.TerminalDispositionError, match="parses successfully"):
         finalization.mechanically_validate_checker_malformed(
@@ -1322,12 +1331,36 @@ def test_valid_checker_token_cannot_be_terminally_disposed(tmp_path, inventory):
         )
 
 
-def test_terminal_store_is_identity_seeded_chained_and_evidence_bound(
-    tmp_path, inventory,
+@pytest.mark.parametrize("response", ["allow", "reject", "", "unresolved\n", "UNRESOLVED"])
+def test_unresolved_disposition_rejects_mismatched_journal_response(
+    tmp_path, inventory, response,
 ):
     cell_key = str(inventory.judgment_cells[0]["cell_key"])
     ledger, journal, attempt_id = _checker_artifacts(
-        tmp_path, cell_key=cell_key, response="bad checker text")
+        tmp_path, cell_key=cell_key, response=response, finish_reason="stop")
+    before = (ledger.read_bytes(), journal.read_bytes())
+    with pytest.raises(finalization.TerminalDispositionError, match="exact unresolved"):
+        finalization.mechanically_validate_checker_terminal(
+            cell_key=cell_key,
+            reason="checker_unresolved",
+            ledger_attempt_id=attempt_id,
+            expected_checker_model=finalization.DEFAULT_CHECKER_MODEL,
+            usage_ledger_path=ledger,
+            request_journal_path=journal,
+            journal_execution_identity=JOURNAL_IDENTITY,
+        )
+    assert (ledger.read_bytes(), journal.read_bytes()) == before
+
+
+@pytest.mark.parametrize("reason", sorted(finalization.TERMINAL_REASONS))
+def test_terminal_store_is_identity_seeded_chained_and_evidence_bound(
+    tmp_path, inventory, reason,
+):
+    cell_key = str(inventory.judgment_cells[0]["cell_key"])
+    response = "unresolved" if reason == "checker_unresolved" else "bad checker text"
+    ledger, journal, attempt_id = _checker_artifacts(
+        tmp_path, cell_key=cell_key, response=response, finish_reason="stop")
+    before = (ledger.read_bytes(), journal.read_bytes())
     path = tmp_path / "terminal.jsonl"
     store = finalization.MainTerminalDispositionStore(
         path,
@@ -1335,8 +1368,9 @@ def test_terminal_store_is_identity_seeded_chained_and_evidence_bound(
         manifest_canonical_sha256=MANIFEST_SHA256,
         inventory=inventory,
     )
-    row = store.record_checker_malformed(
+    row = store.record_checker_terminal(
         cell_key,
+        reason=reason,
         ledger_attempt_id=attempt_id,
         usage_ledger_path=ledger,
         request_journal_path=journal,
@@ -1363,9 +1397,22 @@ def test_terminal_store_is_identity_seeded_chained_and_evidence_bound(
     )
     assert reopened.cell_keys == {cell_key}
     assert reopened.tail["last_sequence"] == 0
+    assert row["reason"] == reason
+    assert row["evidence"]["checker_response_sha256"] == finalization._sha256_text(response)
+    if reason == "checker_unresolved":
+        assert row["evidence"]["checker_decision"] == "unresolved"
+        assert "parse_failure" not in row["evidence"]
+    assert (ledger.read_bytes(), journal.read_bytes()) == before
+    diagnostic = finalization.checker_truncation_diagnostic(
+        inventory=inventory, ledger_events=api_client._read_usage_events(ledger),
+        terminal_records=store.records)
+    assert diagnostic["terminal_checker_malformed_count"] == int(reason == "checker_malformed")
+    assert diagnostic["terminal_checker_unresolved_count"] == int(reason == "checker_unresolved")
+    assert diagnostic["terminal_signatures"][0]["reason"] == reason
     with pytest.raises(finalization.TerminalDispositionError, match="already exists"):
-        reopened.record_checker_malformed(
+        reopened.record_checker_terminal(
             cell_key,
+            reason=reason,
             ledger_attempt_id=attempt_id,
             usage_ledger_path=ledger,
             request_journal_path=journal,
@@ -1380,6 +1427,15 @@ def test_terminal_store_is_identity_seeded_chained_and_evidence_bound(
             manifest_canonical_sha256=MANIFEST_SHA256,
             inventory=inventory,
         )
+    opposite_reason = next(iter(finalization.TERMINAL_REASONS - {reason}))
+    wrong_reason_row = {**row, "reason": opposite_reason}
+    wrong_reason_row["event_hash"] = finalization._terminal_row_hash(wrong_reason_row)
+    path.write_text(json.dumps(wrong_reason_row) + "\n", encoding="utf-8")
+    with pytest.raises(finalization.MainFinalizationError, match="terminal evidence"):
+        finalization.MainTerminalDispositionStore(
+            path, run_id=RUN_ID, manifest_canonical_sha256=MANIFEST_SHA256,
+            inventory=inventory)
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     tampered = json.loads(path.read_text(encoding="utf-8"))
     tampered["evidence"]["checker_response_sha256"] = "f" * 64
     path.write_text(json.dumps(tampered) + "\n", encoding="utf-8")

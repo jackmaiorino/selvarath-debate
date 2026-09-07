@@ -249,6 +249,22 @@ def test_environmental_successor_binds_fresh_predecessor_evidence(tmp_path):
         main_manifest.validate_main_manifest(changed, project_root=tmp_path)
 
 
+def test_authorization_discloses_both_stopped_runs_and_uncertain_liability(tmp_path):
+    manifest = _manifest(tmp_path)
+    authorization = _authorization(manifest)
+    text = authorization["exact_text"]
+    assert "phase3-main-34010df12dee7c38" in text
+    assert "phase3-main-afc24ecd607773c0" in text
+    assert "accounted 61.05617072 USD" in text
+    assert "at most 919.67144438 USD" in text
+    assert "prospective checker_unresolved disposition policy" in text
+    assert "sharing the unchanged 20-cell maximum and concentration bounds" in text
+    main_manifest.validate_main_authorization(authorization, manifest, as_of=NOW)
+    authorization["exact_text"] = text.replace("919.67144438", "955.82791870")
+    with pytest.raises(main_manifest.MainManifestError):
+        main_manifest.validate_main_authorization(authorization, manifest, as_of=NOW)
+
+
 def test_manifest_rejects_self_authority_input_drift_and_wrong_hash_kind(tmp_path):
     manifest = _manifest(tmp_path)
     changed = deepcopy(manifest)

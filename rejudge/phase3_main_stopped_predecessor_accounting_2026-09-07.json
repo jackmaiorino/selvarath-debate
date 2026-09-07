@@ -1,0 +1,71 @@
+{
+  "schema_version": "phase3_main_predecessor_void_accounting_v1",
+  "record_id": "phase3-main-stopped-predecessor-accounting-2026-09-07",
+  "stage": "main",
+  "recorded_at_utc": "2026-09-07T15:26:19.169923+00:00",
+  "recorded_by": "Codex accounting reconciliation under current user restart instruction; not personally signed by Jack",
+  "authority_context": {
+    "latest_user_instruction": "Ok get it running again and set a monitor so this doesn’t silently happen again",
+    "additional_spending_authority_created": false,
+    "note": "This records the user instruction as context. A separate exact successor authorization remains required by the launch tooling."
+  },
+  "execution_authorized": false,
+  "provider_calls_authorized": false,
+  "main_run_spend_authorized": false,
+  "creates_additional_spending_authority": false,
+  "carried_forward_predecessors": [
+    {
+      "record_id": "phase3-main-predecessor-void-accounting-2026-09-07",
+      "record_raw_sha256": "d5f2f1a17ef5e4d6896db4e29dc6f5145fef9f1ce6e3bef193e7d15b47dca806",
+      "predecessor_run_id": "phase3-main-34010df12dee7c38",
+      "accounted_spend_usd": "24.89969640"
+    }
+  ],
+  "predecessor": {
+    "run_id": "phase3-main-afc24ecd607773c0",
+    "status": "voided_checker_unresolved_halt",
+    "source_commit": "4561ef704f60019ed44af1927a4b3c98813b0973",
+    "manifest_canonical_sha256": "dab342f44292d17a588f105bef307bcd7a14ae9fcf66f525883f95e024460fb2",
+    "manifest_identity_sha256": "afc24ecd607773c008f83dfb26151b32f12152f6b7f346e8fcf9ea67c231b5cc",
+    "authorization_id": "phase3-main-authorization-20260907-4561ef7",
+    "authorization_canonical_sha256": "5f0f314005eacc3ad0e1773d73339d8bcd470178ccaacc4b7968c7a1f67f4846",
+    "authorization_raw_sha256": "3886b90cb6c9e11251e33eb084c1f5297785d4a5a193ca2bf66e4a813c1a4f1b",
+    "authorization_signature_raw_sha256": "a71f03d43f847e8a8ad63bf3329e68a7bdb958640472f1265f65990af0b7760b",
+    "artifact_root": "E:/selvarath-archive/phase3-main-4561ef7-2026-09-07",
+    "usage_ledger_path": "E:/selvarath-archive/phase3-main-4561ef7-2026-09-07/main_usage.jsonl",
+    "usage_ledger_raw_sha256": "638add9c222b3c3d395e2606b957a80e644b9dc4c89e14caf8f9d948d5186412",
+    "usage_ledger_events": 7374,
+    "formal_started_at_utc": "2026-09-07T03:14:17.987352+00:00",
+    "refusal_reason": "checker_unresolved",
+    "refusal_log_path": "E:/selvarath-archive/phase3-main-launch-2026-09-07-codex/run_stderr.log"
+  },
+  "accounting": {
+    "settled_spend_usd": "36.07555192",
+    "uncertain_spend_usd": "0.08092240",
+    "accounted_spend_usd": "36.15647432",
+    "successful_calls": 3683,
+    "unknown_charge_count": 4,
+    "unmatched_reservations": 0,
+    "counted_against_stage_cap": true,
+    "inside_reconciled_segments": false,
+    "stage_cap_usd": "1100.00",
+    "prior_reconciled_usd": "119.27238490",
+    "successor_forecast_main_usd": "908.82",
+    "expected_stage_total_usd": "1089.14855562",
+    "maximum_successor_expenditure_usd": "919.67144438",
+    "treatment": "Each predecessor is counted once, outside the prior reconciled segments. The loader sums the original record USD 24.89969640 and this record USD 36.15647432, including all uncertain charges, for cumulative predecessor expenditure USD 61.05617072. A fresh provider client starts at USD 180.32855562 total prior stage expenditure under the unchanged USD 1100 cap."
+  },
+  "scientific_use": {
+    "predecessor_outputs_excluded_from_inference": true,
+    "verdict_content_inspected": true,
+    "incidental_verdict_text_exposed": true,
+    "outcome_based_selection_or_tuning": false,
+    "disclosure": "During the preceding operational status diagnosis, a journal tail incidentally displayed one successful judge verdict before the unresolved checker entry. No outcome comparison, example selection, or tuning used it. The prospective fix handles the generic terminal checker_unresolved category.",
+    "permitted_uses": "billing, count reconciliation, hashes, and operational failure diagnosis only"
+  },
+  "non_claims": [
+    "This record is accounting evidence and authorizes no execution, provider call, reviewer dispatch, or additional spend.",
+    "The original accounting record and both archived runs remain unchanged; neither predecessor resumes or contributes scientific results.",
+    "The stage cap, prior reconciliation and certified forecast are unchanged. Unknown charges count conservatively at their full reserved cost."
+  ]
+}

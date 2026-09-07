@@ -2257,12 +2257,11 @@ def load_prepared_main(
                 root, verify_ledger=True))
     except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
         raise Phase3MainLiveError(f"predecessor void accounting failed: {exc}") from exc
-    if (
-        void_accounting_validation["predecessor_run_id"] == manifest["run_id"]
-        or void_accounting_validation["predecessor_manifest_canonical_sha256"]
-        == manifest_validation["manifest_canonical_sha256"]
-    ):
-        raise Phase3MainLiveError("a successor manifest cannot name itself as the voided predecessor")
+    _require_fresh_predecessor_identity(
+        void_accounting_validation,
+        run_id=str(manifest["run_id"]),
+        manifest_sha256=str(manifest_validation["manifest_canonical_sha256"]),
+    )
 
     analysis_pins = _load_bound_input_object(
         manifest, input_paths, "analysis_pins", "analysis pins")
@@ -2459,8 +2458,19 @@ def _uncertain_spend_policy(prepared: PreparedMainRun) -> Mapping[str, Any]:
         raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
 
 
+def _require_fresh_predecessor_identity(
+    accounting: Mapping[str, Any], *, run_id: str, manifest_sha256: str,
+) -> None:
+    run_ids = accounting.get("predecessor_run_ids", [accounting["predecessor_run_id"]])
+    hashes = accounting.get("predecessor_manifest_canonical_sha256s", [
+        accounting["predecessor_manifest_canonical_sha256"]])
+    if run_id in run_ids or manifest_sha256 in hashes:
+        raise Phase3MainLiveError(
+            "a successor manifest cannot name itself as a voided predecessor")
+
+
 def _predecessor_void_accounting(prepared: PreparedMainRun) -> Mapping[str, Any]:
-    """The validated amendment-15 record; legacy fixtures reload it from the project root."""
+    """Validated cumulative predecessor accounting; legacy fixtures reload it."""
     validation = prepared.predecessor_void_accounting_validation
     if validation is not None:
         return validation
@@ -3526,8 +3536,16 @@ def _drive_and_finalize(
         "abandoned_rate_cooldown_seconds": abandoned_cooldown,
         "abandoned_rate_consecutive_pass_allowance": abandoned_allowance,
         "voided_predecessor_run_id": void_accounting["predecessor_run_id"],
+        "voided_predecessor_run_ids": list(void_accounting.get(
+            "predecessor_run_ids", [void_accounting["predecessor_run_id"]])),
+        "voided_predecessor_manifest_canonical_sha256s": list(void_accounting.get(
+            "predecessor_manifest_canonical_sha256s",
+            [void_accounting["predecessor_manifest_canonical_sha256"]])),
         "voided_predecessor_accounted_usd": void_accounting["accounted_spend_usd"],
         "voided_predecessor_record_raw_sha256": void_accounting["record_raw_sha256"],
+        "voided_predecessor_record_raw_sha256s": [
+            record["record_raw_sha256"]
+            for record in void_accounting.get("records", [void_accounting])],
         "maximum_identity_expenditure_usd": (
             void_accounting["maximum_successor_expenditure_usd"]),
     })
@@ -3559,17 +3577,19 @@ def _drive_and_finalize(
         if outcome.halted_reason == "GenerationForbiddenError":
             raise GenerationForbiddenError(
                 f"unseeded transcript reached main execution: {outcome.halted_cell_key}")
-        if outcome.halted_reason == "checker_malformed":
+        if outcome.halted_reason in phase3_main_finalization.TERMINAL_REASONS:
             if not outcome.halted_cell_key:
-                raise Phase3MainLiveError("checker_malformed halt omitted its cell key")
-            _record_terminal_checker_malformed(
-                prepared, terminal_store, outcome.halted_cell_key)
+                raise Phase3MainLiveError(
+                    f"{outcome.halted_reason} halt omitted its cell key")
+            _record_terminal_checker(
+                prepared, terminal_store, outcome.halted_cell_key,
+                reason=outcome.halted_reason)
             phase3_main_finalization.evaluate_terminal_bounds(
                 inventory=prepared.inventory,
                 terminal_records=terminal_store.records,
             )
             _append_jsonl(paths.run_log, {
-                "event": "checker_malformed_terminal_disposition",
+                "event": f"{outcome.halted_reason}_terminal_disposition",
                 "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
                 "cell_key": outcome.halted_cell_key,
                 "terminal_count": len(terminal_store.cell_keys),
@@ -3659,10 +3679,12 @@ def _append_jsonl(path: Path, value: Mapping[str, Any]) -> None:
         os.fsync(handle.fileno())
 
 
-def _record_terminal_checker_malformed(
+def _record_terminal_checker(
     prepared: PreparedMainRun,
     store: phase3_main_finalization.MainTerminalDispositionStore,
     cell_key: str,
+    *,
+    reason: str,
 ) -> None:
     paths = prepared.identity.paths
     events = api_client._read_usage_events(paths.usage_ledger)  # noqa: SLF001
@@ -3676,8 +3698,9 @@ def _record_terminal_checker_malformed(
             and isinstance(event.get("attempt_id"), str)
         ):
             try:
-                phase3_main_finalization.mechanically_validate_checker_malformed(
+                phase3_main_finalization.mechanically_validate_checker_terminal(
                     cell_key=cell_key,
+                    reason=reason,
                     ledger_attempt_id=event["attempt_id"],
                     expected_checker_model=str(
                         prepared.protocol["roster"]["query_checker"]),
@@ -3690,10 +3713,11 @@ def _record_terminal_checker_malformed(
             candidates.append(str(event["attempt_id"]))
     if len(candidates) != 1:
         raise Phase3MainLiveError(
-            "checker_malformed halt does not join to exactly one mechanically malformed "
+            f"{reason} halt does not join to exactly one mechanically matching "
             f"checker attempt: {candidates!r}")
-    store.record_checker_malformed(
+    store.record_checker_terminal(
         cell_key,
+        reason=reason,
         ledger_attempt_id=candidates[0],
         usage_ledger_path=paths.usage_ledger,
         request_journal_path=paths.request_journal,

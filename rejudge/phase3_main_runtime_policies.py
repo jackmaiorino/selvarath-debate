@@ -514,6 +514,14 @@ PREDECESSOR_VOID_ACCOUNTING_RELATIVE_PATH = (
 )
 PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256 = "d5f2f1a17ef5e4d6896db4e29dc6f5145fef9f1ce6e3bef193e7d15b47dca806"
 _VOID_STATUS = "voided_driver_integrity_refusal"
+# The stopped successor is a separate immutable accounting record. Both records must
+# be present and verified so a fresh identity cannot omit either predecessor's spend.
+STOPPED_PREDECESSOR_ACCOUNTING_ID = "phase3-main-stopped-predecessor-accounting-2026-09-07"
+STOPPED_PREDECESSOR_ACCOUNTING_RELATIVE_PATH = (
+    "rejudge/phase3_main_stopped_predecessor_accounting_2026-09-07.json"
+)
+STOPPED_PREDECESSOR_ACCOUNTING_RAW_SHA256 = "2d818e7f75c00d5fd1a0f461de0cde697dcf8fa17ebebaf700cda181c6056cd4"
+_STOPPED_STATUS = "voided_checker_unresolved_halt"
 
 
 def _exact_money(value: Any, label: str) -> Decimal:
@@ -532,16 +540,29 @@ def validate_predecessor_void_accounting(
     record: Mapping[str, Any], *, raw: bytes, verify_ledger: bool = False,
 ) -> dict[str, Any]:
     """Require the exact pinned amendment-15 record and extract its enforceable numbers."""
+    return _validate_predecessor_accounting(
+        record, raw=raw, verify_ledger=verify_ledger,
+        expected_record_id=PREDECESSOR_VOID_ACCOUNTING_ID,
+        expected_raw_sha256=PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256,
+        expected_status=_VOID_STATUS)
+
+
+def _validate_predecessor_accounting(
+    record: Mapping[str, Any], *, raw: bytes, verify_ledger: bool,
+    expected_record_id: str, expected_raw_sha256: str, expected_status: str,
+    earlier_accounted: Decimal = Decimal("0"),
+    incidental_verdict_text_exposed: bool = False,
+) -> dict[str, Any]:
     from rejudge import phase3_main_stage_cap as stage_cap  # local import: avoids a cycle
 
     observed_sha = hashlib.sha256(raw).hexdigest()
-    if observed_sha != PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256:
+    if observed_sha != expected_raw_sha256:
         raise MainRuntimePolicyError(
             "predecessor void accounting bytes differ from the pinned raw SHA-256")
     if record.get("schema_version") != PREDECESSOR_VOID_ACCOUNTING_SCHEMA:
         raise MainRuntimePolicyError("predecessor void accounting schema drifted")
     if (
-        record.get("record_id") != PREDECESSOR_VOID_ACCOUNTING_ID
+        record.get("record_id") != expected_record_id
         or record.get("stage") != "main"
     ):
         raise MainRuntimePolicyError("predecessor void accounting identity drifted")
@@ -557,7 +578,7 @@ def validate_predecessor_void_accounting(
     run_id = predecessor.get("run_id")
     if not isinstance(run_id, str) or not run_id.startswith("phase3-main-"):
         raise MainRuntimePolicyError("predecessor run_id must be a phase3-main run id")
-    if predecessor.get("status") != _VOID_STATUS:
+    if predecessor.get("status") != expected_status:
         raise MainRuntimePolicyError("predecessor status drifted")
     for field in (
         "manifest_canonical_sha256", "manifest_identity_sha256",
@@ -608,7 +629,8 @@ def validate_predecessor_void_accounting(
     if forecast != stage_cap.PROJECTED_MAIN_USD:
         raise MainRuntimePolicyError(
             "voided predecessor accounting forecast differs from the certified main forecast")
-    if total != prior + accounted + forecast or ceiling != cap - prior - accounted:
+    cumulative = earlier_accounted + accounted
+    if total != prior + cumulative + forecast or ceiling != cap - prior - cumulative:
         raise MainRuntimePolicyError("voided predecessor accounting arithmetic drifted")
     if ceiling < forecast:
         raise MainRuntimePolicyError(
@@ -617,7 +639,11 @@ def validate_predecessor_void_accounting(
     if (
         not isinstance(science, Mapping)
         or science.get("predecessor_outputs_excluded_from_inference") is not True
-        or science.get("verdict_content_inspected") is not False
+        or science.get("verdict_content_inspected") is not incidental_verdict_text_exposed
+        or (incidental_verdict_text_exposed and (
+            science.get("incidental_verdict_text_exposed") is not True
+            or science.get("outcome_based_selection_or_tuning") is not False
+        ))
     ):
         raise MainRuntimePolicyError("voided predecessor scientific-use exclusion drifted")
     non_claims = record.get("non_claims")
@@ -631,11 +657,22 @@ def validate_predecessor_void_accounting(
         if hashlib.sha256(ledger_raw).hexdigest() != predecessor["usage_ledger_raw_sha256"]:
             raise MainRuntimePolicyError("predecessor usage ledger bytes drifted")
         try:
-            snapshot = api_client.load_chained_usage_ledger(ledger_path)
+            # The live loader can repair a lagging state file. Archived predecessors
+            # are evidence only, so validate the chain and durable state without writes.
+            ledger_events = api_client._read_usage_events(ledger_path)
+            identity, hashes = api_client._validate_usage_chain(ledger_events, ledger_path)
+            state = api_client._read_usage_state(api_client.usage_ledger_state_path(ledger_path))
+            if (
+                state["ledger_id"] != identity["ledger_id"]
+                or state["last_sequence"] != len(hashes) - 1
+                or state["last_event_hash"] != hashes[-1]
+            ):
+                raise MainRuntimePolicyError("predecessor usage ledger durable state drifted")
+            summary = api_client._summarize_usage_events(
+                ledger_events[1:], ledger_path, strict_lifecycle=True)
         except api_client.UsageLedgerError as exc:
             raise MainRuntimePolicyError(
                 f"predecessor usage ledger failed to load: {exc}") from exc
-        summary = dict(snapshot.summary)
         if summary.get("events") != events or summary.get("unmatched_reservations") != 0:
             raise MainRuntimePolicyError("predecessor usage ledger shape drifted")
         if (
@@ -644,15 +681,29 @@ def validate_predecessor_void_accounting(
         ):
             raise MainRuntimePolicyError(
                 "predecessor usage ledger totals differ from the pinned accounting")
+        if sum(event.get("status") == "unknown_charge" for event in ledger_events) != unknown:
+            raise MainRuntimePolicyError("predecessor usage ledger unknown charge count drifted")
+        successful_calls = accounting.get("successful_calls")
+        if successful_calls is not None and (
+            isinstance(successful_calls, bool)
+            or not isinstance(successful_calls, int)
+            or successful_calls < 0
+            or sum(event.get("status") == "success" for event in ledger_events) != successful_calls
+        ):
+            raise MainRuntimePolicyError("predecessor usage ledger success count drifted")
+        if _stable_file_bytes(ledger_path, "predecessor usage ledger") != ledger_raw:
+            raise MainRuntimePolicyError("predecessor usage ledger bytes drifted during validation")
         ledger_verified = True
     return {
         "schema_version": PREDECESSOR_VOID_ACCOUNTING_SCHEMA,
-        "record_id": PREDECESSOR_VOID_ACCOUNTING_ID,
+        "record_id": expected_record_id,
         "record_raw_sha256": observed_sha,
         "predecessor_run_id": run_id,
         "predecessor_manifest_canonical_sha256": predecessor["manifest_canonical_sha256"],
         "predecessor_artifact_root": str(artifact_root),
         "accounted_spend_usd": format(accounted, "f"),
+        "settled_spend_usd": format(settled, "f"),
+        "uncertain_spend_usd": format(uncertain, "f"),
         "maximum_successor_expenditure_usd": format(ceiling, "f"),
         "expected_stage_total_usd": format(total, "f"),
         "ledger_verified": ledger_verified,
@@ -660,11 +711,61 @@ def validate_predecessor_void_accounting(
     }
 
 
+def validate_stopped_predecessor_accounting(
+    record: Mapping[str, Any], *, raw: bytes, earlier: Mapping[str, Any],
+    verify_ledger: bool = False,
+) -> dict[str, Any]:
+    """Require the stopped run and an exact, once-only carry of the earlier record."""
+    carry = record.get("carried_forward_predecessors")
+    expected_carry = [{field: earlier[field] for field in (
+        "record_id", "record_raw_sha256", "predecessor_run_id", "accounted_spend_usd",
+    )}]
+    if carry != expected_carry:
+        raise MainRuntimePolicyError("carried-forward predecessor accounting omitted, duplicated, or drifted")
+    earlier_accounted = _exact_money(earlier["accounted_spend_usd"], "earlier accounted spend")
+    result = _validate_predecessor_accounting(
+        record, raw=raw, verify_ledger=verify_ledger,
+        expected_record_id=STOPPED_PREDECESSOR_ACCOUNTING_ID,
+        expected_raw_sha256=STOPPED_PREDECESSOR_ACCOUNTING_RAW_SHA256,
+        expected_status=_STOPPED_STATUS, earlier_accounted=earlier_accounted,
+        incidental_verdict_text_exposed=True)
+    if (
+        result["predecessor_run_id"] == earlier["predecessor_run_id"]
+        or result["predecessor_manifest_canonical_sha256"]
+        == earlier["predecessor_manifest_canonical_sha256"]
+        or Path(result["predecessor_artifact_root"]).resolve()
+        == Path(earlier["predecessor_artifact_root"]).resolve()
+    ):
+        raise MainRuntimePolicyError("predecessor accounting repeats an already counted identity")
+    return result
+
+
 def load_and_validate_predecessor_void_accounting(
     project_root: str | Path, *, verify_ledger: bool = True,
 ) -> dict[str, Any]:
     path = Path(project_root).resolve() / PREDECESSOR_VOID_ACCOUNTING_RELATIVE_PATH
     raw = _stable_file_bytes(path, "predecessor void accounting")
-    return validate_predecessor_void_accounting(
+    earlier = validate_predecessor_void_accounting(
         _load_object(path, "predecessor void accounting"), raw=raw,
         verify_ledger=verify_ledger)
+    path = Path(project_root).resolve() / STOPPED_PREDECESSOR_ACCOUNTING_RELATIVE_PATH
+    raw = _stable_file_bytes(path, "stopped predecessor accounting")
+    latest = validate_stopped_predecessor_accounting(
+        _load_object(path, "stopped predecessor accounting"), raw=raw, earlier=earlier,
+        verify_ledger=verify_ledger)
+    records = [earlier, latest]
+    return {
+        **latest,
+        "schema_version": "phase3_main_cumulative_predecessor_accounting_v1",
+        "predecessor_run_ids": [item["predecessor_run_id"] for item in records],
+        "predecessor_manifest_canonical_sha256s": [
+            item["predecessor_manifest_canonical_sha256"] for item in records],
+        "records": records,
+        "accounted_spend_usd": format(sum(
+            (Decimal(item["accounted_spend_usd"]) for item in records), Decimal("0")), "f"),
+        "settled_spend_usd": format(sum(
+            (Decimal(item["settled_spend_usd"]) for item in records), Decimal("0")), "f"),
+        "uncertain_spend_usd": format(sum(
+            (Decimal(item["uncertain_spend_usd"]) for item in records), Decimal("0")), "f"),
+        "ledger_verified": all(item["ledger_verified"] for item in records),
+    }

@@ -4265,6 +4265,103 @@ def test_start_event_records_the_uncertain_spend_policy_and_pass_allowance(
     assert sleeps == []
 
 
+@pytest.mark.parametrize("reason,response", [
+    ("checker_malformed", "UNRESOLVED"),
+    ("checker_unresolved", "unresolved"),
+])
+def test_terminal_checker_halt_is_proved_and_omitted_on_next_pass(
+    tmp_path, inventory, monkeypatch, reason, response,
+):
+    terminal_key = str(inventory.judgment_cells[0]["cell_key"])
+    following_key = str(inventory.judgment_cells[1]["cell_key"])
+    passes = []
+    provider_calls = []
+
+    def sdk_complete(**kwargs):
+        provider_calls.append(kwargs)
+        return SimpleNamespace(
+            usage=SimpleNamespace(prompt_tokens=2, completion_tokens=1),
+            choices=[SimpleNamespace(
+                message=SimpleNamespace(content=response), finish_reason="stop")],
+            model=kwargs["model"], id="fixture-checker", system_fingerprint=None,
+        )
+
+    sdk = SimpleNamespace(chat=SimpleNamespace(
+        completions=SimpleNamespace(create=sdk_complete)))
+
+    def fake_run_canary(**kwargs):
+        passes.append([cell.cell_key for cell in kwargs["cells"]])
+        if len(passes) == 1:
+            assert kwargs["client"].complete(
+                messages=[{"role": "user", "content": "check this query"}],
+                model=phase3_main_live.phase3_main_finalization.DEFAULT_CHECKER_MODEL,
+                temperature=0.0, seed=1, max_tokens=8, kind="verdict",
+                request_metadata={
+                    "cell_key": terminal_key, "call_role": "query_checker",
+                    "slot": 1, "attempt": 1,
+                },
+            ) == response
+            return _abandoned_outcome(
+                attempted=1, abandoned=0, halted_reason=reason,
+                halted_cell_key=terminal_key)
+        return _abandoned_outcome(
+            completed=1, attempted=1, abandoned=0,
+            halted_reason=None, halted_cell_key=None)
+
+    prepared, sleeps = _production_loop(
+        tmp_path, inventory, monkeypatch, fake_run_canary,
+        on_finalize=lambda _prepared, store: {
+            "terminal_keys": sorted(store.cell_keys), "reason": store.records[0]["reason"]})
+    monkeypatch.setattr(
+        phase3_main_live, "_construct_provider_client",
+        lambda candidate, snapshot, *, sdk_client: phase3_main_live.api_client.RejudgeClient(
+            approved_cap_usd=40.0, _sdk_client=sdk, max_retries=0,
+            usage_log_path=candidate.identity.paths.usage_ledger,
+            _ledger_snapshot=snapshot),
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_runner, "resolve_main_cells",
+        lambda *args, **kwargs: [
+            SimpleNamespace(cell_key=terminal_key), SimpleNamespace(cell_key=following_key)]
+    )
+    monkeypatch.setattr(
+        phase3_main_live.phase3_main_finalization, "load_result_cell_keys",
+        lambda _path: (
+            {str(cell["cell_key"]) for cell in inventory.cells} - {terminal_key}
+            if len(passes) == 2 else frozenset()),
+    )
+
+    assert phase3_main_live.run_main("manifest", "authorization") == {
+        "terminal_keys": [terminal_key], "reason": reason}
+    assert passes == [[terminal_key, following_key], [following_key]]
+    assert len(provider_calls) == 1
+    assert sleeps == []
+    assert any(
+        event["event"] == f"{reason}_terminal_disposition"
+        and event["terminal_count"] == 1
+        for event in _run_log_events(prepared))
+
+
+@pytest.mark.parametrize("field,index", [
+    ("predecessor_run_ids", 0), ("predecessor_run_ids", 1),
+    ("predecessor_manifest_canonical_sha256s", 0),
+    ("predecessor_manifest_canonical_sha256s", 1),
+])
+def test_successor_identity_must_differ_from_every_accounted_predecessor(field, index):
+    accounting = {
+        "predecessor_run_id": "latest",
+        "predecessor_manifest_canonical_sha256": "b" * 64,
+        "predecessor_run_ids": ["earlier", "latest"],
+        "predecessor_manifest_canonical_sha256s": ["a" * 64, "b" * 64],
+    }
+    candidate = {"run_id": "new", "manifest_sha256": "c" * 64}
+    phase3_main_live._require_fresh_predecessor_identity(accounting, **candidate)
+    candidate["run_id" if field == "predecessor_run_ids" else "manifest_sha256"] = (
+        accounting[field][index])
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="voided predecessor"):
+        phase3_main_live._require_fresh_predecessor_identity(accounting, **candidate)
+
+
 def test_abandoned_rate_passes_cool_down_then_halt_past_the_allowance(
     tmp_path, inventory, monkeypatch,
 ):

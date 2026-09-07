@@ -5,11 +5,12 @@ one main identity and emits the only record that may admit terminal or context-i
 keys to the confirmatory analysis.
 
 Terminal dispositions are narrower than the successor-canary mechanism.  The main request
-journal removes replay divergence, so the only admitted reason is ``checker_malformed``.
+journal removes replay divergence; admitted reasons are ``checker_malformed`` and the
+strict checker decision ``checker_unresolved``, sharing the same cumulative bounds.
 The disposition store never trusts a hand-written explanation: it validates the complete
 usage-ledger and request-journal chains, joins one successful query-checker attempt to its
-journaled response, and reruns the frozen strict checker parser.  A valid lower-case checker
-token therefore cannot be disposed.
+journaled response, and reruns the frozen strict checker parser.  Valid ``allow`` and
+``reject`` decisions cannot be disposed.  Unresolved cells count as strict INVALID.
 
 The finalization gate additionally requires the exact 492-transcript plus 9,840-judgment
 partition, the frozen cumulative terminal bounds, a checker-truncation diagnostic, immutable
@@ -45,7 +46,9 @@ from rejudge.parsers import PARSER_VERSION, parse_both
 from rejudge.phase2_call_cache import request_fingerprint
 from rejudge.phase2_dual_gate import DualGateDecisionStore, payload_hash
 from rejudge.phase2_execution import canonical_sha256
-from rejudge.phase2_query_gate import MalformedCheckerOutput, parse_checker_output
+from rejudge.phase2_query_gate import (
+    CheckerDecision, MalformedCheckerOutput, parse_checker_output,
+)
 from rejudge.phase3_main_runner import (
     EXPECTED_MAIN_CELL_COUNT,
     EXPECTED_MAIN_INVENTORY_SHA256,
@@ -65,6 +68,8 @@ TERMINAL_SCHEMA = "phase3_main_terminal_disposition_v1"
 FINALIZATION_SCHEMA = "phase3_main_finalization_admission_v3"
 FINALIZATION_STATUS = "admitted_for_confirmatory_analysis"
 TERMINAL_REASON = "checker_malformed"
+UNRESOLVED_TERMINAL_REASON = "checker_unresolved"
+TERMINAL_REASONS = frozenset({TERMINAL_REASON, UNRESOLVED_TERMINAL_REASON})
 QUERY_CHECKER_ROLE = "query_checker"
 JUDGE_QUERY_ROLE = "judge_query"
 ORACLE_VERIFICATION_ROLE = "oracle_verification"
@@ -124,6 +129,8 @@ TERMINAL_EVIDENCE_FIELDS = frozenset({
     "completion_tokens",
     "parse_failure",
 })
+UNRESOLVED_TERMINAL_EVIDENCE_FIELDS = (
+    TERMINAL_EVIDENCE_FIELDS - {"parse_failure"} | {"checker_decision"})
 FINALIZATION_FIELDS = frozenset({
     "schema_version",
     "stage",
@@ -805,13 +812,25 @@ def _terminal_row_hash(row: Mapping[str, Any]) -> str:
     return _sha256_text(_canonical_json(payload))
 
 
-def _validate_evidence_shape(evidence: Any, label: str) -> Mapping[str, Any]:
-    evidence = _exact_keys(evidence, TERMINAL_EVIDENCE_FIELDS, label)
+def _validate_evidence_shape(
+    evidence: Any, label: str, *, reason: str,
+) -> Mapping[str, Any]:
+    evidence = _exact_keys(
+        evidence,
+        (UNRESOLVED_TERMINAL_EVIDENCE_FIELDS
+         if reason == UNRESOLVED_TERMINAL_REASON else TERMINAL_EVIDENCE_FIELDS),
+        label,
+    )
+    if reason == UNRESOLVED_TERMINAL_REASON:
+        if evidence["checker_decision"] != CheckerDecision.UNRESOLVED.value:
+            raise TerminalDispositionError(
+                f"{label} checker decision must be exactly unresolved")
+    else:
+        _text(evidence["parse_failure"], f"{label}.parse_failure")
     for field in (
         "ledger_attempt_id",
         "checker_model",
         "finish_reason",
-        "parse_failure",
     ):
         _text(evidence[field], f"{label}.{field}")
     for field in (
@@ -1044,7 +1063,31 @@ def mechanically_validate_checker_malformed(
     request_journal_path: str | Path,
     journal_execution_identity: str,
 ) -> dict[str, Any]:
+    """Retain the original malformed-only evidence contract."""
+    return mechanically_validate_checker_terminal(
+        cell_key=cell_key,
+        reason=TERMINAL_REASON,
+        ledger_attempt_id=ledger_attempt_id,
+        expected_checker_model=expected_checker_model,
+        usage_ledger_path=usage_ledger_path,
+        request_journal_path=request_journal_path,
+        journal_execution_identity=journal_execution_identity,
+    )
+
+
+def mechanically_validate_checker_terminal(
+    *,
+    cell_key: str,
+    reason: str,
+    ledger_attempt_id: str,
+    expected_checker_model: str,
+    usage_ledger_path: str | Path,
+    request_journal_path: str | Path,
+    journal_execution_identity: str,
+) -> dict[str, Any]:
     """Join and validate one terminal checker response from immutable run artifacts."""
+    if reason not in TERMINAL_REASONS:
+        raise TerminalDispositionError("inadmissible terminal checker reason")
     cell_key = _text(cell_key, "cell_key")
     ledger_attempt_id = _text(ledger_attempt_id, "ledger_attempt_id")
     expected_checker_model = _text(expected_checker_model, "expected_checker_model")
@@ -1063,12 +1106,12 @@ def mechanically_validate_checker_malformed(
     terminal = [event for event in matching if event.get("status") != "reserved"]
     if len(reserved) != 1 or len(terminal) != 1:
         raise TerminalDispositionError(
-            "checker_malformed evidence must name exactly one reserved and one terminal "
+            f"{reason} evidence must name exactly one reserved and one terminal "
             "ledger event")
     reservation, event = reserved[0], terminal[0]
     if event.get("status") != "success":
         raise TerminalDispositionError(
-            "checker_malformed requires a settled successful provider response")
+            f"{reason} requires a settled successful provider response")
     metadata = event.get("metadata")
     if not isinstance(metadata, Mapping):
         raise TerminalDispositionError("checker terminal event has no request metadata")
@@ -1098,12 +1141,22 @@ def mechanically_validate_checker_malformed(
     if not isinstance(response, str):
         raise TerminalDispositionError("journaled checker response is not text")
     try:
-        parse_checker_output(response)
+        parsed = parse_checker_output(response)
     except MalformedCheckerOutput as exc:
-        parse_failure = str(exc)
+        if reason != TERMINAL_REASON:
+            raise TerminalDispositionError(
+                "checker_unresolved requires the exact unresolved decision; "
+                "journaled checker response is malformed") from exc
+        parser_evidence = {"parse_failure": str(exc)}
     else:
-        raise TerminalDispositionError(
-            "journaled checker response parses successfully and cannot be terminally disposed")
+        if reason == TERMINAL_REASON:
+            raise TerminalDispositionError(
+                "journaled checker response parses successfully and cannot be terminally disposed")
+        if parsed.decision != CheckerDecision.UNRESOLVED:
+            raise TerminalDispositionError(
+                "checker_unresolved requires the exact unresolved decision; "
+                f"journaled checker response is {parsed.decision.value}")
+        parser_evidence = {"checker_decision": parsed.decision.value}
 
     response_metadata = event.get("response_metadata")
     if not isinstance(response_metadata, Mapping):
@@ -1138,7 +1191,7 @@ def mechanically_validate_checker_malformed(
         "finish_reason": finish_reason,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
-        "parse_failure": parse_failure,
+        **parser_evidence,
     }
 
 
@@ -1211,10 +1264,11 @@ class MainTerminalDispositionStore:
                 if cell_key not in self._judgments:
                     raise TerminalDispositionError(
                         "terminal disposition names an unplanned or non-judgment main cell")
-                if row["reason"] != TERMINAL_REASON:
+                if row["reason"] not in TERMINAL_REASONS:
                     raise TerminalDispositionError(
-                        "main terminal store admits only checker_malformed")
-                _validate_evidence_shape(row["evidence"], "terminal evidence")
+                        "main terminal store admits only checker_malformed or checker_unresolved")
+                _validate_evidence_shape(
+                    row["evidence"], "terminal evidence", reason=row["reason"])
                 _utc(row["recorded_at_utc"], "terminal recorded_at_utc")
                 sequence = _non_negative_int(row["sequence"], "terminal sequence")
                 if sequence != self._sequence + 1:
@@ -1266,6 +1320,30 @@ class MainTerminalDispositionStore:
         result_cell_keys: Iterable[str],
         recorded_at_utc: str,
     ) -> Mapping[str, Any]:
+        """Retain the original malformed-only terminal-disposition API."""
+        return self.record_checker_terminal(
+            cell_key,
+            reason=TERMINAL_REASON,
+            ledger_attempt_id=ledger_attempt_id,
+            usage_ledger_path=usage_ledger_path,
+            request_journal_path=request_journal_path,
+            journal_execution_identity=journal_execution_identity,
+            result_cell_keys=result_cell_keys,
+            recorded_at_utc=recorded_at_utc,
+        )
+
+    def record_checker_terminal(
+        self,
+        cell_key: str,
+        *,
+        reason: str,
+        ledger_attempt_id: str,
+        usage_ledger_path: str | Path,
+        request_journal_path: str | Path,
+        journal_execution_identity: str,
+        result_cell_keys: Iterable[str],
+        recorded_at_utc: str,
+    ) -> Mapping[str, Any]:
         """Mechanically validate and durably append one main terminal disposition."""
         cell_key = _text(cell_key, "cell_key")
         if cell_key not in self._judgments:
@@ -1276,8 +1354,9 @@ class MainTerminalDispositionStore:
             raise TerminalDispositionError(
                 "a terminally disposed cell already has a result row")
         recorded_at_utc = _utc(recorded_at_utc, "recorded_at_utc")
-        evidence = mechanically_validate_checker_malformed(
+        evidence = mechanically_validate_checker_terminal(
             cell_key=cell_key,
+            reason=reason,
             ledger_attempt_id=ledger_attempt_id,
             expected_checker_model=self.checker_model,
             usage_ledger_path=usage_ledger_path,
@@ -1295,7 +1374,7 @@ class MainTerminalDispositionStore:
                 "manifest_canonical_sha256": self.manifest_canonical_sha256,
                 "inventory_canonical_sha256": self.inventory_canonical_sha256,
                 "cell_key": cell_key,
-                "reason": TERMINAL_REASON,
+                "reason": reason,
                 "evidence": evidence,
                 "recorded_at_utc": recorded_at_utc,
                 "sequence": self._sequence + 1,
@@ -1328,8 +1407,9 @@ class MainTerminalDispositionStore:
             if cell_key in result_keys:
                 raise TerminalDispositionError(
                     "a terminally disposed cell has a result row")
-            observed = mechanically_validate_checker_malformed(
+            observed = mechanically_validate_checker_terminal(
                 cell_key=cell_key,
+                reason=str(record["reason"]),
                 ledger_attempt_id=str(record["evidence"]["ledger_attempt_id"]),
                 expected_checker_model=self.checker_model,
                 usage_ledger_path=usage_ledger_path,
@@ -1421,7 +1501,7 @@ def validate_main_partition(
     if len(terminal_keys) != len(set(terminal_keys)):
         raise MainPartitionError("terminal records contain duplicate cell keys")
     for index, record in enumerate(terminal_records):
-        if record.get("reason") != TERMINAL_REASON:
+        if record.get("reason") not in TERMINAL_REASONS:
             raise MainPartitionError(
                 f"terminal record {index} names an inadmissible reason")
         if terminal_keys[index] not in judgments:
@@ -1660,6 +1740,7 @@ def checker_truncation_diagnostic(
     terminal_signatures = [
         {
             "cell_key": str(record["cell_key"]),
+            "reason": str(record["reason"]),
             "ledger_attempt_id": record["evidence"]["ledger_attempt_id"],
             "finish_reason": record["evidence"]["finish_reason"],
             "completion_tokens": record["evidence"]["completion_tokens"],
@@ -1673,7 +1754,10 @@ def checker_truncation_diagnostic(
         "finish_length_rate": (
             len(length_calls) / checker_calls if checker_calls else None),
         "finish_length_calls": length_calls,
-        "terminal_checker_malformed_count": len(terminal_records),
+        "terminal_checker_malformed_count": sum(
+            record["reason"] == TERMINAL_REASON for record in terminal_records),
+        "terminal_checker_unresolved_count": sum(
+            record["reason"] == UNRESOLVED_TERMINAL_REASON for record in terminal_records),
         "terminal_signatures": terminal_signatures,
         "affected_mirror_unit_count": bounds["affected_mirror_units"],
         "by_judge": _diagnostic_group(by_judge),
@@ -3657,6 +3741,7 @@ __all__ = [
     "load_result_cell_keys",
     "load_result_rows",
     "mechanically_validate_checker_malformed",
+    "mechanically_validate_checker_terminal",
     "validate_finalization_admission",
     "validate_finalization_from_bound_artifacts",
     "validate_main_partition",

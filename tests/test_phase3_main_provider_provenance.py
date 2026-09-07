@@ -194,7 +194,8 @@ def _fixture(
         )
     except CanaryCellHalted as exc:
         assert terminal
-        assert exc.reason == "checker_malformed"
+        assert exc.reason == (
+            "checker_unresolved" if checker_response == "unresolved" else "checker_malformed")
     if terminal:
         assert record is None
     else:
@@ -636,12 +637,13 @@ def test_replay_covers_query_checker_oracle_and_verdict_requests(tmp_path: Path)
     ]
 
 
-def test_replay_covers_checker_malformed_terminal_prefix(tmp_path: Path) -> None:
+@pytest.mark.parametrize("response", ["ALLOW", "unresolved"])
+def test_replay_covers_terminal_checker_prefix(tmp_path: Path, response: str) -> None:
     inputs = _fixture(
         tmp_path,
         judge_model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         query_budget=1,
-        checker_response="ALLOW",
+        checker_response=response,
     )
 
     result = provenance.verify_main_provider_replay(**inputs)
@@ -651,14 +653,15 @@ def test_replay_covers_checker_malformed_terminal_prefix(tmp_path: Path) -> None
     assert result["logical_request_count"] == 2
 
 
-def test_replay_covers_checker_malformed_on_application_attempt_two(
-    tmp_path: Path,
+@pytest.mark.parametrize("response", ["ALLOW", "unresolved"])
+def test_replay_covers_terminal_checker_on_application_attempt_two(
+    tmp_path: Path, response: str,
 ) -> None:
     inputs = _fixture(
         tmp_path,
         judge_model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         query_budget=1,
-        checker_response="ALLOW",
+        checker_response=response,
         query_responses=("", RAW_QUERY),
     )
 
@@ -1051,8 +1054,9 @@ def test_replay_rejects_orphan_application_attempt_two(tmp_path: Path) -> None:
         provenance.verify_main_provider_replay(**inputs)
 
 
-def test_replay_rejects_extra_call_after_checker_malformed_terminal(
-    tmp_path: Path,
+@pytest.mark.parametrize("response", ["ALLOW", "unresolved"])
+def test_replay_rejects_extra_call_after_terminal_checker(
+    tmp_path: Path, response: str,
 ) -> None:
     terminal_dir = tmp_path / "terminal"
     completed_dir = tmp_path / "completed"
@@ -1062,7 +1066,7 @@ def test_replay_rejects_extra_call_after_checker_malformed_terminal(
         terminal_dir,
         judge_model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         query_budget=1,
-        checker_response="ALLOW",
+        checker_response=response,
     )
     completed = _fixture(
         completed_dir,
