@@ -47,7 +47,7 @@ of that artifact.
 
 **Spend.** About $208 through July 14 and $181 for Phase 2. Phase 3 pre-main accounting is
 $119.27 ($95.68 settled, $23.59 uncertain reservations); Together's console shows $94.07 for the
-same window. The main run has spent about $17 so far. The $1,100 Phase 3 cap includes the
+same window. The main run had spent about $17 as of September 6, 23:50 UTC. The $1,100 Phase 3 cap includes the
 pre-main spending; the certified main-run forecast is $908.82.
 
 - Phase 2 report with erratum: https://github.com/jackmaiorino/selvarath-debate/blob/34898fb/reports/2026-08-11-phase2-main-results.md
