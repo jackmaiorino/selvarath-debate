@@ -50,6 +50,37 @@
     "E:/selvarath-archive/phase3-main-review-capacity-preflight-v6-2026-09-04/capacity_authorization_draft_2026-09-06_ca0a05b.json"
    ],
    "superseded_reason": "written at commit ca0a05b before the owner-signature verifier fix (a8c21af); never signed, never used"
+  },
+  {
+   "schema_version": "phase3_main_delegated_signature_provenance_entry_v1",
+   "sequence": 2,
+   "scope": "phase3_main_formal_run",
+   "run_id": "phase3-main-34010df12dee7c38",
+   "authorization_path": "E:/selvarath-archive/phase3-main-launch-2026-09-06/main_authorization_2707cd3.json",
+   "authorization_id": "phase3-main-authorization-20260906-2707cd3",
+   "authorization_raw_sha256": "d1ab245065e746257763144059dc2e01e72caed244bcd71584df5cb0336fff05",
+   "authorization_canonical_sha256": "0327eea868e4ac51f12558152c45eae616caed2587b44e5e654b71fbd613077b",
+   "signature_path": "E:/selvarath-archive/phase3-main-launch-2026-09-06/main_authorization_2707cd3.json.sig",
+   "signature_raw_sha256": "b26bd7ae37c1211856ed7b344adcb55210c537232f54e414246b4f955ff17428",
+   "signature_byte_count": 342,
+   "namespace": "selvarath-phase3-main-authorization-v1",
+   "principal": "jack-maiorino",
+   "signed_at_utc": "2026-09-06T18:13:00.5447252Z",
+   "source_commit": "2707cd3435b6f1d2b016d942c5ca6928dea48aaa",
+   "manifest_raw_sha256": "d983dbb24226af13de7d75db7f494d84b5a9926a3e6c8adb284641553094fecc",
+   "manifest_canonical_sha256": "1ea1a5d8f45dc1b060465ae266215f571bf4a4dc06c58b518cc56b0e40716647",
+   "authority_granted": "one single-shot formal Phase 3 main measurement under the USD 1,100.00 cumulative stage cap and the 59,040 reviewer-dispatch ceiling; no resume of this identity",
+   "actual_signer": "Claude Code orchestrator session f817b4ab-a6df-441e-8ba2-719909635ba4",
+   "key_holder": "Jack Maiorino",
+   "public_key_fingerprint": "SHA256:e3z7s2CQDDLg2nx/XDI93Tm+JerqZSo8H0GRL88Szmk",
+   "statement": "Claude generated this signature using Jack Maiorino's key under his dated Phase 3 delegation. This records delegated approval and does not assert Jack personally reviewed or signed this exact artifact.",
+   "delegation_sources": [
+    "2026-09-04 Codex task: stepping away for a couple days. You have full spend and execute auth for the entire phase 3.",
+    "2026-09-06 global standing authorization: I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return.",
+    "2026-09-06 session f817b4ab: check if you have the perms you need. and continue yourself ensure you have everything you need"
+   ],
+   "tracked_record": "rejudge/phase3_main_delegated_signature_provenance_2026-09-06.json (this entry is folded in after the run because the source tree must stay clean while the identity is live)",
+   "outcome_note": "identity phase3-main-34010df12dee7c38 started 2026-09-06T19:53:25Z and was voided 2026-09-07T01:20:10Z by a driver integrity refusal traced to a validation-only defect; see amendment 15"
   }
  ]
 }
