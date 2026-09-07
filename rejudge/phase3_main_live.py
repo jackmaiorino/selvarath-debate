@@ -266,6 +266,10 @@ class PreparedMainRun:
     # for offline fixtures; the live path loads it during preparation and re-reads it
     # through ``_uncertain_spend_policy`` before any provider client exists.
     uncertain_spend_policy_validation: Mapping[str, Any] | None = None
+    # Amendment 15 (2026-09-07): the validated voided-predecessor accounting record. Its
+    # accounted spend is added to the provider client's initial spend so the identity's
+    # enforceable ceiling is cap - prior - voided. ``None`` only for legacy fixtures.
+    predecessor_void_accounting_validation: Mapping[str, Any] | None = None
 
     @property
     def identity(self) -> phase3_main_runner.MainRunIdentity:
@@ -2076,6 +2080,7 @@ def _validate_cost_forecast(
     reconciliation_record: Mapping[str, Any], manifest: Mapping[str, Any],
     stage_cap_ratification: Mapping[str, Any],
     root: Path, as_of: datetime,
+    voided_predecessor_usd: Decimal = Decimal("0"),
 ) -> None:
     if forecast.get("schema_version") != phase3_v3_forecast.COST_SCHEMA_VERSION:
         raise Phase3MainLiveError("unsupported certified cost forecast schema")
@@ -2115,6 +2120,12 @@ def _validate_cost_forecast(
     }
     if forecast.get("stage_cap_binding") != expected_cap_binding:
         raise Phase3MainLiveError("cost forecast stage-cap ratification binding drifted")
+    # Amendment 15: voided predecessor spend is stage expenditure outside the reconciled
+    # segments; the certified forecast must still fit under the cap after it.
+    if voided_predecessor_usd < 0 or prior + voided_predecessor_usd + projected > cap:
+        raise Phase3MainLiveError(
+            "prior reconciled plus voided predecessor spend plus the certified forecast "
+            "exceeds the stage cap")
 
     raw_segments = forecast.get("cumulative_spend_segments")
     if isinstance(raw_segments, (str, bytes)) or not isinstance(raw_segments, Sequence):
@@ -2240,6 +2251,18 @@ def load_prepared_main(
                 root, role_limits=role_limits))
     except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
         raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
+    try:
+        void_accounting_validation = (
+            phase3_main_runtime_policies.load_and_validate_predecessor_void_accounting(
+                root, verify_ledger=True))
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"predecessor void accounting failed: {exc}") from exc
+    if (
+        void_accounting_validation["predecessor_run_id"] == manifest["run_id"]
+        or void_accounting_validation["predecessor_manifest_canonical_sha256"]
+        == manifest_validation["manifest_canonical_sha256"]
+    ):
+        raise Phase3MainLiveError("a successor manifest cannot name itself as the voided predecessor")
 
     analysis_pins = _load_bound_input_object(
         manifest, input_paths, "analysis_pins", "analysis pins")
@@ -2354,7 +2377,8 @@ def load_prepared_main(
         forecast, protocol=protocol, inventory=inventory, dynamic_frame=dynamic_frame,
         exact_context_index=exact_context_index, price=price,
         reconciliation_record=billing_record, manifest=manifest,
-        stage_cap_ratification=stage_cap_ratification, root=root, as_of=now)
+        stage_cap_ratification=stage_cap_ratification, root=root, as_of=now,
+        voided_predecessor_usd=Decimal(void_accounting_validation["accounted_spend_usd"]))
 
     harness_receipt = _load_bound_input_object(
         manifest, input_paths, "harness_receipt", "harness receipt")
@@ -2409,6 +2433,7 @@ def load_prepared_main(
         inventory=inventory,
         context_excluded_cell_keys=excluded,
         uncertain_spend_policy_validation=uncertain_spend_policy_validation,
+        predecessor_void_accounting_validation=void_accounting_validation,
     )
 
 
@@ -2434,6 +2459,18 @@ def _uncertain_spend_policy(prepared: PreparedMainRun) -> Mapping[str, Any]:
         raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
 
 
+def _predecessor_void_accounting(prepared: PreparedMainRun) -> Mapping[str, Any]:
+    """The validated amendment-15 record; legacy fixtures reload it from the project root."""
+    validation = prepared.predecessor_void_accounting_validation
+    if validation is not None:
+        return validation
+    try:
+        return phase3_main_runtime_policies.load_and_validate_predecessor_void_accounting(
+            prepared.project_root, verify_ledger=True)
+    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        raise Phase3MainLiveError(f"predecessor void accounting failed: {exc}") from exc
+
+
 # Amendment 14: the cool-down between abandoned-rate passes. Module-level so tests can
 # replace the sleep without touching the drive loop.
 _ABANDONED_RATE_SLEEP = time.sleep
@@ -2453,6 +2490,9 @@ def _construct_provider_client(
     request = prepared.role_limits["request_settings"]
     transport = request["transport"]
     prior = Decimal(prepared.manifest["spend"]["prior_reconciled_usd"])
+    # Amendment 15: the voided predecessor's accounted spend is charged to this identity's
+    # starting balance, so the client enforces cap - prior - voided on its own spend.
+    voided = Decimal(_predecessor_void_accounting(prepared)["accounted_spend_usd"])
     cap = Decimal(prepared.authorization["stage_cap_usd"])
     raw = api_client.RejudgeClient(
         approved_cap_usd=float(cap),
@@ -2461,7 +2501,7 @@ def _construct_provider_client(
         max_retries=int(transport["ledger_max_retries"]),
         model_prices=_model_prices(prepared.price_snapshot),
         strict_model_pricing=True,
-        initial_spend_usd=float(prior),
+        initial_spend_usd=float(prior + voided),
         initial_uncertain_spend_usd=0.0,
         # Amendment 14: bounded per-identity uncertain-spend ceiling, checked by the client
         # before every reservation; uncertain reservations already count against the cap.
@@ -3465,6 +3505,7 @@ def _drive_and_finalize(
         _ABANDONED_RATE_SLEEP(abandoned_cooldown)
     reviewer_dispatch_ceiling = int(
         prepared.reviewer_usage_policy_validation["maximum_reviewer_dispatches"])
+    void_accounting = _predecessor_void_accounting(prepared)
     _append_jsonl(paths.run_log, {
         "event": "formal_main_started",
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -3484,6 +3525,11 @@ def _drive_and_finalize(
         "run_uncertain_ceiling_usd": float(policy["run_uncertain_ceiling_usd"]),
         "abandoned_rate_cooldown_seconds": abandoned_cooldown,
         "abandoned_rate_consecutive_pass_allowance": abandoned_allowance,
+        "voided_predecessor_run_id": void_accounting["predecessor_run_id"],
+        "voided_predecessor_accounted_usd": void_accounting["accounted_spend_usd"],
+        "voided_predecessor_record_raw_sha256": void_accounting["record_raw_sha256"],
+        "maximum_identity_expenditure_usd": (
+            void_accounting["maximum_successor_expenditure_usd"]),
     })
 
     for pass_index in range(1, max_passes + 1):
@@ -4224,6 +4270,8 @@ def _finalize_main(
             prepared.manifest["spend"]["prior_reconciled_usd"]),
         stage_cap_usd=str(current_authorization["stage_cap_usd"]),
         uncertain_spend_policy=_uncertain_spend_policy(prepared),
+        voided_predecessor_usd=str(
+            _predecessor_void_accounting(prepared)["accounted_spend_usd"]),
     )
     finalization = phase3_main_finalization.build_finalization_admission(
         **finalization_inputs,

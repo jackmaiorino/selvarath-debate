@@ -41,6 +41,7 @@ HOST_IDENTITY = codex_reviewer_batch._host_identity()  # noqa: SLF001
 FROZEN_PROMPT = "Review the payload under the frozen contract."
 CLEAN_OUTPUT = "LABEL: ALLOW\nCLAUSE: Allowed\nRATIONALE: Atomic factual claim."
 MALFORMED_OUTPUT = "not a three-line ruling"
+_SAME_AS_PLAN_PROFILE = object()
 
 
 def _raw_sha(raw: bytes) -> str:
@@ -297,20 +298,41 @@ def _receipt(
     completed_at_utc: str = "2029-01-01T00:00:01+00:00",
     dispatch_guard_path: Path,
     dispatch_guard_raw_sha256: str,
+    model_provider_profile: dict[str, Any] | None = None,
+    guard_model_provider_profile: object = _SAME_AS_PLAN_PROFILE,
+    legacy_transport_flag: bool | None = None,
 ) -> dict[str, Any]:
+    # The guard is evaluated at dispatch time under the plan's profile; the invocation
+    # records what the CLI was actually given. Tests separate the two to exercise the
+    # post-wave recheck.
+    guard_profile = (
+        model_provider_profile
+        if guard_model_provider_profile is _SAME_AS_PLAN_PROFILE
+        else guard_model_provider_profile
+    )
     event_raw = _events(commands)
     normalized = ruling.strip().encode("utf-8")
     runner_path, runner_sha, runner_bytes = codex_reviewer_batch._batch_runner_identity()
     workdir = packet.parent / "deleted-isolated-workdir"
     output_file = workdir / "ruling.txt"
-    invocation = {
-        "argv": [
-            cli_path,
-            "exec",
-            "-m",
-            MODEL,
+    argv = [
+        cli_path,
+        "exec",
+        "-m",
+        MODEL,
+        "-c",
+        f'model_reasoning_effort="{EFFORT}"',
+    ]
+    if legacy_transport_flag is not None:
+        argv.extend([
             "-c",
-            f'model_reasoning_effort="{EFFORT}"',
+            "model_providers.openai.supports_websockets="
+            + str(legacy_transport_flag).lower(),
+        ])
+    if model_provider_profile is not None:
+        argv.extend(codex_reviewer_batch._model_provider_argv(  # noqa: SLF001
+            codex_reviewer_batch.normalize_model_provider_profile(model_provider_profile)))
+    argv.extend([
             "-C",
             str(workdir),
             "--skip-git-repo-check",
@@ -323,7 +345,9 @@ def _receipt(
             "-o",
             str(output_file),
             "-",
-        ],
+    ])
+    invocation = {
+        "argv": argv,
         "model_requested": MODEL,
         "reasoning_effort_requested": EFFORT,
         "batch_concurrency": batch_concurrency,
@@ -347,6 +371,10 @@ def _receipt(
         "batch_runner_raw_sha256": runner_sha,
         "batch_runner_byte_count": runner_bytes,
     }
+    if model_provider_profile is not None:
+        invocation["model_provider_profile"] = dict(model_provider_profile)
+    if legacy_transport_flag is not None:
+        invocation["openai_provider_supports_websockets"] = legacy_transport_flag
     outcome = {
         "authorization_deadline_utc": deadline,
         "deadline_active_before_dispatch": True,
@@ -371,6 +399,8 @@ def _receipt(
         model=MODEL,
         effort=EFFORT,
         concurrency=CONCURRENCY,
+        openai_provider_supports_websockets=legacy_transport_flag,
+        model_provider_profile=guard_profile,
         packet_directory=packet.parent,
         output_path=packet.parent / "rulings.jsonl",
         selected_packet=packet,
@@ -429,8 +459,16 @@ def _build_fixture(
     invocation_started_at_utc: str = "2029-01-01T00:00:00+00:00",
     invocation_completed_at_utc: str = "2029-01-01T00:00:01+00:00",
     wave_recorded_at_utcs: list[str] | None = None,
+    model_provider_profile: dict[str, Any] | None = None,
+    invocation_model_provider_profile: object = _SAME_AS_PLAN_PROFILE,
+    legacy_transport_flag: bool | None = None,
 ) -> dict[str, Any]:
     tmp_path.mkdir(parents=True, exist_ok=True)
+    invocation_profile = (
+        model_provider_profile
+        if invocation_model_provider_profile is _SAME_AS_PLAN_PROFILE
+        else invocation_model_provider_profile
+    )
     waves = waves if waves is not None else [
         (1, [
             {
@@ -508,6 +546,12 @@ def _build_fixture(
         },
         "validity": {"valid_for_hours": 24},
     }
+    if model_provider_profile is not None:
+        capacity_plan["reviewer_configuration"]["model_provider_profile"] = dict(
+            model_provider_profile)
+    if legacy_transport_flag is not None:
+        capacity_plan["reviewer_configuration"][
+            "openai_provider_supports_websockets"] = legacy_transport_flag
     capacity_raw = _write_json(capacity_path, capacity_plan, indent=1)
     (
         capacity_result_path,
@@ -648,6 +692,9 @@ def _build_fixture(
                 dispatch_guard_path=(
                     packet_dir / codex_reviewer_batch.DISPATCH_GUARD_FILENAME),
                 dispatch_guard_raw_sha256=dispatch_guard_raw_sha,
+                model_provider_profile=invocation_profile,
+                guard_model_provider_profile=model_provider_profile,
+                legacy_transport_flag=legacy_transport_flag,
             )
             if spec.get("as_reviewer_error"):
                 synthetic = spec.get("synthetic_output") or (
@@ -1460,3 +1507,90 @@ def test_empty_query_payload_and_z_deadline_normalization_are_valid(tmp_path):
     result = verify_main_reviewer_provenance(**inputs)
 
     assert result["malformed_decision_count"] == 1
+
+
+def _real_v6_model_provider_profile() -> dict[str, Any]:
+    plan_path = Path(__file__).resolve().parents[1] / (
+        "rejudge/phase3_main_review_capacity_preflight_plan_v6_2026-09-06.json")
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    return dict(plan["reviewer_configuration"]["model_provider_profile"])
+
+
+def test_receipt_recheck_verifies_under_the_real_model_provider_profile_plan(tmp_path):
+    """Regression for the 2026-09-07 main-run refusal.
+
+    The receipt validator re-evaluates the dispatch guard after a wave. Under a capacity
+    plan that carries a model provider profile (v5/v6), the recheck used to omit the
+    invocation's profile and failed every receipt with "capacity model provider profile
+    drifted". The fixture here carries the exact profile the bound v6 plan carries.
+    """
+    profile = _real_v6_model_provider_profile()
+    inputs = _build_fixture(tmp_path, model_provider_profile=profile)
+
+    verify_main_reviewer_provenance(**inputs)
+
+    rechecked = 0
+    for rulings_path in sorted(Path(inputs["review_packets_root"]).glob("wave-*/rulings.jsonl")):
+        packet_dir = rulings_path.parent
+        for line in rulings_path.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            reference = row["evidence"]
+            packet_name = Path(reference["receipt_path"]).parent.name
+            assert packet_name.endswith(".evidence")
+            receipt = codex_reviewer_batch.validate_invocation_evidence(
+                packet_dir / packet_name[: -len(".evidence")],
+                reference,
+                expected_model=MODEL,
+                expected_effort=EFFORT,
+                expected_concurrency=CONCURRENCY,
+                expected_model_provider_profile=profile,
+            )
+            assert receipt["invocation"]["model_provider_profile"] == profile
+            assert receipt["dispatch_guard"]["verified"] is True
+            assert receipt["dispatch_guard"]["error"] is None
+            rechecked += 1
+    assert rechecked >= 2
+
+
+
+def test_receipt_recheck_rejects_an_invocation_that_omits_the_plan_profile(tmp_path):
+    """The exact 2026-09-07 failure shape, inverted: the guard verified under the plan's
+    profile at dispatch time, but the recorded invocation carries no profile, so the
+    post-wave recheck must fail rather than silently accept."""
+    profile = _real_v6_model_provider_profile()
+    inputs = _build_fixture(
+        tmp_path,
+        model_provider_profile=profile,
+        invocation_model_provider_profile=None,
+    )
+
+    with pytest.raises(
+        MainReviewerProvenanceError,
+        match="dispatch guard evidence no longer verifies exactly",
+    ):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_receipt_recheck_rejects_an_invocation_whose_profile_changed(tmp_path):
+    profile = _real_v6_model_provider_profile()
+    changed = json.loads(json.dumps(profile))
+    changed["http_headers"] = {"version": "9.9.9"}
+    inputs = _build_fixture(
+        tmp_path,
+        model_provider_profile=profile,
+        invocation_model_provider_profile=changed,
+    )
+
+    with pytest.raises(
+        MainReviewerProvenanceError,
+        match="dispatch guard evidence no longer verifies exactly",
+    ):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_receipt_recheck_keeps_an_explicit_legacy_transport_flag(tmp_path):
+    """A plan and invocation that record the legacy WebSocket flag as an explicit false
+    must still verify: the recheck must pass the recorded value, not its truthiness."""
+    inputs = _build_fixture(tmp_path, legacy_transport_flag=False)
+
+    verify_main_reviewer_provenance(**inputs)

@@ -267,6 +267,7 @@ REVIEWER_PROVENANCE_FIELDS = frozenset({
 })
 ACCOUNTING_FIELDS = frozenset({
     "prior_reconciled_usd",
+    "voided_predecessor_usd",
     "current_settled_usd",
     "current_uncertain_usd",
     "current_accounted_usd",
@@ -956,9 +957,14 @@ def _accounting_section(
     material: Mapping[str, Any], *, prior_reconciled_usd: Any,
     stage_cap_usd: Any,
     uncertain_spend_policy: Mapping[str, Any] | None = None,
+    voided_predecessor_usd: Any = "0",
 ) -> dict[str, Any]:
     prior_text, prior = _exact_decimal(
         prior_reconciled_usd, "prior_reconciled_usd")
+    # Amendment 15: a voided predecessor identity's accounted spend is stage expenditure
+    # outside the reconciled segments and counts toward the cap below.
+    voided_text, voided = _exact_decimal(
+        voided_predecessor_usd, "voided_predecessor_usd")
     cap_text, cap = _exact_decimal(stage_cap_usd, "stage_cap_usd")
     exact_events = material.get("exact_events")
     if not isinstance(exact_events, Sequence):
@@ -996,15 +1002,17 @@ def _accounting_section(
         for model in sorted(unknown_counts)
     }
     accounted = settled + uncertain
-    stage_total = prior + accounted
+    stage_total = prior + voided + accounted
     if stage_total > cap:
         raise MainFinalizationError(
-            "prior reconciled plus current main spend exceeds the stage cap")
+            "prior reconciled plus voided predecessor plus current main spend exceeds "
+            "the stage cap")
     snapshot = material.get("snapshot")
     if not isinstance(snapshot, api_client.UsageLedgerSnapshot):
         raise MainFinalizationError("validated usage-ledger snapshot is missing")
     return {
         "prior_reconciled_usd": prior_text,
+        "voided_predecessor_usd": voided_text,
         "current_settled_usd": _decimal_text(settled),
         "current_uncertain_usd": _decimal_text(uncertain),
         "current_accounted_usd": _decimal_text(accounted),
@@ -2667,6 +2675,7 @@ def build_finalization_admission(
     stage_cap_usd: str,
     recorded_at_utc: str,
     uncertain_spend_policy: Mapping[str, Any] | None = None,
+    voided_predecessor_usd: str = "0",
 ) -> dict[str, Any]:
     """Build the pre-analysis admission from final immutable main artifacts."""
     run_id = _text(run_id, "run_id")
@@ -2899,6 +2908,7 @@ def build_finalization_admission(
         prior_reconciled_usd=prior_reconciled_usd,
         stage_cap_usd=stage_cap_usd,
         uncertain_spend_policy=uncertain_spend_policy,
+        voided_predecessor_usd=voided_predecessor_usd,
     )
     policy_section = _uncertain_spend_policy_section(uncertain_spend_policy)
     retry_report = _retry_report(
@@ -3207,6 +3217,7 @@ def validate_finalization_admission(
     amounts: dict[str, Decimal] = {}
     for field in (
         "prior_reconciled_usd",
+        "voided_predecessor_usd",
         "current_settled_usd",
         "current_uncertain_usd",
         "current_accounted_usd",
@@ -3248,7 +3259,8 @@ def validate_finalization_admission(
             amounts["current_settled_usd"] + amounts["current_uncertain_usd"]):
         raise MainFinalizationError("final current accounted spend is inconsistent")
     if amounts["stage_total_usd"] != (
-            amounts["prior_reconciled_usd"] + amounts["current_accounted_usd"]):
+            amounts["prior_reconciled_usd"] + amounts["voided_predecessor_usd"]
+            + amounts["current_accounted_usd"]):
         raise MainFinalizationError("final stage total spend is inconsistent")
     if amounts["stage_total_usd"] > amounts["stage_cap_usd"]:
         raise MainFinalizationError("final stage total exceeds its cap")

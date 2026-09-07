@@ -1747,6 +1747,7 @@ def test_finalization_admits_exact_provider_bound_run_and_is_immutable(
     }
     assert record["accounting"] == {
         "prior_reconciled_usd": PRIOR_RECONCILED_USD,
+        "voided_predecessor_usd": "0",
         "current_settled_usd": "0.000015",
         "current_uncertain_usd": "0",
         "current_accounted_usd": "0.000015",

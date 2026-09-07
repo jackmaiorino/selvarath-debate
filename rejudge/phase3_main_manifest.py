@@ -339,7 +339,20 @@ def expected_authorization_text(manifest: Mapping[str, Any]) -> str:
         "snapshot, forecast, manifest, cap, and exact authorization. External reviewer usage "
         f"is separately capped at {phase3_main_runtime_policies.MAXIMUM_REVIEWER_DISPATCHES} "
         "dispatches. Dispatch count is neither USD nor token accounting and is excluded from "
-        "the Together USD stage cap."
+        "the Together USD stage cap. " + _voided_predecessor_sentence()
+    )
+
+
+def _voided_predecessor_sentence() -> str:
+    """Amendment 15: the signed text discloses the voided predecessor's accounted spend and
+    the enforceable ceiling of the identity being approved."""
+    void = phase3_main_runtime_policies.load_and_validate_predecessor_void_accounting(
+        Path(__file__).resolve().parents[1], verify_ledger=False)
+    return (
+        f"Voided predecessor {void['predecessor_run_id']} settled "
+        f"{void['accounted_spend_usd']} USD counts against the cumulative stage cap outside "
+        "the reconciled segments; this identity may spend at most "
+        f"{void['maximum_successor_expenditure_usd']} USD, enforced by its provider client."
     )
 
 

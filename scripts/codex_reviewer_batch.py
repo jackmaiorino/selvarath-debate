@@ -1598,6 +1598,11 @@ def validate_invocation_evidence(
             if checked_at != timestamps["started_at_utc"]:
                 raise ValueError("reviewer dispatch start differs from its guard check")
             snapshot_path = root / DISPATCH_GUARD_FILENAME
+            # The recheck must reopen the guard under the same transport identity the
+            # invocation recorded. The two transport fields are mutually exclusive above,
+            # so exactly one of them is non-null here. Omitting them made every recheck
+            # under a plan that carries a model provider profile fail with "capacity model
+            # provider profile drifted" (Phase 3 main identity 34010df1, 2026-09-07).
             rechecked, _guard = evaluate_dispatch_guard_snapshot(
                 snapshot_path,
                 guard_sha,
@@ -1605,6 +1610,8 @@ def validate_invocation_evidence(
                 model=model,
                 effort=effort,
                 concurrency=concurrency,
+                openai_provider_supports_websockets=transport_value,
+                model_provider_profile=model_provider_profile,
                 packet_directory=root,
                 checked_at=checked_at,
             )

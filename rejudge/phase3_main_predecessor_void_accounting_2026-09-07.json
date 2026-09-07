@@ -1,0 +1,79 @@
+{
+ "schema_version": "phase3_main_predecessor_void_accounting_v1",
+ "record_id": "phase3-main-predecessor-void-accounting-2026-09-07",
+ "stage": "main",
+ "recorded_at_utc": "2026-09-07T02:50:00Z",
+ "recorded_by": "Claude Code session f817b4ab-a6df-441e-8ba2-719909635ba4 under Jack Maiorino's written Phase 3 delegation",
+ "execution_authorized": false,
+ "provider_calls_authorized": false,
+ "main_run_spend_authorized": false,
+ "creates_additional_spending_authority": false,
+ "predecessor": {
+  "run_id": "phase3-main-34010df12dee7c38",
+  "status": "voided_driver_integrity_refusal",
+  "source_commit": "2707cd3435b6f1d2b016d942c5ca6928dea48aaa",
+  "manifest_canonical_sha256": "1ea1a5d8f45dc1b060465ae266215f571bf4a4dc06c58b518cc56b0e40716647",
+  "manifest_identity_sha256": "34010df12dee7c3847a63f44e2515a725a1e9ac7758e23879014f7edb2f50415",
+  "authorization_id": "phase3-main-authorization-20260906-2707cd3",
+  "authorization_canonical_sha256": "0327eea868e4ac51f12558152c45eae616caed2587b44e5e654b71fbd613077b",
+  "authorization_raw_sha256": "d1ab245065e746257763144059dc2e01e72caed244bcd71584df5cb0336fff05",
+  "authorization_signature_raw_sha256": "b26bd7ae37c1211856ed7b344adcb55210c537232f54e414246b4f955ff17428",
+  "artifact_root": "E:/selvarath-archive/phase3-main-2707cd3-2026-09-06",
+  "usage_ledger_path": "E:/selvarath-archive/phase3-main-2707cd3-2026-09-06/main_usage.jsonl",
+  "usage_ledger_raw_sha256": "235dfad97920131e87199f1cf056f72e03b073b412d1698fa48d04166004b299",
+  "usage_ledger_events": 4058,
+  "formal_started_at_utc": "2026-09-06T19:53:25.145118+00:00",
+  "driver_exited_at_utc": "2026-09-07T01:20:10Z",
+  "progress_at_exit": {
+   "pass_index": 1,
+   "rows_complete": 2460,
+   "rows_target": 10332,
+   "provider_calls_settled": 2029,
+   "reviewer_wave_1_dispatches": 60,
+   "reviewer_wave_1_rulings_written": 60
+  },
+  "refusal": "REFUSED: Phase3MainLiveError: reviewer invocation evidence failed for bd3f5833c8a5be30dd958a82e4fbf7233e5773eed30bf16e4a9fbe8ed9904457: reviewer dispatch guard evidence no longer verifies exactly"
+ },
+ "accounting": {
+  "settled_spend_usd": "24.89969640",
+  "uncertain_spend_usd": "0.00000000",
+  "accounted_spend_usd": "24.89969640",
+  "unknown_charge_count": 0,
+  "unmatched_reservations": 0,
+  "counted_against_stage_cap": true,
+  "inside_reconciled_segments": false,
+  "stage_cap_usd": "1100.00",
+  "prior_reconciled_usd": "119.27238490",
+  "successor_forecast_main_usd": "908.82",
+  "expected_stage_total_usd": "1052.99208130",
+  "maximum_successor_expenditure_usd": "955.82791870",
+  "treatment": "The predecessor's settled spend is stage expenditure counted against the USD 1,100 cumulative stage cap. It is outside the reconciled ledger segments bound by the 2026-09-04 billing reconciliation and the certified forecast, which are unchanged and do not incorporate it. The successor identity's provider client is constructed with initial spend equal to prior reconciled plus this accounted amount, so its enforceable ceiling is maximum_successor_expenditure_usd."
+ },
+ "defect": {
+  "summary": "scripts/codex_reviewer_batch.py validate_invocation_evidence re-evaluated the dispatch guard snapshot after each reviewer wave without passing the invocation's recorded model_provider_profile (or legacy transport flag). Under the v6 capacity plan, whose reviewer configuration carries a model provider profile, the recheck failed for every receipt with 'reviewer dispatch guard capacity model provider profile drifted' and the driver refused. The dispatch-time guard evaluation and the batch preflight both passed the profile; the reviewer ran and every wave-1 ruling was written.",
+  "classification": "validation-only code defect; no measurement semantics, prompts, models, budgets, seeds, or analysis pins involved; not an environmental interruption",
+  "reproduction": "offline recheck of the failing receipt: without the profile the guard evaluator returns error 'capacity model provider profile drifted'; with the profile it returns verified true and evidence identical to the recorded dispatch-time evidence",
+  "fix": "validate_invocation_evidence now passes the invocation's recorded transport identity (model_provider_profile or openai_provider_supports_websockets, mutually exclusive) into the recheck",
+  "regression_tests": [
+   "tests/test_phase3_main_reviewer_provenance.py::test_receipt_recheck_verifies_under_the_real_model_provider_profile_plan",
+   "tests/test_phase3_main_reviewer_provenance.py::test_receipt_recheck_rejects_an_invocation_that_omits_the_plan_profile",
+   "tests/test_phase3_main_reviewer_provenance.py::test_receipt_recheck_rejects_an_invocation_whose_profile_changed",
+   "tests/test_phase3_main_reviewer_provenance.py::test_receipt_recheck_keeps_an_explicit_legacy_transport_flag"
+  ],
+  "why_not_caught": "the capacity preflight carries no dispatch guard, so the recheck path never ran live under a profile-bearing plan, and the provenance fixture's plan carried neither a profile nor the legacy flag"
+ },
+ "scientific_use": {
+  "predecessor_outputs_excluded_from_inference": true,
+  "verdict_content_inspected": false,
+  "permitted_uses": "billing, count reconciliation, hashes, and operational failure diagnosis only",
+  "prohibited_uses": "estimates, bootstrap samples, power calculations, prompts, fixtures, example selection, configuration decisions"
+ },
+ "known_limitation": {
+  "environmental_successor_mode": "unusable under the ratified console billing policy: it requires provider_authenticated_finalized settlement, which console evidence cannot produce, and its reason codes (host_failure, network_outage, power_loss, provider_outage) exclude code defects. Recorded, not fixed, before the successor launch; environmental recovery is not operational during the successor."
+ },
+ "non_claims": [
+  "This record authorizes no execution, provider call, reviewer dispatch, or spend.",
+  "This record does not modify the ratified stage cap, the billing reconciliation, or the certified forecast.",
+  "This record does not restore the predecessor identity; single-shot discipline applies and nothing is resumed."
+ ]
+}

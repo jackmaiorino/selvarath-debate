@@ -1,0 +1,73 @@
+{
+ "schema_version": "phase3_main_amendment_v1",
+ "amendment_id": "phase3-main-amendment-15-predecessor-void-2026-09-07",
+ "amendment_number": 15,
+ "title": "Void of main identity phase3-main-34010df12dee7c38 after a validation-only defect; corrective successor under the same delegation",
+ "recorded_at_utc": "2026-09-07T03:20:00Z",
+ "recorded_by": "Claude Code session f817b4ab-a6df-441e-8ba2-719909635ba4",
+ "authority": {
+  "channel": "owner's written Phase 3 delegation",
+  "delegation_quotes": [
+   "2026-09-04 (Codex task): stepping away for a couple days. You have full spend and execute auth for the entire phase 3.",
+   "2026-09-06 (global standing authorization): I authorize full future decision making in the sale of time efficiency, just be sure to communicate to me these things when I return."
+  ],
+  "scope_claimed": "a corrective relaunch inside Phase 3 under the unchanged USD 1,100 aggregate stage cap, with a fresh single-shot identity and a fresh delegated signature",
+  "scope_not_claimed": "no change to scientific laws, pre-registered constants, seeds, prompts, models, budgets, analysis pins, the ratified cap, the billing reconciliation, or the certified forecast; this record is not the owner's personal ratification of the fix",
+  "methods_consult": {
+   "path": "rejudge/phase3_main_codex_successor_consult_2026-09-07.md",
+   "model": "gpt-6-astra, reasoning ultra, one-shot, session 01a0797b-d153-7a13-a7f9-31cb01ab7045",
+   "verdict": "approve the fix with negative regression coverage; approve the fresh-identity route only with an enforced successor ceiling; record the environmental-successor deadlock as a known limitation; the delegation covers a corrective relaunch; predecessor outputs are evidence only"
+  }
+ },
+ "predecessor": {
+  "run_id": "phase3-main-34010df12dee7c38",
+  "source_commit": "2707cd3435b6f1d2b016d942c5ca6928dea48aaa",
+  "manifest_canonical_sha256": "1ea1a5d8f45dc1b060465ae266215f571bf4a4dc06c58b518cc56b0e40716647",
+  "authorization_id": "phase3-main-authorization-20260906-2707cd3",
+  "launch_record": "E:/selvarath-archive/phase3-main-launch-2026-09-06/launch_record.json (termination section)",
+  "formal_started_at_utc": "2026-09-06T19:53:25.145118+00:00",
+  "driver_exited_at_utc": "2026-09-07T01:20:10Z",
+  "refusal": "REFUSED: Phase3MainLiveError: reviewer invocation evidence failed for bd3f5833c8a5be30dd958a82e4fbf7233e5773eed30bf16e4a9fbe8ed9904457: reviewer dispatch guard evidence no longer verifies exactly",
+  "progress": "pass 1 complete: 2,460 of 10,332 rows; 2,029 settled provider calls; reviewer wave 1 (60 packets) dispatched with every ruling written",
+  "disposition": "void under the single-shot rule; nothing resumed or carried forward; the identity registry keeps its started record (the environmental void path does not apply, see known_limitation)"
+ },
+ "defect_and_fix": {
+  "summary": "validate_invocation_evidence in scripts/codex_reviewer_batch.py re-evaluated the dispatch guard after each reviewer wave without the invocation's recorded model provider profile, which the v6 capacity plan carries; every receipt recheck failed with 'reviewer dispatch guard capacity model provider profile drifted'. The dispatch-time guard and the batch preflight both passed the profile.",
+  "classification": "validation-only; no measurement semantics; not environmental",
+  "fix": "the recheck now receives the invocation's recorded transport identity (model provider profile or legacy WebSocket flag, mutually exclusive)",
+  "regression_tests": "tests/test_phase3_main_reviewer_provenance.py: positive test under the real v6 profile, two negative tests (profile omitted, profile changed) that fail with the original message, and an explicit-false legacy transport test",
+  "why_not_caught_before": "the capacity preflight carries no dispatch guard, and the provenance fixture's plan carried neither a profile nor the legacy flag"
+ },
+ "accounting": {
+  "pinned_record": "rejudge/phase3_main_predecessor_void_accounting_2026-09-07.json",
+  "pinned_record_raw_sha256": "54265df380d769a9e0467f34ce662be8d6c88256699c611be1977bc2766f0c57",
+  "predecessor_settled_usd": "24.89969640",
+  "predecessor_uncertain_usd": "0.00000000",
+  "predecessor_unknown_charges": 0,
+  "prior_reconciled_usd": "119.27238490",
+  "successor_certified_forecast_usd": "908.82",
+  "expected_stage_total_usd": "1052.99208130",
+  "stage_cap_usd": "1100.00",
+  "maximum_successor_expenditure_usd": "955.82791870",
+  "enforcement": "the driver validates the pinned record against the archived predecessor ledger at load, refuses a forecast that no longer fits under prior plus voided spend, constructs the provider client with initial spend equal to prior reconciled plus voided spend (so the client refuses any reservation that would take the identity past 955.82791870 USD), reports the voided amount in the start event and the finalization accounting, and the signed authorization text discloses both figures",
+  "reconciliation_treatment": "the 2026-09-04 billing reconciliation and the certified forecast are unchanged and do not incorporate the voided spend; it is stage expenditure outside the reconciled segments, explicitly disclosed rather than folded into a reconciliation that would require owner-side console work"
+ },
+ "scientific_use": {
+  "predecessor_rows_and_rulings": "evidence only: billing, count reconciliation, hashes, and failure diagnosis; excluded from estimates, bootstrap samples, power calculations, prompts, fixtures, example selection, and configuration decisions",
+  "verdict_content_inspected": false,
+  "outcome_tuning": "none; the successor runs the unchanged frozen protocol, analysis pins, seeds, and inputs"
+ },
+ "known_limitation": {
+  "environmental_successor_mode": "unusable under the ratified console billing policy: it requires provider_authenticated_finalized settlement, which console evidence cannot produce, and its reason codes exclude code defects. Recorded now; no code change before the successor. Environmental recovery is therefore not operational during the successor: an environmental interruption would again require a fresh initial identity plus an amendment of this kind."
+ },
+ "successor": {
+  "restart_mode": "initial manifest at the fix commit, new run id, new artifact root, unchanged capacity v6 evidence, unchanged price snapshot if still within 24 hours, fresh certified forecast, fresh delegated signature",
+  "authorization_disclosure": "Signed by Claude under Jack Maiorino's written delegation granting full Phase 3 spend and execution authority. Predecessor phase3-main-34010df12dee7c38 was voided after a provider-configuration omission in receipt revalidation; its outputs are excluded from scientific analysis. The correction changes validation only; measurement semantics and pre-registered analysis gates are unchanged. Stage accounting includes 119.27238490 USD previously reconciled and 24.89969640 USD additional predecessor spend, leaving a maximum successor expenditure of 955.82791870 USD. This records delegated approval and does not assert Jack personally reviewed or signed this exact artifact.",
+  "run_report_disclosure_required": "the failed attempt, its completion counts and actual cost, this amendment, the successor identity, and the exclusion of predecessor outputs"
+ },
+ "non_claims": [
+  "This amendment authorizes no execution, provider call, reviewer dispatch, or spend; only an exact signed successor authorization does.",
+  "This amendment does not restore or resume the predecessor identity.",
+  "This amendment does not alter the ratified stage cap, the billing reconciliation, or the certified forecast."
+ ]
+}

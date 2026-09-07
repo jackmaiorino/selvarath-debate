@@ -268,6 +268,21 @@ def _prepared(tmp_path: Path, inventory) -> phase3_main_live.PreparedMainRun:
         context_excluded_cell_keys=(),
         uncertain_spend_policy_validation=(
             phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(ROOT)),
+        # Amendment 15: a synthetic voided predecessor so the wiring is exercised without
+        # the archived ledger; 0.50 USD on top of the 10.25 prior below.
+        predecessor_void_accounting_validation={
+            "schema_version": phase3_main_runtime_policies.PREDECESSOR_VOID_ACCOUNTING_SCHEMA,
+            "record_id": "phase3-main-predecessor-void-accounting-fixture",
+            "record_raw_sha256": "e" * 64,
+            "predecessor_run_id": "phase3-main-fixture-predecessor",
+            "predecessor_manifest_canonical_sha256": "f" * 64,
+            "predecessor_artifact_root": "E:/fixture/predecessor",
+            "accounted_spend_usd": "0.50",
+            "maximum_successor_expenditure_usd": "29.25",
+            "expected_stage_total_usd": "10.75",
+            "ledger_verified": False,
+            "execution_authorized": False,
+        },
     )
 
 
@@ -3189,7 +3204,8 @@ def test_private_factory_enforces_strict_accounting_and_unknown_charge_halt(
         prepared, snapshot, sdk_client=sdk)
     assert result == "resolved"
     assert captured["approved_cap_usd"] == 40.0
-    assert captured["initial_spend_usd"] == 10.25
+    # prior 10.25 plus the fixture's voided predecessor 0.50 (amendment 15)
+    assert captured["initial_spend_usd"] == 10.75
     assert captured["initial_uncertain_spend_usd"] == 0.0
     assert captured["strict_model_pricing"] is True
     assert captured["halt_on_unknown_charge"] is True

@@ -11,6 +11,7 @@ import json
 import math
 from collections.abc import Mapping
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -499,3 +500,171 @@ __all__ = [
     "validate_price_change_signal",
     "validate_reviewer_usage_policy",
 ]
+
+
+# Amendment 15 (2026-09-07): the voided predecessor identity's settled spend is stage
+# expenditure counted against the cumulative cap outside the reconciled ledger segments.
+# The record is pinned by raw bytes at the bound source commit, exactly like the
+# amendment-14 policy, and the driver adds its accounted amount to the provider client's
+# initial spend so the successor's enforceable ceiling is cap - prior - voided.
+PREDECESSOR_VOID_ACCOUNTING_SCHEMA = "phase3_main_predecessor_void_accounting_v1"
+PREDECESSOR_VOID_ACCOUNTING_ID = "phase3-main-predecessor-void-accounting-2026-09-07"
+PREDECESSOR_VOID_ACCOUNTING_RELATIVE_PATH = (
+    "rejudge/phase3_main_predecessor_void_accounting_2026-09-07.json"
+)
+PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256 = "54265df380d769a9e0467f34ce662be8d6c88256699c611be1977bc2766f0c57"
+_VOID_STATUS = "voided_driver_integrity_refusal"
+
+
+def _exact_money(value: Any, label: str) -> Decimal:
+    if not isinstance(value, str) or value.strip() != value:
+        raise MainRuntimePolicyError(f"{label} must be an exact decimal string")
+    try:
+        result = Decimal(value)
+    except InvalidOperation as exc:
+        raise MainRuntimePolicyError(f"{label} must be an exact decimal string") from exc
+    if not result.is_finite() or result < 0:
+        raise MainRuntimePolicyError(f"{label} must be finite and non-negative")
+    return result
+
+
+def validate_predecessor_void_accounting(
+    record: Mapping[str, Any], *, raw: bytes, verify_ledger: bool = False,
+) -> dict[str, Any]:
+    """Require the exact pinned amendment-15 record and extract its enforceable numbers."""
+    from rejudge import phase3_main_stage_cap as stage_cap  # local import: avoids a cycle
+
+    observed_sha = hashlib.sha256(raw).hexdigest()
+    if observed_sha != PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256:
+        raise MainRuntimePolicyError(
+            "predecessor void accounting bytes differ from the pinned raw SHA-256")
+    if record.get("schema_version") != PREDECESSOR_VOID_ACCOUNTING_SCHEMA:
+        raise MainRuntimePolicyError("predecessor void accounting schema drifted")
+    if (
+        record.get("record_id") != PREDECESSOR_VOID_ACCOUNTING_ID
+        or record.get("stage") != "main"
+    ):
+        raise MainRuntimePolicyError("predecessor void accounting identity drifted")
+    for flag in (
+        "execution_authorized", "provider_calls_authorized", "main_run_spend_authorized",
+        "creates_additional_spending_authority",
+    ):
+        if record.get(flag) is not False:
+            raise MainRuntimePolicyError(f"predecessor void accounting {flag} must be false")
+    predecessor = record.get("predecessor")
+    if not isinstance(predecessor, Mapping):
+        raise MainRuntimePolicyError("predecessor void accounting omits its predecessor")
+    run_id = predecessor.get("run_id")
+    if not isinstance(run_id, str) or not run_id.startswith("phase3-main-"):
+        raise MainRuntimePolicyError("predecessor run_id must be a phase3-main run id")
+    if predecessor.get("status") != _VOID_STATUS:
+        raise MainRuntimePolicyError("predecessor status drifted")
+    for field in (
+        "manifest_canonical_sha256", "manifest_identity_sha256",
+        "authorization_canonical_sha256", "authorization_raw_sha256",
+        "authorization_signature_raw_sha256", "usage_ledger_raw_sha256",
+    ):
+        _sha256(predecessor.get(field), f"predecessor.{field}")
+    artifact_root = Path(str(predecessor.get("artifact_root", "")))
+    ledger_path = Path(str(predecessor.get("usage_ledger_path", "")))
+    if not artifact_root.is_absolute() or not ledger_path.is_absolute():
+        raise MainRuntimePolicyError("predecessor evidence paths must be absolute")
+    if ledger_path.parent != artifact_root or ledger_path.name != "main_usage.jsonl":
+        raise MainRuntimePolicyError(
+            "predecessor usage ledger must be main_usage.jsonl under its artifact root")
+    events = predecessor.get("usage_ledger_events")
+    if isinstance(events, bool) or not isinstance(events, int) or events <= 0:
+        raise MainRuntimePolicyError("predecessor usage_ledger_events must be positive")
+    accounting = record.get("accounting")
+    if not isinstance(accounting, Mapping):
+        raise MainRuntimePolicyError("predecessor void accounting omits its accounting")
+    settled = _exact_money(accounting.get("settled_spend_usd"), "settled_spend_usd")
+    uncertain = _exact_money(accounting.get("uncertain_spend_usd"), "uncertain_spend_usd")
+    accounted = _exact_money(accounting.get("accounted_spend_usd"), "accounted_spend_usd")
+    if accounted != settled + uncertain:
+        raise MainRuntimePolicyError("accounted spend must equal settled plus uncertain")
+    unmatched = accounting.get("unmatched_reservations")
+    if isinstance(unmatched, bool) or unmatched != 0:
+        raise MainRuntimePolicyError("voided predecessor must carry no open reservations")
+    unknown = accounting.get("unknown_charge_count")
+    if isinstance(unknown, bool) or not isinstance(unknown, int) or unknown < 0:
+        raise MainRuntimePolicyError("unknown_charge_count must be a non-negative integer")
+    if (
+        accounting.get("counted_against_stage_cap") is not True
+        or accounting.get("inside_reconciled_segments") is not False
+    ):
+        raise MainRuntimePolicyError("voided predecessor spend treatment drifted")
+    cap = _exact_money(accounting.get("stage_cap_usd"), "stage_cap_usd")
+    prior = _exact_money(accounting.get("prior_reconciled_usd"), "prior_reconciled_usd")
+    forecast = _exact_money(
+        accounting.get("successor_forecast_main_usd"), "successor_forecast_main_usd")
+    total = _exact_money(accounting.get("expected_stage_total_usd"), "expected_stage_total_usd")
+    ceiling = _exact_money(
+        accounting.get("maximum_successor_expenditure_usd"),
+        "maximum_successor_expenditure_usd")
+    if cap != stage_cap.STAGE_CAP_USD or prior != stage_cap.PREDECESSOR_UPPER_BOUND_USD:
+        raise MainRuntimePolicyError(
+            "voided predecessor accounting cap or prior differs from the owner ratification")
+    if forecast != stage_cap.PROJECTED_MAIN_USD:
+        raise MainRuntimePolicyError(
+            "voided predecessor accounting forecast differs from the certified main forecast")
+    if total != prior + accounted + forecast or ceiling != cap - prior - accounted:
+        raise MainRuntimePolicyError("voided predecessor accounting arithmetic drifted")
+    if ceiling < forecast:
+        raise MainRuntimePolicyError(
+            "the certified forecast no longer fits under the successor ceiling")
+    science = record.get("scientific_use")
+    if (
+        not isinstance(science, Mapping)
+        or science.get("predecessor_outputs_excluded_from_inference") is not True
+        or science.get("verdict_content_inspected") is not False
+    ):
+        raise MainRuntimePolicyError("voided predecessor scientific-use exclusion drifted")
+    non_claims = record.get("non_claims")
+    if not isinstance(non_claims, list) or not non_claims:
+        raise MainRuntimePolicyError("voided predecessor accounting omits its non-claims")
+    ledger_verified = False
+    if verify_ledger:
+        from rejudge import api_client  # local import: keeps this module import-light
+
+        ledger_raw = _stable_file_bytes(ledger_path, "predecessor usage ledger")
+        if hashlib.sha256(ledger_raw).hexdigest() != predecessor["usage_ledger_raw_sha256"]:
+            raise MainRuntimePolicyError("predecessor usage ledger bytes drifted")
+        try:
+            snapshot = api_client.load_chained_usage_ledger(ledger_path)
+        except api_client.UsageLedgerError as exc:
+            raise MainRuntimePolicyError(
+                f"predecessor usage ledger failed to load: {exc}") from exc
+        summary = dict(snapshot.summary)
+        if summary.get("events") != events or summary.get("unmatched_reservations") != 0:
+            raise MainRuntimePolicyError("predecessor usage ledger shape drifted")
+        if (
+            Decimal(f"{float(summary.get('actual_spend_usd', 0.0)):.8f}") != settled
+            or Decimal(f"{float(summary.get('uncertain_spend_usd', 0.0)):.8f}") != uncertain
+        ):
+            raise MainRuntimePolicyError(
+                "predecessor usage ledger totals differ from the pinned accounting")
+        ledger_verified = True
+    return {
+        "schema_version": PREDECESSOR_VOID_ACCOUNTING_SCHEMA,
+        "record_id": PREDECESSOR_VOID_ACCOUNTING_ID,
+        "record_raw_sha256": observed_sha,
+        "predecessor_run_id": run_id,
+        "predecessor_manifest_canonical_sha256": predecessor["manifest_canonical_sha256"],
+        "predecessor_artifact_root": str(artifact_root),
+        "accounted_spend_usd": format(accounted, "f"),
+        "maximum_successor_expenditure_usd": format(ceiling, "f"),
+        "expected_stage_total_usd": format(total, "f"),
+        "ledger_verified": ledger_verified,
+        "execution_authorized": False,
+    }
+
+
+def load_and_validate_predecessor_void_accounting(
+    project_root: str | Path, *, verify_ledger: bool = True,
+) -> dict[str, Any]:
+    path = Path(project_root).resolve() / PREDECESSOR_VOID_ACCOUNTING_RELATIVE_PATH
+    raw = _stable_file_bytes(path, "predecessor void accounting")
+    return validate_predecessor_void_accounting(
+        _load_object(path, "predecessor void accounting"), raw=raw,
+        verify_ledger=verify_ledger)
