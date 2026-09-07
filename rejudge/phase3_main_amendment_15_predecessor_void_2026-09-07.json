@@ -3,7 +3,7 @@
  "amendment_id": "phase3-main-amendment-15-predecessor-void-2026-09-07",
  "amendment_number": 15,
  "title": "Void of main identity phase3-main-34010df12dee7c38 after a validation-only defect; corrective successor under the same delegation",
- "recorded_at_utc": "2026-09-07T03:20:00Z",
+ "recorded_at_utc": "2026-09-07T01:44:37Z",
  "recorded_by": "Claude Code session f817b4ab-a6df-441e-8ba2-719909635ba4",
  "authority": {
   "channel": "owner's written Phase 3 delegation",
@@ -15,7 +15,7 @@
   "scope_not_claimed": "no change to scientific laws, pre-registered constants, seeds, prompts, models, budgets, analysis pins, the ratified cap, the billing reconciliation, or the certified forecast; this record is not the owner's personal ratification of the fix",
   "methods_consult": {
    "path": "rejudge/phase3_main_codex_successor_consult_2026-09-07.md",
-   "model": "gpt-6-astra, reasoning ultra, one-shot, session 01a0797b-d153-7a13-a7f9-31cb01ab7045",
+   "model": "gpt-6-astra, reasoning ultra, one-shot, session 01a0797b-d153-7a13-a7f9-31cb01ab7045, opinion returned 2026-09-07T01:30:48Z",
    "verdict": "approve the fix with negative regression coverage; approve the fresh-identity route only with an enforced successor ceiling; record the environmental-successor deadlock as a known limitation; the delegation covers a corrective relaunch; predecessor outputs are evidence only"
   }
  },
@@ -40,7 +40,7 @@
  },
  "accounting": {
   "pinned_record": "rejudge/phase3_main_predecessor_void_accounting_2026-09-07.json",
-  "pinned_record_raw_sha256": "54265df380d769a9e0467f34ce662be8d6c88256699c611be1977bc2766f0c57",
+  "pinned_record_raw_sha256": "d5f2f1a17ef5e4d6896db4e29dc6f5145fef9f1ce6e3bef193e7d15b47dca806",
   "predecessor_settled_usd": "24.89969640",
   "predecessor_uncertain_usd": "0.00000000",
   "predecessor_unknown_charges": 0,

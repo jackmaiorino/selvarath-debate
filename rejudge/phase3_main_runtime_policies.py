@@ -512,7 +512,7 @@ PREDECESSOR_VOID_ACCOUNTING_ID = "phase3-main-predecessor-void-accounting-2026-0
 PREDECESSOR_VOID_ACCOUNTING_RELATIVE_PATH = (
     "rejudge/phase3_main_predecessor_void_accounting_2026-09-07.json"
 )
-PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256 = "54265df380d769a9e0467f34ce662be8d6c88256699c611be1977bc2766f0c57"
+PREDECESSOR_VOID_ACCOUNTING_RAW_SHA256 = "d5f2f1a17ef5e4d6896db4e29dc6f5145fef9f1ce6e3bef193e7d15b47dca806"
 _VOID_STATUS = "voided_driver_integrity_refusal"
 
 

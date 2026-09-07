@@ -68,11 +68,15 @@ segments.
 
 Filled in by the execution log below once the successor identity starts.
 
-## Execution log
+## Execution log (UTC, from the clock, git, and file times)
 
-- 01:19Z monitor reported the refusal; 01:20Z driver exit confirmed; launch record and note
-  of the predecessor updated with a termination section.
-- 01:35Z root cause reproduced offline against the failing receipt.
-- 02:10Z Codex consult; 02:45Z fix and regression tests (provenance suite 50 passed).
-- 03:20Z amendment 15 and the pinned void accounting record; driver, finalization, and
-  authorization text wired; affected suites 351 passed; full suite started on E:.
+- 01:18:20 pass 1 complete; 01:18:29 to 01:19:08 wave 1 dispatched and ruled; 01:19 the
+  monitor reported the refusal; 01:20:10 driver exit confirmed; 01:23 the predecessor's
+  launch record and note gained a termination section.
+- 01:2x root cause reproduced offline against the failing receipt.
+- 01:25 to 01:30 Codex consult; 01:3x fix and regression tests (provenance suite 50 passed).
+- 01:38 pinned void accounting record; 01:44 amendment 15; affected suites 351 passed.
+- 01:48 commit 278bee4 (fix, tests, records); 01:49 commit 2faaef3 (provenance fold, this
+  report); full suite started on E:; 01:54 harness at 2faaef3 bit-identical.
+- 01:5x timestamps in the two records corrected to the real times above and the void record
+  re-pinned (the first drafts carried guessed later times).

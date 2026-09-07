@@ -1,6 +1,6 @@
 # Codex one-shot consult: main identity void and corrective successor (2026-09-07)
 
-Model gpt-6-astra, reasoning ultra, session 01a0797b-d153-7a13-a7f9-31cb01ab7045, run ~02:10Z by Claude session f817b4ab under the owner's Phase 3 delegation. The brief is reproduced verbatim, then the opinion. Em-dashes in the opinion were replaced by commas.
+Model gpt-6-astra, reasoning ultra, session 01a0797b-d153-7a13-a7f9-31cb01ab7045, run 01:25Z to 01:30Z by Claude session f817b4ab under the owner's Phase 3 delegation. The brief is reproduced verbatim, then the opinion. Em-dashes in the opinion were replaced by commas.
 
 ## Brief
 
