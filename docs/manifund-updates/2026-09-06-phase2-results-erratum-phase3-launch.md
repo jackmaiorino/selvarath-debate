@@ -1,8 +1,8 @@
 # Manifund update: Phase 2 result and erratum, Phase 3 main run live
 
 Draft 2026-09-06, revised after a one-shot Codex review (see `2026-09-06-codex-review.md`).
-Not posted; Jack posts. The two "(after push)" links resolve once branch
-`codex/phase3-v3-successor` is pushed to the fork. Spend figures are as of 2026-09-06 23:50 UTC.
+Not posted; Jack posts. Branch `codex/phase3-v3-successor` was pushed to the
+fork on 2026-09-06 and all links returned HTTP 200. Spend figures are as of 2026-09-06 23:50 UTC.
 Everything below the line is the posted text.
 
 ---
@@ -51,8 +51,8 @@ same window. The main run has spent about $17 so far. The $1,100 Phase 3 cap inc
 pre-main spending; the certified main-run forecast is $908.82.
 
 - Phase 2 report with erratum: https://github.com/jackmaiorino/selvarath-debate/blob/34898fb/reports/2026-08-11-phase2-main-results.md
-- Phase 3 protocol (after push): https://github.com/jackmaiorino/selvarath-debate/blob/2707cd3/rejudge/phase3_protocol_v3_r6.json
-- Delegated signature record (after push): https://github.com/jackmaiorino/selvarath-debate/blob/2707cd3/rejudge/phase3_main_delegated_signature_provenance_2026-09-06.json
+- Phase 3 protocol: https://github.com/jackmaiorino/selvarath-debate/blob/2707cd3/rejudge/phase3_protocol_v3_r6.json
+- Delegated signature record: https://github.com/jackmaiorino/selvarath-debate/blob/2707cd3/rejudge/phase3_main_delegated_signature_provenance_2026-09-06.json
 
 ## What are your next steps?
 
