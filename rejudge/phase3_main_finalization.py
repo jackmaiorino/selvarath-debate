@@ -2933,9 +2933,14 @@ def build_finalization_admission(
         "capacity plan reviewer CLI path",
     )
     try:
+        from rejudge import phase3_main_reviewer_recovery
+        reviewer_recovery = phase3_main_reviewer_recovery.recovery_from_run_log(
+            artifact_paths["run_log"], expected_run_id=run_id,
+            expected_manifest_sha256=manifest_sha)
         reviewer_provenance = (
             phase3_main_reviewer_provenance.verify_main_reviewer_provenance(
                 reviewer_index_path=artifact_paths["reviewer_index"],
+                **({"reviewer_recovery": reviewer_recovery} if reviewer_recovery is not None else {}),
                 reviewer_worklist_path=artifact_paths["reviewer_worklist"],
                 review_packets_root=review_packets_root,
                 reviewer_prompt_path=reviewer_input_paths["reviewer_prompt"],

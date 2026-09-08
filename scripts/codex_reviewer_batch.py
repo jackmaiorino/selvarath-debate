@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -49,6 +49,12 @@ DISPATCH_RESERVATION_SCHEMA = "codex_reviewer_dispatch_reservation_v1"
 EVIDENCE_DIRECTORY_NAME = "reviewer_evidence"
 DISPATCH_GUARD_FILENAME = "DISPATCH_GUARD.json"
 DISPATCH_RESERVATION_DIRECTORY_NAME = ".reviewer_dispatch_reservations"
+RECONNECT_RECOVERY_FILENAME = "reconnect_recovery.json"
+RECONNECT_RECOVERY_SCHEMA = "codex_reviewer_reconnect_recovery_v1"
+RECONNECT_POLICY = "numbered_body_decode_reconnect_then_exact_completed_ruling_v1"
+_RECONNECT_WARNING_RE = re.compile(
+    r"Reconnecting\.\.\. ([1-5])/5 \(stream disconnected before completion: "
+    r"Transport error: network error: error decoding response body\)")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _FAILURE_EVENT_TYPES = frozenset({"error", "turn.failed"})
 _ITEM_EVENT_TYPES = frozenset({"item.started", "item.updated", "item.completed"})
@@ -546,6 +552,7 @@ def _evaluate_dispatch_guard_snapshot(
     output_path: Path | None = None,
     selected_packet: Path | None = None,
     checked_at: datetime | None = None,
+    reviewer_recovery_context: Mapping[str, object] | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None, bytes | None]:
     normalized_model_provider = normalize_model_provider_profile(model_provider_profile)
     if (
@@ -646,8 +653,24 @@ def _evaluate_dispatch_guard_snapshot(
         bindings = guard.get("artifact_bindings")
         if not isinstance(bindings, Mapping) or set(bindings) != _DISPATCH_GUARD_ARTIFACT_NAMES:
             raise ValueError("reviewer dispatch guard artifact bindings drifted")
+        active_bindings = dict(bindings)
+        if reviewer_recovery_context is not None:
+            from rejudge.phase3_main_reviewer_recovery import load_reviewer_recovery_context
+            verified_recovery = load_reviewer_recovery_context(
+                str(reviewer_recovery_context["recovery_path"]),
+                packet_directory=guard_packet_directory, output_path=guard_output_path,
+                guard_path=supplied, guard_raw_sha256=expected_sha,
+                verify_artifacts=False,
+                require_recoverable=reviewer_recovery_context.get("require_recoverable", True))
+            if (verified_recovery["recovery_manifest_sha256"]
+                    != reviewer_recovery_context.get("recovery_manifest_sha256")):
+                raise ValueError("reviewer recovery authority changed before release")
+            if bindings["batch_runner"] not in verified_recovery[
+                    "accepted_batch_runner_bindings"]:
+                raise ValueError("reviewer recovery differs from original guarded code")
+            active_bindings["batch_runner"] = verified_recovery["replacement_batch_runner"]
         reopened = {
-            name: _stable_bound_artifact(bindings[name], field=name)
+            name: _stable_bound_artifact(active_bindings[name], field=name)
             for name in _DISPATCH_GUARD_ARTIFACT_NAMES
         }
         authorization = _strict_json_object(
@@ -806,6 +829,7 @@ def evaluate_dispatch_guard_snapshot(
     packet_directory: Path | None = None,
     output_path: Path | None = None,
     checked_at: datetime | None = None,
+    reviewer_recovery_context: Mapping[str, object] | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
     """Reopen all guard inputs and return durable per-invocation evidence."""
     evidence, guard, _prompt_raw = _evaluate_dispatch_guard_snapshot(
@@ -822,6 +846,7 @@ def evaluate_dispatch_guard_snapshot(
         packet_directory=packet_directory,
         output_path=output_path,
         checked_at=checked_at,
+        reviewer_recovery_context=reviewer_recovery_context,
     )
     return evidence, guard
 
@@ -1059,7 +1084,9 @@ def _strict_relative_artifact(root: Path, binding: Any, *, field: str) -> tuple[
     return path, raw
 
 
-def _inspect_json_event_stream(raw: bytes) -> tuple[list[str], list[str]]:
+def _inspect_json_event_stream(
+    raw: bytes, *, allow_reconnect_warnings: bool = True,
+) -> tuple[list[str], list[str]]:
     """Return detected tool uses and structural errors from one Codex JSONL stream."""
     try:
         text = raw.decode("utf-8")
@@ -1074,6 +1101,7 @@ def _inspect_json_event_stream(raw: bytes) -> tuple[list[str], list[str]]:
     turn_ids: set[str] = set()
     item_lifecycles: dict[str, str] = {}
     item_types: dict[str, str] = {}
+    last_reconnect_attempt = 0
 
     def reject_non_finite(value: str) -> None:
         raise ValueError(f"non-finite JSON number {value!r}")
@@ -1133,6 +1161,11 @@ def _inspect_json_event_stream(raw: bytes) -> tuple[list[str], list[str]]:
             errors.append(f"line {line_number} has no string event type")
             continue
         if event_type in _FAILURE_EVENT_TYPES:
+            warning = _reconnect_warning_attempt(event) if allow_reconnect_warnings else None
+            if (warning is not None and lifecycle_state == "in_turn"
+                    and warning == last_reconnect_attempt + 1):
+                last_reconnect_attempt = warning
+                continue
             errors.append(f"line {line_number} reports {event_type}")
             lifecycle_state = "failed"
             continue
@@ -1253,6 +1286,50 @@ def _inspect_json_event_stream(raw: bytes) -> tuple[list[str], list[str]]:
     return commands, errors
 
 
+def _reconnect_warning_attempt(event: Mapping[str, Any]) -> int | None:
+    if (event.get("type") != "error"
+            or set(event) - {"type", "message", "thread_id", "turn_id"}
+            or not isinstance(event.get("message"), str)):
+        return None
+    match = _RECONNECT_WARNING_RE.fullmatch(event["message"])
+    return int(match[1]) if match else None
+
+
+def _inspect_reviewer_execution(event_raw: bytes, ruling_raw: bytes) -> tuple[list[str], list[str]]:
+    """Accept a recovered stream only when it retained the exact completed message."""
+    commands, errors = _inspect_json_event_stream(event_raw)
+    if errors:
+        return commands, errors
+    events = [json.loads(line) for line in event_raw.decode("utf-8").splitlines()]
+    if not any(_reconnect_warning_attempt(event) is not None for event in events):
+        return commands, errors
+    messages = [event["item"].get("text") for event in events
+                if event.get("type") == "item.completed"
+                and event.get("item", {}).get("type") == "agent_message"]
+    try:
+        ruling = ruling_raw.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        ruling = ""
+    if (commands or len(messages) != 1 or not isinstance(messages[0], str)
+            or not ruling or messages[0].strip() != ruling):
+        errors.append("reconnected stream lacks one exact matching retained agent ruling")
+    return commands, errors
+
+
+def _reconnect_attestation(reference, receipt, event_raw, ruling_raw, recovery_sha) -> dict[str, Any]:
+    return {
+        "schema_version": RECONNECT_RECOVERY_SCHEMA, "policy": RECONNECT_POLICY,
+        "original_receipt": dict(reference),
+        "recovery_manifest_sha256": recovery_sha,
+        "event_stream_raw_sha256": _raw_sha256(event_raw),
+        "ruling_raw_sha256": _raw_sha256(ruling_raw),
+        "original_outcome": dict(receipt["outcome"]),
+        "effective_result_ok": True,
+        "effective_event_stream_errors": [],
+        "interpretation": "The original receipt reported failure; retained same-invocation evidence proves recovery without another dispatch.",
+    }
+
+
 def validate_invocation_evidence(
     packet: Path,
     reference: Mapping[str, Any],
@@ -1264,6 +1341,9 @@ def validate_invocation_evidence(
         _EXPECTED_TRANSPORT_UNSET
     ),
     expected_model_provider_profile: object = _EXPECTED_MODEL_PROVIDER_UNSET,
+    accepted_batch_runner_bindings: Sequence[Mapping[str, Any]] | None = None,
+    reviewer_recovery_context: Mapping[str, Any] | None = None,
+    _allow_unattested_reconnect: bool = False,
 ) -> dict[str, Any]:
     """Reopen and strictly validate one persisted reviewer invocation bundle."""
     if set(reference) != _EVIDENCE_REFERENCE_FIELDS:
@@ -1415,11 +1495,21 @@ def validate_invocation_evidence(
     )
     current_runner_path, current_runner_sha, current_runner_bytes = (
         _batch_runner_identity())
-    if (
-        invocation.get("batch_runner_path") != current_runner_path
-        or invocation.get("batch_runner_raw_sha256") != current_runner_sha
-        or invocation.get("batch_runner_byte_count") != current_runner_bytes
-    ):
+    accepted_runners = [{"path": current_runner_path, "raw_sha256": current_runner_sha,
+                         "byte_count": current_runner_bytes}]
+    if accepted_batch_runner_bindings is not None:
+        accepted_runners = []
+        for binding in accepted_batch_runner_bindings:
+            if set(binding) != {"path", "raw_sha256", "byte_count"}:
+                raise ValueError("accepted batch runner binding fields drifted")
+            _strict_sha256(binding["raw_sha256"], field="accepted_runner.raw_sha256")
+            _strict_positive_int(binding["byte_count"], field="accepted_runner.byte_count")
+            if not isinstance(binding["path"], str) or not binding["path"]:
+                raise ValueError("accepted batch runner path is invalid")
+            accepted_runners.append(dict(binding))
+    if {"path": invocation.get("batch_runner_path"),
+        "raw_sha256": invocation.get("batch_runner_raw_sha256"),
+        "byte_count": invocation.get("batch_runner_byte_count")} not in accepted_runners:
         raise ValueError(
             "reviewer evidence batch runner differs from the active verifier")
     wrapper_values = (
@@ -1614,6 +1704,7 @@ def validate_invocation_evidence(
                 model_provider_profile=model_provider_profile,
                 packet_directory=root,
                 checked_at=checked_at,
+                reviewer_recovery_context=reviewer_recovery_context,
             )
             expected_recheck = dict(guard_evidence)
             expected_recheck["reservation"] = None
@@ -1702,9 +1793,22 @@ def validate_invocation_evidence(
     if process_exit is not None and (isinstance(process_exit, bool) or not isinstance(
             process_exit, int)):
         raise ValueError("reviewer evidence process exit code must be an integer or null")
-    commands, stream_errors = _inspect_json_event_stream(event_raw)
+    commands, stream_errors = _inspect_reviewer_execution(event_raw, ruling_raw)
+    recovered_reconnect = False
     if outcome.get("commands") != commands or outcome.get("event_stream_errors") != stream_errors:
-        raise ValueError("reviewer evidence event-stream classification drifted")
+        old_commands, old_errors = _inspect_json_event_stream(event_raw, allow_reconnect_warnings=False)
+        expected_old_error = (f"exit=0, ruling_empty=False, ruling_utf8_error=False, "
+                              f"event_stream_error={old_errors[0]!r}") if old_errors else None
+        if (commands or stream_errors or not old_errors
+                or outcome.get("commands") != old_commands
+                or outcome.get("event_stream_errors") != old_errors
+                or outcome.get("result_ok") is not False
+                or outcome.get("process_exit_code") != 0
+                or outcome.get("timed_out") is not False
+                or outcome.get("dispatch_attempted") is not True
+                or outcome.get("error") != expected_old_error):
+            raise ValueError("reviewer evidence event-stream classification drifted")
+        recovered_reconnect = True
     try:
         normalized = ruling_raw.decode("utf-8").strip().encode("utf-8")
     except UnicodeDecodeError:
@@ -1736,7 +1840,29 @@ def validate_invocation_evidence(
         raise ValueError("reviewer evidence timeout outcome is internally inconsistent")
     if not dispatch_attempted and (event_raw or ruling_raw or process_exit is not None):
         raise ValueError("reviewer evidence records process artifacts without a dispatch")
+    if recovered_reconnect:
+        if reviewer_recovery_context is None:
+            raise ValueError("legacy reconnect interpretation requires signed recovery context")
+        recovery_sha = _strict_sha256(reviewer_recovery_context.get("recovery_manifest_sha256"),
+                                      field="recovery_manifest_sha256")
+        attestation = _reconnect_attestation(reference, receipt, event_raw, ruling_raw, recovery_sha)
+        attestation_path = _evidence_directory(packet) / RECONNECT_RECOVERY_FILENAME
+        encoded = _canonical_recovery_bytes(attestation)
+        if attestation_path.exists():
+            if attestation_path.read_bytes() != encoded:
+                raise ValueError("reconnect recovery attestation differs from retained evidence")
+        elif not _allow_unattested_reconnect:
+            raise ValueError("legacy reconnect interpretation requires a separate recovery attestation")
+        receipt = {**receipt, "outcome": {**outcome, "result_ok": True,
+                   "event_stream_errors": [], "error": None}, "transport_recovery": attestation,
+                   "reconnect_recovery": {"path": attestation_path.relative_to(root).as_posix(),
+                                          "raw_sha256": _raw_sha256(encoded), "byte_count": len(encoded)}}
     return cast(dict[str, Any], receipt)
+
+
+def _canonical_recovery_bytes(value: Mapping[str, Any]) -> bytes:
+    return (json.dumps(dict(value), ensure_ascii=False, allow_nan=False, sort_keys=True, indent=1)
+            + "\n").encode("utf-8")
 
 
 def run_one(
@@ -1751,6 +1877,7 @@ def run_one(
     expected_batch_runner_raw_sha256: str | None = None,
     openai_provider_supports_websockets: bool | None = None,
     model_provider_profile: Mapping[str, object] | None = None,
+    reviewer_recovery_context: Mapping[str, Any] | None = None,
 ) -> dict:
     """Review one packet and durably retain its exact local invocation evidence."""
     batch_concurrency = _strict_positive_int(
@@ -1860,6 +1987,7 @@ def run_one(
             packet_directory=packet.parent,
             output_path=batch_output_path,
             selected_packet=packet,
+            reviewer_recovery_context=reviewer_recovery_context,
         ))
         if verified_prompt is not None:
             prompt_bytes = verified_prompt
@@ -1991,7 +2119,7 @@ def run_one(
                 event_stream_raw = _as_bytes(proc.stdout)
                 stderr_raw = _as_bytes(getattr(proc, "stderr", None))
                 ruling_raw = out_file.read_bytes() if out_file.exists() else b""
-                commands, stream_errors = _inspect_json_event_stream(event_stream_raw)
+                commands, stream_errors = _inspect_reviewer_execution(event_stream_raw, ruling_raw)
                 try:
                     ruling = ruling_raw.decode("utf-8").strip()
                     ruling_utf8_error = False
@@ -2169,6 +2297,127 @@ def classify_result(meta: dict, result: dict, *, packet_ok: bool) -> dict:
     }, result)
 
 
+def recover_retained_packet_result(
+    packet: Path, *, expected_model: str, expected_effort: str,
+    expected_concurrency: int,
+    expected_openai_provider_supports_websockets: object = _EXPECTED_TRANSPORT_UNSET,
+    expected_model_provider_profile: object = _EXPECTED_MODEL_PROVIDER_UNSET,
+    reviewer_recovery_context: Mapping[str, Any],
+    create_attestation: bool = True,
+) -> dict[str, Any]:
+    """Reconstruct one original result without invoking or rewriting its reviewer."""
+    evidence_dir = _evidence_directory(packet)
+    receipt_path = evidence_dir / "invocation_receipt.json"
+    receipt_raw = receipt_path.read_bytes()
+    reference = {
+        "schema_version": RULING_EVIDENCE_REFERENCE_SCHEMA,
+        "receipt_path": receipt_path.relative_to(packet.parent).as_posix(),
+        "receipt_raw_sha256": _raw_sha256(receipt_raw),
+        "receipt_byte_count": len(receipt_raw),
+    }
+    receipt = validate_invocation_evidence(
+        packet, reference, expected_model=expected_model, expected_effort=expected_effort,
+        expected_concurrency=expected_concurrency,
+        expected_openai_provider_supports_websockets=expected_openai_provider_supports_websockets,
+        expected_model_provider_profile=expected_model_provider_profile,
+        accepted_batch_runner_bindings=reviewer_recovery_context["accepted_batch_runner_bindings"],
+        reviewer_recovery_context=reviewer_recovery_context,
+        _allow_unattested_reconnect=True,
+    )
+    guard = receipt.get("dispatch_guard")
+    if (not isinstance(guard, Mapping) or guard.get("verified") is not True
+            or guard.get("snapshot_raw_sha256") != reviewer_recovery_context["dispatch_guard"]["raw_sha256"]):
+        raise ValueError("retained reviewer invocation differs from the signed partial-wave guard")
+    outcome = receipt["outcome"]
+    if outcome["result_ok"] is not True:
+        raise ReviewerUnavailable(f"retained reviewer invocation is unresolved: {packet.name}")
+    attestation = receipt.get("transport_recovery")
+    if attestation is not None and create_attestation:
+        path = evidence_dir / RECONNECT_RECOVERY_FILENAME
+        encoded = _canonical_recovery_bytes(attestation)
+        if not path.exists():
+            _durable_write_bytes(path, encoded)
+        if path.read_bytes() != encoded:
+            raise ValueError("reconnect recovery attestation changed during durable write")
+    return {"packet": packet.name, "prompt_sha256": receipt["packet"]["raw_sha256"],
+            "ok": True, "raw_output": (evidence_dir / "ruling.txt").read_bytes().decode("utf-8").strip(),
+            "commands": list(outcome["commands"]), "evidence": reference}
+
+
+def recover_retained_batch_results(
+    packets_dir: Path, out_path: Path, *, expected_model: str, expected_effort: str,
+    expected_concurrency: int,
+    expected_openai_provider_supports_websockets: object = _EXPECTED_TRANSPORT_UNSET,
+    expected_model_provider_profile: object = _EXPECTED_MODEL_PROVIDER_UNSET,
+    reviewer_recovery_context: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate the complete partial batch before appending retained results or dispatching."""
+    context = reviewer_recovery_context
+    retained = set(context.get("retained_payload_sha256s", []))
+    never = set(context.get("never_started_payload_sha256s", []))
+    if not retained or retained & never:
+        raise ValueError("retained resume requires one signed partial-wave partition")
+    index = _strict_json_object((packets_dir / "INDEX.json").read_bytes(), subject="reviewer packet index")
+    items = index["items"]
+    by_payload = {item["payload_sha256"]: item for item in items}
+    if len(by_payload) != len(items) or set(by_payload) != retained | never:
+        raise ValueError("signed reviewer recovery partition differs from the unique packet index")
+    guard_sha = context["dispatch_guard"]["raw_sha256"]
+    reservations = packets_dir / DISPATCH_RESERVATION_DIRECTORY_NAME
+    expected_reservations = {f"{guard_sha}_{payload}.json" for payload in by_payload}
+    if reservations.exists() and any(p.name not in expected_reservations for p in reservations.iterdir()):
+        raise ValueError("partial reviewer wave contains an unbound reservation")
+    evidence_root = packets_dir / EVIDENCE_DIRECTORY_NAME
+    expected_evidence = {f"{item['file']}.evidence" for item in items}
+    if evidence_root.exists() and any(p.name not in expected_evidence for p in evidence_root.iterdir()):
+        raise ValueError("partial reviewer wave contains unbound invocation evidence")
+    prefix = out_path.read_bytes() if out_path.exists() else b""
+    if prefix and not prefix.endswith(b"\n"):
+        raise ValueError("partial reviewer rulings end with an incomplete row")
+    rows = [_strict_json_object(line, subject="retained reviewer ruling")
+            for line in prefix.splitlines() if line.strip()]
+    existing = {row["payload_sha256"]: row for row in rows}
+    if len(existing) != len(rows) or not set(existing) <= set(by_payload):
+        raise ValueError("partial reviewer rulings contain duplicate or unbound payloads")
+    kwargs = dict(expected_model=expected_model, expected_effort=expected_effort,
+                  expected_concurrency=expected_concurrency,
+                  expected_openai_provider_supports_websockets=expected_openai_provider_supports_websockets,
+                  expected_model_provider_profile=expected_model_provider_profile,
+                  reviewer_recovery_context=context)
+    recovered = []
+    for item in items:
+        payload = item["payload_sha256"]
+        packet = packets_dir / item["file"]
+        if _raw_sha256(packet.read_bytes()) != item["prompt_sha256"]:
+            raise ValueError("partial reviewer packet bytes differ from the frozen index")
+        reservation = reservations / f"{guard_sha}_{payload}.json"
+        evidence_dir = _evidence_directory(packet)
+        if reservation.exists() or evidence_dir.exists() or payload in retained:
+            if not reservation.is_file() or not evidence_dir.is_dir():
+                raise ValueError("reserved reviewer packet lacks complete retained evidence")
+            result = recover_retained_packet_result(packet, create_attestation=False, **kwargs)
+            row = classify_result(item, result, packet_ok=result["prompt_sha256"] == item["prompt_sha256"])
+            if payload in existing and existing[payload] != row:
+                raise ValueError("existing reviewer ruling differs from its retained invocation")
+            recovered.append((packet, row))
+        elif payload in existing:
+            raise ValueError("existing reviewer ruling lacks a reserved retained invocation")
+    # No output or attestation is added until every reserved invocation and old row verifies.
+    for packet, _ in recovered:
+        recover_retained_packet_result(packet, **kwargs)
+    if (out_path.read_bytes() if out_path.exists() else b"") != prefix:
+        raise ValueError("partial reviewer rulings changed while recovery was checked")
+    missing = [row for _, row in recovered if row["payload_sha256"] not in existing]
+    if missing:
+        with out_path.open("ab") as handle:
+            for row in missing:
+                handle.write((json.dumps(row, ensure_ascii=False) + "\n").encode("utf-8"))
+            handle.flush()
+            os.fsync(handle.fileno())
+    return {"retained_count": len(recovered), "imported_count": len(missing),
+            "done_payload_sha256s": [row["payload_sha256"] for _, row in recovered]}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="codex_reviewer_batch")
     ap.add_argument("--packets", required=True, help="directory holding INDEX.json + packets")
@@ -2178,6 +2427,9 @@ def main(argv=None) -> int:
     ap.add_argument("--codex", default="codex")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--concurrency", type=int, default=4)
+    ap.add_argument("--resume-retained", action="store_true",
+                    help="import exact retained results under a signed partial-wave recovery")
+    ap.add_argument("--recovery", help="signed same-run operational recovery manifest")
     ap.add_argument(
         "--openai-provider-supports-websockets",
         choices=("true", "false"),
@@ -2254,6 +2506,21 @@ def main(argv=None) -> int:
 
     packets_dir = Path(args.packets)
     out_path = Path(args.out)
+    reviewer_recovery_context = None
+    if args.resume_retained and args.recovery is None:
+        ap.error("--resume-retained requires --recovery")
+    if args.recovery is not None:
+        if dispatch_guard_path is None:
+            ap.error("--recovery requires a dispatch guard")
+        from rejudge.phase3_main_reviewer_recovery import load_reviewer_recovery_context
+        try:
+            reviewer_recovery_context = load_reviewer_recovery_context(
+                args.recovery, packet_directory=packets_dir, output_path=out_path,
+                guard_path=dispatch_guard_path,
+                guard_raw_sha256=cast(str, dispatch_guard_raw_sha256))
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"ABORT: reviewer recovery authority rejected batch: {exc}", flush=True)
+            return 4
     guarded_index: dict[str, object] | None = None
     preflight_guard: dict[str, object] | None = None
     if dispatch_guard_path is not None:
@@ -2278,6 +2545,7 @@ def main(argv=None) -> int:
             model_provider_profile=model_provider_profile,
             packet_directory=packets_dir,
             output_path=out_path,
+            reviewer_recovery_context=reviewer_recovery_context,
         )
         if preflight_evidence.get("verified") is not True or preflight_guard is None:
             print(
@@ -2301,6 +2569,17 @@ def main(argv=None) -> int:
         }
     index = guarded_index or _strict_json_object(
         (packets_dir / "INDEX.json").read_bytes(), subject="reviewer packet index")
+    if args.resume_retained:
+        try:
+            recover_retained_batch_results(
+                packets_dir, out_path, expected_model=args.model, expected_effort=args.effort,
+                expected_concurrency=args.concurrency,
+                expected_openai_provider_supports_websockets=openai_provider_supports_websockets,
+                expected_model_provider_profile=model_provider_profile,
+                reviewer_recovery_context=cast(Mapping[str, Any], reviewer_recovery_context))
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"ABORT: retained reviewer evidence rejected batch: {exc}", flush=True)
+            return 3
     done = set()
     if out_path.exists():
         for line in out_path.read_text(encoding="utf-8").splitlines():
@@ -2314,6 +2593,8 @@ def main(argv=None) -> int:
         guard_sha = cast(str, dispatch_guard_raw_sha256)
         existing_reservations = []
         for binding in cast(list[Mapping[str, object]], preflight_guard["packet_bindings"]):
+            if args.resume_retained and binding["payload_sha256"] in done:
+                continue
             reservation = (
                 packets_dir
                 / DISPATCH_RESERVATION_DIRECTORY_NAME
@@ -2354,6 +2635,9 @@ def main(argv=None) -> int:
         )
     if model_provider_profile is not None:
         transport_kwargs["model_provider_profile"] = model_provider_profile
+    if reviewer_recovery_context is not None:
+        transport_kwargs["reviewer_recovery_context"] = reviewer_recovery_context
+    unavailable = False
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         if not_after_utc is None and dispatch_guard_path is None:
             futures = {
@@ -2384,20 +2668,22 @@ def main(argv=None) -> int:
                 for item in todo
             }
         for fut in concurrent.futures.as_completed(futures):
+            if fut.cancelled():
+                continue
             meta = futures[fut]
-            result = fut.result()
             # The packet's bytes must still hash to what the frozen index recorded.
             try:
+                result = fut.result()
                 row = classify_result(
                     meta, result,
                     packet_ok=result["prompt_sha256"] == meta["prompt_sha256"])
-            except ReviewerUnavailable as down:
-                print(f"ABORT: reviewer unreachable ({down}); {written} ruling(s) written, "
-                      f"the rest of this wave is NOT ruled on. Nothing is committed from a "
-                      f"reviewer that was never reached.", flush=True)
+            except Exception as down:
+                print(f"ABORT: reviewer unavailable ({down}); canceling queued work "
+                      "and retaining successful in-flight results.", flush=True)
                 for pending in futures:
                     pending.cancel()
-                return 3
+                unavailable = True
+                continue
             if "tool_uses" in row:
                 clean += 1
             elif "TOOL_USE_DETECTED" in row["raw_output"]:
@@ -2414,7 +2700,7 @@ def main(argv=None) -> int:
 
     print(f"done: {written} written | clean={clean} refused_tool_use={refused} failed={failed}",
           flush=True)
-    return 0
+    return 3 if unavailable else 0
 
 
 if __name__ == "__main__":

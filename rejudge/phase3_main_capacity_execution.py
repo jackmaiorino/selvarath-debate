@@ -900,6 +900,7 @@ def _validate_manifest(
     manifest: Mapping[str, Any],
     *,
     context: CapacityContext,
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Rebuild the expected manifest and require exact equality."""
     if set(manifest) != _MANIFEST_FIELDS or manifest.get("schema_version") != MANIFEST_SCHEMA:
@@ -948,6 +949,25 @@ def _validate_manifest(
         raise CapacityExecutionError(
             "capacity execution manifest nested fields drifted"
         ) from exc
+    if historical_code_bindings is not None:
+        # The caller must authenticate these exact predecessor bindings with the
+        # signed recovery amendment, including its active code bindings. This is
+        # evidence reopening only; dispatch paths never supply this exception.
+        if not isinstance(historical_code_bindings, Mapping) or set(
+            historical_code_bindings
+        ) != {"reviewer_batch", "capacity_execution"}:
+            raise CapacityExecutionError("historical capacity code binding keys drifted")
+        for name, binding in historical_code_bindings.items():
+            if not isinstance(binding, Mapping) or set(binding) != _BINDING_FIELDS:
+                raise CapacityExecutionError(
+                    f"historical capacity {name} binding fields drifted"
+                )
+            _absolute_path(binding.get("path"), field=f"historical {name}.path")
+            _sha(binding.get("raw_sha256"), field=f"historical {name}.raw_sha256")
+            _positive_int(binding.get("byte_count"), field=f"historical {name}.byte_count")
+            if binding["path"] != expected["code_bindings"][name]["path"]:
+                raise CapacityExecutionError(f"historical capacity {name} path drifted")
+            expected["code_bindings"][name] = dict(binding)
     if dict(manifest) != expected:
         raise CapacityExecutionError(
             "capacity execution manifest differs from exact rebuilt inputs"
@@ -956,13 +976,18 @@ def _validate_manifest(
 
 
 def load_execution_manifest(
-    path: Path, *, context: CapacityContext
+    path: Path,
+    *,
+    context: CapacityContext,
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
-    """Reopen an exact manifest before or after execution without requiring pristine state."""
+    """Reopen exact evidence; historical bindings require upstream signed recovery."""
     raw, manifest = _load_exact_json(
         Path(path).resolve(), subject="capacity execution manifest"
     )
-    return raw, _validate_manifest(manifest, context=context)
+    return raw, _validate_manifest(
+        manifest, context=context, historical_code_bindings=historical_code_bindings
+    )
 
 
 def build_unsigned_capacity_authorization(
@@ -1337,6 +1362,7 @@ def _validate_one_result(
     result: Mapping[str, Any],
     manifest: Mapping[str, Any],
     authorization: Mapping[str, Any],
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], str]:
     if result.get("ok") is not True or result.get("error") is not None:
         raise CapacityExecutionError(
@@ -1368,6 +1394,10 @@ def _validate_one_result(
         if "model_provider_profile" in reviewer:
             validation_kwargs["expected_model_provider_profile"] = reviewer[
                 "model_provider_profile"
+            ]
+        if historical_code_bindings is not None:
+            validation_kwargs["accepted_batch_runner_bindings"] = [
+                historical_code_bindings["reviewer_batch"]
             ]
         receipt = codex_reviewer_batch.validate_invocation_evidence(
             packet,
@@ -1875,8 +1905,15 @@ def _validate_execution_result(
     require_current_freshness: bool,
     dispatch_history: capacity.DispatchHistorySnapshot | None = None,
     _validate_history_anchors: bool,
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Join result evidence with one private predicted-history anchor mode."""
+    if historical_code_bindings is not None:
+        _validate_manifest(
+            manifest, context=context, historical_code_bindings=historical_code_bindings
+        )
+        if _strict_object(manifest_raw, subject="capacity execution manifest") != dict(manifest):
+            raise CapacityExecutionError("historical capacity manifest object differs from raw bytes")
     if result.get("execution_manifest_raw_sha256") != hashlib.sha256(manifest_raw).hexdigest():
         raise CapacityExecutionError("capacity result manifest binding drifted")
     if result.get("authorization_raw_sha256") != hashlib.sha256(authorization_raw).hexdigest():
@@ -2049,6 +2086,7 @@ def _validate_execution_result(
                 },
                 manifest=manifest,
                 authorization=authorization,
+                historical_code_bindings=historical_code_bindings,
             )
             if dict(row) != rebuilt:
                 raise CapacityExecutionError("capacity result row differs from its receipt")
@@ -2090,8 +2128,9 @@ def validate_execution_result(
     as_of_utc: datetime,
     require_current_freshness: bool = True,
     dispatch_history: capacity.DispatchHistorySnapshot | None = None,
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Validate durable execution evidence with dispatch anchors always enforced."""
+    """Validate anchored evidence; historical bindings require upstream signed recovery."""
     return _validate_execution_result(
         result,
         manifest=manifest,
@@ -2103,6 +2142,7 @@ def validate_execution_result(
         require_current_freshness=require_current_freshness,
         dispatch_history=dispatch_history,
         _validate_history_anchors=True,
+        historical_code_bindings=historical_code_bindings,
     )
 
 

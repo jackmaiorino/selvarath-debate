@@ -95,6 +95,33 @@ def test_never_repeats_uncertain_external_reviewer_dispatch(tmp_path):
         _restore(paths)
 
 
+def test_partial_wave_continuation_keeps_original_count_and_next_pass(tmp_path):
+    paths = MainRunPaths.under(tmp_path)
+    _write(paths.run_log, [_reserve(104, 60, 60), _completed(104, 60, 60),
+                          _reserve(105, 60, 120)])
+    _write(paths.reviewer_index, [_index(104, 60)])
+    calls = []
+    def continuation(wave, quantity):
+        calls.append((wave, quantity))
+        _write(paths.reviewer_index, [_index(104, 60), _index(105, 60)])
+    with RunLease(paths.lease) as lease:
+        state = _restore(paths, held_run_lease=lease, resume_unfinished_wave=continuation)
+        again = _restore(paths, held_run_lease=lease, resume_unfinished_wave=continuation)
+    assert calls == [(105, 60)]
+    assert state.first_pass_index == again.first_pass_index == 106
+    assert state.reviewer_dispatches == again.reviewer_dispatches == 120
+    assert state.recovered_reviewer_waves == (105,)
+
+
+def test_partial_wave_cannot_dispatch_without_held_lease(tmp_path):
+    paths = MainRunPaths.under(tmp_path)
+    _write(paths.run_log, [_reserve(105, 60)])
+    def forbidden(*args):
+        raise AssertionError("no reviewer release is allowed")
+    with pytest.raises(RecoveryDriverError, match="held run lease"):
+        _restore(paths, resume_unfinished_wave=forbidden)
+
+
 def test_completed_index_recovers_missing_log_without_recount(tmp_path):
     paths = MainRunPaths.under(tmp_path)
     _write(paths.run_log, [_reserve(3)])

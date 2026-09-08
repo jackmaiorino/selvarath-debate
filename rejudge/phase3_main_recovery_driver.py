@@ -6,7 +6,7 @@ intent; an uncertain external reviewer dispatch is never repeated by this module
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -66,6 +66,7 @@ def restore_driver_state(
     held_run_lease: Any = None,
     expected_run_id: str | None = None,
     expected_manifest_sha256: str | None = None,
+    resume_unfinished_wave: Callable[[int, int], None] | None = None,
 ) -> DriverState:
     """Restore cumulative limits, completing only already-prepared reviewer commits.
 
@@ -171,6 +172,12 @@ def restore_driver_state(
                     **arguments, held_run_lease=held_run_lease)
             else:
                 reviewer_commit.validate_reviewer_wave_commit(**arguments)
+            indexed = load_index()
+        if wave not in indexed and resume_unfinished_wave is not None:
+            if held_run_lease is None:
+                raise RecoveryDriverError("partial reviewer continuation requires the held run lease")
+            reviewer_commit.require_held_run_lease(held_run_lease, expected_path=paths.lease)
+            resume_unfinished_wave(wave, reservations[wave][0])
             indexed = load_index()
         if wave not in indexed:
             raise RecoveryDriverError(

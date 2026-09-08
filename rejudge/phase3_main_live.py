@@ -61,6 +61,7 @@ from rejudge.phase2_canary_live import (
 from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_canary_runner import run_canary
 from rejudge.phase2_dual_gate import parse_reviewer_output
+from rejudge import phase3_main_reviewer_recovery
 from rejudge.phase2_execution import canonical_sha256
 from rejudge.request_journal import (
     JournalingClient, RequestJournal, find_ambiguous_dispatches,
@@ -578,6 +579,7 @@ def _validate_capacity(
     execution_manifest_path: Path | None = None,
     execution_authorization_path: Path | None = None,
     execution_authorization_signature_path: Path | None = None,
+    historical_code_bindings: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     try:
         source = plan["source_locations"]
@@ -665,6 +667,8 @@ def _validate_capacity(
             phase3_main_capacity_execution.load_execution_manifest(
                 execution_manifest_path,
                 context=context,
+                **({"historical_code_bindings": historical_code_bindings}
+                   if historical_code_bindings is not None else {}),
             )
         )
         if Path(str(execution_manifest["result_path"])).resolve() != result_path.resolve():
@@ -701,6 +705,8 @@ def _validate_capacity(
                 context=context,
                 as_of_utc=as_of,
                 require_current_freshness=require_current_freshness,
+                **({"historical_code_bindings": historical_code_bindings}
+                   if historical_code_bindings is not None else {}),
             )
         )
         if _stable_regular_file_bytes(
@@ -1719,6 +1725,8 @@ def _revalidate_capacity_snapshot(
         execution_authorization_path=prepared.input_paths[
             "capacity_execution_authorization"
         ],
+        **({"historical_code_bindings": phase3_main_reviewer_recovery.historical_capacity_code_bindings(prepared.recovery_validation)}
+           if phase3_main_reviewer_recovery.historical_capacity_code_bindings(prepared.recovery_validation) is not None else {}),
         execution_authorization_signature_path=prepared.input_paths[
             "capacity_execution_authorization_signature"
         ],
@@ -1774,6 +1782,8 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         execution_authorization_path=prepared.input_paths[
             "capacity_execution_authorization"
         ],
+        **({"historical_code_bindings": phase3_main_reviewer_recovery.historical_capacity_code_bindings(prepared.recovery_validation)}
+           if phase3_main_reviewer_recovery.historical_capacity_code_bindings(prepared.recovery_validation) is not None else {}),
         execution_authorization_signature_path=prepared.input_paths[
             "capacity_execution_authorization_signature"
         ],
@@ -2363,6 +2373,8 @@ def load_prepared_main(
         execution_authorization_path=input_paths[
             "capacity_execution_authorization"
         ],
+        **({"historical_code_bindings": phase3_main_reviewer_recovery.historical_capacity_code_bindings(recovery)}
+           if phase3_main_reviewer_recovery.historical_capacity_code_bindings(recovery) is not None else {}),
         execution_authorization_signature_path=input_paths[
             "capacity_execution_authorization_signature"
         ])
@@ -3542,7 +3554,10 @@ def _resume_main(
     state = phase3_main_recovery_driver.restore_driver_state(
         paths, held_run_lease=held_run_lease,
         expected_run_id=prepared.identity.run_id,
-        expected_manifest_sha256=prepared.identity.manifest_sha256)
+        expected_manifest_sha256=prepared.identity.manifest_sha256,
+        **({"resume_unfinished_wave": lambda wave, quantity: _resume_reviewer_wave(
+                prepared, wave=wave, quantity=quantity, held_run_lease=held_run_lease)}
+           if recovery.get("reviewer_transport_repair") else {}))
     raw_client = _construct_provider_client(prepared, snapshot, sdk_client=sdk_client)
     client = JournalingClient(
         raw_client, journal,
@@ -4012,6 +4027,62 @@ def _review_wave_same_process(
         label="reviewer dispatch guard snapshot",
     )
     dispatch_guard_raw_sha256 = hashlib.sha256(dispatch_guard_raw).hexdigest()
+    _execute_and_commit_reviewer_wave(
+        prepared, packet_dir=packet_dir, wave=wave, held_run_lease=held_run_lease,
+        validated_boundary=(current_authorization, capacity_plan, capacity_validation))
+
+
+def _resume_reviewer_wave(
+    prepared: PreparedMainRun, *, wave: int, quantity: int,
+    held_run_lease: phase3_v3_live.RunLease,
+) -> None:
+    recovery = _revalidate_recovery(prepared, verify_artifacts=True)
+    repair = (recovery or {}).get("reviewer_transport_repair") or {}
+    matches = [item for item in repair.get("partial_waves", []) if item["wave"] == wave]
+    if len(matches) != 1:
+        raise Phase3MainLiveError("unfinished reviewer wave lacks its exact signed continuation")
+    item = matches[0]
+    if len(item["retained_payload_sha256s"]) + len(item["never_started_payload_sha256s"]) != quantity:
+        raise Phase3MainLiveError("partial reviewer wave differs from its existing usage reservation")
+    _execute_and_commit_reviewer_wave(
+        prepared, packet_dir=Path(item["packet_directory"]), wave=wave,
+        held_run_lease=held_run_lease, resume_retained=True)
+
+
+def _execute_and_commit_reviewer_wave(
+    prepared: PreparedMainRun, *, packet_dir: Path, wave: int,
+    held_run_lease: phase3_v3_live.RunLease, resume_retained: bool = False,
+    validated_boundary: tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]] | None = None,
+) -> None:
+    """Use the unchanged validation/commit path for fresh or retained exact wave bytes."""
+    paths = prepared.identity.paths
+    phase3_main_reviewer_commit.require_held_run_lease(held_run_lease, expected_path=paths.lease)
+    if validated_boundary is None:
+        current_authorization = _revalidate_authenticated_authorization(prepared)
+        capacity_plan, capacity_validation = _revalidate_capacity_snapshot(prepared)
+    else:
+        current_authorization, capacity_plan, capacity_validation = validated_boundary
+    runtime = prepared.manifest["runtime"]
+    reviewer_configuration = capacity_plan["reviewer_configuration"]
+    worklist_snapshot_path = packet_dir / "WORKLIST.json"
+    worklist_raw = worklist_snapshot_path.read_bytes()
+    worklist = json.loads(worklist_raw, object_pairs_hook=_unique_object)
+    items = list(worklist["items"])
+    packet_index_path = packet_dir / "INDEX.json"
+    index = json.loads(packet_index_path.read_bytes(), object_pairs_hook=_unique_object)["items"]
+    rulings_path = packet_dir / "rulings.jsonl"
+    dispatch_guard_path = packet_dir / codex_reviewer_batch.DISPATCH_GUARD_FILENAME
+    dispatch_guard_raw = dispatch_guard_path.read_bytes()
+    dispatch_guard_raw_sha256 = hashlib.sha256(dispatch_guard_raw).hexdigest()
+    dispatch_guard = json.loads(dispatch_guard_raw, object_pairs_hook=_unique_object)
+    packet_bindings = dispatch_guard["packet_bindings"]
+    reviewer_recovery_context = None
+    if resume_retained:
+        if prepared.recovery_path is None:
+            raise Phase3MainLiveError("retained reviewer wave requires signed recovery")
+        reviewer_recovery_context = phase3_main_reviewer_recovery.load_reviewer_recovery_context(
+            prepared.recovery_path, packet_directory=packet_dir, output_path=rulings_path,
+            guard_path=dispatch_guard_path, guard_raw_sha256=dispatch_guard_raw_sha256)
     command = [
         sys.executable,
         str(prepared.project_root / "scripts" / "codex_reviewer_batch.py"),
@@ -4025,6 +4096,8 @@ def _review_wave_same_process(
         "--dispatch-guard", str(dispatch_guard_path),
         "--dispatch-guard-raw-sha256", dispatch_guard_raw_sha256,
     ]
+    if resume_retained:
+        command.extend(["--resume-retained", "--recovery", str(prepared.recovery_path)])
     if "openai_provider_supports_websockets" in reviewer_configuration:
         transport_value = reviewer_configuration[
             "openai_provider_supports_websockets"
@@ -4149,6 +4222,11 @@ def _review_wave_same_process(
                 "expected_effort": expected_effort,
                 "expected_concurrency": expected_concurrency,
             }
+            if reviewer_recovery_context is not None:
+                evidence_validation_kwargs.update(
+                    accepted_batch_runner_bindings=reviewer_recovery_context[
+                        "accepted_batch_runner_bindings"],
+                    reviewer_recovery_context=reviewer_recovery_context)
             if "openai_provider_supports_websockets" in reviewer_configuration:
                 evidence_validation_kwargs[
                     "expected_openai_provider_supports_websockets"

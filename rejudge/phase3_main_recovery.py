@@ -254,6 +254,7 @@ def build_recovery_manifest(
     reason: str, owner_instruction: str, validation_record: str | Path | None = None,
     initial_per_model_limits: Mapping[str, int] | None = None,
     concurrency_policy: str = CONCURRENCY_POLICY,
+    reviewer_transport_repair: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Prepare exact unsigned recovery bytes without modifying archived work."""
     manifest_file, authorization_file = Path(manifest_path).resolve(), Path(authorization_path).resolve()
@@ -292,6 +293,10 @@ def build_recovery_manifest(
         "interrupted_dispatches": _interrupted_dispatches(manifest),
         "validation_record": None if validation_record is None else _file_binding(validation_record),
     }
+    if reviewer_transport_repair is not None:
+        from rejudge.phase3_main_reviewer_recovery import prepare_transport_repair
+        recovery["reviewer_transport_repair"] = prepare_transport_repair(
+            reviewer_transport_repair, manifest)
     validate_recovery_manifest(recovery, manifest_path=manifest_file,
                               authorization_path=authorization_file, allow_growth=False)
     return recovery
@@ -301,6 +306,7 @@ def validate_recovery_manifest(
     recovery: Mapping[str, Any], *, manifest_path: str | Path,
     authorization_path: str | Path, current_source_commit: str | None = None,
     allow_growth: bool = True, verify_artifacts: bool = True,
+    require_recoverable: bool = True,
 ) -> dict[str, Any]:
     """Validate signed scope and preserved prefixes; later appends are permitted.
 
@@ -311,7 +317,8 @@ def validate_recovery_manifest(
     authorization = _read_json(Path(authorization_path))
     if recovery.get("schema_version") != RECOVERY_SCHEMA:
         raise RecoveryError("unsupported recovery schema")
-    _require_recoverable(manifest)
+    if require_recoverable:
+        _require_recoverable(manifest)
     if (recovery.get("run_id") != manifest["run_id"]
             or authorization.get("run_id") != manifest["run_id"]
             or recovery.get("original_manifest_canonical_sha256") != canonical_sha256(manifest)
@@ -353,6 +360,13 @@ def validate_recovery_manifest(
         raise RecoveryError("adaptive concurrency must stay within the signed per-model limits")
     if recovery.get("controls") != RECOVERY_CONTROLS:
         raise RecoveryError("recovery preservation controls changed")
+    if recovery.get("reviewer_transport_repair") is not None:
+        from rejudge.phase3_main_reviewer_recovery import validate_transport_repair
+        try:
+            validate_transport_repair(recovery["reviewer_transport_repair"], manifest,
+                                     verify_artifacts=verify_artifacts)
+        except (KeyError, OSError, TypeError, ValueError) as exc:
+            raise RecoveryError(f"reviewer transport repair failed: {exc}") from exc
     if any(not isinstance(recovery.get(key), str) or not recovery[key].strip()
            for key in ("reason", "owner_instruction")):
         raise RecoveryError("recovery must record its reason and the owner's instruction")
@@ -389,7 +403,10 @@ def validate_recovery_manifest(
     for binding in recovery.get("review_packet_files", []):
         if not Path(binding["path"]).resolve().is_relative_to(packet_root):
             raise RecoveryError("recovery packet snapshot lies outside the original packet root")
-        _verify_binding(binding, allow_growth=False)
+        partial_rulings = {
+            Path(wave["rulings_prefix"]["path"]).resolve()
+            for wave in (recovery.get("reviewer_transport_repair") or {}).get("partial_waves", [])}
+        _verify_binding(binding, allow_growth=allow_growth and Path(binding["path"]).resolve() in partial_rulings)
     if not allow_growth:
         for binding in recovery.get("checkpoint_snapshots", {}).values():
             _verify_binding(binding, allow_growth=False)

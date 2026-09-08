@@ -27,7 +27,7 @@ from rejudge.phase2_dual_gate import (
     parse_reviewer_output,
     payload_hash,
 )
-from rejudge import phase3_main_reviewer_commit
+from rejudge import phase3_main_reviewer_commit, phase3_main_reviewer_recovery
 from scripts import codex_reviewer_batch, phase3_main_review_capacity_preflight
 from scripts.codex_reviewer_batch import validate_invocation_evidence
 
@@ -643,6 +643,7 @@ def _validate_dispatch_guard_snapshot(
     packet_index_path: Path,
     packet_index_raw: bytes,
     index_items: list[dict[str, Any]],
+    reviewer_recovery_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if _raw_sha256(raw) != expected_raw_sha256:
         raise MainReviewerProvenanceError("reviewer dispatch guard hash drifted")
@@ -675,6 +676,12 @@ def _validate_dispatch_guard_snapshot(
             "reviewer dispatch guard artifact bindings drifted")
     batch_runner_path, batch_runner_sha, batch_runner_bytes = (
         codex_reviewer_batch._batch_runner_identity())  # noqa: SLF001
+    if reviewer_recovery_context is not None:
+        historical = bindings["batch_runner"]
+        if historical not in reviewer_recovery_context["accepted_batch_runner_bindings"]:
+            raise MainReviewerProvenanceError("historical reviewer guard code differs from signed recovery")
+        batch_runner_path, batch_runner_sha, batch_runner_bytes = (
+            historical["path"], historical["raw_sha256"], historical["byte_count"])
     expected_shas = {
         "authorization": expected_authorization_raw_sha256,
         "authorization_signature": expected_authorization_signature_raw_sha256,
@@ -705,11 +712,12 @@ def _validate_dispatch_guard_snapshot(
         if supplied_path.is_symlink() or supplied_path.resolve().as_posix() != raw_path:
             raise MainReviewerProvenanceError(
                 f"reviewer dispatch guard {name} path must be resolved and unlinked")
-        reopened = _read_stable(
-            supplied_path, subject=f"reviewer dispatch guard {name} artifact")
-        if len(reopened) != byte_count or _raw_sha256(reopened) != expected_sha:
-            raise MainReviewerProvenanceError(
-                f"reviewer dispatch guard {name} bytes drifted")
+        if name != "batch_runner" or reviewer_recovery_context is None:
+            reopened = _read_stable(
+                supplied_path, subject=f"reviewer dispatch guard {name} artifact")
+            if len(reopened) != byte_count or _raw_sha256(reopened) != expected_sha:
+                raise MainReviewerProvenanceError(
+                    f"reviewer dispatch guard {name} bytes drifted")
     for name, expected_path in expected_capacity_paths.items():
         binding = cast(Mapping[str, Any], bindings[name])
         if Path(str(binding["path"])).resolve() != expected_path.resolve():
@@ -912,6 +920,8 @@ def _expected_evidence_paths(
     receipt_path = evidence_dir / "invocation_receipt.json"
     artifacts = cast(Mapping[str, Mapping[str, Any]], receipt["artifacts"])
     files = {receipt_path}
+    if receipt.get("reconnect_recovery") is not None:
+        files.add(packet_dir / str(receipt["reconnect_recovery"]["path"]))
     for binding in artifacts.values():
         files.add(packet_dir / str(binding["path"]))
     guard = cast(Mapping[str, Any], receipt["dispatch_guard"])
@@ -944,6 +954,8 @@ def _validate_rulings(
     expected_dispatch_guard_raw_sha256: str,
     expected_cli_wrapper_raw_sha256: str,
     expected_cli_wrapper_byte_count: int,
+    reviewer_recovery_context: Mapping[str, Any] | None = None,
+    accepted_batch_runner_bindings: Any = None,
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
@@ -984,6 +996,10 @@ def _validate_rulings(
                 expected_model=expected_reviewer_model,
                 expected_effort=expected_reviewer_reasoning_effort,
                 expected_concurrency=expected_reviewer_concurrency,
+                **({"accepted_batch_runner_bindings": accepted_batch_runner_bindings}
+                   if accepted_batch_runner_bindings is not None else {}),
+                **({"reviewer_recovery_context": reviewer_recovery_context}
+                   if reviewer_recovery_context is not None else {}),
             )
         except (OSError, TypeError, ValueError) as exc:
             raise MainReviewerProvenanceError(
@@ -1245,6 +1261,7 @@ def verify_main_reviewer_provenance(
     max_passes: int,
     decisions_path: str | Path,
     expected_reviewed_payload_sha256s: Collection[str],
+    reviewer_recovery: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Verify all local reviewer-wave evidence and its exact decision-store join."""
     if isinstance(max_passes, bool) or not isinstance(max_passes, int) or max_passes < 1:
@@ -1480,6 +1497,16 @@ def verify_main_reviewer_provenance(
         dispatch_guard_path = packet_dir / codex_reviewer_batch.DISPATCH_GUARD_FILENAME
         dispatch_guard_raw = _read_stable(
             dispatch_guard_path, subject="reviewer dispatch guard")
+        reviewer_recovery_context = None
+        if reviewer_recovery is not None:
+            historical_paths = {binding["path"] for binding in reviewer_recovery[
+                "reviewer_transport_repair"]["historical_guards"]}
+            if dispatch_guard_path.resolve().as_posix() in historical_paths:
+                reviewer_recovery_context = phase3_main_reviewer_recovery.load_reviewer_recovery_context(
+                    reviewer_recovery["recovery_path"], packet_directory=packet_dir,
+                    output_path=packet_dir / "rulings.jsonl", guard_path=dispatch_guard_path,
+                    guard_raw_sha256=dispatch_guard_raw_sha256, verify_artifacts=False,
+                    require_recoverable=False)
         _validate_dispatch_guard_snapshot(
             dispatch_guard_raw,
             expected_raw_sha256=dispatch_guard_raw_sha256,
@@ -1521,6 +1548,8 @@ def verify_main_reviewer_provenance(
             packet_index_path=packet_dir / "INDEX.json",
             packet_index_raw=index_raw,
             index_items=index_items,
+            **({"reviewer_recovery_context": reviewer_recovery_context}
+               if reviewer_recovery_context is not None else {}),
         )
         rulings_raw = _read_stable(packet_dir / "rulings.jsonl", subject="reviewer rulings")
         if _raw_sha256(rulings_raw) != _require_sha256(
@@ -1552,6 +1581,10 @@ def verify_main_reviewer_provenance(
             expected_cli_wrapper_raw_sha256=(
                 frozen.cli_wrapper_raw_sha256),
             expected_cli_wrapper_byte_count=frozen.cli_wrapper_byte_count,
+            **({"reviewer_recovery_context": reviewer_recovery_context}
+               if reviewer_recovery_context is not None else {}),
+            **({"accepted_batch_runner_bindings": phase3_main_reviewer_recovery.accepted_batch_runner_bindings(
+                reviewer_recovery)} if reviewer_recovery is not None else {}),
         )
         commit_counts = row.get("commit_counts")
         if not isinstance(commit_counts, Mapping) or set(commit_counts) != _COMMIT_COUNT_FIELDS:
