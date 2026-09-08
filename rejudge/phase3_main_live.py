@@ -4116,7 +4116,7 @@ def _execute_and_commit_reviewer_wave(
             guard_path=dispatch_guard_path, guard_raw_sha256=dispatch_guard_raw_sha256)
     command = [
         sys.executable,
-        str(prepared.project_root / "scripts" / "codex_reviewer_batch.py"),
+        "-m", "scripts.codex_reviewer_batch",
         "--packets", str(packet_dir),
         "--out", str(rulings_path),
         "--codex", str(reviewer_configuration["reviewer_cli_resolved_path"]),

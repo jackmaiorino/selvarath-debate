@@ -3058,12 +3058,35 @@ def test_reviewer_wave_uses_the_capacity_bound_cli_path(
             packet_dir / phase3_main_live.phase3_main_reviewer_commit.WAVE_COMMIT_RECEIPT
         ).is_file()
     command = captured["command"]
+    assert command[:3] == [phase3_main_live.sys.executable, "-m", "scripts.codex_reviewer_batch"]
     assert command[command.index("--codex") + 1] == cli_path.as_posix()
     assert command[command.index("--not-after-utc") + 1] == (
         prepared.authorization["valid_until_utc"])
     assert json.loads(command[
         command.index("--model-provider-profile-json") + 1
     ]) == MODEL_PROVIDER_PROFILE
+
+
+def test_reviewer_module_entry_imports_recovery_without_pythonpath(tmp_path):
+    environment = {
+        key: value for key, value in phase3_main_live._subprocess_environment_without_together_credentials().items()
+        if key.upper() != "PYTHONPATH"
+    }
+    missing_recovery = tmp_path / "missing-recovery.json"
+    result = subprocess.run(
+        [phase3_main_live.sys.executable, "-m", "scripts.codex_reviewer_batch",
+         "--packets", str(tmp_path), "--out", str(tmp_path / "rulings.jsonl"),
+         "--resume-retained", "--recovery", str(missing_recovery),
+         "--dispatch-guard", str(tmp_path / "DISPATCH_GUARD.json"),
+         "--dispatch-guard-raw-sha256", "a" * 64,
+         "--not-after-utc", "2030-01-01T00:00:00Z"],
+        cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 4, (result.stdout, result.stderr)
+    assert "ABORT: reviewer recovery authority rejected batch:" in result.stdout
+    assert "ModuleNotFoundError" not in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not (tmp_path / "rulings.jsonl").exists()
 
 
 def test_two_packet_guard_abort_cannot_commit_main_decisions_or_wave(
