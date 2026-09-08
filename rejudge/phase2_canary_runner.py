@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import threading
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,9 +118,9 @@ def _balanced_block(ready: list, size: int) -> list:
     Deterministic: ``ready`` arrives in the frozen execution order and conditions are taken in
     sorted order, so the same inputs always produce the same block.
     """
-    by_condition: dict[str, list] = {}
+    by_condition: dict[str, deque] = {}
     for cell in ready:
-        by_condition.setdefault(str(cell.condition), []).append(cell)
+        by_condition.setdefault(str(cell.condition), deque()).append(cell)
     block: list = []
     while len(block) < size and any(by_condition.values()):
         for condition in sorted(by_condition):
@@ -127,7 +128,7 @@ def _balanced_block(ready: list, size: int) -> list:
                 break
             queue = by_condition[condition]
             if queue:
-                block.append(queue.pop(0))
+                block.append(queue.popleft())
     return block
 
 
@@ -384,9 +385,9 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
     store, and any analysis that reads row position would then see a scheduler artifact.
 
     ``pending_payload_limit`` mirrors the serial loop's own additive, default-``None`` bound
-    (see :func:`run_canary`'s docstring): checked once per block boundary, so a pass stops
-    starting NEW blocks once it has accumulated enough new pending payloads, rather than
-    draining the entire ready set regardless of how much of it is bound for a first-time pause.
+    (see :func:`run_canary`'s docstring). Each cell can yield at most one pending payload, so
+    shrinking the final block to the remaining slots keeps the same hard review-wave bound
+    without choosing cells according to their results or completion times.
     """
     attempted: set[str] = set()
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -402,8 +403,15 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                 ready = ready[:max(0, limit - len(attempted))]
             if not ready:
                 break
-            block = _balanced_block(ready, block_size)
+            next_block_size = block_size
+            if pending_payload_limit is not None:
+                next_block_size = min(
+                    next_block_size,
+                    pending_payload_limit - len(outcome.pending_payloads),
+                )
+            block = _balanced_block(ready, next_block_size)
             attempted.update(cell.cell_key for cell in block)
+            outcome.attempted = len(attempted)
 
             futures = [pool.submit(
                 _attempt, cell, context, namespace=namespace,
@@ -431,12 +439,15 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                         halted = True
                         outcome.halted_reason = "abandoned_cell_rate"
                         outcome.halted_cell_key = cell.cell_key
-                elif not halted:
-                    # First halt in block order wins, so the reported cause is deterministic
-                    # rather than whichever worker happened to finish first.
-                    halted = True
-                    outcome.halted_reason = payload
-                    outcome.halted_cell_key = cell.cell_key
+                else:
+                    if payload == "unknown_charge":
+                        outcome.abandoned += 1
+                    if not halted:
+                        # First halt in block order wins, so the reported cause is
+                        # deterministic rather than whichever worker finished first.
+                        halted = True
+                        outcome.halted_reason = payload
+                        outcome.halted_cell_key = cell.cell_key
             if halted:
                 break
 

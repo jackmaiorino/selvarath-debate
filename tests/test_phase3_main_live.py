@@ -470,12 +470,12 @@ def _write_valid_analysis_snapshot(
     return result
 
 
-def test_public_live_entry_has_no_client_factory_path_cap_or_resume_injection():
+def test_public_live_entry_only_adds_signed_recovery_input():
     assert set(inspect.signature(phase3_main_live.run_main).parameters) == {
-        "manifest_path", "authorization_path"
+        "manifest_path", "authorization_path", "recovery_path"
     }
     assert set(inspect.signature(phase3_main_live.load_prepared_main).parameters) == {
-        "manifest_path", "authorization_path", "verify_git"
+        "manifest_path", "authorization_path", "verify_git", "recovery_path"
     }
     source = inspect.getsource(phase3_main_live)
     assert "CallCache" not in source

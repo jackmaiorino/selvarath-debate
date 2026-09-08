@@ -119,12 +119,13 @@ def _fixture(
     query_budget: int = 0,
     checker_response: str = "allow",
     query_responses: tuple[str, ...] = (RAW_QUERY,),
+    cell_index: int = 0,
 ) -> dict:
     inventory = phase3_main_runner.build_canonical_main_inventory(REPO_ROOT)
-    judgment = next(
+    judgment = [
         dict(cell) for cell in inventory.judgment_cells
         if cell["query_budget"] == query_budget and cell["judge_model"] == judge_model
-    )
+    ][cell_index]
     dependency = str(judgment["dependency_keys"][0])
     transcript_cell = next(
         dict(cell) for cell in inventory.transcript_cells
@@ -745,7 +746,7 @@ def test_replay_covers_no_charge_transport_negotiation_then_streamed_success(
     assert result["provider_request_count"] == 2
 
 
-def test_replay_requires_later_serial_calls_to_remain_streaming_after_negotiation(
+def test_replay_allows_a_resumed_nonpinned_model_to_negotiate_streaming_again(
     tmp_path: Path,
 ) -> None:
     inputs = _fixture(
@@ -798,11 +799,9 @@ def test_replay_requires_later_serial_calls_to_remain_streaming_after_negotiatio
         for event in inputs["ledger_events"][4:]
     )
 
-    with pytest.raises(
-        provenance.MainProviderProvenanceError,
-        match="normal execution unexpectedly halted.*checker_outage",
-    ):
-        provenance.verify_main_provider_replay(**inputs)
+    result = provenance.verify_main_provider_replay(**inputs)
+    assert result["replayed_judgment_count"] == 1
+    assert result["provider_request_count"] == len(inputs["journal_rows"]) + 1
 
 
 def _fixture_call_messages(inputs: dict) -> list[dict]:
@@ -944,7 +943,7 @@ def test_replay_rejects_non_negotiation_transport_retry_after_expiry(
         provenance.verify_main_provider_replay(**inputs)
 
 
-def test_replay_rejects_overlapping_serial_transport_reservations(
+def test_replay_rejects_overlapping_same_logical_transport_reservations(
     tmp_path: Path,
 ) -> None:
     inputs = _fixture(
@@ -986,7 +985,7 @@ def test_replay_rejects_transport_attempts_completed_in_reverse_order(
         provenance.verify_main_provider_replay(**inputs)
 
 
-def test_replay_rejects_an_interposed_call_before_the_streaming_retry(
+def test_replay_rejects_an_interposed_same_cell_call_before_the_streaming_retry(
     tmp_path: Path,
 ) -> None:
     inputs = _fixture(
@@ -1009,7 +1008,7 @@ def test_replay_rejects_an_interposed_call_before_the_streaming_retry(
 
     with pytest.raises(
         provenance.MainProviderProvenanceError,
-        match="interposes a call before its streaming retry",
+        match="interposes a same-cell call",
     ):
         provenance.verify_main_provider_replay(**inputs)
 
@@ -1291,4 +1290,129 @@ def test_replay_rejects_failed_episode_outside_the_authorization_window(
         provenance.MainProviderProvenanceError,
         match="outside the signed authorization window",
     ):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def _two_independent_cells(tmp_path: Path, *, second_model=None):
+    first_root, second_root = tmp_path / "first", tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    first = _fixture(first_root, judge_model="meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    second = _fixture(
+        second_root,
+        judge_model=second_model or "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        cell_index=1,
+    )
+    merged = copy.deepcopy(first)
+    for name in ("cells", "result_rows"):
+        merged[name] = list({row["cell_key"]: row
+                             for row in [*first[name], *second[name]]}.values())
+    merged["journal_rows"] = [*first["journal_rows"], *second["journal_rows"]]
+    return merged, first, second
+
+
+def _named_events(events, prefix):
+    values = copy.deepcopy(events)
+    for event in values:
+        event["attempt_id"] = f"{prefix}:{event['attempt_id']}"
+    return values
+
+
+def _interleave(inputs, events):
+    inputs["ledger_events"] = copy.deepcopy(events)
+    for index, event in enumerate(inputs["ledger_events"]):
+        event["ts"] = _fixture_ledger_ts(index)
+        event["metadata"][api_client.LOGICAL_DISPATCH_AUTHORIZED_AT_UTC_FIELD] = (
+            _fixture_ledger_ts(0))
+
+
+def test_parallel_replay_accepts_overlapping_distinct_cells_and_reverse_completions(tmp_path):
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, done_a = _named_events(first["ledger_events"], "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    _interleave(inputs, [a, b, done_b, done_a])
+    result = provenance.verify_main_provider_replay(**inputs)
+    assert result["replayed_judgment_count"] == 2
+    assert result["logical_request_count"] == result["provider_request_count"] == 2
+
+
+def test_parallel_replay_allows_other_cell_between_release_and_streaming_retry(tmp_path):
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, release_a, retry_a, done_a = _named_events(_first_call_negotiation_events(first), "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    _interleave(inputs, [a, release_a, b, done_b, retry_a, done_a])
+    result = provenance.verify_main_provider_replay(**inputs)
+    assert result["replayed_judgment_count"] == 2
+    assert result["provider_request_count"] == 3
+
+
+def test_parallel_replay_tracks_two_independent_pending_streaming_retries(tmp_path):
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, release_a, retry_a, done_a = _named_events(_first_call_negotiation_events(first), "a")
+    b, release_b, retry_b, done_b = _named_events(_first_call_negotiation_events(second), "b")
+    _interleave(inputs, [a, b, release_a, release_b, retry_b, retry_a, done_b, done_a])
+    result = provenance.verify_main_provider_replay(**inputs)
+    assert result["replayed_judgment_count"] == 2
+    assert result["provider_request_count"] == 4
+
+
+@pytest.mark.parametrize("field", ["model", "seed", "metadata"])
+def test_parallel_replay_rejects_swapped_terminal_binding(tmp_path, field):
+    inputs, first, second = _two_independent_cells(
+        tmp_path, second_model="Qwen/Qwen3.8-2.4T-A95B")
+    a, done_a = _named_events(first["ledger_events"], "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    if field == "seed":
+        done_b[field] += 1
+    else:
+        done_b[field] = copy.deepcopy(done_a[field])
+    _interleave(inputs, [a, b, done_b, done_a])
+    with pytest.raises(provenance.MainProviderProvenanceError, match="identities differ|differ on"):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_parallel_replay_rejects_duplicate_success_for_one_logical_call(tmp_path):
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, done_a = _named_events(first["ledger_events"], "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    repeated_a, repeated_done_a = _named_events(first["ledger_events"], "repeat-a")
+    _interleave(inputs, [a, b, done_a, done_b, repeated_a, repeated_done_a])
+    with pytest.raises(provenance.MainProviderProvenanceError, match="did not end in an unknown charge"):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_parallel_stream_race_keeps_exact_nontransport_request_fields(tmp_path, streaming):
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, release_a, retry_a, done_a = _named_events(_first_call_negotiation_events(first), "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    kwargs = provenance.build_provider_request_kwargs(
+        model=done_b["model"], messages=_fixture_call_messages(second),
+        temperature=PROTOCOL["decisions"]["execution_semantics"]["temperature_by_call_role"]["judge_verdict"],
+        max_tokens=513, seed=done_b["seed"], streaming=streaming)
+    done_b["response_metadata"]["request_fields_sha256"] = (
+        provenance.compute_request_fields_sha256(kwargs))
+    _interleave(inputs, [a, release_a, b, done_b, retry_a, done_a])
+    with pytest.raises(provenance.MainProviderProvenanceError, match="provider request hash differs"):
+        provenance.verify_main_provider_replay(**inputs)
+
+
+def test_parallel_replay_does_not_make_pinned_streaming_optional(tmp_path):
+    inputs, first, second = _two_independent_cells(
+        tmp_path, second_model="Qwen/Qwen3.8-2.4T-A95B")
+    a, done_a = _named_events(first["ledger_events"], "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    model = done_b["model"]
+    inputs["role_limits"] = copy.deepcopy(ROLE_LIMITS)
+    inputs["role_limits"]["request_settings"]["streaming_pinned_models"] = {model: True}
+    kwargs = provenance.build_provider_request_kwargs(
+        model=model, messages=_fixture_call_messages(second),
+        temperature=PROTOCOL["decisions"]["execution_semantics"]["temperature_by_call_role"]["judge_verdict"],
+        max_tokens=ROLE_LIMITS["model_role_limits"][model]["judge_verdict"]["effective_request_max_tokens"],
+        seed=done_b["seed"], streaming=False,
+        extra_request_fields=ROLE_LIMITS["request_settings"]["per_model_extra_fields"].get(model))
+    done_b["response_metadata"]["request_fields_sha256"] = (
+        provenance.compute_request_fields_sha256(kwargs))
+    _interleave(inputs, [a, b, done_b, done_a])
+    with pytest.raises(provenance.MainProviderProvenanceError, match="provider request hash differs"):
         provenance.verify_main_provider_replay(**inputs)

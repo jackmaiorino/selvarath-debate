@@ -226,13 +226,14 @@ class _ReplayClient:
         self.unknown_charge_episodes_by_model: dict[str, int] = {}
         reservations: dict[str, dict[str, Any]] = {}
         open_attempt_keys: set[tuple[tuple[str, str, int, int], int]] = set()
+        active_cells: dict[str, tuple[str, str, int, int]] = {}
         completed_attempt_ids: set[str] = set()
         records: dict[tuple[str, str, int, int], dict[int, dict[str, Any]]] = {}
         logical_dispatch_authorized_at_by_identity: dict[
             tuple[str, str, int, int], str
         ] = {}
         dynamically_released_models: set[str] = set()
-        pending_stream_retry: tuple[str, str, int, int] | None = None
+        pending_stream_retries: set[tuple[str, str, int, int]] = set()
         latest_ledger_event_at: datetime | None = None
         latest_logical_dispatch_at: datetime | None = None
         latest_provider_completion_at: datetime | None = None
@@ -268,9 +269,15 @@ class _ReplayClient:
                     f"main ledger event {index} model must be a non-empty string")
 
             if status == "reserved":
-                if reservations:
+                if any(key[0] == identity for key in open_attempt_keys):
                     raise MainProviderProvenanceError(
-                        "serial main ledger contains overlapping provider reservations")
+                        "main ledger contains overlapping provider reservations for one "
+                        "logical call")
+                if (identity[0] in active_cells
+                        and active_cells[identity[0]] != identity):
+                    raise MainProviderProvenanceError(
+                        "main ledger interposes a same-cell call before its previous "
+                        "provider call or streaming retry completes")
                 prior_episode = records.get(identity)
                 if transport_attempt == 0 and prior_episode:
                     ordered_prior = tuple(
@@ -279,7 +286,7 @@ class _ReplayClient:
                         raise MainProviderProvenanceError(
                             "main ledger redispatches a logical call whose prior episode "
                             f"did not end in an unknown charge: {identity!r}")
-                    if pending_stream_retry == identity:
+                    if identity in pending_stream_retries:
                         raise MainProviderProvenanceError(
                             "main ledger redispatches a logical call inside its streaming "
                             f"retry: {identity!r}")
@@ -288,7 +295,7 @@ class _ReplayClient:
                 completed_for_identity = records.setdefault(identity, {})
                 if transport_attempt != len(completed_for_identity):
                     raise MainProviderProvenanceError(
-                        "serial main ledger transport attempts are out of order")
+                        "main ledger transport attempts are out of order")
                 if transport_attempt == 0:
                     authorized_at_raw = metadata.get(
                         _LOGICAL_DISPATCH_AUTHORIZED_AT_FIELD)
@@ -317,7 +324,7 @@ class _ReplayClient:
                         or authorized_at > latest_logical_dispatch_at
                     ):
                         latest_logical_dispatch_at = authorized_at
-                elif pending_stream_retry != identity:
+                elif identity not in pending_stream_retries:
                     raise MainProviderProvenanceError(
                         "provider transport retry is not the same logical call's "
                         "immediate streaming retry")
@@ -327,9 +334,6 @@ class _ReplayClient:
                     raise MainProviderProvenanceError(
                         "provider streaming retry did not inherit its logical dispatch "
                         "authorization timestamp")
-                if pending_stream_retry is not None and identity != pending_stream_retry:
-                    raise MainProviderProvenanceError(
-                        "serial main ledger interposes a call before its streaming retry")
                 if attempt_id in reservations or attempt_id in completed_attempt_ids:
                     raise MainProviderProvenanceError(
                         "main ledger repeats a provider attempt_id")
@@ -343,9 +347,11 @@ class _ReplayClient:
                 if model in self._streaming_models or transport_attempt > 0:
                     streaming_candidates = frozenset({True})
                 elif model in dynamically_released_models:
-                    # The formal main runner is serial. Once one call releases its probe, the
-                    # live client enables streaming before any later reservation can begin.
-                    streaming_candidates = frozenset({True})
+                    # Another worker may have built its kwargs before the model's streaming
+                    # probe was released but reserved afterward. A resumed process can also
+                    # repeat the initial probe. The exact persisted provider hash chooses
+                    # between these two transport encodings; all other kwargs remain fixed.
+                    streaming_candidates = frozenset({False, True})
                 else:
                     streaming_candidates = frozenset({False})
                 reservations[attempt_id] = {
@@ -356,6 +362,7 @@ class _ReplayClient:
                     "streaming_candidates": streaming_candidates,
                 }
                 open_attempt_keys.add(attempt_key)
+                active_cells[identity[0]] = identity
                 continue
 
             reserved = reservations.pop(attempt_id, None)
@@ -408,18 +415,19 @@ class _ReplayClient:
                 "streaming_candidates": reserved["streaming_candidates"],
             }
             if status == "released_no_charge":
-                if pending_stream_retry is not None:
+                if identity in pending_stream_retries:
                     raise MainProviderProvenanceError(
-                        "serial main ledger begins a second streaming retry")
-                pending_stream_retry = identity
+                        "main ledger begins a second streaming retry for one logical call")
+                pending_stream_retries.add(identity)
                 dynamically_released_models.add(model)
-            elif pending_stream_retry == identity:
-                pending_stream_retry = None
+            else:
+                pending_stream_retries.discard(identity)
+                active_cells.pop(identity[0], None)
 
         if reservations:
             raise MainProviderProvenanceError(
                 "main ledger contains unmatched provider reservations")
-        if pending_stream_retry is not None:
+        if pending_stream_retries:
             raise MainProviderProvenanceError(
                 "main ledger omits the immediate streaming retry")
         for identity, episodes in self._failed_episodes.items():

@@ -19,16 +19,13 @@ different sample: it flows to the caller, whose frozen machinery already gives i
 disposition (the query gate's retry-then-block ladder consumes an attempt, an empty checker
 decision is a terminal checker_malformed, an empty verdict is counted by the invalid gate).
 
-What replaces re-dispatch for genuinely lost responses: if the spend ledger can no longer
-prove that a dispatch completed without ambiguity, the formal measurement is stopped. This
-includes a settled success with no journal entry, an unknown charge, a charged malformed
-response, and a reservation with no terminal ledger event. A timeout is not evidence that
-no response existed: the provider may have completed after the client stopped waiting.
-Under the 2026-08-29 process reset, an environmental interruption voids the formal run and
-the run restarts from a fresh identity. It is never repaired by substituting a fresh sample
-inside the interrupted run. :func:`find_ambiguous_dispatches` exposes these states before a
-recovery diagnosis can mistake them for clean completion. The main formal runner does not
-resume an interrupted identity.
+Genuinely unobserved interrupted dispatches require explicit recovery: the exact outstanding
+reservation is booked in full as an unknown charge before its durable marker is removed.
+The signed recovery contract binds preserved journal, ledger, and marker snapshots. A
+settled success without journal bytes or a charged malformed response is not eligible.
+Known responses, including empty responses, are always replayed unchanged. Recovery does
+not claim that the provider never computed a response; it records that no response was
+observed by the runner and retains the entire possible charge.
 
 Request-before-result ordering holds by construction: a result row is composed only from
 responses that came through the journal, so by the time the row writer is called every
@@ -45,7 +42,7 @@ import hashlib
 import json
 import os
 import threading
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -95,6 +92,7 @@ _JOURNAL_ROW_FIELDS = frozenset({
     "sequence", "prev_event_hash", "event_hash",
 })
 _DISPATCH_MARKER_SCHEMA = "request_journal_dispatch_marker_v1"
+_PARALLEL_DISPATCH_MARKER_SCHEMA = "request_journal_dispatch_marker_v2"
 
 
 def _fsync_parent_directory(path: Path) -> None:
@@ -245,7 +243,7 @@ class RequestJournal:
 
     @contextmanager
     def dispatch_guard(self) -> Iterator[None]:
-        """Own this journal path across refresh, provider dispatch, and append."""
+        """Own this journal path across one serial call or a concurrent dispatch group."""
         try:
             with output_lock(self.path):
                 self.refresh()
@@ -259,18 +257,45 @@ class RequestJournal:
     def unresolved_marker_path(self) -> Path:
         return self.path.with_name(f"{self.path.name}.unresolved.json")
 
-    def _assert_no_unresolved_marker(self) -> None:
+    def parallel_marker_path(self, key: CallKey) -> Path:
+        identity = json.dumps(asdict(key), sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        return self.path.with_name(f"{self.path.name}.dispatch-{digest}.json")
+
+    def dispatch_marker_paths(self) -> tuple[Path, ...]:
+        """Inventory both the legacy marker and independently durable parallel markers."""
+        paths = list(self.path.parent.glob(f"{self.path.name}.dispatch-*.json"))
         if self.unresolved_marker_path.exists():
+            paths.append(self.unresolved_marker_path)
+        return tuple(sorted(paths))
+
+    def _assert_no_unresolved_marker(self, *, owned: frozenset[Path] = frozenset()) -> None:
+        surviving = set(self.dispatch_marker_paths()) - owned
+        if surviving:
             raise JournalDispatchUnresolved(
                 f"request journal {self.path} has a surviving provider-capable dispatch "
-                f"marker at {self.unresolved_marker_path}; this execution identity is "
-                "interrupted and cannot dispatch again")
+                f"marker at {sorted(surviving)[0]}; explicit reconciliation is required "
+                "before another dispatch")
 
-    def _begin_dispatch(self, key: CallKey, fingerprint: str) -> bytes:
+    def _begin_dispatch(self, key: CallKey, fingerprint: str, *,
+                        ledger_boundary: Mapping[str, Any] | None = None) -> bytes:
         """Durably mark a provider-capable call before control enters the inner client."""
         self._assert_no_unresolved_marker()
+        return self._write_dispatch_marker(
+            key, fingerprint, self.unresolved_marker_path, _DISPATCH_MARKER_SCHEMA,
+            ledger_boundary=ledger_boundary)
+
+    def _begin_parallel_dispatch(self, key: CallKey, fingerprint: str, *,
+                                 ledger_boundary: Mapping[str, Any] | None = None) -> bytes:
+        return self._write_dispatch_marker(
+            key, fingerprint, self.parallel_marker_path(key),
+            _PARALLEL_DISPATCH_MARKER_SCHEMA, ledger_boundary=ledger_boundary)
+
+    def _write_dispatch_marker(
+            self, key: CallKey, fingerprint: str, path: Path, schema: str, *,
+            ledger_boundary: Mapping[str, Any] | None = None) -> bytes:
         payload = {
-            "schema_version": _DISPATCH_MARKER_SCHEMA,
+            "schema_version": schema,
             "execution_identity": self.execution_identity,
             "journal_path": str(self.path.resolve()),
             "cell_key": key.cell_key,
@@ -281,52 +306,59 @@ class RequestJournal:
             "pid": os.getpid(),
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        if ledger_boundary is not None:
+            payload["ledger_boundary"] = dict(ledger_boundary)
         encoded = (json.dumps(payload, sort_keys=True, ensure_ascii=True) + "\n").encode(
             "utf-8")
         try:
-            with self.unresolved_marker_path.open("xb") as handle:
+            with path.open("xb") as handle:
                 handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
-            _fsync_parent_directory(self.unresolved_marker_path)
-        except FileExistsError:
-            self._assert_no_unresolved_marker()
-            raise AssertionError("unreachable: existing dispatch marker was not detected")
+            _fsync_parent_directory(path)
+        except FileExistsError as exc:
+            raise JournalDispatchUnresolved(
+                f"provider-capable dispatch marker already exists: {path}") from exc
         except OSError as exc:
             raise JournalDispatchUnresolved(
-                f"could not persist dispatch marker {self.unresolved_marker_path}: "
+                f"could not persist dispatch marker {path}: "
                 f"{exc}") from exc
         return encoded
 
     def _finish_dispatch(self, expected_marker: bytes) -> None:
         """Remove only the exact marker whose response was durably appended."""
+        payload = json.loads(expected_marker)
+        path = (self.parallel_marker_path(CallKey(
+            payload["cell_key"], payload["call_role"], payload["slot"], payload["attempt"]))
+            if payload["schema_version"] == _PARALLEL_DISPATCH_MARKER_SCHEMA
+            else self.unresolved_marker_path)
         try:
-            observed = self.unresolved_marker_path.read_bytes()
+            observed = path.read_bytes()
         except OSError as exc:
             raise JournalDispatchUnresolved(
-                f"could not verify dispatch marker {self.unresolved_marker_path}: {exc}") from exc
+                f"could not verify dispatch marker {path}: {exc}") from exc
         if observed != expected_marker:
             raise JournalDispatchUnresolved(
-                f"dispatch marker changed before completion: {self.unresolved_marker_path}")
+                f"dispatch marker changed before completion: {path}")
         try:
-            self.unresolved_marker_path.unlink()
-            _fsync_parent_directory(self.unresolved_marker_path)
+            path.unlink()
+            _fsync_parent_directory(path)
         except BaseException as exc:
             # If removal succeeded but its directory fsync failed, restore the marker when
             # possible. The conservative state is interrupted, never silently clean.
-            if not self.unresolved_marker_path.exists():
+            if not path.exists():
                 try:
-                    with self.unresolved_marker_path.open("xb") as handle:
+                    with path.open("xb") as handle:
                         handle.write(expected_marker)
                         handle.flush()
                         os.fsync(handle.fileno())
-                    _fsync_parent_directory(self.unresolved_marker_path)
+                    _fsync_parent_directory(path)
                 except OSError:
                     pass
             if isinstance(exc, OSError):
                 raise JournalDispatchUnresolved(
                     f"could not clear completed dispatch marker "
-                    f"{self.unresolved_marker_path}: {exc}") from exc
+                    f"{path}: {exc}") from exc
             raise
 
     @staticmethod
@@ -411,20 +443,55 @@ class RequestJournal:
         with self._lock:
             return frozenset(self._entries)
 
+    def entry_binding(self, key: CallKey) -> dict[str, Any] | None:
+        """Bind a durable response without putting its content in a recovery receipt."""
+        with self._lock:
+            row = self._entries.get(self._identity(key))
+            if row is None:
+                return None
+            return {
+                "sequence": row["sequence"], "event_hash": row["event_hash"],
+                "request_sha256": row["request_sha256"],
+                "response_raw_sha256": hashlib.sha256(
+                    row["response"].encode("utf-8")).hexdigest(),
+            }
+
 
 class JournalingClient:
     """Replays journaled responses and latches after any unresolved live dispatch.
 
     Cross-process safety additionally requires :func:`find_ambiguous_dispatches` over the
     complete validated usage ledger before constructing a new dispatch-capable client. The
-    main-run process-reset contract is stricter still: an interrupted formal run is void and
-    never resumes dispatch under the same execution identity.
+    caller must hold its run lease and explicitly reconcile an interrupted dispatch before
+    reopening it. Independent requests can overlap when bounded concurrency is enabled;
+    one path lease still excludes every other wrapper and process.
     """
 
-    def __init__(self, inner, journal: RequestJournal) -> None:
+    def __init__(self, inner, journal: RequestJournal, *,
+                 max_concurrent_requests: int = 1,
+                 model_caps: Mapping[str, int] | None = None) -> None:
+        if (not isinstance(max_concurrent_requests, int)
+                or isinstance(max_concurrent_requests, bool)
+                or max_concurrent_requests < 1):
+            raise ValueError("max_concurrent_requests must be a positive integer")
         self.inner = inner
         self.journal = journal
         self._dispatch_lock = threading.Lock()
+        self.max_concurrent_requests = max_concurrent_requests
+        self._parallel_slots = threading.BoundedSemaphore(max_concurrent_requests)
+        self.model_caps = dict(model_caps or {})
+        if any(not isinstance(model, str) or not model.strip()
+               or not isinstance(limit, int) or isinstance(limit, bool) or limit < 1
+               for model, limit in self.model_caps.items()):
+            raise ValueError("model_caps must map model IDs to positive integers")
+        self._model_slots = {
+            model: threading.BoundedSemaphore(limit)
+            for model, limit in self.model_caps.items()
+        }
+        self._key_locks: dict[tuple, threading.Lock] = {}
+        self._active_calls = 0
+        self._path_guard = None
+        self._owned_markers: set[Path] = set()
         self._unresolved_dispatch: str | None = None
         # Amendment 14 (2026-09-06): unobserved transport failures that the accounting
         # client durably booked as ``unknown_charge`` release the marker instead of latching;
@@ -472,8 +539,17 @@ class JournalingClient:
     def dry_run(self) -> bool:
         return getattr(self.inner, "dry_run", False)
 
+    def _dispatch_boundary_kwargs(self) -> dict[str, Any]:
+        boundary_reader = getattr(self.inner, "journal_dispatch_boundary", None)
+        boundary = boundary_reader() if callable(boundary_reader) else None
+        return {"ledger_boundary": boundary} if boundary is not None else {}
+
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
                  request_metadata: Mapping[str, Any] | None = None) -> str:
+        if self.max_concurrent_requests > 1:
+            return self._complete_parallel(
+                messages, model, temperature, seed, max_tokens, kind,
+                request_metadata=request_metadata)
         key = journal_key(request_metadata)
         assert request_metadata is not None  # journal_key refuses missing metadata
         fingerprint = request_fingerprint(
@@ -502,7 +578,8 @@ class JournalingClient:
                         f"{prior_binding!r}, but the current request fingerprint is "
                         f"{fingerprint}; refusing to dispatch")
                 bound_metadata[JOURNAL_REQUEST_SHA256_FIELD] = fingerprint
-                marker = self.journal._begin_dispatch(key, fingerprint)
+                marker = self.journal._begin_dispatch(
+                    key, fingerprint, **self._dispatch_boundary_kwargs())
                 try:
                     response = self.inner.complete(
                         messages, model, temperature, seed, max_tokens, kind=kind,
@@ -532,6 +609,106 @@ class JournalingClient:
                     self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
                     raise
                 return response
+
+    @contextmanager
+    def _parallel_guard(self, key: CallKey, model: str) -> Iterator[None]:
+        """Share one path lease only among this client's active calls.
+
+        The state lock covers lease acquisition and the last release, so a waiting call
+        cannot accidentally use a released lease. Provider execution never holds it.
+        """
+        with self._dispatch_lock:
+            key_lock = self._key_locks.setdefault(
+                RequestJournal._identity(key), threading.Lock())
+        if self.model_caps and model not in self._model_slots:
+            raise ValueError(f"no concurrency limit configured for provider model {model!r}")
+        model_slot = self._model_slots.get(model, nullcontext())
+        # No state mutex is held while waiting for capacity. In particular, several judge
+        # workers may all request the same checker model; the actual request model, rather
+        # than the worker's judge label, selects this semaphore.
+        with key_lock, model_slot, self._parallel_slots:
+            with self._dispatch_lock:
+                if self._active_calls == 0:
+                    guard = self.journal.dispatch_guard()
+                    guard.__enter__()
+                    self._path_guard = guard
+                self._active_calls += 1
+            try:
+                yield
+            finally:
+                with self._dispatch_lock:
+                    self._active_calls -= 1
+                    if self._active_calls == 0:
+                        guard, self._path_guard = self._path_guard, None
+                        assert guard is not None
+                        guard.__exit__(None, None, None)
+
+    def _complete_parallel(
+            self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
+            request_metadata: Mapping[str, Any] | None = None) -> str:
+        key = journal_key(request_metadata)
+        assert request_metadata is not None
+        fingerprint = request_fingerprint(
+            messages=messages, model=model, temperature=temperature, seed=seed,
+            max_tokens=max_tokens)
+        with self._parallel_guard(key, model):
+            with self._dispatch_lock:
+                self.journal._assert_no_unresolved_marker(
+                    owned=frozenset(self._owned_markers))
+                journaled = self.journal.get(key, fingerprint)
+                if journaled is not None:
+                    return journaled
+                if self._unresolved_dispatch is not None:
+                    raise JournalDispatchUnresolved(
+                        "a prior provider-capable call did not reach a durable journal "
+                        f"entry ({self._unresolved_dispatch}); explicit reconciliation "
+                        "is required before new dispatch")
+                bound_metadata = dict(request_metadata)
+                prior_binding = bound_metadata.get(JOURNAL_REQUEST_SHA256_FIELD)
+                if prior_binding is not None and prior_binding != fingerprint:
+                    raise JournalReplayMismatch(
+                        f"request metadata binds {JOURNAL_REQUEST_SHA256_FIELD} to "
+                        f"{prior_binding!r}, but request fingerprint is {fingerprint}")
+                bound_metadata[JOURNAL_REQUEST_SHA256_FIELD] = fingerprint
+                marker_path = self.journal.parallel_marker_path(key)
+                marker = self.journal._begin_parallel_dispatch(
+                    key, fingerprint, **self._dispatch_boundary_kwargs())
+                self._owned_markers.add(marker_path)
+            try:
+                response = self.inner.complete(
+                    messages, model, temperature, seed, max_tokens, kind=kind,
+                    request_metadata=bound_metadata)
+                self.journal._validate_put(key, fingerprint, response)
+                # This lock holds only through the durable append. The provider request
+                # above overlaps other keys, while sequence and hash chaining stay atomic.
+                self.journal._put_guarded(key, fingerprint, response)
+                with self._dispatch_lock:
+                    self.journal._finish_dispatch(marker)
+                    self._owned_markers.remove(marker_path)
+                return response
+            except UnknownChargeHalt as exc:
+                with self._dispatch_lock:
+                    if not self._unknown_charge_resolvable(key, fingerprint, exc):
+                        self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                        raise
+                    try:
+                        self.journal._finish_dispatch(marker)
+                        self._owned_markers.remove(marker_path)
+                    except BaseException as marker_exc:
+                        self._unresolved_dispatch = (
+                            f"{type(marker_exc).__name__}: {marker_exc}")
+                        raise
+                    self.resolved_unknown_charges.append({
+                        **asdict(key), "attempt_id": exc.attempt_id, "model": exc.model,
+                        "request_sha256": fingerprint,
+                    })
+                raise
+            except BaseException as exc:
+                # Other already-dispatched keys still persist their responses. The latch
+                # prohibits new dispatches without throwing away paid in-flight results.
+                with self._dispatch_lock:
+                    self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                raise
 
 
 def _find_ambiguous_dispatches_loaded(
@@ -719,3 +896,185 @@ def find_ambiguous_dispatches(
         return _find_ambiguous_dispatches_loaded(
             journal, ledger_events,
             allowed_unjournaled_attempt_ids=allowed_unjournaled_attempt_ids)
+
+
+def validate_unreserved_dispatch(
+        ledger_events: Iterable[Mapping[str, Any]], marker: Mapping[str, Any]) -> None:
+    """Prove that no reservation followed this marker's causal ledger frontier.
+
+    This check is read-only and never infers dispatch order from wall-clock timestamps.
+    The caller also validates the durable ledger tail state and absence of a response.
+    Legacy markers without a frontier are eligible only when this key has no reservations
+    anywhere in the complete ledger. A prior unknown attempt is not silently mistaken for
+    this dispatch.
+    """
+    from rejudge import api_client
+
+    events = [dict(event) for event in ledger_events]
+    diagnostic_path = Path("recovery-usage-ledger")
+    api_client._validate_usage_chain(events, diagnostic_path)
+    api_client._summarize_usage_events(events[1:], diagnostic_path, strict_lifecycle=True)
+    key = CallKey(marker["cell_key"], marker["call_role"], marker["slot"], marker["attempt"])
+    RequestJournal._validate_put(key, marker.get("request_sha256"), "")
+    boundary = marker.get("ledger_boundary")
+    sequence = -1
+    if boundary is not None:
+        if (not isinstance(boundary, Mapping)
+                or set(boundary) != {"ledger_id", "sequence", "event_hash"}
+                or type(boundary.get("sequence")) is not int
+                or boundary["sequence"] < 0 or boundary["sequence"] >= len(events)
+                or not RequestJournal._is_sha256(boundary.get("event_hash"))):
+            raise JournalDispatchUnresolved("unreserved marker has an invalid ledger frontier")
+        sequence = boundary["sequence"]
+        event = events[sequence]
+        if (event.get("sequence") != sequence
+                or event.get("ledger_id") != boundary["ledger_id"]
+                or event.get("event_hash") != boundary["event_hash"]):
+            raise JournalDispatchUnresolved("unreserved marker ledger frontier changed")
+    for event in events[sequence + 1:]:
+        if event.get("status") == "reserved" and journal_key(event.get("metadata")) == key:
+            raise JournalDispatchUnresolved(
+                "a reservation exists after the dispatch frontier; unreserved cleanup refused")
+
+
+def recover_interrupted_dispatches(
+        journal: RequestJournal, ledger_path: str | Path,
+        interrupted_dispatches: Iterable[Mapping[str, Any]], *,
+        recovery_manifest_sha256: str) -> list[dict[str, Any]]:
+    """Reconcile only exact dispatch markers named in a validated recovery contract.
+
+    The main runner must hold its run lease, validate the signed recovery contract and
+    preserved artifact snapshots, and call this before constructing its accounting client.
+    An unobserved dispatch retains its full reservation as uncertain spend. A separately
+    declared completed-journaled-response disposition clears its marker without another
+    charge or request, after checking the exact success and durable response binding.
+    Settled successes missing their journal entry are never eligible for this operation.
+    Repeating recovery after its terminal append is safe, including a crash before marker
+    removal. Markers not named in the contract remain a hard stop.
+    """
+    from rejudge import api_client
+
+    outcomes = []
+    with journal.dispatch_guard():
+        for dispatch in interrupted_dispatches:
+            marker = dispatch["marker"]
+            reservation = dispatch.get("reservation")
+            disposition = dispatch.get("disposition", "conservative_unknown_charge")
+            if disposition not in {
+                "conservative_unknown_charge", "completed_journaled_response", "unreserved_dispatch",
+            }:
+                raise JournalDispatchUnresolved("unsupported dispatch recovery disposition")
+            if not isinstance(marker, Mapping) or (
+                    disposition != "unreserved_dispatch" and not isinstance(reservation, Mapping)):
+                raise JournalDispatchUnresolved("recovery marker/reservation must be objects")
+            key = CallKey(marker["cell_key"], marker["call_role"],
+                          marker["slot"], marker["attempt"])
+            schema = marker.get("schema_version")
+            if schema not in {_DISPATCH_MARKER_SCHEMA, _PARALLEL_DISPATCH_MARKER_SCHEMA}:
+                raise JournalDispatchUnresolved("unsupported interrupted dispatch marker")
+            expected_path = (journal.parallel_marker_path(key)
+                             if schema == _PARALLEL_DISPATCH_MARKER_SCHEMA
+                             else journal.unresolved_marker_path)
+            marker_path = Path(str(dispatch["marker_path"]))
+            if marker_path.resolve() != expected_path.resolve():
+                raise JournalDispatchUnresolved("recovery marker path is not this journal's")
+            fingerprint = marker.get("request_sha256")
+            if (marker.get("execution_identity") != journal.execution_identity
+                    or (marker.get("journal_path") is not None
+                        and Path(str(marker["journal_path"])).resolve()
+                        != journal.path.resolve())
+                    or not journal._is_sha256(fingerprint)
+                    or dispatch.get("request_sha256") != fingerprint):
+                raise JournalDispatchUnresolved("recovery marker/reservation identity mismatch")
+            if disposition != "unreserved_dispatch":
+                metadata = reservation.get("metadata")
+                if (not isinstance(metadata, Mapping) or journal_key(metadata) != key
+                        or metadata.get(JOURNAL_REQUEST_SHA256_FIELD) != fingerprint
+                        or dispatch.get("reservation_attempt_id") != reservation.get("attempt_id")
+                        or reservation.get("status") != "reserved"):
+                    raise JournalDispatchUnresolved("recovery marker/reservation identity mismatch")
+            elif any(field in dispatch for field in ("reservation", "reservation_attempt_id", "terminal")):
+                raise JournalDispatchUnresolved("unreserved recovery cannot carry a reservation")
+            if (disposition == "conservative_unknown_charge"
+                    and journal.has(key) and marker_path.exists()):
+                raise JournalDispatchUnresolved(
+                    "a response is already journaled; unobserved-dispatch recovery refused")
+            expected_hash = dispatch.get("marker_raw_sha256")
+            if not journal._is_sha256(expected_hash):
+                raise JournalDispatchUnresolved("recovery marker hash is invalid")
+            marker_bytes = None
+            if marker_path.exists():
+                marker_bytes = marker_path.read_bytes()
+                if (hashlib.sha256(marker_bytes).hexdigest() != expected_hash
+                        or json.loads(marker_bytes) != marker):
+                    raise JournalDispatchUnresolved("recovery marker differs from snapshot")
+            elif disposition == "conservative_unknown_charge":
+                # Absence is only valid after this exact recovery already booked its
+                # terminal event. Do not append an event for an unexplained lost marker.
+                api_client.load_chained_usage_ledger(ledger_path)
+                events = api_client._read_usage_events(Path(ledger_path))
+                if not any(
+                    event.get("attempt_id") == reservation["attempt_id"]
+                    and event.get("status") == "unknown_charge"
+                    and event.get("recovery_manifest_sha256") == recovery_manifest_sha256
+                    for event in events
+                ):
+                    raise JournalDispatchUnresolved(
+                        "interrupted marker is absent without its recovery terminal event")
+            if disposition == "unreserved_dispatch":
+                api_client.load_chained_usage_ledger(ledger_path)
+                events = api_client._read_usage_events(Path(ledger_path))
+                boundary = dispatch.get("recovery_ledger_boundary")
+                if (not isinstance(boundary, Mapping)
+                        or set(boundary) != {"ledger_id", "sequence", "event_hash"}
+                        or type(boundary.get("sequence")) is not int
+                        or not 0 <= boundary["sequence"] < len(events)
+                        or any(events[boundary["sequence"]].get(field) != boundary[field]
+                               for field in boundary)):
+                    raise JournalDispatchUnresolved("unreserved recovery snapshot frontier changed")
+                if marker_bytes is not None:
+                    if journal.has(key):
+                        raise JournalDispatchUnresolved("unreserved marker already has a journaled response")
+                    validate_unreserved_dispatch(events, marker)
+                else:
+                    # The contract's signed original prefix proves this cleanup was free.
+                    # Later resumed calls may now exist and must not invalidate that proof.
+                    validate_unreserved_dispatch(events[:boundary["sequence"] + 1], marker)
+                uncertain_cost = 0.0
+            elif disposition == "completed_journaled_response":
+                api_client.load_chained_usage_ledger(ledger_path)
+                events = api_client._read_usage_events(Path(ledger_path))
+                attempt_events = [event for event in events
+                                  if event.get("attempt_id") == reservation["attempt_id"]]
+                terminal = dispatch.get("terminal")
+                binding = journal.entry_binding(key)
+                successes_for_key = [
+                    event for event in events if event.get("status") == "success"
+                    and journal_key(event.get("metadata")) == key
+                ]
+                if (not isinstance(terminal, Mapping)
+                        or terminal.get("status") != "success"
+                        or attempt_events != [dict(reservation), dict(terminal)]
+                        or successes_for_key != [dict(terminal)]
+                        or terminal.get("metadata") != reservation.get("metadata")
+                        or binding is None or binding != dispatch.get("journal_entry")
+                        or binding["request_sha256"] != fingerprint):
+                    raise JournalDispatchUnresolved(
+                        "completed marker lacks its exact successful ledger/journal response")
+                uncertain_cost = 0.0
+            else:
+                terminal = api_client.reconcile_interrupted_reservation(
+                    ledger_path, reservation=reservation,
+                    recovery_manifest_sha256=recovery_manifest_sha256)
+                uncertain_cost = terminal["cost_usd"]
+            if marker_bytes is not None:
+                journal._finish_dispatch(marker_bytes)
+            outcomes.append({
+                "attempt_id": reservation["attempt_id"] if reservation is not None else None,
+                "request_sha256": fingerprint,
+                "uncertain_cost_usd": uncertain_cost,
+                "recovery_manifest_sha256": recovery_manifest_sha256,
+                "disposition": disposition,
+            })
+        journal._assert_no_unresolved_marker()
+    return outcomes

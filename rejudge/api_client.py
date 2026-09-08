@@ -674,6 +674,67 @@ def load_chained_usage_ledger(
         last_sequence=tail_sequence, last_event_hash=hashes[-1])
 
 
+def reconcile_interrupted_reservation(
+        path: str | os.PathLike[str], *, reservation: Mapping[str, Any],
+        recovery_manifest_sha256: str) -> dict[str, Any]:
+    """Book an exact crashed request reservation as unknown, preserving its full cost.
+
+    The caller must hold the run lease and validate the signed recovery contract and its
+    preserved snapshots first. No live accounting client may exist yet. On reload, this
+    terminal event replaces the unmatched reservation's already-counted uncertainty; it
+    never adds a second charge. A repeated call accepts only this exact recovery event.
+    """
+    if (not isinstance(recovery_manifest_sha256, str)
+            or len(recovery_manifest_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in recovery_manifest_sha256)):
+        raise UsageLedgerError("recovery manifest must have a lowercase SHA-256")
+    ledger = Path(path)
+    snapshot = load_chained_usage_ledger(ledger)
+    events = _read_usage_events(ledger)
+    attempt_id = reservation.get("attempt_id")
+    if not isinstance(attempt_id, str) or not attempt_id:
+        raise UsageLedgerError("interrupted reservation has no attempt_id")
+    matching = [event for event in events if event.get("attempt_id") == attempt_id]
+    if (not matching or matching[0] != dict(reservation)
+            or reservation.get("status") != "reserved"):
+        raise UsageLedgerError("interrupted reservation differs from its preserved event")
+    stable_fields = (
+        "attempt_id", "model", "kind", "seed", "attempt", "reserved_prompt_tokens",
+        "reserved_completion_tokens", "estimated_tokens", "cost_usd", "metadata")
+    terminal = {
+        **{field: reservation[field] for field in stable_fields},
+        "status": "unknown_charge", "prompt_tokens": None, "completion_tokens": None,
+        "error": "environmental interruption before any provider response was journaled",
+        "recovery_manifest_sha256": recovery_manifest_sha256,
+        "recovery_reason": "environmental_interruption_unobserved_dispatch",
+    }
+    if len(matching) == 2:
+        prior_terminal = matching[1]
+        expected_fields = set(terminal) | {
+            "ts", "ledger_id", "sequence", "prev_event_hash", "event_hash"}
+        if (set(prior_terminal) == expected_fields
+                and all(prior_terminal.get(key) == value for key, value in terminal.items())):
+            return prior_terminal
+        raise UsageLedgerError("interrupted attempt already has a different terminal event")
+    if len(matching) != 1:
+        raise UsageLedgerError("interrupted attempt has multiple terminal events")
+    event = {
+        "ts": datetime.now(timezone.utc).isoformat(), **terminal,
+        "ledger_id": snapshot.identity["ledger_id"],
+        "sequence": snapshot.last_sequence + 1,
+        "prev_event_hash": snapshot.last_event_hash,
+    }
+    event["event_hash"] = _usage_event_hash(event)
+    with ledger.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    _atomic_write_json(
+        snapshot.state_path,
+        _usage_state_payload(snapshot.identity, event["sequence"], event["event_hash"]))
+    return event
+
+
 def prepare_usage_ledger(
     path: str | os.PathLike[str], *, allow_create: bool,
 ) -> dict[str, object]:
@@ -1001,6 +1062,7 @@ class RejudgeClient:
         self._sdk = _sdk_client
         self._sleep = _sleep
         self._lock = threading.Lock()
+        self._sdk_lock = threading.Lock()
         self.total_tokens = 0
         self.actual_prompt_tokens = 0
         self.actual_completion_tokens = 0
@@ -1156,6 +1218,24 @@ class RejudgeClient:
         with self._lock:
             return [dict(event) for event in self._usage_events]
 
+    def journal_dispatch_boundary(self) -> dict[str, Any] | None:
+        """Return the durable ledger frontier before a journal dispatch marker is made.
+
+        The event hash advances only after the event and tail state are persisted. Keeping
+        this causal boundary in the marker distinguishes an older unknown-charge attempt
+        from a later crash before any new reservation, even if wall-clock time changes.
+        """
+        with self._lock:
+            if self._fatal_accounting_error is not None:
+                raise UsageLedgerError(
+                    f"usage accounting is latched unsafe: {self._fatal_accounting_error}")
+            if self._ledger_identity is None:
+                return None
+            return {
+                "ledger_id": self._ledger_identity["ledger_id"],
+                "sequence": self._ledger_sequence, "event_hash": self._ledger_event_hash,
+            }
+
     def _prices_for(self, model: str) -> tuple[float, float]:
         entry = self.model_prices.get(model)
         if entry is None:
@@ -1237,7 +1317,8 @@ class RejudgeClient:
                     f"projected spend ${projected:.4f} > approved cap "
                     f"${self.approved_cap_usd:.4f}")
             if self.run_uncertain_ceiling_usd is not None:
-                projected_uncertain = self._run_uncertain_spend_usd + estimated_cost
+                projected_uncertain = (self._run_uncertain_spend_usd
+                                       + self._active_reservations_usd + estimated_cost)
                 if projected_uncertain > self.run_uncertain_ceiling_usd:
                     raise UncertainCeilingHalt(
                         f"projected run-uncertain exposure ${projected_uncertain:.4f} > "
@@ -1513,16 +1594,17 @@ class RejudgeClient:
         """Lazily construct (and memoize) the real Together SDK client, applying this client's
         own pinned ``http_timeout``/``sdk_internal_max_retries`` (see
         :func:`build_pinned_together_client`)."""
-        if self._sdk is None:
-            api_key = os.environ.get("TOGETHER_API_KEY")
-            if api_key is None or not api_key.strip():
-                raise ValueError(
-                    "TOGETHER_API_KEY environment variable is missing or blank; a live "
-                    "Together SDK client cannot be constructed")
-            self._sdk = build_pinned_together_client(
-                http_timeout=self.http_timeout,
-                sdk_internal_max_retries=self.sdk_internal_max_retries)
-        return self._sdk
+        with self._sdk_lock:
+            if self._sdk is None:
+                api_key = os.environ.get("TOGETHER_API_KEY")
+                if api_key is None or not api_key.strip():
+                    raise ValueError(
+                        "TOGETHER_API_KEY environment variable is missing or blank; a live "
+                        "Together SDK client cannot be constructed")
+                self._sdk = build_pinned_together_client(
+                    http_timeout=self.http_timeout,
+                    sdk_internal_max_retries=self.sdk_internal_max_retries)
+            return self._sdk
 
     # Models whose replies arrive after a hidden reasoning phase that consumes output tokens.
     # A small max_tokens starves the visible answer entirely (observed: Qwen3.5-9B returned

@@ -1,10 +1,9 @@
 """Offline launch validator and driver for the Phase 3 main measurement.
 
 The public preparation path is read-only. It derives the exact main inventory and validates
-every bound input before accepting a separate, active owner authorization. The public run path
-has no client, factory, path, concurrency, cap, or resume injection points. It acquires one
-persistent registry lease, creates and binds fresh formal stores, constructs the private provider
-client without dispatch, and records the identity start immediately before formal work.
+every bound input before accepting an active authorization. A signed operational recovery
+amendment can resume the same scientific run with preserved artifacts and bounded parallelism.
+Both paths acquire the same run lease and use the accounting client's cumulative spending cap.
 
 Importing this module and calling :func:`load_prepared_main` cannot create a provider client or
 mutate formal output state. The public paid path proceeds only after the exact bound artifacts,
@@ -40,6 +39,8 @@ from rejudge import (
     phase3_main_finalization,
     phase3_main_manifest,
     phase3_main_runtime_policies,
+    phase3_main_recovery,
+    phase3_main_recovery_driver,
     phase3_main_stage_cap,
     phase3_main_together_billing_capture,
     phase3_main_reviewer_provenance,
@@ -61,7 +62,10 @@ from rejudge.phase2_canary_order import CellResultStore
 from rejudge.phase2_canary_runner import run_canary
 from rejudge.phase2_dual_gate import parse_reviewer_output
 from rejudge.phase2_execution import canonical_sha256
-from rejudge.request_journal import JournalingClient, RequestJournal, find_ambiguous_dispatches
+from rejudge.request_journal import (
+    JournalingClient, RequestJournal, find_ambiguous_dispatches,
+    recover_interrupted_dispatches,
+)
 from scripts import (
     codex_reviewer_batch,
     phase3_main_analysis,
@@ -270,6 +274,10 @@ class PreparedMainRun:
     # accounted spend is added to the provider client's initial spend so the identity's
     # enforceable ceiling is cap - prior - voided. ``None`` only for legacy fixtures.
     predecessor_void_accounting_validation: Mapping[str, Any] | None = None
+    # A separately signed operational amendment preserves the scientific identity and
+    # original launch inputs while binding recovery code, checkpoint and concurrency.
+    recovery_path: Path | None = None
+    recovery_validation: Mapping[str, Any] | None = None
 
     @property
     def identity(self) -> phase3_main_runner.MainRunIdentity:
@@ -407,6 +415,35 @@ def _verify_clean_git_identity(manifest: Mapping[str, Any], root: Path) -> None:
             f"checkout HEAD {head!r} differs from source commit {manifest['source_commit']!r}")
     if status:
         raise Phase3MainLiveError("main launch requires a clean worktree including untracked files")
+
+
+def _execution_source_commit(prepared: PreparedMainRun) -> str:
+    recovery = prepared.recovery_validation
+    return str(recovery["execution_source_commit"] if recovery is not None
+               else prepared.manifest["source_commit"])
+
+
+def _verify_prepared_execution(prepared: PreparedMainRun) -> None:
+    _verify_clean_git_identity(
+        {"source_commit": _execution_source_commit(prepared)}, prepared.project_root)
+
+
+def _revalidate_recovery(
+    prepared: PreparedMainRun, *, verify_artifacts: bool = False,
+) -> Mapping[str, Any] | None:
+    if prepared.recovery_validation is None:
+        return None
+    if prepared.recovery_path is None:
+        raise Phase3MainLiveError("recovery context has no signed recovery path")
+    current = phase3_main_recovery.load_authenticated_recovery(
+        prepared.recovery_path, manifest_path=prepared.manifest_path,
+        authorization_path=prepared.authorization_path,
+        current_source_commit=_execution_source_commit(prepared),
+        allow_growth=True, verify_artifacts=verify_artifacts)
+    for field in ("recovery_raw_sha256", "recovery_signature_raw_sha256"):
+        if current[field] != prepared.recovery_validation[field]:
+            raise Phase3MainLiveError("signed recovery amendment changed during execution")
+    return current
 
 
 def _validate_prompt_bundle(bundle: Mapping[str, Any]) -> None:
@@ -1261,6 +1298,9 @@ class _AuthorizationDeadlineClient:
     def dry_run(self) -> bool:
         return bool(getattr(self._inner, "dry_run", False))
 
+    def journal_dispatch_boundary(self) -> Mapping[str, Any]:
+        return self._inner.journal_dispatch_boundary()
+
     def complete(self, *args: Any, **kwargs: Any) -> str:
         hook_field = "_logical_dispatch_authorization_hook"
         if hook_field in kwargs:
@@ -1278,6 +1318,7 @@ def _load_unchanged_authenticated_authorization(
     prepared: PreparedMainRun,
 ) -> Mapping[str, Any]:
     """Reload the exact signed authorization bytes and semantic object."""
+    _revalidate_recovery(prepared)
     current = _load_authenticated_owner_authorization(prepared.authorization_path)
     signature_path = prepared.authorization_path.with_name(
         f"{prepared.authorization_path.name}.sig")
@@ -1367,7 +1408,8 @@ def _revalidate_final_boundary_inputs(
     if validation.get("manifest_canonical_sha256") != prepared.identity.manifest_sha256:
         raise Phase3MainLiveError(
             "final manifest validation returned another canonical identity")
-    _verify_clean_git_identity(current_manifest, prepared.project_root)
+    _verify_prepared_execution(prepared)
+    _revalidate_recovery(prepared, verify_artifacts=True)
 
     current_authorization = _load_authenticated_owner_authorization(
         prepared.authorization_path)
@@ -1472,8 +1514,8 @@ def _validate_analysis_result_snapshot(
         question_snapshot = phase3_main_analysis._snapshot_protocol_bound_question_bank(  # noqa: SLF001
             prepared.protocol, prepared.project_root)
         expected_integrity = {
-            "repository_head_at_analysis": str(prepared.manifest["source_commit"]),
-            "engine_git_commit": str(prepared.manifest["source_commit"]),
+            "repository_head_at_analysis": _execution_source_commit(prepared),
+            "engine_git_commit": _execution_source_commit(prepared),
             "engine_git_state": "clean_tracked_at_head",
             "engine_git_status_porcelain": None,
             "engine_raw_sha256": _raw_sha256(Path(phase3_main_analysis.__file__).resolve()),
@@ -1765,7 +1807,7 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         verify_runtime=True,
     )
     _verify_execution_code_root(prepared.project_root)
-    _verify_clean_git_identity(prepared.manifest, prepared.project_root)
+    _verify_prepared_execution(prepared)
 
 
 def _load_verified_exact_context_index(
@@ -2191,6 +2233,7 @@ def load_prepared_main(
     authorization_path: str | Path,
     *,
     verify_git: bool = True,
+    recovery_path: str | Path | None = None,
 ) -> PreparedMainRun:
     """Read and fully validate one exact main launch without mutating output state."""
     root = LIVE_PROJECT_ROOT
@@ -2198,11 +2241,19 @@ def load_prepared_main(
     authorization_file = Path(authorization_path).resolve()
     _verify_execution_code_root(root)
     manifest = _load_strict_object(manifest_file, "main manifest")
+    recovery_file = Path(recovery_path).resolve() if recovery_path is not None else None
+    recovery = None
+    if recovery_file is not None:
+        recovery = phase3_main_recovery.load_authenticated_recovery(
+            recovery_file, manifest_path=manifest_file,
+            authorization_path=authorization_file, allow_growth=True)
 
     phase3_main_manifest.validate_main_manifest(
         manifest, project_root=root, verify_files=False, verify_runtime=True)
     if verify_git:
-        _verify_clean_git_identity(manifest, root)
+        _verify_clean_git_identity(
+            {"source_commit": recovery["execution_source_commit"]}
+            if recovery is not None else manifest, root)
     manifest_validation = phase3_main_manifest.validate_main_manifest(
         manifest, project_root=root, verify_files=True, verify_runtime=True)
     for label in ("artifact_root", "identity_registry_root"):
@@ -2433,6 +2484,8 @@ def load_prepared_main(
         context_excluded_cell_keys=excluded,
         uncertain_spend_policy_validation=uncertain_spend_policy_validation,
         predecessor_void_accounting_validation=void_accounting_validation,
+        recovery_path=recovery_file,
+        recovery_validation=recovery,
     )
 
 
@@ -2494,7 +2547,8 @@ def _construct_provider_client(
 ) -> Any:
     """Construct the sole live client. Tests may monkeypatch this private seam."""
     policy = _uncertain_spend_policy(prepared)
-    if int(dict(snapshot.summary).get("events", 0) or 0) != 0:
+    if (prepared.recovery_validation is None
+            and int(dict(snapshot.summary).get("events", 0) or 0) != 0):
         raise Phase3MainLiveError(
             "uncertain-spend tolerance requires a fresh main ledger at client construction")
     request = prepared.role_limits["request_settings"]
@@ -2504,6 +2558,8 @@ def _construct_provider_client(
     # starting balance, so the client enforces cap - prior - voided on its own spend.
     voided = Decimal(_predecessor_void_accounting(prepared)["accounted_spend_usd"])
     cap = Decimal(prepared.authorization["stage_cap_usd"])
+    resumed_actual = float(snapshot.summary.get("actual_spend_usd", 0.0))
+    resumed_uncertain = float(snapshot.summary.get("uncertain_spend_usd", 0.0))
     raw = api_client.RejudgeClient(
         approved_cap_usd=float(cap),
         dry_run=False,
@@ -2511,12 +2567,12 @@ def _construct_provider_client(
         max_retries=int(transport["ledger_max_retries"]),
         model_prices=_model_prices(prepared.price_snapshot),
         strict_model_pricing=True,
-        initial_spend_usd=float(prior + voided),
-        initial_uncertain_spend_usd=0.0,
+        initial_spend_usd=float(prior + voided) + resumed_actual,
+        initial_uncertain_spend_usd=resumed_uncertain,
         # Amendment 14: bounded per-identity uncertain-spend ceiling, checked by the client
         # before every reservation; uncertain reservations already count against the cap.
         run_uncertain_ceiling_usd=float(policy["run_uncertain_ceiling_usd"]),
-        initial_run_uncertain_spend_usd=float(policy["initial_run_uncertain_spend_usd"]),
+        initial_run_uncertain_spend_usd=resumed_uncertain,
         usage_log_path=str(snapshot.path),
         _ledger_snapshot=snapshot,
         _sdk_client=sdk_client,
@@ -3355,16 +3411,14 @@ def _record_environmental_interruption_locked(
 def run_main(
     manifest_path: str | Path,
     authorization_path: str | Path,
+    *,
+    recovery_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Run one fresh main identity after all read-only gates pass.
-
-    The execution loop is installed with finalization in this module's closeout section. This
-    entry already enforces the single-shot startup and private factory boundary. Any failure
-    after identity start leaves the persistent started record in place and cannot resume.
-    """
+    """Start fresh work, or preserve and resume work under a signed recovery amendment."""
     _require_production_execution_unblocked()
     prepared = load_prepared_main(
-        manifest_path, authorization_path, verify_git=True)
+        manifest_path, authorization_path, verify_git=True,
+        **({"recovery_path": recovery_path} if recovery_path is not None else {}))
     _validate_launch_freshness(prepared)
     _revalidate_authenticated_authorization(prepared)
     sdk_client = _construct_verified_runtime_provider_sdk(prepared)
@@ -3375,6 +3429,8 @@ def run_main(
         raise Phase3MainLiveError("main identity has no persistent registry root")
     _durably_prepare_identity_registry(registry_root)
     with phase3_v3_live.RunLease(paths.lease) as held_run_lease:
+        if prepared.recovery_validation is not None:
+            return _resume_main(prepared, sdk_client, held_run_lease=held_run_lease)
         _assert_identity_not_started(identity)
         phase3_main_runner._assert_fresh_identity(paths)
         _validate_launch_freshness(prepared)
@@ -3447,19 +3503,97 @@ def run_main(
                 paths, active_marker=active, identity_binding=binding)
 
 
+def _resume_main(
+    prepared: PreparedMainRun, sdk_client: Any, *,
+    held_run_lease: phase3_v3_live.RunLease,
+) -> dict[str, Any]:
+    """Recover exact durable work without reseeding, resetting counters or resampling it."""
+    paths = prepared.identity.paths
+    phase3_main_reviewer_commit.require_held_run_lease(
+        held_run_lease, expected_path=paths.lease)
+    recovery = _revalidate_recovery(prepared, verify_artifacts=True)
+    if recovery is None:
+        raise Phase3MainLiveError("resume requires an authenticated recovery amendment")
+    _verify_prepared_execution(prepared)
+    _validate_launch_freshness(prepared)
+    _revalidate_authenticated_authorization(prepared)
+    start_raw, _active_raw, _binding_raw = _price_change_start_evidence(
+        prepared.identity, prepared.manifest)
+    start = json.loads(start_raw)
+    snapshot = api_client.load_chained_usage_ledger(paths.usage_ledger)
+    if (snapshot.identity["ledger_id"] != start["usage_ledger_id"]
+            or canonical_sha256(snapshot.identity)
+            != start["usage_ledger_identity_canonical_sha256"]):
+        raise Phase3MainLiveError("resumed ledger differs from the original run start")
+    journal = RequestJournal(
+        paths.request_journal,
+        execution_identity=prepared.identity.journal_execution_identity)
+    recovered = recover_interrupted_dispatches(
+        journal, paths.usage_ledger, recovery["interrupted_dispatches"],
+        recovery_manifest_sha256=str(recovery["recovery_manifest_sha256"]))
+    snapshot = api_client.load_chained_usage_ledger(paths.usage_ledger)
+    ledger_events = api_client._read_usage_events(paths.usage_ledger)
+    fatal = [finding for finding in find_ambiguous_dispatches(journal, ledger_events)
+             if finding["problem"] != "unknown_charge"]
+    if fatal:
+        raise Phase3MainLiveError(
+            "recovery ledger/journal requires repair before dispatch: "
+            + ", ".join(sorted({str(item["problem"]) for item in fatal})))
+    state = phase3_main_recovery_driver.restore_driver_state(
+        paths, held_run_lease=held_run_lease,
+        expected_run_id=prepared.identity.run_id,
+        expected_manifest_sha256=prepared.identity.manifest_sha256)
+    raw_client = _construct_provider_client(prepared, snapshot, sdk_client=sdk_client)
+    client = JournalingClient(
+        raw_client, journal,
+        max_concurrent_requests=int(recovery["provider_worker_concurrency"]),
+        model_caps=dict(recovery["per_model_limits"]))
+    _append_jsonl(paths.run_log, {
+        "event": "formal_main_resumed",
+        "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+        "run_id": prepared.identity.run_id, "pid": os.getpid(),
+        "recovery_path": str(prepared.recovery_path),
+        "recovery_manifest_sha256": recovery["recovery_manifest_sha256"],
+        "recovery_raw_sha256": recovery["recovery_raw_sha256"],
+        "recovery_signature_raw_sha256": recovery["recovery_signature_raw_sha256"],
+        "execution_source_commit": _execution_source_commit(prepared),
+        "first_pass_index": state.first_pass_index,
+        "provider_worker_concurrency": recovery["provider_worker_concurrency"],
+        "initial_per_model_limits": recovery["initial_per_model_limits"],
+        "maximum_per_model_limits": recovery["per_model_limits"],
+        "reviewer_dispatches_already_reserved": state.reviewer_dispatches,
+        "recovered_interrupted_requests": len(recovered),
+        "current_run_accounted_usd": snapshot.summary["accounted_spend_usd"],
+        "current_run_uncertain_usd": snapshot.summary["uncertain_spend_usd"],
+        "completed_rows_preserved": len(
+            phase3_main_finalization.load_result_cell_keys(paths.results)),
+    })
+    for wave in state.recovered_reviewer_waves:
+        _append_jsonl(paths.run_log, {
+            "event": "reviewer_usage_wave_recovered",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+            "wave": wave, "recovered_from_durable_commit": True,
+            "cumulative_reviewer_dispatches": state.reviewer_dispatches,
+        })
+    return _drive_and_finalize(
+        prepared, client, held_run_lease=held_run_lease, resume_state=state)
+
+
 def _drive_and_finalize(
     prepared: PreparedMainRun,
     client: Any,
     *,
     held_run_lease: phase3_v3_live.RunLease,
+    resume_state: Any = None,
 ) -> dict[str, Any]:
-    """Drive serial provider work, same-process review waves, and exact closeout."""
+    """Drive bounded independent provider work and preserve review/usage state on resume."""
     identity = prepared.identity
     paths = identity.paths
-    paths.decisions.touch(exist_ok=False)
-    paths.reviewer_index.touch(exist_ok=False)
-    paths.run_log.touch(exist_ok=False)
-    paths.review_packets_root.mkdir()
+    if resume_state is None:
+        paths.decisions.touch(exist_ok=False)
+        paths.reviewer_index.touch(exist_ok=False)
+        paths.run_log.touch(exist_ok=False)
+        paths.review_packets_root.mkdir()
     terminal_store = phase3_main_finalization.MainTerminalDispositionStore(
         paths.terminal_dispositions,
         run_id=identity.run_id,
@@ -3467,8 +3601,9 @@ def _drive_and_finalize(
         inventory=prepared.inventory,
         checker_model=str(prepared.protocol["roster"]["query_checker"]),
     )
-    export_reviewer_worklist(
-        [], str(prepared.reviewer_prompt["prompt"]), paths.reviewer_worklist)
+    if resume_state is None:
+        export_reviewer_worklist(
+            [], str(prepared.reviewer_prompt["prompt"]), paths.reviewer_worklist)
     resolved = phase3_runner.resolve_main_cells(
         prepared.inventory.cells,
         protocol=prepared.protocol,
@@ -3484,11 +3619,22 @@ def _drive_and_finalize(
     abandoned_cooldown = int(policy["abandoned_rate_cooldown_seconds"])
     abandoned_allowance = int(policy["abandoned_rate_consecutive_pass_allowance"])
     max_passes += unknown_charge_pass_allowance
-    consecutive_abandoned_rate = 0
-    reviewer_dispatches = 0
+    consecutive_abandoned_rate = (
+        resume_state.consecutive_abandoned_rate if resume_state is not None else 0)
+    reviewer_dispatches = (
+        resume_state.reviewer_dispatches if resume_state is not None else 0)
+    first_pass = resume_state.first_pass_index if resume_state is not None else 1
+    previous_unknown_charges = (
+        resume_state.existing_unknown_charge_count if resume_state is not None else 0)
+    recovery = prepared.recovery_validation
+    workers = int(recovery["provider_worker_concurrency"]) if recovery else 1
+    tuner = (phase3_main_recovery_driver.ProviderConcurrencyTuner(
+        recovery["initial_per_model_limits"], recovery["per_model_limits"],
+        clean_calls_for_promotion=100) if recovery else None)
+    usage_offset = len(api_client._read_usage_events(paths.usage_ledger)) if tuner else 0
 
     def _resolved_unknown_charges() -> int:
-        return len(getattr(client, "resolved_unknown_charges", ()))
+        return previous_unknown_charges + len(getattr(client, "resolved_unknown_charges", ()))
 
     def _abandoned_rate_pass(outcome: Any, reason: str, pass_index: int) -> None:
         """Log an abandoned-rate pass, cool down, or halt the identity past the allowance."""
@@ -3517,13 +3663,13 @@ def _drive_and_finalize(
         prepared.reviewer_usage_policy_validation["maximum_reviewer_dispatches"])
     void_accounting = _predecessor_void_accounting(prepared)
     _append_jsonl(paths.run_log, {
-        "event": "formal_main_started",
+        "event": "formal_main_started" if resume_state is None else "formal_main_driver_restored",
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "run_id": identity.run_id,
         "planned_transcripts": 492,
         "planned_judgments": 9_840,
         "context_ineligible_judgments": len(context_excluded),
-        "provider_worker_concurrency": 1,
+        "provider_worker_concurrency": workers,
         "reviewer_concurrency": 12,
         "reviewer_wave_size": pending_limit,
         "reviewer_usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
@@ -3550,7 +3696,14 @@ def _drive_and_finalize(
             void_accounting["maximum_successor_expenditure_usd"]),
     })
 
-    for pass_index in range(1, max_passes + 1):
+    for pass_index in range(first_pass, max_passes + 1):
+        _append_jsonl(paths.run_log, {
+            "event": "formal_main_pass_started",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+            "pass_index": pass_index,
+            "provider_worker_concurrency": workers,
+            "provider_model_limits": tuner.limits if tuner is not None else None,
+        })
         terminal = terminal_store.cell_keys
         omitted = context_excluded | terminal
         active = [cell for cell in resolved if str(cell.cell_key) not in omitted]
@@ -3564,7 +3717,9 @@ def _drive_and_finalize(
             bundle=dict(prepared.prompt_bundle),
             pause_when_unlabeled=True,
             cells=active,
-            max_workers=1,
+            max_workers=workers,
+            **({"block_size": int(recovery["block_size"]),
+                "model_caps": tuner.limits} if recovery and tuner else {}),
             transcript_generation_forbidden=True,
             namespace=str(prepared.protocol["cell_key_namespace"]),
             pending_payload_limit=pending_limit,
@@ -3574,6 +3729,15 @@ def _drive_and_finalize(
             # unknown charge, and the client's ceiling bounds the uncertain exposure.
             fatal_unknown_charge=False,
         )
+        if tuner is not None:
+            usage_events = api_client._read_usage_events(paths.usage_ledger)
+            for change in tuner.observe(usage_events[usage_offset:]):
+                _append_jsonl(paths.run_log, {
+                    "event": "provider_concurrency_adjusted",
+                    "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                    "pass_index": pass_index, **change,
+                })
+            usage_offset = len(usage_events)
         if outcome.halted_reason == "GenerationForbiddenError":
             raise GenerationForbiddenError(
                 f"unseeded transcript reached main execution: {outcome.halted_cell_key}")
@@ -3591,6 +3755,7 @@ def _drive_and_finalize(
             _append_jsonl(paths.run_log, {
                 "event": f"{outcome.halted_reason}_terminal_disposition",
                 "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                "pass_index": pass_index,
                 "cell_key": outcome.halted_cell_key,
                 "terminal_count": len(terminal_store.cell_keys),
             })
@@ -3906,7 +4071,7 @@ def _review_wave_same_process(
         verify_runtime=True,
     )
     _verify_execution_code_root(prepared.project_root)
-    _verify_clean_git_identity(prepared.manifest, prepared.project_root)
+    _verify_prepared_execution(prepared)
     completed = subprocess.run(
         command,
         cwd=prepared.project_root,
@@ -4403,6 +4568,15 @@ def _finalize_main(
         "provider_calls_authorized": False,
         "main_run_spend_authorized": False,
     }
+    if prepared.recovery_validation is not None:
+        completion["execution_source_commit"] = _execution_source_commit(prepared)
+        completion["recovery"] = {
+            "path": str(prepared.recovery_path),
+            "raw_sha256": prepared.recovery_validation["recovery_raw_sha256"],
+            "signature_raw_sha256": prepared.recovery_validation[
+                "recovery_signature_raw_sha256"],
+            "original_source_commit": prepared.manifest["source_commit"],
+        }
     _require_identity_not_voided(prepared.identity)
     _write_exclusive_json(
         paths.completion,
@@ -4487,6 +4661,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="phase3_main_live")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--authorization")
+    parser.add_argument(
+        "--recovery",
+        help="signed operational amendment for preserving and resuming this exact run",
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
         "--validate-only", action="store_true",
@@ -4494,7 +4672,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     mode.add_argument(
         "--run", action="store_true",
-        help="start the exact single-shot formal measurement",
+        help="start the formal measurement, or resume it with --recovery",
     )
     mode.add_argument(
         "--record-environmental-interruption", action="store_true",
@@ -4506,6 +4684,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if args.record_environmental_interruption:
+        if args.recovery is not None:
+            parser.error("--recovery cannot accompany an explicit void operation")
         if args.authorization is not None:
             parser.error("--authorization is not used when recording an interruption")
         if args.reason_code is None:
@@ -4528,6 +4708,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.manifest,
                 args.authorization,
                 verify_git=True,
+                **({"recovery_path": args.recovery} if args.recovery is not None else {}),
             )
             payload: Mapping[str, Any] = {
                 "status": "validated_only",
@@ -4540,6 +4721,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = run_main(
                 args.manifest,
                 args.authorization,
+                **({"recovery_path": args.recovery} if args.recovery is not None else {}),
             )
     except Exception as exc:
         print(f"REFUSED: {type(exc).__name__}: {exc}", file=sys.stderr)

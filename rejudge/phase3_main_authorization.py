@@ -34,9 +34,14 @@ def load_authenticated_owner_authorization(
     public_key: str | None = None,
     key_fingerprint: str | None = None,
     ssh_keygen_path: str | Path | None = None,
+    signature_namespace: str = OWNER_SIGNATURE_NAMESPACE,
 ) -> dict[str, Any]:
     """Load one strict JSON object and verify its exact bytes with an SSH signature."""
     source = Path(path).resolve()
+    if (not isinstance(signature_namespace, str) or not signature_namespace
+            or any(not (character.isalnum() or character in "._-")
+                   for character in signature_namespace)):
+        raise MainAuthorizationSignatureError("signature namespace must be a nonempty token")
     signature = source.with_name(f"{source.name}.sig")
     pinned_key = (
         phase3_owner_signing.OWNER_SIGNING_PUBLIC_KEY
@@ -77,7 +82,7 @@ def load_authenticated_owner_authorization(
             public_key_path.write_text(
                 pinned_key.strip() + "\n", encoding="utf-8", newline="\n")
             allowed.write_text(
-                f'{OWNER_SIGNATURE_PRINCIPAL} namespaces="{OWNER_SIGNATURE_NAMESPACE}" '
+                f'{OWNER_SIGNATURE_PRINCIPAL} namespaces="{signature_namespace}" '
                 f"{pinned_key.strip()}\n",
                 encoding="utf-8",
                 newline="\n",
@@ -106,7 +111,7 @@ def load_authenticated_owner_authorization(
                         "-Y", "verify",
                         "-f", str(allowed),
                         "-I", OWNER_SIGNATURE_PRINCIPAL,
-                        "-n", OWNER_SIGNATURE_NAMESPACE,
+                        "-n", signature_namespace,
                         "-s", str(signature),
                     ],
                     stdin=message_handle,
@@ -127,7 +132,7 @@ def load_authenticated_owner_authorization(
         raise MainAuthorizationSignatureError(
             "owner authorization signature verification failed") from exc
     if verified.returncode != 0 or not verified.stdout.startswith(
-        f'Good "{OWNER_SIGNATURE_NAMESPACE}" signature for '
+        f'Good "{signature_namespace}" signature for '
         f"{OWNER_SIGNATURE_PRINCIPAL}".encode("utf-8")
     ):
         raise MainAuthorizationSignatureError(
