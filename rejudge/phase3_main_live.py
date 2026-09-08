@@ -1736,9 +1736,39 @@ def _revalidate_capacity_snapshot(
     return plan, {**validation, "runtime": runtime}
 
 
+def _launch_evidence_as_of(
+    manifest: Mapping[str, Any], manifest_validation: Mapping[str, Any],
+    recovery: Mapping[str, Any] | None, *, now: datetime,
+) -> datetime:
+    """A same-run continuation rechecks admission at its authenticated original start."""
+    if recovery is None:
+        return now
+    identity = phase3_main_runner.MainRunIdentity(
+        run_id=str(manifest["run_id"]),
+        manifest_sha256=str(manifest_validation["manifest_canonical_sha256"]),
+        artifact_root=Path(manifest_validation["artifact_root"]),
+        identity_registry_root=Path(manifest_validation["identity_registry_root"]),
+    )
+    start_raw, active_raw, _binding_raw = _price_change_start_evidence(identity, manifest)
+    preserved = recovery["immutable_artifacts"]["identity_start"]
+    if (Path(preserved["path"]).resolve() != _identity_start_path(identity).resolve()
+            or len(start_raw) != preserved["size_bytes"]
+            or hashlib.sha256(start_raw).hexdigest() != preserved["raw_sha256"]):
+        raise Phase3MainLiveError("original launch clock differs from signed recovery start evidence")
+    started_at = phase3_main_manifest._utc(
+        json.loads(start_raw)["recorded_at_utc"], "original identity start recorded_at_utc")
+    active_at = phase3_main_manifest._utc(
+        json.loads(active_raw)["started_at_utc"], "original active marker started_at_utc")
+    if not active_at <= started_at <= now:
+        raise Phase3MainLiveError("original launch clock is inconsistent or in the future")
+    return started_at
+
+
 def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
-    """Establish current launch evidence immediately before identity consumption."""
+    """Reopen admission inputs at launch time, preserving the original clock on resume."""
     now = datetime.now(timezone.utc)
+    evidence_as_of = _launch_evidence_as_of(
+        prepared.manifest, prepared.manifest_validation, prepared.recovery_validation, now=now)
     for name, label in (
         ("raw_provider_catalog", "raw provider catalog"),
         ("raw_serverless_endpoints", "raw serverless endpoints"),
@@ -1754,7 +1784,7 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         protocol=prepared.protocol,
         root=prepared.project_root,
         input_paths=prepared.input_paths,
-        as_of=now,
+        as_of=evidence_as_of,
     )
     plan = _load_bound_input_object(
         prepared.manifest, prepared.input_paths, "capacity_plan", "capacity plan")
@@ -1773,7 +1803,7 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         plan=plan,
         result=result,
         history_path=prepared.input_paths["capacity_dispatch_history"],
-        as_of=now,
+        as_of=evidence_as_of,
         plan_path=prepared.input_paths["capacity_plan"],
         result_path=prepared.input_paths["capacity_result"],
         execution_manifest_path=prepared.input_paths[
@@ -1800,7 +1830,7 @@ def _validate_launch_freshness(prepared: PreparedMainRun) -> None:
         phase3_main_billing_reconciliation.validate_billing_reconciliation(
             billing_record,
             project_root=prepared.project_root,
-            as_of=now,
+            as_of=evidence_as_of,
         )
     )
     _require_clean_pre_main_billing(billing_validation, prepared.manifest)
@@ -2359,6 +2389,7 @@ def load_prepared_main(
     )
 
     now = datetime.now(timezone.utc)
+    evidence_as_of = _launch_evidence_as_of(manifest, manifest_validation, recovery, now=now)
     capacity_plan = _load_bound_input_object(
         manifest, input_paths, "capacity_plan", "capacity plan")
     capacity_result = _load_bound_input_object(
@@ -2366,7 +2397,7 @@ def load_prepared_main(
     _reopen_capacity_execution_provenance_inputs(manifest, input_paths)
     capacity_validation = _validate_capacity(
         plan=capacity_plan, result=capacity_result,
-        history_path=input_paths["capacity_dispatch_history"], as_of=now,
+        history_path=input_paths["capacity_dispatch_history"], as_of=evidence_as_of,
         plan_path=input_paths["capacity_plan"],
         result_path=input_paths["capacity_result"],
         execution_manifest_path=input_paths["capacity_execution_manifest"],
@@ -2405,7 +2436,7 @@ def load_prepared_main(
     _validate_price_bindings(
         price, protocol=protocol, root=root, input_paths=input_paths, as_of=approved_at)
     _validate_price_bindings(
-        price, protocol=protocol, root=root, input_paths=input_paths, as_of=now)
+        price, protocol=protocol, root=root, input_paths=input_paths, as_of=evidence_as_of)
     try:
         phase3_v3_live._validate_contexts_against_catalog(role_limits, price, root)
     except phase3_v3_live.Phase3V3LiveError as exc:
@@ -2414,7 +2445,7 @@ def load_prepared_main(
     billing_record = _load_bound_input_object(
         manifest, input_paths, "billing_reconciliation", "billing reconciliation")
     billing_validation = phase3_main_billing_reconciliation.validate_billing_reconciliation(
-        billing_record, project_root=root, as_of=now)
+        billing_record, project_root=root, as_of=evidence_as_of)
     _require_clean_pre_main_billing(billing_validation, manifest)
     _validate_environmental_restart(
         manifest_validation=manifest_validation,
