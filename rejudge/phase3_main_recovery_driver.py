@@ -1,7 +1,7 @@
 """Restore operational counters and tune bounded provider concurrency after a crash.
 
-No model output is inspected here. Reviewer recovery only completes an existing local commit
-intent; an uncertain external reviewer dispatch is never repeated by this module.
+No model output is inspected here. Reviewer recovery completes existing local commits or
+preserves signed quota-failed allocations without inventing reviewer decisions.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from rejudge import phase3_main_reviewer_commit as reviewer_commit
+from rejudge.phase2_execution import canonical_sha256
 
 
 class RecoveryDriverError(ValueError):
@@ -26,6 +27,8 @@ class DriverState:
     existing_unknown_charge_count: int
     recovered_reviewer_waves: tuple[int, ...]
     usage_event_count: int
+    quota_abandoned_waves: tuple[int, ...] = ()
+    pending_quota_replacements: tuple[int, ...] = ()
 
 
 def _integer(value: Any, label: str, *, minimum: int = 0) -> int:
@@ -67,16 +70,23 @@ def restore_driver_state(
     expected_run_id: str | None = None,
     expected_manifest_sha256: str | None = None,
     resume_unfinished_wave: Callable[[int, int], None] | None = None,
+    quota_abandoned_waves: Sequence[Mapping[str, Any]] = (),
 ) -> DriverState:
-    """Restore cumulative limits, completing only already-prepared reviewer commits.
+    """Restore cumulative limits and separately identify signed unanswered quota allocations.
 
     The caller validates the usage ledger chain and run identity before calling. Any returned
     ``recovered_reviewer_waves`` needs a durable ``reviewer_usage_wave_recovered`` log event.
     Its dispatches have already been counted and must not be reserved or dispatched again.
+    The caller fully validates quota proofs before supplying them; fresh replacement waves
+    must receive a new allocation through the unchanged reviewer ceiling.
     """
     log = _rows(Path(paths.run_log))
+    quota = {value["wave"]: value for value in quota_abandoned_waves}
+    if len(quota) != len(quota_abandoned_waves):
+        raise RecoveryDriverError("quota-abandoned reviewer wave was authorized more than once")
     reservations: dict[int, tuple[int, int]] = {}
     completed = set()
+    quota_logged = set()
     reviewer_dispatches = max_pass = consecutive_abandoned = 0
     for row in log:
         event = row.get("event")
@@ -111,6 +121,13 @@ def restore_driver_state(
             ):
                 raise RecoveryDriverError(f"reviewer wave {wave} completion count drifted")
             completed.add(wave)
+        elif event == "reviewer_usage_wave_quota_abandoned":
+            wave = _integer(row.get("wave"), "quota-abandoned reviewer wave", minimum=1)
+            if (wave not in quota or wave in quota_logged or wave not in reservations
+                    or row.get("quota_proof_canonical_sha256") != canonical_sha256(quota[wave])
+                    or row.get("dispatches_this_wave") != reservations[wave][0]):
+                raise RecoveryDriverError("quota abandonment log differs from its signed preserved allocation")
+            quota_logged.add(wave)
 
     def load_index():
         indexed = {}
@@ -129,10 +146,15 @@ def restore_driver_state(
         return indexed
 
     indexed = load_index()
+    for wave, proof in quota.items():
+        if (wave not in reservations or proof["reserved_dispatches"] != reservations[wave][0]
+                or wave in completed or wave in indexed
+                or proof["original_reservation"]["cumulative_reviewer_dispatches"] != reservations[wave][1]):
+            raise RecoveryDriverError("quota abandonment cannot change a completed wave or its allocation")
     if completed - indexed.keys():
         raise RecoveryDriverError("a completed reviewer wave has no committed index row")
     recovered = []
-    for wave in sorted(reservations.keys() - completed):
+    for wave in sorted(reservations.keys() - completed - quota.keys()):
         intent_directories = []
         if Path(paths.review_packets_root).exists():
             for directory in Path(paths.review_packets_root).iterdir():
@@ -186,6 +208,11 @@ def restore_driver_state(
                 "be reconciled before continuation, without redispatching that wave")
         recovered.append(wave)
 
+    pending_quota = [wave for wave, proof in sorted(quota.items())
+                     if proof["replacement_wave"] not in reservations]
+    if any(quota[wave]["replacement_wave"] <= max_pass for wave in pending_quota):
+        raise RecoveryDriverError("quota replacement must use the next unused reviewer wave")
+
     usage = _rows(Path(paths.usage_ledger))
     unknown_attempts = set()
     for row in usage:
@@ -203,6 +230,8 @@ def restore_driver_state(
         existing_unknown_charge_count=len(unknown_attempts),
         recovered_reviewer_waves=tuple(recovered),
         usage_event_count=len(usage),
+        quota_abandoned_waves=tuple(sorted(quota.keys() - quota_logged)),
+        pending_quota_replacements=tuple(pending_quota),
     )
 
 

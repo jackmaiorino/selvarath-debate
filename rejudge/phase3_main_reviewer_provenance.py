@@ -1231,6 +1231,67 @@ def review_packets_tree_canonical_sha256(root: str | Path) -> str:
     return _tree_digest(resolved)
 
 
+def _authenticated_quota_abandoned_waves(
+    recovery: Mapping[str, Any] | None,
+    *,
+    expected_run_id: str,
+    expected_manifest_sha256: str,
+) -> list[dict[str, Any]]:
+    if recovery is None:
+        return []
+    try:
+        return phase3_main_reviewer_recovery.authenticated_quota_abandoned_waves(
+            recovery, expected_run_id=expected_run_id,
+            expected_manifest_sha256=expected_manifest_sha256)
+    except (OSError, ValueError) as exc:
+        raise MainReviewerProvenanceError(
+            "quota-abandoned reviewer wave authority or preserved evidence is invalid") from exc
+
+
+def _quota_abandoned_packet_dirs(
+    proofs: list[dict[str, Any]], *, root: Path, max_passes: int,
+    committed_payloads: Mapping[int, set[str]], committed_dirs: set[Path],
+) -> set[Path]:
+    """Join authenticated no-output failures to their exact later completed reviews."""
+    by_wave: dict[int, dict[str, Any]] = {}
+    directories: set[Path] = set()
+    for proof in proofs:
+        wave = _require_positive_int(proof.get("wave"), field="quota-abandoned wave")
+        replacement = _require_positive_int(
+            proof.get("replacement_wave"), field="quota-abandoned replacement wave")
+        if wave in by_wave or wave in committed_payloads or wave > max_passes:
+            raise MainReviewerProvenanceError(
+                "quota-abandoned wave is duplicated, indexed, or outside max_passes")
+        if replacement <= wave or replacement > max_passes:
+            raise MainReviewerProvenanceError(
+                "quota-abandoned replacement wave must advance within max_passes")
+        path = Path(_require_text(proof.get("packet_directory"), field="quota-abandoned packet directory"))
+        if (not path.is_absolute() or ".." in path.parts or path.parent.resolve() != root
+                or path.is_symlink() or not path.is_dir()):
+            raise MainReviewerProvenanceError(
+                "quota-abandoned packet directory is not an available direct child")
+        directory = path.resolve()
+        if directory.parent != root or directory in committed_dirs or directory in directories:
+            raise MainReviewerProvenanceError(
+                "quota-abandoned packet directory is duplicated or indexed")
+        directories.add(directory)
+        by_wave[wave] = proof
+    for proof in proofs:
+        payloads = set(proof["payload_sha256s"])
+        replacement = proof["replacement_wave"]
+        # Every intermediate no-output attempt requires its own authenticated proof.
+        while replacement in by_wave:
+            next_proof = by_wave[replacement]
+            if set(next_proof["payload_sha256s"]) != payloads:
+                raise MainReviewerProvenanceError(
+                    "quota-abandoned replacement chain changed the pending payload set")
+            replacement = next_proof["replacement_wave"]
+        if committed_payloads.get(replacement) != payloads:
+            raise MainReviewerProvenanceError(
+                "quota-abandoned payloads lack their exact committed replacement wave")
+    return directories
+
+
 def verify_main_reviewer_provenance(
     *,
     reviewer_index_path: str | Path,
@@ -1380,6 +1441,7 @@ def verify_main_reviewer_provenance(
         indexed_wave = wave
         indexed_recorded_at = recorded_at
     seen_packet_dirs: set[Path] = set()
+    committed_wave_payloads: dict[int, set[str]] = {}
     seen_payloads: set[str] = set()
     expected_decisions: list[dict[str, Any]] = []
     prior_wave = 0
@@ -1480,6 +1542,7 @@ def verify_main_reviewer_provenance(
         if len(worklist_items) != payload_count:
             raise MainReviewerProvenanceError("reviewer wave payload count drifted")
         wave_payloads = {str(item["payload_sha256"]) for item in worklist_items}
+        committed_wave_payloads[wave] = wave_payloads
         if seen_payloads & wave_payloads:
             raise MainReviewerProvenanceError("reviewer payload appears in more than one wave")
         seen_payloads.update(wave_payloads)
@@ -1691,10 +1754,16 @@ def verify_main_reviewer_provenance(
         )
         last_worklist_raw = worklist_raw
 
+    abandoned_proofs = _authenticated_quota_abandoned_waves(
+        reviewer_recovery, expected_run_id=expected_run_id,
+        expected_manifest_sha256=expected_manifest_canonical_sha256)
+    abandoned_dirs = _quota_abandoned_packet_dirs(
+        abandoned_proofs, root=root, max_passes=max_passes,
+        committed_payloads=committed_wave_payloads, committed_dirs=seen_packet_dirs)
     actual_root_children = {child.resolve() for child in root.iterdir()}
     if any(child.is_symlink() for child in root.iterdir()):
         raise MainReviewerProvenanceError("review packet root contains a symbolic link")
-    if actual_root_children != seen_packet_dirs:
+    if actual_root_children != seen_packet_dirs | abandoned_dirs:
         raise MainReviewerProvenanceError("review packet root has an unindexed child")
     if seen_payloads != expected_payloads:
         raise MainReviewerProvenanceError(
@@ -1763,6 +1832,12 @@ def verify_main_reviewer_provenance(
     if review_packets_tree_canonical_sha256(root) != tree_sha:
         raise MainReviewerProvenanceError(
             "review packet tree changed while reviewer provenance was validated")
+    if abandoned_proofs and _authenticated_quota_abandoned_waves(
+        reviewer_recovery, expected_run_id=expected_run_id,
+        expected_manifest_sha256=expected_manifest_canonical_sha256,
+    ) != abandoned_proofs:
+        raise MainReviewerProvenanceError(
+            "quota-abandoned reviewer authority changed during provenance validation")
     return {
         "reviewer_provenance_status": REVIEWER_PROVENANCE_STATUS,
         "reviewer_wave_count": len(wave_rows),

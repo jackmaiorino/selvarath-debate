@@ -23,7 +23,7 @@ import sys
 import tempfile
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, MAX_EMAX, MIN_EMIN, ROUND_HALF_UP, localcontext
 from pathlib import Path
@@ -56,6 +56,7 @@ from rejudge.phase2_canary_execute import GenerationForbiddenError
 from rejudge.phase2_canary_live import (
     RoleLimitResolvingClient,
     _PauseModeReviewer,
+    compose_subagent_prompt,
     export_reviewer_worklist,
 )
 from rejudge.phase2_canary_order import CellResultStore
@@ -3586,6 +3587,7 @@ def _resume_main(
         paths, held_run_lease=held_run_lease,
         expected_run_id=prepared.identity.run_id,
         expected_manifest_sha256=prepared.identity.manifest_sha256,
+        quota_abandoned_waves=(recovery.get("reviewer_transport_repair") or {}).get("quota_abandoned_waves", []),
         **({"resume_unfinished_wave": lambda wave, quantity: _resume_reviewer_wave(
                 prepared, wave=wave, quantity=quantity, held_run_lease=held_run_lease)}
            if recovery.get("reviewer_transport_repair") else {}))
@@ -3621,8 +3623,63 @@ def _resume_main(
             "wave": wave, "recovered_from_durable_commit": True,
             "cumulative_reviewer_dispatches": state.reviewer_dispatches,
         })
+    state = _resume_quota_reviewer_waves(prepared, recovery, state, held_run_lease=held_run_lease)
     return _drive_and_finalize(
         prepared, client, held_run_lease=held_run_lease, resume_state=state)
+
+
+def _resume_quota_reviewer_waves(prepared, recovery, state, *, held_run_lease):
+    """Allocate a fresh review of exact unanswered packets before any provider work resumes."""
+    proofs = {value["wave"]: value for value in
+              (recovery.get("reviewer_transport_repair") or {}).get("quota_abandoned_waves", [])}
+    if not proofs:
+        return state
+    paths = prepared.identity.paths
+    phase3_main_reviewer_commit.require_held_run_lease(held_run_lease, expected_path=paths.lease)
+    ceiling = int(prepared.reviewer_usage_policy_validation["maximum_reviewer_dispatches"])
+    for wave in state.quota_abandoned_waves:
+        proof = proofs[wave]
+        _append_jsonl(paths.run_log, {"event": "reviewer_usage_wave_quota_abandoned",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(), "wave": wave,
+            "replacement_wave": proof["replacement_wave"], "dispatches_this_wave": proof["reserved_dispatches"],
+            "attempted_dispatches": proof["attempted_dispatches"],
+            "quota_proof_canonical_sha256": canonical_sha256(proof),
+            "recovery_manifest_sha256": recovery["recovery_manifest_sha256"],
+            "cumulative_reviewer_dispatches": state.reviewer_dispatches,
+            "non_claim": "Quota-unavailable attempts produced no rulings; the original allocation remains counted."})
+    for wave in state.pending_quota_replacements:
+        proof = proofs[wave]
+        replacement_wave = proof["replacement_wave"]
+        if replacement_wave != state.first_pass_index:
+            raise Phase3MainLiveError("quota replacement differs from the next unused driver pass")
+        worklist = json.loads((Path(proof["packet_directory"]) / "WORKLIST.json").read_bytes(),
+                              object_pairs_hook=_unique_object)
+        items = worklist["items"]
+        if [item["payload_sha256"] for item in items] != proof["payload_sha256s"]:
+            raise Phase3MainLiveError("quota replacement changed the exact unanswered payload order")
+        for item in items:
+            prompt = compose_subagent_prompt(str(prepared.reviewer_prompt["prompt"]),
+                query=item["query"], candidate_a=item["candidate_a"], candidate_b=item["candidate_b"])
+            if prompt != item["subagent_prompt"] or hashlib.sha256(prompt.encode()).hexdigest() != item["subagent_prompt_sha256"]:
+                raise Phase3MainLiveError("quota replacement changed an original reviewer prompt")
+        cumulative = _admit_reviewer_wave_quantity(prepared,
+            previously_admitted=state.reviewer_dispatches, incoming=proof["reserved_dispatches"])
+        _append_jsonl(paths.run_log, {"event": "reviewer_usage_reserved",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(), "wave": replacement_wave,
+            "usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+            "dispatches_this_wave": proof["reserved_dispatches"], "cumulative_reviewer_dispatches": cumulative,
+            "maximum_reviewer_dispatches": ceiling, "failed_or_ambiguous_dispatches_count": True,
+            "replaces_quota_abandoned_wave": wave,
+            "non_claim": "dispatch count is not USD or token accounting"})
+        _review_wave_same_process(prepared, items, wave=replacement_wave, held_run_lease=held_run_lease)
+        _append_jsonl(paths.run_log, {"event": "reviewer_usage_wave_completed",
+            "recorded_at_utc": datetime.now(timezone.utc).isoformat(), "wave": replacement_wave,
+            "usage_unit": phase3_main_runtime_policies.REVIEWER_USAGE_UNIT,
+            "dispatches_this_wave": proof["reserved_dispatches"], "cumulative_reviewer_dispatches": cumulative,
+            "maximum_reviewer_dispatches": ceiling,
+            "non_claim": "dispatch count is not USD or token accounting"})
+        state = replace(state, first_pass_index=replacement_wave + 1, reviewer_dispatches=cumulative)
+    return replace(state, quota_abandoned_waves=(), pending_quota_replacements=())
 
 
 def _drive_and_finalize(

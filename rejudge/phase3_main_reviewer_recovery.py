@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from rejudge.phase2_execution import canonical_sha256
+from rejudge.phase3_main_reviewer_quota_recovery import authenticated_quota_abandoned_waves
 
 
 TRANSPORT_REPAIR_POLICY = "retain_completed_reconnect_resume_unstarted_v1"
@@ -51,7 +52,9 @@ def _binding(value: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_transport_repair(manifest: Mapping[str, Any], *, project_root: str | Path,
                            partial_wave_directories: Mapping[int, str | Path],
-                           historical_recovery_paths: Sequence[str | Path] = ()) -> dict[str, Any]:
+                           historical_recovery_paths: Sequence[str | Path] = (),
+                           quota_abandoned_wave_directories: Mapping[int, str | Path] | None = None,
+                           quota_replacement_waves: Mapping[int, int] | None = None) -> dict[str, Any]:
     """Build metadata only; source and reviewer outputs are never modified or selected."""
     capacity = _json(manifest["input_bindings"]["capacity_execution_manifest"]["path"])
     root = Path(project_root).resolve()
@@ -93,6 +96,12 @@ def build_transport_repair(manifest: Mapping[str, Any], *, project_root: str | P
             })
     if origins:
         result["reconnect_origins"] = origins
+    if quota_abandoned_wave_directories:
+        from rejudge.phase3_main_reviewer_quota_recovery import build_quota_abandoned_wave
+        result["quota_abandoned_waves"] = [build_quota_abandoned_wave(manifest,
+            directory=directory, wave=wave, replacement_wave=(quota_replacement_waves or {}).get(wave, wave + 1),
+            accepted_batch_runner_bindings=accepted_batch_runner_bindings({"reviewer_transport_repair": result}))
+            for wave, directory in sorted(quota_abandoned_wave_directories.items())]
     return result
 
 
@@ -223,7 +232,7 @@ def validate_transport_repair(value: Mapping[str, Any], manifest: Mapping[str, A
                              verify_artifacts: bool = True) -> None:
     fields = {"policy", "code_replacements", "partial_waves", "historical_guards"}
     if (not isinstance(value, Mapping)
-            or set(value) not in (fields, fields | {"reconnect_origins"})
+            or not fields <= set(value) or set(value) - fields - {"reconnect_origins", "quota_abandoned_waves"}
             or value["policy"] != TRANSPORT_REPAIR_POLICY):
         raise ValueError("unsupported reviewer transport repair scope")
     replacements = value["code_replacements"]
@@ -248,6 +257,22 @@ def validate_transport_repair(value: Mapping[str, Any], manifest: Mapping[str, A
                                                 for wave in value["partial_waves"]):
             raise ValueError("reconnect origins must uniquely bind completed historical waves")
         origin_directories.add(directory)
+    quota_waves = value.get("quota_abandoned_waves", [])
+    if not isinstance(quota_waves, list):
+        raise ValueError("quota-abandoned reviewer waves must be a list")
+    from rejudge.phase3_main_reviewer_quota_recovery import validate_shape, validate_quota_abandoned_wave
+    quota_numbers, quota_directories, quota_replacements = set(), set(), set()
+    for wave in quota_waves:
+        validate_shape(wave)
+        if (wave["wave"] in quota_numbers or wave["packet_directory"] in quota_directories
+                or wave["replacement_wave"] in quota_replacements
+                or wave["packet_directory"] in origin_directories
+                or any(item["wave"] == wave["wave"] or item["packet_directory"] == wave["packet_directory"]
+                       for item in value["partial_waves"])):
+            raise ValueError("quota-abandoned waves must have unique non-partial replacement scope")
+        quota_numbers.add(wave["wave"])
+        quota_directories.add(wave["packet_directory"])
+        quota_replacements.add(wave["replacement_wave"])
     if not verify_artifacts:
         return
     capacity_input = manifest["input_bindings"]["capacity_execution_manifest"]
@@ -286,6 +311,11 @@ def validate_transport_repair(value: Mapping[str, Any], manifest: Mapping[str, A
         if origin["dispatch_guard"] not in guards:
             raise ValueError("reconnect origin guard is absent from historical scope")
         _authenticate_reconnect_origin(origin, manifest, value, verify_stores=True)
+    for wave in quota_waves:
+        if not any(Path(binding["path"]).parent == Path(wave["packet_directory"]) for binding in guards):
+            raise ValueError("quota-abandoned wave guard is absent from historical scope")
+        validate_quota_abandoned_wave(wave, manifest,
+            accepted_batch_runner_bindings=accepted_batch_runner_bindings({"reviewer_transport_repair": value}))
     for wave in waves:
         if set(wave) != {"wave", "packet_directory", "retained_payload_sha256s",
                          "never_started_payload_sha256s", "dispatch_guard", "worklist",

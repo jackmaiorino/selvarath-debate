@@ -1594,3 +1594,128 @@ def test_receipt_recheck_keeps_an_explicit_legacy_transport_flag(tmp_path):
     inputs = _build_fixture(tmp_path, legacy_transport_flag=False)
 
     verify_main_reviewer_provenance(**inputs)
+
+
+def _quota_abandoned_fixture(tmp_path, monkeypatch):
+    inputs = _build_fixture(tmp_path, waves=[(3, [{
+        "query": "The threshold is 24 votes.", "candidate_a": "24.", "candidate_b": "30.",
+        "raw_output": CLEAN_OUTPUT, "commands": [],
+    }])])
+    directory = Path(inputs["review_packets_root"]) / "wave-2-quota"
+    directory.mkdir()
+    (directory / "rulings.jsonl").write_bytes(b"")
+    (directory / "retained-quota-failure.json").write_text("{}\n", encoding="utf-8")
+    proofs = [{"wave": 2, "replacement_wave": 3, "packet_directory": str(directory),
+               "payload_sha256s": list(inputs["expected_reviewed_payload_sha256s"])}]
+    recovery = {"reviewer_transport_repair": {"historical_guards": []}}
+    inputs["reviewer_recovery"] = recovery
+
+    def authenticated(value, *, expected_run_id, expected_manifest_sha256):
+        assert value is recovery
+        assert expected_run_id == RUN_ID
+        assert expected_manifest_sha256 == MANIFEST_SHA
+        return proofs
+
+    # The contract module independently tests detached signature and exact no-output
+    # evidence checks. This seam proves only authenticated results can widen the join.
+    monkeypatch.setattr(reviewer_provenance.phase3_main_reviewer_recovery,
+                        "authenticated_quota_abandoned_waves", authenticated, raising=False)
+    monkeypatch.setattr(reviewer_provenance.phase3_main_reviewer_recovery,
+                        "accepted_batch_runner_bindings", lambda _recovery: None)
+    return inputs, proofs
+
+
+def test_authenticated_quota_failure_adds_no_scientific_decision(tmp_path, monkeypatch):
+    inputs, proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+    decisions_before = Path(inputs["decisions_path"]).read_bytes()
+
+    result = verify_main_reviewer_provenance(**inputs)
+
+    assert result["reviewer_wave_count"] == 1
+    assert result["reviewed_payload_count"] == 1
+    assert result["parsed_decision_count"] == 1
+    assert Path(inputs["decisions_path"]).read_bytes() == decisions_before
+    assert (Path(proofs[0]["packet_directory"]) / "rulings.jsonl").read_bytes() == b""
+
+
+@pytest.mark.parametrize("defect, message", [
+    ("extra_directory", "unindexed child"),
+    ("indexed_wave", "duplicated, indexed"),
+    ("indexed_directory", "directory is duplicated or indexed"),
+    ("outside_root", "not an available direct child"),
+    ("different_payloads", "exact committed replacement"),
+    ("missing_replacement", "exact committed replacement"),
+    ("cycle", "must advance within max_passes"),
+])
+def test_quota_failure_exception_is_exact(tmp_path, monkeypatch, defect, message):
+    inputs, proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+    root = Path(inputs["review_packets_root"])
+    if defect == "extra_directory":
+        (root / "unapproved-failure").mkdir()
+    elif defect == "indexed_wave":
+        proofs[0].update(wave=3, replacement_wave=4)
+    elif defect == "indexed_directory":
+        row = json.loads(Path(inputs["reviewer_index_path"]).read_text().splitlines()[0])
+        proofs[0]["packet_directory"] = row["packet_directory"]
+    elif defect == "outside_root":
+        proofs[0]["packet_directory"] = str(tmp_path)
+    elif defect == "different_payloads":
+        proofs[0]["payload_sha256s"] = ["f" * 64]
+    elif defect == "missing_replacement":
+        proofs[0]["replacement_wave"] = 4
+    else:
+        proofs[0]["replacement_wave"] = 2
+
+    with pytest.raises(MainReviewerProvenanceError, match=message):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_quota_failure_requires_reopened_authenticated_authority(tmp_path, monkeypatch):
+    inputs, _proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+
+    def rejected(*_args, **_kwargs):
+        raise ValueError("signed proof or retained failure changed")
+
+    monkeypatch.setattr(reviewer_provenance.phase3_main_reviewer_recovery,
+                        "authenticated_quota_abandoned_waves", rejected)
+    with pytest.raises(MainReviewerProvenanceError, match="authority or preserved evidence is invalid"):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_quota_failure_without_signed_exception_remains_unindexed(tmp_path, monkeypatch):
+    inputs, _proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+    inputs.pop("reviewer_recovery")
+    with pytest.raises(MainReviewerProvenanceError, match="unindexed child"):
+        verify_main_reviewer_provenance(**inputs)
+
+
+def test_quota_failure_rechecks_preserved_evidence_before_return(tmp_path, monkeypatch):
+    inputs, proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+    calls = 0
+
+    def recheck(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ValueError("failure evidence changed after first validation")
+        return proofs
+
+    monkeypatch.setattr(reviewer_provenance.phase3_main_reviewer_recovery,
+                        "authenticated_quota_abandoned_waves", recheck)
+    with pytest.raises(MainReviewerProvenanceError, match="authority or preserved evidence is invalid"):
+        verify_main_reviewer_provenance(**inputs)
+    assert calls == 2
+
+
+def test_quota_failure_chain_requires_each_explicit_identical_payload_link(tmp_path, monkeypatch):
+    inputs, proofs = _quota_abandoned_fixture(tmp_path, monkeypatch)
+    first = Path(inputs["review_packets_root"]) / "wave-1-quota"
+    first.mkdir()
+    proofs.insert(0, {"wave": 1, "replacement_wave": 2, "packet_directory": str(first),
+                      "payload_sha256s": list(proofs[0]["payload_sha256s"])})
+    result = verify_main_reviewer_provenance(**inputs)
+    assert result["reviewer_wave_count"] == 1
+
+    proofs[0]["payload_sha256s"] = ["f" * 64]
+    with pytest.raises(MainReviewerProvenanceError, match="chain changed the pending payload set"):
+        verify_main_reviewer_provenance(**inputs)
