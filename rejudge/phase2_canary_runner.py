@@ -27,6 +27,7 @@ from typing import Any, Callable
 from rejudge import phase2_canary_cells as cells_mod
 from rejudge import phase2_plan
 from rejudge.api_client import CapExceededError, UnknownChargeHalt
+from rejudge.phase3_main_retry_backoff import ProviderRetryDeferred
 from rejudge.phase2_canary_execute import CellContext, MissingTranscript, execute_cell
 from rejudge.phase2_canary_gate import CanaryCellHalted, PendingReviewerDecision
 from rejudge.phase2_canary_order import CellResultStore, execution_order
@@ -43,6 +44,7 @@ class RunOutcome:
     skipped: int = 0
     paused: int = 0
     deferred: int = 0
+    retry_deferred: int = 0
     # Cells whose call had an ambiguous billing outcome. Left unrecorded so a later pass
     # retries them, exactly like a paused cell, rather than stopping the whole run.
     abandoned: int = 0
@@ -268,6 +270,12 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
                 seen_payloads.add(pending.payload_sha256)
                 outcome.pending_payloads.append(dict(pending.payload))
             continue
+        except ProviderRetryDeferred:
+            outcome.retry_deferred += 1
+            outcome.deferred += 1
+            attempted -= 1
+            outcome.attempted = attempted
+            continue
         except MissingTranscript:
             # Not a halt: a dependency that paused for labelling has simply not produced its
             # result yet. The batch replays are the usual case, since they consume the
@@ -351,6 +359,8 @@ def _attempt(
         return "ok", execute_cell(cell, context, **execute_kwargs)
     except PendingReviewerDecision as pending:
         return "paused", pending
+    except ProviderRetryDeferred as deferred:
+        return "retry_deferred", deferred
     except MissingTranscript:
         return "deferred", None
     except UnknownChargeHalt as unknown:
@@ -400,7 +410,7 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                      and not results.is_complete(cell.cell_key)
                      and all(key in context.results for key in cell.dependency_keys)]
             if limit is not None:
-                ready = ready[:max(0, limit - len(attempted))]
+                ready = ready[:max(0, limit - outcome.attempted)]
             if not ready:
                 break
             next_block_size = block_size
@@ -411,13 +421,15 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                 )
             block = _balanced_block(ready, next_block_size)
             attempted.update(cell.cell_key for cell in block)
-            outcome.attempted = len(attempted)
+            outcome.attempted = len(attempted) - outcome.retry_deferred
 
             futures = [pool.submit(
                 _attempt, cell, context, namespace=namespace,
                 fatal_unknown_charge=fatal_unknown_charge)
                       for cell in block]
             settled = [future.result() for future in futures]
+            outcome.retry_deferred += sum(kind == "retry_deferred" for kind, _ in settled)
+            outcome.attempted = len(attempted) - outcome.retry_deferred
 
             halted = False
             for cell, (kind, payload) in zip(block, settled):
@@ -431,11 +443,11 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                     if payload.payload_sha256 not in seen_payloads:
                         seen_payloads.add(payload.payload_sha256)
                         outcome.pending_payloads.append(dict(payload.payload))
-                elif kind == "deferred":
+                elif kind in {"deferred", "retry_deferred"}:
                     outcome.deferred += 1
                 elif kind == "abandoned":
                     outcome.abandoned += 1
-                    if not halted and _too_many_abandoned(outcome, len(attempted)):
+                    if not halted and _too_many_abandoned(outcome, outcome.attempted):
                         halted = True
                         outcome.halted_reason = "abandoned_cell_rate"
                         outcome.halted_cell_key = cell.cell_key

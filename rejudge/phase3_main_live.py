@@ -41,6 +41,7 @@ from rejudge import (
     phase3_main_runtime_policies,
     phase3_main_recovery,
     phase3_main_recovery_driver,
+    phase3_main_retry_backoff,
     phase3_main_stage_cap,
     phase3_main_together_billing_capture,
     phase3_main_reviewer_provenance,
@@ -2581,6 +2582,8 @@ def _predecessor_void_accounting(prepared: PreparedMainRun) -> Mapping[str, Any]
 # Amendment 14: the cool-down between abandoned-rate passes. Module-level so tests can
 # replace the sleep without touching the drive loop.
 _ABANDONED_RATE_SLEEP = time.sleep
+_RETRY_BACKOFF_SLEEP = time.sleep
+_RETRY_BACKOFF_CLOCK = lambda: datetime.now(timezone.utc)
 
 
 def _construct_provider_client(
@@ -3734,7 +3737,20 @@ def _drive_and_finalize(
     tuner = (phase3_main_recovery_driver.ProviderConcurrencyTuner(
         recovery["initial_per_model_limits"], recovery["per_model_limits"],
         clean_calls_for_promotion=100) if recovery else None)
-    usage_offset = len(api_client._read_usage_events(paths.usage_ledger)) if tuner else 0
+    usage_events = api_client._read_usage_events(paths.usage_ledger) if tuner else []
+    usage_offset = len(usage_events)
+    backoff = None
+    if recovery and recovery.get("provider_retry_backoff_policy") is not None:
+        if recovery["provider_retry_backoff_policy"] != phase3_main_retry_backoff.POLICY:
+            raise Phase3MainLiveError("unsupported provider retry backoff policy")
+        if not isinstance(client, JournalingClient):
+            raise Phase3MainLiveError("provider retry backoff requires the durable request journal")
+        # The accounting client validated the durable chain under the held run lease.
+        # Later observations contain only that client's append-only transport events.
+        backoff = phase3_main_retry_backoff.ProviderRetryBackoff(
+            client.journal, clock=_RETRY_BACKOFF_CLOCK)
+        backoff.observe(usage_events)
+        client.before_uncached_dispatch = backoff.before_dispatch
 
     def _resolved_unknown_charges() -> int:
         return previous_unknown_charges + len(getattr(client, "resolved_unknown_charges", ()))
@@ -3810,30 +3826,39 @@ def _drive_and_finalize(
         terminal = terminal_store.cell_keys
         omitted = context_excluded | terminal
         active = [cell for cell in resolved if str(cell.cell_key) not in omitted]
-        outcome = run_canary(
-            results_path=paths.results,
-            decisions_path=paths.decisions,
-            client=client,
-            reviewer=reviewer,
-            anchor_judge_model="",
-            protocol=dict(prepared.protocol),
-            bundle=dict(prepared.prompt_bundle),
-            pause_when_unlabeled=True,
-            cells=active,
-            max_workers=workers,
-            **({"block_size": int(recovery["block_size"]),
-                "model_caps": tuner.limits} if recovery and tuner else {}),
-            transcript_generation_forbidden=True,
-            namespace=str(prepared.protocol["cell_key_namespace"]),
-            pending_payload_limit=pending_limit,
-            role_limits=dict(prepared.role_limits),
-            # Amendment 14: an unobserved transport failure abandons the cell for this
-            # pass; the journal releases its marker only for an attempt-matched durable
-            # unknown charge, and the client's ceiling bounds the uncertain exposure.
-            fatal_unknown_charge=False,
-        )
+        def _run_cells(eligible_cells):
+            return run_canary(
+                results_path=paths.results,
+                decisions_path=paths.decisions,
+                client=client,
+                reviewer=reviewer,
+                anchor_judge_model="",
+                protocol=dict(prepared.protocol),
+                bundle=dict(prepared.prompt_bundle),
+                pause_when_unlabeled=True,
+                cells=eligible_cells,
+                max_workers=workers,
+                **({"block_size": int(recovery["block_size"]),
+                    "model_caps": tuner.limits} if recovery and tuner else {}),
+                transcript_generation_forbidden=True,
+                namespace=str(prepared.protocol["cell_key_namespace"]),
+                pending_payload_limit=pending_limit,
+                role_limits=dict(prepared.role_limits),
+                # Amendment 14: an unobserved transport failure abandons the cell for this
+                # pass; the journal releases its marker only for an attempt-matched durable
+                # unknown charge, and the client's ceiling bounds the uncertain exposure.
+                fatal_unknown_charge=False,
+            )
+        outcome = (phase3_main_retry_backoff.run_eligible_pass(
+            cells=active, backoff=backoff,
+            completed_keys=lambda: phase3_main_finalization.load_result_cell_keys(paths.results),
+            run=_run_cells, sleep=_RETRY_BACKOFF_SLEEP,
+            log=lambda event: _append_jsonl(paths.run_log, {**event, "pass_index": pass_index}),
+        ) if backoff is not None else _run_cells(active))
         if tuner is not None:
             usage_events = api_client._read_usage_events(paths.usage_ledger)
+            if backoff is not None:
+                backoff.observe(usage_events[usage_offset:])
             for change in tuner.observe(usage_events[usage_offset:]):
                 _append_jsonl(paths.run_log, {
                     "event": "provider_concurrency_adjusted",
@@ -3887,6 +3912,7 @@ def _drive_and_finalize(
             "completed_this_pass": outcome.completed,
             "attempted_this_pass": outcome.attempted,
             "abandoned_this_pass": outcome.abandoned,
+            "retry_deferred_this_pass": getattr(outcome, "retry_deferred", 0),
             "resolved_unknown_charges_total": _resolved_unknown_charges(),
             "rows_complete": complete,
             "rows_target": target,

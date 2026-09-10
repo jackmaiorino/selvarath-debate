@@ -46,7 +46,7 @@ from contextlib import contextmanager, nullcontext
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Mapping
+from typing import Any, Callable, Iterable, Iterator, Mapping
 
 # One source of truth for call identity and request fingerprints: the frozen cache module.
 # Re-deriving either here would let the two drift and break the mismatch guards.
@@ -469,13 +469,15 @@ class JournalingClient:
 
     def __init__(self, inner, journal: RequestJournal, *,
                  max_concurrent_requests: int = 1,
-                 model_caps: Mapping[str, int] | None = None) -> None:
+                 model_caps: Mapping[str, int] | None = None,
+                 before_uncached_dispatch: Callable[[CallKey, str], None] | None = None) -> None:
         if (not isinstance(max_concurrent_requests, int)
                 or isinstance(max_concurrent_requests, bool)
                 or max_concurrent_requests < 1):
             raise ValueError("max_concurrent_requests must be a positive integer")
         self.inner = inner
         self.journal = journal
+        self.before_uncached_dispatch = before_uncached_dispatch
         self._dispatch_lock = threading.Lock()
         self.max_concurrent_requests = max_concurrent_requests
         self._parallel_slots = threading.BoundedSemaphore(max_concurrent_requests)
@@ -578,6 +580,8 @@ class JournalingClient:
                         f"{prior_binding!r}, but the current request fingerprint is "
                         f"{fingerprint}; refusing to dispatch")
                 bound_metadata[JOURNAL_REQUEST_SHA256_FIELD] = fingerprint
+                if self.before_uncached_dispatch is not None:
+                    self.before_uncached_dispatch(key, fingerprint)
                 marker = self.journal._begin_dispatch(
                     key, fingerprint, **self._dispatch_boundary_kwargs())
                 try:
@@ -651,6 +655,22 @@ class JournalingClient:
         fingerprint = request_fingerprint(
             messages=messages, model=model, temperature=temperature, seed=seed,
             max_tokens=max_tokens)
+        if self.before_uncached_dispatch is not None:
+            # A temporary eligibility decision holds no provider semaphore and creates
+            # no marker/reservation. The guarded lookup below still handles races.
+            with self._dispatch_lock:
+                self.journal._assert_no_unresolved_marker(
+                    owned=frozenset(self._owned_markers))
+                journaled = self.journal.get(key, fingerprint)
+                if journaled is not None:
+                    return journaled
+                if self._unresolved_dispatch is not None:
+                    raise JournalDispatchUnresolved(
+                        "a prior provider-capable call requires explicit reconciliation")
+                prior_binding = request_metadata.get(JOURNAL_REQUEST_SHA256_FIELD)
+                if prior_binding is not None and prior_binding != fingerprint:
+                    raise JournalReplayMismatch("request metadata fingerprint differs from request")
+                self.before_uncached_dispatch(key, fingerprint)
         with self._parallel_guard(key, model):
             with self._dispatch_lock:
                 self.journal._assert_no_unresolved_marker(

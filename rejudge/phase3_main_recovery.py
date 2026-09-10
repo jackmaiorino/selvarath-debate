@@ -255,6 +255,7 @@ def build_recovery_manifest(
     initial_per_model_limits: Mapping[str, int] | None = None,
     concurrency_policy: str = CONCURRENCY_POLICY,
     reviewer_transport_repair: Mapping[str, Any] | None = None,
+    provider_retry_backoff_policy: str | None = None,
 ) -> dict[str, Any]:
     """Prepare exact unsigned recovery bytes without modifying archived work."""
     manifest_file, authorization_file = Path(manifest_path).resolve(), Path(authorization_path).resolve()
@@ -293,6 +294,8 @@ def build_recovery_manifest(
         "interrupted_dispatches": _interrupted_dispatches(manifest),
         "validation_record": None if validation_record is None else _file_binding(validation_record),
     }
+    if provider_retry_backoff_policy is not None:
+        recovery["provider_retry_backoff_policy"] = provider_retry_backoff_policy
     if reviewer_transport_repair is not None:
         from rejudge.phase3_main_reviewer_recovery import prepare_transport_repair
         recovery["reviewer_transport_repair"] = prepare_transport_repair(
@@ -360,6 +363,10 @@ def validate_recovery_manifest(
         raise RecoveryError("adaptive concurrency must stay within the signed per-model limits")
     if recovery.get("controls") != RECOVERY_CONTROLS:
         raise RecoveryError("recovery preservation controls changed")
+    if "provider_retry_backoff_policy" in recovery:
+        from rejudge.phase3_main_retry_backoff import POLICY
+        if recovery["provider_retry_backoff_policy"] != POLICY:
+            raise RecoveryError("unsupported provider retry backoff policy")
     if recovery.get("reviewer_transport_repair") is not None:
         from rejudge.phase3_main_reviewer_recovery import validate_transport_repair
         try:
