@@ -239,3 +239,18 @@ def test_a_genuine_checker_failure_still_halts_as_an_outage():
     event = gate.submit("CLAIM: the threshold is 24 votes")
     assert event.halted
     assert event.halt_reason == "checker_outage"
+
+
+def test_uncertainty_ceiling_reaches_driver_without_consuming_query_slot():
+    import pytest
+    from rejudge.api_client import UncertainCeilingHalt
+
+    def checker(_request):
+        raise UncertainCeilingHalt("next reservation exceeds authorized allowance")
+
+    gate = Phase2QueryGate(candidate_a="A text", candidate_b="B text", total_slots=2,
+                           checker=checker)
+    with pytest.raises(UncertainCeilingHalt, match="authorized allowance"):
+        gate.submit("CLAIM: the threshold is 24 votes")
+    assert not gate.halted
+    assert not gate.events

@@ -502,6 +502,34 @@ def test_an_unlisted_model_passes_through():
     assert inner.calls == [77]
 
 
+def test_role_limit_wrapper_preserves_durable_marker_frontier(tmp_path, monkeypatch):
+    from rejudge import api_client
+    from rejudge.phase2_canary_live import RoleLimitResolvingClient
+    from rejudge.request_journal import JournalingClient, RequestJournal
+
+    ledger = tmp_path / "usage.jsonl"
+    api_client.prepare_usage_ledger(ledger, allow_create=True)
+    inner = api_client.RejudgeClient(
+        approved_cap_usd=5, usage_log_path=ledger,
+        _ledger_snapshot=api_client.load_chained_usage_ledger(ledger),
+        _sdk_client=object())
+    boundary = inner.journal_dispatch_boundary()
+    before = ledger.read_bytes()
+
+    def refuse(*args, **kwargs):
+        raise api_client.UncertainCeilingHalt("reservation exceeds uncertainty cap")
+
+    monkeypatch.setattr(inner, "complete", refuse)
+    journal = RequestJournal(tmp_path / "journal.jsonl", execution_identity="frontier")
+    client = JournalingClient(RoleLimitResolvingClient(inner, {}), journal)
+    with pytest.raises(api_client.UncertainCeilingHalt):
+        client.complete([], "model", 0, 7, 32, request_metadata={
+            "cell_key": "cell", "call_role": "judge_query", "query_index": 0})
+    marker = json.loads(journal.dispatch_marker_paths()[0].read_bytes())
+    assert marker["ledger_boundary"] == boundary
+    assert ledger.read_bytes() == before
+
+
 # --- the recorded streaming deviation -------------------------------------------------------
 
 def test_the_deviation_unpins_exactly_gpt_oss_when_the_record_exists():

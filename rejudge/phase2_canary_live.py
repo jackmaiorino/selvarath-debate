@@ -511,6 +511,10 @@ class RoleLimitResolvingClient:
     def dry_run(self) -> bool:
         return getattr(self.inner, "dry_run", False)
 
+    def journal_dispatch_boundary(self):
+        reader = getattr(self.inner, "journal_dispatch_boundary", None)
+        return reader() if reader is not None else None
+
     def complete(self, messages, model, temperature, seed, max_tokens, kind="verdict", *,
                  request_metadata=None):
         limits = self._limits.get(model)

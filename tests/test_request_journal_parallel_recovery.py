@@ -538,3 +538,81 @@ def test_parallel_active_reservations_cannot_overcommit_either_cap(tmp_path, cap
             first.result(timeout=5)
     assert len(calls) == 1
     assert inner.spent_usd <= cap
+
+
+@pytest.mark.parametrize("with_retry_precheck", [False, True])
+def test_parallel_later_cell_ceiling_remains_visible_to_earlier_cell_and_drains_response(
+        tmp_path, with_retry_precheck):
+    entered = threading.Event()
+    ceiling_seen = threading.Event()
+    calls = []
+    ledger = tmp_path / "usage.jsonl"
+    api_client.prepare_usage_ledger(ledger, allow_create=True)
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        entered.set()
+        assert ceiling_seen.wait(timeout=5)
+        return SimpleNamespace(
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=4),
+            choices=[SimpleNamespace(message=SimpleNamespace(content=""), finish_reason="stop")],
+            model="judge-model", id="saved-peer", system_fingerprint=None)
+
+    cost = sum(api_client._estimate_usage(
+        [{"role": "user", "content": "earlier"}], 256)) / 1_000_000
+    inner = api_client.RejudgeClient(
+        approved_cap_usd=5, run_uncertain_ceiling_usd=cost * 1.5,
+        price_per_mtok=1, max_retries=0, usage_log_path=ledger,
+        _ledger_snapshot=api_client.load_chained_usage_ledger(ledger),
+        _sdk_client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    journal = RequestJournal(tmp_path / "journal.jsonl")
+    client = JournalingClient(inner, journal, max_concurrent_requests=2,
+        before_uncached_dispatch=(lambda *args: None) if with_retry_precheck else None)
+
+    def earlier_cell():
+        assert _complete(client, "earlier") == ""
+        # The earlier block-order cell's next checker must retain the actual stop cause.
+        return _complete(client, "earlier-next-checker")
+
+    def later_cell():
+        assert entered.wait(timeout=5)
+        try:
+            return _complete(client, "later")
+        finally:
+            ceiling_seen.set()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        earlier, later = pool.submit(earlier_cell), pool.submit(later_cell)
+        with pytest.raises(api_client.UncertainCeilingHalt) as original:
+            later.result(timeout=5)
+        with pytest.raises(api_client.UncertainCeilingHalt) as propagated:
+            earlier.result(timeout=5)
+    assert str(propagated.value) == str(original.value)
+    assert len(calls) == 1
+    events = api_client._read_usage_events(ledger)
+    assert [r["status"] for r in events] == ["ledger_genesis", "reserved", "success"]
+    assert _complete(client, "earlier") == ""
+    assert len(journal.dispatch_marker_paths()) == 1
+    fresh = JournalingClient(inner, RequestJournal(journal.path), max_concurrent_requests=2)
+    with pytest.raises(JournalDispatchUnresolved):
+        _complete(fresh, "never-dispatched")
+
+
+def test_serial_ceiling_latch_retains_bounded_detail_before_its_marker_check(tmp_path):
+    calls = []
+
+    class Provider:
+        def complete(self, *args, **kwargs):
+            calls.append(kwargs)
+            raise api_client.UncertainCeilingHalt("local cap " + "x" * 2000)
+
+    journal = RequestJournal(tmp_path / "journal.jsonl")
+    client = JournalingClient(Provider(), journal)
+    with pytest.raises(api_client.UncertainCeilingHalt):
+        _complete(client, "first")
+    with pytest.raises(api_client.UncertainCeilingHalt) as propagated:
+        _complete(client, "next")
+    assert len(str(propagated.value)) == 1024
+    assert len(calls) == 1
+    with pytest.raises(JournalDispatchUnresolved):
+        _complete(JournalingClient(Provider(), RequestJournal(journal.path)), "fresh-wrapper")

@@ -2547,12 +2547,14 @@ def _model_prices(price_snapshot: Mapping[str, Any]) -> dict[str, dict[str, floa
 def _uncertain_spend_policy(prepared: PreparedMainRun) -> Mapping[str, Any]:
     """Return the validated amendment-14 policy, loading it for offline fixtures."""
     validation = prepared.uncertain_spend_policy_validation
-    if validation is not None:
-        return validation
     try:
-        return phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
-            prepared.project_root, role_limits=prepared.role_limits)
-    except phase3_main_runtime_policies.MainRuntimePolicyError as exc:
+        if validation is None:
+            validation = phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
+                prepared.project_root, role_limits=prepared.role_limits)
+        return phase3_main_recovery.apply_uncertain_spend_amendment(
+            validation, prepared.recovery_validation)
+    except (phase3_main_runtime_policies.MainRuntimePolicyError,
+            phase3_main_recovery.RecoveryError) as exc:
         raise Phase3MainLiveError(f"uncertain-spend policy failed: {exc}") from exc
 
 
@@ -3892,13 +3894,23 @@ def _drive_and_finalize(
             _abandoned_rate_pass(outcome, "abandoned_cell_rate", pass_index)
             continue
         if outcome.halted_reason == "UncertainCeilingHalt":
+            _append_jsonl(paths.run_log, {
+                "event": "formal_main_budget_halt",
+                "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
+                "pass_index": pass_index,
+                "cell_key": outcome.halted_cell_key,
+                "reason": outcome.halted_reason,
+                "detail": getattr(outcome, "halted_detail", None),
+            })
             raise Phase3MainLiveError(
                 f"formal main halted at {outcome.halted_cell_key}: run-local uncertain "
-                "spend reached the frozen ceiling; owner review required")
+                "spend reached the authorized ceiling; owner review required; "
+                f"{getattr(outcome, 'halted_detail', None) or 'no further detail'}")
         if outcome.halted_reason is not None:
             raise Phase3MainLiveError(
                 f"formal main halted at {outcome.halted_cell_key}: "
-                f"{outcome.halted_reason}")
+                f"{outcome.halted_reason}" + (
+                    f": {outcome.halted_detail}" if getattr(outcome, "halted_detail", None) else ""))
         consecutive_abandoned_rate = 0
 
         observed_keys = phase3_main_finalization.load_result_cell_keys(paths.results)

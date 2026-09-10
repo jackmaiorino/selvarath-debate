@@ -287,6 +287,166 @@ def test_adaptive_concurrency_is_bound_to_initial_and_maximum_limits(stopped_run
         validate(stopped_run, value)
 
 
+def _approve_ceiling_amendment(run):
+    path = run.root / "approved-validation.json"
+    write_json(path, {"owner_instruction": "Raise uncertainty to $150, keep total cap $1100",
+                      "preparation_actor": "Codex", "passed": True})
+    run.kwargs.update(validation_record=path, run_uncertain_ceiling_usd="150.00")
+    return path
+
+
+def test_ceiling_amendment_changes_only_approved_runtime_ceiling(stopped_run):
+    from rejudge.phase3_main_runtime_policies import UNCERTAIN_SPEND_POLICY_RAW_SHA256
+    run = stopped_run
+    before = run.manifest_path.read_bytes(), run.auth_path.read_bytes()
+    original = {"policy_raw_sha256": UNCERTAIN_SPEND_POLICY_RAW_SHA256,
+                "run_uncertain_ceiling_usd": 100.0,
+                "initial_run_uncertain_spend_usd": 0.0, "unknown_charge_pass_allowance": 50}
+    assert recovery.apply_uncertain_spend_amendment(original, build(run)) == original
+    _approve_ceiling_amendment(run)
+    value = build(run)
+    result = recovery.apply_uncertain_spend_amendment(original, validate(run, value))
+    assert result == dict(original, run_uncertain_ceiling_usd=150.0)
+    assert original["run_uncertain_ceiling_usd"] == 100.0
+    assert value["stage_cap_usd"] == "1100.00"
+    assert value["uncertain_spend_amendment"]["preserve_cumulative_accounting"] is True
+    assert before == (run.manifest_path.read_bytes(), run.auth_path.read_bytes())
+
+
+@pytest.mark.parametrize("amount", [True, "100", "149", "151", "1101", "NaN", "bad"])
+def test_ceiling_builder_refuses_amounts_outside_explicit_approval(stopped_run, amount):
+    _approve_ceiling_amendment(stopped_run)
+    stopped_run.kwargs["run_uncertain_ceiling_usd"] = amount
+    with pytest.raises(recovery.RecoveryError, match="uncertainty"):
+        build(stopped_run)
+
+
+def test_ceiling_amendment_requires_bound_approval_evidence(stopped_run):
+    stopped_run.kwargs["run_uncertain_ceiling_usd"] = "150.00"
+    with pytest.raises(recovery.RecoveryError, match="approval validation record"):
+        build(stopped_run)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("original_policy_raw_sha256", "0" * 64),
+    ("original_run_uncertain_ceiling_usd", "0.00"),
+    ("run_uncertain_ceiling_usd", "200.00"),
+    ("preserve_cumulative_accounting", False),
+    ("approval_validation_record_raw_sha256", "0" * 64),
+])
+def test_ceiling_amendment_scope_rechecked_without_archive_rescan(stopped_run, field, value):
+    _approve_ceiling_amendment(stopped_run)
+    amendment = build(stopped_run)
+    amendment["uncertain_spend_amendment"][field] = value
+    with pytest.raises(recovery.RecoveryError, match="approved scope"):
+        validate(stopped_run, amendment, verify_artifacts=False)
+
+
+def _settled_unknown_run(run):
+    from rejudge.request_journal import RequestJournal, CallKey
+    ledger = Path(run.paths["usage_ledger"])
+    ledger.unlink()
+    identity = api_client.prepare_usage_ledger(ledger, allow_create=True)
+    genesis = json.loads(ledger.read_bytes())
+    previous = genesis
+    metadata = {"cell_key": "cell-1", "call_role": "judge_query", "query_index": 0,
+                "attempt": 1, "journal_request_sha256": "f" * 64}
+    for attempt in range(3):
+        reservation = {"status": "reserved", "attempt_id": f"closed-{attempt}",
+                       "ledger_id": genesis["ledger_id"], "sequence": previous["sequence"] + 1,
+                       "prev_event_hash": previous["event_hash"], "metadata": metadata,
+                       "model": "fixture", "kind": "query", "seed": 1, "attempt": 0,
+                       "estimated_tokens": 3, "reserved_prompt_tokens": 2,
+                       "reserved_completion_tokens": 1, "prompt_tokens": None,
+                       "completion_tokens": None, "cost_usd": 0.109876}
+        reservation["event_hash"] = api_client._usage_event_hash(reservation)
+        terminal = dict(reservation, status="unknown_charge", sequence=reservation["sequence"] + 1,
+                        prev_event_hash=reservation["event_hash"])
+        terminal["event_hash"] = api_client._usage_event_hash(terminal)
+        append_event(run, reservation)
+        append_event(run, terminal)
+        previous = terminal
+    write_json(api_client.usage_ledger_state_path(ledger),
+               api_client._usage_state_payload(identity, previous["sequence"], previous["event_hash"]))
+    journal = RequestJournal(run.paths["request_journal"], execution_identity="fixture-run")
+    key = CallKey("cell-1", "judge_query", 0, 1)
+    with journal.dispatch_guard():
+        journal._begin_parallel_dispatch(key, "f" * 64)
+    return journal, journal.parallel_marker_path(key)
+
+
+def test_settled_unknown_marker_retirement_is_opt_in_and_never_recharges(stopped_run):
+    from rejudge.request_journal import recover_interrupted_dispatches
+    run = stopped_run
+    journal, marker = _settled_unknown_run(run)
+    original_marker = marker.read_bytes()
+    original_ledger = Path(run.paths["usage_ledger"]).read_bytes()
+    with pytest.raises(recovery.RecoveryError, match="unreserved marker"):
+        build(run)
+    run.kwargs["settled_unknown_marker_paths"] = [marker]
+    _approve_ceiling_amendment(run)
+    value = build(run)
+    item, = value["interrupted_dispatches"]
+    assert item["disposition"] == recovery.SETTLED_UNKNOWN_DISPOSITION
+    assert len(item["settled_attempts"]) == 3
+    assert "reservation_attempt_id" not in item
+    result = recover_interrupted_dispatches(journal, run.paths["usage_ledger"], [item],
+                                            recovery_manifest_sha256=canonical_sha256(value))
+    assert result[0]["uncertain_cost_usd"] == 0
+    assert not marker.exists()
+    receipt = json.loads(Path(item["retirement_receipt_path"]).read_bytes())
+    import base64
+    assert base64.b64decode(receipt["marker_raw_base64"]) == original_marker
+    assert Path(run.paths["usage_ledger"]).read_bytes() == original_ledger
+    validate(run, value)
+    recover_interrupted_dispatches(journal, run.paths["usage_ledger"], [item],
+                                  recovery_manifest_sha256=canonical_sha256(value))
+    assert Path(run.paths["usage_ledger"]).read_bytes() == original_ledger
+    run.kwargs.pop("settled_unknown_marker_paths")
+    later_recovery = build(run)
+    assert later_recovery["retired_dispatch_receipts"] == [recovery._file_binding(item["retirement_receipt_path"])]
+    Path(item["retirement_receipt_path"]).write_bytes(b"changed")
+    with pytest.raises(recovery.RecoveryError, match="changed"):
+        validate(run, later_recovery)
+
+
+def test_settled_unknown_marker_cannot_disappear_without_immutable_retirement_receipt(stopped_run):
+    _, marker = _settled_unknown_run(stopped_run)
+    stopped_run.kwargs["settled_unknown_marker_paths"] = [marker]
+    value = build(stopped_run)
+    marker.unlink()
+    with pytest.raises(recovery.RecoveryError, match="retirement receipt"):
+        validate(stopped_run, value)
+
+
+def test_settled_unknown_retirement_allows_later_success_without_rewriting_prior_proof(stopped_run):
+    from rejudge.request_journal import CallKey, recover_interrupted_dispatches
+    run = stopped_run
+    journal, marker = _settled_unknown_run(run)
+    run.kwargs["settled_unknown_marker_paths"] = [marker]
+    value = build(run)
+    item, = value["interrupted_dispatches"]
+    recover_interrupted_dispatches(journal, run.paths["usage_ledger"], [item],
+                                  recovery_manifest_sha256=canonical_sha256(value))
+    last = item["settled_attempts"][-1]["terminal"]
+    reservation = dict(item["settled_attempts"][-1]["reservation"], attempt_id="later-success",
+                       sequence=last["sequence"] + 1, prev_event_hash=last["event_hash"])
+    reservation["event_hash"] = api_client._usage_event_hash(reservation)
+    terminal = dict(reservation, status="success", sequence=reservation["sequence"] + 1,
+                    prev_event_hash=reservation["event_hash"], prompt_tokens=2,
+                    completion_tokens=0, cost_usd=0.000004)
+    terminal["event_hash"] = api_client._usage_event_hash(terminal)
+    append_event(run, reservation)
+    append_event(run, terminal)
+    journal.put(CallKey("cell-1", "judge_query", 0, 1), "f" * 64, "")
+    validate(run, value)
+    receipt = Path(item["retirement_receipt_path"])
+    saved = receipt.read_bytes()
+    receipt.write_bytes(saved.replace(b'"new_uncertain_cost_usd": 0', b'"new_uncertain_cost_usd": 1'))
+    with pytest.raises(recovery.RecoveryError, match="retirement receipt"):
+        validate(run, value)
+
+
 @pytest.mark.parametrize("namespace", [authorization.OWNER_SIGNATURE_NAMESPACE,
                                        recovery.RECOVERY_SIGNATURE_NAMESPACE])
 def test_signature_verifier_uses_requested_namespace_for_allowed_signers_and_verification(

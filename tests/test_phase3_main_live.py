@@ -3985,8 +3985,12 @@ def test_uncertain_ceiling_halt_is_identity_fatal_in_the_production_loop(
         lambda *args, **kwargs: pytest.fail("unknown charge reached finalization"),
     )
 
-    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="frozen ceiling"):
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="authorized ceiling"):
         phase3_main_live.run_main("manifest", "authorization")
+    budget_halts = [event for event in _run_log_events(prepared)
+                    if event["event"] == "formal_main_budget_halt"]
+    assert len(budget_halts) == 1
+    assert budget_halts[0]["reason"] == "UncertainCeilingHalt"
     assert len(factory_calls) == 1
     assert len(loop_calls) == 1
     start_path = phase3_main_live._identity_start_path(prepared.identity)
@@ -4505,3 +4509,30 @@ def test_private_factory_binds_the_policy_ceiling_to_the_client(
     used = replace(snapshot, summary={"events": 3})
     with pytest.raises(phase3_main_live.Phase3MainLiveError, match="fresh main ledger"):
         phase3_main_live._construct_provider_client(prepared, used, sdk_client=object())
+
+
+def test_recovered_client_uses_approved_150_ceiling_and_preserves_spend(tmp_path, inventory, monkeypatch):
+    from rejudge import phase3_main_recovery as recovery
+
+    prepared = _prepared(tmp_path, inventory)
+    record = {"raw_sha256": "a" * 64}
+    prepared = replace(prepared, recovery_validation={
+        "stage_cap_usd": "1100.00", "validation_record": record,
+        "uncertain_spend_amendment": recovery._uncertain_ceiling_amendment("150.00", record),
+    })
+    captured = {}
+    monkeypatch.setattr(phase3_main_live.api_client, "RejudgeClient",
+                        lambda **kwargs: captured.update(kwargs) or object())
+    monkeypatch.setattr(phase3_main_live, "RoleLimitResolvingClient", lambda inner, limits: inner)
+    usage_path = prepared.identity.paths.usage_ledger
+    snapshot = phase3_main_live.api_client.UsageLedgerSnapshot(
+        path=usage_path, state_path=phase3_main_live.api_client.usage_ledger_state_path(usage_path),
+        identity={}, summary={"events": 10, "actual_spend_usd": 381.82915904,
+                              "uncertain_spend_usd": 99.93003592},
+        last_sequence=10, last_event_hash="b" * 64)
+    phase3_main_live._construct_provider_client(prepared, snapshot, sdk_client=object())
+    assert captured["run_uncertain_ceiling_usd"] == 150.0
+    assert captured["initial_run_uncertain_spend_usd"] == 99.93003592
+    assert captured["initial_uncertain_spend_usd"] == 99.93003592
+    assert captured["approved_cap_usd"] == float(prepared.authorization["stage_cap_usd"])
+    assert prepared.uncertain_spend_policy_validation["run_uncertain_ceiling_usd"] == 100.0

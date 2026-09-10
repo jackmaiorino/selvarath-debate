@@ -38,6 +38,7 @@ load, never a silent partial replay.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -45,12 +46,14 @@ import threading
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
+import tempfile
 from typing import Any, Callable, Iterable, Iterator, Mapping
 
 # One source of truth for call identity and request fingerprints: the frozen cache module.
 # Re-deriving either here would let the two drift and break the mismatch guards.
-from rejudge.api_client import UnknownChargeHalt
+from rejudge.api_client import UncertainCeilingHalt, UnknownChargeHalt
 from rejudge.phase2_call_cache import CallKey, request_fingerprint
 # The slot/attempt derivations are deliberately imported from the caching client even though
 # they are module-private there: every call site numbers its calls through those exact
@@ -495,10 +498,25 @@ class JournalingClient:
         self._path_guard = None
         self._owned_markers: set[Path] = set()
         self._unresolved_dispatch: str | None = None
+        self._uncertain_ceiling_halt: UncertainCeilingHalt | None = None
         # Amendment 14 (2026-09-06): unobserved transport failures that the accounting
         # client durably booked as ``unknown_charge`` release the marker instead of latching;
         # each resolution is kept here for the run log and the retry report.
         self.resolved_unknown_charges: list[dict[str, Any]] = []
+
+    def _latch_dispatch_exception(self, exc: BaseException) -> None:
+        self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+        if isinstance(exc, UncertainCeilingHalt) and self._uncertain_ceiling_halt is None:
+            # Only this local accounting exception is promoted through the shared latch.
+            # Do not retain a cross-thread traceback or expose arbitrary provider errors.
+            self._uncertain_ceiling_halt = UncertainCeilingHalt(str(exc)[:1024])
+
+    def _replay_or_raise_ceiling(self, key: CallKey, fingerprint: str) -> str:
+        journaled = self.journal.get(key, fingerprint)
+        if journaled is not None:
+            return journaled
+        assert self._uncertain_ceiling_halt is not None
+        raise UncertainCeilingHalt(str(self._uncertain_ceiling_halt)) from None
 
     def _unknown_charge_resolvable(
             self, key: CallKey, fingerprint: str, exc: BaseException) -> bool:
@@ -561,6 +579,8 @@ class JournalingClient:
             # The path-level guard makes refresh -> get -> dispatch -> append one critical
             # section across every wrapper and process sharing this journal.
             with self.journal.dispatch_guard():
+                if self._uncertain_ceiling_halt is not None:
+                    return self._replay_or_raise_ceiling(key, fingerprint)
                 self.journal._assert_no_unresolved_marker()
                 journaled = self.journal.get(key, fingerprint)
                 if journaled is not None:
@@ -593,7 +613,7 @@ class JournalingClient:
                     self.journal._finish_dispatch(marker)
                 except UnknownChargeHalt as exc:
                     if not self._unknown_charge_resolvable(key, fingerprint, exc):
-                        self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                        self._latch_dispatch_exception(exc)
                         raise
                     # The reservation stays booked as uncertain spend in the ledger; no
                     # response exists to journal; the key stays dispatchable under a new
@@ -610,7 +630,7 @@ class JournalingClient:
                     })
                     raise
                 except BaseException as exc:
-                    self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                    self._latch_dispatch_exception(exc)
                     raise
                 return response
 
@@ -659,6 +679,8 @@ class JournalingClient:
             # A temporary eligibility decision holds no provider semaphore and creates
             # no marker/reservation. The guarded lookup below still handles races.
             with self._dispatch_lock:
+                if self._uncertain_ceiling_halt is not None:
+                    return self._replay_or_raise_ceiling(key, fingerprint)
                 self.journal._assert_no_unresolved_marker(
                     owned=frozenset(self._owned_markers))
                 journaled = self.journal.get(key, fingerprint)
@@ -673,6 +695,8 @@ class JournalingClient:
                 self.before_uncached_dispatch(key, fingerprint)
         with self._parallel_guard(key, model):
             with self._dispatch_lock:
+                if self._uncertain_ceiling_halt is not None:
+                    return self._replay_or_raise_ceiling(key, fingerprint)
                 self.journal._assert_no_unresolved_marker(
                     owned=frozenset(self._owned_markers))
                 journaled = self.journal.get(key, fingerprint)
@@ -709,14 +733,13 @@ class JournalingClient:
             except UnknownChargeHalt as exc:
                 with self._dispatch_lock:
                     if not self._unknown_charge_resolvable(key, fingerprint, exc):
-                        self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                        self._latch_dispatch_exception(exc)
                         raise
                     try:
                         self.journal._finish_dispatch(marker)
                         self._owned_markers.remove(marker_path)
                     except BaseException as marker_exc:
-                        self._unresolved_dispatch = (
-                            f"{type(marker_exc).__name__}: {marker_exc}")
+                        self._latch_dispatch_exception(marker_exc)
                         raise
                     self.resolved_unknown_charges.append({
                         **asdict(key), "attempt_id": exc.attempt_id, "model": exc.model,
@@ -727,7 +750,7 @@ class JournalingClient:
                 # Other already-dispatched keys still persist their responses. The latch
                 # prohibits new dispatches without throwing away paid in-flight results.
                 with self._dispatch_lock:
-                    self._unresolved_dispatch = f"{type(exc).__name__}: {exc}"
+                    self._latch_dispatch_exception(exc)
                 raise
 
 
@@ -957,6 +980,162 @@ def validate_unreserved_dispatch(
                 "a reservation exists after the dispatch frontier; unreserved cleanup refused")
 
 
+def validate_settled_unknown_history(
+        ledger_events: Iterable[Mapping[str, Any]],
+        marker: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Prove all attempts for a legacy marker are already fully charged as unknown.
+
+    This does not infer which attempt created the marker or invent a dispatch frontier.
+    The caller separately authenticates the stopped snapshot and proves no saved response.
+    """
+    from rejudge import api_client
+
+    events = [dict(event) for event in ledger_events]
+    path = Path("settled-unknown-recovery-ledger")
+    api_client._validate_usage_chain(events, path)
+    summary = api_client._summarize_usage_events(events[1:], path, strict_lifecycle=True)
+    if summary["unmatched_reservations"]:
+        raise JournalDispatchUnresolved("settled marker recovery requires zero open reservations")
+    if marker.get("ledger_boundary") is not None:
+        raise JournalDispatchUnresolved("settled marker recovery is only for legacy markers")
+    key = CallKey(marker["cell_key"], marker["call_role"], marker["slot"], marker["attempt"])
+    fingerprint = marker.get("request_sha256")
+    RequestJournal._validate_put(key, fingerprint, "")
+    terminals = {event["attempt_id"]: event for event in events
+                 if event.get("status") in _TERMINAL_LEDGER_STATUSES}
+    history = []
+    for reservation in events:
+        if (reservation.get("status") != "reserved"
+                or journal_key(reservation.get("metadata")) != key):
+            continue
+        terminal = terminals[reservation["attempt_id"]]
+        if (reservation["metadata"].get(JOURNAL_REQUEST_SHA256_FIELD) != fingerprint
+                or terminal.get("status") != "unknown_charge"
+                or Decimal(str(terminal["cost_usd"])) != Decimal(str(reservation["cost_usd"]))
+                or terminal.get("prompt_tokens") is not None
+                or terminal.get("completion_tokens") is not None
+                or "response_metadata" in terminal or "response" in terminal
+                or "content" in terminal):
+            raise JournalDispatchUnresolved(
+                "legacy marker history is not exact full-cost unknown with no response")
+        history.append({"reservation": reservation, "terminal": terminal})
+    if not history:
+        raise JournalDispatchUnresolved("settled marker recovery requires prior unknown attempts")
+    return history
+
+
+def _settled_unknown_proof(events, dispatch):
+    boundary = dispatch.get("recovery_ledger_boundary")
+    if (not isinstance(boundary, Mapping)
+            or set(boundary) != {"ledger_id", "sequence", "event_hash"}
+            or type(boundary.get("sequence")) is not int
+            or not 0 <= boundary["sequence"] < len(events)
+            or any(events[boundary["sequence"]].get(field) != boundary[field]
+                   for field in boundary)):
+        raise JournalDispatchUnresolved("settled marker recovery snapshot frontier changed")
+    history = validate_settled_unknown_history(
+        events[:boundary["sequence"] + 1], dispatch["marker"])
+    if history != dispatch.get("settled_attempts"):
+        raise JournalDispatchUnresolved("settled marker recovery history differs from snapshot")
+    return history
+
+
+def _settled_retirement_path(journal_path, dispatch):
+    expected_hash = dispatch.get("marker_raw_sha256")
+    if not RequestJournal._is_sha256(expected_hash):
+        raise JournalDispatchUnresolved("settled marker recovery hash is invalid")
+    journal_path = Path(journal_path)
+    expected = journal_path.with_name(f"{journal_path.name}.retired-{expected_hash}.json")
+    if Path(str(dispatch.get("retirement_receipt_path"))).resolve() != expected.resolve():
+        raise JournalDispatchUnresolved("settled marker retirement receipt path changed")
+    return expected
+
+
+def _settled_retirement_payload(dispatch, recovery_manifest_sha256, marker_bytes):
+    if (not RequestJournal._is_sha256(recovery_manifest_sha256)
+            or hashlib.sha256(marker_bytes).hexdigest() != dispatch["marker_raw_sha256"]
+            or json.loads(marker_bytes) != dispatch["marker"]):
+        raise JournalDispatchUnresolved("settled marker retirement identity or bytes changed")
+    history_bytes = json.dumps(dispatch["settled_attempts"], sort_keys=True,
+                               ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "schema_version": "request_journal_settled_unknown_retirement_v1",
+        "disposition": "settled_unknown_history_no_response",
+        "recovery_manifest_sha256": recovery_manifest_sha256,
+        "marker_path": dispatch["marker_path"],
+        "marker_raw_sha256": dispatch["marker_raw_sha256"],
+        "marker_raw_base64": base64.b64encode(marker_bytes).decode("ascii"),
+        "request_sha256": dispatch["request_sha256"],
+        "recovery_ledger_boundary": dict(dispatch["recovery_ledger_boundary"]),
+        "settled_attempts_sha256": hashlib.sha256(history_bytes).hexdigest(),
+        "settled_attempt_ids": [pair["reservation"]["attempt_id"]
+                                for pair in dispatch["settled_attempts"]],
+        "new_uncertain_cost_usd": 0,
+    }
+
+
+def validate_settled_unknown_retirement(
+        journal_path: str | Path, ledger_events: Iterable[Mapping[str, Any]],
+        journal_rows: Iterable[Mapping[str, Any]], dispatch: Mapping[str, Any],
+        recovery_manifest_sha256: str) -> dict[str, Any]:
+    """Read an exact durable zero-charge receipt, permitting legitimate later growth."""
+    if dispatch.get("disposition") != "settled_unknown_history_no_response":
+        raise JournalDispatchUnresolved("incorrect settled marker retirement disposition")
+    events = [dict(event) for event in ledger_events]
+    _settled_unknown_proof(events, dispatch)
+    receipt_path = _settled_retirement_path(journal_path, dispatch)
+    try:
+        raw = receipt_path.read_bytes()
+        receipt = json.loads(raw)
+        marker_bytes = base64.b64decode(receipt["marker_raw_base64"], validate=True)
+        expected = _settled_retirement_payload(dispatch, recovery_manifest_sha256, marker_bytes)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise JournalDispatchUnresolved("settled marker retirement receipt is missing or invalid") from exc
+    if receipt != expected or raw != _retirement_bytes(expected):
+        raise JournalDispatchUnresolved("settled marker retirement receipt changed")
+    marker_path = Path(dispatch["marker_path"])
+    if marker_path.exists():
+        if (marker_path.read_bytes() != marker_bytes
+                or len(events) - 1 != dispatch["recovery_ledger_boundary"]["sequence"]):
+            raise JournalDispatchUnresolved("active settled marker or ledger changed after retirement")
+        key = journal_key(dispatch["marker"])
+        if any(journal_key(row) == key for row in journal_rows):
+            raise JournalDispatchUnresolved("settled marker already has a journaled response")
+    return receipt
+
+
+def _retirement_bytes(payload):
+    return (json.dumps(payload, sort_keys=True, ensure_ascii=True) + "\n").encode("utf-8")
+
+
+def _write_settled_retirement(path: Path, payload) -> None:
+    """Publish a complete immutable receipt before the active marker may be removed."""
+    encoded = _retirement_bytes(payload)
+    if path.exists():
+        if path.read_bytes() != encoded:
+            raise JournalDispatchUnresolved("settled marker retirement receipt changed")
+        _fsync_parent_directory(path)
+        return
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".retirement-",
+                                         suffix=".tmp", delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        # Hard-link publication is atomic and never overwrites another receipt.
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            if path.read_bytes() != encoded:
+                raise JournalDispatchUnresolved("settled marker retirement receipt changed")
+        _fsync_parent_directory(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def recover_interrupted_dispatches(
         journal: RequestJournal, ledger_path: str | Path,
         interrupted_dispatches: Iterable[Mapping[str, Any]], *,
@@ -982,10 +1161,12 @@ def recover_interrupted_dispatches(
             disposition = dispatch.get("disposition", "conservative_unknown_charge")
             if disposition not in {
                 "conservative_unknown_charge", "completed_journaled_response", "unreserved_dispatch",
+                "settled_unknown_history_no_response",
             }:
                 raise JournalDispatchUnresolved("unsupported dispatch recovery disposition")
             if not isinstance(marker, Mapping) or (
-                    disposition != "unreserved_dispatch" and not isinstance(reservation, Mapping)):
+                    disposition not in {"unreserved_dispatch", "settled_unknown_history_no_response"}
+                    and not isinstance(reservation, Mapping)):
                 raise JournalDispatchUnresolved("recovery marker/reservation must be objects")
             key = CallKey(marker["cell_key"], marker["call_role"],
                           marker["slot"], marker["attempt"])
@@ -1006,7 +1187,7 @@ def recover_interrupted_dispatches(
                     or not journal._is_sha256(fingerprint)
                     or dispatch.get("request_sha256") != fingerprint):
                 raise JournalDispatchUnresolved("recovery marker/reservation identity mismatch")
-            if disposition != "unreserved_dispatch":
+            if disposition not in {"unreserved_dispatch", "settled_unknown_history_no_response"}:
                 metadata = reservation.get("metadata")
                 if (not isinstance(metadata, Mapping) or journal_key(metadata) != key
                         or metadata.get(JOURNAL_REQUEST_SHA256_FIELD) != fingerprint
@@ -1014,7 +1195,7 @@ def recover_interrupted_dispatches(
                         or reservation.get("status") != "reserved"):
                     raise JournalDispatchUnresolved("recovery marker/reservation identity mismatch")
             elif any(field in dispatch for field in ("reservation", "reservation_attempt_id", "terminal")):
-                raise JournalDispatchUnresolved("unreserved recovery cannot carry a reservation")
+                raise JournalDispatchUnresolved("marker retirement cannot carry a new reservation")
             if (disposition == "conservative_unknown_charge"
                     and journal.has(key) and marker_path.exists()):
                 raise JournalDispatchUnresolved(
@@ -1041,7 +1222,24 @@ def recover_interrupted_dispatches(
                 ):
                     raise JournalDispatchUnresolved(
                         "interrupted marker is absent without its recovery terminal event")
-            if disposition == "unreserved_dispatch":
+            if disposition == "settled_unknown_history_no_response":
+                api_client.load_chained_usage_ledger(ledger_path)
+                events = api_client._read_usage_events(Path(ledger_path))
+                _settled_unknown_proof(events, dispatch)
+                receipt_path = _settled_retirement_path(journal.path, dispatch)
+                if marker_bytes is not None:
+                    if (len(events) - 1 != dispatch["recovery_ledger_boundary"]["sequence"]
+                            or journal.has(key)):
+                        raise JournalDispatchUnresolved(
+                            "active settled marker has new ledger history or a journaled response")
+                    payload = _settled_retirement_payload(
+                        dispatch, recovery_manifest_sha256, marker_bytes)
+                    _write_settled_retirement(receipt_path, payload)
+                validate_settled_unknown_retirement(
+                    journal.path, events, [entry for entry in journal._entries.values()],
+                    dispatch, recovery_manifest_sha256)
+                uncertain_cost = 0.0
+            elif disposition == "unreserved_dispatch":
                 api_client.load_chained_usage_ledger(ledger_path)
                 events = api_client._read_usage_events(Path(ledger_path))
                 boundary = dispatch.get("recovery_ledger_boundary")
@@ -1095,6 +1293,8 @@ def recover_interrupted_dispatches(
                 "uncertain_cost_usd": uncertain_cost,
                 "recovery_manifest_sha256": recovery_manifest_sha256,
                 "disposition": disposition,
+                **({"retirement_receipt_path": str(receipt_path)}
+                   if disposition == "settled_unknown_history_no_response" else {}),
             })
         journal._assert_no_unresolved_marker()
     return outcomes

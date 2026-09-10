@@ -53,6 +53,7 @@ class RunOutcome:
     attempted: int = 0
     halted_reason: str | None = None
     halted_cell_key: str | None = None
+    halted_detail: str | None = None
     pending_payloads: list[dict[str, str]] = field(default_factory=list)
     paused_cell_keys: list[str] = field(default_factory=list)
     # Additive, phase-3-only (rejudge.phase3_runner's --context-blocklist): how many cells this
@@ -297,6 +298,7 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         except CanaryCellHalted as halt:
             outcome.halted_reason = halt.reason
             outcome.halted_cell_key = cell.cell_key
+            outcome.halted_detail = _bounded_halt_detail(halt.detail)
             break
         except CapExceededError:
             outcome.halted_reason = "cap_exceeded"
@@ -305,6 +307,7 @@ def run_canary(*, results_path: str | Path, decisions_path: str | Path, client,
         except Exception as exc:  # noqa: BLE001 - halt on anything unmodelled, never swallow
             outcome.halted_reason = type(exc).__name__
             outcome.halted_cell_key = cell.cell_key
+            outcome.halted_detail = _bounded_halt_detail(str(exc))
             break
         results.record(cell.cell_key, record)
         context.results[cell.cell_key] = record
@@ -340,6 +343,10 @@ def _too_many_abandoned(outcome, attempted: int) -> bool:
     return outcome.abandoned >= max(1, attempted) * ABANDONED_FRACTION
 
 
+def _bounded_halt_detail(detail: str | None) -> str | None:
+    return str(detail).replace("\r", " ").replace("\n", " ")[:1000] if detail else None
+
+
 def _attempt(
     cell, context, *, namespace: str | None = None,
     fatal_unknown_charge: bool = False,
@@ -368,13 +375,13 @@ def _attempt(
         # That is a statement about ONE call, not about the run: no other cell's billing is
         # implicated, and total exposure is bounded by the uncertain-spend ceiling. Halting
         # everything cost 124 driver restarts and 4.77h of backoff on the bridge canary.
-        return ("halt", "unknown_charge") if fatal_unknown_charge else ("abandoned", unknown)
+        return ("halt", ("unknown_charge", None)) if fatal_unknown_charge else ("abandoned", unknown)
     except CanaryCellHalted as halt:
-        return "halt", halt.reason
+        return "halt", (halt.reason, _bounded_halt_detail(halt.detail))
     except CapExceededError:
-        return "halt", "cap_exceeded"
+        return "halt", ("cap_exceeded", None)
     except Exception as exc:  # noqa: BLE001 - halt on anything unmodelled, never swallow
-        return "halt", type(exc).__name__
+        return "halt", (type(exc).__name__, _bounded_halt_detail(str(exc)))
 
 
 def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
@@ -452,14 +459,16 @@ def _run_concurrent(*, ordered, results, context, outcome, seen_payloads, limit,
                         outcome.halted_reason = "abandoned_cell_rate"
                         outcome.halted_cell_key = cell.cell_key
                 else:
-                    if payload == "unknown_charge":
+                    reason, detail = payload
+                    if reason == "unknown_charge":
                         outcome.abandoned += 1
                     if not halted:
                         # First halt in block order wins, so the reported cause is
                         # deterministic rather than whichever worker finished first.
                         halted = True
-                        outcome.halted_reason = payload
+                        outcome.halted_reason = reason
                         outcome.halted_cell_key = cell.cell_key
+                        outcome.halted_detail = detail
             if halted:
                 break
 

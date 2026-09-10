@@ -11,9 +11,9 @@ import hashlib
 import json
 import re
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from rejudge.phase2_execution import canonical_sha256
 from rejudge import phase3_main_authorization
@@ -23,6 +23,8 @@ from rejudge.request_journal import JournalDispatchUnresolved, journal_key, vali
 RECOVERY_SCHEMA = "phase3_main_operational_recovery_v1"
 RECOVERY_SIGNATURE_NAMESPACE = "selvarath-phase3-main-recovery-v1"
 CONCURRENCY_POLICY = "promote_after_100_clean_calls_reduce_on_unknown_v1"
+UNCERTAIN_CEILING_AMENDMENT_SCHEMA = "phase3_main_uncertain_ceiling_amendment_v1"
+SETTLED_UNKNOWN_DISPOSITION = "settled_unknown_history_no_response"
 APPEND_ONLY_OUTPUTS = (
     "results", "usage_ledger", "request_journal", "decisions", "reviewer_index",
     "terminal_dispositions", "provider_error_log", "run_log",
@@ -169,13 +171,19 @@ def _ledger_events(path: Path, size_bytes: int | None = None) -> list[dict[str, 
     return rows
 
 
-def _interrupted_dispatches(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _interrupted_dispatches(
+    manifest: Mapping[str, Any], *, settled_unknown_marker_paths: Sequence[str | Path] = (),
+) -> list[dict[str, Any]]:
     paths = manifest["output_contract"]["paths"]
     journal = Path(paths["request_journal"])
     legacy = journal.with_name(journal.name + ".unresolved.json")
     marker_paths = ([legacy] if legacy.exists() else [])
     # Concurrent runners use one durable marker per call in a sibling directory.
     marker_paths.extend(sorted(journal.parent.glob(journal.name + ".dispatch-*.json")))
+    settled_paths = {Path(path).resolve() for path in settled_unknown_marker_paths}
+    if len(settled_paths) != len(settled_unknown_marker_paths) or settled_paths - {
+            path.resolve() for path in marker_paths}:
+        raise RecoveryError("settled-unknown marker opt-in must name unique existing markers")
     rows = _ledger_events(Path(paths["usage_ledger"]))
     reservations = {row["attempt_id"]: row for row in rows if row.get("status") == "reserved"}
     terminated = {row["attempt_id"] for row in rows if row.get("status") in
@@ -185,6 +193,20 @@ def _interrupted_dispatches(manifest: Mapping[str, Any]) -> list[dict[str, Any]]
     result = []
     for marker_path in marker_paths:
         marker = _read_json(marker_path)
+        if marker_path.resolve() in settled_paths:
+            history = _require_settled_unknown_marker(rows, journal_rows, marker)
+            raw_sha = _file_binding(marker_path)["raw_sha256"]
+            result.append({
+                "marker_path": marker_path.resolve().as_posix(),
+                "marker_raw_sha256": raw_sha, "marker": marker,
+                "request_sha256": marker["request_sha256"],
+                "recovery_ledger_boundary": {key: rows[-1][key] for key in
+                                             ("ledger_id", "sequence", "event_hash")},
+                "settled_attempts": history, "disposition": SETTLED_UNKNOWN_DISPOSITION,
+                "retirement_receipt_path": journal.with_name(
+                    journal.name + ".retired-" + raw_sha + ".json").resolve().as_posix(),
+            })
+            continue
         matching = []
         for attempt_id, reservation in reservations.items():
             metadata = reservation.get("metadata", {})
@@ -247,6 +269,66 @@ def _require_unreserved_marker(events, journal_rows, marker) -> None:
         raise RecoveryError("unreserved marker already has a durable journal entry")
 
 
+def _require_settled_unknown_marker(events, journal_rows, marker) -> list[dict[str, Any]]:
+    from rejudge.request_journal import validate_settled_unknown_history
+    try:
+        history = validate_settled_unknown_history(events, marker)
+    except (ValueError, JournalDispatchUnresolved) as exc:
+        raise RecoveryError(f"settled-unknown marker cannot be reconciled: {exc}") from exc
+    if any(all(row.get(field) == marker.get(field) for field in
+               ("cell_key", "call_role", "slot", "attempt")) for row in journal_rows):
+        raise RecoveryError("settled-unknown marker already has a durable journal entry")
+    return history
+
+
+def _uncertain_ceiling_amendment(
+    ceiling: Any, validation_record: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    from rejudge.phase3_main_runtime_policies import UNCERTAIN_SPEND_POLICY_RAW_SHA256
+    try:
+        amount = Decimal(str(ceiling))
+    except InvalidOperation as exc:
+        raise RecoveryError("invalid amended uncertainty ceiling") from exc
+    # This amendment is deliberately limited to the owner's specific 100 -> 150 grant.
+    if not amount.is_finite() or amount != Decimal("150.00"):
+        raise RecoveryError("uncertainty amendment permits only the approved 100 to 150 ceiling")
+    if (not isinstance(validation_record, Mapping)
+            or not isinstance(validation_record.get("raw_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", validation_record["raw_sha256"]) is None):
+        raise RecoveryError("uncertainty amendment requires a bound approval validation record")
+    return {
+        "schema_version": UNCERTAIN_CEILING_AMENDMENT_SCHEMA,
+        "original_policy_raw_sha256": UNCERTAIN_SPEND_POLICY_RAW_SHA256,
+        "original_run_uncertain_ceiling_usd": "100.00",
+        "run_uncertain_ceiling_usd": "150.00",
+        "preserve_cumulative_accounting": True,
+        "approval_validation_record_raw_sha256": validation_record["raw_sha256"],
+    }
+
+
+def apply_uncertain_spend_amendment(
+    policy_validation: Mapping[str, Any], recovery_validation: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Overlay only the approved ceiling after the caller authenticates recovery scope."""
+    policy = dict(policy_validation)
+    if recovery_validation is None or "uncertain_spend_amendment" not in recovery_validation:
+        return policy
+    amendment = recovery_validation["uncertain_spend_amendment"]
+    expected = _uncertain_ceiling_amendment(
+        "150.00", recovery_validation.get("validation_record"))
+    try:
+        original_ceiling = Decimal(str(policy.get("run_uncertain_ceiling_usd")))
+        stage_cap = Decimal(str(recovery_validation.get("stage_cap_usd")))
+    except InvalidOperation as exc:
+        raise RecoveryError("uncertainty amendment requires the original numeric policy") from exc
+    if (amendment != expected
+            or policy.get("policy_raw_sha256") != expected["original_policy_raw_sha256"]
+            or original_ceiling != Decimal("100.00") or stage_cap != Decimal("1100.00")):
+        raise RecoveryError("uncertainty amendment differs from the original policy or approved scope")
+    policy["run_uncertain_ceiling_usd"] = 150.0
+    return policy
+
+
 def build_recovery_manifest(
     manifest_path: str | Path, authorization_path: str | Path, *,
     execution_source_commit: str, provider_worker_concurrency: int,
@@ -256,6 +338,8 @@ def build_recovery_manifest(
     concurrency_policy: str = CONCURRENCY_POLICY,
     reviewer_transport_repair: Mapping[str, Any] | None = None,
     provider_retry_backoff_policy: str | None = None,
+    run_uncertain_ceiling_usd: str | float | None = None,
+    settled_unknown_marker_paths: Sequence[str | Path] = (),
 ) -> dict[str, Any]:
     """Prepare exact unsigned recovery bytes without modifying archived work."""
     manifest_file, authorization_file = Path(manifest_path).resolve(), Path(authorization_path).resolve()
@@ -291,9 +375,16 @@ def build_recovery_manifest(
             "reviewer_worklist": paths["reviewer_worklist"],
             "active_marker": paths["active_marker"],
         }.items()},
-        "interrupted_dispatches": _interrupted_dispatches(manifest),
+        "interrupted_dispatches": _interrupted_dispatches(
+            manifest, settled_unknown_marker_paths=settled_unknown_marker_paths),
+        "retired_dispatch_receipts": [_file_binding(path) for path in sorted(
+            Path(paths["request_journal"]).parent.glob(
+                Path(paths["request_journal"]).name + ".retired-*.json"))],
         "validation_record": None if validation_record is None else _file_binding(validation_record),
     }
+    if run_uncertain_ceiling_usd is not None:
+        recovery["uncertain_spend_amendment"] = _uncertain_ceiling_amendment(
+            run_uncertain_ceiling_usd, recovery["validation_record"])
     if provider_retry_backoff_policy is not None:
         recovery["provider_retry_backoff_policy"] = provider_retry_backoff_policy
     if reviewer_transport_repair is not None:
@@ -342,6 +433,10 @@ def validate_recovery_manifest(
             or cap != Decimal(str(authorization["stage_cap_usd"]))
             or cap != Decimal(str(manifest["spend"]["stage_cap_usd"]))):
         raise RecoveryError("recovery may not increase the original aggregate spend cap")
+    if "uncertain_spend_amendment" in recovery:
+        if (cap != Decimal("1100") or recovery["uncertain_spend_amendment"] !=
+                _uncertain_ceiling_amendment("150.00", recovery.get("validation_record"))):
+            raise RecoveryError("uncertainty amendment differs from the approved scope")
     source_commit = recovery.get("execution_source_commit")
     if not isinstance(source_commit, str) or re.fullmatch(r"[0-9a-f]{40}", source_commit) is None:
         raise RecoveryError("recovery execution source commit is invalid")
@@ -402,6 +497,14 @@ def validate_recovery_manifest(
         if Path(binding["path"]).resolve() != Path(paths[key]).resolve():
             raise RecoveryError("recovery points at another output artifact")
         _verify_binding(binding, allow_growth=allow_growth)
+    journal_path = Path(paths["request_journal"]).resolve()
+    for binding in recovery.get("retired_dispatch_receipts", []):
+        receipt_path = Path(binding["path"]).resolve()
+        if (receipt_path.parent != journal_path.parent or re.fullmatch(
+                re.escape(journal_path.name) + r"\.retired-[0-9a-f]{64}\.json",
+                receipt_path.name) is None):
+            raise RecoveryError("preserved retirement receipt belongs to another journal")
+        _verify_binding(binding, allow_growth=False)
     packet_root = Path(paths["review_packets_root"]).resolve()
     for binding in recovery.get("review_packet_trees", []):
         packet_path = Path(binding["path"]).resolve()
@@ -431,6 +534,37 @@ def validate_recovery_manifest(
                                     != interrupted["marker_raw_sha256"]
                                     or _read_json(marker_path) != interrupted["marker"]):
             raise RecoveryError("interrupted marker changed before recovery")
+        if interrupted.get("disposition") == SETTLED_UNKNOWN_DISPOSITION:
+            from rejudge.request_journal import validate_settled_unknown_retirement
+            if ("reservation" in interrupted or "reservation_attempt_id" in interrupted
+                    or interrupted.get("request_sha256") != interrupted["marker"].get("request_sha256")):
+                raise RecoveryError("settled-unknown marker contains contradictory reservation evidence")
+            original_events = _ledger_events(Path(paths["usage_ledger"]),
+                                             prefixes["usage_ledger"]["size_bytes"])
+            original_journal = _ledger_events(Path(paths["request_journal"]),
+                prefixes["request_journal"]["size_bytes"]) if Path(paths["request_journal"]).exists() else []
+            expected_boundary = ({key: original_events[-1][key] for key in
+                                  ("ledger_id", "sequence", "event_hash")} if original_events else None)
+            receipt_path = journal_path.with_name(
+                journal_path.name + ".retired-" + interrupted["marker_raw_sha256"] + ".json")
+            if (interrupted.get("recovery_ledger_boundary") != expected_boundary
+                    or Path(interrupted.get("retirement_receipt_path", "")).resolve() != receipt_path
+                    or interrupted.get("settled_attempts") != _require_settled_unknown_marker(
+                        original_events, original_journal, interrupted["marker"])):
+                raise RecoveryError("settled-unknown marker differs from its preserved history")
+            if marker_path.exists():
+                current_boundary = ({key: events[-1][key] for key in
+                                     ("ledger_id", "sequence", "event_hash")} if events else None)
+                if (current_boundary != expected_boundary or interrupted["settled_attempts"] !=
+                        _require_settled_unknown_marker(events, journal_rows, interrupted["marker"])):
+                    raise RecoveryError("settled-unknown marker ledger changed before retirement")
+            if not marker_path.exists() or receipt_path.exists():
+                try:
+                    validate_settled_unknown_retirement(
+                        journal_path, events, journal_rows, interrupted, recovery_sha)
+                except (ValueError, JournalDispatchUnresolved) as exc:
+                    raise RecoveryError(f"settled-unknown retirement receipt failed: {exc}") from exc
+            continue
         if interrupted.get("disposition") == "unreserved_dispatch":
             if ("reservation" in interrupted or "reservation_attempt_id" in interrupted
                     or interrupted.get("request_sha256") != interrupted["marker"].get("request_sha256")):

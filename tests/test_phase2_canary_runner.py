@@ -207,6 +207,31 @@ def test_an_unexpected_error_halts_rather_than_being_swallowed(tmp_path):
     assert outcome.completed == 0
 
 
+@pytest.mark.parametrize("workers", [1, 4])
+@pytest.mark.parametrize("kind", ["checker", "ceiling"])
+def test_serial_and_parallel_halts_keep_bounded_operational_detail(tmp_path, monkeypatch, workers, kind):
+    from rejudge import phase2_canary_runner as runner
+    from rejudge.api_client import UncertainCeilingHalt
+    from rejudge.phase2_canary_gate import CanaryCellHalted
+
+    def halt(*args, **kwargs):
+        if kind == "checker":
+            raise CanaryCellHalted("checker_outage", "TimeoutError: unavailable\n" + "x" * 1200)
+        raise UncertainCeilingHalt("projected uncertainty 100.04 exceeds cap 100.00")
+
+    monkeypatch.setattr(runner, "execute_cell", halt)
+    outcome = _run_concurrent(tmp_path, max_workers=workers, limit=4)
+    assert outcome.completed == 0
+    assert outcome.halted_cell_key
+    if kind == "checker":
+        assert outcome.halted_reason == "checker_outage"
+        assert outcome.halted_detail.startswith("TimeoutError: unavailable ")
+        assert len(outcome.halted_detail) == 1000
+    else:
+        assert outcome.halted_reason == "UncertainCeilingHalt"
+        assert outcome.halted_detail == "projected uncertainty 100.04 exceeds cap 100.00"
+
+
 # --- selecting a subset -------------------------------------------------------------------------
 
 def test_a_filter_restricts_which_cells_run(tmp_path):
