@@ -17,6 +17,7 @@ provider attestation.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -679,8 +680,17 @@ def _compare_result(
     if not isinstance(created_at, str) or not created_at:
         raise MainProviderProvenanceError(
             f"recorded judgment result {cell_key} has no creation timestamp")
+    for label, result in (("recorded", recorded), ("reconstructed", reconstructed)):
+        version = result.get("harness_version")
+        if not isinstance(version, str) or re.fullmatch(r"[0-9a-f]{4,40}", version) is None:
+            raise MainProviderProvenanceError(
+                f"{label} judgment result {cell_key} has no valid Git harness_version")
     normalized = dict(reconstructed)
     normalized["created_at"] = created_at
+    # These describe when and where a row was produced. A saved run may span
+    # authorized execution commits; its original metadata remains hash-bound in
+    # the result store. Compare every scientific field under the current replay.
+    normalized["harness_version"] = recorded["harness_version"]
     if normalized != dict(recorded):
         raise MainProviderProvenanceError(
             f"recorded judgment result {cell_key} differs from normal execution replay")

@@ -10,7 +10,7 @@ import pytest
 
 from rejudge import api_client, judge_loop, phase2_canary_execute, phase3_main_live
 from rejudge import phase3_main_provider_provenance as provenance
-from rejudge import phase3_main_runner, phase3_runner
+from rejudge import phase3_main_runner, phase3_runner, records
 from rejudge.phase2_canary_live import RoleLimitResolvingClient
 from rejudge.phase2_call_cache import request_fingerprint
 from rejudge.phase2_canary_execute import CellContext, execute_cell
@@ -611,12 +611,52 @@ def test_replay_rejects_recorded_result_message_drift(tmp_path: Path) -> None:
     inputs["result_rows"][1]["result"] = copy.deepcopy(
         inputs["result_rows"][1]["result"])
     inputs["result_rows"][1]["result"]["judge_messages"][0]["content"] += " drift"
+    inputs["result_rows"][1]["result"]["harness_version"] = "7172776"
 
     with pytest.raises(
         provenance.MainProviderProvenanceError,
         match="differs from normal execution replay",
     ):
         provenance.verify_main_provider_replay(**inputs)
+
+
+def test_replay_accepts_mixed_execution_versions_without_rewriting_saved_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs, first, second = _two_independent_cells(tmp_path)
+    a, done_a = _named_events(first["ledger_events"], "a")
+    b, done_b = _named_events(second["ledger_events"], "b")
+    _interleave(inputs, [a, b, done_b, done_a])
+    judgments = [row["result"] for row in inputs["result_rows"]
+                 if "harness_version" in row["result"]]
+    assert len(judgments) == 2
+    for judgment, version in zip(judgments, ("7172776", "baa3bf6"), strict=True):
+        judgment["harness_version"] = version
+    saved_rows = json.dumps(inputs["result_rows"], sort_keys=True)
+    monkeypatch.setattr(records, "_GIT_SHA", "9b0641c")
+
+    result = provenance.verify_main_provider_replay(**inputs)
+
+    assert result["status"] == "exact_normal_execution_replay"
+    assert result["replayed_judgment_count"] == 2
+    assert result["logical_request_count"] == result["provider_request_count"] == 2
+    assert json.dumps(inputs["result_rows"], sort_keys=True) == saved_rows
+
+
+@pytest.mark.parametrize("side", ["recorded", "reconstructed"])
+@pytest.mark.parametrize("version", [None, "", "unknown", "9B0641C", "abc", "a" * 41, 123])
+def test_result_comparison_rejects_invalid_execution_version(side, version) -> None:
+    values = {
+        "recorded": {"created_at": "2026-09-07T00:00:00+00:00", "harness_version": "7172776"},
+        "reconstructed": {"created_at": "2026-09-11T00:00:00+00:00", "harness_version": "9b0641c"},
+    }
+    if version is None:
+        del values[side]["harness_version"]
+    else:
+        values[side]["harness_version"] = version
+
+    with pytest.raises(provenance.MainProviderProvenanceError, match=f"{side}.*harness_version"):
+        provenance._compare_result(cell_key="fixture-cell", **values)
 
 
 def test_replay_covers_query_checker_oracle_and_verdict_requests(tmp_path: Path) -> None:
