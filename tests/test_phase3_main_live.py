@@ -2316,7 +2316,8 @@ def test_completion_rejects_zero_return_with_unvalidated_analysis_output(
 
 
 @pytest.mark.parametrize(
-    "mutated", ["results", "analysis", "decisions", "review_packets"])
+    "mutated", ["results", "analysis", "decisions", "review_packets",
+                "price_change_signal_created", "price_change_signal_removed"])
 def test_completion_rejects_post_validation_output_mutation(
     tmp_path, inventory, monkeypatch, mutated,
 ):
@@ -2333,6 +2334,8 @@ def test_completion_rejects_post_validation_output_mutation(
     )
     prepared.identity.artifact_root.mkdir(parents=True)
     prepared.identity.paths.results.write_bytes(b"stable-results\n")
+    if mutated == "price_change_signal_removed":
+        prepared.identity.paths.price_change_signal.write_bytes(b"price-change\n")
     expected_results_sha256 = hashlib.sha256(
         prepared.identity.paths.results.read_bytes()).hexdigest()
     monkeypatch.setattr(
@@ -2398,6 +2401,11 @@ def test_completion_rejects_post_validation_output_mutation(
     def output_hashes(_prepared, *, analysis_results_raw_sha256=None):
         nonlocal hash_calls
         hash_calls += 1
+        if hash_calls > 1:
+            if mutated == "price_change_signal_created":
+                prepared.identity.paths.price_change_signal.write_bytes(b"price-change\n")
+            elif mutated == "price_change_signal_removed":
+                prepared.identity.paths.price_change_signal.unlink()
         if mutated == "results":
             prepared.identity.paths.results.write_bytes(b"changed-results\n")
         else:
@@ -2419,6 +2427,11 @@ def test_completion_rejects_post_validation_output_mutation(
                 "d" * 64
                 if mutated == "review_packets" and hash_calls > 1
                 else "c" * 64),
+            "price_change_signal": (
+                hashlib.sha256(
+                    prepared.identity.paths.price_change_signal.read_bytes()).hexdigest()
+                if prepared.identity.paths.price_change_signal.exists()
+                else None),
         }
 
     monkeypatch.setattr(
@@ -4188,28 +4201,68 @@ def test_uncertain_ceiling_halt_is_identity_fatal_in_the_production_loop(
     assert len(loop_calls) == 1
 
 
-def test_completion_hashes_bind_directory_tree_and_leave_only_self_null(
-    tmp_path, inventory,
+@pytest.mark.parametrize("signal_present", [False, True])
+def test_completion_hashes_bind_directory_tree_and_optional_price_change_signal(
+    tmp_path, inventory, signal_present,
 ):
     prepared = _prepared(tmp_path, inventory)
     output_paths = {}
     for name, filename in phase3_main_live.phase3_main_manifest.OUTPUT_FILENAMES.items():
         path = prepared.identity.artifact_root / filename
         output_paths[name] = path
-        if name == "completion":
+        if name == "completion" or (name == "price_change_signal" and not signal_present):
             continue
         if name == "review_packets_root":
             path.mkdir(parents=True)
             (path / "packet.txt").write_text("bound\n", encoding="utf-8")
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"{name}\n", encoding="utf-8")
+            path.write_text(f"{name}\n", encoding="utf-8", newline="\n")
     validation = dict(prepared.manifest_validation)
     validation["output_paths"] = output_paths
     prepared = replace(prepared, manifest_validation=validation)
     hashes = phase3_main_live._completion_output_hashes(prepared)
     assert hashes["completion"] is None
-    assert all(value is not None for name, value in hashes.items() if name != "completion")
+    assert hashes["price_change_signal"] == (
+        hashlib.sha256(b"price_change_signal\n").hexdigest() if signal_present else None)
+    assert all(value is not None for name, value in hashes.items()
+               if name not in {"completion", "price_change_signal"})
+
+
+@pytest.mark.parametrize("missing_output", ["results", "usage_ledger", "analysis_results"])
+def test_completion_hashes_still_require_normal_outputs(tmp_path, inventory, missing_output):
+    prepared = _prepared(tmp_path, inventory)
+    validation = dict(prepared.manifest_validation)
+    validation["output_paths"] = {
+        missing_output: prepared.identity.artifact_root / "missing.json",
+        "price_change_signal": prepared.identity.paths.price_change_signal,
+    }
+    prepared = replace(prepared, manifest_validation=validation)
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="required final output"):
+        phase3_main_live._completion_output_hashes(prepared)
+
+
+@pytest.mark.parametrize("signal_kind", ["directory", "broken_symlink"])
+def test_completion_hashes_do_not_treat_nonfile_signal_as_absent(
+    tmp_path, inventory, signal_kind,
+):
+    prepared = _prepared(tmp_path, inventory)
+    signal = prepared.identity.paths.price_change_signal
+    signal.parent.mkdir(parents=True)
+    if signal_kind == "directory":
+        signal.mkdir()
+    else:
+        try:
+            signal.symlink_to(signal.with_name("missing-target.json"))
+        except OSError as exc:
+            pytest.skip(f"symlink creation is unavailable: {exc}")
+    validation = dict(prepared.manifest_validation)
+    validation["output_paths"] = {"price_change_signal": signal}
+    prepared = replace(prepared, manifest_validation=validation)
+
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="required final output"):
+        phase3_main_live._completion_output_hashes(prepared)
 
 
 def test_completion_hashes_must_match_finalization_artifacts_and_reviewer_tree():

@@ -4990,6 +4990,9 @@ def _completion_output_hashes(
         path = Path(paths[name])
         if name == "completion":
             result[name] = None
+        elif name == "price_change_signal" and not os.path.lexists(path):
+            # This stop signal is published only when a price change is observed.
+            result[name] = None
         elif name == "review_packets_root":
             try:
                 result[name] = (
