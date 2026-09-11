@@ -1950,6 +1950,190 @@ def test_finalization_completion_timestamp_and_write_follow_final_authority_chec
     assert captured["recorded_at_utc"] != "provisional"
 
 
+def _saved_admission_fixture(tmp_path, inventory, monkeypatch):
+    prepared = _prepared(tmp_path, inventory)
+    prepared = replace(prepared, protocol={
+        **prepared.protocol,
+        "roster": {**prepared.protocol["roster"], "oracle": "fixture oracle"},
+    })
+    prepared.identity.artifact_root.mkdir(parents=True)
+    # Noncanonical whitespace makes accidental JSON reserialization observable.
+    raw = b'{ "recorded_at_utc" : "2026-09-11T12:00:00+00:00", "fixture" : true }\n'
+    prepared.identity.paths.finalization.write_bytes(raw)
+    terminal = phase3_main_live.phase3_main_finalization.MainTerminalDispositionStore(
+        tmp_path / "terminal-existing-admission.jsonl",
+        run_id=prepared.identity.run_id,
+        manifest_canonical_sha256=prepared.identity.manifest_sha256,
+        inventory=prepared.inventory,
+    )
+    monkeypatch.setattr(phase3_main_live, "_revalidate_authenticated_authorization_scope",
+                        lambda _prepared: prepared.authorization)
+    return prepared, terminal, raw
+
+
+def test_resume_existing_admission_preserves_bytes_timestamp_and_validates_before_analysis(
+    tmp_path, inventory, monkeypatch,
+):
+    prepared, terminal, raw = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    calls = []
+
+    def no_fresh_publication(*_args, **_kwargs):
+        raise AssertionError("existing admission must not be freshly built or rewritten")
+
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization,
+                        "build_finalization_admission", no_fresh_publication)
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization,
+                        "write_finalization_admission", no_fresh_publication)
+
+    def validate(record, **inputs):
+        assert record == json.loads(raw)
+        assert inputs["run_id"] == prepared.identity.run_id
+        assert inputs["manifest_canonical_sha256"] == prepared.identity.manifest_sha256
+        assert inputs["authorization_raw_sha256"] == prepared.authorization_raw_sha256
+        assert inputs["result_store_path"] == prepared.identity.paths.results
+        assert "uncertain_spend_policy" in inputs and "voided_predecessor_usd" in inputs
+        calls.append("validate")
+
+    def scope(_prepared):
+        calls.append("scope")
+        return prepared.authorization
+
+    def analysis(argv):
+        assert prepared.identity.paths.finalization.read_bytes() == raw
+        assert argv[argv.index("--finalization") + 1] == str(prepared.identity.paths.finalization)
+        calls.append("analysis")
+        return SimpleNamespace(returncode=2)
+
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization, "validate_finalization_admission", validate)
+    monkeypatch.setattr(phase3_main_live, "_revalidate_authenticated_authorization_scope", scope)
+    monkeypatch.setattr(phase3_main_live.phase3_main_analysis, "run_analysis", analysis)
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="analysis returned exit 2"):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=hashlib.sha256(raw).hexdigest())
+    assert calls == ["scope", "validate", "scope", "analysis"]
+    assert prepared.identity.paths.finalization.read_bytes() == raw
+    assert not prepared.identity.paths.completion.exists()
+    assert not phase3_main_live._identity_complete_path(prepared.identity).exists()
+
+
+@pytest.mark.parametrize("raw", [b'[]', b'{"x":1,"x":2}', b'{"x":NaN}',
+                                b'{"schema_version":"tampered"}'])
+def test_resume_existing_admission_rejects_invalid_saved_record_before_analysis(
+    tmp_path, inventory, monkeypatch, raw,
+):
+    prepared, terminal, _ = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    prepared.identity.paths.finalization.write_bytes(raw)
+    monkeypatch.setattr(phase3_main_live.phase3_main_analysis, "run_analysis",
+                        lambda _argv: pytest.fail("invalid admission reached analysis"))
+    # Keep the real strict parser and full production admission validator.
+    with pytest.raises((phase3_main_live.Phase3MainLiveError,
+                        phase3_main_live.phase3_main_finalization.MainFinalizationError)):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=hashlib.sha256(raw).hexdigest())
+    assert prepared.identity.paths.finalization.read_bytes() == raw
+    assert not prepared.identity.paths.completion.exists()
+
+
+@pytest.mark.parametrize("expected_hash", [None, "not-a-hash", "A" * 64, "0" * 64])
+def test_resume_existing_admission_requires_external_saved_hash(
+    tmp_path, inventory, monkeypatch, expected_hash,
+):
+    prepared, terminal, raw = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization, "validate_finalization_admission",
+                        lambda *_args, **_kwargs: pytest.fail("unbound admission reached validation"))
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="preserved admission SHA-256"):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=expected_hash)
+    assert prepared.identity.paths.finalization.read_bytes() == raw
+    assert not prepared.identity.paths.analysis_results.exists()
+    assert not prepared.identity.paths.completion.exists()
+
+
+@pytest.mark.parametrize("output", ["analysis", "completion", "identity_completion"])
+def test_resume_existing_admission_refuses_existing_outputs(tmp_path, inventory, monkeypatch, output):
+    prepared, terminal, raw = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    outputs = {"analysis": prepared.identity.paths.analysis_results,
+               "completion": prepared.identity.paths.completion,
+               "identity_completion": phase3_main_live._identity_complete_path(prepared.identity)}
+    path = outputs[output]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"preserve existing output\n")
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization, "validate_finalization_admission",
+                        lambda *_args, **_kwargs: pytest.fail("existing output reached validation"))
+    with pytest.raises(phase3_main_live.Phase3MainLiveError, match="requires absent analysis and completion"):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=hashlib.sha256(raw).hexdigest())
+    assert prepared.identity.paths.finalization.read_bytes() == raw
+    assert path.read_bytes() == b"preserve existing output\n"
+    assert all(not candidate.exists() for name, candidate in outputs.items() if name != output)
+
+
+@pytest.mark.parametrize("mutation", ["saved_bytes", "analysis_appears", "authority"])
+def test_resume_existing_admission_rechecks_pinned_inputs_before_analysis(
+    tmp_path, inventory, monkeypatch, mutation,
+):
+    prepared, terminal, raw = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    scope_calls = 0
+
+    def scope(_prepared):
+        nonlocal scope_calls
+        scope_calls += 1
+        if mutation == "authority" and scope_calls == 2:
+            return {**prepared.authorization, "changed": True}
+        return prepared.authorization
+
+    def validate(*_args, **_kwargs):
+        if mutation == "saved_bytes":
+            prepared.identity.paths.finalization.write_bytes(raw + b" ")
+        elif mutation == "analysis_appears":
+            prepared.identity.paths.analysis_results.write_bytes(b"concurrent output")
+
+    monkeypatch.setattr(phase3_main_live, "_revalidate_authenticated_authorization_scope", scope)
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization, "validate_finalization_admission", validate)
+    monkeypatch.setattr(phase3_main_live.phase3_main_analysis, "run_analysis",
+                        lambda _argv: pytest.fail("changed boundary reached analysis"))
+    with pytest.raises(phase3_main_live.Phase3MainLiveError):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=hashlib.sha256(raw).hexdigest())
+    assert not prepared.identity.paths.completion.exists()
+    assert not phase3_main_live._identity_complete_path(prepared.identity).exists()
+
+
+@pytest.mark.parametrize("mutation", ["admission_bytes", "bound_artifact"])
+def test_resume_existing_admission_keeps_post_analysis_guards(
+    tmp_path, inventory, monkeypatch, mutation,
+):
+    prepared, terminal, raw = _saved_admission_fixture(tmp_path, inventory, monkeypatch)
+    validations = []
+
+    def validate(*_args, **_kwargs):
+        validations.append(True)
+        if len(validations) == 2:
+            raise phase3_main_live.phase3_main_finalization.MainFinalizationError("bound artifact changed")
+
+    def analysis(_argv):
+        if mutation == "admission_bytes":
+            prepared.identity.paths.finalization.write_bytes(raw + b" ")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(phase3_main_live.phase3_main_finalization, "validate_finalization_admission", validate)
+    monkeypatch.setattr(phase3_main_live.phase3_main_analysis, "run_analysis", analysis)
+    monkeypatch.setattr(phase3_main_live, "_revalidate_final_boundary_inputs", lambda *_args: None)
+    with pytest.raises((phase3_main_live.Phase3MainLiveError,
+                        phase3_main_live.phase3_main_finalization.MainFinalizationError)):
+        phase3_main_live._finalize_main(
+            prepared, terminal, resume_existing_admission=True,
+            expected_existing_admission_raw_sha256=hashlib.sha256(raw).hexdigest())
+    assert len(validations) == (1 if mutation == "admission_bytes" else 2)
+    assert not prepared.identity.paths.completion.exists()
+    assert not phase3_main_live._identity_complete_path(prepared.identity).exists()
+
+
 def test_completion_revalidates_capacity_evidence_after_analysis(
     tmp_path, inventory, monkeypatch,
 ):

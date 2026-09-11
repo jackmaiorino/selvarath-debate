@@ -1,9 +1,18 @@
 """Detached-signature verification for the exact Phase 3 main authorization bytes."""
 from __future__ import annotations
 
+import base64
+from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
+import hashlib
 import json
+import os
+import stat
 import subprocess
 import tempfile
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +26,120 @@ SSH_KEYGEN_PATH = Path("C:/Windows/System32/OpenSSH/ssh-keygen.exe")
 
 class MainAuthorizationSignatureError(ValueError):
     """The exact owner authorization bytes lack a valid pinned-key signature."""
+
+
+class _SignatureVerificationCache:
+    def __init__(self, max_entries: int) -> None:
+        self.max_entries = max_entries
+        self.owner_thread = threading.current_thread()
+        self.active = True
+        # Values are only success tokens, never parsed authorization objects.
+        self.successes: OrderedDict[tuple[Any, ...], None] = OrderedDict()
+
+    def contains(self, key: tuple[Any, ...]) -> bool:
+        return key in self.successes
+
+    def remember(self, key: tuple[Any, ...]) -> None:
+        self.successes[key] = None
+        self.successes.move_to_end(key)
+        while len(self.successes) > self.max_entries:
+            self.successes.popitem(last=False)
+
+
+_SIGNATURE_VERIFICATION_CACHE: ContextVar[_SignatureVerificationCache | None] = (
+    ContextVar("phase3_owner_signature_verification_cache", default=None)
+)
+
+
+@contextmanager
+def cache_owner_signature_verifications(max_entries: int = 128) -> Iterator[None]:
+    """Opt in to exact positive signature reuse in this context and thread only.
+
+    Every load still reopens and parses its inputs. Caller-side authorization,
+    dispatch-window, policy, and artifact checks are unaffected. No cache persists
+    after the scope exits, and nested scopes restore their predecessor on exit.
+    """
+    if type(max_entries) is not int or max_entries <= 0:
+        raise ValueError("signature cache max_entries must be a positive integer")
+    cache = _SignatureVerificationCache(max_entries)
+    token = _SIGNATURE_VERIFICATION_CACHE.set(cache)
+    try:
+        yield
+    finally:
+        cache.active = False
+        cache.successes.clear()
+        _SIGNATURE_VERIFICATION_CACHE.reset(token)
+
+
+def _cacheable_plain_ed25519_signature(public_key: str, signature_raw: bytes) -> bool:
+    """Only raw Ed25519 signatures have reusable, time-independent validity here.
+
+    OpenSSH certificates and unknown signature/key formats remain uncached. This
+    format check never authenticates a signature; the existing verifier does that.
+    """
+    try:
+        key_line = public_key.strip()
+        if "\n" in key_line or "\r" in key_line:
+            return False
+        fields = key_line.split()
+        if len(fields) < 2 or fields[0] != "ssh-ed25519":
+            return False
+        key_blob = base64.b64decode(fields[1], validate=True)
+        if (len(key_blob) != 51
+                or key_blob[:19] != b"\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20"):
+            return False
+        lines = signature_raw.strip().splitlines()
+        if (len(lines) < 3 or lines[0] != b"-----BEGIN SSH SIGNATURE-----"
+                or lines[-1] != b"-----END SSH SIGNATURE-----"):
+            return False
+        blob = base64.b64decode(b"".join(lines[1:-1]), validate=True)
+        # SSHSIG magic, uint32 version, then the SSH-string public-key blob.
+        if len(blob) < 14 or blob[:10] != b"SSHSIG\x00\x00\x00\x01":
+            return False
+        size = int.from_bytes(blob[10:14], "big")
+        return size == len(key_blob) and blob[14:14 + size] == key_blob
+    except (ValueError, UnicodeError, TypeError):
+        return False
+
+
+def _stat_identity(value: os.stat_result) -> tuple[int, ...]:
+    # Windows path stat synthesizes executable permission bits from the suffix;
+    # fstat does not. The actual file type, identity, bytes and times must agree.
+    return (value.st_dev, value.st_ino, stat.S_IFMT(value.st_mode), value.st_size,
+            value.st_mtime_ns, getattr(value, "st_birthtime_ns", value.st_ctime_ns))
+
+
+def _verifier_snapshot(verifier: Path) -> tuple[Any, ...]:
+    """Reopen the exact executable and bind bytes plus filesystem identity."""
+    try:
+        resolved = verifier.resolve(strict=True)
+        digest = hashlib.sha256()
+        with resolved.open("rb") as handle:
+            before = os.fstat(handle.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                raise MainAuthorizationSignatureError("signature verifier is not a regular file")
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+            after = os.fstat(handle.fileno())
+        if (_stat_identity(before) != _stat_identity(after)
+                or verifier.resolve(strict=True) != resolved
+                or _stat_identity(resolved.stat()) != _stat_identity(after)):
+            raise MainAuthorizationSignatureError("signature verifier changed while read")
+        return (str(verifier), resolved.as_posix(), _stat_identity(after), digest.digest())
+    except OSError as exc:
+        raise MainAuthorizationSignatureError("signature verifier became unreadable") from exc
+
+
+def _require_signed_bytes_unchanged(
+    source: Path, signature: Path, raw: bytes, signature_raw: bytes,
+) -> None:
+    try:
+        if source.read_bytes() != raw or signature.read_bytes() != signature_raw:
+            raise MainAuthorizationSignatureError(
+                "owner authorization or signature changed during verification")
+    except OSError as exc:
+        raise MainAuthorizationSignatureError(
+            "owner authorization became unreadable after signature verification") from exc
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -73,6 +196,32 @@ def load_authenticated_owner_authorization(
     if not verifier.is_file():
         raise MainAuthorizationSignatureError(
             f"pinned ssh-keygen verifier is unavailable: {verifier}")
+
+    cache = _SIGNATURE_VERIFICATION_CACHE.get()
+    cache_key = None
+    verifier_snapshot = None
+    if (cache is not None and cache.active and cache.owner_thread is threading.current_thread()
+            and verifier.is_absolute()
+            and _cacheable_plain_ed25519_signature(pinned_key, signature_raw)):
+        key_bytes = (pinned_key.strip() + "\n").encode("utf-8")
+        allowed_bytes = (
+            f'{OWNER_SIGNATURE_PRINCIPAL} namespaces="{signature_namespace}" '
+            f"{pinned_key.strip()}\n"
+        ).encode("utf-8")
+        verifier_snapshot = _verifier_snapshot(verifier)
+        cache_key = (
+            source.as_posix(), signature.as_posix(),
+            len(raw), hashlib.sha256(raw).digest(),
+            len(signature_raw), hashlib.sha256(signature_raw).digest(),
+            key_bytes, pinned_fingerprint, OWNER_SIGNATURE_PRINCIPAL,
+            signature_namespace, allowed_bytes, verifier_snapshot,
+        )
+        if cache.contains(cache_key):
+            if _verifier_snapshot(verifier) != verifier_snapshot:
+                raise MainAuthorizationSignatureError("signature verifier changed during reuse")
+            _require_signed_bytes_unchanged(source, signature, raw, signature_raw)
+            cache.remember(cache_key)
+            return value
 
     try:
         with tempfile.TemporaryDirectory(prefix="phase3-main-auth-") as temp_text:
@@ -137,13 +286,13 @@ def load_authenticated_owner_authorization(
     ):
         raise MainAuthorizationSignatureError(
             "owner authorization detached signature is invalid")
-    try:
-        if source.read_bytes() != raw or signature.read_bytes() != signature_raw:
-            raise MainAuthorizationSignatureError(
-                "owner authorization or signature changed during verification")
-    except OSError as exc:
-        raise MainAuthorizationSignatureError(
-            "owner authorization became unreadable after signature verification") from exc
+    _require_signed_bytes_unchanged(source, signature, raw, signature_raw)
+    if cache_key is not None:
+        if _verifier_snapshot(verifier) != verifier_snapshot:
+            raise MainAuthorizationSignatureError("signature verifier changed during verification")
+        _require_signed_bytes_unchanged(source, signature, raw, signature_raw)
+        assert cache is not None
+        cache.remember(cache_key)
     return value
 
 
@@ -152,5 +301,6 @@ __all__ = [
     "OWNER_SIGNATURE_NAMESPACE",
     "OWNER_SIGNATURE_PRINCIPAL",
     "SSH_KEYGEN_PATH",
+    "cache_owner_signature_verifications",
     "load_authenticated_owner_authorization",
 ]

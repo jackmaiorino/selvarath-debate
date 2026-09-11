@@ -2659,3 +2659,180 @@ def test_finalization_rejects_unknown_charge_beyond_the_policy_ceiling(tmp_path,
             uncertain_spend_policy=policy,
             recorded_at_utc="2026-08-29T13:00:03Z",
         )
+
+
+@pytest.fixture
+def accounting_authority(tmp_path, monkeypatch, request):
+    """Exercise real recovery scope validation with an isolated signature boundary."""
+    from rejudge import phase3_main_authorization as authority, phase3_main_recovery as recovery
+    paths = {name: tmp_path / name for name in ("manifest", "authorization", "recovery", "validation", "run_log")}
+    policy_limits_path = REPO_ROOT / "rejudge" / "phase3_v3_role_limits_r11_2026-09-06.json"
+    bound_limits_path = (policy_limits_path.relative_to(REPO_ROOT)
+                         if getattr(request, "param", None) == "relative_limits" else policy_limits_path.resolve())
+    manifest = {
+        "run_id": RUN_ID, "source_commit": "a" * 40,
+        "runtime": {"model_ids": ["model-a", "model-b"]}, "seeds": {}, "inventory": {},
+        "input_bindings": {"role_limits": {"path": str(bound_limits_path),
+                                           "sha256": _raw_sha256(policy_limits_path)}},
+        "spend": {"stage_cap_usd": "1100.00", "prior_reconciled_usd": PRIOR_RECONCILED_USD},
+        "output_contract": {"artifact_root": str(tmp_path), "paths": {"run_log": str(paths["run_log"])}}}
+    authorization = {"run_id": RUN_ID, "stage_cap_usd": "1100.00"}
+    for name, value in (("manifest", manifest), ("authorization", authorization), ("validation", {"approved": 150})):
+        paths[name].write_text(json.dumps(value), encoding="utf-8")
+    Path(str(paths["authorization"]) + ".sig").write_bytes(b"test-only signature")
+    grant = {
+        "schema_version": recovery.RECOVERY_SCHEMA, "run_id": RUN_ID,
+        "original_manifest_canonical_sha256": codex_reviewer_batch._canonical_sha256(manifest),
+        "artifact_root": str(tmp_path), "original_manifest": recovery._file_binding(paths["manifest"]),
+        "original_authorization": recovery._file_binding(paths["authorization"]),
+        "original_authorization_signature": recovery._file_binding(str(paths["authorization"]) + ".sig"),
+        "scientific_contract_sha256": codex_reviewer_batch._canonical_sha256(recovery._scientific_contract(manifest)),
+        "stage_cap_usd": "1100.00", "execution_source_commit": "b" * 40,
+        "provider_worker_concurrency": 8, "block_size": 16,
+        "per_model_limits": {"model-a": 4, "model-b": 4},
+        "initial_per_model_limits": {"model-a": 2, "model-b": 4},
+        "concurrency_policy": recovery.CONCURRENCY_POLICY, "controls": recovery.RECOVERY_CONTROLS,
+        "reason": "saved local closeout", "owner_instruction": "preserve the saved run",
+        "recorded_at_utc": "2026-09-11T12:00:00Z", "validation_record": recovery._file_binding(paths["validation"])}
+    grant["uncertain_spend_amendment"] = recovery._uncertain_ceiling_amendment("150.00", grant["validation_record"])
+    paths["recovery"].write_text(json.dumps(grant), encoding="utf-8")
+    Path(str(paths["recovery"]) + ".sig").write_bytes(b"test-only signature")
+    signed = {paths["authorization"]: (paths["authorization"].read_bytes(), authority.OWNER_SIGNATURE_NAMESPACE),
+              paths["recovery"]: (paths["recovery"].read_bytes(), recovery.RECOVERY_SIGNATURE_NAMESPACE)}
+    calls = []
+    def authenticate(path, *, signature_namespace=authority.OWNER_SIGNATURE_NAMESPACE):
+        path = Path(path)
+        calls.append((path, signature_namespace))
+        if (signed.get(path) != (path.read_bytes(), signature_namespace)
+                or Path(str(path) + ".sig").read_bytes() != b"test-only signature"):
+            raise authority.MainAuthorizationSignatureError("fixture signature rejected changed bytes or namespace")
+        return json.loads(path.read_bytes())
+    monkeypatch.setattr(authority, "load_authenticated_owner_authorization", authenticate)
+    event = {"event": "formal_main_resumed", "run_id": RUN_ID, "recovery_path": str(paths["recovery"]),
+             "execution_source_commit": grant["execution_source_commit"],
+             "recovery_manifest_sha256": codex_reviewer_batch._canonical_sha256(grant),
+             "recovery_raw_sha256": _raw_sha256(paths["recovery"]),
+             "recovery_signature_raw_sha256": _raw_sha256(Path(str(paths["recovery"]) + ".sig"))}
+    paths["run_log"].write_text(json.dumps(event) + "\n", encoding="utf-8")
+    predecessor = {"predecessor_run_id": "other-run", "predecessor_manifest_canonical_sha256": "c" * 64,
+                   "accounted_spend_usd": "61.05617072"}
+    def predecessor_loader(root, *, verify_ledger):
+        assert Path(root) == REPO_ROOT and verify_ledger is True
+        return predecessor
+    monkeypatch.setattr(phase3_main_runtime_policies, "load_and_validate_predecessor_void_accounting", predecessor_loader)
+    kwargs = dict(run_log_path=paths["run_log"], role_limits_path=policy_limits_path,
+        role_limits_raw_sha256=_raw_sha256(policy_limits_path), run_id=RUN_ID,
+        manifest_sha256=grant["original_manifest_canonical_sha256"],
+        authorization_sha256=codex_reviewer_batch._canonical_sha256(authorization),
+        authorization_raw_sha256=grant["original_authorization"]["raw_sha256"],
+        authorization_signature_raw_sha256=grant["original_authorization_signature"]["raw_sha256"],
+        prior_reconciled_usd=PRIOR_RECONCILED_USD, stage_cap_usd="1100.00", policy_required=True)
+    return {"paths": paths, "kwargs": kwargs, "calls": calls, "event": event, "predecessor": predecessor}
+
+
+def test_accounting_adapter_reopens_signed_policy_and_predecessor(accounting_authority):
+    fixture = accounting_authority
+    policy, predecessor = finalization._authenticated_runtime_accounting(**fixture["kwargs"])
+    assert policy["run_uncertain_ceiling_usd"] == 150.0
+    assert policy["policy_raw_sha256"] == phase3_main_runtime_policies.UNCERTAIN_SPEND_POLICY_RAW_SHA256
+    assert predecessor == "61.05617072"
+    assert {path for path, _ in fixture["calls"]} == {
+        fixture["paths"]["recovery"], fixture["paths"]["authorization"]}
+
+
+@pytest.mark.parametrize("accounting_authority", ["relative_limits"], indirect=True)
+def test_accounting_adapter_resolves_signed_relative_limits_outside_checkout(
+        accounting_authority, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    policy, predecessor = finalization._authenticated_runtime_accounting(**accounting_authority["kwargs"])
+    assert policy["run_uncertain_ceiling_usd"] == 150.0
+    assert predecessor == "61.05617072"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("run_id", "another-run"), ("manifest_sha256", "d" * 64),
+    ("authorization_sha256", "d" * 64), ("authorization_raw_sha256", "d" * 64),
+    ("authorization_signature_raw_sha256", "d" * 64),
+    ("role_limits_raw_sha256", "d" * 64), ("stage_cap_usd", "1200"),
+    ("prior_reconciled_usd", "0")])
+def test_accounting_adapter_rejects_other_authority(accounting_authority, field, value):
+    with pytest.raises(finalization.MainFinalizationError, match="runtime accounting"):
+        finalization._authenticated_runtime_accounting(**{**accounting_authority["kwargs"], field: value})
+
+
+@pytest.mark.parametrize("target", ["validation", "recovery", "authorization"])
+def test_accounting_adapter_rejects_mutated_authority_bytes(accounting_authority, target):
+    path = accounting_authority["paths"][target]
+    path.write_bytes(path.read_bytes() + b" ")
+    with pytest.raises(finalization.MainFinalizationError, match="runtime accounting"):
+        finalization._authenticated_runtime_accounting(**accounting_authority["kwargs"])
+
+
+def test_accounting_adapter_rejects_unbound_policy_file(accounting_authority, tmp_path, monkeypatch):
+    root = tmp_path / "altered-source"
+    path = root / phase3_main_runtime_policies.UNCERTAIN_SPEND_POLICY_RELATIVE_PATH
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / phase3_main_runtime_policies.UNCERTAIN_SPEND_POLICY_RELATIVE_PATH).read_bytes() + b" ")
+    monkeypatch.setattr(finalization, "__file__", str(root / "rejudge" / "phase3_main_finalization.py"))
+    with pytest.raises(finalization.MainFinalizationError, match="runtime accounting"):
+        finalization._authenticated_runtime_accounting(**accounting_authority["kwargs"])
+
+
+def test_accounting_adapter_missing_authority_preserves_legacy_default(accounting_authority):
+    fixture = accounting_authority
+    fixture["paths"]["run_log"].write_bytes(b"")
+    with pytest.raises(finalization.MainFinalizationError, match="lacks signed recovery authority"):
+        finalization._authenticated_runtime_accounting(**fixture["kwargs"])
+    assert finalization._authenticated_runtime_accounting(
+        **{**fixture["kwargs"], "policy_required": False}) == (None, "0")
+
+
+def test_accounting_adapter_rejects_self_predecessor(accounting_authority):
+    accounting_authority["predecessor"]["predecessor_run_id"] = RUN_ID
+    with pytest.raises(finalization.MainFinalizationError, match="own predecessor"):
+        finalization._authenticated_runtime_accounting(**accounting_authority["kwargs"])
+
+
+def test_bound_admission_forwards_authoritative_policy_and_predecessor(tmp_path, inventory, monkeypatch):
+    build = _complete_finalization_inputs(tmp_path, inventory)
+    _inject_failed_verdict_episode(Path(build["usage_ledger_path"]))
+    policy = phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(REPO_ROOT)
+    policy["run_uncertain_ceiling_usd"] = 150.0
+    predecessor = "61.05617072"
+    build["stage_cap_usd"] = "1100.00"
+    record = finalization.build_finalization_admission(**build, uncertain_spend_policy=policy,
+        voided_predecessor_usd=predecessor, recorded_at_utc="2026-08-29T13:00:03Z")
+    def resolved(**kwargs):
+        assert kwargs["run_id"] == RUN_ID and kwargs["stage_cap_usd"] == "1100.00"
+        assert kwargs["run_log_path"] == build["artifact_paths"]["run_log"]
+        return policy, predecessor
+    monkeypatch.setattr(finalization, "_authenticated_runtime_accounting", resolved)
+    kwargs = dict(inventory=inventory, expected_run_id=RUN_ID,
+        expected_manifest_canonical_sha256=MANIFEST_SHA256,
+        expected_authorization_canonical_sha256=AUTHORIZATION_SHA256,
+        expected_authorization_raw_sha256=AUTHORIZATION_RAW_SHA256,
+        expected_authorization_signature_raw_sha256=AUTHORIZATION_SIGNATURE_RAW_SHA256,
+        authorization_approved_at_utc=AUTHORIZATION_APPROVED_AT_UTC,
+        authorization_valid_until_utc=AUTHORIZATION_VALID_UNTIL_UTC,
+        expected_result_store_path=build["result_store_path"], expected_analysis_pins_path=build["analysis_pins_path"],
+        expected_context_blocklist_path=build["context_blocklist_path"],
+        expected_manifest_output_paths={name: (tmp_path / filename).resolve()
+            for name, filename in phase3_main_manifest.OUTPUT_FILENAMES.items()},
+        expected_provider_input_paths=build["provider_input_paths"],
+        expected_provider_input_raw_sha256s=build["provider_input_raw_sha256s"],
+        expected_reviewer_input_paths=build["reviewer_input_paths"],
+        expected_reviewer_input_raw_sha256s=build["reviewer_input_raw_sha256s"],
+        expected_capacity_result_path=build["capacity_result_path"],
+        expected_capacity_result_raw_sha256=build["expected_capacity_result_raw_sha256"],
+        expected_capacity_dispatch_history_path=build["capacity_dispatch_history_path"],
+        expected_capacity_dispatch_history_raw_sha256=build["expected_capacity_dispatch_history_raw_sha256"],
+        expected_review_packets_root_path=build["review_packets_root_path"],
+        expected_checker_model=finalization.DEFAULT_CHECKER_MODEL, expected_oracle_model=ORACLE_MODEL,
+        expected_reviewer_model=REVIEWER_MODEL, expected_reviewer_reasoning_effort=REVIEWER_REASONING_EFFORT,
+        expected_reviewer_concurrency=REVIEWER_CONCURRENCY, prior_reconciled_usd=PRIOR_RECONCILED_USD,
+        stage_cap_usd="1100.00")
+    assert finalization.validate_finalization_from_bound_artifacts(record, **kwargs) == record
+    tampered = copy.deepcopy(record)
+    tampered["uncertain_spend_policy"]["run_uncertain_ceiling_usd"] = "200"
+    with pytest.raises(finalization.MainFinalizationError):
+        finalization.validate_finalization_from_bound_artifacts(tampered, **kwargs)

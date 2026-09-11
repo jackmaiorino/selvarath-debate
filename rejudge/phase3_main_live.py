@@ -4622,8 +4622,33 @@ def _execute_and_commit_reviewer_wave(
 def _finalize_main(
     prepared: PreparedMainRun,
     terminal_store: phase3_main_finalization.MainTerminalDispositionStore,
+    *,
+    resume_existing_admission: bool = False,
+    expected_existing_admission_raw_sha256: str | None = None,
 ) -> dict[str, Any]:
     paths = prepared.identity.paths
+    existing_finalization_raw: bytes | None = None
+    completion_outputs = (
+        paths.analysis_results, paths.completion, _identity_complete_path(prepared.identity),
+    )
+    if resume_existing_admission:
+        if (not isinstance(expected_existing_admission_raw_sha256, str)
+                or len(expected_existing_admission_raw_sha256) != 64
+                or any(ch not in "0123456789abcdef" for ch in expected_existing_admission_raw_sha256)):
+            raise Phase3MainLiveError(
+                "existing-admission continuation requires the preserved admission SHA-256")
+        if any(os.path.lexists(path) for path in completion_outputs):
+            raise Phase3MainLiveError(
+                "existing-admission continuation requires absent analysis and completion outputs")
+        if not paths.finalization.is_file() or paths.finalization.is_symlink():
+            raise Phase3MainLiveError(
+                "existing-admission continuation requires a regular saved finalization file")
+        try:
+            existing_finalization_raw = paths.finalization.read_bytes()
+        except OSError as exc:
+            raise Phase3MainLiveError("saved finalization is unreadable") from exc
+        if hashlib.sha256(existing_finalization_raw).hexdigest() != expected_existing_admission_raw_sha256:
+            raise Phase3MainLiveError("saved finalization differs from the preserved admission SHA-256")
     artifacts = {
         "result_store": paths.results,
         "usage_ledger": paths.usage_ledger,
@@ -4701,10 +4726,15 @@ def _finalize_main(
         voided_predecessor_usd=str(
             _predecessor_void_accounting(prepared)["accounted_spend_usd"]),
     )
-    finalization = phase3_main_finalization.build_finalization_admission(
-        **finalization_inputs,
-        recorded_at_utc=datetime.now(timezone.utc).isoformat(),
-    )
+    if existing_finalization_raw is None:
+        finalization = phase3_main_finalization.build_finalization_admission(
+            **finalization_inputs,
+            recorded_at_utc=datetime.now(timezone.utc).isoformat(),
+        )
+    else:
+        finalization = _parse_strict_json(existing_finalization_raw, paths.finalization)
+        if not isinstance(finalization, dict):
+            raise Phase3MainLiveError("saved finalization must be a JSON object")
     phase3_main_finalization.validate_finalization_admission(
         finalization,
         **finalization_inputs,
@@ -4714,12 +4744,23 @@ def _finalize_main(
     if canonical_sha256(completed_authorization) != authorization_sha:
         raise Phase3MainLiveError(
             "main authorization scope changed during finalization")
-    finalization = {
-        **finalization,
-        "recorded_at_utc": completed_at.isoformat(),
-    }
-    phase3_main_finalization.write_finalization_admission(paths.finalization, finalization)
-    finalization_raw_sha = _raw_sha256(paths.finalization)
+    if existing_finalization_raw is None:
+        finalization = {
+            **finalization,
+            "recorded_at_utc": completed_at.isoformat(),
+        }
+        phase3_main_finalization.write_finalization_admission(paths.finalization, finalization)
+        finalization_raw_sha = _raw_sha256(paths.finalization)
+    else:
+        try:
+            if paths.finalization.read_bytes() != existing_finalization_raw:
+                raise Phase3MainLiveError("saved finalization bytes changed during validation")
+        except OSError as exc:
+            raise Phase3MainLiveError("saved finalization became unreadable") from exc
+        if any(os.path.lexists(path) for path in completion_outputs):
+            raise Phase3MainLiveError(
+                "analysis or completion output appeared during admission validation")
+        finalization_raw_sha = hashlib.sha256(existing_finalization_raw).hexdigest()
     analysis_run = phase3_main_analysis.run_analysis([
         "--results", str(paths.results),
         "--manifest", str(prepared.manifest_path),

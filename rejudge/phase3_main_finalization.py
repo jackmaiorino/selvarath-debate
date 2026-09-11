@@ -3387,6 +3387,77 @@ def validate_finalization_admission(
     return expected
 
 
+def _authenticated_runtime_accounting(
+    *, run_log_path: Path, role_limits_path: Path, role_limits_raw_sha256: str,
+    run_id: str, manifest_sha256: str, authorization_sha256: str,
+    authorization_raw_sha256: str, authorization_signature_raw_sha256: str,
+    prior_reconciled_usd: str, stage_cap_usd: str, policy_required: bool,
+) -> tuple[Mapping[str, Any] | None, str]:
+    """Reconstruct runtime accounting from signed authority, never the admission's claims."""
+    from rejudge import phase3_main_authorization, phase3_main_recovery, phase3_main_runtime_policies
+
+    resumes = [row for row in _read_jsonl(run_log_path, "main run log")
+               if row.get("event") == "formal_main_resumed"]
+    if not resumes:
+        if policy_required:
+            raise MainFinalizationError("runtime accounting policy lacks signed recovery authority")
+        return None, "0"
+    event = resumes[-1]
+    try:
+        recovery_path = Path(event["recovery_path"])
+        if not recovery_path.is_absolute():
+            raise ValueError("recovery authority path must be absolute")
+        untrusted, _ = _read_json(recovery_path, "recovery authority locator")
+        manifest_path = Path(untrusted["original_manifest"]["path"])
+        authorization_path = Path(untrusted["original_authorization"]["path"])
+        recovery = phase3_main_recovery.load_authenticated_recovery(
+            recovery_path, manifest_path=manifest_path, authorization_path=authorization_path,
+            allow_growth=True, verify_artifacts=False, require_recoverable=False)
+        if (event.get("run_id") != run_id or recovery["run_id"] != run_id
+                or recovery["original_manifest_canonical_sha256"] != manifest_sha256
+                or any(recovery[key] != event.get(key) for key in (
+                    "recovery_manifest_sha256", "recovery_raw_sha256",
+                    "recovery_signature_raw_sha256", "execution_source_commit"))):
+            raise ValueError("runtime accounting recovery differs from the exact resumed identity")
+        manifest, _ = _read_json(manifest_path, "original runtime manifest")
+        authorization = phase3_main_authorization.load_authenticated_owner_authorization(
+            authorization_path)
+        if (canonical_sha256(manifest) != manifest_sha256
+                or canonical_sha256(authorization) != authorization_sha256
+                or authorization.get("run_id") != run_id
+                or recovery["original_authorization"]["raw_sha256"] != authorization_raw_sha256
+                or recovery["original_authorization_signature"]["raw_sha256"]
+                    != authorization_signature_raw_sha256
+                or Path(manifest["output_contract"]["paths"]["run_log"]).resolve() != run_log_path.resolve()
+                or Decimal(str(manifest["spend"]["prior_reconciled_usd"])) != Decimal(prior_reconciled_usd)
+                or Decimal(str(authorization["stage_cap_usd"])) != Decimal(stage_cap_usd)):
+            raise ValueError("runtime accounting authority differs from the signed analysis inputs")
+        project_root = Path(__file__).resolve().parents[1]
+        bound_limits = manifest["input_bindings"]["role_limits"]
+        bound_limits_path = Path(bound_limits["path"])
+        if not bound_limits_path.is_absolute():
+            bound_limits_path = project_root / bound_limits_path
+        limits, limits_raw = _read_json(role_limits_path, "runtime role limits")
+        if (bound_limits_path.resolve() != role_limits_path.resolve()
+                or bound_limits["sha256"] != role_limits_raw_sha256
+                or _sha256_bytes(limits_raw) != role_limits_raw_sha256):
+            raise ValueError("runtime accounting role limits differ from the signed inputs")
+        if recovery.get("validation_record") is not None:
+            phase3_main_recovery._verify_binding(recovery["validation_record"], allow_growth=False)
+        policy = phase3_main_runtime_policies.load_and_validate_uncertain_spend_policy(
+            project_root, role_limits=limits)
+        policy = phase3_main_recovery.apply_uncertain_spend_amendment(policy, recovery)
+        predecessor = phase3_main_runtime_policies.load_and_validate_predecessor_void_accounting(
+            project_root, verify_ledger=True)
+        if (run_id in predecessor.get("predecessor_run_ids", [predecessor["predecessor_run_id"]])
+                or manifest_sha256 in predecessor.get("predecessor_manifest_canonical_sha256s", [
+                    predecessor["predecessor_manifest_canonical_sha256"]])):
+            raise ValueError("runtime accounting cannot name this run as its own predecessor")
+        return policy, str(predecessor["accounted_spend_usd"])
+    except (KeyError, OSError, TypeError, ValueError, InvalidOperation) as exc:
+        raise MainFinalizationError(f"could not authenticate runtime accounting policy: {exc}") from exc
+
+
 def validate_finalization_from_bound_artifacts(
     record: Mapping[str, Any],
     *,
@@ -3654,6 +3725,14 @@ def validate_finalization_from_bound_artifacts(
         inventory=inventory,
         checker_model=expected_checker_model,
     )
+    uncertain_policy, predecessor_usd = _authenticated_runtime_accounting(
+        run_log_path=artifact_paths["run_log"], role_limits_path=provider_input_paths["role_limits"],
+        role_limits_raw_sha256=provider_input_raw_sha256s["role_limits"], run_id=run_id,
+        manifest_sha256=manifest_sha, authorization_sha256=authorization_sha,
+        authorization_raw_sha256=authorization_raw_sha,
+        authorization_signature_raw_sha256=authorization_signature_raw_sha,
+        prior_reconciled_usd=prior_reconciled_usd, stage_cap_usd=stage_cap_usd,
+        policy_required=record.get("uncertain_spend_policy") is not None)
     return validate_finalization_admission(
         record,
         run_id=run_id,
@@ -3696,6 +3775,8 @@ def validate_finalization_from_bound_artifacts(
         authorization_valid_until_utc=valid_until_utc,
         prior_reconciled_usd=prior_reconciled_usd,
         stage_cap_usd=stage_cap_usd,
+        uncertain_spend_policy=uncertain_policy,
+        voided_predecessor_usd=predecessor_usd,
     )
 
 
