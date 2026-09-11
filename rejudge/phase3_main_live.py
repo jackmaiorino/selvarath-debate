@@ -1458,8 +1458,16 @@ def _validate_analysis_result_snapshot(
     expected_finalization_raw_sha256: str,
     expected_results_raw_sha256: str,
     expected_analysis_raw: bytes,
+    authenticated_analysis_source_commit: str | None = None,
 ) -> tuple[bytes, str]:
     """Validate one stable analysis output snapshot and return its reusable digest."""
+    analysis_source = _execution_source_commit(prepared)
+    if authenticated_analysis_source_commit is not None:
+        _authenticate_saved_analysis_continuation(
+            prepared, expected_admission_sha256=expected_finalization_raw_sha256,
+            expected_analysis_sha256=hashlib.sha256(expected_analysis_raw).hexdigest(),
+            expected_analysis_source_commit=authenticated_analysis_source_commit)
+        analysis_source = authenticated_analysis_source_commit
     path = prepared.identity.paths.analysis_results
     try:
         raw = path.read_bytes()
@@ -1522,8 +1530,8 @@ def _validate_analysis_result_snapshot(
         question_snapshot = phase3_main_analysis._snapshot_protocol_bound_question_bank(  # noqa: SLF001
             prepared.protocol, prepared.project_root)
         expected_integrity = {
-            "repository_head_at_analysis": _execution_source_commit(prepared),
-            "engine_git_commit": _execution_source_commit(prepared),
+            "repository_head_at_analysis": analysis_source,
+            "engine_git_commit": analysis_source,
             "engine_git_state": "clean_tracked_at_head",
             "engine_git_status_porcelain": None,
             "engine_raw_sha256": _raw_sha256(Path(phase3_main_analysis.__file__).resolve()),
@@ -4619,17 +4627,107 @@ def _execute_and_commit_reviewer_wave(
             "reviewer wave transaction result differs from its prepared row")
 
 
+def _require_saved_closeout_paths(prepared: PreparedMainRun) -> None:
+    """Refuse partial publications and redirected paths before saved local closeout."""
+    paths = prepared.identity.paths
+    saved = (paths.finalization, paths.analysis_results)
+    outputs = (paths.completion, _identity_complete_path(prepared.identity))
+    for path in (*saved, *outputs):
+        if any(parent.is_symlink() or getattr(parent, "is_junction", lambda: False)()
+               for parent in (path, *path.parents)):
+            raise Phase3MainLiveError("saved-analysis continuation refuses redirected paths")
+        if not path.parent.is_dir():
+            raise Phase3MainLiveError("saved-analysis continuation requires existing output parents")
+        if os.path.lexists(_exclusive_publish_temp_path(path)):
+            raise Phase3MainLiveError("saved-analysis continuation refuses partial publish files")
+    if any(os.path.lexists(path) for path in outputs):
+        raise Phase3MainLiveError("saved-analysis continuation requires absent completion records")
+    if any(not path.is_file() for path in saved):
+        raise Phase3MainLiveError("saved-analysis continuation requires regular saved outputs")
+    _require_identity_not_voided(prepared.identity)
+
+
+def _authenticate_saved_analysis_continuation(
+    prepared: PreparedMainRun, *, expected_admission_sha256: str,
+    expected_analysis_sha256: str, expected_analysis_source_commit: str,
+) -> bytes:
+    """Bind preserved output bytes and historical engine to the signed recovery record."""
+    for value, length in ((expected_admission_sha256, 64), (expected_analysis_sha256, 64),
+                          (expected_analysis_source_commit, 40)):
+        if (not isinstance(value, str) or len(value) != length
+                or any(ch not in "0123456789abcdef" for ch in value)):
+            raise Phase3MainLiveError("saved-analysis continuation requires exact external hashes and source")
+    _require_saved_closeout_paths(prepared)
+    current = _revalidate_recovery(prepared)
+    if current is None or not isinstance(current.get("validation_record"), Mapping):
+        raise Phase3MainLiveError("saved-analysis continuation lacks signed validation authority")
+    binding = current["validation_record"]
+    try:
+        phase3_main_recovery._verify_binding(binding, allow_growth=False)
+        validation_path = Path(binding["path"])
+        if not validation_path.is_file() or validation_path.is_symlink():
+            raise ValueError("validation record is not a regular file")
+        validation_raw = validation_path.read_bytes()
+        if hashlib.sha256(validation_raw).hexdigest() != binding["raw_sha256"]:
+            raise ValueError("validation record changed while reading")
+        validation = _parse_strict_json(validation_raw, validation_path)
+        admission_path = prepared.identity.paths.finalization
+        analysis_path = prepared.identity.paths.analysis_results
+        admission_raw, analysis_raw = admission_path.read_bytes(), analysis_path.read_bytes()
+        if (hashlib.sha256(admission_raw).hexdigest() != expected_admission_sha256
+                or hashlib.sha256(analysis_raw).hexdigest() != expected_analysis_sha256):
+            raise ValueError("saved output differs from its external SHA-256")
+        engine_raw = Path(phase3_main_analysis.__file__).resolve().read_bytes()
+        engine_sha = hashlib.sha256(engine_raw).hexdigest()
+        expected = {
+            "schema_version": "phase3_saved_analysis_continuation_v1",
+            "run_id": prepared.identity.run_id,
+            "manifest_canonical_sha256": prepared.identity.manifest_sha256,
+            "admission": {"path": admission_path.as_posix(), "raw_sha256": expected_admission_sha256,
+                          "byte_count": len(admission_raw)},
+            "analysis": {"path": analysis_path.as_posix(), "raw_sha256": expected_analysis_sha256,
+                         "byte_count": len(analysis_raw)},
+            "analysis_source_commit": expected_analysis_source_commit,
+            "analysis_engine_raw_sha256": engine_sha,
+        }
+        if not isinstance(validation, Mapping) or validation.get("saved_analysis_continuation") != expected:
+            raise ValueError("saved analysis differs from signed continuation scope")
+        historical_engine = subprocess.run(
+            ["git", "show", f"{expected_analysis_source_commit}:scripts/phase3_main_analysis.py"],
+            cwd=prepared.project_root, check=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, timeout=30,
+            env=_subprocess_environment_without_together_credentials()).stdout
+        if historical_engine != engine_raw:
+            raise ValueError("saved analysis engine differs from the current frozen engine")
+        return analysis_raw
+    except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError,
+            phase3_main_recovery.RecoveryError) as exc:
+        raise Phase3MainLiveError(f"could not authenticate saved analysis: {exc}") from exc
+
+
 def _finalize_main(
     prepared: PreparedMainRun,
     terminal_store: phase3_main_finalization.MainTerminalDispositionStore,
     *,
     resume_existing_admission: bool = False,
     expected_existing_admission_raw_sha256: str | None = None,
+    resume_existing_analysis: bool = False,
+    expected_existing_analysis_raw_sha256: str | None = None,
+    expected_analysis_source_commit: str | None = None,
 ) -> dict[str, Any]:
     paths = prepared.identity.paths
     existing_finalization_raw: bytes | None = None
+    existing_analysis_raw: bytes | None = None
+    if resume_existing_analysis:
+        if not resume_existing_admission:
+            raise Phase3MainLiveError("saved-analysis continuation requires saved-admission mode")
+        existing_analysis_raw = _authenticate_saved_analysis_continuation(
+            prepared, expected_admission_sha256=expected_existing_admission_raw_sha256,
+            expected_analysis_sha256=expected_existing_analysis_raw_sha256,
+            expected_analysis_source_commit=expected_analysis_source_commit)
     completion_outputs = (
-        paths.analysis_results, paths.completion, _identity_complete_path(prepared.identity),
+        *((paths.analysis_results,) if not resume_existing_analysis else ()),
+        paths.completion, _identity_complete_path(prepared.identity),
     )
     if resume_existing_admission:
         if (not isinstance(expected_existing_admission_raw_sha256, str)
@@ -4735,10 +4833,11 @@ def _finalize_main(
         finalization = _parse_strict_json(existing_finalization_raw, paths.finalization)
         if not isinstance(finalization, dict):
             raise Phase3MainLiveError("saved finalization must be a JSON object")
-    phase3_main_finalization.validate_finalization_admission(
-        finalization,
-        **finalization_inputs,
-    )
+    if not resume_existing_analysis:
+        phase3_main_finalization.validate_finalization_admission(
+            finalization,
+            **finalization_inputs,
+        )
     completed_authorization = _revalidate_authenticated_authorization_scope(prepared)
     completed_at = datetime.now(timezone.utc)
     if canonical_sha256(completed_authorization) != authorization_sha:
@@ -4761,19 +4860,20 @@ def _finalize_main(
             raise Phase3MainLiveError(
                 "analysis or completion output appeared during admission validation")
         finalization_raw_sha = hashlib.sha256(existing_finalization_raw).hexdigest()
-    analysis_run = phase3_main_analysis.run_analysis([
-        "--results", str(paths.results),
-        "--manifest", str(prepared.manifest_path),
-        "--authorization", str(prepared.authorization_path),
-        "--protocol", str(prepared.input_paths["protocol"]),
-        "--pins", str(prepared.input_paths["analysis_pins"]),
-        "--finalization", str(paths.finalization),
-        "--out", str(paths.analysis_results),
-        "--project-root", str(prepared.project_root),
-    ])
-    if analysis_run.returncode != 0:
-        raise Phase3MainLiveError(
-            f"main analysis returned exit {analysis_run.returncode}")
+    if existing_analysis_raw is None:
+        analysis_run = phase3_main_analysis.run_analysis([
+            "--results", str(paths.results),
+            "--manifest", str(prepared.manifest_path),
+            "--authorization", str(prepared.authorization_path),
+            "--protocol", str(prepared.input_paths["protocol"]),
+            "--pins", str(prepared.input_paths["analysis_pins"]),
+            "--finalization", str(paths.finalization),
+            "--out", str(paths.analysis_results),
+            "--project-root", str(prepared.project_root),
+        ])
+        if analysis_run.returncode != 0:
+            raise Phase3MainLiveError(
+                f"main analysis returned exit {analysis_run.returncode}")
     if _raw_sha256(paths.finalization) != finalization_raw_sha:
         raise Phase3MainLiveError("main finalization bytes changed during analysis")
     _revalidate_final_boundary_inputs(prepared, finalization)
@@ -4807,7 +4907,10 @@ def _finalize_main(
         prepared,
         expected_finalization_raw_sha256=finalization_raw_sha,
         expected_results_raw_sha256=finalization_results_raw_sha256,
-        expected_analysis_raw=analysis_run.output_raw,
+        expected_analysis_raw=(existing_analysis_raw if existing_analysis_raw is not None
+                               else analysis_run.output_raw),
+        **({"authenticated_analysis_source_commit": expected_analysis_source_commit}
+           if resume_existing_analysis else {}),
     )
     output_hashes = _completion_output_hashes(prepared)
     if (
@@ -4858,6 +4961,8 @@ def _finalize_main(
             "original_source_commit": prepared.manifest["source_commit"],
         }
     _require_identity_not_voided(prepared.identity)
+    if resume_existing_analysis:
+        _require_saved_closeout_paths(prepared)
     _write_exclusive_json(
         paths.completion,
         completion,
