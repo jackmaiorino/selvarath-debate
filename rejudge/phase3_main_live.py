@@ -759,19 +759,19 @@ def _reopen_capacity_execution_provenance_inputs(
 
 
 def _reviewer_cli_version(path: Path) -> str:
+    from rejudge.reviewer_cli_probe import (
+        ReviewerCliProbeError,
+        read_reviewer_cli_version,
+    )
+
     try:
-        completed = subprocess.run(
-            [str(path), "--version"], capture_output=True, text=True, timeout=30,
+        return read_reviewer_cli_version(
+            path,
             env=_subprocess_environment_without_together_credentials(),
         )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except ReviewerCliProbeError as exc:
         raise Phase3MainLiveError(
-            f"could not verify the capacity-bound reviewer CLI version: {path}") from exc
-    output = completed.stdout.strip() or completed.stderr.strip()
-    if completed.returncode != 0 or not output:
-        raise Phase3MainLiveError(
-            f"capacity-bound reviewer CLI version check failed: {path}")
-    return output
+            f"could not verify the capacity-bound reviewer CLI version: {path}: {exc}") from exc
 
 
 def _validate_capacity_runtime_binding(
@@ -4041,6 +4041,25 @@ def _review_wave_same_process(
     held_run_lease: phase3_v3_live.RunLease,
 ) -> None:
     """Dispatch a bound reviewer wave and commit it without re-entering the run lease."""
+    packet_dir, boundary = _prepare_reviewer_wave_packets(
+        prepared, pending_payloads, wave=wave, held_run_lease=held_run_lease)
+    _execute_and_commit_reviewer_wave(
+        prepared, packet_dir=packet_dir, wave=wave, held_run_lease=held_run_lease,
+        validated_boundary=boundary)
+
+
+def _prepare_reviewer_wave_packets(
+    prepared: PreparedMainRun,
+    pending_payloads: Sequence[Mapping[str, Any]],
+    *,
+    wave: int,
+    held_run_lease: phase3_v3_live.RunLease,
+) -> tuple[Path, tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]]]:
+    """Prepare the ordinary guarded packets without constructing or invoking a reviewer.
+
+    An offline recovery may use this only after proving the existing allocation and
+    reconstructing its exact pending payloads. Paid execution remains a separate boundary.
+    """
     paths = prepared.identity.paths
     try:
         phase3_main_reviewer_commit.require_held_run_lease(
@@ -4052,6 +4071,25 @@ def _review_wave_same_process(
             "reviewer wave requires the exact held formal run lease") from exc
     current_authorization = _revalidate_authenticated_authorization(prepared)
     capacity_plan, capacity_validation = _revalidate_capacity_snapshot(prepared)
+    boundary = (current_authorization, capacity_plan, capacity_validation)
+    packet_dir = _write_reviewer_wave_packets(
+        prepared, pending_payloads, wave=wave, held_run_lease=held_run_lease,
+        validated_boundary=boundary)
+    return packet_dir, boundary
+
+
+def _write_reviewer_wave_packets(
+    prepared: Any, pending_payloads: Sequence[Mapping[str, Any]], *, wave: int,
+    held_run_lease: phase3_v3_live.RunLease,
+    validated_boundary: tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]],
+) -> Path:
+    """Write exact ordinary packets and their guard; this function cannot dispatch."""
+    paths = prepared.identity.paths
+    phase3_main_reviewer_commit.require_held_run_lease(
+        held_run_lease, expected_path=paths.lease)
+    if any(paths.review_packets_root.glob(f"wave-{wave:03d}-*")):
+        raise Phase3MainLiveError("reviewer wave already has a packet path; refusing duplicate preparation")
+    current_authorization, capacity_plan, capacity_validation = validated_boundary
     worklist = export_reviewer_worklist(
         pending_payloads,
         str(prepared.reviewer_prompt["prompt"]),
@@ -4152,10 +4190,7 @@ def _review_wave_same_process(
         dispatch_guard_raw,
         label="reviewer dispatch guard snapshot",
     )
-    dispatch_guard_raw_sha256 = hashlib.sha256(dispatch_guard_raw).hexdigest()
-    _execute_and_commit_reviewer_wave(
-        prepared, packet_dir=packet_dir, wave=wave, held_run_lease=held_run_lease,
-        validated_boundary=(current_authorization, capacity_plan, capacity_validation))
+    return packet_dir
 
 
 def _resume_reviewer_wave(
