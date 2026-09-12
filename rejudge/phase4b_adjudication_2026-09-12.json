@@ -1,0 +1,50 @@
+{
+  "schema_version": "phase4b_adjudication_execution_v1",
+  "run_id": "phase4b-blinded-adjudication-2026-09-12",
+  "stage": "4B",
+  "paid_execution_authorized": false,
+  "approved_cap_usd": null,
+  "proposed_cap_usd": 100,
+  "preflight_cap_usd": 1,
+  "uncertain_cap_usd": 10,
+  "authority": {
+    "user_instruction": "ok continue with 4B",
+    "scope": "Prepare and implement the 4B audit. The concrete adjudication cap is proposed separately; the prior $250 authorization covered 4A only."
+  },
+  "scope_excludes": ["Recipient evaluation", "Phase 4C", "Automatic cap increases"],
+  "inputs": "E:\\selvarath-archive\\phase4b-preparation-2026-09-12",
+  "run_directory": "E:\\selvarath-archive\\phase4b-blinded-adjudication-2026-09-12",
+  "input_manifest_sha256": "dcf7d0cb17445bb19bad20c24769631c9b01d8a47b756873c6dc0f6e18f63ac2",
+  "protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "adjudication_calls": 9664,
+  "models": ["openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash-0731"],
+  "model_settings": {
+    "openai/gpt-oss-120b": {
+      "temperature": 1.0, "top_p": 1.0, "max_tokens": 8192,
+      "reasoning_effort": "medium", "context_length": 131072,
+      "reservation_multiplier": 3, "initial_workers": 4, "max_workers": 16
+    },
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "temperature": 1.0, "top_p": 1.0, "max_tokens": 8192,
+      "reasoning_effort": "low", "context_length": 1048576,
+      "reservation_multiplier": 3, "initial_workers": 4, "max_workers": 16
+    }
+  },
+  "prices_per_million": {
+    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {"input": 0.14, "output": 0.28}
+  },
+  "price_policy": "Use uncached input rates. Bill reasoning once within completion tokens. All attempts and unknown deliveries consume the cap; reserve three times the output ceiling conservatively.",
+  "price_sources": [
+    "https://docs.together.ai/docs/serverless/models",
+    "https://www.together.ai/models/gpt-oss-120b",
+    "https://www.together.ai/models/deepseek-v4-flash-0731"
+  ],
+  "settings_sources": [
+    "https://docs.together.ai/docs/gpt-oss",
+    "https://docs.together.ai/docs/inference/chat/reasoning"
+  ],
+  "prices_checked_date": "2026-09-12",
+  "authenticated_metadata_check": "Together models.list confirmed both exact IDs, prices and contexts; no inference calls.",
+  "monitor_minutes": 10
+}
