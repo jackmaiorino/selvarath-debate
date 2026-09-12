@@ -3,16 +3,28 @@
   "run_id": "phase5-evidence-scope-2026-09-12",
   "stage": "5-evidence-scope",
   "preparation_authorized": true,
-  "paid_execution_authorized": false,
-  "approved_cap_usd": null,
+  "paid_execution_authorized": true,
+  "approved_cap_usd": 200,
   "proposed_cap_usd": 200,
   "preflight_cap_usd": 5,
   "uncertain_cap_usd": 25,
   "authority": {
-    "source": "Direct user instruction in this Codex task",
-    "user_instruction": "Ok let’s continue with that investigation",
-    "scope": "Prepare the fixed evidence-interpretation experiment and its concrete budget. No Phase5 numeric paid cap has yet been approved.",
-    "recorded_at_utc": "2026-09-12T20:34:28.562572+00:00"
+    "source": "Direct user approval in this Codex task",
+    "user_instruction": "Approved",
+    "scope": "Launch and complete the fixed 7,872-verdict Phase5 evidence-interpretation experiment under a $200 total cap, including preflight and retries, with the ten-minute recovery monitor and frozen offline analysis.",
+    "recorded_at_utc": "2026-09-12T20:42:50.566266+00:00",
+    "approved_proposal": {
+      "total_cap_usd": 200,
+      "preflight_subcap_usd": 5,
+      "uncertain_delivery_subcap_usd": 25,
+      "monitor_minutes": 10
+    },
+    "preparation_instruction": {
+      "source": "Direct user instruction in this Codex task",
+      "user_instruction": "Ok let’s continue with that investigation",
+      "scope": "Prepare the fixed evidence-interpretation experiment and its concrete budget. No Phase5 numeric paid cap has yet been approved.",
+      "recorded_at_utc": "2026-09-12T20:34:28.562572+00:00"
+    }
   },
   "scope_excludes": [
     "Phase4C generation or evaluation",

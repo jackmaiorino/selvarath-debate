@@ -1,6 +1,6 @@
 # Phase 5: interpreting verification evidence
 
-Prepared 2026-09-12. Paid execution awaits a separate numeric cap. The failed Phase 4C entry gate remains unchanged.
+Prepared and approved 2026-09-12. Jack approved the $200 total cap, including preflight, retries and the ten-minute recovery monitor. The failed Phase 4C entry gate remains unchanged.
 
 **Question.** Can one explicit instruction about the scope of verification reduce history-related judging errors on both studied endpoints? Phase 4B repaired saved labels but did not establish a sufficiently large, robust benefit. One remaining explanation is that recipients overinterpret what a checked claim establishes.
 
@@ -18,4 +18,4 @@ Prepared 2026-09-12. Paid execution awaits a separate numeric cap. The failed Ph
 
 **Interpretation.** A positive result supports a practical instruction-package explanation on this panel. A negative result weakens this candidate, not every possible explanation. Added length, caution and attention are part of the package, so this does not isolate a sentence or neural mechanism. The question frame was studied previously; source review was AI-assisted under the owner's amendment, not independent human validation. This cannot establish live-query performance or a universal protocol. A successful candidate would still need separately approved held-out evaluation.
 
-**Execution.** Six transport/format preflight calls, then up to 16 concurrent requests per endpoint, with adaptive ramp-up and durable per-request recovery. Proposed total cap: $200, including $5 preflight and $25 uncertain-delivery subcaps. Matched historical usage forecasts about $105 and 70–110 minutes under similar provider conditions. A ten-minute recovery monitor is planned after approval. [Budget and exact paths](../rejudge/phase5_execution_2026-09-12.json). No further phase or cap increase is automatic.
+**Execution.** Six transport/format preflight calls, then up to 16 concurrent requests per endpoint, with adaptive ramp-up and durable per-request recovery. Approved total cap: $200, including $5 preflight and $25 uncertain-delivery subcaps. Matched historical usage forecasts about $105 and 70–110 minutes under similar provider conditions. A ten-minute recovery monitor accompanies the run. [Approval, budget and exact paths](../rejudge/phase5_execution_2026-09-12.json). No further phase or cap increase is automatic.
