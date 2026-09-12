@@ -1,0 +1,148 @@
+{
+  "schema_version": "phase5_preparation_summary_v1",
+  "kind": "OFFLINE_PREPARATION_NOT_EXPERIMENT_RESULTS",
+  "prepared_at_utc": "2026-09-12T20:39:58.262703+00:00",
+  "status": "prepared_awaiting_numeric_paid_cap",
+  "paid_execution_authorized": false,
+  "phase5_inference_calls": 0,
+  "design_document": "docs/phase5-evidence-scope.md",
+  "question": "Does a fixed evidence-scope instruction reduce history-specific error while remaining a useful candidate on each studied recipient?",
+  "panel": {
+    "units": 656,
+    "questions": 82,
+    "recipients": [
+      "Qwen/Qwen3.8-2.4T-A95B",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    ],
+    "prompt_variants": [
+      "ordinary",
+      "scope"
+    ],
+    "contexts": [
+      "empty",
+      "qwen_history",
+      "llama_history"
+    ],
+    "fresh_main_calls": 7872,
+    "packets_shared_by_recipients": 3936,
+    "exact_system_suffix_edits": 1968,
+    "new_prompt_words": 164
+  },
+  "primary": {
+    "name": "S_pooled",
+    "definition": "Direct history error reduction B minus empty-context error reduction E, pooled equally over recipients",
+    "integer_threshold": 79,
+    "denominator": 2624,
+    "two_sided_p_threshold": 0.05,
+    "bootstrap_replicates": 10000,
+    "bootstrap_seed": 2026091208,
+    "separate_candidate_readiness": true
+  },
+  "prepared_input_directory": "E:\\selvarath-archive\\phase5-preparation-2026-09-12",
+  "prepared_manifest_sha256": "be256ca93e99d115b6510170fc5c2cb8194154f8936a409ba1f15d56b10fc209",
+  "frozen_inputs": {
+    "packets.jsonl": {
+      "sha256": "60a0901a511e3a26a417948d46a17d1aff1cbc1e898d2b0199e339d15bdc4860",
+      "bytes": 105116370
+    },
+    "calls.jsonl": {
+      "sha256": "2c0407b46dc381b06f66d382118be5d48a0fa4975022920aedeea79aa2a18b8a",
+      "bytes": 3609228
+    },
+    "units_private.jsonl": {
+      "sha256": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "bytes": 116760
+    },
+    "prompt_edits_private.jsonl": {
+      "sha256": "b1c0d2ca008ed9770bb17255600421f189d8ad0ea58cd161ac5a05ef530d0fe4",
+      "bytes": 1253616
+    }
+  },
+  "proposed_total_cap_usd": 200,
+  "approved_cap_usd": null,
+  "preflight_subcap_usd": 5,
+  "uncertain_delivery_subcap_usd": 25,
+  "expected_provider_cost_usd": 104.79902448420987,
+  "eta_minutes_planning_range": [
+    70,
+    110
+  ],
+  "completion_usage_scenarios_usd": {
+    "0.5": 83.73762504420986,
+    "1": 104.79902448420987,
+    "2": 146.92182336420984,
+    "4": 231.16742112420985
+  },
+  "forecast_path": "E:\\selvarath-archive\\phase5-planning-2026-09-12\\forecast.json",
+  "forecast_sha256": "93a84b865270120fcf559e5a101714f873eb21742cb637428327b3b006b7a197",
+  "provider_metadata_path": "E:\\selvarath-archive\\phase5-planning-2026-09-12\\provider_metadata.json",
+  "provider_metadata_sha256": "77e19ed05a879481f4f32c50a4924d06b20e0d56d99b97f8297245755b0c1132",
+  "provider_metadata_checked_at_utc": "2026-09-12T20:28:47.026886+00:00",
+  "forecast_limit": "Matched historical usage with approximate scope-token adjustment at uncached rates. New instructions may change reasoning length, latency, cost and finish time.",
+  "validation": {
+    "focused_tests_passed": 95,
+    "builder_tests": 11,
+    "runner_tests": 52,
+    "analysis_tests": 32,
+    "independent_read_only_review": "Builder real panel, runner and analysis reviewed; one runner subcap guard omission corrected before final tests. No remaining substantive findings.",
+    "full_recovery_rehearsal": {
+      "kind": "OFFLINE_SYNTHETIC_VALIDATION_NOT_EXPERIMENT_RESULTS",
+      "status": "passed",
+      "provider_calls": 0,
+      "main_cells": 7872,
+      "synthetic_provider_invocations": 7873,
+      "physical_attempt_rows": 7874,
+      "simulated_http_503": 1,
+      "abandoned_inflight_recovered": 1,
+      "completed_cells_before_restart": 64,
+      "completed_cells_redispatched": 0,
+      "reopened_export_byte_identical": true,
+      "results_sha256": "5b8ab2d43ee26ba57c505fd6c9510e6c53d0195d736053f23f0c9b319e28fcbd",
+      "analysis_sha256": "63516abdfade7c3657463e5ce508fe2a7e387d9f53962ccfa0a4a30e41e29b3e",
+      "input_manifest_sha256": "be256ca93e99d115b6510170fc5c2cb8194154f8936a409ba1f15d56b10fc209",
+      "runner_sha256": "0a1d2ddd784ec7e59c42e0fea6bce2e5efc5f584a65807225972b2ee1be2cbc2",
+      "analysis_script_sha256": "0d9f8370de2d350c25ff03cc1d0303791146aae45032bdf463774350978a34a6",
+      "synthetic_known_primary_numerators": {
+        "S_pooled": 320
+      },
+      "synthetic_accounting_integer_units": {
+        "actual": 1032806400,
+        "uncertain": 381433840,
+        "inflight": 0,
+        "exposure": 1414240240,
+        "preflight": 0,
+        "preflight_attempts": 0
+      },
+      "elapsed_seconds": 56.6803382000071,
+      "directory": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase5-offline-validation-2026-09-12\\full-2708e6ca52"
+    },
+    "validation_receipt_sha256": "463cd7b2d848208a614972a00a05913bb64b5e9eef5a516efa048a69a6dc8072",
+    "real_panel_authorization_check": "Production loader accepts complete input panel; paid execution refuses draft; module and launcher status return not_started without creating formal output.",
+    "real_formal_run_directory_exists": false
+  },
+  "preparation_base_commit": "2bfa52fb160ad2dd52df4180c17cd2e17c94fac2",
+  "source_sha256": {
+    "scripts/phase5_prepare.py": "9a485e640e38a14f7e62daf58a69f97f3208aa8c1259351c567d5e541fce332d",
+    "scripts/phase5_analysis.py": "0d9f8370de2d350c25ff03cc1d0303791146aae45032bdf463774350978a34a6",
+    "rejudge/phase5_runner.py": "0a1d2ddd784ec7e59c42e0fea6bce2e5efc5f584a65807225972b2ee1be2cbc2",
+    "scripts/phase5_launch.ps1": "d6bd9c634cce63a1e266786dd94a197d96a23ed88c529fb081675d841331e9d1",
+    "tests/test_phase5_prepare.py": "f978ceb65c04e6e09367f550d802a70000a08bbaaf19893dae796e9d4f68ec59",
+    "tests/test_phase5_analysis.py": "1dc9e599d75c9e3b7484c650ad1e9abb5232f89714b5beb0db7b699817455fe7",
+    "tests/test_phase5_runner.py": "15103ddcf816837e61802263395de9c9fe334dc7cae56d72ab758e8c480724dd",
+    "rejudge/phase5_protocol_v1.json": "c611aa62d7b5290cc240e82a881488c3ce309b26ce33ab3979c3e09838043f07",
+    "rejudge/phase5_execution_2026-09-12.json": "5e467ddff6b7ca3073169f4d6571705072b6f73a0eb79cb0909ecf102f9fd21b",
+    "docs/phase5-evidence-scope.md": "1c50232b7f7e677948f80863d8c40b8c6e66f8f5ddac2cc5ae4061a9d2af1a61"
+  },
+  "interpretation_limits": [
+    "This is readiness of the implementation, not a Phase5 experimental finding.",
+    "Prospective calls reuse a previously studied question frame.",
+    "A package effect cannot isolate semantics from prompt length, caution or attention.",
+    "AI source review is not independent human validation.",
+    "No universal-model, live-query or untouched-task claim; no automatic next-stage authority."
+  ],
+  "monitor": {
+    "minutes": 10,
+    "status": "planned_after_approval",
+    "scope": "Recover only missing requests in this exact bounded run; preserve completed responses and all spend exposure. Run the frozen analysis on completion and report. Never raise the cap or start another phase automatically."
+  }
+}

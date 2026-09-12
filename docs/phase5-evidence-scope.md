@@ -1,0 +1,21 @@
+# Phase 5: interpreting verification evidence
+
+Prepared 2026-09-12. Paid execution awaits a separate numeric cap. The failed Phase 4C entry gate remains unchanged.
+
+**Question.** Can one explicit instruction about the scope of verification reduce history-related judging errors on both studied endpoints? Phase 4B repaired saved labels but did not establish a sufficiently large, robust benefit. One remaining explanation is that recipients overinterpret what a checked claim establishes.
+
+**Design.** Use all 656 frozen units from 82 questions across three worlds. Cross the two original recipients with the ordinary judge prompt or one fixed 164-word scope appendix, and with no history, reviewed Qwen history or reviewed Llama history. This produces 7,872 fresh verdict calls, including fresh no-history controls under both prompts. Every ordinary packet matches its prior source exactly. The sole intervention is the appendix on the first system message. It distinguishes checked premises from conclusions, preserves valid inference and clarifies NO, NOT ADDRESSED, blocked queries and repeated evidence. [Exact prompt, seeds and gates](../rejudge/phase5_protocol_v1.json).
+
+| Held fixed | Changed |
+|---|---|
+| Questions, debates, reviewed histories and answer keys | Ordinary prompt versus the fixed scope appendix |
+| Qwen/Qwen3.8-2.4T-A95B and Llama-3.3-70B-Instruct-Turbo | All six conditions receive fresh verdicts |
+| Phase 4A decoding, with shared seed across six arms per unit/recipient | New predetermined question-block schedule |
+
+**Primary finding.** Let B be the reduction in history-condition error from the appendix, and E the reduction without history. The history-specific benefit is S = B − E, averaged equally over recipients. Support requires a positive pooled numerator of at least 79/2624, approximately 3 percentage points, and the frozen two-sided bootstrap p ≤ .05. Use 10,000 paired, world-stratified question resamples with equal question/debater weights. Report both recipients and all 12 arm errors. Completed invalid verdicts count as wrong. Missing requests prevent formal gates; semantic support also requires the all-12-cell common-valid and coefficient-bound checks.
+
+**Candidate readiness is separate.** A supported interaction remains a finding even if readiness is unresolved. Readiness additionally requires direct history benefit, no negative recipient benefit estimate, and the frozen 1-point margin checks on each recipient's history benefit, empty-condition benefit and residual history harm. Apply these in both strict and common-valid analyses, with the declared invalid-outcome bounds. This prevents apparent success caused by degrading the empty baseline or pooling away recipient harm. Residual history harm is relative to scoped empty; these tolerances do not guarantee a 1-point end-to-end bound versus ordinary empty.
+
+**Interpretation.** A positive result supports a practical instruction-package explanation on this panel. A negative result weakens this candidate, not every possible explanation. Added length, caution and attention are part of the package, so this does not isolate a sentence or neural mechanism. The question frame was studied previously; source review was AI-assisted under the owner's amendment, not independent human validation. This cannot establish live-query performance or a universal protocol. A successful candidate would still need separately approved held-out evaluation.
+
+**Execution.** Six transport/format preflight calls, then up to 16 concurrent requests per endpoint, with adaptive ramp-up and durable per-request recovery. Proposed total cap: $200, including $5 preflight and $25 uncertain-delivery subcaps. Matched historical usage forecasts about $105 and 70–110 minutes under similar provider conditions. A ten-minute recovery monitor is planned after approval. [Budget and exact paths](../rejudge/phase5_execution_2026-09-12.json). No further phase or cap increase is automatic.

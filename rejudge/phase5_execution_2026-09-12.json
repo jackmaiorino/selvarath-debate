@@ -1,0 +1,81 @@
+{
+  "schema_version": "phase5_execution_v1",
+  "run_id": "phase5-evidence-scope-2026-09-12",
+  "stage": "5-evidence-scope",
+  "preparation_authorized": true,
+  "paid_execution_authorized": false,
+  "approved_cap_usd": null,
+  "proposed_cap_usd": 200,
+  "preflight_cap_usd": 5,
+  "uncertain_cap_usd": 25,
+  "authority": {
+    "source": "Direct user instruction in this Codex task",
+    "user_instruction": "Ok let’s continue with that investigation",
+    "scope": "Prepare the fixed evidence-interpretation experiment and its concrete budget. No Phase5 numeric paid cap has yet been approved.",
+    "recorded_at_utc": "2026-09-12T20:34:28.562572+00:00"
+  },
+  "scope_excludes": [
+    "Phase4C generation or evaluation",
+    "Additional models or live query generation",
+    "Automatic cap increases",
+    "Changes to the frozen sample, prompt or analysis gates",
+    "Automatic next-stage execution"
+  ],
+  "inputs": "E:\\selvarath-archive\\phase5-preparation-2026-09-12",
+  "run_directory": "E:\\selvarath-archive\\phase5-evidence-scope-2026-09-12",
+  "input_manifest_sha256": "be256ca93e99d115b6510170fc5c2cb8194154f8936a409ba1f15d56b10fc209",
+  "protocol_sha256": "c611aa62d7b5290cc240e82a881488c3ce309b26ce33ab3979c3e09838043f07",
+  "main_verdict_calls": 7872,
+  "models": [
+    "Qwen/Qwen3.8-2.4T-A95B",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  ],
+  "prices_per_million": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "input": 2,
+      "output": 6
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "input": 1.04,
+      "output": 1.04
+    }
+  },
+  "model_settings": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "temperature": 0.3,
+      "max_tokens": 16384,
+      "context_length": 1010000,
+      "reservation_multiplier": 3,
+      "initial_workers": 4,
+      "max_workers": 16
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "temperature": 0.3,
+      "max_tokens": 512,
+      "context_length": 131072,
+      "reservation_multiplier": 1,
+      "initial_workers": 4,
+      "max_workers": 16
+    }
+  },
+  "price_policy": "Use uncached input rates; reasoning is billed once within completion tokens. Retain all failed/unknown attempt exposure and in-flight reservations within the aggregate cap. The reservation multiplier is a budget allowance, not additional requested output.",
+  "prices_checked_date": "2026-09-12",
+  "authenticated_metadata_path": "E:\\selvarath-archive\\phase5-planning-2026-09-12\\provider_metadata.json",
+  "provider_metadata_sha256": "77e19ed05a879481f4f32c50a4924d06b20e0d56d99b97f8297245755b0c1132",
+  "provider_metadata_note": "Authenticated read-only models.list confirms exact endpoints, uncached input/output prices and context lengths. Request fields remain identical to Phase4A; no reasoning or top_p overrides are added. Provider backend immutability is not assumed.",
+  "review_amendment": "rejudge/phase4b_ai_review_amendment_2026-09-12.json",
+  "repair_labels_path": "E:\\selvarath-archive\\phase4b-blinded-adjudication-2026-09-12\\analysis-ai-source-review-2026-09-12\\repair_labels.json",
+  "repair_labels_sha256": "37d69f4ec7be6e714883fc14a3c0fd2eb9ec0476802d9efed932a06070400f01",
+  "independent_human_validation": false,
+  "monitor_minutes": 10,
+  "seed_namespace": "phase5-evidence-scope-verdict-v1",
+  "order_seed": 2026091209,
+  "bootstrap_seed": 2026091208,
+  "forecast_path": "E:\\selvarath-archive\\phase5-planning-2026-09-12\\forecast.json",
+  "forecast_sha256": "93a84b865270120fcf559e5a101714f873eb21742cb637428327b3b006b7a197",
+  "expected_provider_cost_usd": 104.79902448420987,
+  "eta_minutes_planning_range": [
+    70,
+    110
+  ]
+}
