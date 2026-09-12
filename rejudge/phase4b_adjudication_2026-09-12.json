@@ -2,37 +2,63 @@
   "schema_version": "phase4b_adjudication_execution_v1",
   "run_id": "phase4b-blinded-adjudication-2026-09-12",
   "stage": "4B",
-  "paid_execution_authorized": false,
-  "approved_cap_usd": null,
+  "paid_execution_authorized": true,
+  "approved_cap_usd": 100,
   "proposed_cap_usd": 100,
   "preflight_cap_usd": 1,
   "uncertain_cap_usd": 10,
   "authority": {
-    "user_instruction": "ok continue with 4B",
-    "scope": "Prepare and implement the 4B audit. The concrete adjudication cap is proposed separately; the prior $250 authorization covered 4A only."
+    "source": "Direct user approval in this Codex task",
+    "user_instruction": "approved",
+    "approved_proposal": "$100 ceiling including retries for 4,832 claims and 9,664 blinded adjudications, with the 10-minute monitor",
+    "scope": "Launch the prepared Phase 4B blinded adjudication audit, including the $1 synthetic preflight and $10 uncertain-delivery subcaps, routine recovery, monitoring, offline consensus and preparation of the required human review packet. Recipient evaluation and Phase 4C remain outside this approval.",
+    "recorded_at_utc": "2026-09-12T14:06:03.197985+00:00"
   },
-  "scope_excludes": ["Recipient evaluation", "Phase 4C", "Automatic cap increases"],
+  "scope_excludes": [
+    "Recipient evaluation",
+    "Phase 4C",
+    "Automatic cap increases"
+  ],
   "inputs": "E:\\selvarath-archive\\phase4b-preparation-2026-09-12",
   "run_directory": "E:\\selvarath-archive\\phase4b-blinded-adjudication-2026-09-12",
   "input_manifest_sha256": "dcf7d0cb17445bb19bad20c24769631c9b01d8a47b756873c6dc0f6e18f63ac2",
   "protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
   "adjudication_calls": 9664,
-  "models": ["openai/gpt-oss-120b", "deepseek-ai/DeepSeek-V4-Flash-0731"],
+  "models": [
+    "openai/gpt-oss-120b",
+    "deepseek-ai/DeepSeek-V4-Flash-0731"
+  ],
   "model_settings": {
     "openai/gpt-oss-120b": {
-      "temperature": 1.0, "top_p": 1.0, "max_tokens": 8192,
-      "reasoning_effort": "medium", "context_length": 131072,
-      "reservation_multiplier": 3, "initial_workers": 4, "max_workers": 16
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "max_tokens": 8192,
+      "reasoning_effort": "medium",
+      "context_length": 131072,
+      "reservation_multiplier": 3,
+      "initial_workers": 4,
+      "max_workers": 16
     },
     "deepseek-ai/DeepSeek-V4-Flash-0731": {
-      "temperature": 1.0, "top_p": 1.0, "max_tokens": 8192,
-      "reasoning_effort": "low", "context_length": 1048576,
-      "reservation_multiplier": 3, "initial_workers": 4, "max_workers": 16
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "max_tokens": 8192,
+      "reasoning_effort": "low",
+      "context_length": 1048576,
+      "reservation_multiplier": 3,
+      "initial_workers": 4,
+      "max_workers": 16
     }
   },
   "prices_per_million": {
-    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
-    "deepseek-ai/DeepSeek-V4-Flash-0731": {"input": 0.14, "output": 0.28}
+    "openai/gpt-oss-120b": {
+      "input": 0.15,
+      "output": 0.6
+    },
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "input": 0.14,
+      "output": 0.28
+    }
   },
   "price_policy": "Use uncached input rates. Bill reasoning once within completion tokens. All attempts and unknown deliveries consume the cap; reserve three times the output ceiling conservatively.",
   "price_sources": [
