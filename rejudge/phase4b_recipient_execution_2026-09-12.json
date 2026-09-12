@@ -3,16 +3,28 @@
   "run_id": "phase4b-label-repair-recipients-2026-09-12",
   "stage": "4B-recipient",
   "preparation_authorized": true,
-  "paid_execution_authorized": false,
-  "approved_cap_usd": null,
+  "paid_execution_authorized": true,
+  "approved_cap_usd": 150,
   "proposed_cap_usd": 150,
   "preflight_cap_usd": 5,
   "uncertain_cap_usd": 25,
   "authority": {
-    "source": "Direct user instruction in this Codex task",
-    "user_instruction": "ok continue with that",
-    "scope": "Prepare the fixed 5,248-verdict Phase4B recipient comparison, including the materialized edit map, offline validation and concrete budget. Numeric recipient cap has not yet been approved.",
-    "recorded_at_utc": "2026-09-12T16:50:27.289959+00:00"
+    "source": "Direct user approval in this Codex task",
+    "user_instruction": "yes approved",
+    "scope": "Launch and complete the fixed 5,248-verdict Phase4B recipient comparison under a $150 total cap, including preflight and retries, with the ten-minute recovery monitor and frozen offline analysis.",
+    "recorded_at_utc": "2026-09-12T17:09:53.611438+00:00",
+    "approved_proposal": {
+      "total_cap_usd": 150,
+      "preflight_subcap_usd": 5,
+      "uncertain_delivery_subcap_usd": 25,
+      "monitor_minutes": 10
+    },
+    "preparation_instruction": {
+      "source": "Direct user instruction in this Codex task",
+      "user_instruction": "ok continue with that",
+      "scope": "Prepare the fixed 5,248-verdict Phase4B recipient comparison, including the materialized edit map, offline validation and concrete budget. Numeric recipient cap has not yet been approved.",
+      "recorded_at_utc": "2026-09-12T16:50:27.289959+00:00"
+    }
   },
   "scope_excludes": [
     "Phase4C generation or evaluation",
