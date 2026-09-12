@@ -1,0 +1,278 @@
+{
+  "run_id": "phase4a-history-crossover-2026-09-12",
+  "status": "complete",
+  "completed_at": "2026-09-12T13:20:42.761117+00:00",
+  "source_commit": "030fee57d045431638e986ad4fd601447ad6c9e7",
+  "completed_verdicts": 3936,
+  "administrative_missing": 0,
+  "completed_invalid": 0,
+  "total_usage_usd": 51.99527168,
+  "uncertain_usd": 0.0,
+  "inflight_usd": 0.0,
+  "cap_usd": 250,
+  "monitor_removed": true,
+  "runtime_approximately_minutes": 39,
+  "arm_counts": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 618,
+      "wrong_valid": 38,
+      "completed_invalid": 0,
+      "strict_errors": 38,
+      "observed_error_rate": 0.057926829268292686,
+      "full_panel_error_bounds": [
+        0.057926829268292686,
+        0.057926829268292686
+      ],
+      "error_rate": 0.057926829268292686,
+      "ci95": [
+        0.028963414634146343,
+        0.09150152439024335
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 563,
+      "wrong_valid": 93,
+      "completed_invalid": 0,
+      "strict_errors": 93,
+      "observed_error_rate": 0.14176829268292682,
+      "full_panel_error_bounds": [
+        0.14176829268292682,
+        0.14176829268292682
+      ],
+      "error_rate": 0.14176829268292682,
+      "ci95": [
+        0.09298780487804878,
+        0.19664634146341464
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 602,
+      "wrong_valid": 54,
+      "completed_invalid": 0,
+      "strict_errors": 54,
+      "observed_error_rate": 0.08231707317073171,
+      "full_panel_error_bounds": [
+        0.08231707317073171,
+        0.08231707317073171
+      ],
+      "error_rate": 0.08231707317073171,
+      "ci95": [
+        0.04878048780487805,
+        0.12042682926829268
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 577,
+      "wrong_valid": 79,
+      "completed_invalid": 0,
+      "strict_errors": 79,
+      "observed_error_rate": 0.12042682926829268,
+      "full_panel_error_bounds": [
+        0.12042682926829268,
+        0.12042682926829268
+      ],
+      "error_rate": 0.12042682926829268,
+      "ci95": [
+        0.07774390243902439,
+        0.1676829268292683
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 593,
+      "wrong_valid": 63,
+      "completed_invalid": 0,
+      "strict_errors": 63,
+      "observed_error_rate": 0.09603658536585366,
+      "full_panel_error_bounds": [
+        0.09603658536585366,
+        0.09603658536585366
+      ],
+      "error_rate": 0.09603658536585366,
+      "ci95": [
+        0.057926829268292686,
+        0.13719512195121952
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 586,
+      "wrong_valid": 70,
+      "completed_invalid": 0,
+      "strict_errors": 70,
+      "observed_error_rate": 0.10670731707317073,
+      "full_panel_error_bounds": [
+        0.10670731707317073,
+        0.10670731707317073
+      ],
+      "error_rate": 0.10670731707317073,
+      "ci95": [
+        0.06707317073170732,
+        0.15091463414634146
+      ]
+    }
+  ],
+  "primary": {
+    "D_recipient": {
+      "estimate": 0.07317073170731707,
+      "ci95": [
+        0.040396341463414635,
+        0.10746951219512195
+      ],
+      "ci97_5": [
+        0.035823170731707314,
+        0.11204268292682927
+      ],
+      "p_two_sided": 0.00039996000399960006,
+      "p_holm": 0.0007999200079992001,
+      "integer_numerator": 96,
+      "denominator": 1312,
+      "statistical_pass": true,
+      "practical_pass": true,
+      "decision_gate_pass": true,
+      "semantic_followup_gate_pass": true,
+      "semantic_gate_components": {
+        "common_valid_same_direction_practical_statistical": true,
+        "invalid_bounds_exclude_zero_in_primary_direction": true
+      }
+    },
+    "D_source": {
+      "estimate": 0.024390243902439025,
+      "ci95": [
+        0.0,
+        0.05030487804878049
+      ],
+      "ci97_5": [
+        -0.0038109756097560975,
+        0.054115853658536585
+      ],
+      "p_two_sided": 0.054594540545945404,
+      "p_holm": 0.054594540545945404,
+      "integer_numerator": 32,
+      "denominator": 1312,
+      "statistical_pass": false,
+      "practical_pass": false,
+      "decision_gate_pass": false,
+      "semantic_followup_gate_pass": false,
+      "semantic_gate_components": {
+        "common_valid_same_direction_practical_statistical": false,
+        "invalid_bounds_exclude_zero_in_primary_direction": true
+      }
+    }
+  },
+  "descriptive_effects": {
+    "Q_qwen_vs_empty": {
+      "estimate": 0.08384146341463415,
+      "ci95": [
+        0.04420731707317073,
+        0.12652439024390244
+      ]
+    },
+    "Q_llama_vs_empty": {
+      "estimate": 0.024390243902439025,
+      "ci95": [
+        0.001524390243902439,
+        0.04725609756097561
+      ]
+    },
+    "L_qwen_vs_empty": {
+      "estimate": -0.024390243902439025,
+      "ci95": [
+        -0.05030487804878049,
+        0.0
+      ]
+    },
+    "L_llama_vs_empty": {
+      "estimate": -0.013719512195121951,
+      "ci95": [
+        -0.036585365853658534,
+        0.007621951219512195
+      ]
+    },
+    "recipient_source_interaction": {
+      "estimate": 0.0701219512195122,
+      "ci95": [
+        0.036585365853658534,
+        0.10518292682926829
+      ]
+    }
+  },
+  "common_valid_sensitivity": {
+    "defined": true,
+    "support": {
+      "retained_units": 656,
+      "dropped_units": 0,
+      "empty_question_debater_strata": []
+    },
+    "primary": {
+      "D_recipient": {
+        "estimate": 0.07317073170731707,
+        "ci95": [
+          0.040396341463414635,
+          0.10746951219512195
+        ],
+        "ci97_5": [
+          0.035823170731707314,
+          0.11204268292682927
+        ],
+        "p_two_sided": 0.00039996000399960006,
+        "p_holm": 0.0007999200079992001
+      },
+      "D_source": {
+        "estimate": 0.024390243902439025,
+        "ci95": [
+          0.0,
+          0.05030487804878049
+        ],
+        "ci97_5": [
+          -0.0038109756097560975,
+          0.054115853658536585
+        ],
+        "p_two_sided": 0.054594540545945404,
+        "p_holm": 0.054594540545945404
+      }
+    }
+  },
+  "stage_4b_entry_statistically_eligible": true,
+  "stage_4b_execution_authorized": false,
+  "verified_output_sha256s": {
+    "analysis\\phase4_analysis.json": "4bd0fff71b8b6a66fe857e4823fb2354f054cadae8a4a6c8a5fbe5d7e6558bea",
+    "analysis\\scored_cells.jsonl": "546797336309cfdfb12f628c8d2c6ab49344d5ec970ab2c02a81c2970a5121a3",
+    "results.jsonl": "b409aa37d5380b49f9ffa5e6e89cfbeca797bb50f6b1c3a0db82da03ed76dca3"
+  },
+  "source_archive": "E:\\selvarath-archive\\phase4a-history-crossover-2026-09-12",
+  "limitations": [
+    "Fixed two endpoints, selected 82 questions, and three authored worlds; no model-population inference or equivalence claim.",
+    "Captured-history readout intervention; source packages combine query content, quantity, order, stopping and feedback.",
+    "Question-cluster intervals are conditional on fixed worlds and endpoints, not exact randomization intervals.",
+    "Cost covers first completed responses only; the runner attempt journal governs retries, uncertain deliveries and total cap accounting."
+  ]
+}
