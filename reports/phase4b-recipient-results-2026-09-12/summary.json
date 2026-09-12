@@ -1,0 +1,610 @@
+{
+  "schema_version": "phase4b_recipient_public_summary_v1",
+  "status": "complete",
+  "parser_version": "2.0.0",
+  "formal_gates_evaluated": true,
+  "cell_order": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "qwen_history_original"
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "qwen_history_repaired"
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "llama_history_original"
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "llama_history_repaired"
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "qwen_history_original"
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "qwen_history_repaired"
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "llama_history_original"
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "llama_history_repaired"
+    }
+  ],
+  "contrast_definitions": {
+    "R_pooled": "Mean across recipients and donor histories of error(original)-error(repaired).",
+    "R_recipient_difference": "R_Qwen-R_Llama, where each recipient is averaged equally over both donors."
+  },
+  "bootstrap": {
+    "replicates": 10000,
+    "seed": 2026091203,
+    "prng": "CPython random.Random Mersenne Twister",
+    "stratification": {
+      "carath_norn": 27,
+      "selvarath": 28,
+      "vethun_sarak": 27
+    },
+    "p_value": "finite-corrected two-sided sign-tail",
+    "percentile_type": 7,
+    "primary_family": "Holm two; 95% and Bonferroni 97.5% marginal intervals",
+    "weighting": "Equal questions and equal debaters within each question; fixed world proportions 27/82, 28/82, 27/82."
+  },
+  "coverage": {
+    "planned": 5248,
+    "completed": 5248,
+    "administrative_missing": 0,
+    "missing_cell_ids": [],
+    "identical_duplicate_rows_ignored": 0,
+    "completed_invalid": 0
+  },
+  "completed_response_cost_usd": "71.07818040",
+  "completed_response_uncertain_usd": "0.0",
+  "completed_responses_missing_usage": 0,
+  "arm_counts": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "qwen_history_original",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 562,
+      "wrong_valid": 94,
+      "completed_invalid": 0,
+      "strict_errors": 94,
+      "observed_error_rate": 0.14329268292682926,
+      "full_panel_error_bounds": [
+        0.14329268292682926,
+        0.14329268292682926
+      ],
+      "error_rate": 0.14329268292682926,
+      "ci95": [
+        0.09298780487804878,
+        0.19817073170731708
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "qwen_history_repaired",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 583,
+      "wrong_valid": 73,
+      "completed_invalid": 0,
+      "strict_errors": 73,
+      "observed_error_rate": 0.11128048780487805,
+      "full_panel_error_bounds": [
+        0.11128048780487805,
+        0.11128048780487805
+      ],
+      "error_rate": 0.11128048780487805,
+      "ci95": [
+        0.06554878048780488,
+        0.16310975609756098
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "llama_history_original",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 605,
+      "wrong_valid": 51,
+      "completed_invalid": 0,
+      "strict_errors": 51,
+      "observed_error_rate": 0.07774390243902439,
+      "full_panel_error_bounds": [
+        0.07774390243902439,
+        0.07774390243902439
+      ],
+      "error_rate": 0.07774390243902439,
+      "ci95": [
+        0.04725609756097561,
+        0.11280487804878049
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "llama_history_repaired",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 603,
+      "wrong_valid": 53,
+      "completed_invalid": 0,
+      "strict_errors": 53,
+      "observed_error_rate": 0.08079268292682927,
+      "full_panel_error_bounds": [
+        0.08079268292682927,
+        0.08079268292682927
+      ],
+      "error_rate": 0.08079268292682927,
+      "ci95": [
+        0.04725609756097561,
+        0.11890243902439024
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "qwen_history_original",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 595,
+      "wrong_valid": 61,
+      "completed_invalid": 0,
+      "strict_errors": 61,
+      "observed_error_rate": 0.09298780487804878,
+      "full_panel_error_bounds": [
+        0.09298780487804878,
+        0.09298780487804878
+      ],
+      "error_rate": 0.09298780487804878,
+      "ci95": [
+        0.056402439024390245,
+        0.13414634146341464
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "qwen_history_repaired",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 601,
+      "wrong_valid": 55,
+      "completed_invalid": 0,
+      "strict_errors": 55,
+      "observed_error_rate": 0.08384146341463415,
+      "full_panel_error_bounds": [
+        0.08384146341463415,
+        0.08384146341463415
+      ],
+      "error_rate": 0.08384146341463415,
+      "ci95": [
+        0.04878048780487805,
+        0.12347560975609756
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "llama_history_original",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 588,
+      "wrong_valid": 68,
+      "completed_invalid": 0,
+      "strict_errors": 68,
+      "observed_error_rate": 0.10365853658536585,
+      "full_panel_error_bounds": [
+        0.10365853658536585,
+        0.10365853658536585
+      ],
+      "error_rate": 0.10365853658536585,
+      "ci95": [
+        0.06707317073170732,
+        0.14634146341463414
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "llama_history_repaired",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 590,
+      "wrong_valid": 66,
+      "completed_invalid": 0,
+      "strict_errors": 66,
+      "observed_error_rate": 0.10060975609756098,
+      "full_panel_error_bounds": [
+        0.10060975609756098,
+        0.10060975609756098
+      ],
+      "error_rate": 0.10060975609756098,
+      "ci95": [
+        0.0625,
+        0.14329268292682926
+      ]
+    }
+  ],
+  "paired_transitions_descriptive": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "donor_arm": "qwen_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 34,
+      "correct_to_error": 13,
+      "both_correct": 549,
+      "both_error": 60,
+      "net_repairs": 21,
+      "observed_repair_benefit": 0.03201219512195122,
+      "original_invalid": 0,
+      "repaired_invalid": 0,
+      "interpretation": "Strict outcome transitions on completed pairs; error includes completed invalid responses. Incomplete matched rates are descriptive only."
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "donor_arm": "llama_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 15,
+      "correct_to_error": 17,
+      "both_correct": 588,
+      "both_error": 36,
+      "net_repairs": -2,
+      "observed_repair_benefit": -0.003048780487804878,
+      "original_invalid": 0,
+      "repaired_invalid": 0,
+      "interpretation": "Strict outcome transitions on completed pairs; error includes completed invalid responses. Incomplete matched rates are descriptive only."
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "donor_arm": "qwen_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 9,
+      "correct_to_error": 3,
+      "both_correct": 592,
+      "both_error": 52,
+      "net_repairs": 6,
+      "observed_repair_benefit": 0.009146341463414634,
+      "original_invalid": 0,
+      "repaired_invalid": 0,
+      "interpretation": "Strict outcome transitions on completed pairs; error includes completed invalid responses. Incomplete matched rates are descriptive only."
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "donor_arm": "llama_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 8,
+      "correct_to_error": 6,
+      "both_correct": 582,
+      "both_error": 60,
+      "net_repairs": 2,
+      "observed_repair_benefit": 0.003048780487804878,
+      "original_invalid": 0,
+      "repaired_invalid": 0,
+      "interpretation": "Strict outcome transitions on completed pairs; error includes completed invalid responses. Incomplete matched rates are descriptive only."
+    }
+  ],
+  "primary": {
+    "R_pooled": {
+      "estimate": 0.010289634146341464,
+      "ci95": [
+        0.0011432926829268292,
+        0.019054878048780487
+      ],
+      "ci97_5": [
+        0.0,
+        0.020198170731707318
+      ],
+      "p_two_sided": 0.029597040295970403,
+      "p_holm": 0.059194080591940805,
+      "integer_numerator": 27,
+      "denominator": 2624,
+      "practical_integer_threshold": 79,
+      "statistical_pass": false,
+      "practical_pass": false,
+      "decision_gate_pass": false,
+      "semantic_followup_gate_pass": false,
+      "semantic_gate_components": {
+        "common_valid_same_direction_practical_statistical": false,
+        "invalid_bounds_exclude_zero_in_primary_direction": true
+      }
+    },
+    "R_recipient_difference": {
+      "estimate": 0.008384146341463415,
+      "ci95": [
+        -0.008384146341463415,
+        0.025914634146341462
+      ],
+      "ci97_5": [
+        -0.011432926829268292,
+        0.028963414634146343
+      ],
+      "p_two_sided": 0.35136486351364865,
+      "p_holm": 0.35136486351364865,
+      "integer_numerator": 11,
+      "denominator": 1312,
+      "practical_integer_threshold": 40,
+      "statistical_pass": false,
+      "practical_pass": false,
+      "decision_gate_pass": false,
+      "semantic_followup_gate_pass": false,
+      "semantic_gate_components": {
+        "common_valid_same_direction_practical_statistical": false,
+        "invalid_bounds_exclude_zero_in_primary_direction": true
+      }
+    }
+  },
+  "descriptive_effects": {
+    "R_Qwen": {
+      "estimate": 0.014481707317073171,
+      "ci95": [
+        -0.001524390243902439,
+        0.02972560975609756
+      ]
+    },
+    "R_Llama": {
+      "estimate": 0.006097560975609756,
+      "ci95": [
+        -0.0022865853658536584,
+        0.014481707317073171
+      ]
+    },
+    "R_qwen_donor": {
+      "estimate": 0.020579268292682928,
+      "ci95": [
+        0.006859756097560976,
+        0.0350609756097561
+      ]
+    },
+    "R_llama_donor": {
+      "estimate": 0.0,
+      "ci95": [
+        -0.010670731707317074,
+        0.010670731707317074
+      ]
+    },
+    "R_Qwen_qwen": {
+      "estimate": 0.03201219512195122,
+      "ci95": [
+        0.007621951219512195,
+        0.057926829268292686
+      ]
+    },
+    "R_Qwen_llama": {
+      "estimate": -0.003048780487804878,
+      "ci95": [
+        -0.019817073170731708,
+        0.013719512195121951
+      ]
+    },
+    "R_Llama_qwen": {
+      "estimate": 0.009146341463414634,
+      "ci95": [
+        -0.001524390243902439,
+        0.021341463414634148
+      ]
+    },
+    "R_Llama_llama": {
+      "estimate": 0.003048780487804878,
+      "ci95": [
+        -0.007621951219512195,
+        0.013719512195121951
+      ]
+    }
+  },
+  "common_valid_sensitivity": {
+    "defined": true,
+    "support": {
+      "retained_units": 656,
+      "dropped_units": 0,
+      "empty_question_debater_strata": []
+    },
+    "primary": {
+      "R_pooled": {
+        "estimate": 0.010289634146341464,
+        "ci95": [
+          0.0011432926829268292,
+          0.019054878048780487
+        ],
+        "ci97_5": [
+          0.0,
+          0.020198170731707318
+        ],
+        "p_two_sided": 0.029597040295970403,
+        "p_holm": 0.059194080591940805
+      },
+      "R_recipient_difference": {
+        "estimate": 0.008384146341463415,
+        "ci95": [
+          -0.008384146341463415,
+          0.025914634146341462
+        ],
+        "ci97_5": [
+          -0.011432926829268292,
+          0.028963414634146343
+        ],
+        "p_two_sided": 0.35136486351364865,
+        "p_holm": 0.35136486351364865
+      }
+    },
+    "selection": "A unit is retained only when all eight recipient/donor/repair responses are valid."
+  },
+  "uniform_invalid_as_correct_sensitivity": {
+    "primary": {
+      "R_pooled": {
+        "estimate": 0.010289634146341464,
+        "ci95": [
+          0.0011432926829268292,
+          0.019054878048780487
+        ],
+        "ci97_5": [
+          0.0,
+          0.020198170731707318
+        ],
+        "p_two_sided": 0.029597040295970403,
+        "p_holm": 0.059194080591940805
+      },
+      "R_recipient_difference": {
+        "estimate": 0.008384146341463415,
+        "ci95": [
+          -0.008384146341463415,
+          0.025914634146341462
+        ],
+        "ci97_5": [
+          -0.011432926829268292,
+          0.028963414634146343
+        ],
+        "p_two_sided": 0.35136486351364865,
+        "p_holm": 0.35136486351364865
+      }
+    },
+    "kind": "uniform_recoding_sensitivity_not_bounds"
+  },
+  "strict_missing_outcome_bounds": {
+    "R_pooled": {
+      "lower_numerator": 27,
+      "upper_numerator": 27,
+      "denominator": 2624,
+      "lower": 0.010289634146341464,
+      "upper": 0.010289634146341464,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "R_recipient_difference": {
+      "lower_numerator": 11,
+      "upper_numerator": 11,
+      "denominator": 1312,
+      "lower": 0.008384146341463415,
+      "upper": 0.008384146341463415,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    }
+  },
+  "invalid_and_missing_outcome_bounds": {
+    "R_pooled": {
+      "lower_numerator": 27,
+      "upper_numerator": 27,
+      "denominator": 2624,
+      "lower": 0.010289634146341464,
+      "upper": 0.010289634146341464,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "R_recipient_difference": {
+      "lower_numerator": 11,
+      "upper_numerator": 11,
+      "denominator": 1312,
+      "lower": 0.008384146341463415,
+      "upper": 0.008384146341463415,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    }
+  },
+  "stage_4c_semantic_entry_eligible": false,
+  "stage_4c_paid_execution_authorized": false,
+  "source_review_mode": "ai_source_review",
+  "independent_human_validation": false,
+  "limitations": [
+    "Two fixed recipients and donor histories on 82 selected questions in three fixed worlds; no model-population or equivalence claim.",
+    "This estimates final-readout repair of captured histories. Earlier adaptive queries remain fixed; it does not identify a corrected live-oracle policy effect.",
+    "Labels passed amended Codex AI source review, not independent human validation. No oracle-truth or oracle-error-prevalence estimate is produced.",
+    "Question-cluster uncertainty is conditional on the fixed worlds and endpoints. Failure to reject is not equivalence.",
+    "Completed invalid verdicts count as wrong; administrative missingness is not an error and prevents formal gates.",
+    "Recorded cost covers completed responses. The runner ledger retains failed attempts, unknown delivery and cap exposure.",
+    "Only positive pooled benefit with matching statistical, practical and semantic support qualifies for the planned Phase 4C branch; qualification grants no paid authority."
+  ],
+  "frozen_repair_coverage": {
+    "changed_claims": 549,
+    "changed_packets": 588,
+    "changed_questions": 80,
+    "changed_answered_exchanges": 761,
+    "changed_label_spans": 3896,
+    "blocked_exchanges_preserved": 1704,
+    "donor_packets": 1312,
+    "unchanged_packets": 724
+  },
+  "provenance": {
+    "prepared_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+    "prepared_protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+    "results_sha256": "5e74273b5bb77855694f7b6fd757e537d4b215ba678ecaeb789341b85ed60147",
+    "analysis_script_sha256": "e914fe323ad929380ae2c6f63d6fa02e65cfe7b594151b1765d2b2f19a755c38",
+    "reused_phase4_analysis_sha256": "00b9f954291dbfae7d09d6edd21fb981eae9ca7cf35279ed3948c6dd93e48ba4",
+    "python": "3.13.5 (main, Jun 12 2025, 12:42:35) [MSC v.1943 64 bit (AMD64)]",
+    "input_hashes": {
+      "calls.jsonl": "fbba4dbb981cdaba991a34be00b1c6a62b4f5957bc9792e9b9f8e8484e2aa0e5",
+      "units_private.jsonl": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "packets.jsonl": "abd507de1934ac285cca6f66e2f3ee57f17e0f1f65141c9477b3643aacbc05ff",
+      "edit_map_private.jsonl": "6b74acd3fc54b51b0b86ecf48c084782f5e73ef4f7b61d8d74375128b4df1f6a"
+    },
+    "full_analysis_sha256": "ff8c5f1f7e45bfe2069564a72aab94e6dc33026821a4d822c805d5e39f4048fc",
+    "scored_cells_sha256": "02c89ae5555e987b177f80963e93faea4ae1f96823d3a980619cb0e730229abc",
+    "run_manifest_sha256": "8a8350522f5be4acd0e6d785c867c9dda9c57eea6255355cabbb40b2ae2930e5",
+    "completion_sha256": "45a6129f2721433287061348229d99d1a402832b8ca4ac09af090298dbd7bb63",
+    "execution_commit": "5d07da320370c07bdf402f50b56f8d1c9643f4f5",
+    "authorization_sha256": "f9a8e7c8a8aca06a58959e84ad9d054a40d10ccd27d6536041a925ac531ad357",
+    "runtime_source_sha256s": {
+      "rejudge/phase4b_recipient_runner.py": "934c5c1147b67ccca5a833becbe03954ff501364d1757a3339ffc01ce1c75bf2",
+      "rejudge/phase4b_runner.py": "3a4441f718f86ff4ccf97b7aab11f209d0aeb41d49a25700dd549030892981e7",
+      "rejudge/phase4_runner.py": "ac4b648b072a914221aba2c6906393e88e998f70f4c6af2a844b8f5e24683be7",
+      "rejudge/api_client.py": "eb975963e69758af8b63b6791759a32fc60033ebf75faae6cc950cd71f187f8b",
+      "rejudge/parsers.py": "f32ac1d0c8b55ae3968b3900594835d5e436b852a56beff1f645bdf5921e7bcc",
+      "analysis/infra/parsing.py": "ac3b0416b143e367b1a80f7e83339866fd5bec5e7829b0d942cfbe44d6e8f431",
+      "rejudge/durable_fs.py": "62fbd1951adae03379e1b1e09ce1111c91654c931b5454b5ceafff690a8558ef"
+    }
+  },
+  "run_id": "phase4b-label-repair-recipients-2026-09-12",
+  "decision": "STOP_BEFORE_PHASE4C",
+  "decision_explanation": "The pooled point estimate is positive but its numerator27 is below79 and its Holm-adjusted p0.059194 exceeds0.05. Neither primary passes the statistical/practical/semantic continuation gates.",
+  "operations": {
+    "measurement_started_at": "2026-09-12T17:10:52.623601+00:00",
+    "last_response_at": "2026-09-12T17:56:54.383719+00:00",
+    "transport_completed_at": "2026-09-12T17:56:56.085615+00:00",
+    "measurement_minutes": 46.0293353,
+    "actual_usd": 71.08261336,
+    "uncertain_usd": 0.353332,
+    "aggregate_exposure_usd": 71.43594536,
+    "inflight_usd": 0,
+    "approved_cap_usd": 150,
+    "main_successful_attempts": 5248,
+    "main_unknown_attempts": 1,
+    "main_physical_attempts": 5249,
+    "preflight_successful_attempts": 6,
+    "preflight_actual_usd": 0.00443296,
+    "recovered_http_503_count": 1,
+    "completed_verdicts_repeated": 0,
+    "process_exit_code": 0,
+    "maximum_workers_per_endpoint": 16,
+    "monitor_id": "monitor-phase-4b-recipient-comparison"
+  },
+  "verification": {
+    "complete_panel_and_export_hash": true,
+    "zero_inflight_retries_fatal_stops_and_duplicate_received_cells": true,
+    "prelaunch_focused_tests_passed": 74,
+    "prelaunch_full_offline_rehearsal_passed": true,
+    "independent_final_numerical_audit": {
+      "status": "passed",
+      "reviewer": "Separate Codex agent pass",
+      "checks": [
+        "Reparsed all5248 raw responses against gold and matched scored rows",
+        "Recomputed eight arm counts and primary integer numerators27and11",
+        "Independently rebuilt all10000paired world-stratified MT bootstrap draws, type7intervals and Holm adjustment",
+        "Confirmed all656 common-valid units, zero missing/invalid, exact sensitivities and false4Cgate"
+      ],
+      "independent_human_review": false
+    }
+  }
+}

@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="849.6pt" height="460.8pt" viewBox="0 0 849.6 460.8" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:description>Phase 4B recipient primary effects; source analysis SHA256 ff8c5f1f7e45bfe2069564a72aab94e6dc33026821a4d822c805d5e39f4048fc. Positive pooled means original minus repaired error. Positive recipient difference means Qwen benefit minus Llama benefit.</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 460.8 
+L 849.6 460.8 
+L 849.6 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 271.872 285.696 
+L 671.184 285.696 
+L 671.184 115.2 
+L 271.872 115.2 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 388.176466 285.696 
+L 388.176466 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #72818d; stroke-width: 1.25; stroke-linecap: square"/>
+   </g>
+   <g id="line2d_2">
+    <path d="M 620.785398 285.696 
+L 620.785398 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke-dasharray: 5.6,4.2; stroke-dashoffset: 0; stroke: #b77725; stroke-width: 1.4"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_3">
+      <path d="M 310.640155 285.696 
+L 310.640155 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #e9edf0; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4">
+      <defs>
+       <path id="m7514bebdef" d="M 0 0 
+L 0 4 
+" style="stroke: #485861; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m7514bebdef" x="310.640155" y="285.696" style="fill: #485861; stroke: #485861; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #485861" x="310.640155" y="306.054281" transform="rotate(-0 310.640155 306.054281)">-1</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_5">
+      <path d="M 388.176466 285.696 
+L 388.176466 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #e9edf0; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m7514bebdef" x="388.176466" y="285.696" style="fill: #485861; stroke: #485861; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #485861" x="388.176466" y="306.054281" transform="rotate(-0 388.176466 306.054281)">0</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_7">
+      <path d="M 465.712777 285.696 
+L 465.712777 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #e9edf0; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m7514bebdef" x="465.712777" y="285.696" style="fill: #485861; stroke: #485861; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #485861" x="465.712777" y="306.054281" transform="rotate(-0 465.712777 306.054281)">+1</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_9">
+      <path d="M 543.249087 285.696 
+L 543.249087 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #e9edf0; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m7514bebdef" x="543.249087" y="285.696" style="fill: #485861; stroke: #485861; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #485861" x="543.249087" y="306.054281" transform="rotate(-0 543.249087 306.054281)">+2</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_11">
+      <path d="M 620.785398 285.696 
+L 620.785398 115.2 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #e9edf0; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m7514bebdef" x="620.785398" y="285.696" style="fill: #485861; stroke: #485861; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #485861" x="620.785398" y="306.054281" transform="rotate(-0 620.785398 306.054281)">+3</text>
+     </g>
+    </g>
+    <g id="text_6">
+     <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #33434e" x="471.528" y="325.700219" transform="rotate(-0 471.528 325.700219)">Effect on error rate (percentage points)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2"/>
+   <g id="patch_3">
+    <path d="M 271.872 285.696 
+L 671.184 285.696 
+" style="fill: none; stroke: #aebcc5; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #96621f" x="620.785398" y="119.46435" transform="rotate(-0 620.785398 119.46435)">+3 pp guide</text>
+   </g>
+   <g id="LineCollection_1">
+    <path d="M 388.176466 162.780279 
+L 544.78563 162.780279 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #216b85; stroke-width: 1.7"/>
+   </g>
+   <g id="LineCollection_2">
+    <path d="M 388.176466 167.141805 
+L 388.176466 158.418753 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #216b85; stroke-width: 1.7"/>
+    <path d="M 544.78563 167.141805 
+L 544.78563 158.418753 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #216b85; stroke-width: 1.7"/>
+   </g>
+   <g id="LineCollection_3">
+    <path d="M 299.529769 242.080744 
+L 612.748098 242.080744 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #7663a6; stroke-width: 1.7"/>
+   </g>
+   <g id="LineCollection_4">
+    <path d="M 299.529769 246.44227 
+L 299.529769 237.719219 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #7663a6; stroke-width: 1.7"/>
+    <path d="M 612.748098 246.44227 
+L 612.748098 237.719219 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #7663a6; stroke-width: 1.7"/>
+   </g>
+   <g id="LineCollection_5">
+    <path d="M 397.041136 162.780279 
+L 535.92096 162.780279 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #216b85; stroke-opacity: 0.75; stroke-width: 6"/>
+   </g>
+   <g id="LineCollection_6">
+    <path d="M 323.168888 242.080744 
+L 589.108978 242.080744 
+" clip-path="url(#p301c4219d1)" style="fill: none; stroke: #7663a6; stroke-opacity: 0.75; stroke-width: 6"/>
+   </g>
+   <g id="line2d_13">
+    <defs>
+     <path id="me026cecd27" d="M 0 4.5 
+C 1.193414 4.5 2.338109 4.025852 3.181981 3.181981 
+C 4.025852 2.338109 4.5 1.193414 4.5 0 
+C 4.5 -1.193414 4.025852 -2.338109 3.181981 -3.181981 
+C 2.338109 -4.025852 1.193414 -4.5 0 -4.5 
+C -1.193414 -4.5 -2.338109 -4.025852 -3.181981 -3.181981 
+C -4.025852 -2.338109 -4.5 -1.193414 -4.5 0 
+C -4.5 1.193414 -4.025852 2.338109 -3.181981 3.181981 
+C -2.338109 4.025852 -1.193414 4.5 0 4.5 
+z
+" style="stroke: #ffffff; stroke-width: 1.5"/>
+    </defs>
+    <g clip-path="url(#p301c4219d1)">
+     <use xlink:href="#me026cecd27" x="467.958493" y="162.780279" style="fill: #216b85; stroke: #ffffff; stroke-width: 1.5"/>
+    </g>
+   </g>
+   <g id="line2d_14">
+    <defs>
+     <path id="m42a9bae2b5" d="M 0 4.5 
+C 1.193414 4.5 2.338109 4.025852 3.181981 3.181981 
+C 4.025852 2.338109 4.5 1.193414 4.5 0 
+C 4.5 -1.193414 4.025852 -2.338109 3.181981 -3.181981 
+C 2.338109 -4.025852 1.193414 -4.5 0 -4.5 
+C -1.193414 -4.5 -2.338109 -4.025852 -3.181981 -3.181981 
+C -4.025852 -2.338109 -4.5 -1.193414 -4.5 0 
+C -4.5 1.193414 -4.025852 2.338109 -3.181981 3.181981 
+C -2.338109 4.025852 -1.193414 4.5 0 4.5 
+z
+" style="stroke: #ffffff; stroke-width: 1.5"/>
+    </defs>
+    <g clip-path="url(#p301c4219d1)">
+     <use xlink:href="#m42a9bae2b5" x="453.184044" y="242.080744" style="fill: #7663a6; stroke: #ffffff; stroke-width: 1.5"/>
+    </g>
+   </g>
+  </g>
+  <g id="text_8">
+   <text style="font-weight: 700; font-size: 12.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #216b85" x="46.728" y="157.013498" transform="rotate(-0 46.728 157.013498)">Pooled repair benefit</text>
+  </g>
+  <g id="text_9">
+   <text style="font-size: 10.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #4d5d67" x="46.728" y="174.893623" transform="rotate(-0 46.728 174.893623)">Original error − repaired error</text>
+  </g>
+  <g id="text_10">
+   <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #216b85" x="692.424" y="155.399342" transform="rotate(-0 692.424 155.399342)">+1.03 pp</text>
+  </g>
+  <g id="text_11">
+   <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #4d5d67" x="692.424" y="176.874792" transform="rotate(-0 692.424 176.874792)">Holm p = 0.059</text>
+  </g>
+  <g id="text_12">
+   <text style="font-weight: 700; font-size: 12.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #7663a6" x="46.728" y="236.313963" transform="rotate(-0 46.728 236.313963)">Recipient difference</text>
+  </g>
+  <g id="text_13">
+   <text style="font-size: 10.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #4d5d67" x="46.728" y="254.194088" transform="rotate(-0 46.728 254.194088)">Qwen benefit − Llama benefit</text>
+  </g>
+  <g id="text_14">
+   <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #7663a6" x="692.424" y="234.699807" transform="rotate(-0 692.424 234.699807)">+0.84 pp</text>
+  </g>
+  <g id="text_15">
+   <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #4d5d67" x="692.424" y="256.175257" transform="rotate(-0 692.424 256.175257)">Holm p = 0.351</text>
+  </g>
+  <g id="text_16">
+   <text style="font-weight: 700; font-size: 21px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #1c303c" x="46.728" y="32.256" transform="rotate(-0 46.728 32.256)">Phase 4B recipient comparison</text>
+  </g>
+  <g id="text_17">
+   <text style="font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #556773" x="46.728" y="55.7568" transform="rotate(-0 46.728 55.7568)">656 matched units · 82 questions · 5,248 completed verdicts</text>
+  </g>
+  <g id="text_18">
+   <text style="font-size: 10.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #556773" x="46.728" y="82.0224" transform="rotate(-0 46.728 82.0224)">Positive pooled benefit means fewer errors after label repair. Positive difference means a larger benefit for Qwen.</text>
+  </g>
+  <g id="text_19">
+   <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #344652" x="46.728" y="377.3952" transform="rotate(-0 46.728 377.3952)">Neither primary contrast meets both the statistical and practical gates. This does not establish equivalence.</text>
+  </g>
+  <g id="text_20">
+   <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #556773" x="46.728" y="403.2" transform="rotate(-0 46.728 403.2)">Exact practical magnitude gates: 79/2624 = 3.01 pp (pooled); 40/1312 = 3.05 pp (recipient difference).</text>
+  </g>
+  <g id="text_21">
+   <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #556773" x="46.728" y="422.0928" transform="rotate(-0 46.728 422.0928)">Intervals: 10,000 world-stratified paired question bootstrap replicates. Holm p values use the two-contrast family.</text>
+  </g>
+  <g id="text_22">
+   <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #71818c" x="46.728" y="442.368" transform="rotate(-0 46.728 442.368)">Frozen analysis · 12 Sep 2026 · Source review used AI; independent human validation was not performed.</text>
+  </g>
+  <g id="legend_1">
+   <g id="line2d_15">
+    <path d="M 272.376 348.530712 
+L 285.376 348.530712 
+L 298.376 348.530712 
+" style="fill: none; stroke: #526674; stroke-width: 6; stroke-linecap: square"/>
+   </g>
+   <g id="text_23">
+    <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #24323b" x="306.376" y="352.030712" transform="rotate(-0 306.376 352.030712)">95% interval</text>
+   </g>
+   <g id="line2d_16">
+    <path d="M 385.905687 348.530712 
+L 398.905687 348.530712 
+L 411.905687 348.530712 
+" style="fill: none; stroke: #526674; stroke-width: 1.7; stroke-linecap: square"/>
+    <defs>
+     <path id="mbfa491f2fa" d="M 0 4.5 
+L 0 -4.5 
+" style="stroke: #526674"/>
+    </defs>
+    <g>
+     <use xlink:href="#mbfa491f2fa" x="398.905687" y="348.530712" style="fill: #526674; stroke: #526674"/>
+    </g>
+   </g>
+   <g id="text_24">
+    <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #24323b" x="419.905687" y="352.030712" transform="rotate(-0 419.905687 352.030712)">97.5% interval (Bonferroni, two contrasts)</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p301c4219d1">
+   <rect x="271.872" y="115.2" width="399.312" height="170.496"/>
+  </clipPath>
+ </defs>
+</svg>
