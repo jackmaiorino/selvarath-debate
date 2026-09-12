@@ -1,0 +1,1263 @@
+{
+  "schema_version": "phase5_public_summary_v1",
+  "kind": "EXPERIMENT_RESULTS",
+  "status": "complete",
+  "parser_version": "2.0.0",
+  "formal_gates_evaluated": true,
+  "definitions": {
+    "S": "B minus E: ordinary history-minus-empty error minus scoped history-minus-empty error.",
+    "B": "Mean donor-history error ordinary minus scope; positive means direct history benefit.",
+    "E": "Empty-context error ordinary minus scope; negative means scoped-empty harm.",
+    "H_scope": "Scoped mean history error minus scoped empty error; positive means scoped history harm."
+  },
+  "bootstrap": {
+    "replicates": 10000,
+    "seed": 2026091208,
+    "prng": "CPython random.Random Mersenne Twister",
+    "stratification": {
+      "carath_norn": 27,
+      "selvarath": 28,
+      "vethun_sarak": 27
+    },
+    "equal_question_and_debater_weights": true,
+    "percentile_type": 7,
+    "primary_family": "One two-sided confirmatory S_pooled test; no Holm adjustment.",
+    "one_sided95_percentiles": [
+      0.05,
+      0.95
+    ],
+    "ci97_5_role": "Supplemental; not a family correction."
+  },
+  "primary": {
+    "S_pooled": {
+      "estimate": -0.005335365853658537,
+      "ci95": [
+        -0.015625,
+        0.004954268292682927
+      ],
+      "ci97_5": [
+        -0.01676829268292683,
+        0.0064786585365853655
+      ],
+      "lower_one_sided95": -0.013719512195121951,
+      "upper_one_sided95": 0.003429878048780488,
+      "p_two_sided": 0.32196780321967805,
+      "integer_numerator": -14,
+      "denominator": 2624,
+      "practical_integer_threshold": 79,
+      "statistical_pass": false,
+      "positive_practical_pass": false,
+      "primary_gate_pass": false,
+      "semantic_primary_gate_pass": false,
+      "semantic_gate_components": {
+        "common_valid_positive_practical_statistical": false,
+        "coefficient_lower_bound_positive": false
+      }
+    }
+  },
+  "primary_supported": false,
+  "semantic_primary_supported": false,
+  "candidate_readiness": {
+    "evaluated": true,
+    "passed": false,
+    "requires_semantic_primary_support": true,
+    "strict_checks": {
+      "B_pooled_ci95_lower_positive": false,
+      "Qwen_B_point_nonnegative": false,
+      "Qwen_B_lower95_above_minus_1pp": false,
+      "Qwen_E_lower95_above_minus_1pp": false,
+      "Qwen_H_scope_upper95_below_1pp": false,
+      "Llama_B_point_nonnegative": true,
+      "Llama_B_lower95_above_minus_1pp": true,
+      "Llama_E_lower95_above_minus_1pp": true,
+      "Llama_H_scope_upper95_below_1pp": true
+    },
+    "common_valid_checks": {
+      "B_pooled_ci95_lower_positive": false,
+      "Qwen_B_point_nonnegative": false,
+      "Qwen_B_lower95_above_minus_1pp": false,
+      "Qwen_E_lower95_above_minus_1pp": false,
+      "Qwen_H_scope_upper95_below_1pp": false,
+      "Llama_B_point_nonnegative": true,
+      "Llama_B_lower95_above_minus_1pp": true,
+      "Llama_E_lower95_above_minus_1pp": true,
+      "Llama_H_scope_upper95_below_1pp": true
+    },
+    "coefficient_bound_checks": {
+      "S_lower_positive": false,
+      "B_pooled_lower_positive": false,
+      "Qwen_B_lower_nonnegative": false,
+      "Qwen_E_lower_above_minus_1pp": true,
+      "Qwen_H_scope_upper_below_1pp": false,
+      "Llama_B_lower_nonnegative": true,
+      "Llama_E_lower_above_minus_1pp": true,
+      "Llama_H_scope_upper_below_1pp": true
+    },
+    "margin": 0.01,
+    "interpretation": "Conjunctive readiness for this one candidate; a failed screen can be inconclusive, not proof of harm or no primary effect."
+  },
+  "descriptive_effects": {
+    "S_recipient_difference": {
+      "estimate": -0.018292682926829267,
+      "ci95": [
+        -0.037347560975609755,
+        0.0007621951219512195
+      ],
+      "ci97_5": [
+        -0.039634146341463415,
+        0.003048780487804878
+      ],
+      "lower_one_sided95": -0.03353658536585366,
+      "upper_one_sided95": -0.0022865853658536584
+    },
+    "S_Qwen": {
+      "estimate": -0.014481707317073171,
+      "ci95": [
+        -0.02972560975609756,
+        0.0
+      ],
+      "ci97_5": [
+        -0.03125,
+        0.0022865853658536584
+      ],
+      "lower_one_sided95": -0.026676829268292682,
+      "upper_one_sided95": -0.0022865853658536584
+    },
+    "S_Llama": {
+      "estimate": 0.0038109756097560975,
+      "ci95": [
+        -0.009146341463414634,
+        0.01676829268292683
+      ],
+      "ci97_5": [
+        -0.011432926829268292,
+        0.019054878048780487
+      ],
+      "lower_one_sided95": -0.006859756097560976,
+      "upper_one_sided95": 0.014481707317073171
+    },
+    "B_Qwen": {
+      "estimate": -0.01753048780487805,
+      "ci95": [
+        -0.03277439024390244,
+        -0.0038109756097560975
+      ],
+      "ci97_5": [
+        -0.0350609756097561,
+        -0.0022865853658536584
+      ],
+      "lower_one_sided95": -0.03048780487804878,
+      "upper_one_sided95": -0.006097560975609756
+    },
+    "B_Llama": {
+      "estimate": 0.012957317073170731,
+      "ci95": [
+        0.0038109756097560975,
+        0.022865853658536585
+      ],
+      "ci97_5": [
+        0.0022865853658536584,
+        0.024390243902439025
+      ],
+      "lower_one_sided95": 0.005335365853658537,
+      "upper_one_sided95": 0.021341463414634148
+    },
+    "B_pooled": {
+      "estimate": -0.0022865853658536584,
+      "ci95": [
+        -0.011814024390243903,
+        0.006859756097560976
+      ],
+      "ci97_5": [
+        -0.013338414634146341,
+        0.008003048780487805
+      ],
+      "lower_one_sided95": -0.010289634146341464,
+      "upper_one_sided95": 0.005335365853658537
+    },
+    "E_Qwen": {
+      "estimate": -0.003048780487804878,
+      "ci95": [
+        -0.01524390243902439,
+        0.007621951219512195
+      ],
+      "ci97_5": [
+        -0.01676829268292683,
+        0.010670731707317074
+      ],
+      "lower_one_sided95": -0.013719512195121951,
+      "upper_one_sided95": 0.006097560975609756
+    },
+    "E_Llama": {
+      "estimate": 0.009146341463414634,
+      "ci95": [
+        -0.004573170731707317,
+        0.022865853658536585
+      ],
+      "ci97_5": [
+        -0.006097560975609756,
+        0.025914634146341462
+      ],
+      "lower_one_sided95": -0.003048780487804878,
+      "upper_one_sided95": 0.021341463414634148
+    },
+    "E_pooled": {
+      "estimate": 0.003048780487804878,
+      "ci95": [
+        -0.006859756097560976,
+        0.012957317073170731
+      ],
+      "ci97_5": [
+        -0.008384146341463415,
+        0.014481707317073171
+      ],
+      "lower_one_sided95": -0.005335365853658537,
+      "upper_one_sided95": 0.011432926829268292
+    },
+    "H_ordinary_Qwen": {
+      "estimate": 0.03429878048780488,
+      "ci95": [
+        0.01524390243902439,
+        0.055640243902439025
+      ],
+      "ci97_5": [
+        0.012957317073170731,
+        0.0586890243902439
+      ],
+      "lower_one_sided95": 0.018292682926829267,
+      "upper_one_sided95": 0.051829268292682924
+    },
+    "H_ordinary_Llama": {
+      "estimate": -0.027439024390243903,
+      "ci95": [
+        -0.04954268292682927,
+        -0.007621951219512195
+      ],
+      "ci97_5": [
+        -0.052591463414634144,
+        -0.004573170731707317
+      ],
+      "lower_one_sided95": -0.04573170731707317,
+      "upper_one_sided95": -0.010670731707317074
+    },
+    "H_ordinary_pooled": {
+      "estimate": 0.003429878048780488,
+      "ci95": [
+        -0.011814024390243903,
+        0.018673780487804877
+      ],
+      "ci97_5": [
+        -0.013719512195121951,
+        0.020960365853658538
+      ],
+      "lower_one_sided95": -0.009527439024390244,
+      "upper_one_sided95": 0.01638719512195122
+    },
+    "H_scope_Qwen": {
+      "estimate": 0.04878048780487805,
+      "ci95": [
+        0.023628048780487805,
+        0.07547637195121923
+      ],
+      "ci97_5": [
+        0.020579268292682928,
+        0.08003048780487805
+      ],
+      "lower_one_sided95": 0.027439024390243903,
+      "upper_one_sided95": 0.07164634146341463
+    },
+    "H_scope_Llama": {
+      "estimate": -0.03125,
+      "ci95": [
+        -0.055640243902439025,
+        -0.008384146341463415
+      ],
+      "ci97_5": [
+        -0.057926829268292686,
+        -0.005335365853658537
+      ],
+      "lower_one_sided95": -0.051067073170731704,
+      "upper_one_sided95": -0.012195121951219513
+    },
+    "H_scope_pooled": {
+      "estimate": 0.008765243902439025,
+      "ci95": [
+        -0.008765243902439025,
+        0.026676829268292682
+      ],
+      "ci97_5": [
+        -0.011432926829268292,
+        0.02934451219512195
+      ],
+      "lower_one_sided95": -0.006097560975609756,
+      "upper_one_sided95": 0.024009146341463415
+    },
+    "history_scope_minus_empty_ordinary_Qwen": {
+      "estimate": 0.051829268292682924,
+      "ci95": [
+        0.025152439024390245,
+        0.08079268292682927
+      ],
+      "ci97_5": [
+        0.021341463414634148,
+        0.08536585365853659
+      ],
+      "lower_one_sided95": 0.028963414634146343,
+      "upper_one_sided95": 0.07621951219512195
+    },
+    "history_scope_minus_empty_ordinary_Llama": {
+      "estimate": -0.040396341463414635,
+      "ci95": [
+        -0.0625,
+        -0.019817073170731708
+      ],
+      "ci97_5": [
+        -0.06554878048780488,
+        -0.01753048780487805
+      ],
+      "lower_one_sided95": -0.0586890243902439,
+      "upper_one_sided95": -0.023628048780487805
+    },
+    "history_scope_minus_empty_ordinary_pooled": {
+      "estimate": 0.005716463414634146,
+      "ci95": [
+        -0.013338414634146341,
+        0.025152439024390245
+      ],
+      "ci97_5": [
+        -0.01600609756097561,
+        0.028201219512195123
+      ],
+      "lower_one_sided95": -0.010289634146341464,
+      "upper_one_sided95": 0.021722560975609755
+    },
+    "B_qwen_history_Qwen": {
+      "estimate": -0.013719512195121951,
+      "ci95": [
+        -0.027439024390243903,
+        -0.001524390243902439
+      ],
+      "ci97_5": [
+        -0.028963414634146343,
+        0.0
+      ],
+      "lower_one_sided95": -0.024390243902439025,
+      "upper_one_sided95": -0.003048780487804878
+    },
+    "B_qwen_history_Llama": {
+      "estimate": 0.010670731707317074,
+      "ci95": [
+        0.001524390243902439,
+        0.021341463414634148
+      ],
+      "ci97_5": [
+        0.0,
+        0.022865853658536585
+      ],
+      "lower_one_sided95": 0.003048780487804878,
+      "upper_one_sided95": 0.019817073170731708
+    },
+    "B_qwen_history_pooled": {
+      "estimate": -0.001524390243902439,
+      "ci95": [
+        -0.010670731707317074,
+        0.007621951219512195
+      ],
+      "ci97_5": [
+        -0.011432926829268292,
+        0.009146341463414634
+      ],
+      "lower_one_sided95": -0.009146341463414634,
+      "upper_one_sided95": 0.006097560975609756
+    },
+    "B_llama_history_Qwen": {
+      "estimate": -0.021341463414634148,
+      "ci95": [
+        -0.04420731707317073,
+        0.0
+      ],
+      "ci97_5": [
+        -0.04878048780487805,
+        0.003048780487804878
+      ],
+      "lower_one_sided95": -0.039634146341463415,
+      "upper_one_sided95": -0.003048780487804878
+    },
+    "B_llama_history_Llama": {
+      "estimate": 0.01524390243902439,
+      "ci95": [
+        0.001524390243902439,
+        0.03048780487804878
+      ],
+      "ci97_5": [
+        0.0,
+        0.03201219512195122
+      ],
+      "lower_one_sided95": 0.003048780487804878,
+      "upper_one_sided95": 0.027439024390243903
+    },
+    "B_llama_history_pooled": {
+      "estimate": -0.003048780487804878,
+      "ci95": [
+        -0.01676829268292683,
+        0.009908536585365854
+      ],
+      "ci97_5": [
+        -0.019054878048780487,
+        0.011432926829268292
+      ],
+      "lower_one_sided95": -0.014481707317073171,
+      "upper_one_sided95": 0.008384146341463415
+    },
+    "S_qwen_history_Qwen": {
+      "estimate": -0.010670731707317074,
+      "ci95": [
+        -0.025914634146341462,
+        0.006097560975609756
+      ],
+      "ci97_5": [
+        -0.028963414634146343,
+        0.007621951219512195
+      ],
+      "lower_one_sided95": -0.024390243902439025,
+      "upper_one_sided95": 0.003048780487804878
+    },
+    "S_qwen_history_Llama": {
+      "estimate": 0.001524390243902439,
+      "ci95": [
+        -0.010670731707317074,
+        0.013719512195121951
+      ],
+      "ci97_5": [
+        -0.013719512195121951,
+        0.01524390243902439
+      ],
+      "lower_one_sided95": -0.009146341463414634,
+      "upper_one_sided95": 0.012195121951219513
+    },
+    "S_qwen_history_pooled": {
+      "estimate": -0.004573170731707317,
+      "ci95": [
+        -0.01524390243902439,
+        0.006097560975609756
+      ],
+      "ci97_5": [
+        -0.01676829268292683,
+        0.007621951219512195
+      ],
+      "lower_one_sided95": -0.013719512195121951,
+      "upper_one_sided95": 0.004573170731707317
+    },
+    "S_llama_history_Qwen": {
+      "estimate": -0.018292682926829267,
+      "ci95": [
+        -0.039634146341463415,
+        0.003048780487804878
+      ],
+      "ci97_5": [
+        -0.042682926829268296,
+        0.004573170731707317
+      ],
+      "lower_one_sided95": -0.0350609756097561,
+      "upper_one_sided95": -0.001524390243902439
+    },
+    "S_llama_history_Llama": {
+      "estimate": 0.006097560975609756,
+      "ci95": [
+        -0.012195121951219513,
+        0.022865853658536585
+      ],
+      "ci97_5": [
+        -0.013719512195121951,
+        0.025914634146341462
+      ],
+      "lower_one_sided95": -0.009146341463414634,
+      "upper_one_sided95": 0.019817073170731708
+    },
+    "S_llama_history_pooled": {
+      "estimate": -0.006097560975609756,
+      "ci95": [
+        -0.019817073170731708,
+        0.007621951219512195
+      ],
+      "ci97_5": [
+        -0.022103658536585365,
+        0.009146341463414634
+      ],
+      "lower_one_sided95": -0.01753048780487805,
+      "upper_one_sided95": 0.005335365853658537
+    }
+  },
+  "arm_counts": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "ordinary_empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 616,
+      "wrong_valid": 40,
+      "completed_invalid": 0,
+      "strict_errors": 40,
+      "observed_error_rate": 0.06097560975609756,
+      "full_panel_error_bounds": [
+        0.06097560975609756,
+        0.06097560975609756
+      ],
+      "error_rate": 0.06097560975609756,
+      "ci95": [
+        0.03048780487804878,
+        0.09603658536585366
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "ordinary_qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 584,
+      "wrong_valid": 72,
+      "completed_invalid": 0,
+      "strict_errors": 72,
+      "observed_error_rate": 0.10975609756097561,
+      "full_panel_error_bounds": [
+        0.10975609756097561,
+        0.10975609756097561
+      ],
+      "error_rate": 0.10975609756097561,
+      "ci95": [
+        0.06554878048780488,
+        0.15701219512195122
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "ordinary_llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 603,
+      "wrong_valid": 53,
+      "completed_invalid": 0,
+      "strict_errors": 53,
+      "observed_error_rate": 0.08079268292682927,
+      "full_panel_error_bounds": [
+        0.08079268292682927,
+        0.08079268292682927
+      ],
+      "error_rate": 0.08079268292682927,
+      "ci95": [
+        0.05030487804878049,
+        0.11585365853658537
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "scope_empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 614,
+      "wrong_valid": 42,
+      "completed_invalid": 0,
+      "strict_errors": 42,
+      "observed_error_rate": 0.06402439024390244,
+      "full_panel_error_bounds": [
+        0.06402439024390244,
+        0.06402439024390244
+      ],
+      "error_rate": 0.06402439024390244,
+      "ci95": [
+        0.03201219512195122,
+        0.10060975609756098
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "scope_qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 575,
+      "wrong_valid": 81,
+      "completed_invalid": 0,
+      "strict_errors": 81,
+      "observed_error_rate": 0.12347560975609756,
+      "full_panel_error_bounds": [
+        0.12347560975609756,
+        0.12347560975609756
+      ],
+      "error_rate": 0.12347560975609756,
+      "ci95": [
+        0.07621951219512195,
+        0.17530487804878048
+      ]
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "arm": "scope_llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 589,
+      "wrong_valid": 67,
+      "completed_invalid": 0,
+      "strict_errors": 67,
+      "observed_error_rate": 0.10213414634146341,
+      "full_panel_error_bounds": [
+        0.10213414634146341,
+        0.10213414634146341
+      ],
+      "error_rate": 0.10213414634146341,
+      "ci95": [
+        0.06554878048780488,
+        0.14329268292682926
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "ordinary_empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 578,
+      "wrong_valid": 78,
+      "completed_invalid": 0,
+      "strict_errors": 78,
+      "observed_error_rate": 0.11890243902439024,
+      "full_panel_error_bounds": [
+        0.11890243902439024,
+        0.11890243902439024
+      ],
+      "error_rate": 0.11890243902439024,
+      "ci95": [
+        0.07774390243902439,
+        0.16310975609756098
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "ordinary_qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 601,
+      "wrong_valid": 55,
+      "completed_invalid": 0,
+      "strict_errors": 55,
+      "observed_error_rate": 0.08384146341463415,
+      "full_panel_error_bounds": [
+        0.08384146341463415,
+        0.08384146341463415
+      ],
+      "error_rate": 0.08384146341463415,
+      "ci95": [
+        0.04878048780487805,
+        0.12347560975609756
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "ordinary_llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 591,
+      "wrong_valid": 65,
+      "completed_invalid": 0,
+      "strict_errors": 65,
+      "observed_error_rate": 0.09908536585365854,
+      "full_panel_error_bounds": [
+        0.09908536585365854,
+        0.09908536585365854
+      ],
+      "error_rate": 0.09908536585365854,
+      "ci95": [
+        0.06097560975609756,
+        0.1402439024390244
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "scope_empty",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 584,
+      "wrong_valid": 72,
+      "completed_invalid": 0,
+      "strict_errors": 72,
+      "observed_error_rate": 0.10975609756097561,
+      "full_panel_error_bounds": [
+        0.10975609756097561,
+        0.10975609756097561
+      ],
+      "error_rate": 0.10975609756097561,
+      "ci95": [
+        0.07164634146341463,
+        0.1524390243902439
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "scope_qwen_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 608,
+      "wrong_valid": 48,
+      "completed_invalid": 0,
+      "strict_errors": 48,
+      "observed_error_rate": 0.07317073170731707,
+      "full_panel_error_bounds": [
+        0.07317073170731707,
+        0.07317073170731707
+      ],
+      "error_rate": 0.07317073170731707,
+      "ci95": [
+        0.042682926829268296,
+        0.10670731707317073
+      ]
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "arm": "scope_llama_history",
+      "expected": 656,
+      "completed": 656,
+      "administrative_missing": 0,
+      "correct": 601,
+      "wrong_valid": 55,
+      "completed_invalid": 0,
+      "strict_errors": 55,
+      "observed_error_rate": 0.08384146341463415,
+      "full_panel_error_bounds": [
+        0.08384146341463415,
+        0.08384146341463415
+      ],
+      "error_rate": 0.08384146341463415,
+      "ci95": [
+        0.05030487804878049,
+        0.12042682926829268
+      ]
+    }
+  ],
+  "strict_missing_outcome_bounds": {
+    "S_pooled": {
+      "lower_numerator": -14,
+      "upper_numerator": -14,
+      "denominator": 2624,
+      "lower": -0.005335365853658537,
+      "upper": -0.005335365853658537,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_pooled": {
+      "lower_numerator": -6,
+      "upper_numerator": -6,
+      "denominator": 2624,
+      "lower": -0.0022865853658536584,
+      "upper": -0.0022865853658536584,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_Qwen": {
+      "lower_numerator": -23,
+      "upper_numerator": -23,
+      "denominator": 1312,
+      "lower": -0.01753048780487805,
+      "upper": -0.01753048780487805,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "E_Qwen": {
+      "lower_numerator": -2,
+      "upper_numerator": -2,
+      "denominator": 656,
+      "lower": -0.003048780487804878,
+      "upper": -0.003048780487804878,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "H_scope_Qwen": {
+      "lower_numerator": 64,
+      "upper_numerator": 64,
+      "denominator": 1312,
+      "lower": 0.04878048780487805,
+      "upper": 0.04878048780487805,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_Llama": {
+      "lower_numerator": 17,
+      "upper_numerator": 17,
+      "denominator": 1312,
+      "lower": 0.012957317073170731,
+      "upper": 0.012957317073170731,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "E_Llama": {
+      "lower_numerator": 6,
+      "upper_numerator": 6,
+      "denominator": 656,
+      "lower": 0.009146341463414634,
+      "upper": 0.009146341463414634,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "H_scope_Llama": {
+      "lower_numerator": -41,
+      "upper_numerator": -41,
+      "denominator": 1312,
+      "lower": -0.03125,
+      "upper": -0.03125,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    }
+  },
+  "invalid_and_missing_outcome_bounds": {
+    "S_pooled": {
+      "lower_numerator": -14,
+      "upper_numerator": -14,
+      "denominator": 2624,
+      "lower": -0.005335365853658537,
+      "upper": -0.005335365853658537,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_pooled": {
+      "lower_numerator": -6,
+      "upper_numerator": -6,
+      "denominator": 2624,
+      "lower": -0.0022865853658536584,
+      "upper": -0.0022865853658536584,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_Qwen": {
+      "lower_numerator": -23,
+      "upper_numerator": -23,
+      "denominator": 1312,
+      "lower": -0.01753048780487805,
+      "upper": -0.01753048780487805,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "E_Qwen": {
+      "lower_numerator": -2,
+      "upper_numerator": -2,
+      "denominator": 656,
+      "lower": -0.003048780487804878,
+      "upper": -0.003048780487804878,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "H_scope_Qwen": {
+      "lower_numerator": 64,
+      "upper_numerator": 64,
+      "denominator": 1312,
+      "lower": 0.04878048780487805,
+      "upper": 0.04878048780487805,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "B_Llama": {
+      "lower_numerator": 17,
+      "upper_numerator": 17,
+      "denominator": 1312,
+      "lower": 0.012957317073170731,
+      "upper": 0.012957317073170731,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "E_Llama": {
+      "lower_numerator": 6,
+      "upper_numerator": 6,
+      "denominator": 656,
+      "lower": 0.009146341463414634,
+      "upper": 0.009146341463414634,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    },
+    "H_scope_Llama": {
+      "lower_numerator": -41,
+      "upper_numerator": -41,
+      "denominator": 1312,
+      "lower": -0.03125,
+      "upper": -0.03125,
+      "kind": "observed_panel_outcome_bounds_not_confidence_intervals"
+    }
+  },
+  "uniform_invalid_as_correct_sensitivity": {
+    "primary": {
+      "S_pooled": {
+        "estimate": -0.005335365853658537,
+        "ci95": [
+          -0.015625,
+          0.004954268292682927
+        ],
+        "ci97_5": [
+          -0.01676829268292683,
+          0.0064786585365853655
+        ],
+        "lower_one_sided95": -0.013719512195121951,
+        "upper_one_sided95": 0.003429878048780488,
+        "p_two_sided": 0.32196780321967805
+      }
+    },
+    "guard_metrics": {
+      "B_pooled": {
+        "estimate": -0.0022865853658536584,
+        "ci95": [
+          -0.011814024390243903,
+          0.006859756097560976
+        ],
+        "ci97_5": [
+          -0.013338414634146341,
+          0.008003048780487805
+        ],
+        "lower_one_sided95": -0.010289634146341464,
+        "upper_one_sided95": 0.005335365853658537
+      },
+      "B_Qwen": {
+        "estimate": -0.01753048780487805,
+        "ci95": [
+          -0.03277439024390244,
+          -0.0038109756097560975
+        ],
+        "ci97_5": [
+          -0.0350609756097561,
+          -0.0022865853658536584
+        ],
+        "lower_one_sided95": -0.03048780487804878,
+        "upper_one_sided95": -0.006097560975609756
+      },
+      "E_Qwen": {
+        "estimate": -0.003048780487804878,
+        "ci95": [
+          -0.01524390243902439,
+          0.007621951219512195
+        ],
+        "ci97_5": [
+          -0.01676829268292683,
+          0.010670731707317074
+        ],
+        "lower_one_sided95": -0.013719512195121951,
+        "upper_one_sided95": 0.006097560975609756
+      },
+      "H_scope_Qwen": {
+        "estimate": 0.04878048780487805,
+        "ci95": [
+          0.023628048780487805,
+          0.07547637195121923
+        ],
+        "ci97_5": [
+          0.020579268292682928,
+          0.08003048780487805
+        ],
+        "lower_one_sided95": 0.027439024390243903,
+        "upper_one_sided95": 0.07164634146341463
+      },
+      "B_Llama": {
+        "estimate": 0.012957317073170731,
+        "ci95": [
+          0.0038109756097560975,
+          0.022865853658536585
+        ],
+        "ci97_5": [
+          0.0022865853658536584,
+          0.024390243902439025
+        ],
+        "lower_one_sided95": 0.005335365853658537,
+        "upper_one_sided95": 0.021341463414634148
+      },
+      "E_Llama": {
+        "estimate": 0.009146341463414634,
+        "ci95": [
+          -0.004573170731707317,
+          0.022865853658536585
+        ],
+        "ci97_5": [
+          -0.006097560975609756,
+          0.025914634146341462
+        ],
+        "lower_one_sided95": -0.003048780487804878,
+        "upper_one_sided95": 0.021341463414634148
+      },
+      "H_scope_Llama": {
+        "estimate": -0.03125,
+        "ci95": [
+          -0.055640243902439025,
+          -0.008384146341463415
+        ],
+        "ci97_5": [
+          -0.057926829268292686,
+          -0.005335365853658537
+        ],
+        "lower_one_sided95": -0.051067073170731704,
+        "upper_one_sided95": -0.012195121951219513
+      }
+    },
+    "kind": "uniform_recoding_sensitivity_not_bounds"
+  },
+  "paired_transitions_descriptive": [
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "context_arm": "empty",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 11,
+      "correct_to_error": 13,
+      "both_correct": 603,
+      "both_error": 29,
+      "net_improvements": -2,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "context_arm": "qwen_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 6,
+      "correct_to_error": 15,
+      "both_correct": 569,
+      "both_error": 66,
+      "net_improvements": -9,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    },
+    {
+      "judge": "Qwen/Qwen3.8-2.4T-A95B",
+      "context_arm": "llama_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 11,
+      "correct_to_error": 25,
+      "both_correct": 578,
+      "both_error": 42,
+      "net_improvements": -14,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "context_arm": "empty",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 13,
+      "correct_to_error": 7,
+      "both_correct": 571,
+      "both_error": 65,
+      "net_improvements": 6,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "context_arm": "qwen_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 11,
+      "correct_to_error": 4,
+      "both_correct": 597,
+      "both_error": 44,
+      "net_improvements": 7,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    },
+    {
+      "judge": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "context_arm": "llama_history",
+      "planned_pairs": 656,
+      "completed_pairs": 656,
+      "administrative_missing_pairs": 0,
+      "error_to_correct": 14,
+      "correct_to_error": 4,
+      "both_correct": 587,
+      "both_error": 51,
+      "net_improvements": 10,
+      "ordinary_invalid": 0,
+      "scope_invalid": 0,
+      "interpretation": "Descriptive transitions on completed pairs; strict errors include completed invalid verdicts."
+    }
+  ],
+  "source_review_mode": "ai_source_review",
+  "independent_human_validation": false,
+  "limitations": [
+    "The prompt was designed after earlier Phase4 outcomes; this is a new prospective comparison on a previously studied question frame.",
+    "The fixed instruction package includes added length and attention cues; it does not identify an individual sentence or internal neural mechanism.",
+    "Reviewed labels came from amended AI source review, not independent human validation; retained labels need not all be true.",
+    "Fixed questions, histories and endpoints do not establish untouched-task, live-query-policy, world-population or universal-model generalization.",
+    "Candidate readiness is a conjunction of prospective screens, not extra discoveries or separate model-population significance claims.",
+    "The 1pp tolerances allow some deterioration. Scoped-history versus scoped-empty plus tolerated empty deterioration does not guarantee 1pp total harm versus ordinary empty.",
+    "Failure of a margin screen may be unresolved at 82 question clusters; it does not negate a separately supported primary or establish equivalence.",
+    "Cost here covers completed responses; the runner ledger accounts for all failures, uncertainty and exposure. No subsequent paid work is authorized."
+  ],
+  "next_stage_paid_execution_authorized": false,
+  "coverage": {
+    "planned": 7872,
+    "completed": 7872,
+    "administrative_missing": 0,
+    "identical_duplicate_rows_ignored": 0,
+    "completed_invalid": 0
+  },
+  "common_valid_sensitivity": {
+    "defined": true,
+    "primary": {
+      "S_pooled": {
+        "estimate": -0.005335365853658537,
+        "ci95": [
+          -0.015625,
+          0.004954268292682927
+        ],
+        "ci97_5": [
+          -0.01676829268292683,
+          0.0064786585365853655
+        ],
+        "lower_one_sided95": -0.013719512195121951,
+        "upper_one_sided95": 0.003429878048780488,
+        "p_two_sided": 0.32196780321967805
+      }
+    },
+    "guard_metrics": {
+      "B_pooled": {
+        "estimate": -0.0022865853658536584,
+        "ci95": [
+          -0.011814024390243903,
+          0.006859756097560976
+        ],
+        "ci97_5": [
+          -0.013338414634146341,
+          0.008003048780487805
+        ],
+        "lower_one_sided95": -0.010289634146341464,
+        "upper_one_sided95": 0.005335365853658537
+      },
+      "B_Qwen": {
+        "estimate": -0.01753048780487805,
+        "ci95": [
+          -0.03277439024390244,
+          -0.0038109756097560975
+        ],
+        "ci97_5": [
+          -0.0350609756097561,
+          -0.0022865853658536584
+        ],
+        "lower_one_sided95": -0.03048780487804878,
+        "upper_one_sided95": -0.006097560975609756
+      },
+      "E_Qwen": {
+        "estimate": -0.003048780487804878,
+        "ci95": [
+          -0.01524390243902439,
+          0.007621951219512195
+        ],
+        "ci97_5": [
+          -0.01676829268292683,
+          0.010670731707317074
+        ],
+        "lower_one_sided95": -0.013719512195121951,
+        "upper_one_sided95": 0.006097560975609756
+      },
+      "H_scope_Qwen": {
+        "estimate": 0.04878048780487805,
+        "ci95": [
+          0.023628048780487805,
+          0.07547637195121923
+        ],
+        "ci97_5": [
+          0.020579268292682928,
+          0.08003048780487805
+        ],
+        "lower_one_sided95": 0.027439024390243903,
+        "upper_one_sided95": 0.07164634146341463
+      },
+      "B_Llama": {
+        "estimate": 0.012957317073170731,
+        "ci95": [
+          0.0038109756097560975,
+          0.022865853658536585
+        ],
+        "ci97_5": [
+          0.0022865853658536584,
+          0.024390243902439025
+        ],
+        "lower_one_sided95": 0.005335365853658537,
+        "upper_one_sided95": 0.021341463414634148
+      },
+      "E_Llama": {
+        "estimate": 0.009146341463414634,
+        "ci95": [
+          -0.004573170731707317,
+          0.022865853658536585
+        ],
+        "ci97_5": [
+          -0.006097560975609756,
+          0.025914634146341462
+        ],
+        "lower_one_sided95": -0.003048780487804878,
+        "upper_one_sided95": 0.021341463414634148
+      },
+      "H_scope_Llama": {
+        "estimate": -0.03125,
+        "ci95": [
+          -0.055640243902439025,
+          -0.008384146341463415
+        ],
+        "ci97_5": [
+          -0.057926829268292686,
+          -0.005335365853658537
+        ],
+        "lower_one_sided95": -0.051067073170731704,
+        "upper_one_sided95": -0.012195121951219513
+      }
+    },
+    "selection": "All twelve responses must be valid per retained unit; every question/debater stratum must retain support.",
+    "support": {
+      "retained_units": 656,
+      "dropped_units": 0,
+      "empty_question_debater_strata_count": 0
+    }
+  },
+  "accounting": {
+    "actual_usd": "107.71741704",
+    "uncertain_usd": "0.15679872",
+    "inflight_usd": "0.0",
+    "exposure_usd": "107.87421576",
+    "approved_cap_usd": "200.0",
+    "scope": "Runner ledger including failed-attempt uncertainty and preflight; fixture amounts are simulated.",
+    "completed_response_cost_usd": "107.71090864",
+    "completed_response_uncertain_usd": "0.0",
+    "completed_responses_missing_usage": 0
+  },
+  "collection": {
+    "completed_at": "2026-09-12T22:16:52.668759+00:00",
+    "scope": "transport_collection_only",
+    "completed": 7872
+  },
+  "provenance": {
+    "prepared_manifest_sha256": "be256ca93e99d115b6510170fc5c2cb8194154f8936a409ba1f15d56b10fc209",
+    "protocol_sha256": "c611aa62d7b5290cc240e82a881488c3ce309b26ce33ab3979c3e09838043f07",
+    "results_sha256": "e591de99ffd8fc2db67ca008f060c322f9efe4d87216e52e4d5f1867448ac12a",
+    "analysis_script_sha256": "0d9f8370de2d350c25ff03cc1d0303791146aae45032bdf463774350978a34a6",
+    "reused_phase4_analysis_sha256": "00b9f954291dbfae7d09d6edd21fb981eae9ca7cf35279ed3948c6dd93e48ba4",
+    "input_hashes": {
+      "packets.jsonl": "60a0901a511e3a26a417948d46a17d1aff1cbc1e898d2b0199e339d15bdc4860",
+      "calls.jsonl": "2c0407b46dc381b06f66d382118be5d48a0fa4975022920aedeea79aa2a18b8a",
+      "units_private.jsonl": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "prompt_edits_private.jsonl": "b1c0d2ca008ed9770bb17255600421f189d8ad0ea58cd161ac5a05ef530d0fe4"
+    },
+    "reviewed_source_hashes": {
+      "phase4a_manifest_sha256": "a27de63adc882983bcd5784c1812f5ada430943e78b981334db1f82b4c676ca1",
+      "phase4b_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+      "repair_labels_sha256": "37d69f4ec7be6e714883fc14a3c0fd2eb9ec0476802d9efed932a06070400f01",
+      "phase4b_result_sha256": "5e74273b5bb77855694f7b6fd757e537d4b215ba678ecaeb789341b85ed60147",
+      "phase4b_analysis_sha256": "ff8c5f1f7e45bfe2069564a72aab94e6dc33026821a4d822c805d5e39f4048fc",
+      "review_amendment_sha256": "06686909ef8aa751b35b172daa0b9ecea6871e1e806ae894dcbee37377bfde47"
+    },
+    "report_source_sha256": "24b3b608b376b44898f8dbda7a43e4df5fb0e8034274fdf9ac21fedc03c8ee03",
+    "report_input_hashes": {
+      "analysis": "e1fb30a206de0ede05c4cf99b42708a7c8dfc255e4ad2f560861d3e0242ae969",
+      "manifest": "be256ca93e99d115b6510170fc5c2cb8194154f8936a409ba1f15d56b10fc209",
+      "completion": "53288bf2751fbb20cb069d0c0f1b0423a5ba649a1529d514cc64642be7c81369",
+      "status": "2c5ccdd5dcf4a49baf7066079aeb37a96a710613e4f78452bd80a0c0ee449beb"
+    }
+  }
+}

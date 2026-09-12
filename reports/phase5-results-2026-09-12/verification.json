@@ -1,0 +1,57 @@
+{
+  "schema_version": "phase5_result_verification_v1",
+  "verified_at_utc": "2026-09-12T22:29:33.243837+00:00",
+  "status": "passed",
+  "run_id": "phase5-evidence-scope-2026-09-12",
+  "execution_source_commit": "8bb8f5ede7b1b1047334185195299776d0c8e9a9",
+  "collection_started_at_utc": "2026-09-12T20:44:35.5646396Z",
+  "collection_completed_at_utc": "2026-09-12T22:16:52.668759+00:00",
+  "collection_elapsed_minutes": 92.28506866666666,
+  "completed": 7872,
+  "invalid": 0,
+  "administrative_missing": 0,
+  "repeated_successful_cells": 0,
+  "pending_requests": 0,
+  "pending_retries": 0,
+  "recovered_http503_attempts": 5,
+  "clean_runner_exit": true,
+  "matching_runner_process_absent": true,
+  "all_15_runtime_source_hashes_unchanged": true,
+  "ledger": {
+    "actual_usd": 107.71741704,
+    "uncertain_usd": 0.15679872,
+    "inflight_usd": 0.0,
+    "exposure_usd": 107.87421576,
+    "preflight_usd": 0.0065084
+  },
+  "approved_cap_usd": 200,
+  "independent_numerical_audit": {
+    "status": "PASS",
+    "method": "Independent raw strict-parser scoring and integer question contrasts; standalone CPython MT resampling and type7 arithmetic. Did not import or rerun phase5_analysis or phase4_analysis.",
+    "strict_reparsed_responses": 7872,
+    "world_stratified_paired_bootstrap_draws": 10000,
+    "exact_numeric_fields_compared": 100,
+    "receipt_sha256": "962beb344dcd404636ed8f97fd6e3395ef031081c7b2f76f0bdbc7ca067166de"
+  },
+  "report_review": {
+    "numerical_fields_match_analysis": true,
+    "visual_inspection": "PNG is readable with effects, intervals and all twelve arm errors; no clipped labels.",
+    "sign_conventions_explicit": true
+  },
+  "source_hashes": {
+    "authorization": "d0ee8f65184eb214ac90999106f1a11633f6bc0e930384c7f7394550567ef85f",
+    "execution_manifest": "7cb3a381e12a3e4628cb9ecf5c81fbfcc0e83cc7b5cbc6bfce27eb02999f26df",
+    "completion": "53288bf2751fbb20cb069d0c0f1b0423a5ba649a1529d514cc64642be7c81369",
+    "results": "e591de99ffd8fc2db67ca008f060c322f9efe4d87216e52e4d5f1867448ac12a",
+    "analysis": "e1fb30a206de0ede05c4cf99b42708a7c8dfc255e4ad2f560861d3e0242ae969",
+    "analysis_script": "0d9f8370de2d350c25ff03cc1d0303791146aae45032bdf463774350978a34a6",
+    "report_script": "24b3b608b376b44898f8dbda7a43e4df5fb0e8034274fdf9ac21fedc03c8ee03"
+  },
+  "report_hashes": {
+    "results.md": "8d5d5a2c46e11d2c485faf60bc59b25d851559402ed5e1e8cc329f27e82906d6",
+    "summary.json": "88c056b150bb7fe5d7d8a947edc75294769da9b89f738583229cdc8c573ae310",
+    "phase5-effects.png": "360a01e6d5127b46d45571f8a5c3cecab0d8cb1d936e013a22e323ad08870265",
+    "phase5-effects.svg": "abda8dbb84bd7109673f78ee02cdc21a7816cd2faf000ded35f4bf53267dab83"
+  },
+  "next_stage_paid_execution_authorized": false
+}
