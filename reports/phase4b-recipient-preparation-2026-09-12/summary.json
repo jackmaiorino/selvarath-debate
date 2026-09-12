@@ -1,0 +1,148 @@
+{
+  "schema_version": "phase4b_recipient_preparation_summary_v1",
+  "status": "prepared_awaiting_numeric_recipient_cap_approval",
+  "paid_execution_authorized": false,
+  "paid_recipient_calls_sent": 0,
+  "questions": 82,
+  "units": 656,
+  "main_verdict_calls": 5248,
+  "repair_coverage": {
+    "changed_claims": 549,
+    "changed_packets": 588,
+    "changed_questions": 80,
+    "changed_answered_exchanges": 761,
+    "changed_label_spans": 3896,
+    "blocked_exchanges_preserved": 1704,
+    "donor_packets": 1312,
+    "unchanged_packets": 724
+  },
+  "independent_human_validation": false,
+  "input_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+  "prepared_output_hashes": {
+    "packets.jsonl": "abd507de1934ac285cca6f66e2f3ee57f17e0f1f65141c9477b3643aacbc05ff",
+    "calls.jsonl": "fbba4dbb981cdaba991a34be00b1c6a62b4f5957bc9792e9b9f8e8484e2aa0e5",
+    "units_private.jsonl": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+    "edit_map_private.jsonl": "6b74acd3fc54b51b0b86ecf48c084782f5e73ef4f7b61d8d74375128b4df1f6a"
+  },
+  "source_code_versions": {
+    "scripts/phase4b_prepare_recipients.py": "d1b7df806031e7812e232f34785d75bf78db93fdbbac3f1c5e35aedcbae0713a",
+    "scripts/phase4b_prepare.py": "ff7d917600f7b952bb17dfa762edbf4002763178f1d8df90555bcbb51743d460",
+    "scripts/phase4_analysis.py": "00b9f954291dbfae7d09d6edd21fb981eae9ca7cf35279ed3948c6dd93e48ba4"
+  },
+  "forecast": {
+    "schema_version": "phase4b_recipient_forecast_v1",
+    "method": "Matched measured Phase4A usage for each unit/recipient/donor, with prompt token counts scaled by repaired/original UTF8 prompt-length ratio. Completion usage held at matched historical amount for the central scenario. This is a planning estimate, not a guaranteed bill.",
+    "prepared_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+    "calls": 5248,
+    "by_model": {
+      "Qwen/Qwen3.8-2.4T-A95B": {
+        "calls": 2624,
+        "input_usd": 31.12963126781838,
+        "completion_usd": 24.37821600000004,
+        "max_context_estimate": 28550,
+        "peak_request_reserve_usd": 0.36682,
+        "duration_seconds_sum": 37767.31890500034,
+        "ideal_16worker_minutes": 39.34095719270869
+      },
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+        "calls": 2624,
+        "input_usd": 15.721510414059965,
+        "completion_usd": 0.3392771199999988,
+        "max_context_estimate": 12678,
+        "peak_request_reserve_usd": 0.03792464,
+        "duration_seconds_sum": 9807.592011798522,
+        "ideal_16worker_minutes": 10.216241678956795
+      }
+    },
+    "completion_multiplier_scenarios_usd": {
+      "0.5": 59.20988824187837,
+      "1": 71.56863480187839,
+      "2": 96.28612792187842,
+      "4": 145.7211141618785
+    },
+    "peak_32_inflight_reserve_upper_usd": 6.439683519999999,
+    "proposed_cap_usd": 150,
+    "preflight_subcap_usd": 5,
+    "uncertain_subcap_usd": 25,
+    "eta_minutes_planning_range": [
+      45,
+      90
+    ],
+    "limitations": [
+      "Historical token use and latency may change under repaired histories or provider drift.",
+      "Estimates exclude preflight and failed/unknown deliveries; the aggregate cap includes them.",
+      "No cache discount is assumed.",
+      "In-flight reservation exposure, not the sum of every theoretical request reservation, controls dispatch."
+    ],
+    "provider_metadata_sha256": "763f49fa5c42dba63fe7f84755c88e22f3eddd45a76db38cb02c577523dc83ef",
+    "price_sources": [
+      "https://docs.together.ai/docs/serverless/models",
+      "https://www.together.ai/pricing"
+    ]
+  },
+  "validation": {
+    "focused_tests_passed": 74,
+    "focused_tests": [
+      {
+        "file": "tests/test_phase4b_prepare_recipients.py",
+        "passed": 14,
+        "seconds": 5.84,
+        "receipt": "Captured pytest tool output chunk a35c61 in preparing Codex task"
+      },
+      {
+        "file": "tests/test_phase4b_recipient_analysis.py",
+        "passed": 25,
+        "seconds": 5.3,
+        "receipt": "Captured pytest tool output chunk 00ef9e in preparing Codex task"
+      },
+      {
+        "file": "tests/test_phase4b_recipient_runner.py",
+        "passed": 35,
+        "seconds": 2.93,
+        "receipt": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase4b-recipient-preparation-2026-09-12\\runner-tests.xml"
+      }
+    ],
+    "independent_panel_rebuild_byte_identical": true,
+    "full_offline_rehearsal": {
+      "kind": "OFFLINE_SYNTHETIC_VALIDATION_NOT_EXPERIMENT_RESULTS",
+      "status": "passed",
+      "provider_calls": 0,
+      "main_cells": 5248,
+      "synthetic_provider_invocations": 5249,
+      "physical_attempt_rows": 5250,
+      "simulated_http_503": 1,
+      "abandoned_inflight_recovered": 1,
+      "completed_cells_before_restart": 64,
+      "completed_cells_redispatched": 0,
+      "reopened_export_byte_identical": true,
+      "results_sha256": "4a470264c75a290735019fb7d6ab225d857ac8e760c567f6bfb400acb34c7708",
+      "analysis_sha256": "9d3dd50f936ee7523bd040c38a48678b822930eca90357c5eb23e58b92d8cdd5",
+      "input_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+      "runner_sha256": "934c5c1147b67ccca5a833becbe03954ff501364d1757a3339ffc01ce1c75bf2",
+      "analysis_script_sha256": "e914fe323ad929380ae2c6f63d6fa02e65cfe7b594151b1765d2b2f19a755c38",
+      "synthetic_known_primary_numerators": {
+        "R_pooled": 224,
+        "R_recipient_difference": 96
+      },
+      "synthetic_accounting_integer_units": {
+        "actual": 688537600,
+        "uncertain": 66620320,
+        "inflight": 0,
+        "exposure": 755157920,
+        "preflight": 0,
+        "preflight_attempts": 0
+      },
+      "elapsed_seconds": 38.51890070002992,
+      "directory": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase4b-recipient-offline-validation-2026-09-12\\full-bdcd777833"
+    },
+    "full_offline_rehearsal_receipt_sha256": "91098a97df65af2e99cff58353b71d1dfe7d294849d2a834eaa85f84b05cb815",
+    "independent_cross_review_findings_remaining": 0
+  },
+  "continuation_rule": "Only qualifying positive pooled repair benefit with the frozen statistical and semantic gates supports Phase4C. Phase4C paid execution remains separately unapproved.",
+  "limitations": [
+    "Final-readout label repair of captured b8 histories, not corrected live adaptive querying.",
+    "Source review is AI, not independent human or independent model-family validation.",
+    "All 656 units remain; no outcome filtering, fresh empty arm, new claims or new questions.",
+    "Only approved label spans change; prior queries, blocked feedback, order and repetitions remain."
+  ]
+}

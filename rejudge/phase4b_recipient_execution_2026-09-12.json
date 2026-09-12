@@ -1,0 +1,83 @@
+{
+  "schema_version": "phase4b_recipient_execution_v1",
+  "run_id": "phase4b-label-repair-recipients-2026-09-12",
+  "stage": "4B-recipient",
+  "preparation_authorized": true,
+  "paid_execution_authorized": false,
+  "approved_cap_usd": null,
+  "proposed_cap_usd": 150,
+  "preflight_cap_usd": 5,
+  "uncertain_cap_usd": 25,
+  "authority": {
+    "source": "Direct user instruction in this Codex task",
+    "user_instruction": "ok continue with that",
+    "scope": "Prepare the fixed 5,248-verdict Phase4B recipient comparison, including the materialized edit map, offline validation and concrete budget. Numeric recipient cap has not yet been approved.",
+    "recorded_at_utc": "2026-09-12T16:50:27.289959+00:00"
+  },
+  "scope_excludes": [
+    "Phase4C generation or evaluation",
+    "Automatic cap increases",
+    "Changes to the frozen sample, label contract or analysis gates"
+  ],
+  "inputs": "E:\\selvarath-archive\\phase4b-recipient-preparation-2026-09-12",
+  "run_directory": "E:\\selvarath-archive\\phase4b-label-repair-recipients-2026-09-12",
+  "input_manifest_sha256": "4310b3ed4cca1d4e6d5004042876d1f06969634fbc3a17ad8e600841ef046e60",
+  "protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "main_verdict_calls": 5248,
+  "models": [
+    "Qwen/Qwen3.8-2.4T-A95B",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  ],
+  "prices_per_million": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "input": 2,
+      "output": 6
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "input": 1.04,
+      "output": 1.04
+    }
+  },
+  "model_settings": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "temperature": 0.3,
+      "max_tokens": 16384,
+      "context_length": 1010000,
+      "reservation_multiplier": 3,
+      "initial_workers": 4,
+      "max_workers": 16
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "temperature": 0.3,
+      "max_tokens": 512,
+      "context_length": 131072,
+      "reservation_multiplier": 1,
+      "initial_workers": 4,
+      "max_workers": 16
+    }
+  },
+  "price_policy": "Use uncached input rates; reasoning is billed once within completion tokens. Retain all failed/unknown attempt exposure and in-flight reservations within the aggregate cap. The reservation multiplier is a budget allowance, not additional requested output.",
+  "price_sources": [
+    "https://docs.together.ai/docs/serverless/models",
+    "https://www.together.ai/pricing"
+  ],
+  "prices_checked_date": "2026-09-12",
+  "authenticated_metadata_path": "E:\\selvarath-archive\\phase4b-recipient-planning-2026-09-12\\provider_metadata.json",
+  "provider_metadata_sha256": "763f49fa5c42dba63fe7f84755c88e22f3eddd45a76db38cb02c577523dc83ef",
+  "provider_metadata_note": "Authenticated metadata confirms exact endpoints, nominal uncached rates and contexts. Cached-price differences are irrelevant because discounts are not used. Request reasoning fields remain absent as in4A; current returned Qwen template default is xhigh. Backend immutability is not assumed.",
+  "review_amendment": "rejudge/phase4b_ai_review_amendment_2026-09-12.json",
+  "repair_labels_path": "E:\\selvarath-archive\\phase4b-blinded-adjudication-2026-09-12\\analysis-ai-source-review-2026-09-12\\repair_labels.json",
+  "repair_labels_sha256": "37d69f4ec7be6e714883fc14a3c0fd2eb9ec0476802d9efed932a06070400f01",
+  "independent_human_validation": false,
+  "monitor_minutes": 10,
+  "seed_namespace": "phase4b-recipient-verdict-v1",
+  "order_seed": 2026091207,
+  "bootstrap_seed": 2026091203,
+  "forecast_path": "E:\\selvarath-archive\\phase4b-recipient-planning-2026-09-12\\forecast.json",
+  "forecast_sha256": "91740f4509182fe0f4ded6d9decb99d9c55aa008041fcdaac717d7f35139fd45",
+  "expected_provider_cost_usd": 71.56863480187839,
+  "eta_minutes_planning_range": [
+    45,
+    90
+  ]
+}
