@@ -1,0 +1,84 @@
+{
+  "verified_at_utc": "2026-09-12T23:17:38.883827+00:00",
+  "questions": 82,
+  "review_rows": 164,
+  "quotes_exactly_verified": 433,
+  "source_hashes_unchanged": {
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\rejudge\\phase2_protocol.json": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\questions\\carath_norn_questions.json": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\world_specs\\carath_norn.txt": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\questions\\selvarath_questions.json": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\world_specs\\selvarath.txt": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\questions\\vethun_sarak_questions.json": true,
+    "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\world_specs\\vethun_sarak.txt": true,
+    "E:\\selvarath-archive\\phase4-preparation-2026-09-12\\units_private.jsonl": true
+  },
+  "question_bank_protocol_bindings_match": {
+    "questions/carath_norn_questions.json": true,
+    "questions/selvarath_questions.json": true,
+    "questions/vethun_sarak_questions.json": true
+  },
+  "main_bank_ids_after_24_calibration_exclusions_match": true,
+  "phase4_phase5_panel_membership": {
+    "phase4": {
+      "path": "E:\\selvarath-archive\\phase4-preparation-2026-09-12\\units_private.jsonl",
+      "sha256": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "units": 656,
+      "question_ids_match": true
+    },
+    "phase5": {
+      "path": "E:\\selvarath-archive\\phase5-preparation-2026-09-12\\units_private.jsonl",
+      "sha256": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "units": 656,
+      "question_ids_match": true
+    }
+  },
+  "world_texts_match_phase4b_archive": {
+    "carath_norn": true,
+    "selvarath": true,
+    "vethun_sarak": true
+  },
+  "review_file_hashes": {
+    "review1_carath_norn.json": "d6b05a63f478a1eb74185119b6fa36b9a1876f46a270989fe82e21df1dd85286",
+    "review2_carath_norn.json": "03ca66cda015d68c49af0891232e3dce8e3d601563fbb68b1f1a0e7bba462326",
+    "review1_selvarath.json": "1ee1b4164b4bdf222031d81d52004483338c384f5b662a918214aedd72e16fbc",
+    "review2_selvarath.json": "43d6f5882d3563d96bf52791eda495bb674881261614b6c1bc4f49b96b5962a1",
+    "review1_vethun_sarak.json": "71ca1411f8807bb04e7dd8048b978c84c62eee13624499e187f907ddbbafa5b6",
+    "review2_vethun_sarak.json": "0b2770b8053d5a9cd21c06ceb03ba2967614dfbeec0587809320611f99c41e79"
+  },
+  "manifest_sha256": "9bc465081be1e847bd618d516e8e7fea04f3c5d6de106badccf6b5ee09a16130",
+  "review_instructions_sha256": "e6d44be973e5ce78edf40330edadd7ea28599979a234beca02b67c6575b81342",
+  "summary_script_sha256": "fb4bb02e65362d9e6a30eaf3010969c326242bf29aac5858dea878ad3dd8f241",
+  "python": "3.14.3",
+  "rubric_clarification_sha256": "4587cc0eef9bb34802bd06866f3472149ee0d614a2aa9b6687792b7d026acfa2",
+  "root_source_notes_sha256": "4bcde7d8439b35b2d64b2b76a3a99441c0fa9de3108f03052dd07e23e7a189f1",
+  "packet_reproduction": {
+    "packet_and_key_bytes_identical": {
+      "carath_norn_packet.json": true,
+      "selvarath_packet.json": true,
+      "vethun_sarak_packet.json": true,
+      "key_private.json": true
+    },
+    "current_builder_sha256": "2a933d4065f2bc45873c2cd43e8f7fc4a6b80ae047d936a3522f438ea88b63de",
+    "note": "Final builder adds an explicit protocol binding assertion and configurable output path. Audit packet and key bytes reproduce exactly; initial manifest retained."
+  },
+  "report_review": {
+    "reviewer": "source_audit_cn",
+    "blind_rows_frozen_before_key_access": true,
+    "reviewer_read_other_reviews": false,
+    "verdict_files_read": false,
+    "narrative_review": "No blocking narrative finding. Distinguishes source determinacy from preference and flags from false statements; does not claim ambiguity caused recipient differences.",
+    "finding": "Report claimed exact phase-panel and calibration coverage; summary code initially relied on builder checks for those claims.",
+    "resolution": "Added explicit equality checks against bank IDs after the 24 exclusions and both Phase4 and Phase5 units_private.jsonl panels; each must contain 656 units and exactly the audited 82 question IDs."
+  },
+  "summary_sha256": "8302999e8da9a0cfa45271293712d4756427279a45d57fb9c5c56c5062d9bb72",
+  "model_results_files_read": [],
+  "provider_calls": 0,
+  "report_hashes": {
+    "audit-matrix.md": "d3b3be7145683af266110e886e6b2aceb4b463b4d45afde232e1e805af4c1bfe",
+    "audit.md": "a256dcfee491fa9bdb6858f9a56885ac00d327cef2f99d57dba27ddef231c590",
+    "evidence-candidates.md": "f3bcc0d11b7622f4b475c1455113d675dc9bd88aab09f11531c290b174edd4b9",
+    "source-determinacy.png": "d16369176606c487129e9e96f116165f32f02673dfca294d0ec355ad6dfd5f60",
+    "source-determinacy.svg": "800f5e089647264de8f21de7d2deb75fa07a2ce2ca29f3f9d49a30d37821242a"
+  }
+}

@@ -1,0 +1,2834 @@
+{
+  "audit": "question-evidence-audit-2026-09-12-v1",
+  "status": "two_AI_source_reviews_complete",
+  "questions": 82,
+  "review_rows": 164,
+  "reviewer_assignment": {
+    "source_audit_cn": [
+      "review1_carath_norn",
+      "review2_selvarath",
+      "review2_vethun_sarak"
+    ],
+    "source_audit_sel": [
+      "review2_carath_norn",
+      "review1_selvarath",
+      "review1_vethun_sarak"
+    ]
+  },
+  "world_counts": {
+    "carath_norn": 27,
+    "selvarath": 28,
+    "vethun_sarak": 27
+  },
+  "consensus_counts": {
+    "underdetermined": 39,
+    "inferential": 25,
+    "decisive": 5,
+    "disputed": 13
+  },
+  "world_consensus_counts": {
+    "carath_norn": {
+      "underdetermined": 14,
+      "inferential": 8,
+      "decisive": 3,
+      "disputed": 2
+    },
+    "selvarath": {
+      "inferential": 10,
+      "underdetermined": 13,
+      "decisive": 1,
+      "disputed": 4
+    },
+    "vethun_sarak": {
+      "decisive": 1,
+      "disputed": 7,
+      "inferential": 7,
+      "underdetermined": 12
+    }
+  },
+  "class_agreements": 69,
+  "option_agreements": 72,
+  "both_prefer_original_key": 54,
+  "keyed_candidate_longer_count": 82,
+  "core_evidence_candidates": [
+    "CN-007",
+    "CN-018",
+    "CN-033",
+    "SEL-004",
+    "VS-002"
+  ],
+  "existing_key_text_unflagged_candidates": [],
+  "key_text_flagged_by_either": 82,
+  "key_text_flagged_by_both": 80,
+  "rows": [
+    {
+      "question_id": "CN-001",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": true,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Caran gate control and army funding support an asymmetric settlement, but unequal holdings do not establish that no durable balance resulted. Neither the treaty's long-term effects nor the assassination's motive is resolved.",
+      "review2_rationale": "The treaty ended conflict and combined Caran administration with Dresh access protections. Neither administrative asymmetry nor those protections alone establish whether the resulting power balance was durable and balanced.",
+      "review1_key_text_issues": [
+        "Western settlement control is not guaranteed permanently by ethnicity or geography.",
+        "An unadjudicated assassination does not establish Dresh dissatisfaction with the treaty.",
+        "Only usage rights understates the fixed-tax protection and assumes no other Dresh gains."
+      ],
+      "review2_key_text_issues": [
+        "Western settlement ownership is not guaranteed never to change.",
+        "Administrative control and army funding do not establish absence of a durable balance.",
+        "The assassination's unadjudicated circumstances do not establish Dresh resentment."
+      ],
+      "source_lines": [
+        5,
+        9
+      ]
+    },
+    {
+      "question_id": "CN-002",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Current concern about Drath is explicit, but the former Paramount Lord's powers and threat to surviving lords are unspecified. B describes more present evidence without determining the historical comparison.",
+      "review2_rationale": "B describes a current concern and substantial private consolidation, but the source does not compare its threat with the earlier Paramount Lord's powers or actions. The route from private acquisitions to the Moot's seat trigger is also unspecified.",
+      "review1_key_text_issues": [
+        "The source does not say lordships reconstituted or that absorbed territories can never revert.",
+        "It does not specify the former Paramount Lord's term or all his actions.",
+        "Two acquisitions do not explicitly confer office automatically; the stated mechanism involves Moot-controlled seats and election."
+      ],
+      "review2_key_text_issues": [
+        "Reconstitution of collapsed lordships and permanent non-reversion of acquisitions are not stated.",
+        "The source reports concern that Sera may seek status, not guaranteed qualification after two acquisitions.",
+        "The comparison of threats is not established."
+      ],
+      "source_lines": [
+        6,
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-003",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The fraction and blocking-coalition arithmetic favor B's institutional reading. Net security still depends on who would fill the seat and how other Factors react, while a strategic motive for nonintervention is unreported.",
+      "review2_rationale": "The fixed twenty-four-vote requirement makes the vacancy raise the required fraction and reduce the blocking group to six. Actual office security also depends on vote alignments and political reactions, which the arithmetic does not determine.",
+      "review1_key_text_issues": [
+        "A higher required fraction does not by itself establish greater actual political security.",
+        "The Director's jurisdictional explanation does not establish a strategy of preserving the vacancy."
+      ],
+      "review2_key_text_issues": [
+        "The fraction change does not itself establish greater actual political security.",
+        "A strategic motive for declining adjudication is possible but not established."
+      ],
+      "source_lines": [
+        5,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-005",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The unresolved notification disagreement and current demand for categorical notice favor strategic significance. They do not establish a legally accepted emergency exception, an affordable repeat-entry policy, or the penalty's deterrent effect.",
+      "review2_rationale": "A disputed emergency characterization, unchanged renewal, and a later demand for notice in all circumstances make strategic relevance plausible. The source does not establish an accepted emergency-entry precedent or that the penalty is merely an affordable price.",
+      "review1_key_text_issues": [
+        "Unilateral characterization does not establish an accepted contractual precedent.",
+        "Payment does not show that 200 iron units is affordable, nondeterrent, or an accepted price.",
+        "An unchanged clause does not establish permission to repeat the conduct."
+      ],
+      "review2_key_text_issues": [
+        "The Compact explicitly recorded a violation, so accepted unilateral-entry authority was not established.",
+        "The penalty's affordability and lack of deterrence are not stated.",
+        "Unamended renewal does not prove an ability to repeat without further consequences."
+      ],
+      "source_lines": [
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-006",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": true,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A identifies more source-grounded ways succession can affect polity-wide authority, whereas B invents threshold ambiguity. The relative frequency and severity of leadership crises remain unknown.",
+      "review2_rationale": "Both systems have described disputes, but no comparable crisis rates or propagation effects are given. Potential hereditary failure modes do not rank overall leadership-crisis likelihood.",
+      "review1_key_text_issues": [
+        "Disputed paternity and contested marriages are hypothetical and are not stated causes of Sera's case.",
+        "A changed Moot seat count need not be a governance failure or crisis.",
+        "A single local guild dispute does not establish that all Caran crises remain local."
+      ],
+      "review2_key_text_issues": [
+        "Paternity and contested marriages are hypothetical, and Sera's dispute is not described as a marriage dispute.",
+        "Local confinement of Caran disputes and systemic Dresh cascades are not established."
+      ],
+      "source_lines": [
+        6,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-007",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "decisive",
+      "consensus_class": "decisive",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": true,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The reported count found the very underreporting alleged by the Caran, so its reported result partially supports their position. A methodological objection limits confidence but is not a reported contrary finding.",
+      "review2_rationale": "The reported count found underreporting in the same direction as the Caran allegation, so it supplies partial evidential support for Caran. A methodology dispute limits confidence but does not turn that result into support for the opposite position.",
+      "review1_key_text_issues": [
+        "Confirming that underreporting occurred overstates what a disputed measurement independently establishes.",
+        "The source supplies no standard for judging whether an eleven-week blockade was justified."
+      ],
+      "review2_key_text_issues": [
+        "Confirming actual underreporting is stronger than reporting a disputed measurement; intent and population-wide scale are not established."
+      ],
+      "source_lines": [
+        10
+      ]
+    },
+    {
+      "question_id": "CN-008",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A's resource disadvantages are better documented than B's territorial-superlative claim. They do not rule out a credible diplomatic, economic, or military counterweight under unified leadership.",
+      "review2_rationale": "Caran resources and eastern drought vulnerability support A's concern, but the source does not establish Dresh force capacity or the authority and bargaining power of a future Paramount Lord.",
+      "review1_key_text_issues": [
+        "An undescribed Dresh standing military is not evidence that no effective force exists.",
+        "The claim that political unification cannot overcome the asymmetry excludes unreported resources and diplomacy."
+      ],
+      "review2_key_text_issues": [
+        "No described standing army does not establish inadequate total Dresh military capacity.",
+        "Geographic asymmetry does not prove that consolidation cannot overcome it."
+      ],
+      "source_lines": [
+        3,
+        5,
+        11,
+        13
+      ]
+    },
+    {
+      "question_id": "CN-010",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source establishes a move from fixed-price import rights to market trading. It gives no prices, quantities, dependence ratios, or producer effects that determine which party experienced greater consequences.",
+      "review2_rationale": "The switch from fixed to market prices is explicit, but price levels, quantities, and each side's reliance are not. Either side could experience the larger economic consequence.",
+      "review1_key_text_issues": [
+        "Higher or more volatile market prices are not stated.",
+        "Dryland grain production does not establish ongoing import dependence.",
+        "Increased Caran revenue and a greater Dresh burden require missing price and volume data."
+      ],
+      "review2_key_text_issues": [
+        "Higher prices, higher Caran revenue, and greater volatility are not established.",
+        "Aridity does not establish ongoing critical dependence on imported grain."
+      ],
+      "source_lines": [
+        3,
+        11
+      ]
+    },
+    {
+      "question_id": "CN-012",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The same house appears in the treaty and present consolidation, but no source links the assassination's motives or memory to present politics. A's categorical irrelevance and B's historical-revenge narrative both exceed the record.",
+      "review2_rationale": "The treaty negotiator and present consolidator share a house, so historical political context is plausible. The assassination's motive, remembered meaning, and effect on Sera's strategy are not supplied.",
+      "review1_key_text_issues": [
+        "The unadjudicated killing does not establish Dresh resentment or present views of treaty legitimacy.",
+        "Shared house membership does not establish a strategy of reversing Arven's legacy."
+      ],
+      "review2_key_text_issues": [
+        "Deep Dresh resentment and current perceived illegitimacy are not established.",
+        "Reversing Arven's legacy is a speculative motive for Sera's acquisitions."
+      ],
+      "source_lines": [
+        9,
+        13,
+        14
+      ]
+    },
+    {
+      "question_id": "CN-013",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Existing noncompliance and military dependence support B's enforcement concern. The magnitude of an amendment's security benefit is unresolved because compliance incentives and nonmilitary enforcement are not described.",
+      "review2_rationale": "The earlier incursion and military dependence make B's enforcement concern plausible. Whether an explicit all-circumstances clause materially improves security depends on compliance incentives and the value of notice, not military capacity alone.",
+      "review1_key_text_issues": [
+        "Military dependence does not establish that all enforcement or bargaining capacity is weak.",
+        "One disputed entry does not determine that clearer contractual obligations have only marginal benefit."
+      ],
+      "review2_key_text_issues": [
+        "Absence of a standing military does not establish inability to enforce through money, trade, or political costs.",
+        "The size of the security improvement is not established as marginal."
+      ],
+      "source_lines": [
+        7,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-014",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Guild representation and Director selection favor a commercial orientation. Priority over security or territorial objectives requires assumptions about guild preferences and the relationship between trade and defense.",
+      "review2_rationale": "Guild control of appointment and removal gives commercial interests a clear institutional channel. A bias over security and territory still depends on guild priorities and the Director's policy powers.",
+      "review1_key_text_issues": [
+        "The college is not identified as the entire legislative body.",
+        "Commercial tax funding does not establish the army's exclusive purpose or policy subordination.",
+        "Resistance to policies reducing trade revenue is not reported."
+      ],
+      "review2_key_text_issues": [
+        "The college is not explicitly described as the legislative body.",
+        "A commercial tax source does not establish that the army exists only to protect commerce.",
+        "Institutional resistance to every trade-threatening security decision is not stated."
+      ],
+      "source_lines": [
+        5
+      ]
+    },
+    {
+      "question_id": "CN-015",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The vote and exceptional succession are explicit, but neither its legal reasoning nor the voters' motives are given. The same outcome is compatible with independent legal adaptation or pressure from Drath.",
+      "review2_rationale": "The unusual succession and six-to-three decision establish a contested outcome, not its underlying rationale. Neither coercive influence nor principled institutional adaptation is identified.",
+      "review1_key_text_issues": [
+        "The three dissenters' motives and the six supporters' fear or calculations are not stated.",
+        "Current territorial share does not establish its size at the vote or a causal influence on votes.",
+        "The cousins' departure does not identify the judgment's political basis."
+      ],
+      "review2_key_text_issues": [
+        "The three dissenters' grounds and majority motives are not stated.",
+        "Drath's influence at the time of the vote and the cousins' reasons for leaving are not established."
+      ],
+      "source_lines": [
+        6,
+        13
+      ]
+    },
+    {
+      "question_id": "CN-016",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Navigability and the earlier blockade favor strategic value for channel control. B's specific gate-bypass route, tax exemption, and explanation of the escort agreement are not supplied.",
+      "review2_rationale": "Year-round small-vessel use and a blockade followed by political unification support plausible strategic value. The specific tax-bypass mechanism, magnitude, and motive for the escort arrangement are not established.",
+      "review1_key_text_issues": [
+        "The source does not identify an exclusive northbound gate-bypass route or exempt channel traffic from gate fees.",
+        "The army's dependence on traffic diverted through channels is unquantified.",
+        "The Directorate's motives for the escort agreement are not stated."
+      ],
+      "review2_key_text_issues": [
+        "Only described waterways do not establish the only northern route or a tax-free alternative.",
+        "The source does not state that channel trade bypasses gate taxes or threatens the army's funding.",
+        "Maintaining dependence and suppressing competition are unstated escort-agreement motives."
+      ],
+      "source_lines": [
+        3,
+        10
+      ]
+    },
+    {
+      "question_id": "CN-017",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A correctly distinguishes the Director's possible tenure incentive from the broader Directorate's uncertain interest. Neither arithmetic nor the refusal to adjudicate determines the institution's stronger overall incentive.",
+      "review2_rationale": "A correctly separates a possible personal arithmetic incentive from an unclear institutional interest. The question concerns the Directorate overall, and the source does not weigh representation costs, legitimacy, or actual voting effects.",
+      "review1_key_text_issues": [
+        "The Director's personal benefit is conditional on voting behavior and other political effects.",
+        "A possible personal incentive does not resolve the question's institutional comparison."
+      ],
+      "review2_key_text_issues": [
+        "The arithmetic does not establish a net personal benefit.",
+        "The personal perspective does not resolve the broader institutional question."
+      ],
+      "source_lines": [
+        15
+      ]
+    },
+    {
+      "question_id": "CN-018",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "decisive",
+      "consensus_class": "decisive",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": true,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The present-situation paragraph expressly states that the Moot currently has no mechanism to prevent consolidation. That directly resolves the institutional question and contradicts A's asserted existing majority-vote remedy.",
+      "review2_rationale": "The source explicitly states that the Moot currently has no mechanism to prevent consolidation. That directly resolves the requested availability of an effective existing mechanism; hypothetical new powers are not described.",
+      "review1_key_text_issues": [
+        "Calling marriage and debt purchases private transactions adds an unspecified legal characterization.",
+        "The controlled-seat threshold concerns Paramount election; it does not itself establish general regulatory powers."
+      ],
+      "review2_key_text_issues": [
+        "The Paramount threshold is not itself established as the reason regulatory authority is absent; the explicit no-mechanism statement supplies the decisive support."
+      ],
+      "source_lines": [
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-019",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source gives asymmetric agriculture and gate administration, but omits the trade flows needed to distinguish one-way dependence from substantial reciprocity. Both candidates turn missing economic information into asserted facts.",
+      "review2_rationale": "The source shows trade and unequal resource endowments, but not the relative dependence or substitutability of food, transit revenue, and other exports. Both unilateral dependence and substantial reciprocity remain possible.",
+      "review1_key_text_issues": [
+        "Low rainfall does not force imports when the east explicitly produces dryland grain.",
+        "Market rates are not stated to be set unilaterally by Caran producers.",
+        "An undescribed essential eastern export does not establish its absence or limited reciprocal leverage."
+      ],
+      "review2_key_text_issues": [
+        "Aridity does not establish forced grain dependence.",
+        "Market prices are not stated to be set by Caran producers.",
+        "No described Dresh export does not establish no export that Caran need."
+      ],
+      "source_lines": [
+        3,
+        5,
+        9,
+        11
+      ]
+    },
+    {
+      "question_id": "CN-020",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Seasonal meetings and a six-settlement quorum suggest coordination and representation vulnerabilities. The stronger claim that collective decisions are impossible between scheduled Meets requires missing rules about emergency or delegated authority.",
+      "review2_rationale": "A sparse regular schedule and low quorum plausibly create timing and representation vulnerabilities. The source does not state that all intersession decisions or emergency meetings are forbidden.",
+      "review1_key_text_issues": [
+        "Only scheduled assemblies can make any collective decision is not stated.",
+        "Forced bilateral deals and Directorate timing tactics are hypothetical rather than reported."
+      ],
+      "review2_key_text_issues": [
+        "Decisions only at the three regular assemblies and no collective response between them are not stated.",
+        "Forced bilateral deals and effective Directorate timing tactics are speculative."
+      ],
+      "source_lines": [
+        7
+      ]
+    },
+    {
+      "question_id": "CN-022",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Current military outsourcing is explicit, but neither financial incapacity nor a viable alternative force is established. The packet cannot determine the practical difficulty of independence.",
+      "review2_rationale": "Repeated escort contracting and no standing military establish current dependence, but do not determine how difficult replacement would be. Available wealth, forces for hire, and political will are unreported.",
+      "review1_key_text_issues": [
+        "No described tax base is not evidence of inadequate funding.",
+        "A loose seasonal association is not necessarily incapable of sustaining collective military spending.",
+        "No described Dresh standing military does not rule out effective Dresh or other contracted protection."
+      ],
+      "review2_key_text_issues": [
+        "No described tax base does not establish inadequate funds.",
+        "Loose governance is not shown incapable of sustained defense investment.",
+        "Third renewal means a current fourth term rather than exactly three total agreements; the separate historical renewal dates are not fully reconciled."
+      ],
+      "source_lines": [
+        3,
+        7
+      ]
+    },
+    {
+      "question_id": "CN-024",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The Moot's controlled seats and Paramount authority have declined from the explicitly described Dry Decade peak. A does not establish a net decline across the entire 112-year interval, whose starting authority is unspecified.",
+      "review2_rationale": "Directly controlled seats declined from the temporary Dry Decade peak to two, but that does not establish a net decline across the entire 112-year period or across every kind of institutional authority.",
+      "review1_key_text_issues": [
+        "The source does not explain the seat reduction by reconstituted lordships.",
+        "A peak-to-present decline is not necessarily an interval-wide net decline.",
+        "Rejecting a challenge does not by itself establish institutional impotence or subservience."
+      ],
+      "review2_key_text_issues": [
+        "Using the temporary peak as the baseline silently narrows the full-period comparison.",
+        "Reconstitution of collapsed lordships is not described.",
+        "Upholding Sera's claim does not establish institutional impotence."
+      ],
+      "source_lines": [
+        6,
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-025",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Existing Caran advantages and ongoing challenges are documented, but the source supplies neither a resolved trajectory nor probabilities for hegemony versus rebalancing. Each option treats uncertain mechanisms as inevitable.",
+      "review2_rationale": "B cites concrete Caran advantages, while A cites possible countervailing developments. The source supplies no basis for ranking the future trajectories or excluding successful consolidation and alliances.",
+      "review1_key_text_issues": [
+        "The Dresh are not stated to lack a standing army or to require continuing Caran food supplies.",
+        "The vacancy's net protection of the Director and inability to overcome geographic disadvantages are not established.",
+        "The source does not establish that a Dresh-Compact alliance is the only possible rebalancing force or that they lack direct geographic connection.",
+        "An unfinished negotiation is not a determined future failure."
+      ],
+      "review2_key_text_issues": [
+        "The only standing army, unavoidable Dresh food dependence, and actual vacancy protection are not all established.",
+        "Geography does not exclude Dresh-Compact contact, including by sea.",
+        "No other rebalancing mechanism and inability to overcome asymmetry are unsupported absolutes.",
+        "Unfinished renegotiation is not a demonstrated final failure."
+      ],
+      "source_lines": [
+        5,
+        7,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-026",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The Compact's current reliance on contracted escorts gives B a documented vulnerability. Relative consequences remain unknown without alternatives, contract value, threats, and the Directorate's interests in Delta access.",
+      "review2_rationale": "The Compact's present reliance gives B a plausible concern, but alternative protection, threat levels, and relative contract value are missing. The source does not establish collapse on one side and merely minor loss on the other.",
+      "review1_key_text_issues": [
+        "No Dresh standing military is not stated.",
+        "The source does not rank overall Directorate income streams or quantify escort revenue.",
+        "No current standing army does not imply all Compact vessels and settlements become unprotected or that security entirely collapses."
+      ],
+      "review2_key_text_issues": [
+        "No described Dresh army or alternative supplier does not establish none.",
+        "No standing military does not imply no militia or private protection.",
+        "Transit-tax army funding does not establish escort revenue is secondary or total security will collapse."
+      ],
+      "source_lines": [
+        5,
+        7
+      ]
+    },
+    {
+      "question_id": "CN-028",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The five-month large-vessel window offers a plausible opportunity to time pressure, so B is better supported than A's categorical dismissal. Economic exposure and usable Caran capabilities are not specified.",
+      "review2_rationale": "Differential seasonal transport opportunities could create leverage, and equal physical rules do not imply equal effects. B's trade concentration and timing tactics require fleet, cargo, and revenue facts absent from the source.",
+      "review1_key_text_issues": [
+        "The concentration of high-value trade, reduced off-season revenue, and departure of trading partners are not reported.",
+        "Timing diplomatic or military pressure effectively requires capacities and responses not described."
+      ],
+      "review2_key_text_issues": [
+        "High-value trade concentration, off-season revenue loss, and absence of trading allies are not stated.",
+        "Effective timing of military or diplomatic demands is a contingent strategy."
+      ],
+      "source_lines": [
+        3,
+        7
+      ]
+    },
+    {
+      "question_id": "CN-029",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Distinct institutional mechanisms for gate control and army financing favor a multicausal explanation. The source does not establish whether those institutions are independent causes or downstream consequences of rainfall, and A overstates rainfall's necessity.",
+      "review2_rationale": "Gate allocation and explicit transit-tax military funding give a strong reason to include institutional mechanisms alongside rainfall. Rainfall's causal sufficiency or necessity is not experimentally or counterfactually established.",
+      "review1_key_text_issues": [
+        "Rainfall is not shown to be necessary.",
+        "The Caran army is the only described standing army, not necessarily the only one.",
+        "No source establishes that Dresh fragmentation prevents all resource pooling or what a wetter eastern polity would lack."
+      ],
+      "review2_key_text_issues": [
+        "Rainfall necessity is not established.",
+        "Only standing army is stronger than the absence of a described Dresh force.",
+        "Fragmentation does not prove inability to pool resources; a collective grain negotiation occurred."
+      ],
+      "source_lines": [
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "question_id": "CN-031",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Independent guild election of Factors, Factor appointment of the Director, and an explicit mid-term removal vote constitute internal institutional checks. A's assertion that removal is realistically impossible has no support in the source.",
+      "review2_rationale": "Guild elections, appointment, and supermajority removal provide explicit formal checks. Whether they meaningfully constrain actual power depends on independence and enforceability, and retaining office does not require majority guild support.",
+      "review1_key_text_issues": [
+        "Serves at the pleasure and must maintain broad support overstate accountability under a fixed term and blocking minority.",
+        "Internal elections exclude direct appointment, but do not establish that the Director cannot influence or capture guild elections.",
+        "The Director declined to adjudicate; the source does not independently establish all limits on installing a candidate.",
+        "No comparison with constitutional-rights checks is supplied."
+      ],
+      "review2_key_text_issues": [
+        "A fixed term with a removal threshold is not ordinary unrestricted service at the Factors' pleasure.",
+        "Internal elections do not exclude influence or capture by the Director.",
+        "Six blockers currently suffice, so broad guild support is not required to remain in office.",
+        "Declining jurisdiction does not itself prove inability to install a candidate."
+      ],
+      "source_lines": [
+        5,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-033",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "decisive",
+      "consensus_class": "decisive",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": true,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A ten-year appointment and the removal threshold necessarily permit a Director to remain despite opposition from a majority. In the current twenty-nine-member college, six non-removal votes block twenty-three opponents. That directly establishes a potential vulnerability alongside protected tenure, without establishing current abuse.",
+      "review2_rationale": "The explicit ten-year term and removal rule permit retention despite majority opposition: with twenty-nine Factors, six withholding removal leave at most twenty-three votes. This establishes the structural potential vulnerability, without establishing current abuse.",
+      "review1_key_text_issues": [
+        "No Factor preferences establish that the present Director has lost majority support.",
+        "Refusal to adjudicate does not establish intentional entrenchment.",
+        "Stable tenure does not guarantee stable policy, although it enables continuity."
+      ],
+      "review2_key_text_issues": [
+        "Current loss of majority support, strategic prolongation of the vacancy, and active entrenchment are not established."
+      ],
+      "source_lines": [
+        5,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-034",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Formation, persistence, outsourcing, and current negotiation are documented, but the Compact's initial and later relative capacities are not compared. Survival does not prove strengthening, and military outsourcing does not prove decline from a stronger baseline.",
+      "review2_rationale": "Formation, lasting coordination, purchased protection, a disputed incursion, and ongoing renegotiation provide competing institutional considerations. The source does not rank net relative position from formation to the present, much less supply an institutional baseline for all 112 years.",
+      "review1_key_text_issues": [
+        "Initial military independence and increasing dependence are not stated.",
+        "The penalty's supposedly minimal significance is unquantified.",
+        "An ongoing negotiation does not establish inability to secure an amendment.",
+        "Unchanged governance, client-state status, and net decline are not established."
+      ],
+      "review2_key_text_issues": [
+        "Initial full independence and increasing military dependence are not established.",
+        "The penalty's consequences are not shown minimal.",
+        "An unaccepted amendment during ongoing talks does not establish inability to obtain it.",
+        "Client-state status is not established."
+      ],
+      "source_lines": [
+        7,
+        10,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "CN-035",
+      "world": "carath_norn",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Authority activated by reverted lordships and its sole recorded Paramount episode during drought favor A's crisis-oriented interpretation. Comparative suitability still depends on effectiveness, ordinary succession patterns, and peacetime powers that are not described.",
+      "review2_rationale": "The only recorded Paramount episode occurred during a crisis and produced collective grain access, supporting A's functional reading. Seat accumulation and one success do not establish generally superior crisis governance or power-based peacetime adjudication.",
+      "review1_key_text_issues": [
+        "Heirless reversion need not be a crisis or institutional failure.",
+        "No consolidation-prevention mechanism does not establish a blanket inability to override private lordly decisions.",
+        "The inheritance vote's motives, minimal peacetime authority, and automatic power loss through success are unreported."
+      ],
+      "review2_key_text_issues": [
+        "Directly controlled seats are not the only possible form of authority.",
+        "Influence-driven inheritance decisions and loss of authority whenever lordships prosper are not established.",
+        "No consolidation mechanism does not establish inability to override every private decision."
+      ],
+      "source_lines": [
+        6,
+        11,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-001",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Higher iron output and lower Taran toll revenue favor B, but physical volume and one revenue stream do not determine net relative economic strength.",
+      "review2_rationale": "Domestic iron development and the Taran toll loss favor relative improvement. Output volume does not determine net economic value, production costs, or lasting comparative position.",
+      "review1_key_text_issues": [
+        "Output volume does not establish self-sufficiency or net economic gain.",
+        "The passes are not identified as the Confederacy's main leverage, nor is that leverage stated to have disappeared."
+      ],
+      "review2_key_text_issues": [
+        "Output volume does not establish complete material self-sufficiency.",
+        "The Confederacy is not shown to have lost its main leverage permanently."
+      ],
+      "source_lines": [
+        9
+      ]
+    },
+    {
+      "question_id": "SEL-003",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The obligation is reciprocal, but neither comparable practical risk nor much greater Ossene need is established. Flood frequency alone cannot rank use of the reserve entitlement.",
+      "review2_rationale": "The treaty is expressly reciprocal, but actual need and reserve burden are unquantified. Neither environmental symmetry nor greater Ossene benefit follows from the reported hazards.",
+      "review1_key_text_issues": [
+        "Three failed harvests per decade do not establish much greater aid need.",
+        "Limited dry-crop agriculture does not establish low grain need or an Ossene beneficiary advantage."
+      ],
+      "review2_key_text_issues": [
+        "Three failed harvests per decade does not establish the relative frequency or magnitude of emergencies.",
+        "Pastoralism does not establish lower grain needs or that the treaty structurally favors Ossene recipients."
+      ],
+      "source_lines": [
+        3,
+        10,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-004",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "decisive",
+      "consensus_class": "decisive",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": true,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": false,
+      "review1_rationale": "The source expressly leaves tariff jurisdiction disputed and the tariff dispute unresolved. A states that uncertainty; its alternative clause readings are possibilities, not asserted terms.",
+      "review2_rationale": "The panel claims a treaty basis while the Compact disputes tariff jurisdiction, and the present account expressly says the dispute is unresolved. The described terms do not settle the scope, so A's uncertainty is the supported core answer.",
+      "review1_key_text_issues": [],
+      "review2_key_text_issues": [
+        "The distinction between sovereign tariffs and arbitration treatment is a possible interpretation, not a quoted treaty limitation."
+      ],
+      "source_lines": [
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-005",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The shared agreement makes a political-coherence criticism plausible. Accepting its fees while disputing one jurisdictional boundary need not undermine the Compact's position, and neither candidate's legal conclusion is established.",
+      "review2_rationale": "The preferential fees and threat to revoke them give the tariff dispute a concrete institutional connection. Whether accepting fees makes the jurisdictional objection incoherent depends on the actual scope and interpretation of the agreement.",
+      "review1_key_text_issues": [
+        "A tariff-jurisdiction objection is broadened into rejection of enforcement mechanisms.",
+        "The assertion that the position is not legally invalidated is also not legally established."
+      ],
+      "review2_key_text_issues": [
+        "The Compact rejects jurisdiction over tariffs, not necessarily the panel or all enforcement.",
+        "A reciprocity-based criticism does not establish inconsistency without the jurisdictional terms."
+      ],
+      "source_lines": [
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-006",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "B has documented Ossene diplomatic success, while A contradicts coastal-road geography. Current comparative influence across the independent Shel settlements remains unmeasured.",
+      "review2_rationale": "Ossene mediation and fee concessions establish an actual relationship, unlike A's false route premise. The relative strength of Taran influence remains unknown because its other Shel ties are not described.",
+      "review1_key_text_issues": [
+        "Primary iron-producer status is not stated.",
+        "Nonparticipation in the Flood Compact does not establish absent Taran ties.",
+        "Vethara relationships do not alone establish coast-wide influence."
+      ],
+      "review2_key_text_issues": [
+        "The Compact is not identified as the primary iron producer.",
+        "Absence from a bilateral grain treaty does not establish absence of Shel diplomatic or economic ties."
+      ],
+      "source_lines": [
+        3,
+        7,
+        11
+      ]
+    },
+    {
+      "question_id": "SEL-007",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Rotation and a moving center are explicit, but neither continuity problems nor more durable agreement follows. The source does not establish their net territorial-bargaining effect.",
+      "review2_rationale": "Moving leadership and administration plausibly complicate continuity, favoring A's concern. Whether rotation helps or harms this dispute depends on durable institutions and clan preferences.",
+      "review1_key_text_issues": [
+        "Negotiation difficulty and consequential conflicts of interest are not demonstrated."
+      ],
+      "review2_key_text_issues": [
+        "Relocation is not evidence of actual negotiation or enforcement failure.",
+        "A Veth or Sorath Vek's conflict of interest and its net effect are not established."
+      ],
+      "source_lines": [
+        6,
+        12
+      ]
+    },
+    {
+      "question_id": "SEL-008",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "underdetermined",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source explicitly makes whether current decline triggers Ossene aid or a Taran breach disputed. B preserves the determinable uncertainty, but its probable negative answer and proposed restrictions exceed the source.",
+      "review2_rationale": "B correctly acknowledges uncertainty, but its central tilt toward ineligibility goes beyond the expressly disputed status. The source does not determine whether a slow yield decline qualifies or whether inadequate reserves bar a request.",
+      "review1_key_text_issues": [
+        "The treaty does not state an exclusion for gradual decline or a preference for acute emergencies.",
+        "The intended spirit and probably negative answer are unsupported.",
+        "A possible reserve breach is not stated to bar an aid request."
+      ],
+      "review2_key_text_issues": [
+        "The agreement is not stated to exclude slow deterioration.",
+        "Reserve inadequacy is uncertain and is not shown to eliminate access rights.",
+        "Probably not in the intended spirit adds an unsupported interpretation to the supported uncertainty."
+      ],
+      "source_lines": [
+        10,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-009",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Documented commercial ties and iron exports make B more grounded than A's assertion of no leverage. Meaningful supplier leverage after fee revocation still depends on market shares and alternatives.",
+      "review2_rationale": "Significant Compact contracts and iron sales suggest supplier leverage can survive a fee change. Whether that leverage is meaningful depends on substitutability and the size of Vethara's exposure.",
+      "review1_key_text_issues": [
+        "Primary-producer status, major port-volume share, and dependence on Compact supply are not established."
+      ],
+      "review2_key_text_issues": [
+        "Primary iron production and a major share of total port volume are not stated.",
+        "Lost fee preferences need not be economically large."
+      ],
+      "source_lines": [
+        3,
+        11,
+        13
+      ]
+    },
+    {
+      "question_id": "SEL-011",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Infrastructure cost is the stated justification, but actual costs and motives are absent. The source neither identifies the better explanation nor excludes mixed motives.",
+      "review2_rationale": "Infrastructure costs are the stated rationale, while a strategic purpose is possible. The tariff level and jurisdictional objection do not determine actual motives or their relative explanatory importance.",
+      "review1_key_text_issues": [
+        "Signature-export status, coverage of all seaborne iron, increased pricing power, and strategic intent are not established."
+      ],
+      "review2_key_text_issues": [
+        "Iron is not called the Compact's signature export.",
+        "The only deep-water harbor need not carry all seaborne iron trade.",
+        "An export tariff does not necessarily strengthen producer pricing power or prove strategic motivation."
+      ],
+      "source_lines": [
+        13
+      ]
+    },
+    {
+      "question_id": "SEL-012",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "B accurately identifies prolonged contested occupation and is more grounded. No comparative likelihood of violence or escalation preferences is supplied, so the core risk ranking remains unresolved.",
+      "review2_rationale": "Physical occupation and the missing boundary treaty give B a plausible risk argument. No comparative military, political, or escalation evidence ranks the three tensions by probability of open conflict.",
+      "review1_key_text_issues": [
+        "No boundary treaty does not establish no applicable arbitration.",
+        "Rotation is not shown to obstruct settlement.",
+        "Physical occupation does not establish the highest conflict probability."
+      ],
+      "review2_key_text_issues": [
+        "No available arbitration mechanism and rotation-caused negotiation difficulty are not stated.",
+        "Long persistence can indicate stable restraint rather than greater escalation risk."
+      ],
+      "source_lines": [
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-013",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": false,
+      "review1_rationale": "The described diplomatic trajectory goes from a negotiated benefit to a contested ruling and threatened withdrawal of that benefit. A captures the ordinary deterioration; B stops at the earlier settlement.",
+      "review2_rationale": "A follows the documented change from mediation and concessions to a ruling, jurisdictional objection, and threatened retaliation. An overall relationship judgment still weights this dispute against unreported developments.",
+      "review1_key_text_issues": [],
+      "review2_key_text_issues": [
+        "Diplomatic benefactor to trade antagonist is an evaluative characterization rather than an explicit source finding."
+      ],
+      "source_lines": [
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-014",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Clan membership is expressly inherited, making possible demographic relevance reasonable and B's property-only premise false. Cross-polity marriage rules and territorial consequences remain unstated.",
+      "review2_rationale": "The rule expressly governs clan membership as well as property, making A's potential connection plausible and B's absolute exclusion too strong. Actual relevance to territory depends on family patterns and the political meaning of membership.",
+      "review1_key_text_issues": [
+        "Intermarriage and integration are not reported.",
+        "Ossene-clan membership for children is not specified.",
+        "Membership changes are not stated to determine sovereignty."
+      ],
+      "review2_key_text_issues": [
+        "Intermarriage and demographic integration are not reported.",
+        "The source does not define an Ossene clan system or how Taran rules apply to mixed-polity children.",
+        "Clan membership does not itself confer territorial sovereignty."
+      ],
+      "source_lines": [
+        6,
+        12
+      ]
+    },
+    {
+      "question_id": "SEL-015",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Seasonal access and historical trade diversion make a power effect plausible. Its significance and direction are not necessary consequences of year-round opening.",
+      "review2_rationale": "Prior toll losses from diverted trade make an effect of continuous pass access plausible. The direction and magnitude of power changes require demand, route costs, and capabilities absent from the text.",
+      "review1_key_text_issues": [
+        "Higher toll revenue, greater military leverage, reduced iron advantage, and reduced maritime importance require unstated assumptions.",
+        "The source does not define the calendar well enough to derive nearly half a year from 19 weeks."
+      ],
+      "review2_key_text_issues": [
+        "A significant increase in toll income, faster military response, and reduced iron advantage are not demonstrated.",
+        "Nineteen weeks is closer to one-third than one-half of a conventional fifty-two-week year."
+      ],
+      "source_lines": [
+        3,
+        9
+      ]
+    },
+    {
+      "question_id": "SEL-016",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Trading activity and significant Compact contracts establish exposure but do not rank disruption losses. Economic dependence, alternatives, and Taran exposure are not given.",
+      "review2_rationale": "The source identifies Shel trading activity and Compact contracts but not relative exposure to a sustained Vethara disruption. Neither candidate establishes the most vulnerable polity.",
+      "review1_key_text_issues": [
+        "Compact iron-export dependence, easy Shel redirection, and minimal Taran exposure are not established.",
+        "Absence from a grain treaty does not establish minimal trade.",
+        "The blockade was not a stated four-year disruption of Vethara trade."
+      ],
+      "review2_key_text_issues": [
+        "Compact iron-export dependence and comparative overall strength are not stated.",
+        "Port control does not let the Shel avoid a disruption of the port simply by changing partners.",
+        "Nonmembership in the Flood Compact does not imply minimal Taran trade ties."
+      ],
+      "source_lines": [
+        3,
+        7,
+        11
+      ]
+    },
+    {
+      "question_id": "SEL-018",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The panel plausibly addressed the immediate succession crisis, and later tariff conflict explicitly concerns the same Resolution. Full succession resilience and causal responsibility for later problems are not demonstrated.",
+      "review2_rationale": "The panel is the institutional response to the recorded four-year succession dispute, and the later tariff case expressly involves the same Resolution. A is better supported than B's claim of unrelated disputes, but lasting success and unintended consequences are not established.",
+      "review1_key_text_issues": [
+        "Three panel members do not guarantee prevention of succession failure.",
+        "The Compact's original non-consent is not stated.",
+        "A fee conflict of interest and unintended causal responsibility are not established."
+      ],
+      "review2_key_text_issues": [
+        "A three-person panel does not guarantee prevention of all future succession failures.",
+        "The Compact's present objection does not establish that it never agreed to tariff jurisdiction.",
+        "Preferential fees do not by themselves establish a conflict of interest or causal responsibility for the tariff."
+      ],
+      "source_lines": [
+        11,
+        13
+      ]
+    },
+    {
+      "question_id": "SEL-019",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Past closure imposed costs on both parties, supporting a possible lever. Its present usefulness and the claimed loss of Taran resilience require current dependence information.",
+      "review2_rationale": "The earlier blockade establishes that pass closure can affect Compact supplies, favoring possible leverage. Present effectiveness and the asserted increase in Taran dependence remain uncertain.",
+      "review1_key_text_issues": [
+        "Greater Ossene dependence and inability to absorb disruption are not stated.",
+        "Yield decline and an untested treaty do not prove food insecurity."
+      ],
+      "review2_key_text_issues": [
+        "A yield decline does not establish current dependence on Ossene grain or insufficient resilience to any prolonged disruption.",
+        "No source ranks current and Year 0 food dependence."
+      ],
+      "source_lines": [
+        9,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-020",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Different institutions and one Shel crisis do not supply a common resilience ranking. Rotation, heredity, and supermajorities can each have offsetting benefits and costs.",
+      "review2_rationale": "A cites established institutions and a recorded Shel failure, but comparative resilience depends on performance under shocks. The listed structures can produce either continuity or rigidity.",
+      "review1_key_text_issues": [
+        "Heredity does not guarantee no vacancies.",
+        "Rotation does not establish continuity problems.",
+        "A high threshold does not establish best net resilience."
+      ],
+      "review2_key_text_issues": [
+        "Hereditary succession does not guarantee absence of leadership vacuums.",
+        "A high voting threshold can create deadlock and does not establish superior resilience.",
+        "Rotating leadership and a moving capital do not establish actual continuity failures."
+      ],
+      "source_lines": [
+        5,
+        6,
+        11
+      ]
+    },
+    {
+      "question_id": "SEL-021",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The foothills' precise location and relation to pass control are unspecified. Proximity neither proves weaker toll leverage nor excludes an effect.",
+      "review2_rationale": "Neither the location of the occupied foothills relative to the passes nor the relationship between land title and toll rights is specified. Formalizing a territorial claim therefore has no determined toll consequence.",
+      "review1_key_text_issues": [
+        "Compact control of both sides requires an unstated map.",
+        "Alternative infrastructure and stronger toll bargaining are not established."
+      ],
+      "review2_key_text_issues": [
+        "Compact territory on both sides of the passes is not established.",
+        "Alternative pass construction and improved toll bargaining require missing geographic and legal facts."
+      ],
+      "source_lines": [
+        3,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-022",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Shared actors and a resource agreement support possible linkages. A's escalation chain remains contingent on political reactions and actual grain vulnerability.",
+      "review2_rationale": "Shared parties and treaty-linked trade and grain resources make interaction plausible, unlike B's categorical independence. A's specific escalation sequence and binding food constraint are unestablished.",
+      "review1_key_text_issues": [
+        "Fee revocation does not eliminate institutional ties.",
+        "A reserve shortfall and present need for Ossene grain are not established.",
+        "Reduced moderation and inability to escalate are conjectural."
+      ],
+      "review2_key_text_issues": [
+        "Revocation of a fee discount does not eliminate all Vethara institutional ties.",
+        "A reserve shortfall and need for Ossene grain are uncertain, not established constraints.",
+        "Reduced moderation and limited escalation capacity are hypothetical."
+      ],
+      "source_lines": [
+        10,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-023",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "B supplies plausible hypotheses and the documented missing boundary treaty. The source states persistence but does not establish the causes of failed settlement.",
+      "review2_rationale": "The absence of a boundary treaty supplies a plausible obstacle, but the source reports persistence without identifying its causes. B's broader causal list remains hypothetical.",
+      "review1_key_text_issues": [
+        "No described territorial mechanism does not establish no available mediator.",
+        "Leadership discontinuity and consequential conflicts of interest are unproven.",
+        "Military capacity or willingness is a hypothesis, not an established cause."
+      ],
+      "review2_key_text_issues": [
+        "No boundary treaty does not establish that no neutral arbitration is available.",
+        "Rotation-caused negotiation failure, military limitations, and Vek conflicts of interest are not reported."
+      ],
+      "source_lines": [
+        6,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-024",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Grain pressure is grounded in a real agreement and yield decline, while army capacity is invented. The source does not establish dependence, suspension rights, or the most effective lever.",
+      "review2_rationale": "Yield decline and the reserve agreement make grain a plausible pressure point. The text explicitly disputes the legal obligation and supplies no basis for ranking this lever against military or other options.",
+      "review1_key_text_issues": [
+        "No unilateral suspension right or actual breach is established.",
+        "Loss of all grain safety nets and strong pressure are not demonstrated.",
+        "A possible grain lever is not established as most effective."
+      ],
+      "review2_key_text_issues": [
+        "A breach and the right to suspend reciprocal obligations are expressly unresolved.",
+        "Yield decline does not establish exposure severe enough to make grain the most effective lever."
+      ],
+      "source_lines": [
+        10,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-025",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Neutral commercial arbitration has a clearer described fit for inter-polity trade than internal district representation. Net suitability still depends on acceptance and enforcement, and outside-party exclusion is overstated.",
+      "review2_rationale": "A neutral commercial arbiter with recorded external contracts is a closer fit to cross-polity trade than an internal district council. Comparative suitability still depends on jurisdiction, acceptance, and performance.",
+      "review1_key_text_issues": [
+        "Recognition alone is not established as the only requirement.",
+        "Internal representation does not preclude agreements accommodating outside parties."
+      ],
+      "review2_key_text_issues": [
+        "The council is not inherently incapable of accommodating external agreements.",
+        "Mutual recognition alone may not supply effective jurisdiction or enforcement for every trade issue.",
+        "Using a panel for one succession crisis does not prove comparative superiority across trade governance."
+      ],
+      "source_lines": [
+        5,
+        7,
+        11
+      ]
+    },
+    {
+      "question_id": "SEL-026",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Seasonal closure is explicit, but comparative dependence, winter logistics, and toll responses are not. B's isolation asymmetry conflicts with the described Taran coastal road.",
+      "review2_rationale": "Both parties have routes to the Shel Coast, and the source does not identify the foothills' side of the range or quantify seasonal exposure. Neither candidate determines who benefits more in current disputes.",
+      "review1_key_text_issues": [
+        "Both regions have coastal access; asymmetric isolation does not follow.",
+        "Loss of all pressure and clan support is not stated.",
+        "Year-round coastal access and the foothills' side of the range are unspecified."
+      ],
+      "review2_key_text_issues": [
+        "The Taran also have a separate coastal road, undermining the asserted exclusive Compact escape from isolation.",
+        "Closure does not eliminate all diplomatic pressure or communication.",
+        "Winter isolation of the clans and nearly half-year insulation are not established."
+      ],
+      "source_lines": [
+        3,
+        12
+      ]
+    },
+    {
+      "question_id": "SEL-031",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Several described crisis-linked Compact gains favor A over survival alone. Ranking lasting institutional value requires a measure, and the grain treaty benefits both sides rather than establishing an Ossene lever.",
+      "review2_rationale": "The record contains concrete Compact gains in production capacity and arbitration fees, whereas B equates survival with institutional gains. A's comparative judgment is reasonable but requires a metric and does not follow decisively from the listed outcomes.",
+      "review1_key_text_issues": [
+        "The grain lever and complete self-sufficiency are not established.",
+        "Calling all Taran outcomes losses omits its reciprocal reserve right and continued foothill access.",
+        "Decisively overstates comparative support."
+      ],
+      "review2_key_text_issues": [
+        "Iron output does not establish total self-sufficiency or itself constitute governance reform.",
+        "The mutual reserve treaty is not established as a unilateral Compact pressure instrument.",
+        "Unresolved occupation and yield decline do not establish that the Confederacy obtained only losses."
+      ],
+      "source_lines": [
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "question_id": "SEL-032",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": false,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Commercial authority and disputed tariff jurisdiction neither grant territorial authority nor exclude consensual submission. Neither assured suitability nor near-certain rejection is supported.",
+      "review2_rationale": "Commercial jurisdiction and the current tariff objection make extension uncertain. They do not prevent the parties from consenting to territorial arbitration or determine whether they would regard the panel as neutral.",
+      "review1_key_text_issues": [
+        "Tariff opposition does not imply certain rejection of consensual territorial arbitration.",
+        "Treaty nonparticipation does not establish no Shel relationships.",
+        "Preferential fees alone do not prove compromised neutrality."
+      ],
+      "review2_key_text_issues": [
+        "Rejecting contested tariff jurisdiction does not imply certain rejection of consensual territorial jurisdiction.",
+        "Absence from the Flood Compact does not establish no Shel-Taran institutional ties.",
+        "Preferential fees alone do not establish biased adjudication or lost neutrality."
+      ],
+      "source_lines": [
+        7,
+        10,
+        11,
+        13
+      ]
+    },
+    {
+      "question_id": "SEL-035",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Economic coercion and unresolved disputes provide no war-risk baseline or causal evidence about interdependence. Entangled bargaining is compatible with higher or lower war risk.",
+      "review2_rationale": "The chronology documents economic coercion and unresolved disputes, not war probabilities or a causal trend. Neither persistence nor more issue connections establishes whether interdependence reduces or increases war risk.",
+      "review1_key_text_issues": [
+        "The blockade is not described as violent or as having a clear political settlement.",
+        "Food dependence causing restraint is not established.",
+        "Unresolved is not equivalent to unresolvable."
+      ],
+      "review2_key_text_issues": [
+        "The blockade is not described as violent or as ending in a negotiated resolution.",
+        "Food dependence as a cause of foothills restraint is unreported.",
+        "Chronic unresolved disputes are not proved unresolvable or less likely to become war."
+      ],
+      "source_lines": [
+        9,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "SEL-036",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Loss of the inland connection plausibly hinders coordination, giving A a direct mechanism. Described sea access prevents an inference of communication blackouts or a necessarily significant net disadvantage.",
+      "review2_rationale": "Closed land passes plausibly impede direct coordination, favoring A over the unsupported benefit of deadline pressure. Total communication blackouts and significant net hindrance require unavailable information about alternate communications and planning.",
+      "review1_key_text_issues": [
+        "Pass closure does not establish communication blackouts.",
+        "A Vek transition need not reverse policy or prevent a response.",
+        "Year-round Shel operations and a significant net disadvantage are unstated."
+      ],
+      "review2_key_text_issues": [
+        "Pass closure does not establish a complete communication blackout because a sea route is described.",
+        "Vek transitions causing unrebuttable policy reversals are hypothetical.",
+        "Year-round Shel operation is not expressly established."
+      ],
+      "source_lines": [
+        3,
+        6
+      ]
+    },
+    {
+      "question_id": "SEL-039",
+      "world": "selvarath",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Further decline could create Ossene bargaining gains, Ossene aid costs, or Shel trading profits. The source cannot rank these net effects.",
+      "review2_rationale": "Continued yield decline could generate Ossene bargaining leverage, Shel import business, or costs to both. Their relative gains depend on reserves, trade patterns, prices, and disputed treaty terms.",
+      "review1_key_text_issues": [
+        "Dependence on Ossene grain and suspension rights are not established.",
+        "A breach declaration is not established as a credible remedy.",
+        "Shel nonparticipation in the grain treaty does not establish little trade or little potential gain."
+      ],
+      "review2_key_text_issues": [
+        "Yield decline does not establish Ossene dependence or a lawful right to suspend reserves.",
+        "The source expressly leaves triggering and breach disputed.",
+        "Shel nonmembership in a grain treaty does not establish low Taran trade or little potential gain."
+      ],
+      "source_lines": [
+        3,
+        7,
+        10,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-002",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "decisive",
+      "consensus_class": "decisive",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": true,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source explicitly leaves Mesht's allocation status unresolved and assigns a future ruling. Residency and sedentary residence do not supply an eligibility rule. The source's next-Massing date is internally inconsistent.",
+      "review2_rationale": "The source explicitly calls Mesht's salt status unresolved and assigns a future ruling to the Massing. No criterion supplied in the packet establishes forfeiture from residency, so B's uncertainty resolves the core question.",
+      "review1_key_text_issues": [
+        "Year 113 follows one reading of next year but conflicts with the source's explicit Year 112 label.",
+        "Nomadism and participation are possible criteria, not an exhaustive stated eligibility test."
+      ],
+      "review2_key_text_issues": [
+        "Year 113 is an interpretation of the source's inconsistent Year 112 Massing scheduled for next year, not an unambiguous source date.",
+        "Nomadism versus participation may not exhaust the possible qualification criteria."
+      ],
+      "source_lines": [
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-003",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The six-versus-seven mismatch is explicit and makes B's concern well grounded. Whether the protocol still functions correctly requires an interpretation or operating practice; uncertainty does not prove actual failure.",
+      "review2_rationale": "The mismatch between a seven-person protocol and six actual Heads supports concern about its applicability. It does not establish practical failure or the absence of an accepted interpretation, and B misstates the succession chronology and proportional arithmetic.",
+      "review1_key_text_issues": [
+        "Five of six does not maintain the five-of-seven proportion.",
+        "Unanimity among six is not established as equally difficult as among seven.",
+        "Successful precedents are not restricted to seven Heads; the current reign began after the merger, though its selection method is unspecified."
+      ],
+      "review2_key_text_issues": [
+        "Five of six does not maintain the five-of-seven proportion.",
+        "Six-person unanimity need not have the same practical difficulty as seven-person unanimity.",
+        "The current Archon's roughly Year 79 accession follows the Year 53 merger, contradicting the assertion that all timely-succession precedents used seven Heads."
+      ],
+      "source_lines": [
+        6,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-005",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "No violation of the stated numerical flow rule is shown, favoring B's reading of the explicit terms. Legal invalidity of a purpose-based objection still requires an interpretive rule not supplied, and failed arbitration did not decide the merits.",
+      "review2_rationale": "Threshold compliance favors B's literal reading over A's claim that every flow alteration violates the agreement. Overall legal validity still requires treating the stated numeric restriction as exhaustive and resolving the legal force of the asserted spirit.",
+      "review1_key_text_issues": [
+        "Arbitration failure was failure to select an arbitrator, not rejection of the Dominion's merits.",
+        "The motive of withdrawing rather than accepting a plain meaning is not stated.",
+        "No express numerical breach does not alone settle every possible legal objection."
+      ],
+      "review2_key_text_issues": [
+        "Failed selection of an arbitrator is not a ruling rejecting the Dominion's legal position.",
+        "The reason for withdrawal from measurements is not established as refusal to accept the Compact's plain meaning.",
+        "The source gives a restriction on irrigation draws, not a complete legal determination about every mill effect."
+      ],
+      "source_lines": [
+        9,
+        13
+      ]
+    },
+    {
+      "question_id": "VS-007",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Landholding limits and population representation give A a structural basis, but do not measure comparative policy responsiveness to inequality. The Dominion's redistribution practices are not described.",
+      "review2_rationale": "The source explicitly connects inheritance to limited land concentration, supporting A's distributional mechanism. Comparative responsiveness to inequality requires evidence about actual policies, wealth forms, and Dominion institutions.",
+      "review1_key_text_issues": [
+        "Limits on large private landholdings do not eliminate all wealth concentration or demonstrate responsive policy.",
+        "Unreported Dominion mechanisms are not evidence that no responsive mechanisms exist."
+      ],
+      "review2_key_text_issues": [
+        "Limited private land accumulation does not prevent every form of economic concentration.",
+        "Population representation does not establish responsiveness to economic distribution.",
+        "An undescribed Dominion response is not evidence of its absence."
+      ],
+      "source_lines": [
+        5,
+        6
+      ]
+    },
+    {
+      "question_id": "VS-008",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Near-threshold readings provide a plausible conditional rationale for discussing a buffer, as B says. Reasonableness of 45% still requires reliable data and a valuation of downstream needs against irrigation costs.",
+      "review2_rationale": "Repeated measurements near the limit support discussing a larger buffer, favoring B's qualified position. The appropriateness of 45 percent depends on measurement validity and both parties' water needs and costs.",
+      "review1_key_text_issues": [
+        "Three near-floor readings without their order do not establish a trend.",
+        "A significant irrigation restriction is not quantified or established.",
+        "A buffer is not sufficient to prove the proposed tradeoff reasonable."
+      ],
+      "review2_key_text_issues": [
+        "Three of six near-threshold readings does not alone establish a worsening temporal trend.",
+        "Significant irrigation restrictions and the proposal's net benefits are not quantified."
+      ],
+      "source_lines": [
+        9,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-009",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A identifies the lasting council mismatch, while B overreads past seating success. The source provides no merger savings or other benefits, so it cannot compare total problems created with problems solved.",
+      "review2_rationale": "The lasting seat-count mismatch is documented, but the merger's benefits and overall consequences are not. A identifies a current risk without establishing that its costs exceed what the merger solved.",
+      "review1_key_text_issues": [
+        "Modest savings and a temporary fiscal purpose are invented.",
+        "Deposit discovery in Year 53 does not establish complete crisis recovery within six years.",
+        "A protocol mismatch is not itself proof of net harm."
+      ],
+      "review2_key_text_issues": [
+        "Modest savings, temporary fiscal intent, and net harm are not established.",
+        "Deposit discovery did not immediately complete recovery: output reached ninety percent by Year 58 and loans were repaid by Year 61."
+      ],
+      "source_lines": [
+        11,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-010",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "underdetermined",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A possible link through identity practices is reasonable, and B acknowledges missing information. Neither the role of age grades in band eligibility nor Mesht's actual practices is supplied.",
+      "review2_rationale": "B correctly preserves the possibility of an identity connection, but the source supplies neither band-qualification criteria nor Mesht's current age-grade practices. Their actual bearing is unresolved.",
+      "review1_key_text_issues": [
+        "Sedentary residence is not shown to interrupt community assessment.",
+        "Age-grade practice is not stated to be a band-status criterion."
+      ],
+      "review2_key_text_issues": [
+        "Fixed residence does not imply departure from community assessment.",
+        "No stated qualification rule makes age-grade participation relevant to salt eligibility."
+      ],
+      "source_lines": [
+        7,
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-011",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "decisive",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Eighteen of twenty-four and a seven-seat blocking coalition are necessary arithmetic, supporting a substantial formal hurdle. Whether it is a meaningful behavioral check depends on seat concentration, compliance, and the scope of war declarations.",
+      "review2_rationale": "The rule raises authorization from an ordinary simple majority to eighteen votes: seventeen supporters cannot declare war or cede territory, and seven opposing seats can block either. This is a concrete institutional check without proving geographic breadth or wartime enforcement.",
+      "review1_key_text_issues": [
+        "Population allocation does not prevent one region from holding eighteen or more seats.",
+        "Landholding limits do not eliminate wealth concentration.",
+        "Broad cross-settlement buy-in is not guaranteed by the number alone."
+      ],
+      "review2_key_text_issues": [
+        "Population-based allocation does not prevent one concentrated region from controlling eighteen seats.",
+        "Limited land accumulation does not guarantee a broad cross-section of settlements supports a decision.",
+        "The absence of a described test is not evidence that no military crisis ever occurred."
+      ],
+      "source_lines": [
+        5
+      ]
+    },
+    {
+      "question_id": "VS-012",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "underdetermined",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": false,
+      "review1_prefers_key": true,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "A permanent residency decision followed by contested band status supports concern about a precedent. Calling it dangerous still requires assumptions about future uptake, political rights, and institutional costs.",
+      "review2_rationale": "Mesht's residency and contested salt status establish an institutional question. Calling the precedent dangerous or harmless requires a standard for harm, qualification rules, and future behavioral effects absent from the source.",
+      "review1_key_text_issues": [
+        "The eighteen-vote rule concerns territorial cession, not all residency or territorial decisions.",
+        "Permanent residency is not established as dual political citizenship.",
+        "The systems' original design limits and future institutional danger are not stated."
+      ],
+      "review2_key_text_issues": [
+        "Residency is not territorial cession, the category expressly requiring eighteen votes.",
+        "Permanent residency does not establish dual citizenship or political membership.",
+        "Rules not being designed for dual status, future incentives, and dangerous stress are not established."
+      ],
+      "source_lines": [
+        5,
+        12
+      ]
+    },
+    {
+      "question_id": "VS-013",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "underdetermined",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Recovery after discovery and continuing iron and food dependence support A's limited conclusion over B's fundamental solution. Present ore resilience compared with the pre-crisis economy is not measured.",
+      "review2_rationale": "Continuing iron concentration and food imports support A's claim that major vulnerabilities persist. New deposits and historical recovery do not quantify current resilience or show even a small improvement over the precrisis baseline.",
+      "review1_key_text_issues": [
+        "An attribution made at the time is not confirmed proof of the cause.",
+        "Slightly greater present ore resilience is not established by Year 58 output."
+      ],
+      "review2_key_text_issues": [
+        "The crisis was attributed to surface exhaustion at the time; that attribution is not independently established.",
+        "New deposits do not alone establish improved current ore-supply resilience.",
+        "Unreported diversification is not proof that none occurred, though present primary iron dependence is explicit."
+      ],
+      "source_lines": [
+        6,
+        11
+      ]
+    },
+    {
+      "question_id": "VS-015",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Past withdrawal and renewed disputed terms make strategic ambiguity a plausible rationale. Its actual rationality depends on the agreement and parties' reactions; the detailed benefits of silence are not assured.",
+      "review2_rationale": "A identifies a plausible reason to preserve ambiguity given the prior withdrawal and current contested claim. Strategic rationality depends on expected reactions and the costs of continued uncertainty, not secrecy alone.",
+      "review1_key_text_issues": [
+        "Anger, renewed withdrawal, and preservation of membership by silence are plausible but unstated reactions.",
+        "A fixed allocation need not undermine the formula if it is an accepted exception."
+      ],
+      "review2_key_text_issues": [
+        "Disclosure necessarily provoking anger or withdrawal is not stated.",
+        "Silence does not ensure Orath-Kem stays or prevent the other bands from contesting the claim.",
+        "The council's actual motives and inability to resolve confrontation are unknown."
+      ],
+      "source_lines": [
+        10,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-016",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Upstream navigation is explicitly impossible, but downstream navigability and useful Kemari-to-Dominion river transport are not established. The claimed strategic asymmetry therefore remains unresolved.",
+      "review2_rationale": "The source prohibits upstream navigation, which plausibly gives transport direction strategic importance. It does not establish safe downstream navigation, route competitiveness, or usable military logistics.",
+      "review1_key_text_issues": [
+        "Upstream impossibility does not imply navigable downstream military or freight transport.",
+        "The precise Kemari-to-Dominion route and its net advantage are not mapped or measured."
+      ],
+      "review2_key_text_issues": [
+        "Downstream navigability and effective downstream military transport are not stated.",
+        "Overland transport need not impose a meaningful disadvantage.",
+        "The question's upstream-only wording conflicts with the source's explicit impossibility of upstream navigation."
+      ],
+      "source_lines": [
+        3,
+        5,
+        6,
+        9
+      ]
+    },
+    {
+      "question_id": "VS-017",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The irrigation limit and downstream floor are explicit, but their relative value over 112 years is not. Neither a generous sixty-percent entitlement nor a zero-flow counterfactual is established.",
+      "review2_rationale": "The Compact limits upstream withdrawals and protects downstream flow, but neither water value nor the counterfactual without agreement is quantified. The source does not determine who benefited more over the whole period.",
+      "review1_key_text_issues": [
+        "A floor of forty percent of a historical average does not grant sixty percent of actual flow for consumption.",
+        "All three power points are not explicitly assigned to Kemari ownership.",
+        "Low agricultural activity does not establish low total water intensity."
+      ],
+      "review2_key_text_issues": [
+        "Forty percent of a ten-year average does not mean a right to consume sixty percent of actual contemporaneous flow.",
+        "A generous threshold and less intensive Dominion water use are not established.",
+        "All waterpower sites being under Kemari control is not explicitly mapped."
+      ],
+      "source_lines": [
+        6,
+        9,
+        13
+      ]
+    },
+    {
+      "question_id": "VS-018",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Open terrain supports movement while documented water failures displaced bands, making B's conditional account plausible. Normal-condition net strategic value depends on access, security, and mobility benefits that are not quantified.",
+      "review2_rationale": "Open terrain supports mobile movement while failed water sources prompted relocation, favoring B's dual-use reading. Which effect dominates under normal conditions depends on threats, access rights, and mobility costs.",
+      "review1_key_text_issues": [
+        "No polity controlling access is not stated.",
+        "The settlement agreements are not stated to remove autonomy.",
+        "Primary normal-condition value requires a net assessment."
+      ],
+      "review2_key_text_issues": [
+        "No natural barriers does not establish that no polity controls access.",
+        "Relocation does not necessarily mean loss of autonomy.",
+        "Primary asset under normal conditions is not directly established by the drought example."
+      ],
+      "source_lines": [
+        3,
+        12
+      ]
+    },
+    {
+      "question_id": "VS-020",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source supplies a procedural mismatch, present uncertainty, and successful seating history, but no probability of agreement among the six Heads. Neither contested nor smooth is established as more likely.",
+      "review2_rationale": "The source reports a current protocol mismatch and a history of timely appointments, but no current coalition preferences. Neither evidence set determines the next succession's probability, and A's claim that all precedents predate the six-Head council conflicts with the timeline.",
+      "review1_key_text_issues": [
+        "The current reign began after the merger, so the source cannot be assumed to place all seating precedents under seven Heads; selection method is unspecified.",
+        "Risk factors do not establish that contest is more likely than agreement.",
+        "A long reign does not itself establish conflict among successors."
+      ],
+      "review2_key_text_issues": [
+        "An Archon in a thirty-fourth year of rule at Year 112 took office around Year 79, after the Year 53 merger; all precedents were not under seven Heads.",
+        "Long tenure does not establish a full generation of unchanged political leadership or contested preferences.",
+        "Compound risk does not establish the more likely outcome without probabilities."
+      ],
+      "source_lines": [
+        6,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-021",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "decisive",
+      "review2_class": "inferential",
+      "consensus_class": "disputed",
+      "class_agreement": false,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The disputes directly share Dominion leadership and the Massing, and Mesht's Kemari residency explicitly joins the Wanderer issue to Kemari governance. This establishes institutional interconnection, while B's predicted spillovers remain conjectural.",
+      "review2_rationale": "The same Dominion participates in water and succession questions, and the same Wanderer council handles both salt disputes. These overlaps support potential interaction, but B's specific political spillovers are not reported.",
+      "review1_key_text_issues": [
+        "Mesht voting rights and changes to population-based seat allocations are not stated; population counts are not themselves voting.",
+        "Succession effects on negotiations, partner reliability, and water-policy aggressiveness are predictions rather than established outcomes."
+      ],
+      "review2_key_text_issues": [
+        "Succession disruption of negotiations, council credibility loss, and more aggressive water policy are hypotheses.",
+        "Population counts are not votes, and Mesht's eligibility or added representation is unspecified."
+      ],
+      "source_lines": [
+        12,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-022",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": false,
+      "review1_prefers_key": true,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Nearly total food imports and historical Kemari loans show a possible lever, but current supplier concentration and comparison with military advantage are absent. B is more grounded but cannot establish its magnitude.",
+      "review2_rationale": "Food imports and historical Kemari loans establish potential economic exposure. The packet does not quantify present dependence on Kemari suppliers or provide a scale for comparison with military advantage.",
+      "review1_key_text_issues": [
+        "No alternative source described does not establish no alternative source.",
+        "Significant leverage and its inferiority to military advantage are unmeasured.",
+        "Proposing Compact changes does not establish an effective coercive remedy."
+      ],
+      "review2_key_text_issues": [
+        "No alternative food source described does not establish no alternative source.",
+        "Significant but less-than-military leverage is unquantified.",
+        "Proposing measurement changes or treaty revision does not establish an effective countermeasure to food withholding."
+      ],
+      "source_lines": [
+        6,
+        9,
+        11
+      ]
+    },
+    {
+      "question_id": "VS-024",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "B recognizes plausible benefits and costs of Dominion distraction, but the source does not establish their balance. Primary iron-partner status and collapse of the Compact are not supplied.",
+      "review2_rationale": "B identifies plausible costs and benefits rather than A's certain gain. Their net balance and timing depend on how succession affects trade, administration, and bargaining, none of which is specified.",
+      "review1_key_text_issues": [
+        "Only described iron source does not establish primary trading-partner status.",
+        "Succession crisis need not end measurements or make the Compact dead.",
+        "Long-term net harm is not established."
+      ],
+      "review2_key_text_issues": [
+        "The Dominion is not identified as the Kemari's primary iron trading partner.",
+        "Only described ore source does not establish exclusivity or supply dependence.",
+        "A monitoring interruption need not end the agreement, and probable long-term harm is not determined."
+      ],
+      "source_lines": [
+        6,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-025",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Sampling twice a year can be adequate or inadequate depending on timing, variability, and the trend to be detected. Disagreement over causes and methodology does not by itself decide gradual-trend detectability.",
+      "review2_rationale": "Sampling twice yearly and a ten-year reference are specified, but adequacy for gradual trend detection depends on variability, timing, methods, and the signal size. Neither candidate establishes those conditions.",
+      "review1_key_text_issues": [
+        "Three near-floor readings without ordering do not establish a trend.",
+        "Inability to attribute causes or detect brief deviations is not the same as inability to detect gradual decline.",
+        "A coarse-monitoring design intention is not stated."
+      ],
+      "review2_key_text_issues": [
+        "Missing short-term excursions and identifying causes are different tasks from detecting gradual decline.",
+        "Three of six readings near a threshold does not establish a temporal trend.",
+        "A method dispute does not itself prove insufficient sampling resolution or the system's design intent."
+      ],
+      "source_lines": [
+        9,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-026",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source records one private license and substantial communal land, but no usual mill-ownership or licensing policy. Private infrastructure is compatible with limits on large landholdings.",
+      "review2_rationale": "The source supplies one private mill license but no prior licensing or ownership baseline. Limits on inherited land concentration do not establish that private commercial infrastructure is unusual.",
+      "review1_key_text_issues": [
+        "Unreported ownership of earlier power points does not imply public ownership.",
+        "Landholding limits do not establish a communal-only economy or a private-infrastructure departure.",
+        "The water dispute is not established as caused by a governance departure."
+      ],
+      "review2_key_text_issues": [
+        "An undescribed ownership status is not evidence that earlier mills were communal.",
+        "Limited land accumulation does not establish an economy designed to exclude private infrastructure.",
+        "The dispute concerns alleged flow effects, not explicitly a departure in ownership policy."
+      ],
+      "source_lines": [
+        5,
+        13
+      ]
+    },
+    {
+      "question_id": "VS-027",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Ore value and barrenness are explicit, but net strategic value and dependence on Kemari specifically are not. Neither candidate weighs supply income, food costs, security, and alternatives.",
+      "review2_rationale": "Iron deposits and agricultural barrenness establish opposing economic features, not their net strategic value. Neither candidate evaluates the southeastern location using sufficient trade, threat, or resource information.",
+      "review1_key_text_issues": [
+        "Only described deposits do not establish a resource monopoly.",
+        "Valuable iron itself can motivate occupation; barrenness does not establish absence of territorial competition.",
+        "Permanent dependence on Kemari grain is not stated."
+      ],
+      "review2_key_text_issues": [
+        "Only described ore deposits do not establish a resource monopoly.",
+        "Barrenness does not remove other polities' incentive to seize valuable iron.",
+        "Near-total food imports do not establish permanent exclusive reliance on Kemari grain."
+      ],
+      "source_lines": [
+        3,
+        6
+      ]
+    },
+    {
+      "question_id": "VS-028",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "The source explicitly makes water constrain movement and records band displacement, supporting possible organizational consequences. The proposed optimal group sizes and causal origin of the band structure are not established.",
+      "review2_rationale": "Water availability explicitly limits movement, and drought prompted relocation, making an influence on mobile organization plausible. The claimed natural production of particular band sizes is unestablished.",
+      "review1_key_text_issues": [
+        "Large-group strain and small-group inability to travel safely are not supplied.",
+        "An average distance alone does not determine mid-sized political groups or the origin of the band structure."
+      ],
+      "review2_key_text_issues": [
+        "Source capacity, minimum safe travel-group size, and a resulting mid-sized optimum are not supplied.",
+        "The drought demonstrates relocation, not that the original spacing generated the fourteen-band political structure."
+      ],
+      "source_lines": [
+        3,
+        12
+      ]
+    },
+    {
+      "question_id": "VS-029",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Amounts, interest, and repayment do not establish fairness without a benchmark and alternatives. Both candidates import valuations or bargaining conditions absent from the source.",
+      "review2_rationale": "The loan amount, rate, and repayment are explicit, but neither fairness nor exploitation follows without a benchmark, risk, or bargaining alternatives. Both candidates import evaluative and economic assumptions.",
+      "review1_key_text_issues": [
+        "Historical-rate standards are outside the supplied world.",
+        "No alternative food and no bargaining leverage are not stated.",
+        "District merger does not establish the severity or purpose of fiscal pressure.",
+        "Survival does not settle whether terms were exploitative."
+      ],
+      "review2_key_text_issues": [
+        "Historical standards are outside the supplied world and provide no authorized benchmark.",
+        "No alternative food source or negotiating leverage is established by the source.",
+        "Recovery and district merger do not establish the rate's fairness or the lender's bargaining conduct."
+      ],
+      "source_lines": [
+        11
+      ]
+    },
+    {
+      "question_id": "VS-031",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Later measurement withdrawal and current methodological dispute support A's deterioration reading from initial agreement. Overall change across 112 years depends on the baseline and weight given to continuing cooperation and renewed measurements.",
+      "review2_rationale": "The described progression from an agreement and repaid loans to failed arbitration and measurement disputes favors A's account of increased institutional friction. Net relations across 112 years still require a baseline and weights for cooperation, peace, and current disagreement.",
+      "review1_key_text_issues": [
+        "A steady overall deterioration is an interpretation, not an explicit comparative assessment.",
+        "A proposal to revise terms does not alone establish worsening relations."
+      ],
+      "review2_key_text_issues": [
+        "A brief cooperative period and net deterioration are evaluative inferences rather than complete historical observations.",
+        "A contested agreement can remain a useful resolution framework."
+      ],
+      "source_lines": [
+        9,
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "question_id": "VS-032",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": false,
+      "review2_prefers_key": false,
+      "review1_preference_unresolved": true,
+      "review2_preference_unresolved": true,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Salt production and irrigation unsuitability are established, but their net system-wide value relative to a freshwater counterfactual is not. Neither candidate can rank political and economic outcomes.",
+      "review2_rationale": "The source gives salt production and irrigation loss without a welfare comparison or a freshwater counterfactual. Cultural and institutional importance does not by itself establish net benefit, and possible farming does not establish net cost.",
+      "review1_key_text_issues": [
+        "Salt is not established as the sole economic basis or essential reason for inter-band coordination.",
+        "No described export does not imply no other exports.",
+        "Pure pastoralism, dependence of identity on salt, and net benefit are not established."
+      ],
+      "review2_key_text_issues": [
+        "Salt is not established as the sole export or economic basis of Wanderer participation.",
+        "The council has dispute-resolution functions independent of allocating salt.",
+        "No resource-based coordination without salt and a net political benefit are unsupported counterfactuals."
+      ],
+      "source_lines": [
+        3,
+        7
+      ]
+    },
+    {
+      "question_id": "VS-034",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "inferential",
+      "review2_class": "inferential",
+      "consensus_class": "inferential",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Different settlement locations relative to mountains and open steppe give B a geographic basis. Differential strategic protection and the most exposed polity still depend on routes and external threats.",
+      "review2_rationale": "The map distinguishes mountain-bounded northern and eastern margins from open southern and western steppe, favoring differential exposure. Actual protection and first contact with threats depend on routes, water constraints, and where threats originate.",
+      "review1_key_text_issues": [
+        "Mountain location does not guarantee protection.",
+        "Easiest invasion directions and greatest Wanderer exposure are not established without route and threat information."
+      ],
+      "review2_key_text_issues": [
+        "Mountain passability and actual defensive protection are unspecified.",
+        "Open terrain with scarce water is not necessarily the easiest invasion route.",
+        "The Wanderers' first-contact and greatest-exposure ranking is not determined."
+      ],
+      "source_lines": [
+        3,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "question_id": "VS-035",
+      "world": "vethun_sarak",
+      "keyed_candidate_longer": true,
+      "review1_class": "underdetermined",
+      "review2_class": "underdetermined",
+      "consensus_class": "underdetermined",
+      "class_agreement": true,
+      "option_agreement": true,
+      "review1_prefers_key": true,
+      "review2_prefers_key": true,
+      "review1_preference_unresolved": false,
+      "review2_preference_unresolved": false,
+      "core_evidence_candidate": false,
+      "existing_key_text_unflagged_candidate": false,
+      "key_text_flagged_by_either": true,
+      "key_text_flagged_by_both": true,
+      "review1_rationale": "Loss of allocation eligibility could have practical effects, favoring A over B's blanket minimalism. Its political and demographic cascade is not determined by residency percentages or a status ruling, and the source's Massing date is inconsistent.",
+      "review2_rationale": "A correctly anticipates that an adverse eligibility decision could change salt access, unlike B's categorical minimal-impact claim. The scale and direction of subsequent identity, representation, migration, and allocation effects remain unspecified.",
+      "review1_key_text_issues": [
+        "Salt's status as the primary economic connection and complete integration are not stated.",
+        "Residency does not establish new voting or counting rights, and residents may already be counted.",
+        "Loss of good standing for allocation does not necessarily reduce recognized band count.",
+        "A universal settlement-forfeiture precedent, non-repeatability, and strengthening of Orath-Kem's claim are not established."
+      ],
+      "review2_key_text_issues": [
+        "Salt is not identified as Mesht's primary economic link, and total assimilation is not established.",
+        "A status ruling need not change existing residence counts or confer Kemari political membership.",
+        "A ruling could use grounds other than settlement and need not prohibit future drought accommodations.",
+        "Loss of good standing need not reduce recognized bands from fourteen to thirteen or strengthen Orath-Kem's separate claim.",
+        "The question's Year 113 date resolves rather than reproduces the source's inconsistent Year 112 Massing scheduled for next year."
+      ],
+      "source_lines": [
+        5,
+        7,
+        12,
+        15
+      ]
+    }
+  ],
+  "limitations": [
+    "Two AI reviewers, same model family, separate fresh contexts; not independent human validation.",
+    "Reviewer packets omit key labels, outcomes, traces, model identity and author notes; candidate writing style can reveal intended preference.",
+    "Root has prior aggregate results context and prepared keys; classifications retained separately rather than forcing agreement.",
+    "A source-determined core does not certify every clause of a candidate explanation.",
+    "Flags are review judgments, not measured label-error prevalence; ambiguous does not mean the opposite answer is correct.",
+    "No old outcomes were rescored and no claim is made that ambiguity explains recipient differences.",
+    "Source sufficiency is not coverage of actual captured query histories or proof of automatic evidence selection.",
+    "All questions were previously used; this audit creates no held-out evaluation data."
+  ],
+  "provider_calls": 0
+}
