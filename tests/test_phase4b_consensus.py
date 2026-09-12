@@ -232,3 +232,192 @@ def test_modified_prepared_file_is_rejected(tmp_path):
 def test_strict_json_rejects_nonstandard_constants():
     with pytest.raises(c.ConsensusError): c._json('{"reviewer": NaN}')
     with pytest.raises(c.ConsensusError): c._json('{"entries": [], "entries": []}')
+
+
+def ai_review_fixture(panel, rows, *, input_hash="a" * 64, results_hash="b" * 64):
+    original = c.analyze(panel, rows, input_manifest_sha256=input_hash, results_sha256=results_hash)[2]
+    review = approved(original)
+    review["schema_version"] = "phase4b_source_review_v1"
+    review["reviewer"].update(name="Example AI reviewer", role="ai", provenance="AI review of the full supplied source documents.")
+    for entry in review["entries"]:
+        entry["comment"] = 'The source directly states "' + entry["exact_claim"] + '"; this supports the exact claim.'
+    amendment = {"schema_version": "phase4b_ai_source_review_amendment_v1", "authorized": True,
+                 "authorization_quote": "I approve an amendment of you doing that review instead",
+                 "protocol_sha256": c.SOURCE_REVIEW_PROTOCOL_SHA256, "input_manifest_sha256": input_hash,
+                 "results_sha256": results_hash, "sample_id": original["sample_id"], "reviewer_role": "ai",
+                 "independent_human_validation": False, "recipient_evaluation_authorized": False,
+                 "recorded_at_utc": "2026-09-13T01:00:00Z", "note": "Only the reviewer substitution is amended."}
+    return review, amendment, original
+
+
+def ai_analyze(panel, rows, review, amendment):
+    return c.analyze(panel, rows, input_manifest_sha256="a" * 64, results_sha256="b" * 64,
+                     source_review=review, review_amendment=amendment)
+
+
+def test_explicit_ai_amendment_preserves_sample_and_reports_no_human_validation():
+    panel, rows = fixture_panel()
+    review, amendment, original = ai_review_fixture(panel, rows)
+    summary, claim_rows, template, repair = ai_analyze(panel, rows, review, amendment)
+    assert template["schema_version"] == "phase4b_source_review_v1"
+    assert template["sample_id"] == original["sample_id"]
+    assert template["entries"] == original["entries"]
+    assert summary["source_review"]["complete"] is True
+    assert summary["source_review"]["reviewer_role"] == "ai"
+    assert summary["minimum_feasibility_and_source_review_pass"] is True
+    assert summary["coverage_before_source_review"]["changed_packets"] == 42
+    assert summary["coverage_after_source_review_exclusions"]["changed_packets"] == 42
+    assert summary["independent_human_validation"] is False
+    assert repair["source_review_complete"] is True and repair["independent_human_validation"] is False
+    assert summary["recipient_evaluation_authorized"] is repair["recipient_evaluation_authorized"] is False
+    assert "human_review" not in summary and "minimum_feasibility_and_human_review_pass" not in summary
+    assert all("source_review_disagreed" in row and "human_disagreed" not in row for row in claim_rows)
+    assert "not independent human validation" in " ".join(summary["limitations"])
+    assert repair["status"] == "released" and set(repair["labels"].values()) == {"YES"}
+    assert repair["provenance"]["review_amendment_canonical_sha256"] == digest(c._canonical(amendment))
+
+
+def test_ai_disagreements_exclude_without_replacement_and_use_unchanged_coverage_gates():
+    panel, rows = fixture_panel()
+    review, amendment, original = ai_review_fixture(panel, rows)
+    review["entries"][0]["decision"] = "disagree"
+    excluded = review["entries"][0]["claim_id"]
+    summary, _, template, repair = ai_analyze(panel, rows, review, amendment)
+    assert template["entries"] == original["entries"] and template["sample_id"] == original["sample_id"]
+    assert repair["labels"][excluded] == "AMBIGUOUS"
+    assert summary["coverage_after_source_review_exclusions"]["changed_packets"] == 40
+    assert summary["minimum_feasibility_and_source_review_pass"] is True
+    assert summary["exclusions_and_coverage_by"]["world"][0]["source_review_disagreement_excluded_claims"] == 1
+    assert "human_disagreement_excluded_claims" not in summary["exclusions_and_coverage_by"]["world"][0]
+    review["entries"][1]["decision"] = "disagree"
+    summary, _, template, repair = ai_analyze(panel, rows, review, amendment)
+    assert template["entries"] == original["entries"]
+    assert summary["status"] == "insufficient_repair_coverage" and repair["labels"] == {}
+    assert summary["minimum_feasibility_and_source_review_pass"] is False
+
+
+@pytest.mark.parametrize("field,value", [
+    ("authorized", False), ("authorized", 1), ("schema_version", "other"), ("reviewer_role", "human"),
+    ("authorization_quote", "Not approved"), ("protocol_sha256", "c" * 64), ("input_manifest_sha256", "c" * 64),
+    ("results_sha256", "c" * 64), ("sample_id", "c" * 64), ("independent_human_validation", True),
+    ("recipient_evaluation_authorized", True), ("recorded_at_utc", "2026-09-13"),
+])
+def test_ai_amendment_refuses_wrong_authority_scope_or_snapshot(field, value):
+    panel, rows = fixture_panel()
+    review, amendment, _ = ai_review_fixture(panel, rows)
+    amendment[field] = value
+    with pytest.raises(c.ConsensusError):
+        ai_analyze(panel, rows, review, amendment)
+
+
+def test_ai_review_requires_amendment_and_cannot_be_submitted_as_human():
+    panel, rows = fixture_panel()
+    review, amendment, _ = ai_review_fixture(panel, rows)
+    with pytest.raises(c.ConsensusError, match="amendment schema"):
+        ai_analyze(panel, rows, review, None)
+    with pytest.raises(c.ConsensusError):
+        analyze(panel, rows, review)
+    with pytest.raises(c.ConsensusError, match="cannot be combined"):
+        c.analyze(panel, rows, input_manifest_sha256="a" * 64, results_sha256="b" * 64,
+                  human_review=review, source_review=review, review_amendment=amendment)
+
+
+@pytest.mark.parametrize("mutation", ["missing_reason", "missing_disagreement_reason", "human_role", "blank_provenance",
+                                      "human_schema", "new_sample", "missing_entry", "replacement_label"])
+def test_ai_review_requires_truthful_identity_bound_entries_and_source_reasons(mutation):
+    panel, rows = fixture_panel()
+    review, amendment, _ = ai_review_fixture(panel, rows)
+    if mutation == "missing_reason": review["entries"][0]["comment"] = "  "
+    elif mutation == "missing_disagreement_reason": review["entries"][0].update(decision="disagree", comment="")
+    elif mutation == "human_role": review["reviewer"]["role"] = "human"
+    elif mutation == "blank_provenance": review["reviewer"]["provenance"] = ""
+    elif mutation == "human_schema": review["schema_version"] = "phase4b_human_review_v1"
+    elif mutation == "new_sample": review["sample_id"] = "c" * 64
+    elif mutation == "missing_entry": review["entries"].pop()
+    elif mutation == "replacement_label": review["entries"][0]["replacement_label"] = "NO"
+    with pytest.raises(c.ConsensusError):
+        ai_analyze(panel, rows, review, amendment)
+
+
+def test_ai_pending_and_incomplete_adjudications_cannot_release():
+    panel, rows = fixture_panel()
+    review, amendment, _ = ai_review_fixture(panel, rows)
+    pending, _, template, repair = ai_analyze(panel, rows, None, amendment)
+    assert pending["status"] == "awaiting_source_review" and repair["labels"] == {}
+    assert template["reviewer"]["role"] == "ai"
+    review["entries"][-1].update(decision="pending", comment="")
+    pending, _, _, repair = ai_analyze(panel, rows, review, amendment)
+    assert pending["source_review"]["reviewed"] == 19 and pending["source_review"]["complete"] is False
+    assert pending["minimum_feasibility_and_source_review_pass"] is False and repair["labels"] == {}
+    with pytest.raises(c.ConsensusError, match="complete 20-case sample"):
+        ai_analyze(panel, rows[:-1], review, amendment)
+
+
+def test_ai_cli_writes_separate_truthful_outputs_and_preserves_originals(tmp_path, monkeypatch):
+    panel, rows = fixture_panel()
+    inputs, original, out = tmp_path / "inputs", tmp_path / "original", tmp_path / "ai-analysis"
+    results = tmp_path / "results.jsonl"
+    write_inputs(inputs, panel)
+    results.write_text("".join(c._canonical(row) + "\n" for row in rows), encoding="utf-8")
+    base = ["phase4b_consensus", "--inputs", str(inputs), "--results", str(results)]
+    monkeypatch.setattr(c.sys, "argv", base + ["--out", str(original)])
+    assert c.main() == 0
+    preserved = {p.relative_to(original): p.read_bytes() for p in original.rglob("*") if p.is_file()}
+    review, amendment, _ = ai_review_fixture(panel, rows, input_hash=c._sha(inputs / "adjudication_manifest.json"),
+                                             results_hash=c._sha(results))
+    review_path, amendment_path = tmp_path / "review.json", tmp_path / "amendment.json"
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+    amendment_path.write_text(json.dumps(amendment), encoding="utf-8")
+    evidence = {p: p.read_bytes() for p in (review_path, amendment_path, results, inputs / "adjudication_manifest.json")}
+    arguments = ["--source-review", str(review_path), "--review-amendment", str(amendment_path)]
+    monkeypatch.setattr(c.sys, "argv", base + ["--out", str(out)] + arguments)
+    assert c.main() == 0
+    assert {p.relative_to(original): p.read_bytes() for p in original.rglob("*") if p.is_file()} == preserved
+    assert all(p.read_bytes() == raw for p, raw in evidence.items())
+    assert (out / "source_review.json").read_bytes() == review_path.read_bytes()
+    assert not (out / "human_review.json").exists() and not (out / "human_review.md").exists()
+    summary = json.loads((out / "consensus_summary.json").read_text())
+    assert summary["source_review"]["complete"] is True and summary["independent_human_validation"] is False
+    assert summary["provenance"]["source_review_sha256"] == c._sha(review_path)
+    assert summary["provenance"]["review_amendment_sha256"] == c._sha(amendment_path)
+    assert "Independent human validation has not been performed" in (out / "source_review.md").read_text()
+    assert "AI source-review decision: **agree**" in (out / "source_review.md").read_text()
+    assert review["entries"][0]["comment"] in (out / "source_review.md").read_text()
+    monkeypatch.setattr(c.sys, "argv", base + ["--out", str(original)] + arguments)
+    with pytest.raises(c.ConsensusError, match="new analysis output folder"):
+        c.main()
+    assert {p.relative_to(original): p.read_bytes() for p in original.rglob("*") if p.is_file()} == preserved
+    output_before = {p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    review["entries"][0]["comment"] += " Additional review explanation."
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+    monkeypatch.setattr(c.sys, "argv", base + ["--out", str(out)] + arguments)
+    with pytest.raises(c.ConsensusError, match="Existing AI review copy differs"):
+        c.main()
+    assert {p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()} == output_before
+
+
+@pytest.mark.parametrize("mutated", ["review", "amendment"])
+def test_ai_cli_rejects_review_or_amendment_change_during_analysis(tmp_path, monkeypatch, mutated):
+    panel, rows = fixture_panel()
+    inputs, out, results = tmp_path / "inputs", tmp_path / "out", tmp_path / "results.jsonl"
+    write_inputs(inputs, panel)
+    results.write_text("".join(c._canonical(row) + "\n" for row in rows), encoding="utf-8")
+    review, amendment, _ = ai_review_fixture(panel, rows, input_hash=c._sha(inputs / "adjudication_manifest.json"),
+                                             results_hash=c._sha(results))
+    review_path, amendment_path = tmp_path / "review.json", tmp_path / "amendment.json"
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+    amendment_path.write_text(json.dumps(amendment), encoding="utf-8")
+    original_analyze = c.analyze
+    def changing_analyze(*args, **kwargs):
+        result = original_analyze(*args, **kwargs)
+        target = review_path if mutated == "review" else amendment_path
+        with target.open("a", encoding="utf-8") as stream:
+            stream.write("\n")
+        return result
+    monkeypatch.setattr(c, "analyze", changing_analyze)
+    monkeypatch.setattr(c.sys, "argv", ["phase4b_consensus", "--inputs", str(inputs), "--results", str(results),
+                                       "--out", str(out), "--source-review", str(review_path),
+                                       "--review-amendment", str(amendment_path)])
+    with pytest.raises(c.ConsensusError, match="changed during analysis"):
+        c.main()
+    assert not out.exists()

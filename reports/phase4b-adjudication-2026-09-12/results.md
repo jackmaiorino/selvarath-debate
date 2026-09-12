@@ -1,5 +1,7 @@
 # Phase 4B blinded adjudication results
 
+**Subsequent amendment:** Jack approved Codex AI review in place of the human check. The fixed sample is now reviewed, with five corrections excluded and coverage still sufficient. See the [amended review result](../phase4b-source-review-2026-09-12/results.md). The counts below preserve the pre-review snapshot.
+
 The audit completed **9,664 of 9,664 requests** on September 12, 2026 at 11:38 a.m. Eastern. Its proposed label changes cover **554 distinct claims in 591 of 1,312 histories (45.05%), spanning 80 of 82 questions**. This passes the declared coverage minima. The fixed 20-claim human source review is pending, so no repair labels have been released and recipient evaluation has not started.
 
 These are candidate corrections under the frozen label contract. The audit has not established that the corrections improve either recipient or explain the Qwen/Llama difference observed in 4A.

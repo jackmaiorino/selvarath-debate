@@ -1,0 +1,14 @@
+{
+  "schema_version": "phase4b_ai_source_review_amendment_v1",
+  "authorized": true,
+  "authorization_quote": "I approve an amendment of you doing that review instead",
+  "protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "input_manifest_sha256": "dcf7d0cb17445bb19bad20c24769631c9b01d8a47b756873c6dc0f6e18f63ac2",
+  "results_sha256": "db3ac531ee0748a21d9f6b88725902a6086d046868662fffcdc94f35910e5e06",
+  "sample_id": "3f28aadbdb634e4087003710c1c550317f5bee7d702c78d5f8df1c8ebb2dfb02",
+  "reviewer_role": "ai",
+  "independent_human_validation": false,
+  "recipient_evaluation_authorized": false,
+  "recorded_at_utc": "2026-09-12T15:59:41.457104+00:00",
+  "note": "Jack authorizes Codex AI source review in place of the human check for this fixed Phase 4B sample. The sample, original blinded adjudications, label contract, disagreement exclusion rule, coverage minima and recipient analysis gates are unchanged. No paid recipient evaluation or Phase 4C is authorized. Original protocol and pre-amendment analysis remain historical records."
+}
