@@ -1,0 +1,60 @@
+{
+  "status": "offline_preparation_verified_no_provider_calls",
+  "verified_date": "2026-09-12",
+  "source_commit": "fe20755587bf160cc0086fe4f946b097bdab29c2",
+  "preparation_files_committed": false,
+  "phase4_protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "preparation_script_sha256": "90397831567eb839a04f4af17b26ae3d23fd2f91a8a0e5677d283ade3d796d3b",
+  "provider_calls": 0,
+  "first_build": "E:\\selvarath-archive\\phase4-preparation-2026-09-12",
+  "second_build": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase4-preparation-2026-09-12\\rebuild-check",
+  "outputs": {
+    "packets.jsonl": {
+      "byte_identical": true,
+      "bytes": 51396519,
+      "sha256": "34100427ea1f5f757a0c52704862f7a88e2c8a1b980137949c44d7ab2413fca2"
+    },
+    "units_private.jsonl": {
+      "byte_identical": true,
+      "bytes": 116760,
+      "sha256": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531"
+    },
+    "calls.jsonl": {
+      "byte_identical": true,
+      "bytes": 1505397,
+      "sha256": "6cf819edd67dcdd578fa60c179666c6a51124c1cca4f6da5ba82d39bb9a61aea"
+    },
+    "manifest.json": {
+      "byte_identical": true,
+      "bytes": 3990,
+      "sha256": "a27de63adc882983bcd5784c1812f5ada430943e78b981334db1f82b4c676ca1"
+    }
+  },
+  "public_manifest_matches_private": true,
+  "formal_phase3_sources_unchanged": true,
+  "independent_reconstruction": {
+    "units": 656,
+    "mirror_pairs": 328,
+    "questions": 82,
+    "packet_message_hashes_matched": 1968,
+    "unique_calls": 3936,
+    "sorted_panel_keys_sha256": "e5870f7909894d47aadcd5181341f3613e49a3c162206c9265b1c7905a1da8d7",
+    "selection_and_message_leakage_review": "No substantive finding; executor must send packet.messages only"
+  },
+  "independent_design_review": {
+    "final_status": "No remaining substantive finding in bounded rereview",
+    "resolved": [
+      "Signed positive repair gate before transfer",
+      "Explicit common-valid and coefficient-wise invalid bounds",
+      "Edited-packet feasibility thresholds",
+      "Separate endpoint effects and bounded transfer claims"
+    ]
+  },
+  "not_validated": [
+    "Production replay runner",
+    "Production Phase4 analysis implementation",
+    "Live provider availability, drift or billing",
+    "Phase4B adjudication and edit map",
+    "Phase4C new models and corpus"
+  ]
+}

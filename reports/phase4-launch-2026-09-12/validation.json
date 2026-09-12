@@ -1,0 +1,21 @@
+{
+  "validated_at": "2026-09-12T12:40:43.295517+00:00",
+  "tests": 51,
+  "failures": 0,
+  "errors": 0,
+  "test_command": ".\\.venv\\Scripts\\python.exe -B -m pytest tests/test_phase4_runner.py tests/test_phase4_analysis.py -q",
+  "test_receipt_sha256": "78bb1a97dc668a20b63769650cc3c5a1b605ec397b51b2e20112b258541e13a3",
+  "full_panel_offline_simulation": 3936,
+  "repeated_analysis_byte_identical": true,
+  "interruption_recovery_checked": true,
+  "hidden_launcher_status_probe_exit_code": 0,
+  "provider_inference_calls_during_offline_validation": 0,
+  "reviews": "Statistical analysis, persistent fatal stops, retry probes, parser, billing caps and request isolation reviewed independently",
+  "source_sha256s": {
+    "rejudge/phase4_runner.py": "ac4b648b072a914221aba2c6906393e88e998f70f4c6af2a844b8f5e24683be7",
+    "scripts/phase4_analysis.py": "00b9f954291dbfae7d09d6edd21fb981eae9ca7cf35279ed3948c6dd93e48ba4",
+    "scripts/phase4_launch.ps1": "630af780a5e4314fa22927d2a97502ef5aee26408e96836becad0d985d88bb61",
+    "tests/test_phase4_runner.py": "5b288b71e2ef1a42c97e9d1232b8989fc0c2879dbaad1f8e93702989f3bb4721",
+    "tests/test_phase4_analysis.py": "fdb960646eb59733ee743445e734b6d38f2c5c63fe989d67345e2259b318fd3c"
+  }
+}

@@ -1,0 +1,736 @@
+{
+  "status": "offline_feasible_not_authorized_or_launched",
+  "recorded_at_utc": "2026-09-12T03:59:53.272001+00:00",
+  "source_commit": "fe20755587bf160cc0086fe4f946b097bdab29c2",
+  "source_run_id": "phase3-main-6ca5e8e2cd156276",
+  "provider_calls": 0,
+  "reviewer_dispatches": 0,
+  "formal_archive_writes": 0,
+  "inventory_receipt": {
+    "path": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase4-preparation-2026-09-12\\feasibility-inventory.json",
+    "raw_sha256": "02535408c73ce044de77e6ee828e3ab9b405a2e745452ed909fd699316f14be9",
+    "byte_count": 3353363
+  },
+  "bound_formal_inputs": {
+    "main_results.jsonl": {
+      "path": "E:\\selvarath-archive\\phase3-main-7172776-2026-09-07\\main_results.jsonl",
+      "raw_sha256": "8ab79a6cd0987e4bdbdf1054f0729c80c72b4fabf38791c65a5bd528901ebdc3",
+      "byte_count": 477464642,
+      "rows": 10328
+    },
+    "main_usage.jsonl": {
+      "path": "E:\\selvarath-archive\\phase3-main-7172776-2026-09-07\\main_usage.jsonl",
+      "raw_sha256": "fa15be4d7aed8dfb8ee47e568ce4c6e200b2ba8e63d31ae8b507993127f4f1a9",
+      "byte_count": 262498628,
+      "rows": 193981
+    }
+  },
+  "frame": {
+    "questions": 82,
+    "debater_models": [
+      "Qwen/Qwen3.7-Plus",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    ],
+    "units_all": 984,
+    "pairs_all": 492,
+    "pairs_eligible": 490,
+    "units_with_all_four_source_rows": 982,
+    "ineligible_pairs": [
+      {
+        "group": [
+          "CN-015",
+          "Qwen/Qwen3.7-Plus",
+          1
+        ],
+        "missing": [
+          {
+            "side": 1,
+            "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+            "condition": "b8"
+          }
+        ]
+      },
+      {
+        "group": [
+          "SEL-024",
+          "Qwen/Qwen3.7-Plus",
+          1
+        ],
+        "missing": [
+          {
+            "side": 1,
+            "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+            "condition": "b8"
+          }
+        ]
+      }
+    ],
+    "missing_judgments": [
+      {
+        "question_id": "VS-026",
+        "debater_model": "Qwen/Qwen3.7-Plus",
+        "transcript_index": 2,
+        "side": 0,
+        "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+        "condition": "b2",
+        "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:6072a02e46aea8b17cf9c4553d197604b7a42bcbd0a649a4359e9231fa92b403"
+      },
+      {
+        "question_id": "VS-022",
+        "debater_model": "Qwen/Qwen3.7-Plus",
+        "transcript_index": 0,
+        "side": 1,
+        "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+        "condition": "b4",
+        "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:a33bfcd5fb161454641dc9ed50cd02eb6e09ea1f113e1507853814aca58d98bb"
+      },
+      {
+        "question_id": "CN-015",
+        "debater_model": "Qwen/Qwen3.7-Plus",
+        "transcript_index": 1,
+        "side": 1,
+        "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+        "condition": "b8",
+        "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:ef13145df12570badc7ff55a70000be8eac2c079cb8ad19f21b0189a439da5ad"
+      },
+      {
+        "question_id": "SEL-024",
+        "debater_model": "Qwen/Qwen3.7-Plus",
+        "transcript_index": 1,
+        "side": 1,
+        "judge_model": "Qwen/Qwen3.8-2.4T-A95B",
+        "condition": "b8",
+        "cell_key": "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:5f15f838c7ab9b5f39250f4f4ba5a21f51d3c9fc4bce120eaaf7fb8a687d0bb4"
+      }
+    ]
+  },
+  "selection": {
+    "seed": "phase4-history-crossover-v1-2026-09-12",
+    "ranking": "sha256((seed+'|'+json.dumps([qid,debater,transcript_index],ensure_ascii=True,separators=(',',':'))).encode('utf-8')).hexdigest() ascending; first2 per qid/debater among complete mirror pairs",
+    "selected_pairs": 328,
+    "selected_units": 656,
+    "packets": 1968,
+    "calls": 3936,
+    "baseline_both_judges_exact_message_equality": 656
+  },
+  "selected_pairs_metadata_sha256": "a4d3efbc02ceba9b2ea0a5a7607f3226af06d03a3e24cbfb4e9637edf947ff3d",
+  "packet_summary_by_arm": {
+    "empty": {
+      "message_count": {
+        "count": 656,
+        "sum": 1968,
+        "mean": 3,
+        "p50": 3.0,
+        "p90": 3.0,
+        "p95": 3.0,
+        "p99": 3.0,
+        "max": 3,
+        "min": 3
+      },
+      "canonical_json_byte_count": {
+        "count": 656,
+        "sum": 12334684,
+        "mean": 18802.871951219513,
+        "p50": 18469.5,
+        "p90": 20883.5,
+        "p95": 21621.0,
+        "p99": 22645.0,
+        "max": 23560,
+        "min": 15961
+      },
+      "content_utf8_bytes": {
+        "count": 656,
+        "sum": 12167002,
+        "mean": 18547.259146341465,
+        "p50": 18238.5,
+        "p90": 20563.0,
+        "p95": 21219.0,
+        "p99": 22162.0,
+        "max": 23156,
+        "min": 15792
+      },
+      "reserved_prompt_tokens": {
+        "count": 656,
+        "sum": 12281146,
+        "mean": 18721.259146341465,
+        "p50": 18412.5,
+        "p90": 20737.0,
+        "p95": 21393.0,
+        "p99": 22336.0,
+        "max": 23330,
+        "min": 15966
+      },
+      "context_estimate_prompt_tokens": {
+        "count": 656,
+        "sum": 4394824,
+        "mean": 6699.426829268293,
+        "p50": 6596.5,
+        "p90": 7371.0,
+        "p95": 7590.0,
+        "p99": 7904.0,
+        "max": 8236,
+        "min": 5781
+      },
+      "by_recipient": {
+        "Qwen/Qwen3.8-2.4T-A95B": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 2400718,
+            "mean": 3659.631097560976,
+            "p50": 3537.5,
+            "p90": 4145.5,
+            "p95": 4253.0,
+            "p99": 4503.0,
+            "max": 4725,
+            "min": 3160
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 1432006,
+            "mean": 2182.935975609756,
+            "p50": 1525.5,
+            "p90": 4502.5,
+            "p95": 6602.0,
+            "p99": 10369.550000000001,
+            "max": 14909,
+            "min": 280
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 13.393472,
+            "mean": 0.02041687804878049,
+            "p50": 0.016431,
+            "p90": 0.034712999999999994,
+            "p95": 0.0475785,
+            "p99": 0.06973570000000007,
+            "max": 0.096904,
+            "min": 0.008078
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 10239.161484956741,
+            "mean": 15.608477873409667,
+            "p50": 9.693073034286499,
+            "p90": 33.00048589706421,
+            "p95": 44.785247564315796,
+            "p99": 94.2119149208069,
+            "max": 318.24301314353943,
+            "min": 1.766300916671753
+          }
+        },
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 2356534,
+            "mean": 3592.2774390243903,
+            "p50": 3481.0,
+            "p90": 4039.5,
+            "p95": 4165.0,
+            "p99": 4421.0,
+            "max": 4534,
+            "min": 3080
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 100625,
+            "mean": 153.39176829268294,
+            "p50": 153.0,
+            "p90": 183.0,
+            "p95": 191.0,
+            "p99": 206.45000000000005,
+            "max": 243,
+            "min": 91
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 2.55544536,
+            "mean": 0.0038954959756097563,
+            "p50": 0.00378248,
+            "p90": 0.004369040000000001,
+            "p95": 0.0045102200000000005,
+            "p99": 0.004764396,
+            "max": 0.004881760000000001,
+            "min": 0.0033217600000000004
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 3224.5316801071167,
+            "mean": 4.915444634309629,
+            "p50": 3.7587310075759888,
+            "p90": 9.28162145614624,
+            "p95": 11.18306303024292,
+            "p99": 15.90120478868485,
+            "max": 26.066447019577026,
+            "min": 1.1243350505828857
+          }
+        }
+      }
+    },
+    "qwen_b8": {
+      "message_count": {
+        "count": 656,
+        "sum": 17811,
+        "mean": 27.150914634146343,
+        "p50": 27.0,
+        "p90": 33.0,
+        "p95": 33.0,
+        "p99": 35.450000000000045,
+        "max": 40,
+        "min": 11
+      },
+      "canonical_json_byte_count": {
+        "count": 656,
+        "sum": 19093295,
+        "mean": 29105.63262195122,
+        "p50": 29321.0,
+        "p90": 32500.5,
+        "p95": 33223.75,
+        "p99": 34369.9,
+        "max": 36091,
+        "min": 20731
+      },
+      "content_utf8_bytes": {
+        "count": 656,
+        "sum": 18352039,
+        "mean": 27975.669207317074,
+        "p50": 28176.5,
+        "p90": 31190.5,
+        "p95": 31977.25,
+        "p99": 33147.700000000004,
+        "max": 34799,
+        "min": 20207
+      },
+      "reserved_prompt_tokens": {
+        "count": 656,
+        "sum": 19064366,
+        "mean": 29061.533536585364,
+        "p50": 29288.0,
+        "p90": 32394.0,
+        "p95": 33074.5,
+        "p99": 34302.15,
+        "max": 35954,
+        "min": 20761
+      },
+      "context_estimate_prompt_tokens": {
+        "count": 656,
+        "sum": 6486900,
+        "mean": 9888.567073170732,
+        "p50": 9954.5,
+        "p90": 10965.0,
+        "p95": 11222.25,
+        "p99": 11613.85,
+        "max": 12166,
+        "min": 7273
+      },
+      "by_recipient": {
+        "Qwen/Qwen3.8-2.4T-A95B": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 3851140,
+            "mean": 5870.640243902439,
+            "p50": 5890.0,
+            "p90": 6605.0,
+            "p95": 6753.75,
+            "p99": 7016.800000000001,
+            "max": 7558,
+            "min": 3998
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 880846,
+            "mean": 1342.753048780488,
+            "p50": 765.5,
+            "p90": 3031.0,
+            "p95": 4638.75,
+            "p99": 7139.650000000002,
+            "max": 10121,
+            "min": 188
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 12.987356,
+            "mean": 0.019797798780487805,
+            "p50": 0.01679,
+            "p90": 0.030475000000000002,
+            "p95": 0.0404295,
+            "p99": 0.05439730000000001,
+            "max": 0.073604,
+            "min": 0.009624
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 7515.77155995369,
+            "mean": 11.45696884139282,
+            "p50": 7.1414724588394165,
+            "p90": 24.939919471740723,
+            "p95": 36.70825552940369,
+            "p99": 61.90348094701791,
+            "max": 81.21181297302246,
+            "min": 1.376204013824463
+          }
+        },
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 3714604.393242848,
+            "mean": 5662.506697016537,
+            "p50": 5706.6326501126,
+            "p90": 6311.822523482229,
+            "p95": 6444.4148315401935,
+            "p99": 6683.616810948509,
+            "max": 7005.472217363712,
+            "min": 4045.185756930746
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 81306,
+            "mean": 123.9420731707317,
+            "p50": 122.0,
+            "p90": 155.0,
+            "p95": 166.0,
+            "p99": 194.25000000000023,
+            "max": 221,
+            "min": 65
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 3.9477468089725622,
+            "mean": 0.0060179067209947595,
+            "p50": 0.006061153962049341,
+            "p90": 0.0066983246265358305,
+            "p95": 0.006858688115565009,
+            "p99": 0.007110184887888863,
+            "max": 0.0073907311060582605,
+            "min": 0.004329713187207976
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 2344.0487163066864,
+            "mean": 3.573244994369949,
+            "p50": 3.0460286140441895,
+            "p90": 5.65495502948761,
+            "p95": 6.8001057505607605,
+            "p99": 10.263548672199256,
+            "max": 26.72677206993103,
+            "min": 1.0245018005371094
+          }
+        }
+      }
+    },
+    "llama_b8": {
+      "message_count": {
+        "count": 656,
+        "sum": 18436,
+        "mean": 28.103658536585368,
+        "p50": 27.0,
+        "p90": 31.0,
+        "p95": 31.0,
+        "p99": 33.0,
+        "max": 37,
+        "min": 14
+      },
+      "canonical_json_byte_count": {
+        "count": 656,
+        "sum": 19299420,
+        "mean": 29419.84756097561,
+        "p50": 29248.5,
+        "p90": 31842.0,
+        "p95": 32952.25,
+        "p99": 34576.600000000006,
+        "max": 35234,
+        "min": 21636
+      },
+      "content_utf8_bytes": {
+        "count": 656,
+        "sum": 18532756,
+        "mean": 28251.15243902439,
+        "p50": 28068.0,
+        "p90": 30612.5,
+        "p95": 31662.0,
+        "p99": 33291.50000000001,
+        "max": 33981,
+        "min": 21070
+      },
+      "reserved_prompt_tokens": {
+        "count": 656,
+        "sum": 19268118,
+        "mean": 29372.131097560974,
+        "p50": 29190.0,
+        "p90": 31741.5,
+        "p95": 32864.0,
+        "p99": 34411.850000000006,
+        "max": 35136,
+        "min": 21660
+      },
+      "context_estimate_prompt_tokens": {
+        "count": 656,
+        "sum": 6548135,
+        "mean": 9981.913109756097,
+        "p50": 9922.5,
+        "p90": 10768.5,
+        "p95": 11120.25,
+        "p99": 11661.550000000003,
+        "max": 11894,
+        "min": 7562
+      },
+      "by_recipient": {
+        "Qwen/Qwen3.8-2.4T-A95B": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 3827839.1185398875,
+            "mean": 5835.120607530316,
+            "p50": 5798.938114774848,
+            "p90": 6305.82371257711,
+            "p95": 6528.8215897211585,
+            "p99": 6836.320266012843,
+            "max": 6980.181212769066,
+            "min": 4303.014716204974
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 880846,
+            "mean": 1342.753048780488,
+            "p50": 765.5,
+            "p90": 3031.0,
+            "p95": 4638.75,
+            "p99": 7139.650000000002,
+            "max": 10121,
+            "min": 188
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 12.940754237079775,
+            "mean": 0.01972675950774356,
+            "p50": 0.01656052296417389,
+            "p90": 0.03020212075004505,
+            "p95": 0.03973529539330342,
+            "p99": 0.054554341976746704,
+            "max": 0.07319759085198134,
+            "min": 0.011926063798919908
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 7515.77155995369,
+            "mean": 11.45696884139282,
+            "p50": 7.1414724588394165,
+            "p90": 24.939919471740723,
+            "p95": 36.70825552940369,
+            "p99": 61.90348094701791,
+            "max": 81.21181297302246,
+            "min": 1.376204013824463
+          }
+        },
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+          "prompt_tokens_estimate": {
+            "count": 656,
+            "sum": 3811055,
+            "mean": 5809.53506097561,
+            "p50": 5793.5,
+            "p90": 6333.0,
+            "p95": 6484.0,
+            "p99": 6747.950000000001,
+            "max": 7111,
+            "min": 4008
+          },
+          "completion_tokens_proxy": {
+            "count": 656,
+            "sum": 81306,
+            "mean": 123.9420731707317,
+            "p50": 122.0,
+            "p90": 155.0,
+            "p95": 166.0,
+            "p99": 194.25000000000023,
+            "max": 221,
+            "min": 65
+          },
+          "cost_usd_estimate": {
+            "count": 656,
+            "sum": 4.04805544,
+            "mean": 0.006170816219512196,
+            "p50": 0.00615212,
+            "p90": 0.00671476,
+            "p95": 0.0068783,
+            "p99": 0.007148492000000002,
+            "max": 0.00750048,
+            "min": 0.004275439999999999
+          },
+          "duration_seconds_proxy": {
+            "count": 656,
+            "sum": 2344.0487163066864,
+            "mean": 3.573244994369949,
+            "p50": 3.0460286140441895,
+            "p90": 5.65495502948761,
+            "p95": 6.8001057505607605,
+            "p99": 10.263548672199256,
+            "max": 26.72677206993103,
+            "min": 1.0245018005371094
+          }
+        }
+      }
+    }
+  },
+  "profile": {
+    "provider": "Together AI serverless chat completions",
+    "exact_models": [
+      "Qwen/Qwen3.8-2.4T-A95B",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    ],
+    "temperature": 0.3,
+    "base_judge_verdict_max_tokens": 512,
+    "effective_request_max_tokens": {
+      "Qwen/Qwen3.8-2.4T-A95B": 16384,
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": 512
+    },
+    "requested_fields": [
+      "model",
+      "messages",
+      "temperature",
+      "max_tokens",
+      "seed"
+    ],
+    "streaming": false,
+    "extra_reasoning_control_fields": {},
+    "top_p_explicit": false,
+    "reasoning_behavior": "Provider default, matching original request-field absence. Current public Qwen model page describes always-on thinking and default xhigh, but this is not an authenticated guarantee of unchanged backend weights/defaults.",
+    "decoder": "rejudge.parsers.parse_both -> analysis.infra.parsing.parse_verdict_strict; PARSER_VERSION 2.0.0; invalid is not coerced to A/B and is not semantically regenerated.",
+    "phase4_seed": "A new declared Phase4 seed namespace is required; no new verdict seeds chosen by this inventory.",
+    "http_timeout_seconds": {
+      "connect": 10,
+      "read": 600,
+      "write": 60,
+      "pool": 60
+    },
+    "sdk_internal_max_retries": 0,
+    "per_call_wall_clock_ceiling_seconds": 1200,
+    "reasoning_completion_reserve_multiplier": 3,
+    "historical_context_pins": {
+      "Qwen/Qwen3.8-2.4T-A95B": 1010000,
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": 131072
+    },
+    "current_public_context": {
+      "Qwen/Qwen3.8-2.4T-A95B": "1M rounded on Together model page; catalog exact numeric field is absent",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": 131072
+    },
+    "largest_selected_context_estimate_with_output_cap": {
+      "Qwen/Qwen3.8-2.4T-A95B": 28550,
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": 12678
+    }
+  },
+  "public_official_sources": [
+    {
+      "url": "https://www.together.ai/pricing",
+      "checked_date": "2026-09-12",
+      "observation": "Qwen3.8 input2/output6 USD per million; Llama3.3 input1.04/output1.04; no cached or batch discount used."
+    },
+    {
+      "url": "https://docs.together.ai/docs/serverless/models",
+      "checked_date": "2026-09-12",
+      "observation": "Both exact model IDs are listed as available serverless models; live-opened catalog agrees with uncached rates. Search-index Llama0.88 snippet was stale."
+    },
+    {
+      "url": "https://www.together.ai/models/qwen3-8-max",
+      "checked_date": "2026-09-12",
+      "observation": "Exact Qwen endpoint listed, 1M context, always-on thinking; public model page describes default xhigh. Qwen price/cache differs across catalog/page only for cached rate, which is not assumed."
+    },
+    {
+      "url": "https://www.together.ai/models/llama-3-3-70b",
+      "checked_date": "2026-09-12",
+      "observation": "Exact Llama endpoint listed."
+    },
+    {
+      "url": "https://status.together.ai/",
+      "checked_date": "2026-09-12",
+      "observation": "Web-rendered page said all services online and last updated2026-09-12T03:52Z. This is public status evidence, not a live inference probe. A supplemental local Python urllib fetch of /index.json failed certificate verification (expired certificate); no TLS bypass was attempted."
+    }
+  ],
+  "forecast": {
+    "prices_per_million": {
+      "Qwen/Qwen3.8-2.4T-A95B": {
+        "input": 2.0,
+        "output": 6.0
+      },
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+        "input": 1.04,
+        "output": 1.04
+      }
+    },
+    "historical_sample_dates": {
+      "first": "2026-09-07T15:38:21.854637+00:00",
+      "last": "2026-09-11T11:57:08.732721+00:00"
+    },
+    "by_recipient": {
+      "Qwen/Qwen3.8-2.4T-A95B": {
+        "prompt_tokens_estimate": 10079697.118539887,
+        "completion_tokens_proxy": 3193698,
+        "cost_usd_estimate": 39.321582237079774,
+        "cost_if_all_complete_at_max_tokens_usd": 213.62166623707978,
+        "conservative_reservation_usd": 681.614076,
+        "duration_seconds_proxy": 25270.70460486412,
+        "calls": 1968,
+        "service_hours_at_concurrency4": 1.7549100420044528,
+        "per_call_max_reservation_usd": 0.36682
+      },
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+        "prompt_tokens_estimate": 9882193.393242849,
+        "completion_tokens_proxy": 263237,
+        "cost_usd_estimate": 10.551247608972563,
+        "cost_if_all_complete_at_max_tokens_usd": 11.325401768972563,
+        "conservative_reservation_usd": 53.68609584,
+        "duration_seconds_proxy": 7912.6291127204895,
+        "calls": 1968,
+        "service_hours_at_concurrency4": 0.5494881328278117,
+        "per_call_max_reservation_usd": 0.03792464000000001
+      }
+    },
+    "successful_calls_usd": 49.87282984605234,
+    "unknown_delivery_historical_proxy_usd": 6.616710218076484,
+    "successful_plus_unknown_proxy_usd": 56.489540064128825,
+    "all_calls_at_output_decoding_cap_with_estimated_input_usd": 224.94706800605235,
+    "all_calls_at_conservative_reservation_sum_usd": 735.30017184,
+    "max_simultaneous_reservations_4_per_model_usd": 1.61897856,
+    "runtime": {
+      "ideal_service_hours_4_qwen_4_llama": 1.7549100420044528,
+      "ideal_service_hours_2_qwen_4_llama": 3.5098200840089055,
+      "planning_window_hours_if_provider_healthy": [
+        2,
+        4
+      ],
+      "caveat": "No completion-time promise under provider errors. Single-call tails, outage retries and native cooldowns can dominate; reviewer work is zero."
+    },
+    "formula": "sum_calls((prompt_tokens * input_USD_per_M + completion_tokens * output_USD_per_M)/1e6) + full unknown-delivery reservations + charged preflight. Cross-model input tokens are receiving-model byte-ratio estimates; own-model source packets use measured exact-message usage."
+  },
+  "cap_proposal": {
+    "recommended_economical_option": {
+      "incremental_total_usd": 100,
+      "uncertain_delivery_ceiling_usd": 15,
+      "synthetic_or_preflight_allowance_usd": 5,
+      "main_observed_usage_planning_allowance_usd": 80,
+      "interpretation": "One separate Phase4 authorization. The15 and5 are inside100, not additional. Reservation checks include in-flight exposure. A cap stop preserves saved verdicts and requires a new explicit decision; completion is not guaranteed."
+    },
+    "higher_margin_option": {
+      "incremental_total_usd": 250,
+      "uncertain_delivery_ceiling_usd": 15,
+      "synthetic_or_preflight_allowance_usd": 5,
+      "interpretation": "Covers the224.95 nominal maximum-decoding scenario plus15 uncertainty and5 preflight at estimated input tokens, but not the735.30 conservative all-reservations sum or an arbitrary provider outage. This is greater authorized exposure, not predicted spend."
+    },
+    "not_reused": "No Phase3 remaining budget, cap, identity or paid authorization is inherited."
+  },
+  "builder_reuse": {
+    "canonical_frame": "rejudge.phase3_main_runner.build_main_inventory; normalize raw condition sequential_b8 to analysis alias b8 only for indexing.",
+    "payload": "Take saved result.judge_messages[:-1] exactly, preserving all roles/text/order. Saved final assistant verdict is the only removed message. The empty arm is either original judge b0 prefix, whose exact equality was verified for all656selected units.",
+    "cross_recipient_equality": "Use the identical canonical messages object/hash for both receiving judges; change only recipient model and predeclared new verdict seed fields.",
+    "saved_transcript_equality": "Every donor packet first two messages equals its matched b0 first two messages in the selected inventory.",
+    "source_key": "(question_id,debater_model,transcript_index,replicate_index) with replicate_index side0/1 and within-side replicate0. debater_model is joined through canonical cell_key because result rows omit it.",
+    "pure_size_helpers": "rejudge.api_client._estimate_usage and estimate_context_tokens encode the same formulas recorded here; they require no constructed provider client.",
+    "do_not_call_for_packaging": "judge_loop.run_judgment is an execution loop and would regenerate queries/oracle calls. Package saved prefixes directly instead."
+  },
+  "limitations": [
+    "Cross-model prompt tokens estimated from each receiving model's historical mean token/byte reservation ratio; not provider-tokenizer exact.",
+    "Output and service-time proxies reuse recipient-matched b0 or b8 responses. Cross-history distribution may change; no expected runtime or cost guarantee.",
+    "Conservative reservation sums are a no-release accounting bound, not expected charge; successful calls release to observed usage.",
+    "Service-time forecasts exclude outages, cooldowns and local scheduling overhead; no new oracle/query/reviewer calls in this design.",
+    "Availability means publicly listed, not account-specific routability or successful delivery. No credentials or inference calls were used.",
+    "Exact current Qwen numeric context limit and backend revision are not established by public metadata alone. Selected packets fit even a conservative131072token ceiling.",
+    "Two unavailable individual b8histories mean982complete individual units, but complete mirror-pair eligibility is490pairs/980units. The selected656units satisfy the stricter pairing rule."
+  ]
+}

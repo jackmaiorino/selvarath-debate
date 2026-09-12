@@ -1,0 +1,89 @@
+{
+  "schema_version": "phase4a_prepared_panel_v1",
+  "status": "prepared_not_executable",
+  "paid_execution_authorized": false,
+  "approved_cap_usd": null,
+  "git_commit": "fe20755587bf160cc0086fe4f946b097bdab29c2",
+  "preparation_script_sha256": "90397831567eb839a04f4af17b26ae3d23fd2f91a8a0e5677d283ade3d796d3b",
+  "frozen_engine_sha256": "9cc05c1cc5b5974360ec431d76536fb47017e7ddaeaeb957c595480485df1297",
+  "python": "3.13.5 (main, Jun 12 2025, 12:42:35) [MSC v.1943 64 bit (AMD64)]",
+  "library_versions": {
+    "together": "2.7.0",
+    "transformers": "5.14.1",
+    "tokenizers": "0.22.2",
+    "httpx": "0.28.1"
+  },
+  "linker": "not applicable; Python/API study",
+  "gpu_ordinal": null,
+  "sample_seed": "phase4-history-crossover-v1-2026-09-12",
+  "order_seed": 2026091201,
+  "call_seed_namespace": "phase4a-verdict-v1",
+  "phase3_run_id": "phase3-main-6ca5e8e2cd156276",
+  "source_hashes": {
+    "E:\\selvarath-archive\\phase3-main-7172776-2026-09-07\\main_results.jsonl": "8ab79a6cd0987e4bdbdf1054f0729c80c72b4fabf38791c65a5bd528901ebdc3",
+    "E:\\selvarath-archive\\phase3-main-7172776-2026-09-07\\main_finalization.json": "ec50dcc642bec965d7ce0a2e1979e24859499dafbf846f2a6f0ae704ff341bc8",
+    "E:\\selvarath-archive\\phase3-main-7172776-2026-09-07\\main_completion.json": "316364e2e3554caee5428f1e3aea1151c69621108471f76cf28ba95ced53f695"
+  },
+  "phase4_protocol_path": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\selvarath-debate-v3-codex\\rejudge\\phase4_protocol_v1.json",
+  "phase4_protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "source_protocol_sha256": "3571b195b6ac806bbdeb3a629878bb2c01cc7cd6f6979baefb2c5276c7a8f484",
+  "questions": 82,
+  "units": 656,
+  "world_question_counts": {
+    "carath_norn": 27,
+    "selvarath": 28,
+    "vethun_sarak": 27
+  },
+  "judges": [
+    "Qwen/Qwen3.8-2.4T-A95B",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+  ],
+  "arms": [
+    "empty",
+    "qwen_history",
+    "llama_history"
+  ],
+  "requests": 3936,
+  "requests_per_judge_arm": 656,
+  "source_mirror_pairs_excluded": [
+    {
+      "question_id": "CN-015",
+      "debater": "Qwen/Qwen3.7-Plus",
+      "transcript_index": 1,
+      "reason": "A source history is absent; both mirrored sides excluded",
+      "missing_source_cells": [
+        "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:ef13145df12570badc7ff55a70000be8eac2c079cb8ad19f21b0189a439da5ad"
+      ]
+    },
+    {
+      "question_id": "SEL-024",
+      "debater": "Qwen/Qwen3.7-Plus",
+      "transcript_index": 1,
+      "reason": "A source history is absent; both mirrored sides excluded",
+      "missing_source_cells": [
+        "phase3-budget-knob-2026-08-28-v3r6.rr-e9ea382e1bcb.ra-ec73ee30588c.qb-d9e52c3339ab:phase3_debate_judgment:5f15f838c7ab9b5f39250f4f4ba5a21f51d3c9fc4bce120eaaf7fb8a687d0bb4"
+      ]
+    }
+  ],
+  "sampling": "Two eligible complete source mirror pairs per question/debater by fixed SHA256 rank; no correctness filtering",
+  "outputs": {
+    "packets.jsonl": {
+      "sha256": "34100427ea1f5f757a0c52704862f7a88e2c8a1b980137949c44d7ab2413fca2",
+      "bytes": 51396519
+    },
+    "units_private.jsonl": {
+      "sha256": "fd35a2746e08d214cb25bc8d8889746ce7d210d12d016f3ef883a563ddc7b531",
+      "bytes": 116760
+    },
+    "calls.jsonl": {
+      "sha256": "6cf819edd67dcdd578fa60c179666c6a51124c1cca4f6da5ba82d39bb9a61aea",
+      "bytes": 1505397
+    }
+  },
+  "input_contract": "Send only packet.messages with the matching call settings. Never send metadata, gold, or saved final verdicts.",
+  "limitations": [
+    "Replay of captured history, not rerunning live adaptive query selection",
+    "Packet origin includes content, length, order, retries, blocked slots and repeated summaries",
+    "Original endpoint versions may drift; refresh availability and pin run settings before paid execution"
+  ]
+}

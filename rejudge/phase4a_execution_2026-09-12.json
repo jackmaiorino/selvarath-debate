@@ -1,0 +1,42 @@
+{
+  "schema_version": "phase4a_execution_authorization_v1",
+  "run_id": "phase4a-history-crossover-2026-09-12",
+  "stage": "4A",
+  "paid_execution_authorized": true,
+  "approved_cap_usd": 250,
+  "preflight_cap_usd": 5,
+  "uncertain_cap_usd": 25,
+  "authority": {
+    "source": "Direct user instruction in this Codex task after the Phase4 proposal",
+    "user_instruction": "Go ahead and kick that off",
+    "interpreted_scope": "Launch Phase4A under the proposed $250 cap; includes implementation, validation, routine recovery and the 10-minute monitor.",
+    "recorded_at_utc": "2026-09-12T12:32:57.671222+00:00"
+  },
+  "scope_excludes": [
+    "Phase4B adjudication and evaluation",
+    "Phase4C generation and evaluation",
+    "Automatic spending-cap increases"
+  ],
+  "inputs": "E:\\selvarath-archive\\phase4-preparation-2026-09-12",
+  "run_directory": "E:\\selvarath-archive\\phase4a-history-crossover-2026-09-12",
+  "input_manifest_sha256": "a27de63adc882983bcd5784c1812f5ada430943e78b981334db1f82b4c676ca1",
+  "protocol_sha256": "f76a1ce7e10a9c961d983f31fa701882fb47111be57876587098c0f00ee10a12",
+  "main_verdict_calls": 3936,
+  "prices_per_million": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "input": 2,
+      "output": 6
+    },
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+      "input": 1.04,
+      "output": 1.04
+    }
+  },
+  "price_policy": "Use uncached input rates; retries and unknown deliveries count against the aggregate cap. Reasoning completion usage is billed once.",
+  "price_sources": [
+    "https://www.together.ai/pricing",
+    "https://docs.together.ai/docs/serverless/models"
+  ],
+  "prices_checked_date": "2026-09-12",
+  "monitor_minutes": 10
+}

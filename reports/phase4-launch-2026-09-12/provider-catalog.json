@@ -1,0 +1,40 @@
+{
+  "checked_at": "2026-09-12T12:35:22.828583+00:00",
+  "inference_calls": 0,
+  "source": "Authenticated Together model catalog",
+  "models": [
+    {
+      "id": "Qwen/Qwen3.8-2.4T-A95B",
+      "context_length": 1010000,
+      "pricing": {
+        "base": 0.0,
+        "finetune": 0.0,
+        "hourly": 0.0,
+        "input": 2.0,
+        "output": 6.0,
+        "cached_input": 0.25,
+        "image_pixel": 0,
+        "transcribe": 0,
+        "image": 0,
+        "video": 0
+      },
+      "type": "chat"
+    },
+    {
+      "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "context_length": 131072,
+      "pricing": {
+        "base": 0.0,
+        "finetune": 0.0,
+        "hourly": 0.0,
+        "input": 1.0399999999999998,
+        "output": 1.0399999999999998,
+        "image_pixel": 0,
+        "transcribe": 0,
+        "image": 0,
+        "video": 0
+      },
+      "type": "chat"
+    }
+  ]
+}

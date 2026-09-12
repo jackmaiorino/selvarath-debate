@@ -1,0 +1,16 @@
+{
+  "checked_at": "2026-09-12T12:37:28.237106+00:00",
+  "provider_calls": 0,
+  "synthetic_calls": 3936,
+  "full_panel_complete": true,
+  "interrupted_reservation_retained_once": true,
+  "completed_resume_dispatches": 0,
+  "synthetic_run_dir": "C:\\Users\\Jack\\Dev\\FailureModeExperiment\\.tmp\\phase4a-full-offline-ajevevpk",
+  "analysis_pending": false,
+  "analysis_complete": true,
+  "deterministic_analysis_files": {
+    "phase4_analysis.json": "521e2f6c99fcfe793f51c45b3fe3946ebb8fe0ff278389803503948f928b31fd",
+    "scored_cells.jsonl": "d825b4e5237a7137fb138803a0736ab319184e8cf416e1a9294c33821ada2cb9"
+  },
+  "synthetic_only_non_research_result": true
+}
