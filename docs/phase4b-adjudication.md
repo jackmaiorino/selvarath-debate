@@ -2,6 +2,8 @@
 
 4A qualified for this stage: the recipient contrast passed the statistical, practical and semantic gates. This audit locates defensible label corrections before testing whether they change recipient errors. The frozen [staged protocol](../rejudge/phase4_protocol_v1.json) remains the scientific authority.
 
+**Status, September 12.** Collection and offline consensus are complete: 9,664 responses, 554 proposed changed claims across 591 histories, $4.94897762 total ledger exposure. The fixed 20-claim human review is pending. Repair labels remain unreleased and recipient evaluation has not begun. The completed-run monitor was removed. See the [audit results](../reports/phase4b-adjudication-2026-09-12/results.md).
+
 **Fixed panel.** The 1,312 nonempty 4A histories contain 8,125 answered exchanges, deduplicated into 4,832 exact claims by world-document SHA256 plus exact claim text. Both adjudicators independently review every claim, for 9,664 requests. Their only supplied evidence is the world, exact claim and frozen label contract. They see no donor identity, original reply, candidate answers, verdicts, outcomes or each other's responses. Blocked exchanges are excluded from adjudication and preserved in the histories.
 
 **Adjudicators.** Together endpoints `openai/gpt-oss-120b` and `deepseek-ai/DeepSeek-V4-Flash-0731` provide two families outside Qwen/Llama. Both use `temperature=1`, `top_p=1` and `max_tokens=8192`; reasoning effort is medium and low respectively. Their source-grounding accuracy is unmeasured. Exact endpoints, settings, prices, seeds, schedule and input hashes are recorded in the [execution authorization](../rejudge/phase4b_adjudication_2026-09-12.json) and private input manifest.
