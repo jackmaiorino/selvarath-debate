@@ -1,0 +1,59 @@
+{
+  "stage": "Phase 2",
+  "contrast": "sequential_b2 minus b0 error rate against original key",
+  "method": "Descriptive per-judge 50/50 side-standardized, equal-world post-hoc reanalysis; strict invalid-as-wrong scoring",
+  "rows": [
+    {
+      "model": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+      "label": "Qwen 2.5 7B",
+      "estimate": 0.10444422978390372,
+      "ci95": [
+        0.06734919533468665,
+        0.14365753052301966
+      ]
+    },
+    {
+      "model": "google/gemma-4-31B-it",
+      "label": "Gemma 4 31B",
+      "estimate": 0.06829715423465425,
+      "ci95": [
+        0.039365462017183044,
+        0.0997429550580592
+      ]
+    },
+    {
+      "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "label": "Llama 3.3 70B",
+      "estimate": 0.013569889249237063,
+      "ci95": [
+        -0.014439591041850755,
+        0.04150146072224876
+      ]
+    },
+    {
+      "model": "openai/gpt-oss-120b",
+      "label": "GPT-OSS 120B",
+      "estimate": -0.003914035843383679,
+      "ci95": [
+        -0.04304941122573968,
+        0.03592021630744453
+      ]
+    }
+  ],
+  "bootstrap_draws": 10000,
+  "seed": 20260821,
+  "ci_scope": "Every confidence interval in this artifact represents question-cluster bootstrap uncertainty under the OBSERVED label assignment and, for standardized/interaction quantities, under the post-stratification (equal-side, equal-world) reweighting assumption. It is NOT uncertainty over the missing opposite-polarity potential outcomes: no unit in this archive was ever judged under both labels, so no CI here reflects a true mirrored-design sampling distribution. Standardization changing a point estimate is a reweighting consequence of the observed side-stratum composition, not independent confirmatory evidence.",
+  "source_results_sha256": "c523eed92533ebc056334a9ee2b2efc3d59afb9fe82bfdfe743e96df06bc6b66",
+  "saved_analysis_sha256": "c11e2f142b356f811042a6588a2faa71c305b9095e4399c8e88e43ee16cb0a85",
+  "engine_sha256": "32b8a167f5399605b8fa904c590cebc6487dd36285346ebced9ff2c4ebfcc4fc",
+  "draw_matrix_sha256": "5b72f3af9c8eddca274d1bf59f5f1c3ebdddc9d41687e042e62e71544629da03",
+  "checks": "All per-model points match 4*saved pooled mean - 3*saved leave-one-model-out mean; average matches saved pooled point.",
+  "limitations": [
+    "Earlier experiment, not Phase 3-5 or the proposed clean benchmark.",
+    "Original mirroring was defective. Reweighting does not recover missing mirrored outcomes or restore eligibility claims.",
+    "Descriptive 95% intervals, no per-model confirmatory significance claims.",
+    "Question-cluster uncertainty within three fixed worlds; no model-population or world-population inference.",
+    "Original answer keys retained, including the source-ambiguity limitations found by the later audit."
+  ],
+  "new_provider_calls": 0
+}
