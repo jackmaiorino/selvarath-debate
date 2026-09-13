@@ -1,0 +1,137 @@
+{
+  "status": "PROPOSAL_NOT_AUTHORIZED_OR_LAUNCHED",
+  "target": "Approximate marginal 95% error-rate CI half-width 2 percentage points; not difference power",
+  "main_independent_worlds": 2406,
+  "pilot_separate_worlds": 120,
+  "strata": 6,
+  "questions_per_world": 1,
+  "main_worlds_per_stratum": 401,
+  "conditions": 3,
+  "answer_orders": 2,
+  "main_judge_calls": 187668,
+  "pilot_judge_calls": 9360,
+  "illustrative_input_tokens": 4000,
+  "illustrative_billed_output_tokens": 1000,
+  "token_assumptions_are_not_output_limits": true,
+  "models": [
+    {
+      "family": "OpenAI",
+      "model": "gpt-5.6-luna",
+      "standard_input_per_million": 0.2,
+      "standard_output_per_million": 1.2,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 14.436
+    },
+    {
+      "family": "OpenAI",
+      "model": "gpt-5.6-terra",
+      "standard_input_per_million": 2,
+      "standard_output_per_million": 12,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 144.36
+    },
+    {
+      "family": "OpenAI",
+      "model": "gpt-5.6-sol",
+      "standard_input_per_million": 4,
+      "standard_output_per_million": 20,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 259.848
+    },
+    {
+      "family": "OpenAI",
+      "model": "gpt-6-astra",
+      "standard_input_per_million": 10,
+      "standard_output_per_million": 50,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 649.62
+    },
+    {
+      "family": "Anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "standard_input_per_million": 1,
+      "standard_output_per_million": 5,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 64.962
+    },
+    {
+      "family": "Anthropic",
+      "model": "claude-sonnet-5",
+      "standard_input_per_million": 2,
+      "standard_output_per_million": 10,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 129.924
+    },
+    {
+      "family": "Anthropic",
+      "model": "claude-opus-5",
+      "standard_input_per_million": 5,
+      "standard_output_per_million": 25,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 324.81
+    },
+    {
+      "family": "Anthropic",
+      "model": "claude-fable-5-1",
+      "standard_input_per_million": 10,
+      "standard_output_per_million": 50,
+      "main_rate_multiplier": 0.5,
+      "main_usd": 649.62
+    },
+    {
+      "family": "DeepSeek",
+      "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "standard_input_per_million": 0.14,
+      "standard_output_per_million": 0.28,
+      "main_rate_multiplier": 1,
+      "main_usd": 12.12624
+    },
+    {
+      "family": "DeepSeek",
+      "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "standard_input_per_million": 1.32,
+      "standard_output_per_million": 3.96,
+      "main_rate_multiplier": 1,
+      "main_usd": 133.38864
+    },
+    {
+      "family": "Qwen",
+      "model": "Qwen/Qwen3.8-2.4T-A95B",
+      "standard_input_per_million": 2,
+      "standard_output_per_million": 6,
+      "main_rate_multiplier": 1,
+      "main_usd": 202.104
+    },
+    {
+      "family": "Meta",
+      "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "standard_input_per_million": 1.04,
+      "standard_output_per_million": 1.04,
+      "main_rate_multiplier": 1,
+      "main_usd": 75.0672
+    },
+    {
+      "family": "Qwen",
+      "model": "Qwen/Qwen3.8-Flash",
+      "standard_input_per_million": 0.15,
+      "standard_output_per_million": 0.47,
+      "main_rate_multiplier": 1,
+      "main_usd": 15.44652
+    }
+  ],
+  "main_cost_baseline_usd": 2675.7126,
+  "main_cost_double_tokens_usd": 5351.4252,
+  "pilot_cost_standard_baseline_usd": 245.052,
+  "budget": {
+    "preparation_and_validation": 650,
+    "pilot": 400,
+    "main": 3250,
+    "reserve": 700,
+    "total": 5000
+  },
+  "worst_case_normal_halfwidth_pp": 1.997884068960758,
+  "formal_execution_condition": "Pilot-based conservative total forecast fits cap and reconciled available funds; otherwise revise before formal dispatch",
+  "cap_does_not_guarantee_completion": true,
+  "planned_adjacent_comparisons": 8,
+  "primary_multiplicity_family": "16 tests: 8 adjacent comparisons of full-source error and 8 comparisons of verification benefit; Holm correction"
+}

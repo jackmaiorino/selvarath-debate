@@ -2,6 +2,8 @@
 
 Prepared 2026-09-13. This is a planning and accounting review. No paid model calls were made, and no new experiment was launched.
 
+Follow-up: [concrete +/-2-point proposal, model roster and $5,000 cap](two-point-proposal.md). Its 13-model roster extends the eight-model illustrative cost scenarios below.
+
 The useful next question is whether verification becomes more reliable as capability increases within a model family. Our existing results establish model-dependent behavior on the old benchmark, but do not identify a capability threshold or a parameter-scaling law. The question audit also makes a clean, held-out benchmark a prerequisite for stronger claims.
 
 ## 1. Test a hierarchy without conflating capability and protocol response
