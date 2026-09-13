@@ -1,0 +1,161 @@
+{
+  "kind": "ILLUSTRATIVE_PLANNING_SCENARIOS_NOT_RUN_BUDGET",
+  "date": "2026-09-13",
+  "assumptions": {
+    "baseline_error_probability": 0.1,
+    "paired_discordance_probability": 0.1,
+    "two_sided_alpha": 0.05,
+    "power": 0.8,
+    "power_scope": "Per contrast, not joint probability all contrasts succeed",
+    "interval_scope": "Marginal per rate, not simultaneous across models and conditions",
+    "score_approximation": "One binary score per effective question; both answer orders priced without independent-sample gain",
+    "input_tokens_per_call": 4000,
+    "billed_output_tokens_per_call_including_reasoning": 1000,
+    "calls_per_model_question": 6,
+    "conditions": [
+      "full-source capability anchor",
+      "debate without verification",
+      "same debate with verification"
+    ],
+    "answer_orders": 2,
+    "usd_per_question_all_eight_models": 1.86,
+    "rates": "Standard uncached short-context rates; sources in model-options.md",
+    "exclusions": [
+      "benchmark authoring and validation",
+      "debate and evidence construction",
+      "reviewer charges",
+      "retries",
+      "subscription fees",
+      "taxes"
+    ],
+    "limitations": [
+      "Normal approximation, not exact coverage or guaranteed power",
+      "World dependence requires inflation or hierarchical planning",
+      "Repeated positions are not independent questions",
+      "Token doubling is a sensitivity scenario, not an upper bound",
+      "No guaranteed nonoverlap when models tie"
+    ]
+  },
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "input_usd_per_million": 0.2,
+      "output_usd_per_million": 1.2
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "input_usd_per_million": 2.0,
+      "output_usd_per_million": 12.0
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "input_usd_per_million": 4.0,
+      "output_usd_per_million": 20.0
+    },
+    {
+      "model": "gpt-6-astra",
+      "input_usd_per_million": 10.0,
+      "output_usd_per_million": 50.0
+    },
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "input_usd_per_million": 1.0,
+      "output_usd_per_million": 5.0
+    },
+    {
+      "model": "claude-sonnet-5",
+      "input_usd_per_million": 2.0,
+      "output_usd_per_million": 10.0
+    },
+    {
+      "model": "claude-opus-5",
+      "input_usd_per_million": 5.0,
+      "output_usd_per_million": 25.0
+    },
+    {
+      "model": "claude-fable-5-1",
+      "input_usd_per_million": 10.0,
+      "output_usd_per_million": 50.0
+    }
+  ],
+  "single_rate_precision": [
+    {
+      "margin_pp": 5.0,
+      "worst_case_p50_questions": 385,
+      "effective_independent_questions": 139,
+      "judge_calls": 6672,
+      "standard_usd": 258.54,
+      "double_tokens_usd": 517.08,
+      "batch_usd": 129.27
+    },
+    {
+      "margin_pp": 3.0,
+      "worst_case_p50_questions": 1068,
+      "effective_independent_questions": 385,
+      "judge_calls": 18480,
+      "standard_usd": 716.1,
+      "double_tokens_usd": 1432.2,
+      "batch_usd": 358.05
+    },
+    {
+      "margin_pp": 2.0,
+      "worst_case_p50_questions": 2401,
+      "effective_independent_questions": 865,
+      "judge_calls": 41520,
+      "standard_usd": 1608.9,
+      "double_tokens_usd": 3217.8,
+      "batch_usd": 804.45
+    },
+    {
+      "margin_pp": 1.0,
+      "worst_case_p50_questions": 9604,
+      "effective_independent_questions": 3458,
+      "judge_calls": 165984,
+      "standard_usd": 6431.88,
+      "double_tokens_usd": 12863.76,
+      "batch_usd": 3215.94
+    }
+  ],
+  "paired_difference_power": [
+    {
+      "detectable_difference_pp": 5.0,
+      "four_contrast_bonferroni_questions": 435,
+      "four_contrast_standard_usd": 809.1,
+      "effective_independent_questions": 307,
+      "judge_calls": 14736,
+      "standard_usd": 571.02,
+      "double_tokens_usd": 1142.04,
+      "batch_usd": 285.51
+    },
+    {
+      "detectable_difference_pp": 3.0,
+      "four_contrast_bonferroni_questions": 1228,
+      "four_contrast_standard_usd": 2284.08,
+      "effective_independent_questions": 865,
+      "judge_calls": 41520,
+      "standard_usd": 1608.9,
+      "double_tokens_usd": 3217.8,
+      "batch_usd": 804.45
+    },
+    {
+      "detectable_difference_pp": 2.0,
+      "four_contrast_bonferroni_questions": 2777,
+      "four_contrast_standard_usd": 5165.22,
+      "effective_independent_questions": 1955,
+      "judge_calls": 93840,
+      "standard_usd": 3636.3,
+      "double_tokens_usd": 7272.6,
+      "batch_usd": 1818.15
+    },
+    {
+      "detectable_difference_pp": 1.0,
+      "four_contrast_bonferroni_questions": 11140,
+      "four_contrast_standard_usd": 20720.4,
+      "effective_independent_questions": 7842,
+      "judge_calls": 376416,
+      "standard_usd": 14586.12,
+      "double_tokens_usd": 29172.24,
+      "batch_usd": 7293.06
+    }
+  ]
+}
