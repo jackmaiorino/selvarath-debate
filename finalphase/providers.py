@@ -41,6 +41,7 @@ class Request:
     system: str
     messages: tuple[tuple[str, str], ...]  # (role, content); roles "user" / "assistant"
     max_tokens: int
+    effort: str | None = None  # overrides the model's default effort for this role
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, ensure_ascii=False)
@@ -79,8 +80,8 @@ def _openai_body(req: Request, m: ModelSpec) -> dict[str, Any]:
         "max_output_tokens": req.max_tokens,
         "store": False,
     }
-    if m.effort:
-        body["reasoning"] = {"effort": m.effort}
+    if req.effort or m.effort:
+        body["reasoning"] = {"effort": req.effort or m.effort}
     return body
 
 
@@ -192,8 +193,8 @@ def _anthropic_params(req: Request, m: ModelSpec) -> dict[str, Any]:
         "system": req.system,
         "messages": [{"role": r, "content": c} for r, c in req.messages],
     }
-    if m.effort:
-        p["output_config"] = {"effort": m.effort}
+    if req.effort or m.effort:
+        p["output_config"] = {"effort": req.effort or m.effort}
     return p
 
 

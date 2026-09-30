@@ -24,18 +24,19 @@ MODELS: dict[str, ModelSpec] = {
     m.key: m
     for m in [
         # OpenAI (Responses API)
-        ModelSpec("luna", "gpt-5.6-luna", "openai", 0.20, 1.20, 0.02, True),
-        ModelSpec("terra", "gpt-5.6-terra", "openai", 2.00, 12.00, 0.20, True),
-        ModelSpec("sol", "gpt-5.6-sol", "openai", 4.00, 20.00, 0.40, True),
-        ModelSpec("astra", "gpt-6-astra", "openai", 10.00, 50.00, 1.00, True),
+        ModelSpec("luna", "gpt-5.6-luna", "openai", 0.20, 1.20, 0.02, True, effort="medium"),
+        ModelSpec("terra", "gpt-5.6-terra", "openai", 2.00, 12.00, 0.20, True, effort="medium"),
+        ModelSpec("sol", "gpt-5.6-sol", "openai", 4.00, 20.00, 0.40, True, effort="medium"),
+        ModelSpec("astra", "gpt-6-astra", "openai", 10.00, 50.00, 1.00, True, effort="high"),
         # Anthropic (Messages API)
         ModelSpec("haiku", "claude-haiku-4-5", "anthropic", 1.00, 5.00, 0.10, True),
-        ModelSpec("sonnet", "claude-sonnet-5-5", "anthropic", 2.00, 10.00, 0.20, True),
-        ModelSpec("opus", "claude-opus-5-5", "anthropic", 4.00, 20.00, 0.20, True),
-        ModelSpec("fable", "claude-fable-5-1", "anthropic", 10.00, 50.00, 0.25, True),
+        ModelSpec("sonnet", "claude-sonnet-5-5", "anthropic", 2.00, 10.00, 0.20, True, effort="medium"),
+        ModelSpec("opus", "claude-opus-5-5", "anthropic", 4.00, 20.00, 0.20, True, effort="medium"),
+        ModelSpec("fable", "claude-fable-5-1", "anthropic", 10.00, 50.00, 0.25, True, effort="high"),
         # Together (chat completions, live only)
         ModelSpec("llama70", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "together", 1.04, 1.04, 1.04, False),
         ModelSpec("qwen38", "Qwen/Qwen3.8-2.4T-A95B", "together", 2.00, 6.00, 2.00, False),
+        ModelSpec("dsflash", "deepseek-ai/DeepSeek-V4-Flash-0731", "together", 0.14, 0.28, 0.14, False),
         ModelSpec("dspro", "deepseek-ai/DeepSeek-V4-Pro-0813", "together", 1.32, 3.96, 1.32, False),
     ]
 }

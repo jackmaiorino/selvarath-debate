@@ -45,7 +45,7 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.stage = stage
         self.cap = cap_usd
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.db = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(
@@ -62,16 +62,21 @@ class Store:
         )
 
     # ------------------------------------------------------------ bookkeeping
+    def _q(self, sql: str, params: tuple = ()) -> list[tuple]:
+        with self._lock:
+            return self.db.execute(sql, params).fetchall()
+
     def log(self, kind: str, detail: str) -> None:
         with self._lock:
             self.db.execute("INSERT INTO events VALUES(?,?,?)", (time.time(), kind, detail[:4000]))
 
     def spent(self, stage: str | None = None) -> float:
         q = "SELECT COALESCE(SUM(cost),0) FROM calls" + (" WHERE stage=?" if stage else "")
-        return float(self.db.execute(q, (stage,) if stage else ()).fetchone()[0])
+        return float(self._q(q, (stage,) if stage else ())[0][0])
 
     def get(self, custom_id: str) -> Response | None:
-        row = self.db.execute("SELECT status, response FROM calls WHERE custom_id=?", (custom_id,)).fetchone()
+        rows = self._q("SELECT status, response FROM calls WHERE custom_id=?", (custom_id,))
+        row = rows[0] if rows else None
         if not row or row[0] not in MEASURED:
             return None
         return Response(**json.loads(row[1]))
@@ -105,7 +110,7 @@ class Store:
             )
 
     def _attempts(self, custom_id: str) -> int:
-        return int(self.db.execute("SELECT attempts FROM calls WHERE custom_id=?", (custom_id,)).fetchone()[0])
+        return int(self._q("SELECT attempts FROM calls WHERE custom_id=?", (custom_id,))[0][0])
 
     def _check_cap(self, todo: list[Request], batch: bool) -> None:
         committed = self.spent(self.stage) + sum(estimate_max_cost(r, batch) for r in todo)
@@ -128,8 +133,8 @@ class Store:
         return {r.custom_id: x for r in reqs if (x := self.get(r.custom_id)) is not None}
 
     def _in_flight(self, custom_id: str) -> bool:
-        row = self.db.execute("SELECT status FROM calls WHERE custom_id=?", (custom_id,)).fetchone()
-        return bool(row and row[0] == "submitted")
+        rows = self._q("SELECT status FROM calls WHERE custom_id=?", (custom_id,))
+        return bool(rows and rows[0][0] == "submitted")
 
     def call_one(self, req: Request) -> Response:
         """Synchronous single call with transport retries (used inside multi-turn loops)."""
@@ -167,7 +172,7 @@ class Store:
     def _run_batch(self, todo: list[Request], poll_s: int) -> None:
         # reconnect to batches already submitted for these ids
         pending_batches = {
-            row[0] for row in self.db.execute(
+            row[0] for row in self._q(
                 "SELECT DISTINCT batch_id FROM calls WHERE status='submitted' AND batch_id IS NOT NULL")
         }
         fresh = [r for r in todo if not self._in_flight(r.custom_id)]
@@ -192,13 +197,13 @@ class Store:
                 self.log("batch_submit", f"{bid} {key} n={len(chunk)}")
         while pending_batches:
             for bid in list(pending_batches):
-                prov, key = self.db.execute("SELECT provider, model FROM batches WHERE batch_id=?", (bid,)).fetchone()
+                prov, key = self._q("SELECT provider, model FROM batches WHERE batch_id=?", (bid,))[0]
                 _, poll, collect = BATCH[prov]
                 status, info = poll(bid)
                 if status != "ended":
                     continue
                 results = collect(bid, spec(key))
-                ids = [row[0] for row in self.db.execute("SELECT custom_id FROM calls WHERE batch_id=? AND status='submitted'", (bid,))]
+                ids = [row[0] for row in self._q("SELECT custom_id FROM calls WHERE batch_id=? AND status='submitted'", (bid,))]
                 for cid in ids:
                     res = results.get(cid)
                     if isinstance(res, Response):
@@ -213,7 +218,7 @@ class Store:
             if pending_batches:
                 time.sleep(poll_s)
         # anything that came back as a transport failure is finished live
-        retry = [Request(**_req_fields(json.loads(row[0]))) for row in self.db.execute(
+        retry = [Request(**_req_fields(json.loads(row[0]))) for row in self._q(
             "SELECT request FROM calls WHERE status='pending' AND stage=?", (self.stage,))]
         retry = [r for r in retry if r.custom_id in {t.custom_id for t in todo}]
         if retry:
