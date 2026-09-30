@@ -35,14 +35,14 @@ def norm_claim(c: str) -> str:
 
 
 def oracle_request(oracle: str, world_id: str, world: str, claim: str) -> Request:
-    return Request(f"oracle:{oracle}:{world_id}:{_h(norm_claim(claim))}", oracle, P.ORACLE_SYSTEM,
+    return Request(f"oracle:{oracle}:{_h(P.ORACLE_SYSTEM, n=8)}:{world_id}:{_h(norm_claim(claim))}", oracle, P.ORACLE_SYSTEM,
                    (("user", P.ORACLE_USER.format(world=world, claim=claim.strip())),), ORACLE_MAX_TOKENS)
 
 
 def gate_request(gate: str, q: dict, claim: str) -> Request:
     c1, c2 = sorted([q["correct_answer"], q["wrong_answer"]])  # unlabelled, fixed order
     user = P.GATE_USER.format(question=q["question"], cand1=c1, cand2=c2, claim=claim.strip())
-    return Request(f"gate:{gate}:{q['question_id']}:{_h(norm_claim(claim))}", gate, P.GATE_SYSTEM, (("user", user),), GATE_MAX_TOKENS)
+    return Request(f"gate:{gate}:{_h(P.GATE_SYSTEM, n=8)}:{q['question_id']}:{_h(norm_claim(claim))}", gate, P.GATE_SYSTEM, (("user", user),), GATE_MAX_TOKENS)
 
 
 def parse_gate(text: str) -> str:

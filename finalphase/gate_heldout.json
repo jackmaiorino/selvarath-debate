@@ -1,0 +1,242 @@
+[
+ {
+  "q_index": 0,
+  "claim": "Total toll revenue was 41,000 silver weights in Year 210",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 0,
+  "claim": "The western three wells collected 9,900 silver weights in Year 214",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Pel Canal opened in Year 205",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Pel Canal diverted grain caravans away from the western wells",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 0,
+  "claim": "The five eastern and central wells lost more revenue than the western wells between Year 210 and Year 214",
+  "expected": "REJECT",
+  "kind": "evaluative_comparison_conclusion"
+ },
+ {
+  "q_index": 0,
+  "claim": "The canal caused the Compact's revenue decline",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 0,
+  "claim": "Western revenue fell by 2,100 and the other wells fell by 7,900",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 0,
+  "claim": "Most of the decline came from wells the canal did not affect",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 2,
+  "claim": "House Qar's well is exempt from guest-right outside a declared Red Wind",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 2,
+  "claim": "During a declared Red Wind all nine wells must open free to anyone who reaches them",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 2,
+  "claim": "House Qar's water is used by its dye-works",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 2,
+  "claim": "House Qar may refuse water during a Red Wind",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Red Wind rule overrides the Qar exemption",
+  "expected": "REJECT",
+  "kind": "inference_conclusion"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Qar exemption is fair to travelers",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 2,
+  "claim": "Red Wind storms occur three to seven times a year",
+  "expected": "ADMIT",
+  "kind": "atomic_irrelevant"
+ },
+ {
+  "q_index": 4,
+  "claim": "House Tesh offered 12,000 silver weights for Sarn's well-right in Year 212",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 4,
+  "claim": "The Compact blocked the Tesh-Sarn sale in Year 213",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 4,
+  "claim": "House Sarn collected 3,300 silver weights in tolls in Year 214",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 4,
+  "claim": "A sale of a well-right transfers the right to collect that well's tolls",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 4,
+  "claim": "House Sarn would have collected no tolls in Year 214 had the sale gone through",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 4,
+  "claim": "Debater A is right about the sale",
+  "expected": "REJECT",
+  "kind": "label"
+ },
+ {
+  "q_index": 4,
+  "claim": "The sale was blocked, so Sarn kept its revenue",
+  "expected": "REJECT",
+  "kind": "compound_inference"
+ },
+ {
+  "q_index": 5,
+  "claim": "The maintenance clause allows revocation after three consecutive failed inspections",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 5,
+  "claim": "House Sarn passed its inspection in Year 213",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 5,
+  "claim": "House Sarn failed its inspection in Year 211",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 5,
+  "claim": "House Sarn failed inspections in Year 211 and Year 212",
+  "expected": "ADMIT",
+  "kind": "atomic_single_record_two_years"
+ },
+ {
+  "q_index": 5,
+  "claim": "Sarn's well-right was subject to revocation at the end of Year 214",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 5,
+  "claim": "Two failed inspections give the Compact grounds to revoke a well-right",
+  "expected": "ADMIT",
+  "kind": "atomic_rule_possibly_false"
+ },
+ {
+  "q_index": 5,
+  "claim": "The inspection record suggests Sarn neglected its well",
+  "expected": "REJECT",
+  "kind": "meta"
+ },
+ {
+  "q_index": 5,
+  "claim": "Sarn failed in 211, failed in 212 and passed in 213",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 7,
+  "claim": "Guest-right requests totaled 1,200 in Year 197",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 7,
+  "claim": "Guest-right requests totaled 300 in Year 199",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 7,
+  "claim": "No other water rule changed between Year 197 and Year 199",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive_negative"
+ },
+ {
+  "q_index": 7,
+  "claim": "The Year 198 amendment excluded sealed goods from guest-right",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 7,
+  "claim": "Traveler numbers fell between Year 197 and Year 199",
+  "expected": "ADMIT",
+  "kind": "atomic_possibly_unaddressed"
+ },
+ {
+  "q_index": 7,
+  "claim": "The amendment caused the drop in guest-right requests",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 7,
+  "claim": "It is probable that fewer travelers explain the drop",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 7,
+  "claim": "The drop could have resulted from a milder storm season",
+  "expected": "REJECT",
+  "kind": "candidate_restatement_speculative"
+ },
+ {
+  "q_index": 7,
+  "claim": "Requests fell from 1,200 to 300 because of the amendment",
+  "expected": "REJECT",
+  "kind": "compound_causal"
+ },
+ {
+  "q_index": 7,
+  "claim": "What share of guest-right requests involved sealed goods?",
+  "expected": "ADMIT",
+  "kind": "atomic_question_form"
+ }
+]
