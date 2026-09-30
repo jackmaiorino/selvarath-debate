@@ -1,0 +1,111 @@
+{
+ "rows": [
+  {
+   "design": "8 judges, 0/1/2/6",
+   "judges": 8,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 884,
+   "judging": 2736,
+   "yoked": 0,
+   "total": 4006,
+   "oracle_calls": 153792,
+   "verdicts": 102528
+  },
+  {
+   "design": "8 judges, 0/1/2/8",
+   "judges": 8,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    8
+   ],
+   "debates": 386,
+   "oracle": 1081,
+   "judging": 3166,
+   "yoked": 0,
+   "total": 4633,
+   "oracle_calls": 187968,
+   "verdicts": 102528
+  },
+  {
+   "design": "8 judges, 0/1/2/6 + top-2 arm",
+   "judges": 8,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 897,
+   "judging": 2946,
+   "yoked": 273,
+   "total": 4291,
+   "oracle_calls": 155928,
+   "verdicts": 119616
+  },
+  {
+   "design": "8 judges, 0/1/2/8 + top-2 arm",
+   "judges": 8,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    8
+   ],
+   "debates": 386,
+   "oracle": 1093,
+   "judging": 3376,
+   "yoked": 273,
+   "total": 4918,
+   "oracle_calls": 190104,
+   "verdicts": 119616
+  },
+  {
+   "design": "8 judges, 0/1/2/8 + top-2, Fable oracle",
+   "judges": 8,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    8
+   ],
+   "debates": 386,
+   "oracle": 2186,
+   "judging": 3376,
+   "yoked": 273,
+   "total": 6011,
+   "oracle_calls": 190104,
+   "verdicts": 119616
+  },
+  {
+   "design": "7 judges (no Qwen), 0/1/2/6",
+   "judges": 7,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 774,
+   "judging": 2142,
+   "yoked": 0,
+   "total": 3302,
+   "oracle_calls": 134568,
+   "verdicts": 89712
+  }
+ ],
+ "prep": {
+  "authoring": 69,
+  "validation": 151,
+  "debater_canary": 17
+ }
+}

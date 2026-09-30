@@ -1,0 +1,93 @@
+I would keep the overall design, but modify validation, canary selection, answer-length balance, and oracle selection. The largest remaining risk is treating agreement about the preferred answer as proof that the source settles the question. This was a read-only review; I changed no files and made no experiment calls.
+
+**1. Q1: Decisions 1–8**
+
+| Decision | My recommendation | Reason |
+|---|---|---|
+| **1. Model IDs** | **Keep the update.** Freeze exact IDs, explicit inference settings, and returned model identifiers. | No methodological reason to restore older generations. “Provider default” is weaker than specifying effort explicitly. I checked the registry and documentation, not account access or live Anthropic pricing. |
+| **2. Validators** | **Keep the roster; strengthen the criterion.** | Require source sufficiency and a decisive rubric, not just unanimous preference. Details under Q3. |
+| **3. Canary** | **Modify.** Keep compliance screening; make length descriptive; prefer fixing uncapped without a difficulty-based switch. | Four worlds provide a noisy difficulty estimate. The existing rule also leaves several failure combinations unresolved. |
+| **4. Length and verdict** | **Keep the verdict block; strengthen length balance.** | Define `max(words_A, words_B)/min(words_A, words_B) ≤ 1.25`, and balance which candidate is longer. The present rule still permits the key to be longer in every question. |
+| **5. Debater prompts** | **Remove the 400-word sentence from both honest templates.** Keep fabrication permitted in the fictional dishonest role. | This removes a real length asymmetry. Distinguish abandoning the assigned answer from acknowledging a valid opposing fact or expressing appropriate uncertainty. Freeze regeneration rules. |
+| **6. Oracle selection** | **Modify.** Keep Opus as the incumbent and 300 queries as an initial comparison. Add multiplicity, tie-breaking, and an absolute accuracy criterion. | Relative superiority does not establish that any candidate is accurate enough. An inconclusive comparison establishes neither equivalence nor adequacy. |
+| **7. IUT and bootstrap** | **Keep the primary structure and world clustering.** Specify the actual tests and secondary family. | The proposed IUT addresses the intended conjunction correctly. “10,000 bootstrap draws” alone does not specify p-values or confidence intervals. |
+| **8. World splits and cap** | **Keep.** Freeze sampling and under-retention rules. | There are 140 main worlds and at most 1,260 slots. Reaching 1,068 requires an average of **7.63 retained questions per world** after applying the cap. |
+
+These changes concern [design §§4–8](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase/reports/final-phase-2026-09-30/design.md:28). For OpenAI, effort and reasoning mode are separate settings, and output limits include reasoning tokens. Specify them deliberately rather than inheriting defaults. [Official OpenAI documentation](https://developers.openai.com/api/docs/guides/reasoning)
+
+**2. Q2: Canary thresholds and capped versus uncapped**
+
+The thresholds are reasonable **engineering screens**, but weak estimates of population behavior:
+
+- **≤2/20 flagged debates** permits 10% observed noncompliance. It does not demonstrate a reliably low underlying refusal rate. Audit some unflagged turns too, so classifier misses are visible.
+- **250–800 words** is a plausible historical range, but I would remove the lower bound as an acceptance gate. A competent 220-word argument need not fail. Report length separately by honest and dishonest role.
+- **Pooled k0 error ≥10%** is a defensible floor screen, but can be satisfied by Llama alone while Luna and Haiku are effectively at floor. Report all three rates and world-level variation.
+
+Using held-out canary **k0** difficulty to choose length does **not directly invalidate the main peak test**. It selects the intervention using baseline difficulty, rather than the tested bump. Nevertheless, it makes the claim conditional on that selection procedure and can choose a condition because of noise.
+
+**My preferred rule: fix uncapped; use difficulty to assess benchmark feasibility, not to select capped.** If you retain the switch, specify:
+
+- whether both debater families must pass;
+- what happens when neither length condition passes;
+- what happens when compliance or length fails despite difficulty passing;
+- whether prompt revision requires a fresh canary.
+
+A switch made under an advance rule is a **predeclared branch**, not an unexpected deviation. The old finding that capping greatly reduced difficulty makes capped an especially unpromising difficulty rescue.
+
+**3. Q3: Validation and avoiding trivial questions**
+
+**The current filter is necessary but insufficient.** The old audit found both reviewers preferred the key on **54/82 questions**, while only **5/82** had a source-determined core. Preference and determinacy already came apart in this project. [Question audit](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase/reports/question-evidence-audit-2026-09-12/audit.md:14)
+
+Require each retained question to pass three checks:
+
+- **Visible criterion:** the question supplies any necessary meaning of “better,” “durable,” “adequate,” or the relevant time horizon. A private rubric cannot establish an answer judges were never told how to evaluate.
+- **Decisive evidence:** validators identify the supporting spans and the inferential step that makes the alternative fail under that criterion.
+- **Adversarial sufficiency:** validators try to construct a source-compatible interpretation or missing-premise scenario that reverses the answer. Reject if one succeeds.
+
+Keep the initial answers blind to the key and ledger. Perform the ledger audit **afterward**, separately. Currently, the design says validators check `facts_required` while also saying those facts remain hidden from them.
+
+I would retain the other author plus DeepSeek, using **explicit high reasoning effort where supported**, sufficient output space, and fresh contexts. Maximum effort is not automatically necessary. Two orders are a useful robustness check; they are not four independent validators.
+
+Difficulty should come from combining facts, exceptions, chronology, and tempting distractors. It need not come from missing truth conditions. Unanimity will still select validator-solvable questions; state that target population.
+
+Finally, name who performs the “human-style audit.” A further model review should be described as such. Freeze what an audit defect triggers, including whether a source defect requires reviewing other questions from that world.
+
+**4. Q4: Lightweight query gate**
+
+**Yes, conditionally.** Mechanical checks plus one small semantic classifier can be sufficient. A checker-plus-reviewer architecture is not intrinsically necessary. Your proposed retry accounting already matches the [old contract](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase/docs/oracle-query-contract.md:27).
+
+Freeze these items:
+
+- **Semantics:** one independently checkable factual proposition; no argument evaluation, candidate selection, or bundled facts. Permit irrelevant factual queries and unsupported fabrications.
+- **Classifier:** exact model, prompt, settings, inputs, and output schema. Give it unlabeled candidates and the query, with no key or world. It classifies admissibility, not truth or usefulness.
+- **State machine:** first rejection permits one replacement without spending the slot; acceptance spends one slot; a second rejection spends the slot without an oracle answer. Specify `DONE`, duplicates, and retry reset behavior.
+- **Failure handling:** uncertainty counts as rejection. Checker transport failures retry the same request without consuming judge budget. Specify malformed-output and retry-exhaustion handling separately.
+- **Feedback:** a fixed generic rejection message. No suggested replacement query or factual hint.
+- **Qualification:** a fixed challenge set and blinded pilot audit covering both false acceptance and false rejection, including paraphrased candidate restatements and legitimate decisive facts.
+
+Audit **accepted queries as well as rejected ones**. Otherwise, answer-seeking or compound queries that slip through remain invisible.
+
+Keep the oracle’s `YES / NO / NOT ADDRESSED` interface unless deliberately changing the study. Its [existing prompt](C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase/rejudge/phase2_prompt_bundle.json:163) forbids deductions: correct facts can support a judge’s inference without the oracle performing that inference.
+
+**5. Q5: Under-specified preregistration choices**
+
+The important gaps are:
+
+- **Estimand and weighting.** Specify equal question weights, equal weights across the eight fixed judges, and averaging the two orders. This measures the effect of **offered budget under this protocol**, including anticipation, stopping, retries, and additional judge computation. It does not isolate the causal effect of receiving one more oracle answer.
+- **Primary implementation.** For \(b\in\{1,2\}\), define \(\Delta_{b0}=e_b-e_0\) and \(\Delta_{b6}=e_b-e_6\). Use \(p_b=\max(p_{b0},p_{b6})\), then Holm across the two candidates. Freeze the one-sided component-test algorithm.
+- **Bootstrap implementation.** Resample whole worlds within author strata, retaining every paired observation and recomputing the question-weighted statistic. Specify studentization or another named method, null centering, seed, and degenerate-draw handling. Whole-world resampling is appropriate; cluster count matters more than the number of judgment rows. [Cameron and Miller](https://cameron.econ.ucdavis.edu/research/Cameron_Miller_JHR_2015.pdf)
+- **Secondary family.** Explicitly list the **six contrasts** currently implied. I recommend two-sided tests with Holm across all six, rather than deciding directions later.
+- **Null precision.** Predeclare a meaningful peak magnitude. Report both component contrasts and simultaneous bounds. Ordinary percentile intervals for `error_b − max(error_0,error_6)` deserve care when the endpoints are tied. Failure to reject alone does not establish no meaningful bump.
+- **Oracle selection.** Name adjudicators, sampling strata, paired interval method, adjustment across two challengers, and a deterministic winner/tie rule. Include source-based label adjudication and a consensus-answer audit. At 300 queries, a 3pp gain means nine net additional correct answers; with 10% discordance, an illustrative paired 95% interval has half-width about **3.6pp**, before clustering. Include held-out accuracy confirmation for a switched oracle.
+- **Adaptation and missingness.** Freeze permitted pilot-driven setting changes, sample-size reductions, debate regeneration, intermediate oracle failures, persistent transport failures, and budget exhaustion. Keep pilot arm contrasts masked while making engineering and cost choices.
+
+The primary establishes a **peak among tested budgets and partial recovery by six**. It does not establish return to baseline, saturation, or a global peak. Llama/Qwen results on new worlds and changed prompts are a conceptual replication, not an exact replication.
+
+**Other changes before stage 2 spend**
+
+- **Freeze upstream choices now:** authoring and validation prompts, visible rubric requirements, task categories, split/sampling seeds, repair rules, audit disposition, and canary branches. The current “frozen before main” language leaves these earlier choices open.
+- **Specify debate construction:** number of rounds, blind openings, speaker-order balance, deterministic A/B relabeling, and transcript identity across arms. Use neutral verdict wording such as “Based on the materials provided”; the old wording assumes a debate exists.
+- **Reconcile available funding now.** The September 13 balance still excludes unresolved charges. Refresh the forecast using current rates, actual reasoning tokens, classifier/retry calls, and realized batch/cache behavior. V4/V5 assume cached worlds, omit gate costs, and budget 40 canary debates rather than the current 80.
+- **Freeze feasibility and claim limits:** prospective joint IUT power across plausible world correlations, a deterministic response to insufficient retention or excessive cost, and explicit non-claims about universal judge behavior or demonstrated debater superiority. Do not infer adequate power from 102,528 verdict rows.
+
+

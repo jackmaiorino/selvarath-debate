@@ -1,0 +1,28 @@
+Effort: xhigh (design with owner decisions, pre-registration sketch). Read-only cross-check.
+
+You are reviewing the working design for the final phase of a debate-oversight study. Read these files in the current repo (read-only):
+- reports/final-phase-2026-09-30/design.md  (the design under review; start here)
+- reports/final-phase-revision-2026-09-23/codex_opinion_2026-09-26.txt (your predecessor's 26 Sep review of the earlier draft)
+- reports/final-phase-revision-2026-09-23/cost_model_v4.py and cost_model_v5.py (illustrative costs)
+- reports/question-evidence-audit-2026-09-12/audit.md (why the old question bank was weak)
+- rejudge/phase2_prompt_bundle.json (Phase 2/3 frozen prompts; debate, judge query, oracle templates)
+- world_specs/selvarath.txt and questions/selvarath_questions.json (format of the original worlds the authors will imitate)
+
+Context: partner Joey approved on 2026-09-30 ("fire away"), preferring uncapped debate turns, optionally trialing capped and uncapped in the canary. Jack (PI) approved continuing. Prior phases: Phase 3 used Llama/Qwen judges with 1/2/4/8 budgets on three hand-written worlds; Llama had a +2.3pp bump at k=1 (CI crosses 0) and recovered by 2; Qwen's harm rose monotonically. Phase 2: capping turns at 150 words made the old task much easier for judges (about 2% vs 20% error).
+
+My own decisions in design.md that I want attacked:
+1. Model IDs: Claude Sonnet 5.5 / Opus 5.5 instead of the Sonnet 5 / Opus 5 in the 23 Sep PDF; OpenAI tiers stay GPT-5.6 luna/terra/sol because gpt-6-terra does not exist on the account.
+2. Validators: for each world, the other author (Fable or Astra) plus DeepSeek V4 Pro, both orders, unanimous agreement with key, plus a "wrong answer about as defensible" flag that rejects.
+3. Canary acceptance thresholds (role compliance <=2/20 flagged, uncapped median 250-800 words, pooled k0 error >=10% across Luna/Haiku/Llama) and the fixed rule that main is uncapped unless uncapped fails difficulty and capped passes.
+4. Answer-length balance rule (within 25% words) and the uniform verdict block across all arms, including world_alone.
+5. The debater prompts: the Phase 2 honest system prompt alone says "Keep each reply under 400 words"; I plan to remove it so both sides are symmetric in the uncapped condition. The dishonest prompt explicitly permits fabrication. Frontier debaters may refuse or hedge in the dishonest role.
+6. Oracle selection rule (300 pilot queries, blind adjudication by two non-candidate models, switch only if >=3pp better with CI above 0).
+7. Primary IUT and the secondary family; cluster bootstrap over worlds.
+8. Splitting canary/pilot/main by world; main capped at 1,068 questions with at most 9 per world.
+
+Questions (answer each crisply, numbered, then list anything else you would change before stage 2 spend):
+Q1. Any of decisions 1-8 you would reverse or modify? Why?
+Q2. Are the canary thresholds sensible and non-outcome-tuned for the main hypothesis? Is using the canary's k0 difficulty to pick capped vs uncapped a problem?
+Q3. Is the validation filter adequate to exclude "equally defensible" questions without selecting only trivially easy ones? Should validators' reasoning effort or model choice change?
+Q4. Query gate: Phase 2/3 used a heavy model-based gate (checker + reviewer) to reject non-atomic queries. For this phase I am considering a lighter frozen gate: a single small model classifier plus one retry, with rejected queries recorded and counted against budget only if the retry also fails. Good enough? What would you freeze?
+Q5. Anything in the pre-registration that is under-specified in a way that lets outcomes leak into choices?
