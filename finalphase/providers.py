@@ -42,6 +42,7 @@ class Request:
     messages: tuple[tuple[str, str], ...]  # (role, content); roles "user" / "assistant"
     max_tokens: int
     effort: str | None = None  # overrides the model's default effort for this role
+    cache_first: int = 0  # Anthropic: mark the first N chars of messages[0] as a cache breakpoint (-1 = whole message)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, ensure_ascii=False)
@@ -187,11 +188,19 @@ def _anthropic_client():
 
 
 def _anthropic_params(req: Request, m: ModelSpec) -> dict[str, Any]:
+    msgs: list[dict[str, Any]] = [{"role": r, "content": c} for r, c in req.messages]
+    if req.cache_first and msgs:
+        first = msgs[0]["content"]
+        n = len(first) if req.cache_first < 0 else min(req.cache_first, len(first))
+        blocks = [{"type": "text", "text": first[:n], "cache_control": {"type": "ephemeral"}}]
+        if first[n:]:
+            blocks.append({"type": "text", "text": first[n:]})
+        msgs[0] = {"role": msgs[0]["role"], "content": blocks}
     p: dict[str, Any] = {
         "model": m.model_id,
         "max_tokens": req.max_tokens,
         "system": req.system,
-        "messages": [{"role": r, "content": c} for r, c in req.messages],
+        "messages": msgs,
     }
     if req.effort or m.effort:
         p["output_config"] = {"effort": req.effort or m.effort}
@@ -209,7 +218,8 @@ def _anthropic_parse(custom_id: str, m: ModelSpec, msg: dict[str, Any], batch: b
     inp = int(u.get("input_tokens") or 0) + cached + created
     r = Response(custom_id, m.model_id, status, text, input_tokens=inp, cached_tokens=cached,
                  output_tokens=int(u.get("output_tokens") or 0), batch=batch, provider_id=str(msg.get("id", "")), detail=detail)
-    r.cost = cost_usd(m, inp, r.output_tokens, cached, batch)
+    r.cost = cost_usd(m, inp, r.output_tokens, cached, batch) + created * m.price_in * 0.25 / 1e6 * (0.5 if batch else 1.0)
+    r.extra = {"cache_creation_tokens": created}
     return r
 
 

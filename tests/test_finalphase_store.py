@@ -110,3 +110,23 @@ def test_anthropic_parse_counts_cache_tokens():
                                             "stop_reason": "end_turn",
                                             "usage": {"input_tokens": 10, "cache_read_input_tokens": 1000, "output_tokens": 3}}, False)
     assert r.text == "YES" and r.input_tokens == 1010 and r.cached_tokens == 1000
+
+
+def test_anthropic_cache_split_keeps_text_identical():
+    m = store.spec("opus")
+    req = Request("x", "opus", "sys", (("user", "WORLD DOCUMENT:\nabc\n\nQUERY: q"),), 100, cache_first=len("WORLD DOCUMENT:\nabc\n\n"))
+    p = providers._anthropic_params(req, m)
+    blocks = p["messages"][0]["content"]
+    assert "".join(b["text"] for b in blocks) == req.messages[0][1]
+    assert "cache_control" in blocks[0] and "cache_control" not in blocks[1]
+    assert p["output_config"] == {"effort": "medium"}
+
+
+def test_billing_error_halts(tmp_path, monkeypatch):
+    def broke(req, m):
+        raise providers.BillingError("no credits")
+
+    monkeypatch.setitem(store.LIVE, "openai", broke)
+    s = Store(tmp_path / "s.db", "t", 10)
+    with pytest.raises(providers.BillingError):
+        s.run([_req(1)])

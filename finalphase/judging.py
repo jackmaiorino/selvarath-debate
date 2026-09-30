@@ -35,8 +35,10 @@ def norm_claim(c: str) -> str:
 
 
 def oracle_request(oracle: str, world_id: str, world: str, claim: str) -> Request:
+    user = P.ORACLE_USER.format(world=world, claim=claim.strip())
+    prefix = user.index("QUERY:")  # world block is identical across every query on this world
     return Request(f"oracle:{oracle}:{_h(P.ORACLE_SYSTEM, n=8)}:{world_id}:{_h(norm_claim(claim))}", oracle, P.ORACLE_SYSTEM,
-                   (("user", P.ORACLE_USER.format(world=world, claim=claim.strip())),), ORACLE_MAX_TOKENS)
+                   (("user", user),), ORACLE_MAX_TOKENS, cache_first=prefix)
 
 
 def gate_request(gate: str, q: dict, claim: str) -> Request:
@@ -93,7 +95,7 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
         msgs.append(("user", f"{user}\n\n{P.QUERY_PROMPT.format(remaining=k, total=k)}"))
         used, step, rejected_once = 0, 0, False
         while used < k:
-            r = yield Request(f"{base}:s{step}", judge, system, tuple(msgs), maxt)
+            r = yield Request(f"{base}:s{step}", judge, system, tuple(msgs), maxt, cache_first=-1)
             step += 1
             rec["cost"] += r.cost
             if r.status != "ok" or not r.text.strip():
@@ -145,7 +147,7 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
             pass
         if msgs[-1][0] == "assistant":  # stopped early (DONE or failure): ask for the verdict
             msgs.append(("user", P.VERDICT_BLOCK))
-    v = yield Request(f"{base}:verdict", judge, system, tuple(msgs), maxt)
+    v = yield Request(f"{base}:verdict", judge, system, tuple(msgs), maxt, cache_first=-1 if k > 0 else 0)
     rec["cost"] += v.cost
     parsed = parse_verdict_strict(v.text) if v.status == "ok" else {"verdict": None, "confidence": None, "reasoning": "", "parse_ok": False}
     rec.update({"verdict_status": v.status, "verdict": parsed["verdict"], "confidence": parsed["confidence"],

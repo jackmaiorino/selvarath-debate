@@ -1,0 +1,74 @@
+{
+ "low": {
+  "authoring (160 worlds)": {
+   "anthropic": 45.0,
+   "openai": 45.0
+  },
+  "validation": {
+   "anthropic": 105.0,
+   "openai": 105.0,
+   "together": 64.0
+  },
+  "debater canary": {
+   "anthropic": 14.0,
+   "openai": 14.0,
+   "together": 3.0
+  },
+  "pilot": {
+   "anthropic": 290.0,
+   "openai": 170.0,
+   "together": 131.0
+  },
+  "main": {
+   "anthropic": 2212.0,
+   "openai": 1299.0,
+   "together": 996.0
+  },
+  "oracle selection": {
+   "anthropic": 5.0,
+   "openai": 5.0
+  },
+  "TOTAL by provider": {
+   "anthropic": 2671.0,
+   "openai": 1639.0,
+   "together": 1194.0
+  },
+  "TOTAL": 5504.0
+ },
+ "high": {
+  "authoring (160 worlds)": {
+   "anthropic": 65.0,
+   "openai": 65.0
+  },
+  "validation": {
+   "anthropic": 235.0,
+   "openai": 235.0,
+   "together": 105.0
+  },
+  "debater canary": {
+   "anthropic": 32.0,
+   "openai": 32.0,
+   "together": 3.0
+  },
+  "pilot": {
+   "anthropic": 552.0,
+   "openai": 292.0,
+   "together": 198.0
+  },
+  "main": {
+   "anthropic": 4210.0,
+   "openai": 2231.0,
+   "together": 1509.0
+  },
+  "oracle selection": {
+   "anthropic": 11.0,
+   "openai": 11.0
+  },
+  "TOTAL by provider": {
+   "anthropic": 5104.0,
+   "openai": 2866.0,
+   "together": 1815.0
+  },
+  "TOTAL": 9786.0
+ }
+}
