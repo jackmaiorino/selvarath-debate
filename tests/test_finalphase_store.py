@@ -1,4 +1,5 @@
 import re
+import weakref
 from types import SimpleNamespace
 
 import pytest
@@ -124,7 +125,14 @@ def test_anthropic_batch_roundtrip_preserves_ids_after_restart(tmp_path, monkeyp
             yield SimpleNamespace(custom_id=request["custom_id"],
                                   result=SimpleNamespace(type="succeeded", message=message))
 
-    client = SimpleNamespace(messages=SimpleNamespace(batches=SimpleNamespace(
+    class Client(SimpleNamespace):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    client = Client(messages=SimpleNamespace(batches=SimpleNamespace(
         create=create, retrieve=retrieve, results=results)))
     monkeypatch.setattr(providers, "_anthropic_client", lambda: client)
     monkeypatch.setitem(store.LIVE, "anthropic", lambda *args: pytest.fail("completed batch must not fall back to live"))
@@ -141,6 +149,37 @@ def test_anthropic_batch_roundtrip_preserves_ids_after_restart(tmp_path, monkeyp
     assert all(out[cid].custom_id == cid and out[cid].text == f"answer {i}" for i, cid in enumerate(ids))
     resumed.run(requests, mode="batch", poll_s=0)
     assert len(submitted) == 1
+
+
+def test_anthropic_collection_keeps_client_alive_until_stream_is_consumed(monkeypatch):
+    closed = []
+
+    class Client:
+        def __init__(self):
+            ref = weakref.ref(self)
+
+            def results(bid):
+                assert ref() is not None and not closed
+                body = {"content": [{"type": "text", "text": "answer"}], "stop_reason": "end_turn",
+                        "usage": {"input_tokens": 10, "output_tokens": 5}}
+                yield SimpleNamespace(custom_id="request1", result=SimpleNamespace(type="succeeded",
+                    message=SimpleNamespace(model_dump=lambda: body)))
+
+            self.messages = SimpleNamespace(batches=SimpleNamespace(results=results))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            closed.append(True)
+
+        def __del__(self):
+            if not closed:
+                closed.append(True)
+
+    monkeypatch.setattr(providers, "_anthropic_client", Client)
+    out = providers.anthropic_batch_collect("b1", store.spec("fable"))
+    assert out["request1"].text == "answer" and closed
 
 
 def test_openai_parse_incomplete_is_truncated():

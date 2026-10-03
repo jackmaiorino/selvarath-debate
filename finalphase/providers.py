@@ -262,14 +262,15 @@ def anthropic_batch_poll(batch_id: str) -> tuple[str, dict[str, Any]]:
 
 def anthropic_batch_collect(batch_id: str, m: ModelSpec) -> dict[str, Response | TransportError]:
     out: dict[str, Response | TransportError] = {}
-    for res in _anthropic_client().messages.batches.results(batch_id):
-        r = res.result
-        if r.type == "succeeded":
-            out[res.custom_id] = _anthropic_parse(res.custom_id, m, r.message.model_dump(), batch=True)
-        elif r.type == "errored" and getattr(r.error.error, "type", "") == "invalid_request_error":
-            out[res.custom_id] = Response(res.custom_id, m.model_id, "error", "", batch=True, detail=str(r.error)[:2000])
-        else:
-            out[res.custom_id] = TransportError(f"batch item {r.type}")
+    with _anthropic_client() as client:
+        for res in client.messages.batches.results(batch_id):
+            r = res.result
+            if r.type == "succeeded":
+                out[res.custom_id] = _anthropic_parse(res.custom_id, m, r.message.model_dump(), batch=True)
+            elif r.type == "errored" and getattr(r.error.error, "type", "") == "invalid_request_error":
+                out[res.custom_id] = Response(res.custom_id, m.model_id, "error", "", batch=True, detail=str(r.error)[:2000])
+            else:
+                out[res.custom_id] = TransportError(f"batch item {r.type}")
     return out
 
 
