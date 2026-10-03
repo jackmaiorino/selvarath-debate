@@ -1,5 +1,6 @@
 import json
 import types
+import pytest
 
 from finalphase import cli, store
 from finalphase.providers import Response
@@ -52,7 +53,7 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     cli.cmd_validate(ns(mode="live"))
     rows = [json.loads(x) for x in open(tmp_path / "bench" / "validation.jsonl")]
     assert len(rows) == 288 and all(r["retained"] for r in rows)
-    cli.cmd_split(ns())
+    cli.cmd_split(ns(main_questions=1068))
     canary = [json.loads(x) for x in open(tmp_path / "bench" / "canary.jsonl")]
     pilot = [json.loads(x) for x in open(tmp_path / "bench" / "pilot.jsonl")]
     main = [json.loads(x) for x in open(tmp_path / "bench" / "main.jsonl")]
@@ -63,9 +64,45 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     assert sum(1 for _ in open(tmp_path / "canary" / "debates.jsonl")) == 16
     assert sum(1 for _ in open(tmp_path / "canary" / "judgments.jsonl")) == 16 * 3 * 2
     cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",
-                     no_top2=False, limit=3, workers=4))
+                     limit=3, workers=4))
     judged = [json.loads(x) for x in open(tmp_path / "main" / "judgments.jsonl")]
-    assert len(judged) == 3 * 2 * 7 * 2
+    assert len(judged) == 3 * 2 * 6 * 2
+    assert not any(j["arm"] == "top2" for j in judged)
+    with pytest.raises(ValueError, match="after main requests"):
+        cli.cmd_split(ns(main_questions=20))
     assert all(j["parse_ok"] for j in judged)
     k2 = [j for j in judged if j["arm"] == "debate_k2"]
     assert all(j["n_queries_used"] == 1 for j in k2)
+
+
+def test_reversal_flags_are_descriptive_and_equal_defensibility_rejects():
+    from finalphase import authoring as a
+
+    qid = "W001-Q01"
+    responses = {}
+    for v in a.validators_for("fable"):
+        for order, key in (("key_a", "A"), ("key_b", "B")):
+            cid = f"validate:{qid}:{v}:{order}"
+            responses[cid] = Response(cid, v, "ok",
+                f"ANSWER: {key}\nREVERSING_READING_EXISTS: yes\nOTHER_EQUALLY_DEFENSIBLE: no")
+    cid = f"factcheck:{qid}:0"
+    responses[cid] = Response(cid, "dspro", "ok", "YES")
+    assert a.retain_decision(qid, "fable", responses, 1)["retained"]
+    cid = f"validate:{qid}:astra:key_a"
+    responses[cid].text = "ANSWER: A\nREVERSING_READING_EXISTS: no\nOTHER_EQUALLY_DEFENSIBLE: yes"
+    assert not a.retain_decision(qid, "fable", responses, 1)["retained"]
+
+
+def test_cost_reduction_is_a_deterministic_prefix_without_changing_world_cap():
+    from finalphase.authoring import sample_main
+
+    qs = [{"question_id": f"W{w:03d}-Q{i:02d}", "world_id": f"W{w:03d}"}
+          for w in range(1, 6) for i in range(12)]
+    full = sample_main(qs)
+    reduced = sample_main(qs, cap=20)
+    assert len(reduced) == 20
+    assert {q["question_id"] for q in reduced} <= {q["question_id"] for q in full}
+    assert reduced == sample_main(list(reversed(qs)), cap=20)
+    assert all(sum(q["world_id"] == f"W{w:03d}" for q in reduced) <= 9 for w in range(1, 6))
+    with pytest.raises(ValueError, match="between 1 and 1068"):
+        sample_main(qs, cap=0)

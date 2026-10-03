@@ -1,4 +1,4 @@
-"""Judge arms, the query loop with gate and oracle, and the top2 packet arm."""
+"""Judge arms and the query loop with gate and oracle."""
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +13,7 @@ from . import prompts_study as P
 from .debate import render_transcript
 from .providers import Request
 
-ARMS = ("world_alone", "debate_k0", "debate_k1", "debate_k2", "debate_k6", "debate_world", "top2")
+ARMS = ("world_alone", "debate_k0", "debate_k1", "debate_k2", "debate_k6", "debate_world")
 ORDERS = ("key_a", "key_b")
 
 # Output limits include reasoning tokens. Revised from pilot measurements, frozen before main.
@@ -57,8 +57,10 @@ def budget_of(arm: str) -> int:
     return int(arm.split("_k")[1]) if "_k" in arm else 0
 
 
-def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: str, top2_claims: list[str] | None = None):
+def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: str):
     """item: question_id, world_id, world_text, question, correct_answer, wrong_answer, turns."""
+    if arm not in ARMS:
+        raise ValueError(f"arm is not in the approved final-phase design: {arm}")
     key_is_a = order == "key_a"
     pos_a, pos_b = (item["correct_answer"], item["wrong_answer"]) if key_is_a else (item["wrong_answer"], item["correct_answer"])
     base = f"judge:{item['question_id']}:{judge}:{arm}:{order}"
@@ -79,17 +81,7 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
 
     msgs: list[tuple[str, str]] = []
     k = budget_of(arm)
-    if arm == "top2":
-        results = []
-        for claim in top2_claims or []:
-            o = yield oracle_request(oracle, item["world_id"], item["world_text"], claim)
-            rec["cost"] += o.cost
-            ans = normalize_oracle(o.text) if o.status == "ok" else "INVALID"
-            rec["queries"].append({"claim": claim, "oracle": ans, "source": "selector"})
-            results.append(f"{len(results) + 1}. CLAIM: {claim}\n   Oracle result: {_shown(ans)}")
-        block = "VERIFICATION RESULTS (claims checked against the world document):\n" + ("\n".join(results) if results else "none")
-        msgs.append(("user", f"{user}\n\n{block}\n\n{P.VERDICT_BLOCK}"))
-    elif k == 0:
+    if k == 0:
         msgs.append(("user", f"{user}\n\n{P.VERDICT_BLOCK}"))
     else:
         msgs.append(("user", f"{user}\n\n{P.QUERY_PROMPT.format(remaining=k, total=k)}"))
@@ -159,15 +151,3 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
 
 def _shown(ans: str) -> str:
     return "UNAVAILABLE" if ans == "INVALID" else ans
-
-
-def selector_request(item: dict, n: int = 2) -> Request:
-    transcript = render_transcript(item["turns"], True)
-    pres = P.presentation(item["question"], item["correct_answer"], item["wrong_answer"], transcript=transcript)
-    return Request(f"select:{item['question_id']}:fable:n{n}", "fable", P.SELECTOR_SYSTEM,
-                   (("user", P.SELECTOR_USER.format(presentation=pres, n=n)),), 16000)
-
-
-def parse_selector(text: str, n: int = 2) -> list[str]:
-    claims = [m.group(1).strip() for m in re.finditer(r"^\s*(?:\d+[.)]\s*)?CLAIM:\s*(.+)$", text, re.M)]
-    return claims[:n]

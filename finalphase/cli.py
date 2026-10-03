@@ -15,19 +15,21 @@ import argparse
 import collections
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 from . import authoring as A
 from . import prompts_study as P
+from . import preflight
 from .debate import debate_task
 from .engine import drive
-from .judging import ARMS, ORDERS, judge_task, parse_selector, selector_request
+from .judging import ARMS, ORDERS, judge_task
 from .providers import Request
 from .store import Store
 
-RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-09-30"))
+RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-10-03"))
 BENCH = RUN_ROOT / "bench"
-STAGE_CAPS = {"author": 250.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 4300.0}
+STAGE_CAPS = {"author": 200.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 4300.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")
@@ -126,6 +128,12 @@ def cmd_validate(args) -> None:
 
 
 def cmd_split(args) -> None:
+    # Cost-driven sample reductions happen before any main requests are registered.
+    main_db = RUN_ROOT / "main.db"
+    if main_db.exists():
+        with sqlite3.connect(main_db.resolve().as_uri() + "?mode=ro", uri=True) as db:
+            if db.execute("SELECT COUNT(*) FROM calls").fetchone()[0]:
+                raise ValueError("cannot change the benchmark split after main requests have been registered")
     worlds = _worlds()
     rows = _read_jsonl(BENCH / "validation.jsonl")
     split = A.split_worlds([{"world_id": w["world_id"], "author": w["author"]} for w in worlds])
@@ -137,7 +145,7 @@ def cmd_split(args) -> None:
             q.update({"question_id": r["question_id"], "world_id": r["world_id"], "author": r["author"],
                       "split": split[r["world_id"]], "determinacy_flags": r["determinacy_flags"]})
             retained.append(q)
-    main = A.sample_main([q for q in retained if q["split"] == "main"])
+    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions)
     sets = {"canary": [q for q in retained if q["split"] == "canary"], "pilot": [q for q in retained if q["split"] == "pilot"], "main": main}
     # debater family per question, balanced within author x task type by a fixed hash order
     for name, qs in sets.items():
@@ -209,18 +217,12 @@ def cmd_judge(args) -> None:
             it = dict(q)
             it.update({"world_text": worlds[q["world_id"]]["world_text"], "turns": debates[q["question_id"]]["turns"]})
             items.append(it)
-    arms = [a for a in ARMS if a != "top2" or not args.no_top2]
-    top2 = {}
-    if "top2" in arms:
-        sel = s.run([selector_request(it) for it in items], mode=args.mode)
-        top2 = {it["question_id"]: parse_selector(sel[selector_request(it).custom_id].text) for it in items
-                if selector_request(it).custom_id in sel}
     jt = {}
     for it in items:
         for j in args.judges.split(","):
-            for arm in arms:
+            for arm in ARMS:
                 for o in ORDERS:
-                    jt[(it["question_id"], j, arm, o)] = judge_task(it, j, arm, o, args.oracle, args.gate, top2.get(it["question_id"]))
+                    jt[(it["question_id"], j, arm, o)] = judge_task(it, j, arm, o, args.oracle, args.gate)
     judged, jfailed = drive(s, jt, mode=args.mode, workers=args.workers, progress=_progress)
     _write_jsonl(RUN_ROOT / stage / "judgments.jsonl", judged.values())
     print(f"{stage}: debates {len(debates)}, judgments {len(judged)} (failed {len(jfailed)}), spend ${s.spent(stage):.2f}")
@@ -229,15 +231,37 @@ def cmd_judge(args) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch")
-    v = sub.add_parser("validate"); v.add_argument("--mode", default="batch")
-    sub.add_parser("split")
+    a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch", choices=("batch", "live"))
+    a.add_argument("--quality-check", action="store_true", help="bounded authoring check, at most eight worlds")
+    v = sub.add_parser("validate"); v.add_argument("--mode", default="batch", choices=("batch", "live"))
+    sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
-    j.add_argument("--mode", default="batch"); j.add_argument("--judges", default=",".join(JUDGES))
+    j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
-    j.add_argument("--no-top2", action="store_true"); j.add_argument("--limit", type=int, default=0); j.add_argument("--workers", type=int, default=16)
+    j.add_argument("--limit", type=int, default=0); j.add_argument("--workers", type=int, default=16)
+    pf = sub.add_parser("preflight")
+    pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
+    pf.add_argument("--workers", type=int, default=8)
+    pf.add_argument("--mode", choices=("batch", "live"), default="batch")
+    pf.add_argument("--quality-check", action="store_true")
     args = ap.parse_args()
+    if args.cmd == "preflight":
+        report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report["ready"] else 2)
+    if args.cmd != "split":
+        stage = args.split if args.cmd == "judge" else args.cmd
+        workers = args.workers if args.cmd == "judge" else (8 if args.cmd == "author" else 16)
+        mode = getattr(args, "mode", "live")
+        quality = getattr(args, "quality_check", False)
+        if quality:
+            worlds = A.world_ids(args.worlds)
+            if args.only:
+                worlds = [w for w in worlds if w[0] in args.only.split(",")]
+            if not 1 <= len(worlds) <= 8:
+                raise ValueError("quality check must request between one and eight worlds")
+        preflight.require(stage, RUN_ROOT, workers, mode, quality)
     {"author": cmd_author, "validate": cmd_validate, "split": cmd_split, "canary": cmd_canary, "judge": cmd_judge}[args.cmd](args)
 
 

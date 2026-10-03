@@ -1,0 +1,102 @@
+{
+ "low": {
+  "authoring (160 worlds)": {
+   "anthropic": 45.0,
+   "openai": 45.0
+  },
+  "validation": {
+   "anthropic": 105.0,
+   "openai": 105.0,
+   "together": 64.0
+  },
+  "debater canary": {
+   "anthropic": 28.0,
+   "openai": 27.0,
+   "together": 3.0
+  },
+  "pilot": {
+   "anthropic": 363.0,
+   "openai": 221.0,
+   "together": 168.0
+  },
+  "main": {
+   "anthropic": 2021.0,
+   "openai": 1230.0,
+   "together": 936.0
+  },
+  "oracle selection": {
+   "anthropic": 5.0,
+   "openai": 5.0
+  },
+  "TOTAL by provider": {
+   "anthropic": 2567.0,
+   "openai": 1634.0,
+   "together": 1172.0
+  },
+  "TOTAL": 5373.0,
+  "main_question_capacity_with_reserve": 1068
+ },
+ "high": {
+  "authoring (160 worlds)": {
+   "anthropic": 65.0,
+   "openai": 65.0
+  },
+  "validation": {
+   "anthropic": 235.0,
+   "openai": 235.0,
+   "together": 105.0
+  },
+  "debater canary": {
+   "anthropic": 64.0,
+   "openai": 63.0,
+   "together": 3.0
+  },
+  "pilot": {
+   "anthropic": 711.0,
+   "openai": 379.0,
+   "together": 253.0
+  },
+  "main": {
+   "anthropic": 3953.0,
+   "openai": 2108.0,
+   "together": 1410.0
+  },
+  "oracle selection": {
+   "anthropic": 11.0,
+   "openai": 11.0
+  },
+  "TOTAL by provider": {
+   "anthropic": 5038.0,
+   "openai": 2861.0,
+   "together": 1772.0
+  },
+  "TOTAL": 9671.0,
+  "main_question_capacity_with_reserve": 458
+ },
+ "assumptions": {
+  "main_questions": 1068,
+  "pilot_questions": 192,
+  "judges": [
+   "luna",
+   "terra",
+   "sol",
+   "haiku",
+   "sonnet",
+   "opus",
+   "llama70",
+   "qwen38"
+  ],
+  "budgets": [
+   0,
+   1,
+   2,
+   6
+  ],
+  "top2": false,
+  "canary_mode": "live",
+  "main_mode": "batch",
+  "reserve_usd": 590,
+  "rates_checked": "2026-09-30",
+  "measured_forecast": false
+ }
+}

@@ -146,7 +146,11 @@ def parse_oracle(text: str) -> str:
 
 
 def retain_decision(question_id: str, author: str, responses: dict[str, Response], n_facts: int) -> dict:
-    """All four validator answers match the key, none finds a reversing reading or calls the other side equally defensible, and every facts_required item checks YES."""
+    """All validators match the key, reject equal defensibility, and every fact checks YES.
+
+    Reversing-reading flags are recorded by the CLI for the robustness analysis;
+    the approved design does not use them as a retention filter.
+    """
     reasons = []
     for v in validators_for(author):
         for order, key in (("key_a", "A"), ("key_b", "B")):
@@ -159,8 +163,6 @@ def retain_decision(question_id: str, author: str, responses: dict[str, Response
                 reasons.append(f"{v}:{order}:answer={p['answer']}")
             if p["other_equally_defensible"] != "no":
                 reasons.append(f"{v}:{order}:defensible={p['other_equally_defensible']}")
-            if p["reversing_reading"] != "no":
-                reasons.append(f"{v}:{order}:reversing={p['reversing_reading']}")
     for j in range(n_facts):
         r = responses.get(f"factcheck:{question_id}:{j}")
         if r is None or r.status != "ok" or parse_oracle(r.text) != "YES":
@@ -184,6 +186,8 @@ def split_worlds(world_rows: list[dict], n_canary: int = 4, n_pilot: int = 16, s
 
 
 def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed: str = "final-phase-main-v1") -> list[dict]:
+    if not 1 <= cap <= 1068:
+        raise ValueError("main question count must be between 1 and 1068")
     rng = random.Random(seed)
     by_world: dict[str, list[dict]] = {}
     for q in retained:
