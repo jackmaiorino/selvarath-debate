@@ -34,11 +34,14 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
     return out
 
 
-def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0) -> Request:
+def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0,
+                   max_tokens: int = AUTHOR_MAX_TOKENS) -> Request:
     user = P.AUTHOR_USER.format(n_questions=n_questions, seed_hint=seed_hint, example=example_block(),
                                 task_types=", ".join(P.TASK_TYPES))
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")
-    return Request(cid, author, P.AUTHOR_SYSTEM, (("user", user),), AUTHOR_MAX_TOKENS)
+    if max_tokens != AUTHOR_MAX_TOKENS:
+        cid += f":t{max_tokens}"
+    return Request(cid, author, P.AUTHOR_SYSTEM, (("user", user),), max_tokens)
 
 
 def parse_json_object(text: str) -> dict | None:

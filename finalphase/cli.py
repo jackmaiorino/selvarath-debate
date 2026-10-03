@@ -58,17 +58,22 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 def cmd_author(args) -> None:
     s = _store("author")
+    max_tokens = getattr(args, "max_tokens", A.AUTHOR_MAX_TOKENS)
+    attempts = getattr(args, "attempts", 2)
+    spend_cap = getattr(args, "spend_cap", None)
+    if spend_cap is not None:
+        s.cap = min(s.cap, spend_cap)
     plan = A.world_ids(args.worlds)
     if args.only:
         keep = set(args.only.split(","))
         plan = [p for p in plan if p[0] in keep]
     (BENCH / "worlds").mkdir(parents=True, exist_ok=True)
     todo = [p for p in plan if not (BENCH / "worlds" / f"{p[0]}.json").exists()]
-    for attempt in (0, 1):
+    for attempt in range(attempts):
         if not todo:
             break
-        reqs = {A.author_request(w, a, h, attempt=attempt).custom_id: (w, a, h) for w, a, h in todo}
-        out = s.run([A.author_request(w, a, h, attempt=attempt) for w, a, h in todo], mode=args.mode, workers=8)
+        reqs = {A.author_request(w, a, h, attempt=attempt, max_tokens=max_tokens).custom_id: (w, a, h) for w, a, h in todo}
+        out = s.run([A.author_request(w, a, h, attempt=attempt, max_tokens=max_tokens) for w, a, h in todo], mode=args.mode, workers=8)
         retry = []
         for cid, (w, a, h) in reqs.items():
             r = out.get(cid)
@@ -82,6 +87,8 @@ def cmd_author(args) -> None:
         todo = retry
     print(f"authored {len(list((BENCH / 'worlds').glob('*.json')))} worlds; unusable after retry: {[w for w, _, _ in todo]}; "
           f"stage spend ${s.spent('author'):.2f}")
+    if todo:
+        raise RuntimeError(f"world authoring incomplete after {attempts} attempts: {[w for w, _, _ in todo]}")
 
 
 def _worlds() -> list[dict]:
@@ -233,6 +240,9 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch", choices=("batch", "live"))
     a.add_argument("--quality-check", action="store_true", help="bounded authoring check, at most eight worlds")
+    a.add_argument("--max-tokens", type=int, choices=(32000, 64000), default=A.AUTHOR_MAX_TOKENS)
+    a.add_argument("--attempts", type=int, choices=(1, 2), default=2)
+    a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
     v = sub.add_parser("validate"); v.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
@@ -255,6 +265,11 @@ def main() -> None:
         workers = args.workers if args.cmd == "judge" else (8 if args.cmd == "author" else 16)
         mode = getattr(args, "mode", "live")
         quality = getattr(args, "quality_check", False)
+        if args.cmd == "author":
+            if args.attempts != 2 and not quality:
+                raise ValueError("a single authoring attempt is only available for a bounded quality check")
+            if args.spend_cap is not None and (not quality or not 0 < args.spend_cap <= STAGE_CAPS["author"]):
+                raise ValueError("a quality-check spend cap must be positive and cannot exceed the author-stage cap")
         if quality:
             worlds = A.world_ids(args.worlds)
             if args.only:

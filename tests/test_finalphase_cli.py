@@ -93,6 +93,51 @@ def test_reversal_flags_are_descriptive_and_equal_defensibility_rejects():
     assert not a.retain_decision(qid, "fable", responses, 1)["retained"]
 
 
+def test_authoring_reports_failure_if_worlds_remain_unusable(tmp_path, monkeypatch):
+    for provider in ("anthropic", "openai"):
+        monkeypatch.setitem(store.LIVE, provider,
+            lambda req, m: Response(req.custom_id, m.model_id, "truncated", '{"world_text":'))
+    monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
+    monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    with pytest.raises(RuntimeError, match="incomplete after 2 attempts"):
+        cli.cmd_author(types.SimpleNamespace(worlds=2, only=None, mode="live"))
+    s = store.Store(tmp_path / "author.db", "author", cli.STAGE_CAPS["author"])
+    assert s._q("SELECT COUNT(*) FROM calls")[0][0] == 4
+    assert not list((tmp_path / "bench/worlds").glob("*.json"))
+
+
+def test_author_budget_probe_keeps_prompts_and_uses_distinct_ids():
+    from finalphase.authoring import author_request
+
+    original = author_request("W001", "fable", "river delta")
+    probe = author_request("W001", "fable", "river delta", max_tokens=64000)
+    assert original.custom_id == "author:W001:fable" and probe.custom_id != original.custom_id
+    assert (original.system, original.messages, original.model, original.effort) == (
+        probe.system, probe.messages, probe.model, probe.effort)
+    assert probe.max_tokens == 64000
+
+
+def test_author_probe_respects_one_attempt_and_lower_spend_cap(tmp_path, monkeypatch):
+    calls = []
+
+    def truncate(req, model):
+        calls.append(req)
+        return Response(req.custom_id, model.model_id, "truncated", "", cost=0.01)
+
+    monkeypatch.setitem(store.LIVE, "anthropic", truncate)
+    monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
+    monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    ns = types.SimpleNamespace(worlds=1, only=None, mode="live", max_tokens=64000, attempts=1, spend_cap=4)
+    with pytest.raises(RuntimeError, match="incomplete after 1 attempts"):
+        cli.cmd_author(ns)
+    assert len(calls) == 1 and calls[0].max_tokens == 64000
+    ns.spend_cap = 0.02
+    ns.max_tokens = 32000
+    with pytest.raises(store.CapExceeded):
+        cli.cmd_author(ns)
+    assert len(calls) == 1
+
+
 def test_cost_reduction_is_a_deterministic_prefix_without_changing_world_cap():
     from finalphase.authoring import sample_main
 
