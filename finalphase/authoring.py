@@ -13,6 +13,7 @@ from .providers import Request, Response
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHOR_MAX_TOKENS = 32000
+AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 64000, "astra": 32000}
 VALIDATOR_MAX_TOKENS = 4000
 LENGTH_RATIO_MAX = 1.25
 SIGNAL_WORDS = re.compile(r"\b(correct|correctly|actually|clearly|obviously|only|in fact|misleading|wrongly)\b", re.I)
@@ -35,7 +36,9 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
 
 
 def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0,
-                   max_tokens: int = AUTHOR_MAX_TOKENS) -> Request:
+                   max_tokens: int | None = None) -> Request:
+    if max_tokens is None:
+        max_tokens = AUTHOR_MAX_TOKENS_BY_MODEL[author]
     user = P.AUTHOR_USER.format(n_questions=n_questions, seed_hint=seed_hint, example=example_block(),
                                 task_types=", ".join(P.TASK_TYPES))
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")

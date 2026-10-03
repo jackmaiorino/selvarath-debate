@@ -109,12 +109,21 @@ def test_authoring_reports_failure_if_worlds_remain_unusable(tmp_path, monkeypat
 def test_author_budget_probe_keeps_prompts_and_uses_distinct_ids():
     from finalphase.authoring import author_request
 
-    original = author_request("W001", "fable", "river delta")
+    original = author_request("W001", "fable", "river delta", max_tokens=32000)
     probe = author_request("W001", "fable", "river delta", max_tokens=64000)
     assert original.custom_id == "author:W001:fable" and probe.custom_id != original.custom_id
     assert (original.system, original.messages, original.model, original.effort) == (
         probe.system, probe.messages, probe.model, probe.effort)
     assert probe.max_tokens == 64000
+
+
+def test_author_defaults_use_the_measured_allowance_only_for_fable():
+    from finalphase.authoring import author_request
+
+    fable = author_request("W001", "fable", "river delta")
+    astra = author_request("W002", "astra", "river delta")
+    assert fable.max_tokens == 64000 and fable.custom_id.endswith(":t64000")
+    assert astra.max_tokens == 32000 and astra.custom_id == "author:W002:astra"
 
 
 def test_author_probe_respects_one_attempt_and_lower_spend_cap(tmp_path, monkeypatch):

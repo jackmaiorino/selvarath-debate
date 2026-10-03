@@ -1,7 +1,7 @@
 {
  "low": {
   "authoring (160 worlds)": {
-   "anthropic": 45.0,
+   "anthropic": 91.0,
    "openai": 45.0
   },
   "validation": {
@@ -29,16 +29,16 @@
    "openai": 5.0
   },
   "TOTAL by provider": {
-   "anthropic": 2567.0,
+   "anthropic": 2613.0,
    "openai": 1634.0,
    "together": 1172.0
   },
-  "TOTAL": 5373.0,
-  "main_question_capacity_with_reserve": 1068
+  "TOTAL": 5419.0,
+  "main_question_capacity_with_reserve": 1065
  },
  "high": {
   "authoring (160 worlds)": {
-   "anthropic": 65.0,
+   "anthropic": 137.0,
    "openai": 65.0
   },
   "validation": {
@@ -66,12 +66,12 @@
    "openai": 11.0
   },
   "TOTAL by provider": {
-   "anthropic": 5038.0,
+   "anthropic": 5110.0,
    "openai": 2861.0,
    "together": 1772.0
   },
-  "TOTAL": 9671.0,
-  "main_question_capacity_with_reserve": 458
+  "TOTAL": 9743.0,
+  "main_question_capacity_with_reserve": 448
  },
  "assumptions": {
   "main_questions": 1068,
@@ -96,6 +96,18 @@
   "canary_mode": "live",
   "main_mode": "batch",
   "reserve_usd": 590,
+  "author_output_tokens": {
+   "low": {
+    "fable": 41000,
+    "astra": 22000
+   },
+   "high": {
+    "fable": 64000,
+    "astra": 32000
+   }
+  },
+  "observed_author_overhead_usd": 7.5128,
+  "author_calibration_date": "2026-10-03",
   "rates_checked": "2026-09-30",
   "measured_forecast": false
  }

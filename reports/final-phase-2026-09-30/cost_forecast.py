@@ -21,9 +21,11 @@ WORLD = 1800          # tokens, ~1,200-word world
 TRANSCRIPT = 4400     # tokens, 6 uncapped turns of ~550 words
 QPOS = 250            # question and both positions
 SC = {
-    "low": dict(deb_reason=1000, q_out=600, v_out=1000, oracle_out=300, val_out=2000, author_out=22000, grow=350),
-    "high": dict(deb_reason=4000, q_out=1500, v_out=2500, oracle_out=1000, val_out=5000, author_out=32000, grow=350),
+    "low": dict(deb_reason=1000, q_out=600, v_out=1000, oracle_out=300, val_out=2000, author_out=22000, fable_author_out=41000, grow=350),
+    "high": dict(deb_reason=4000, q_out=1500, v_out=2500, oracle_out=1000, val_out=5000, author_out=32000, fable_author_out=64000, grow=350),
 }
+# Eight truncated batch calls plus the live probe's premium over its batch cost.
+OBSERVED_AUTHOR_OVERHEAD_USD = 6.47839 + 2.06882 / 2
 QWEN_MULT = 2.0
 LIGHT = {"haiku": 0.4, "llama70": 0.3}  # non-reasoning judges write much less
 J8 = ["luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38"]
@@ -90,7 +92,9 @@ def forecast(name, main_questions=1068):
     stages = {}
     t = {}
     for a in ("fable", "astra"):
-        add(t, a, 80 * c(a, 2500, s["author_out"]))
+        author_out = s["fable_author_out"] if a == "fable" else s["author_out"]
+        add(t, a, 80 * c(a, 2500, author_out))
+    add(t, "fable", OBSERVED_AUTHOR_OVERHEAD_USD)
     stages["authoring (160 worlds)"] = t
     t = {}
     cands = 160 * 12 * 0.9
@@ -144,6 +148,9 @@ def main():
     out["assumptions"] = {"main_questions": args.main_questions, "pilot_questions": 192,
                           "judges": J8, "budgets": [0, 1, 2, 6], "top2": False,
                           "canary_mode": "live", "main_mode": "batch", "reserve_usd": RESERVE_USD,
+                          "author_output_tokens": {name: {"fable": s["fable_author_out"], "astra": s["author_out"]} for name, s in SC.items()},
+                          "observed_author_overhead_usd": OBSERVED_AUTHOR_OVERHEAD_USD,
+                          "author_calibration_date": "2026-10-03",
                           "rates_checked": "2026-09-30", "measured_forecast": False}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8", newline="\n")
