@@ -1,3 +1,6 @@
+import re
+from types import SimpleNamespace
+
 import pytest
 
 from finalphase import providers, store
@@ -95,6 +98,49 @@ def test_batch_reconnects_after_restart(tmp_path, monkeypatch):
     out = s.run([_req(1), _req(2)], mode="batch", poll_s=0)
     assert submitted == [["id1", "id2"]]
     assert out["id1"].text == "a" and out["id2"].text == "live"
+
+
+def test_anthropic_batch_roundtrip_preserves_ids_after_restart(tmp_path, monkeypatch):
+    submitted, polls = [], {"n": 0}
+
+    def create(*, requests):
+        assert all(re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", r["custom_id"]) for r in requests)
+        assert len({r["custom_id"] for r in requests}) == len(requests)
+        submitted.append(requests)
+        return SimpleNamespace(id="b1")
+
+    def retrieve(bid):
+        assert bid == "b1"
+        polls["n"] += 1
+        if polls["n"] == 1:
+            raise KeyboardInterrupt
+        return SimpleNamespace(processing_status="ended", model_dump=lambda **kw: {"processing_status": "ended"})
+
+    def results(bid):
+        for i, request in reversed(list(enumerate(submitted[0]))):
+            body = {"content": [{"type": "text", "text": f"answer {i}"}], "stop_reason": "end_turn",
+                    "usage": {"input_tokens": 10, "output_tokens": 5}}
+            message = SimpleNamespace(model_dump=lambda body=body: body)
+            yield SimpleNamespace(custom_id=request["custom_id"],
+                                  result=SimpleNamespace(type="succeeded", message=message))
+
+    client = SimpleNamespace(messages=SimpleNamespace(batches=SimpleNamespace(
+        create=create, retrieve=retrieve, results=results)))
+    monkeypatch.setattr(providers, "_anthropic_client", lambda: client)
+    monkeypatch.setitem(store.LIVE, "anthropic", lambda *args: pytest.fail("completed batch must not fall back to live"))
+    ids = ["author:W001:fable", "judge:" + "x" * 90 + ":a", "judge:" + "x" * 90 + ":b"]
+    requests = [Request(cid, "fable", "sys", (("user", "hello"),), 100) for cid in ids]
+    s = Store(tmp_path / "s.db", "author", 10)
+    with pytest.raises(KeyboardInterrupt):
+        s.run(requests, mode="batch", poll_s=0)
+    s.db.close()
+    resumed = Store(tmp_path / "s.db", "author", 10)
+    out = resumed.run(requests, mode="batch", poll_s=0)
+    assert len(submitted) == 1
+    assert set(out) == set(ids)
+    assert all(out[cid].custom_id == cid and out[cid].text == f"answer {i}" for i, cid in enumerate(ids))
+    resumed.run(requests, mode="batch", poll_s=0)
+    assert len(submitted) == 1
 
 
 def test_openai_parse_incomplete_is_truncated():

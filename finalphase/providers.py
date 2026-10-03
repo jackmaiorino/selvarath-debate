@@ -7,6 +7,7 @@ Transport errors raise TransportError and are retried by the runner.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -63,6 +64,11 @@ class Response:
     provider_id: str = ""
     detail: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+
+
+def batch_request_id(custom_id: str, provider: str) -> str:
+    """Keep study IDs in the store and use valid IDs on Anthropic's batch API."""
+    return hashlib.sha256(custom_id.encode("utf-8")).hexdigest() if provider == "anthropic" else custom_id
 
 
 # ---------------------------------------------------------------- OpenAI
@@ -244,7 +250,7 @@ def anthropic_live(req: Request, m: ModelSpec) -> Response:
 
 def anthropic_batch_submit(reqs: list[Request], m: ModelSpec, label: str) -> str:
     b = _anthropic_client().messages.batches.create(
-        requests=[{"custom_id": r.custom_id, "params": _anthropic_params(r, m)} for r in reqs]
+        requests=[{"custom_id": batch_request_id(r.custom_id, "anthropic"), "params": _anthropic_params(r, m)} for r in reqs]
     )
     return b.id
 

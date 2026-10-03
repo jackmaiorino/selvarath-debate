@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from .models import spec
-from .providers import BATCH, LIVE, Request, Response, TransportError
+from .providers import BATCH, LIVE, Request, Response, TransportError, batch_request_id
 
 MEASURED = ("ok", "truncated", "refusal", "error")
 MAX_TRANSPORT_ATTEMPTS = 6
@@ -205,8 +205,9 @@ class Store:
                 results = collect(bid, spec(key))
                 ids = [row[0] for row in self._q("SELECT custom_id FROM calls WHERE batch_id=? AND status='submitted'", (bid,))]
                 for cid in ids:
-                    res = results.get(cid)
+                    res = results.get(cid, results.get(batch_request_id(cid, prov)))
                     if isinstance(res, Response):
+                        res.custom_id = cid
                         self._save(res, attempts_inc=0)
                     else:
                         self._mark(cid, "pending")

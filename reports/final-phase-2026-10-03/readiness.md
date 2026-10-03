@@ -1,6 +1,6 @@
 # Final-phase continuation, 2026-10-03
 
-The frontier authoring quality check has not started. Jack authorized continuation and confirmed 0/1/2/6, with query-budget coverage ahead of extra judge tiers. The Fable-selected arm is removed. Strong debaters and all eight judges remain in the prepared configuration; a measured pilot forecast determines the affordable main question count before measurement.
+The eight-world frontier authoring quality check is ready to retry after a rejected batch submission. Jack authorized continuation and confirmed 0/1/2/6, with query-budget coverage ahead of extra judge tiers. The Fable-selected arm is removed. Strong debaters and all eight judges remain in the prepared configuration; a measured pilot forecast determines the affordable main question count before measurement.
 
 ## Prepared and verified
 
@@ -9,7 +9,7 @@ The frontier authoring quality check has not started. Jack authorized continuati
 - `split --main-questions N` produces a reproducible reduced sample and refuses to rewrite the split once main requests are registered.
 - The supported `python -m finalphase.cli` entrypoint refuses paid dispatch without credentials, successful provider smoke checks and a current run manifest. Substantial stages also require serial/parallel completed-work throughput and placement checks. Main additionally requires the canary, oracle, pre-registration, measured forecast and funding checks. A bounded authoring quality check requests at most eight worlds.
 - The $200 author, $200 validation, $60 canary, $650 pilot and $4,300 main stage caps plus the $590 reserve total $6,000.
-- Affected final-phase tests: 22 passed. The focused end-to-end test covers authoring, validation, splits, capped and uncapped canary debates, all six judge arms, query rejection accounting and replay. No live frontier study result is implied.
+- Affected final-phase tests: 23 passed. The focused end-to-end test covers authoring, validation, splits, capped and uncapped canary debates, all six judge arms, query rejection accounting and replay. The batch regression covers Anthropic's ID constraints, out-of-order collection and restart without resubmission. No live frontier study result is implied.
 
 ## Cost, before measurement
 
@@ -25,13 +25,14 @@ At these assumptions, all eight judges and all query comparisons fit with 1,068 
 ## Observed blockers and placement
 
 - Jack reported adding $10 to each frontier account for the eight-world quality check. At 15:52 UTC on October 3, the planned Astra endpoint completed a real access request for $0.00041. The earlier Luna/Astra credit failures are resolved for the Astra authoring role; no claim of main-phase funding reconciliation follows from this top-up.
-- The 15:52 UTC Anthropic Fable recheck still returned HTTP 400 because the key is not scoped to a workspace and requires an `anthropic-workspace-id` header. `ANTHROPIC_WORKSPACE_ID` was not configured; the earlier read-only List Workspaces request returned HTTP 403 `permission_error`. The provider adapter passes that environment variable as a default header for both live and batch requests. Jack must supply the intended workspace ID or use a workspace-scoped key before access can be verified. See [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication).
+- Jack supplied the intended Anthropic workspace ID. It is saved in the Windows user environment and passed as a default header for live and batch requests. At 16:27 UTC, the planned Fable endpoint completed its access request for $0.00042. All three providers now pass the recorded access checks. See [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication).
+- The first authoring batch was rejected because Anthropic forbids colons in `custom_id`. The database contains eight pending requests, zero accepted batches and $0 authoring spend. Anthropic batch IDs now use stable SHA-256 strings, and collection restores the original study IDs before saving. Prompts, planned worlds and request content are unchanged. See [Anthropic batch request constraints](https://platform.claude.com/docs/en/api/messages/batches/create).
 - Together DeepSeek Pro completed its smoke request successfully at an observed token cost of $0.00009636. The external run root contains `access_checks.json` and `anthropic_workspace_lookup.json`, and the small manifest records the observed checks. No key values were printed or saved in the repository.
 - Funding reconciliation remains outstanding before main. The September 13 reconstructed remainder is historical, not a current all-provider balance.
 - Jack's PC has 24 logical CPUs and 128 GiB RAM. The current MTG Stage1 reservation and other owners' work are preserved; no heavy local compute or GPU allocation was started.
 - Both Git OpenSSH and Windows OpenSSH read-only HaleysPC probes stopped at host-key verification. SSH trust was not weakened, and remote hardware availability is not claimed.
 - A read-only RunPod inventory found one running Spellbench allocation and five exited Pods. None was changed, and no paid compute was allocated for this study.
-- Representative serial/parallel frontier throughput is not qualified while account access is unavailable. Fake-provider tests are correctness evidence, not a throughput qualification. The substantial stage launcher rejects missing evidence.
+- Representative serial/parallel frontier throughput is not yet qualified. Fake-provider tests are correctness evidence, not a throughput qualification. The substantial stage launcher rejects missing evidence.
 
 ## Resume
 
