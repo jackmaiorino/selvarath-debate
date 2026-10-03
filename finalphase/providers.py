@@ -184,7 +184,9 @@ def openai_batch_collect(batch_id: str, m: ModelSpec) -> dict[str, Response | Tr
 def _anthropic_client():
     import anthropic
 
-    return anthropic.Anthropic(max_retries=0, timeout=900)
+    workspace_id = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+    headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+    return anthropic.Anthropic(max_retries=0, timeout=900, default_headers=headers)
 
 
 def _anthropic_params(req: Request, m: ModelSpec) -> dict[str, Any]:

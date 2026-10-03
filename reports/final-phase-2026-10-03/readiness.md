@@ -24,8 +24,9 @@ At these assumptions, all eight judges and all query comparisons fit with 1,068 
 
 ## Observed blockers and placement
 
-- An October 3 OpenAI Responses smoke call using the planned GPT-5.6 Luna endpoint and medium effort returned HTTP 429 `credit_balance_exhausted`. An earlier minimal-effort probe was rejected as unsupported and was corrected; neither produced a model result.
-- `ANTHROPIC_API_KEY` was absent from both the process and Windows user environment at the latest check. `OPENAI_API_KEY` and `TOGETHER_API_KEY` were present. No key values were printed or saved in the repository.
+- At 14:31 UTC on October 3, all three API keys were present in the Windows user environment. Real requests to the planned Luna and Astra endpoints returned HTTP 429 `credit_balance_exhausted`. OpenAI funding remains necessary before the authoring check.
+- The Anthropic Fable request returned HTTP 400 because the key is not scoped to a workspace and requires an `anthropic-workspace-id` header. `ANTHROPIC_WORKSPACE_ID` was not configured; a read-only List Workspaces request returned HTTP 403 `permission_error`. The provider adapter now passes that environment variable as a default header for both live and batch requests. Jack must supply the intended workspace ID or use a workspace-scoped key before access can be verified. See [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication).
+- Together DeepSeek Pro completed its smoke request successfully at an observed token cost of $0.00009636. The external run root contains `access_checks.json` and `anthropic_workspace_lookup.json`, and the small manifest records the observed checks. No key values were printed or saved in the repository.
 - Funding reconciliation remains outstanding before main. The September 13 reconstructed remainder is historical, not a current all-provider balance.
 - Jack's PC has 24 logical CPUs and 128 GiB RAM. The current MTG Stage1 reservation and other owners' work are preserved; no heavy local compute or GPU allocation was started.
 - Both Git OpenSSH and Windows OpenSSH read-only HaleysPC probes stopped at host-key verification. SSH trust was not weakened, and remote hardware availability is not claimed.
