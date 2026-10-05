@@ -1,6 +1,6 @@
 # Final-phase continuation, 2026-10-03
 
-Jack authorized a prospective Fable authoring-only length amendment on October 5. The engineering path now rejects worlds outside 1,000 to 1,500 words, checks all required fields, twelve questions and six task types, and explicitly preserves invalid saved worlds before replacement. Four single-attempt batch corrections reserve $6.535285 against the $13.743585 already spent, for maximum cumulative authoring spend of $20.278870 within the $21.75 cap. The first corrected W001 generation must comply before the other three are dispatched. Astra is unchanged. Independent answer-key validation, substantial authoring, canary, pilot and main remain unstarted. The historical precheck below is retained as provenance.
+The corrected Fable W001 probe complies at 1,469 words, with twelve questions and all required fields and task types. It passes 11/12 mechanical checks; W001-Q01 is rejected for answer-length imbalance (48/36 words). Its cost is $1.507730, making cumulative authoring spend $15.251315. Only the remaining three noncompliant Fable worlds have now been submitted, after reserving their $4.901495 maximum batch cost; maximum cumulative spend is $20.152810 within the $21.75 cap. Astra is unchanged. Independent answer-key validation, substantial authoring, canary, pilot and main remain unstarted. The historical precheck below is retained as provenance.
 
 ## Prepared and verified
 
@@ -97,3 +97,25 @@ was accepted. A worktree-owned environment was then created with
 The finite helper permits that proven unsent request to resume and refuses
 unsettled or uncertain provider state. Two regression tests cover this recovery
 and the rule that a failed W001 probe prevents the remaining dispatch.
+
+## Corrected probe checkpoint, 2026-10-05
+
+W001 passed admission before the remaining three requests were dispatched at
+21:04:35 UTC. Its fresh request ID is `author:W001:fable:t64000:length-v2`, with
+high effort and a 64,000-token allowance. The batch response used 2,186 input and
+59,872 output tokens and cost $1.507730. The corrected artifact SHA-256 is
+`11c91046d6695713041a40c3b8c70b648d80c5cb74bba531b88cc9181e6aa44b`.
+The original W001 artifact retains its original hash in the preserved snapshot.
+W001-Q01 fails the unchanged mechanical 1.25 length-ratio rule at 48/36 words.
+It has not been repaired or independently validated. Remaining Fable calls use
+one reserved batch attempt each; their maximum cumulative author spend is
+$20.152810. Their collection and admission are still pending.
+
+GitHub CI at code head `99de891` completed: 3,739 passed, 115 failed, 145 skipped
+in 650.69 seconds. All failures are in ten unchanged historical Phase 3 test
+files; none is in final-phase tests. Failures include Windows-only absolute-path
+assumptions and missing private recovery/provider artifacts. Type checks were
+skipped after that test failure. The log and compact failure inventory are saved
+privately as `ci_99de891_failed.log` and `ci_99de891_summary.json`. This is a failed
+full-suite check, distinct from the 44 passing affected tests. The draft PR stays
+open; no failed check is bypassed and no frozen historical evidence is rewritten.
