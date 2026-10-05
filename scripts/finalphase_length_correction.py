@@ -65,7 +65,10 @@ def accounting(manifest: dict, calls: list[dict]) -> dict:
 
 def reserve(manifest: dict) -> dict:
     calls, batches = ledger()
-    if any(c["status"] not in store.MEASURED for c in calls) or any(not b["collected"] for b in batches):
+    def unsent(c: dict) -> bool:
+        return (c["status"] == "pending" and c["attempts"] == 0 and c["batch_id"] is None
+                and c["response"] is None and c["cost"] == 0)
+    if any(c["status"] not in store.MEASURED and not unsent(c) for c in calls) or any(not b["collected"] for b in batches):
         raise RuntimeError("unsettled author calls or batches require reconciliation before correction")
     account = accounting(manifest, calls)
     requests = []
@@ -79,7 +82,7 @@ def reserve(manifest: dict) -> dict:
         cached = next((c for c in calls if c["custom_id"] == req.custom_id), None)
         if cached and cached["req_hash"] != hashlib.sha256(req.to_json().encode()).hexdigest():
             raise RuntimeError("correction request changed under an existing ID")
-        if cached:
+        if cached and not unsent(cached):
             raise RuntimeError(f"cached correction for {w} failed admission; a newly reserved retry is required")
         requests.append({"world_id": w, "custom_id": req.custom_id,
                          "maximum_batch_cost_usd": store.estimate_max_cost(req, True),

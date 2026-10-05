@@ -74,11 +74,11 @@ and disables automatic live fallback. One attempt per world is funded; retries
 require a new reservation. Original artifacts and the complete ledger are
 snapshotted under `D:/finalphase-runs/final-phase-2026-10-03/preserved/pre-length-v2`.
 
-Affected tests: 42 passed. Type checks on the new admission, accounting/store and
+Affected tests: 44 passed. Type checks on the new admission, accounting/store and
 finite helper code pass; `cli.py` retains two pre-existing `Hashable` diagnostics
 in the unrelated canary/judge loops. The diff check passes. GitHub's previous
-head never ran tests: its test job was cancelled before any step; that result is
-not a passing CI check.
+head never ran tests: its test job did not acquire a hosted runner and was cancelled before any step;
+that result is not a passing CI check.
 
 After the correction, the exact supported command to prepare for broader
 authoring is `python -m finalphase.cli preflight --stage author --workers 8 --mode batch`.
@@ -88,3 +88,12 @@ serial/parallel throughput with placement checks in the current manifest.
 Independent validation's command is `python -m finalphase.cli validate --mode batch`;
 it also needs a compatible throughput receipt, sufficient provider funding and
 stage-cost reconciliation. None of these paid commands is run by this correction.
+
+The initial correction launcher failed before submission because the borrowed
+test environment had no Anthropic SDK. Its registered request remained pending
+with zero attempts, no batch ID, no response and zero cost. No provider request
+was accepted. A worktree-owned environment was then created with
+`uv sync --locked --python 3.13.5`, preserving all lockfile package versions.
+The finite helper permits that proven unsent request to resume and refuses
+unsettled or uncertain provider state. Two regression tests cover this recovery
+and the rule that a failed W001 probe prevents the remaining dispatch.
