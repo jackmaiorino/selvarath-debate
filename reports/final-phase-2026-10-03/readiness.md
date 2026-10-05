@@ -41,7 +41,7 @@ At these assumptions, all eight judges and all query comparisons fit with at mos
 
 ## Funded authoring resume, 2026-10-05
 
-Jack confirmed the requested additional $10 Anthropic top-up. Cumulative reported funding is $20 Anthropic and $10 OpenAI. The three outstanding Fable worlds resume at high effort with 64,000 output tokens, batch mode, one allowed retry each, and a lower cumulative author cap of $21.75. The six possible batch requests have a combined maximum estimate of $9.66105, within the calculated remaining credit. Overall phase caps and measurement gates are unchanged.
+Jack confirmed the requested additional $10 Anthropic top-up. Cumulative reported funding is $20 Anthropic and $10 OpenAI. The three outstanding Fable worlds resume at high effort with 64,000 output tokens, batch mode, one allowed retry each, and a lower cumulative author cap of $21.75. The six possible batch requests have a combined maximum estimate of about $9.66, within the calculated remaining credit. Overall phase caps and measurement gates are unchanged.
 
 The finite background collector uses the supported launcher and existing call store. Batch checks start at five minutes and back off to fifteen after two unchanged checks, resetting when completed-work counts change. It reconnects to recorded batches and saves the quality summary and manifest on exit. The authoritative live status is the existing author.db; the manifest records the process handle and final outcome. No recurring automation is created. Next action is review of the saved quality result when the collector finishes or reports an error.
 
