@@ -101,6 +101,30 @@ def test_batch_reconnects_after_restart(tmp_path, monkeypatch):
     assert out["id1"].text == "a" and out["id2"].text == "live"
 
 
+def test_batch_wait_backs_off_and_resets_when_completed_work_changes(tmp_path, monkeypatch):
+    waits, submitted = [], []
+    counts = iter((0, 0, 0, 0, 1, 1, 1, 2))
+
+    def submit(reqs, model, label):
+        submitted.append([r.custom_id for r in reqs])
+        return "b1"
+
+    def poll(batch_id):
+        completed = next(counts)
+        return ("ended" if completed == 2 else "in_progress"), {"request_counts": {"completed": completed}}
+
+    def collect(batch_id, model):
+        return {f"id{i}": Response(f"id{i}", model.model_id, "ok", "a", batch=True) for i in (1, 2)}
+
+    monkeypatch.setitem(store.BATCH, "openai", (submit, poll, collect))
+    monkeypatch.setattr(store.time, "sleep", waits.append)
+    s = Store(tmp_path / "s.db", "t", 10)
+    out = s.run([_req(1), _req(2)], mode="batch")
+    assert waits == [300, 300, 900, 900, 300, 300, 900]
+    assert submitted == [["id1", "id2"]] and set(out) == {"id1", "id2"}
+    assert s._q("SELECT status, collected FROM batches") == [("ended", 1)]
+
+
 def test_anthropic_batch_roundtrip_preserves_ids_after_restart(tmp_path, monkeypatch):
     submitted, polls = [], {"n": 0}
 

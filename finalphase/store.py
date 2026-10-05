@@ -119,7 +119,7 @@ class Store:
 
     # ------------------------------------------------------------ dispatch
     def run(self, reqs: Iterable[Request], mode: str = "live", workers: int = 8,
-            on_done: Callable[[Response], None] | None = None, poll_s: int = 60) -> dict[str, Response]:
+            on_done: Callable[[Response], None] | None = None, poll_s: int = 300) -> dict[str, Response]:
         reqs = list(reqs)
         for r in reqs:
             self._register(r)
@@ -195,11 +195,21 @@ class Store:
                     self._mark(r.custom_id, "submitted", batch_id=bid, attempts_inc=1)
                 pending_batches.add(bid)
                 self.log("batch_submit", f"{bid} {key} n={len(chunk)}")
+        snapshots = {}
+        unchanged = 0
         while pending_batches:
+            changed = False
             for bid in list(pending_batches):
                 prov, key = self._q("SELECT provider, model FROM batches WHERE batch_id=?", (bid,))[0]
                 _, poll, collect = BATCH[prov]
                 status, info = poll(bid)
+                snapshot = (status, json.dumps(info.get("request_counts", {}), sort_keys=True, default=str))
+                if snapshots.get(bid) != snapshot:
+                    snapshots[bid] = snapshot
+                    changed = True
+                    with self._lock:
+                        self.db.execute("UPDATE batches SET status=?, info=? WHERE batch_id=?",
+                                        (status, json.dumps({"request_counts": info.get("request_counts", {})}), bid))
                 if status != "ended":
                     continue
                 results = collect(bid, spec(key))
@@ -217,7 +227,9 @@ class Store:
                                     (json.dumps(info, default=str)[:20000], bid))
                 pending_batches.discard(bid)
             if pending_batches:
-                time.sleep(poll_s)
+                unchanged = 0 if changed else unchanged + 1
+                delay = min(poll_s * 3, max(poll_s, 900)) if unchanged >= 2 else poll_s
+                time.sleep(delay)
         # anything that came back as a transport failure is finished live
         retry = [Request(**_req_fields(json.loads(row[0]))) for row in self._q(
             "SELECT request FROM calls WHERE status='pending' AND stage=?", (self.stage,))]
