@@ -33,8 +33,8 @@ def _hash(req: Request) -> str:
 
 def estimate_max_cost(req: Request, batch: bool) -> float:
     m = spec(req.model)
-    chars = len(req.system) + sum(len(c) for _, c in req.messages)
-    tin = chars / 3.0 + 50
+    # A byte bound also covers unusually dense text; average chars/token is not a maximum.
+    tin = len(req.system.encode("utf-8")) + sum(len(c.encode("utf-8")) for _, c in req.messages) + 100
     c = (tin * m.price_in + req.max_tokens * m.price_out) / 1e6
     return c * (0.5 if batch and m.batch else 1.0)
 
@@ -119,7 +119,8 @@ class Store:
 
     # ------------------------------------------------------------ dispatch
     def run(self, reqs: Iterable[Request], mode: str = "live", workers: int = 8,
-            on_done: Callable[[Response], None] | None = None, poll_s: int = 300) -> dict[str, Response]:
+            on_done: Callable[[Response], None] | None = None, poll_s: int = 300,
+            allow_live_fallback: bool = True) -> dict[str, Response]:
         reqs = list(reqs)
         for r in reqs:
             self._register(r)
@@ -127,7 +128,7 @@ class Store:
         if todo:
             self._check_cap([r for r in todo if not self._in_flight(r.custom_id)], mode == "batch")
         if mode == "batch":
-            self._run_batch(todo, poll_s)
+            self._run_batch(todo, poll_s, allow_live_fallback)
         else:
             self._run_live(todo, workers, on_done)
         return {r.custom_id: x for r in reqs if (x := self.get(r.custom_id)) is not None}
@@ -169,7 +170,7 @@ class Store:
                 except TransportError:
                     pass
 
-    def _run_batch(self, todo: list[Request], poll_s: int) -> None:
+    def _run_batch(self, todo: list[Request], poll_s: int, allow_live_fallback: bool = True) -> None:
         # reconnect to batches already submitted for these ids
         pending_batches = {
             row[0] for row in self._q(
@@ -234,7 +235,7 @@ class Store:
         retry = [Request(**_req_fields(json.loads(row[0]))) for row in self._q(
             "SELECT request FROM calls WHERE status='pending' AND stage=?", (self.stage,))]
         retry = [r for r in retry if r.custom_id in {t.custom_id for t in todo}]
-        if retry:
+        if retry and allow_live_fallback:
             self._run_live(retry, 8, None)
 
 

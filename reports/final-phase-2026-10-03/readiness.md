@@ -1,6 +1,6 @@
 # Final-phase continuation, 2026-10-03
 
-All eight authoring precheck worlds are complete, with 94/96 mechanical question checks passing. All four Fable worlds exceed the requested 1,000 to 1,500 words (observed 1,628 to 1,782), so the quality review records a protocol deviation requiring resolution before broader benchmark generation. Independent answer-key validation and main have not started. Jack confirmed 0/1/2/6, prioritizing query-budget coverage over extra judge tiers. The Fable-selected arm is removed; strong debaters and all eight judges remain in the prepared configuration. A measured pilot forecast determines the affordable main question count before measurement.
+Jack authorized a prospective Fable authoring-only length amendment on October 5. The engineering path now rejects worlds outside 1,000 to 1,500 words, checks all required fields, twelve questions and six task types, and explicitly preserves invalid saved worlds before replacement. Four single-attempt batch corrections reserve $6.535285 against the $13.743585 already spent, for maximum cumulative authoring spend of $20.278870 within the $21.75 cap. The first corrected W001 generation must comply before the other three are dispatched. Astra is unchanged. Independent answer-key validation, substantial authoring, canary, pilot and main remain unstarted. The historical precheck below is retained as provenance.
 
 ## Prepared and verified
 
@@ -62,3 +62,29 @@ Batch checks run in the finite collector at five minutes, backing off to fifteen
 4. Validate the benchmark and conduct the debater canary, then the engineering/cost pilot and oracle qualification. Freeze question count, roster and pre-registration before main. Record funding reconciliation and actual measured forecast; do not inspect pilot verification effects to choose the cuts.
 
 The original Claude worktree was left unchanged. Continuation changes are on `codex/final-phase-next-stage` in `C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase-codex`.
+
+## Authorized length correction, 2026-10-05
+
+The prospective amendment is recorded in `authoring-length-amendment.md` and the
+existing run manifest before corrected requests. Fable remains at high effort
+and 64,000 tokens; Astra keeps its original prompts and 32,000 tokens. The finite
+`scripts/finalphase_length_correction.py` helper invokes the supported stage CLI,
+reserves all four batch maxima, gates the remaining three on W001 compliance,
+and disables automatic live fallback. One attempt per world is funded; retries
+require a new reservation. Original artifacts and the complete ledger are
+snapshotted under `D:/finalphase-runs/final-phase-2026-10-03/preserved/pre-length-v2`.
+
+Affected tests: 42 passed. Type checks on the new admission, accounting/store and
+finite helper code pass; `cli.py` retains two pre-existing `Hashable` diagnostics
+in the unrelated canary/judge loops. The diff check passes. GitHub's previous
+head never ran tests: its test job was cancelled before any step; that result is
+not a passing CI check.
+
+After the correction, the exact supported command to prepare for broader
+authoring is `python -m finalphase.cli preflight --stage author --workers 8 --mode batch`.
+The eventual authoring command is `python -m finalphase.cli author --worlds 160 --mode batch`.
+Broader authoring still requires explicit scope/funding and representative
+serial/parallel throughput with placement checks in the current manifest.
+Independent validation's command is `python -m finalphase.cli validate --mode batch`;
+it also needs a compatible throughput receipt, sufficient provider funding and
+stage-cost reconciliation. None of these paid commands is run by this correction.

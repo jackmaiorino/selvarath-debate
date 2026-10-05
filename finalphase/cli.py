@@ -67,23 +67,59 @@ def cmd_author(args) -> None:
     if args.only:
         keep = set(args.only.split(","))
         plan = [p for p in plan if p[0] in keep]
+        if keep != {p[0] for p in plan}:
+            raise ValueError("--only contains unknown world IDs")
     (BENCH / "worlds").mkdir(parents=True, exist_ok=True)
-    todo = [p for p in plan if not (BENCH / "worlds" / f"{p[0]}.json").exists()]
+    todo = []
+    for w, a, h in plan:
+        path = BENCH / "worlds" / f"{w}.json"
+        if not path.exists():
+            todo.append((w, a, h))
+            continue
+        try:
+            obj = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            obj = None
+        chk = A.world_check(obj)
+        if chk.ok and isinstance(obj, dict) and (obj.get("world_id"), obj.get("author"), obj.get("seed_hint")) == (w, a, h):
+            continue
+        print(f"{w}: saved world rejected: {chk.reasons or ['world_identity_mismatch']}", flush=True)
+        if not getattr(args, "replace_invalid", False):
+            raise RuntimeError(f"invalid saved world {w}; use --replace-invalid to preserve and regenerate it")
+        digest = A.hashlib.sha256(path.read_bytes()).hexdigest()
+        _preserve_bytes(BENCH / "versions" / digest / path.name, path.read_bytes())
+        todo.append((w, a, h))
+    # Reserve every permitted generation attempt before the first paid request.
+    reserve = [A.author_request(w, a, h, attempt=i, max_tokens=max_tokens)
+               for i in range(attempts) for w, a, h in todo]
+    s._check_cap([r for r in reserve if s.get(r.custom_id) is None], args.mode == "batch")
     for attempt in range(attempts):
         if not todo:
             break
         reqs = {A.author_request(w, a, h, attempt=attempt, max_tokens=max_tokens).custom_id: (w, a, h) for w, a, h in todo}
-        out = s.run([A.author_request(w, a, h, attempt=attempt, max_tokens=max_tokens) for w, a, h in todo], mode=args.mode, workers=8)
+        out = s.run([A.author_request(w, a, h, attempt=attempt, max_tokens=max_tokens) for w, a, h in todo],
+                    mode=args.mode, workers=8, allow_live_fallback=False)
         retry = []
         for cid, (w, a, h) in reqs.items():
             r = out.get(cid)
             obj = A.parse_json_object(r.text) if r and r.status == "ok" else None
-            if not obj or not obj.get("world_text") or not obj.get("questions"):
-                print(f"{w} ({a}) attempt {attempt}: unusable ({r.status if r else 'no response'})")
+            chk = A.world_check(obj)
+            if not chk.ok:
+                rejection = {"world_id": w, "author_call": cid, "attempt": attempt,
+                             "provider_status": r.status if r else "no_response", "reasons": chk.reasons}
+                with open(RUN_ROOT / "author_rejections.jsonl", "a", encoding="utf-8") as f:
+                    f.write(json.dumps(rejection) + "\n")
+                print(f"{w} ({a}) attempt {attempt}: rejected {rejection}", flush=True)
                 retry.append((w, a, h))
                 continue
+            assert isinstance(obj, dict)
             obj.update({"world_id": w, "author": a, "seed_hint": h, "author_call": cid, "attempt": attempt})
-            (BENCH / "worlds" / f"{w}.json").write_text(json.dumps(obj, indent=1, ensure_ascii=False), encoding="utf-8")
+            data = json.dumps(obj, indent=1, ensure_ascii=False).encode("utf-8")
+            _preserve_bytes(BENCH / "versions" / A.hashlib.sha256(cid.encode()).hexdigest() / f"{w}.json", data)
+            path = BENCH / "worlds" / f"{w}.json"
+            temporary = path.with_suffix(".tmp")
+            temporary.write_bytes(data)
+            temporary.replace(path)
         todo = retry
     print(f"authored {len(list((BENCH / 'worlds').glob('*.json')))} worlds; unusable after retry: {[w for w, _, _ in todo]}; "
           f"stage spend ${s.spent('author'):.2f}")
@@ -91,8 +127,24 @@ def cmd_author(args) -> None:
         raise RuntimeError(f"world authoring incomplete after {attempts} attempts: {[w for w, _, _ in todo]}")
 
 
+def _preserve_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.read_bytes() != data:
+            raise ValueError(f"refusing to change preserved artifact {path}")
+    else:
+        path.write_bytes(data)
+
+
 def _worlds() -> list[dict]:
-    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted((BENCH / "worlds").glob("W*.json"))]
+    worlds = []
+    for p in sorted((BENCH / "worlds").glob("W*.json")):
+        obj = json.loads(p.read_text(encoding="utf-8"))
+        chk = A.world_check(obj)
+        if not chk.ok:
+            raise ValueError(f"invalid saved world {p.name}: {chk.reasons}")
+        worlds.append(obj)
+    return worlds
 
 
 def cmd_validate(args) -> None:
@@ -243,6 +295,7 @@ def main() -> None:
     a.add_argument("--max-tokens", type=int, choices=(32000, 64000), help="override author defaults: Fable 64000, Astra 32000")
     a.add_argument("--attempts", type=int, choices=(1, 2), default=2)
     a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
+    a.add_argument("--replace-invalid", action="store_true", help="preserve invalid saved worlds and regenerate under fresh versioned IDs")
     v = sub.add_parser("validate"); v.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)

@@ -7,6 +7,7 @@ import random
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 from . import prompts_authoring as P
 from .providers import Request, Response
@@ -36,7 +37,7 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
 
 
 def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0,
-                   max_tokens: int | None = None) -> Request:
+                   max_tokens: int | None = None, prompt_revision: str = P.AUTHOR_LENGTH_REVISION) -> Request:
     if max_tokens is None:
         max_tokens = AUTHOR_MAX_TOKENS_BY_MODEL[author]
     user = P.AUTHOR_USER.format(n_questions=n_questions, seed_hint=seed_hint, example=example_block(),
@@ -44,6 +45,11 @@ def author_request(world_id: str, author: str, seed_hint: str, n_questions: int 
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")
     if max_tokens != AUTHOR_MAX_TOKENS:
         cid += f":t{max_tokens}"
+    if prompt_revision not in ("v1", P.AUTHOR_LENGTH_REVISION):
+        raise ValueError(f"unknown author prompt revision: {prompt_revision}")
+    if author == "fable" and prompt_revision == P.AUTHOR_LENGTH_REVISION:
+        user += P.AUTHOR_LENGTH_AMENDMENT
+        cid += f":{prompt_revision}"
     return Request(cid, author, P.AUTHOR_SYSTEM, (("user", user),), max_tokens)
 
 
@@ -70,6 +76,54 @@ def _words(s: str) -> int:
 class CheckResult:
     ok: bool
     reasons: list[str]
+
+
+def world_check(obj: Any) -> CheckResult:
+    """Admission checks, separate from question mechanics and independent validation."""
+    if not isinstance(obj, dict):
+        return CheckResult(False, ["world_not_object"])
+    reasons = []
+    for field in ("world_name", "world_text"):
+        if not isinstance(obj.get(field), str) or not obj[field].strip():
+            reasons.append(f"missing:{field}")
+    if isinstance(obj.get("world_text"), str):
+        words = _words(obj["world_text"])
+        if not 1000 <= words <= 1500:
+            reasons.append(f"world_word_count:{words}:required=1000..1500")
+    questions = obj.get("questions")
+    if not isinstance(questions, list):
+        return CheckResult(False, reasons + ["questions_not_list"])
+    if len(questions) != 12:
+        reasons.append(f"question_count:{len(questions)}:required=12")
+    questions = cast(list[Any], questions)
+    types = set()
+    for i, q in enumerate(questions):
+        if not isinstance(q, dict):
+            reasons.append(f"question{i + 1}:not_object")
+            continue
+        q = cast(dict[str, Any], q)
+        for field in ("question", "correct_answer", "wrong_answer", "rubric", "reasoning",
+                      "wrong_answer_defensibility", "task_type"):
+            if not isinstance(q.get(field), str) or not q[field].strip():
+                reasons.append(f"question{i + 1}:missing:{field}")
+        facts = q.get("facts_required")
+        if not isinstance(facts, list) or not facts or any(not isinstance(f, str) or not f.strip() for f in facts):
+            reasons.append(f"question{i + 1}:missing:facts_required")
+        ledger = q.get("ledger")
+        if not isinstance(ledger, dict):
+            reasons.append(f"question{i + 1}:missing:ledger")
+        else:
+            for field in ("supporting", "countervailing"):
+                value = ledger.get(field)
+                if not isinstance(value, list) or not value or any(not isinstance(f, str) or not f.strip() for f in value):
+                    reasons.append(f"question{i + 1}:missing:ledger.{field}")
+            if not isinstance(ledger.get("decisive_inference"), str) or not ledger["decisive_inference"].strip():
+                reasons.append(f"question{i + 1}:missing:ledger.decisive_inference")
+        if isinstance(q.get("task_type"), str):
+            types.add(q["task_type"])
+    if types != set(P.TASK_TYPES):
+        reasons.append("task_type_coverage:" + ",".join(sorted(types)))
+    return CheckResult(not reasons, reasons)
 
 
 def mechanical_check(q: dict, world_text: str, siblings: list[dict]) -> CheckResult:

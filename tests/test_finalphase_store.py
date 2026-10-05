@@ -101,6 +101,16 @@ def test_batch_reconnects_after_restart(tmp_path, monkeypatch):
     assert out["id1"].text == "a" and out["id2"].text == "live"
 
 
+def test_bounded_batch_disables_unreserved_live_fallback(tmp_path, monkeypatch):
+    monkeypatch.setitem(store.BATCH, "openai", (
+        lambda *args: "b1", lambda bid: ("ended", {}),
+        lambda bid, model: {"id1": TransportError("expired")}))
+    monkeypatch.setitem(store.LIVE, "openai", lambda *args: pytest.fail("no reserved live fallback"))
+    s = Store(tmp_path / "s.db", "author", 10)
+    assert s.run([_req(1)], mode="batch", allow_live_fallback=False) == {}
+    assert s._q("SELECT status FROM calls") == [("pending",)]
+
+
 def test_batch_wait_backs_off_and_resets_when_completed_work_changes(tmp_path, monkeypatch):
     waits, submitted = [], []
     counts = iter((0, 0, 0, 0, 1, 1, 1, 2))
