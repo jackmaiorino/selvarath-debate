@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
@@ -42,7 +43,7 @@ def save(path: Path, value: dict) -> None:
 
 
 def ledger() -> tuple[list[dict], list[dict]]:
-    with sqlite3.connect((ROOT / "author.db").as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect((ROOT / "author.db").as_uri() + "?mode=ro", uri=True)) as db:
         db.row_factory = sqlite3.Row
         return ([dict(r) for r in db.execute("SELECT * FROM calls ORDER BY custom_id")],
                 [dict(r) for r in db.execute("SELECT * FROM batches ORDER BY batch_id")])
@@ -138,7 +139,10 @@ def replay(calls: list[dict]) -> dict:
     before = digest(primary)
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "author.db"
-        shutil.copy2(primary, path)
+        # Include committed WAL pages; copying only the main file can lose cached responses.
+        with closing(sqlite3.connect(primary.as_uri() + "?mode=ro", uri=True)) as source:
+            with closing(sqlite3.connect(path)) as target:
+                source.backup(target)
         s = store.Store(path, "author", CAP)
         def forbidden(*args, **kwargs):
             raise RuntimeError("provider dispatch during replay")
@@ -201,6 +205,8 @@ def report() -> dict:
                "compliant_worlds": sum(w["world_admission_ok"] for w in worlds),
                "candidate_questions": sum(w["questions"] for w in worlds),
                "mechanical_pass": sum(w["mechanical_pass"] for w in worlds), "active_calls": active,
+               "candidate_questions_in_compliant_worlds": sum(w["questions"] for w in worlds if w["world_admission_ok"]),
+               "mechanical_pass_in_compliant_worlds": sum(w["mechanical_pass"] for w in worlds if w["world_admission_ok"]),
                "independent_answer_validation_started": False, "main_started": False,
                "mechanical_pass_is_answer_key_validation": False, "original_provenance_verified": True,
                "astra_hashes_unchanged": True, "accounting": account}
@@ -255,7 +261,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("prepare", "execute", "report"))
     args = parser.parse_args()
-    {"prepare": prepare, "execute": execute, "report": report}[args.action]()
+    try:
+        {"prepare": prepare, "execute": execute, "report": report}[args.action]()
+    except Exception as error:
+        if args.action == "execute":
+            manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+            manifest["authoring_length_correction"].update({"status": "needs_attention",
+                "finished_at_utc": now(), "execution_error": {"type": type(error).__name__, "message": str(error)}})
+            manifest["execution_status"] = "authoring_length_correction_needs_attention"
+            save(MANIFEST, manifest)
+        raise
 
 
 if __name__ == "__main__":

@@ -44,3 +44,39 @@ def test_failed_probe_never_dispatches_remaining_worlds(tmp_path, monkeypatch):
         correction.execute()
     assert len(commands) == 1 and commands[0][commands[0].index("--only") + 1] == "W001"
     assert reports == [True]
+
+
+def test_replay_includes_committed_wal_responses_without_provider_dispatch(tmp_path, monkeypatch):
+    from finalphase.providers import Request, Response
+    from finalphase.store import Store
+
+    monkeypatch.setattr(correction, "ROOT", tmp_path)
+    writer = Store(tmp_path / "author.db", "author", 21.75)
+    try:
+        request = Request("author:W005:fable:t64000:length-v2", "fable", "system", (("user", "prompt"),), 64000)
+        writer._register(request)
+        writer._save(Response(request.custom_id, "claude-fable-5-1", "truncated", '{"world_text":', cost=1.610965))
+        assert (tmp_path / "author.db-wal").exists()
+        calls, _ = correction.ledger()
+        result = correction.replay(calls)
+        assert result["cached_responses"] == 1 and result["provider_dispatches"] == 0
+        assert result["bit_identical"] is True
+        cached = writer.get(request.custom_id)
+        assert cached is not None and cached.status == "truncated"
+    finally:
+        writer.db.close()
+
+
+def test_terminal_execute_error_does_not_leave_running_manifest(tmp_path, monkeypatch):
+    manifest = tmp_path / "run_manifest.json"
+    manifest.write_text(json.dumps({"authoring_length_correction": {"status": "running"}, "execution_status": "running"}))
+    monkeypatch.setattr(correction, "MANIFEST", manifest)
+    monkeypatch.setattr(correction.sys, "argv", ["correction", "execute"])
+    def fail():
+        raise RuntimeError("failed replay snapshot")
+    monkeypatch.setattr(correction, "execute", fail)
+    with pytest.raises(RuntimeError, match="failed replay snapshot"):
+        correction.main()
+    saved = json.loads(manifest.read_text())
+    assert saved["execution_status"] == "authoring_length_correction_needs_attention"
+    assert saved["authoring_length_correction"]["execution_error"]["message"] == "failed replay snapshot"
