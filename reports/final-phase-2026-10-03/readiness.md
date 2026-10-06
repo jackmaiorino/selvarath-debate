@@ -204,6 +204,14 @@ these affected checks.
 
 ### Provider funding plan
 
+For a practical bulk top-up now, target available credit of $1,200 Anthropic,
+$800 OpenAI and $400 Together through the pilot. The upper preparation forecast
+is approximately $2,181, including authoring, full validation, canary, pilot and
+oracle selection, before campaign reserve. These $2,400 credit targets leave
+some forecasting margin. Ledger estimates imply additions of $1,180.235195
+Anthropic and $791.852200 OpenAI; bring Together to $400 using its actual balance.
+Main funding can then use the pilot's measured forecast.
+
 For advance funding within the overall $6,000 spending ceiling, provisional
 available-credit targets are $3,000 Anthropic, $1,800 OpenAI and $1,200 Together.
 Subtract actual current balances when depositing. Our ledger estimates imply
