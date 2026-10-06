@@ -1,9 +1,153 @@
-# Final-phase authoring precheck, 2026-10-05
+# Eight-world validation complete, 2026-10-05
+
+Independent answer-key validation saved all 757 canonical responses and retained
+72 of 95 mechanically eligible questions (75.8%). There are 23 validation
+rejections and the original W001-Q01 mechanical rejection. All 96 candidates
+remain accounted for. No rejected answer was edited or replenished.
+
+| Author | Mechanically eligible | Retained | Validation rejected |
+|---|---:|---:|---:|
+| Astra | 48 | 45 (93.8%) | 3 |
+| Fable | 47 | 27 (57.4%) | 20 |
+| Total | 95 | 72 (75.8%) | 23 |
+
+These are descriptive cohort counts. Twenty-two rejected questions have one or
+more saved Together key-check truncations; one question fails its factual check.
+The 29 truncated calls remain failures at the frozen 4,000-token allowance.
+Retention differences do not establish author quality or judge effects. The frozen `no_response` reason includes non-OK saved responses; the
+companion rejection detail records the actual `truncated` statuses. There are
+no unresolved transport responses and no split-validator key decisions.
+
+| World | Candidates | Mechanical rejected | Retained | Validation rejected |
+|---|---:|---:|---:|---:|
+| W001 | 12 | 1 | 6 | 5 |
+| W002 | 12 | 0 | 11 | 1 |
+| W003 | 12 | 0 | 7 | 5 |
+| W004 | 12 | 0 | 12 | 0 |
+| W005 | 12 | 0 | 7 | 5 |
+| W006 | 12 | 0 | 12 | 0 |
+| W007 | 12 | 0 | 7 | 5 |
+| W008 | 12 | 0 | 10 | 2 |
+
+| Task type | Candidates | Mechanical rejected | Retained | Validation rejected |
+|---|---:|---:|---:|---:|
+| causal_assessment | 16 | 0 | 13 | 3 |
+| counterfactual | 16 | 0 | 13 | 3 |
+| institutional_capacity | 17 | 0 | 16 | 1 |
+| interest_alignment | 16 | 0 | 10 | 6 |
+| policy_outcome | 16 | 1 | 11 | 4 |
+| relative_position | 15 | 0 | 9 | 6 |
+
+Every rejection is listed here. `A/B truncated` means the corresponding blind
+key order returned a measured truncated response. The complete private ledger
+retains each response, including its raw provider body and usage.
+
+| Question | Author | Task type | Rejection |
+|---|---|---|---|
+| W001-Q01 | fable | policy_outcome | length_imbalance:48/36 |
+| W001-Q06 | fable | relative_position | A truncated, B truncated |
+| W001-Q08 | fable | policy_outcome | B truncated |
+| W001-Q10 | fable | interest_alignment | A truncated, B truncated |
+| W001-Q11 | fable | causal_assessment | B truncated |
+| W001-Q12 | fable | relative_position | B truncated |
+| W002-Q12 | astra | interest_alignment | B truncated |
+| W003-Q04 | fable | counterfactual | B truncated |
+| W003-Q05 | fable | interest_alignment | A truncated |
+| W003-Q07 | fable | causal_assessment | A truncated |
+| W003-Q08 | fable | relative_position | fact2:NO |
+| W003-Q12 | fable | causal_assessment | A truncated |
+| W005-Q04 | fable | interest_alignment | A truncated, B truncated |
+| W005-Q07 | fable | institutional_capacity | B truncated |
+| W005-Q08 | fable | policy_outcome | A truncated |
+| W005-Q10 | fable | interest_alignment | A truncated, B truncated |
+| W005-Q12 | fable | counterfactual | B truncated |
+| W007-Q05 | fable | relative_position | A truncated, B truncated |
+| W007-Q07 | fable | counterfactual | A truncated |
+| W007-Q08 | fable | policy_outcome | A truncated |
+| W007-Q09 | fable | interest_alignment | A truncated, B truncated |
+| W007-Q12 | fable | relative_position | A truncated, B truncated |
+| W008-Q06 | astra | relative_position | A truncated |
+| W008-Q10 | astra | policy_outcome | B truncated |
+
+Observed validation spend, including qualification controls and the two approved
+retries, is $8.76297396: Anthropic $2.297395, OpenAI $3.180095 and Together
+$3.28548396. Reserve another $0.04939308 for unconfirmed billing of the original
+two 503 attempts, giving a conservative stage bound of $8.81236704 below $200.
+The full prospective maximum with the extra retry reservation was $41.80830164.
+Known authoring, validation and access charges total $30.85046532; with the 503
+reserve the recorded final-phase bound is $30.89985840 below $6,000. Frozen rates
+and token receipts are used; no invoice or cross-project reconciliation is claimed.
+
+Real qualification selected eight workers: 68.519896 seconds serial versus
+26.150548 seconds parallel for eight matched valid Together calls, or 2.620208x.
+Saved replay recovered all 767 ledger responses (757 canonical, eight controls,
+two transport retry rows) with zero provider dispatches. The primary store stayed
+bit-identical at SHA-256 `a5308a975aca365b4ddc10e1979597aa7d13c784c03b22933d59956f43bbf38b`.
+The regenerated validation rows are byte-identical, SHA-256
+`f9da114c47e3d0af6b80bfaa2cb512ef5bbca5ce1c61b9a21a8f598aaf63f77a`.
+SQLite online backup includes WAL; its calls, batches and events match the live
+ledger, and integrity checks pass. Original pre-retry rows and error events match
+apart from the two documented canonical response aliases; their original copies
+remain preserved. All 64 affected tests, scoped type checks and diff checks pass.
+
+The pending unpaid independent audit belongs to the Claude coordinating session
+under `reports/final-phase-2026-09-30/design.md:55`. Its reproducible 5% sample is
+W006-Q11, W006-Q06, W005-Q11 and W004-Q04. There are no split-validator questions.
+The packet links exact worlds and saved responses. Audit completion is false;
+a retained source defect sends every retained question from its world to review.
+No audit message or paid audit was dispatched.
+
+Private receipts, summaries, full rejection details and backups live under
+`D:/finalphase-runs/final-phase-2026-10-03`. The existing manifest is terminal,
+with no active requests or watcher needed. Canonical PR #1 delivers the owned
+changes; historical full CI failures remain separate from affected checks.
+
+The next task is the unpaid coordinating audit using the saved packet. The
+full design then calls for the remaining 152 worlds and their validation before
+canary. The exact supported next authoring command, after a separate assignment,
+reservation and qualification, is:
+
+```powershell
+uv run --locked python -m finalphase.cli author --worlds 160 --mode batch
+```
+
+Its exact read-only prerequisite check is:
+
+```powershell
+uv run --locked python -m finalphase.cli preflight --stage author --workers 8 --mode batch
+```
+
+The observed check refuses missing compatible authoring throughput. Prerequisites
+are the recorded independent audit, explicit authority for the expanded scope,
+full-cohort provider funding, monthly capacity and an authoring-specific real
+qualification within the unchanged $200 authoring cap. Current validation
+qualification cannot substitute for authoring or debate/judging throughput.
+Expanded validation requires its own frozen world-hash authorization and full
+reservation under the existing $200 validation cap; the forecasts below exceed
+that cap and must be resolved before further execution.
+
+After the chosen full benchmark is validated and audited, deterministic unpaid
+split preparation is `uv run --locked python -m finalphase.cli split
+--main-questions 1068`. The subsequent debate command is `uv run --locked python
+-m finalphase.cli canary --n 20`, with read-only `preflight --stage canary
+--workers 16 --mode live`. Its observed check also refuses missing compatible
+canary throughput. Canary additionally needs a funded, explicitly authorized
+scope with frozen split files and its $60 reservation. No split, authoring,
+canary, pilot or main execution is performed by this closeout.
+
+Ledger-derived remaining credit is Anthropic $17.467410, OpenAI $796.719905 and
+Together $851.49512296 after the 503 reserve. These are estimates, not API balance
+responses. The incremental funding plan below preserves stage-cap and monthly
+allowance blockers and requests no deposit for this completed task.
+
+# Preserved authoring precheck and validation implementation receipts
 
 All eight worlds comply with the existing 1,000 to 1,500 word requirement,
 required fields, twelve candidate questions and all six task types. The final
-benchmark has 96 candidates and 95 mechanical passes. Independent answer-key
-validation, substantial authoring, canary, pilot and main remain unstarted.
+benchmark has 96 candidates and 95 mechanical passes. At authoring closure,
+independent answer-key
+validation had not started. It is now complete as reported above. Additional
+authoring, canary, pilot and main remain unstarted.
 Cumulative authoring spend is $22.086565, within the revised $23.09 ceiling
 approved following the funding request. No additional paid request is needed for
 this precheck.
@@ -207,14 +351,15 @@ with one worker (0.116754 calls/second) and 26.150548 seconds with eight workers
 The 16 Together responses cost $0.08323656. All four canonical frontier probes
 completed valid outputs at frozen token allowances; total qualification spend
 is $0.18778656. Qualification completed at 10:26 p.m. Eastern on October 5 and
-selected eight workers. The remaining cohort is running. Two observed Together
-503 transport errors remain recorded under their original identities; the current
-one-attempt runner does not resend them. A prospective exact-body retry reservation
-for those two requests is $0.04939308, with no funding gap. It is not dispatched,
-and its final scope must be reconciled after the current collector settles. Measured
-truncations and refusals are not eligible for transport retry.
+selected eight workers. The full cohort and two separately approved Together
+503 retries
+are now settled. The original transport errors remain preserved. The one-attempt
+initial runner did not resend them; the separately guarded retry command sent
+exactly one fresh transport attempt per failure. The two successful retries cost
+$0.01117776 against the $0.04939308 maximum. Measured truncations and refusals
+remain final failures.
 
-The finite supported chain has started through:
+The initial finite supported chain executed through:
 
 ```powershell
 uv run --locked python scripts/finalphase_validate_authorized.py
@@ -224,9 +369,9 @@ It invokes guarded `qualify-validate`, then guarded `preflight` and `validate`
 using the selected worker count. A qualification error stops the chain.
 Its authoritative state is the existing manifest's `validation_execution`,
 with output in `validation_supervisor.log` and errors in
-`validation_supervisor.err`. Do not start a duplicate collector. To resume a
-settled, interrupted chain, reuse the same command after resolving its recorded
-constraint; do not resend possibly billable requests.
+`validation_supervisor.err`. The supervisor has exited. The initial partial
+outcome and errors are
+preserved. Do not run the supervisor again to measure cached throughput.
 
 Validation writes every rejection and retention count by world, author and
 task type. The original W001-Q01 mechanical rejection stays separate.
@@ -251,8 +396,10 @@ future purchase limits.
 Replace the earlier bulk-deposit targets with deposits for the next authorized,
 fully reserved stage only. Preserve the existing reserve. After reserving this
 cohort at its maximum, conservative available balances are Anthropic $5.289075,
-OpenAI $785.856300 and Together $841.59052144. Settle actual validation charges
-before calculating later gaps. OpenAI and Together already cover the existing
+OpenAI $785.856300 and Together $841.59052144. Final observed validation costs
+and the original 503 charge reserve are now reconciled in the opening outcome.
+These balances remain estimates from supplied credit and recorded costs; unrelated
+account usage cannot be read. OpenAI and Together already cover the existing
 illustrative preparation-through-pilot forecast; Anthropic is the likely source
 of incremental deposits. Every later stage still requires its own authority,
 funding reservation, compatible throughput and scientific gates.
@@ -265,19 +412,20 @@ funding reservation, compatible throughput and scientific gates.
 | Pilot | $752.65 to $1,343.02 | $650 | Both forecasts exceed cap |
 | Main, 1,068 questions | $4,186.61 to $7,470.53 | $4,300 | Upper forecast exceeds stage and campaign budgets |
 
-The $120 OpenAI spending setting is sufficient for this cohort's $14.043700
-maximum plus known prior usage. It does not fund the later full validation or
-pilot within one month's known headroom: OpenAI's illustrative full validation
-alone is $105.41 to $191.81, and the pilot is $221.10 to $379.04. A later plan
-must reconcile the effective organization and project allowance, month already
-used and stage cap before execution. More prepaid credit alone does not close
-these blockers.
+The $120 OpenAI spending setting was sufficient for this cohort. Known October
+usage is now $5.032295, leaving estimated headroom of $114.967705. The remaining
+160-world authoring forecast uses another $43.15 to $63.15 OpenAI, and remaining
+full validation about $102.23 to $188.63 after subtracting this cohort's charge.
+Their combined preparation exceeds current monthly headroom even at the low
+forecast. The pilot alone is $221.10 to $379.04. Reconcile effective organization
+and project limits and the stage cap before any future execution; prepaid credit
+does not resolve monthly capacity.
 
 For a feasible incremental Anthropic preparation step, the illustrative
 remaining 160-world authoring forecast is about $78.62 to $124.62 after the
-already settled $20.234775 Anthropic authoring spend. Against the conservative
-$5.289075 left after this validation reservation, the planning gap is about
-$73.33 to $119.33. This is a forecast, not an authorized request maximum or
+already settled $20.234775 Anthropic authoring spend. Against the ledger-derived
+$17.467410 left after actual validation, the planning gap is about
+$61.15 to $107.15. This is a forecast, not an authorized request maximum or
 a top-up request. Reprice and reserve the chosen scope first; round a later
 deposit only to the provider's actually allowed purchase increment.
 
@@ -298,8 +446,9 @@ No merge or scientific audit is claimed. Issues are disabled in this repository.
 
 The initial finite collector has exited with 755/757 canonical responses saved.
 Its ledger records $8.75179620, including eight qualification controls, and 29
-measured truncations. The provisional retention count is 71; it is not the final
-result while two responses are missing. All four frontier batches are collected.
+measured truncations. Its provisional retention count was 71. The final count
+above incorporates
+both approved retry responses. All four frontier batches are collected.
 Original partial rows, summary, audit packet and manifest are preserved before
 any retry changes.
 
@@ -326,4 +475,5 @@ from saved responses. All 64 affected tests pass in 25.36 seconds, including
 retry authorization, precise body/identity/error/charge preservation, refusal
 of other failed launch guards and safe resume of proven unsent retry rows.
 Scoped type checks and the diff check pass. Final outcome and replay receipts
-remain to be recorded after the two approved attempts settle.
+are recorded above; both attempts settled
+without additional transport retries.
