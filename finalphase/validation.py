@@ -98,6 +98,17 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
     manifest = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))
     execution = manifest.get("validation_execution", {})
     rows, requests = workload(worlds)
+    envelope = execution.get("input_envelope_usd", {})
+    envelope_reasons = []
+    if len(worlds) > 8:
+        from .expansion import maximum
+        authors = {w["world_id"]: w["author"] for w in worlds}
+        for request in requests:
+            author = authors[request.custom_id.split(":")[1].split("-Q")[0]]
+            role = "fact" if request.custom_id.startswith("factcheck:") else ("dspro_key" if request.model == "dspro" else "frontier_key")
+            bound = envelope.get(f"{author}:{role}")
+            if not (type(bound) in (int, float) and math.isfinite(bound) and bound >= float(maximum(request, mode == "batch"))):
+                envelope_reasons.append(f"future validation request exceeds unapproved or missing byte/token envelope: {request.custom_id}")
     sample = qualification_sample(worlds, requests)
     all_requests = requests + controls(sample)
     states: dict[str, tuple[str, str, int]] = {}
@@ -115,7 +126,7 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
             db.close()
     remaining: dict[str, float] = {}
     counts: dict[str, int] = {}
-    reasons: list[str] = []
+    reasons: list[str] = envelope_reasons
     for r in all_requests:
         state = states.get(r.custom_id)
         if state and state[1] != sha(r.to_json().encode("utf-8")):

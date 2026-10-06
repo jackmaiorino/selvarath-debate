@@ -48,7 +48,8 @@ def test_qualified_launch_and_bounded_quality_check(tmp_path, monkeypatch):
                 "throughput": {"author": receipt}}
     path = tmp_path / "run_manifest.json"
     path.write_text(json.dumps(manifest))
-    assert preflight.check("author", tmp_path, 8, "batch")["ready"]
+    assert not preflight.check("author", tmp_path, 8, "batch")["ready"]
+    assert "independent Claude audit receipt is missing or invalid" in preflight.check("author", tmp_path, 8, "batch")["reasons"]
     assert not preflight.check("author", tmp_path, 16, "batch")["ready"]
     assert not preflight.check("pilot", tmp_path, 8, "batch")["ready"]
     assert preflight.check("author", tmp_path, 8, "batch", quality_check=True)["ready"]
@@ -61,7 +62,7 @@ def test_qualified_launch_and_bounded_quality_check(tmp_path, monkeypatch):
     monkeypatch.setattr(preflight, "source_commit", lambda: "docs-commit")
     manifest["git_commit"] = "docs-commit"
     path.write_text(json.dumps(manifest))
-    assert preflight.check("author", tmp_path, 8, "batch")["ready"]
+    assert not preflight.check("author", tmp_path, 8, "batch")["ready"]
     monkeypatch.setattr(preflight, "execution_sha256", lambda: "changed-source")
     assert not preflight.check("author", tmp_path, 8, "batch")["ready"]
 

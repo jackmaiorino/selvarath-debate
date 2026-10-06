@@ -34,7 +34,8 @@ class BatchRejected(TransportError):
         self.retryable = retryable
 
 
-_BILLING_MARKERS = ("insufficient_quota", "credit_balance_exhausted", "billing", "credit balance is too low")
+_BILLING_MARKERS = ("insufficient_quota", "credit_balance_exhausted", "billing", "credit balance is too low",
+                    "organization_spend_limit_exceeded", "project_spend_limit_exceeded", "organization_usage_limit_exceeded")
 
 
 def _billing_check(provider: str, e: Exception) -> None:

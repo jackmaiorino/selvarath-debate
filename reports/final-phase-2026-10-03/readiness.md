@@ -1,4 +1,59 @@
-# Eight-world validation complete, 2026-10-05
+# Eight-world audit and expansion preparation, 2026-10-05
+
+The unpaid preparation is complete. Independent Claude audit completion remains
+false: the original coordinating session was located, but its zero-budget CLI
+resume was rejected locally before inference. The exact original-session handoff
+and per-question implementer evidence are ready. The implementer reviewed all
+four sampled questions and found their keys and required facts supported; this
+does not substitute for Claude's review. No paid request was sent in this task.
+
+The [benchmark expansion launch package](benchmark-expansion-launch-package.md)
+supersedes the illustrative later-phase funding figures below for planning.
+All 29 saved raw truncations were diagnosed: 26 Fable-world and three Astra-world
+DeepSeek key checks, 14/15 by key order; 27 have no final text and two have partial
+final text. All reached 4,000 output tokens. Completed OK responses have no parse
+failure or key disagreement; W003-Q08's fact check is the distinct substantive
+rejection. Original decisions, raw responses and usage are unchanged.
+
+The prospective 12,000-token DeepSeek key-check proposal is serialized, versioned
+and unapplied. Next approval is qualification only: four scratch author calls
+and 48 scratch token calls, maximum $7.84778520, with no benchmark promotion or
+automatic expansion. It still requires the actual unpaid coordinator audit and
+verified provider/organization/project capacity. No rejected question is retried.
+
+Full remaining 152-world preparation, including both author generation slots,
+full validation, possible exact-body transport retries and qualification, has a
+conditional envelope maximum of $2,308.78900968 incremental and $2,339.68886808
+cumulative. Future validation bodies must fit the declared byte/token envelope
+or stop before registration. Current $200 author and validation caps are
+insufficient. Proposed preparation allocations are $402 and $1,939, within the
+unchanged $6,000 ceiling; these are proposals only. Full preparation's estimated
+Anthropic funding gap is $790.937690. OpenAI needs $679.009390 more usage capacity,
+for a known minimum monthly total of $684.041685 before unrelated usage; prepaid
+credit does not verify that capacity. Cohort consistency, allocation and later
+sample-size decisions remain unresolved. Strong Fable/Astra tiers, all eight
+judges and 0/1/2/6 are preserved.
+
+Supported author launches now require exact approval, the independent audit,
+full-cohort funds and organization/project capacity; author batches are token
+bounded, transport attempts are limited to one per generation and connections
+close on failure. Future full validation requires a declared request envelope.
+STOP and OpenAI usage/spend-limit guards apply. The scratch qualifier has an
+unapproved exact-hash approval template and refuses before Store creation or
+networking. The original throughput receipt stays preserved; affected source
+changes require compatible qualification before new paid execution.
+
+Verification: 76 affected tests passed in 26.38 seconds; scoped type and diff
+checks passed. Poisoned-provider replay recovered all 22 author and 767 validation
+ledger responses with zero dispatches. Both primary DB hashes and all 96 frozen
+validation rows stayed bit-identical. SQLite online backups compare every call,
+batch and event and include WAL. The preparation snapshot, detailed diagnosis,
+per-question evidence, cost calculations and approval template remain private
+under the existing evidence root. PR #1 remains canonical and draft/open; prior
+full CI failed. No independent audit approval, merge or default-branch
+verification is claimed.
+
+# Preserved eight-world validation outcome
 
 Independent answer-key validation saved all 757 canonical responses and retained
 72 of 95 mechanically eligible questions (75.8%). There are 23 validation

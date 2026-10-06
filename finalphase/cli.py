@@ -37,8 +37,10 @@ DEBATERS = ("fable", "astra")
 
 
 def _store(stage: str) -> Store:
+    from .limits import BatchLimits
     return Store(RUN_ROOT / f"{stage}.db", stage, STAGE_CAPS[stage],
-                 max_transport_attempts=1 if stage == "validate" else 6)
+                 max_transport_attempts=1 if stage in ("author", "validate") else 6,
+                 batch_limits={m: BatchLimits(1500000, 100) for m in DEBATERS} if stage == "author" else None)
 
 
 def _progress(rnd, pending, done):
@@ -60,6 +62,13 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 def cmd_author(args) -> None:
     s = _store("author")
+    try:
+        _run_author(args, s)
+    finally:
+        s.db.close()
+
+
+def _run_author(args, s: Store) -> None:
     max_tokens = getattr(args, "max_tokens", None)
     attempts = getattr(args, "attempts", 2)
     spend_cap = getattr(args, "spend_cap", None)
@@ -361,6 +370,9 @@ def main() -> None:
             if not 1 <= len(worlds) <= 8:
                 raise ValueError("quality check must request between one and eight worlds")
         preflight.require(stage, RUN_ROOT, workers, mode, quality)
+        if stage == "author" and not quality:
+            from .expansion import require_author
+            require_author(RUN_ROOT, args)
     {"author": cmd_author, "validate": cmd_validate, "split": cmd_split, "canary": cmd_canary, "judge": cmd_judge}[args.cmd](args)
 
 

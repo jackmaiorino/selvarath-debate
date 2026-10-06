@@ -13,6 +13,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
+from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -33,11 +34,15 @@ def _hash(req: Request) -> str:
 
 
 def estimate_max_cost(req: Request, batch: bool) -> float:
+    return float(estimate_max_cost_decimal(req, batch))
+
+
+def estimate_max_cost_decimal(req: Request, batch: bool) -> Decimal:
     m = spec(req.model)
     # A byte bound also covers unusually dense text; average chars/token is not a maximum.
     tin = len(req.system.encode("utf-8")) + sum(len(c.encode("utf-8")) for _, c in req.messages) + 100
-    c = (tin * m.price_in + req.max_tokens * m.price_out) / 1e6
-    return c * (0.5 if batch and m.batch else 1.0)
+    c = (Decimal(tin) * Decimal(str(m.price_in)) + Decimal(req.max_tokens) * Decimal(str(m.price_out))) / 1000000
+    return c / 2 if batch and m.batch else c
 
 
 class Store:
@@ -127,8 +132,11 @@ class Store:
                              (self.stage, *MEASURED)):
             r = Request(**_req_fields(json.loads(raw)))
             outstanding[r.custom_id] = r
-        committed = self.spent(self.stage) + sum(estimate_max_cost(r, batch) for r in outstanding.values())
-        if committed > self.cap:
+        # Frozen rates have at most nanodollar precision. Discard only binary
+        # float noise in saved charges; sum request reservations exactly.
+        settled = Decimal(str(self.spent(self.stage))).quantize(Decimal("0.000000001"))
+        committed = settled + sum((estimate_max_cost_decimal(r, batch) for r in outstanding.values()), Decimal(0))
+        if committed > Decimal(str(self.cap)):
             raise CapExceeded(f"stage {self.stage}: spent {self.spent(self.stage):.2f} + max estimate of {len(todo)} calls exceeds cap {self.cap:.2f}")
 
     # ------------------------------------------------------------ dispatch

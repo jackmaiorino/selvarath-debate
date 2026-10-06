@@ -60,6 +60,7 @@ def test_all_stages_offline(tmp_path, monkeypatch):
         "openai_account_limits": {"monthly_remaining_usd": 1000, "project_hard_limit_enabled": False,
                                   "queue_confirmed": True, "reference": "fixture"},
         "batch_limits": {p: {"max_input_tokens": 1500000} for p in ("astra", "fable")},
+        "input_envelope_usd": {f"{a}:{role}": 1 for a in ("fable", "astra") for role in ("frontier_key", "dspro_key", "fact")},
         "placements": {"host": platform.node(), "checked": ["Jack's PC", "HaleysPC", "RunPod"],
                        "reference": "offline fixture"}}}))
     cli.cmd_validate(ns(mode="live", workers=8))

@@ -36,6 +36,8 @@ def _positive(value: object) -> TypeGuard[int | float]:
 def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool = False,
           qualification: bool = False) -> dict:
     reasons: list[str] = []
+    if (root / "STOP").exists() or (Path(__file__).resolve().parents[1] / "STOP").exists():
+        reasons.append("STOP file is present")
     credentials = {name: bool(os.environ.get(name, "").strip()) for name in PROVIDER_KEYS}
     reasons.extend(f"missing {name}" for name, configured in credentials.items() if not configured)
     path = root / "run_manifest.json"
@@ -70,6 +72,16 @@ def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool =
             reasons.append("canary, oracle, pre-registration and measured pilot forecast must pass before main")
     if manifest.get("ceiling_usd") != CEILING_USD:
         reasons.append("run manifest must preserve the $6,000 ceiling")
+    if stage in ("canary", "pilot", "main") or (stage == "author" and not quality_check):
+        from .expansion import audit_reasons
+        reasons.extend(audit_reasons(root))
+    if stage == "author" and not quality_check:
+        from .expansion import author_plan
+        try:
+            approved = manifest.get("author_expansion_authorization", {})
+            reasons.extend(author_plan(root, approved.get("worlds", 160), approved.get("attempts", 2), mode)["reasons"])
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            reasons.append(f"expanded author reservation cannot be verified: {error}")
     if qualification:
         if stage != "validate" or quality_check:
             reasons.append("bounded throughput qualification is only available for validation")
