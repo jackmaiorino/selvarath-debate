@@ -2,10 +2,29 @@
 
 Recipient: original session `cd916c75-3534-4496-8864-d4b4f53f3c36` in Claude's
 FailureModeExperiment project. Paste the following into that existing session
-through an available unpaid subscription route after checking extra usage is off.
-Codex's zero-budget CLI attempt was refused locally before inference; there is
-no completed independent review. Do not substitute a new Codex reviewer or a
-paid API call. No worktree mutation or launch is requested.
+through the included Claude Max subscription allowance. Current account
+configuration reports extra usage disabled at the organization level. The actual
+resume failed with `OAuth session expired and could not be refreshed`, with zero
+input/output tokens. There is no completed independent review. Do not substitute
+a new Codex reviewer or a paid API call. No worktree mutation or launch is requested.
+
+Jack must refresh the subscription login with `claude auth login`; Codex cannot
+complete that interactive account authentication. Then, from
+`C:/Users/Jack/Dev/FailureModeExperiment`, run the prepared guarded handoff:
+
+```powershell
+& D:/finalphase-runs/final-phase-2026-10-03/coordinator_audit_resume.ps1
+```
+
+The script clears API/third-party routing only in its process, verifies the Max
+subscription and disabled extra usage, resumes the exact original session, and
+disables tools, hooks, skills and MCP servers. It preserves each response under a
+fresh timestamp. Its complete UTF-8 prompt is `coordinator_audit_prompt.txt`.
+Do not use `--bare`: that flag disables subscription authentication. Do not use
+a positive API budget to work around authentication. Official [Claude CLI
+documentation](https://code.claude.com/docs/en/headless) explains both behaviors
+and why resumed `total_cost_usd` includes earlier session turns; the failed
+attempt's zero-token usage is the evidence for no new inference.
 
 > Jack requests the unpaid independent source audit required by
 > `reports/final-phase-2026-09-30/design.md:55`. Use the original packet
@@ -48,5 +67,8 @@ The example is incomplete and must not be represented as a review. Completion
 requires the actual four reviews plus all triggered world reviews, evidence and
 conclusions, and an explicit disposition of any retained source defect. Keep the
 original packet unchanged and use the separate actual review as the receipt.
-Next wake condition: this session returns that evidence. There is no scheduled
-watcher or automatic paid fallback.
+Next wake condition: Jack refreshes the subscription login, then the original
+session returns that evidence. The expired-authentication response and zero usage
+are preserved in `coordinator_audit_max_response.json` and
+`coordinator_audit_attempt_receipt.json`. There is no scheduled watcher or
+automatic paid fallback.

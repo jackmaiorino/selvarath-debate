@@ -1,9 +1,12 @@
 # Eight-world audit and expansion preparation, 2026-10-05
 
 The unpaid preparation is complete. Independent Claude audit completion remains
-false: the original coordinating session was located, but its zero-budget CLI
-resume was rejected locally before inference. The exact original-session handoff
-and per-question implementer evidence are ready. The implementer reviewed all
+false: the original coordinating session was located, but its subscription
+resume failed with `OAuth session expired and could not be refreshed`. Current
+configuration reports extra usage disabled; the failed resume used zero model
+tokens. Jack must refresh the subscription login with `claude auth login`.
+The exact guarded original-session handoff and per-question implementer evidence
+are ready. The implementer reviewed all
 four sampled questions and found their keys and required facts supported; this
 does not substitute for Claude's review. No paid request was sent in this task.
 
@@ -49,8 +52,11 @@ ledger responses with zero dispatches. Both primary DB hashes and all 96 frozen
 validation rows stayed bit-identical. SQLite online backups compare every call,
 batch and event and include WAL. The preparation snapshot, detailed diagnosis,
 per-question evidence, cost calculations and approval template remain private
-under the existing evidence root. PR #1 remains canonical and draft/open; prior
-full CI failed. No independent audit approval, merge or default-branch
+under the existing evidence root. PR #1 remains canonical and draft/open. Full
+CI at code head `2a4082a` has 3,771 passes, 115 failures and 145 skips; its failed
+test identities exactly match the 115 in the saved baseline. These historical
+Phase 3 failures leave the global type-check step skipped. No full-CI pass,
+independent audit approval, merge or default-branch
 verification is claimed.
 
 # Preserved eight-world validation outcome

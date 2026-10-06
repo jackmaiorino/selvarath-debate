@@ -15,11 +15,17 @@ The required reviewer is the existing Claude coordinating session
 `C:/Users/Jack/.claude/projects/C--Users-Jack-Dev-FailureModeExperiment`.
 It is the final-phase session originally attached to Claude's worktree.
 No active local CLI process for that session was found. Authentication with API
-key variables removed identifies a Claude Max subscription. Extra-usage billing
-status was not verified. A tool-disabled resume with `--max-budget-usd 0` failed
-locally: `--max-budget-usd must be a positive number greater than 0`.
-No model call or positive-budget retry was made. This does not establish that
-the reviewer refused or that its subscription is exhausted.
+key variables removed identifies a Claude Max subscription. Current account
+configuration reports extra usage disabled at the organization level. An initial
+zero-budget flag was refused locally; a subsequent bare-mode attempt did not
+load subscription credentials. The corrected tool/hook/MCP-disabled subscription
+resume failed with `OAuth session expired and could not be refreshed`. Its input,
+output and thinking-token usage are all zero. The original-session cost shown by
+the CLI includes historical turns, not new billed inference. No paid call or
+positive API budget was used. This does not establish subscription exhaustion.
+Jack must refresh the interactive subscription login with `claude auth login`.
+The guarded original-session command and exact source-review prompt are in the
+handoff; `coordinator_audit_attempt_receipt.json` preserves the actual failure.
 
 The handoff is [coordinator-audit-handoff.md](coordinator-audit-handoff.md).
 The original packet, full source input and the implementer's per-question
@@ -43,8 +49,8 @@ reviews of **every retained question from that world** and a coordinator
 disposition. Nothing is edited, replenished or removed by this package.
 
 No watcher or recurring task was created. The next wake condition is an actual
-review returned by that session, or a user decision supplying an available
-unpaid route to it. The handoff is ready for the original session.
+review returned by that session after Jack refreshes its subscription login.
+The handoff is ready for the original session.
 
 ## Truncation diagnosis from all saved raw responses
 
@@ -262,7 +268,9 @@ and `a5308a975aca365b4ddc10e1979597aa7d13c784c03b22933d59956f43bbf38b`.
 The 96 frozen validation rows remain
 `f9da114c47e3d0af6b80bfaa2cb512ef5bbca5ce1c61b9a21a8f598aaf63f77a`.
 WAL-safe snapshots compare all calls, batches and events, not just main DB files.
-Historical full CI failed at the previous head; passing affected checks do not
+Full CI at code head `2a4082a` has 3,771 passes, 115 failures and 145 skips. All
+115 failed test identities match the saved baseline; global type checks were
+skipped after those historical Phase 3 failures. Passing affected checks do not
 clear that failure or constitute independent scientific approval. PR #1 remains
 the canonical draft with its existing base; no merge or default-branch verification
 is claimed. The public repository receives source and summary reports only;
