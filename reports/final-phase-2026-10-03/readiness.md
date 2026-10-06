@@ -204,8 +204,15 @@ Raw provider responses and full errors remain in the durable ledger.
 Real Together timing now completed: eight valid calls took 68.519896 seconds
 with one worker (0.116754 calls/second) and 26.150548 seconds with eight workers
 (0.305921 calls/second), a 2.620208-fold speedup on identical frozen inputs.
-The 16 responses cost $0.08323656. Four frontier probes remain in flight, so
-the complete qualification and the remaining cohort are still pending.
+The 16 Together responses cost $0.08323656. All four canonical frontier probes
+completed valid outputs at frozen token allowances; total qualification spend
+is $0.18778656. Qualification completed at 10:26 p.m. Eastern on October 5 and
+selected eight workers. The remaining cohort is running. Two observed Together
+503 transport errors remain recorded under their original identities; the current
+one-attempt runner does not resend them. A prospective exact-body retry reservation
+for those two requests is $0.04939308, with no funding gap. It is not dispatched,
+and its final scope must be reconciled after the current collector settles. Measured
+truncations and refusals are not eligible for transport retry.
 
 The finite supported chain has started through:
 
