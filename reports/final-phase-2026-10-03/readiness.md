@@ -4,9 +4,9 @@ The length correction is incomplete: six of eight worlds comply. Corrected Fable
 W001 and W003 comply; W005 and W007 exhausted their 64,000-token allowances and
 were rejected. Their original noncompliant artifacts remain preserved and active
 until model-generated replacements pass admission. Cumulative authoring spend is
-$19.816510, below the authorized $21.75 ceiling. Reserving one fresh retry for
-each remaining world exceeds the allowance by $1.334175 and calculated Anthropic
-credit by $1.232805. No further paid requests are dispatched. Independent
+$19.816510, below the original $21.75 ceiling. Jack subsequently added $20 to Anthropic
+and approved the requested $23.09 ceiling for one fresh retry each on W005/W007.
+Their $3.267665 combined maximum is reserved before dispatch. Independent
 answer-key validation, substantial authoring, canary, pilot and main are unstarted.
 
 ## Current quality and accounting
@@ -45,8 +45,8 @@ remain active. The finite collector has exited; no watcher remains pending.
 
 Original authoring cost was $13.743585; correction cost was $6.072925. Current
 provider authoring totals are $17.964720 Anthropic and $1.851790 OpenAI. Against
-reported top-ups of $20/$10, subtracting the recorded $0.000420/$0.000410 access
-checks leaves calculated credit of $2.034860/$8.147800. These are ledger-derived
+reported top-ups now totaling $40/$10, subtracting the recorded $0.000420/$0.000410 access
+checks leaves calculated credit of $22.034860/$8.147800. These are ledger-derived
 estimates, not provider balance queries. Overall stage caps and the $6,000 ceiling
 are unchanged.
 
@@ -56,13 +56,15 @@ are unchanged.
 | W007 | `author:W007:fable:a1:t64000:length-v2` | $1.633820 |
 | Both | One new attempt each | $3.267665 |
 
-Only $1.933490 remains under the current authoring allowance. Both retries would
-require maximum cumulative spend of $23.084175, an allowance increase of
-$1.334175, and at least $1.232805 additional Anthropic credit. The prepared retry
-receipt is `length_v2_retry_budget.json`; neither fresh request has been sent.
-One additional attempt per world may still truncate, so this reservation does not
-guarantee eight compliant worlds. A single retry fits individually, but cannot
-fund both required replacements under the current ceiling.
+At the original $21.75 ceiling, the allowance gap was $1.334175 and the
+estimated Anthropic credit gap was $1.232805. Jack's subsequent $20 Anthropic
+top-up resolves the credit gap, and his approval following the $23.09 ceiling
+request authorizes only one new attempt each on W005/W007. The combined maximum
+is $3.267665 and maximum cumulative authoring spend is $23.084175, within $23.09.
+The updated reservation is `length_v2_retry_budget.json`; the earlier manifest,
+quality report and retry-budget receipt are preserved under
+`preserved/pre-funded-retries`. Each retry may still truncate. No additional
+attempt or later paid stage is authorized by this funding update.
 
 ## Implementation and provenance
 
@@ -129,17 +131,15 @@ at `D:/finalphase-runs/final-phase-2026-10-03`.
 ## Exact next commands and unmet prerequisites
 
 From this worktree, with the existing run root, the supported retry command under
-the current allowance is:
+the newly approved allowance is:
 
 ```powershell
-uv run --locked python -m finalphase.cli author --worlds 8 --only W005,W007 --quality-check --mode batch --attempts 2 --spend-cap 21.75 --replace-invalid
+uv run --locked python -m finalphase.cli author --worlds 8 --only W005,W007 --quality-check --mode batch --attempts 2 --spend-cap 23.09 --replace-invalid
 ```
 
-This reserves both fresh attempts and refuses dispatch for insufficient allowance.
-`--attempts 2` reuses the measured `a0` failures and allows only a fresh `a1` for
-each world. With explicit authority for a ceiling of at least $23.084175 and
-sufficient Anthropic credit, the same command uses `--spend-cap 23.09`. No such
-authority is currently present, and no retry is run by this report.
+This reserves both fresh attempts before dispatch. `--attempts 2` reuses the
+measured `a0` failures and allows only a fresh `a1` for each world. The $23.09
+ceiling and adequate Anthropic credit are recorded in the existing manifest.
 
 After eight worlds comply, independent validation's supported preflight and stage
 commands are:
@@ -167,6 +167,6 @@ exceed their individual caps and require reconciliation using measured costs.
 Canary, oracle, pre-registration, question count/roster, measured forecast and
 reconciled funding remain prerequisites before main.
 
-The next wake condition is an explicit authoring allowance/credit decision for
-W005/W007. All available correction engineering is delivered; the requested eight
-compliant worlds have not been achieved.
+The next wake condition is collection of the two reserved W005/W007 retries.
+Their admission, mechanical checks, original provenance and cached replay must be
+verified before the requested eight compliant worlds can be reported achieved.
