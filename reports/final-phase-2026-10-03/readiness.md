@@ -201,6 +201,12 @@ recovers all 22 saved responses with zero provider calls and a bit-identical
 primary database hash. SQLite online backup includes committed WAL contents.
 Raw provider responses and full errors remain in the durable ledger.
 
+Real Together timing now completed: eight valid calls took 68.519896 seconds
+with one worker (0.116754 calls/second) and 26.150548 seconds with eight workers
+(0.305921 calls/second), a 2.620208-fold speedup on identical frozen inputs.
+The 16 responses cost $0.08323656. Four frontier probes remain in flight, so
+the complete qualification and the remaining cohort are still pending.
+
 The finite supported chain has started through:
 
 ```powershell
