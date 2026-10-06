@@ -1,172 +1,167 @@
-# Final-phase readiness, 2026-10-05
+# Final-phase authoring precheck, 2026-10-05
 
-The length correction is incomplete: six of eight worlds comply. Corrected Fable
-W001 and W003 comply; W005 and W007 exhausted their 64,000-token allowances and
-were rejected. Their original noncompliant artifacts remain preserved and active
-until model-generated replacements pass admission. Cumulative authoring spend is
-$19.816510, below the original $21.75 ceiling. Jack subsequently added $20 to Anthropic
-and approved the requested $23.09 ceiling for one fresh retry each on W005/W007.
-Their $3.267665 combined maximum is reserved before dispatch. Independent
-answer-key validation, substantial authoring, canary, pilot and main are unstarted.
+All eight worlds comply with the existing 1,000 to 1,500 word requirement,
+required fields, twelve candidate questions and all six task types. The final
+benchmark has 96 candidates and 95 mechanical passes. Independent answer-key
+validation, substantial authoring, canary, pilot and main remain unstarted.
+Cumulative authoring spend is $22.086565, within the revised $23.09 ceiling
+approved following the funding request. No additional paid request is needed for
+this precheck.
 
-## Current quality and accounting
+## Final quality
 
-| World | Author | Words | Length/schema admission | Mechanical question checks |
+| World | Author | Words | Admission | Mechanical question checks |
 |---|---|---:|---|---:|
 | W001 | Fable, corrected | 1,469 | Pass | 11/12 |
 | W002 | Astra, unchanged | 1,227 | Pass | 12/12 |
 | W003 | Fable, corrected | 1,442 | Pass | 12/12 |
 | W004 | Astra, unchanged | 1,244 | Pass | 12/12 |
-| W005 | Fable, original retained | 1,716 | Reject | 12/12 |
+| W005 | Fable, corrected | 1,462 | Pass | 12/12 |
 | W006 | Astra, unchanged | 1,279 | Pass | 12/12 |
-| W007 | Fable, original retained | 1,628 | Reject | 12/12 |
+| W007 | Fable, corrected | 1,475 | Pass | 12/12 |
 | W008 | Astra, unchanged | 1,160 | Pass | 12/12 |
 
-Every saved world contains twelve candidate questions, required fields and all six
-task types. The six compliant worlds contain 72 candidates with 71 mechanical
-passes. W001-Q01 fails the unchanged 1.25 answer-length ratio at 48/36 words.
-Across all saved artifacts there are 96 candidates and 95 mechanical passes,
-including 24 candidates in rejected original worlds. Those totals do not imply
-eight accepted worlds. No candidate answer was repaired by hand, and no mechanical
-pass is independent answer-key validation.
+W001-Q01 fails the existing 1.25 answer-length ratio at 48/36 words. It remains
+in the authored artifact and is rejected by the mechanical retention check.
+No prose or candidate answer was trimmed or repaired by hand. The 95 mechanical
+passes still require independent answer-key validation; they are not validated
+scientific examples or evidence of the study's effects.
 
-| Corrected request | Provider result | Admission | Cost |
-|---|---|---|---:|
-| W001 `length-v2` | Complete | Pass | $1.507730 |
-| W003 `length-v2` | Complete | Pass | $1.343290 |
-| W005 `length-v2` | Truncated at 64,000 output tokens | Reject | $1.610965 |
-| W007 `length-v2` | Truncated at 64,000 output tokens | Reject | $1.610940 |
+Fable's original four worlds had 1,628 to 1,782 words. Astra's original four
+already complied and retain their exact artifact hashes. Jack authorized the
+prospective authoring-only `length-v2` amendment before corrected requests.
+W001 complied before the remaining three were dispatched. Their first batch
+produced compliant W003 and truncated W005/W007. Only those two failures were
+retried with fresh `a1` IDs. Both corrected retries completed and passed admission.
+Collection finished at 9:01 p.m. Eastern on October 5. All batches are collected,
+no calls remain active and the finite collector has exited.
 
-W001 complied before the remaining three requests were dispatched at 21:04:35 UTC.
-The truncated responses were not salvaged. Both rejections are recorded in
-`author_rejections.jsonl`; all twenty paid responses, original requests and
-spending entries remain in `author.db`. All batches are collected and no calls
-remain active. The finite collector has exited; no watcher remains pending.
+## Paid requests and funding
 
-Original authoring cost was $13.743585; correction cost was $6.072925. Current
-provider authoring totals are $17.964720 Anthropic and $1.851790 OpenAI. Against
-reported top-ups now totaling $40/$10, subtracting the recorded $0.000420/$0.000410 access
-checks leaves calculated credit of $22.034860/$8.147800. These are ledger-derived
-estimates, not provider balance queries. Overall stage caps and the $6,000 ceiling
-are unchanged.
+| Corrected request | Result | Input tokens | Output tokens | Cost |
+|---|---|---:|---:|---:|
+| W001 `length-v2` | Accepted | 2,186 | 59,872 | $1.507730 |
+| W003 `length-v2` | Accepted | 2,188 | 53,294 | $1.343290 |
+| W005 `length-v2` | Truncated, rejected | 2,193 | 64,000 | $1.610965 |
+| W007 `length-v2` | Truncated, rejected | 2,188 | 64,000 | $1.610940 |
+| W005 `a1:length-v2` | Accepted | 2,193 | 45,503 | $1.148540 |
+| W007 `a1:length-v2` | Accepted | 2,188 | 44,423 | $1.121515 |
 
-| Prepared next attempt | Fresh request ID | Maximum batch cost |
-|---|---|---:|
-| W005 | `author:W005:fable:a1:t64000:length-v2` | $1.633845 |
-| W007 | `author:W007:fable:a1:t64000:length-v2` | $1.633820 |
-| Both | One new attempt each | $3.267665 |
+The two truncated responses were not salvaged. `author_rejections.jsonl` retains
+two distinct rejected generation IDs; their cached failures were logged again
+when the retry command replayed `a0`. Four rejection events therefore represent
+two paid rejected generations, not four paid requests.
 
-At the original $21.75 ceiling, the allowance gap was $1.334175 and the
-estimated Anthropic credit gap was $1.232805. Jack's subsequent $20 Anthropic
-top-up resolves the credit gap, and his approval following the $23.09 ceiling
-request authorizes only one new attempt each on W005/W007. The combined maximum
-is $3.267665 and maximum cumulative authoring spend is $23.084175, within $23.09.
-The updated reservation is `length_v2_retry_budget.json`; the earlier manifest,
-quality report and retry-budget receipt are preserved under
-`preserved/pre-funded-retries`. Each retry may still truncate. No additional
-attempt or later paid stage is authorized by this funding update.
+Original authoring cost was $13.743585. The correction added $8.342980, including
+the two truncated calls, for $22.086565 total. Provider authoring totals are
+$20.234775 Anthropic and $1.851790 OpenAI. Against reported top-ups totaling
+$40/$10, subtracting the recorded $0.000420/$0.000410 access checks leaves
+estimated credit of $19.764805/$8.147800. These are ledger-derived estimates,
+not provider balance queries.
 
-## Implementation and provenance
+At the original $21.75 ceiling, reserving both retries required $1.334175 more
+allowance and $1.232805 more estimated Anthropic credit. Jack added $20 to
+Anthropic and approved the requested $23.09 ceiling. Before dispatch, both retry
+maxima were reserved at $3.267665 combined, for maximum cumulative authoring
+spend $23.084175. The two retries actually cost $2.270055. The revised allowance
+has $1.003435 unused. Stage allocations and the overall $6,000 ceiling are unchanged;
+the funding update authorizes no further generation or later paid stage.
 
-The authorized prospective amendment is recorded in
-`authoring-length-amendment.md` and the existing run manifest before corrected
-requests. Fable remains at high effort and 64,000 tokens; Astra retains its
-original prompts, 32,000 tokens and byte-identical artifacts. Revision `length-v2`
-appends an explicit count and model self-revision instruction to the original
-Fable authoring prompt. Scientific conditions, retention rules, seeds, model
-assignments and remaining launch gates are preserved.
-
-The supported authoring path enforces the existing 1,000 to 1,500 word range,
-twelve questions, required fields and all six task types. Invalid saved worlds
-raise an explicit error. `--replace-invalid` preserves their exact bytes and
-promotes a versioned replacement only after admission. Maximum request/retry
-costs are reserved before dispatch; automatic live fallback is disabled for
-authoring. The finite helper invokes this supported CLI, tests W001 first and
-gates the remaining three on its compliance.
-
-Original benchmark, response ledger, quality report and manifest bytes are
-preserved under `preserved/pre-length-v2`, with verified hashes. Original call rows
-still match that snapshot exactly. Corrected artifact hashes are recorded in the
-existing manifest and versioned benchmark files. W001's corrected SHA-256 is
-`11c91046d6695713041a40c3b8c70b648d80c5cb74bba531b88cc9181e6aa44b`;
-W003's is `8747593a30c327c0bddb4ee42c312b6958a9c1ea7db94937b1ba64a35b511d90`.
-
-The initial launcher stopped before submission because the borrowed environment
-lacked the Anthropic SDK. Its request had zero attempts, no batch ID, no response
-and zero cost. A worktree-owned Python 3.13.5 environment was created with
-`uv sync --locked --python 3.13.5`, preserving pinned package versions. The helper
-permits only proven unsent requests to resume and refuses uncertain provider state.
-
-Collection exposed a replay snapshot error: copying only SQLite's main file
-omitted committed WAL responses. Provider dispatch was disabled, so the failed
-replay sent no request. Replay now uses SQLite's backup API and closes its
-connections. Terminal helper exceptions record attention status instead of leaving
-a stale running manifest. The current report successfully replays all 20 cached
-responses with zero provider dispatches and an unchanged primary-file SHA-256
-(`97754fe02037dbcf23f27c990834028bb88a2d6372e9af2956385148b26405ec`).
-
-## Verification and delivery
-
-All 46 affected tests pass in 18.99 seconds. They cover admission boundaries/schema, preserved invalid artifacts,
-rejection reporting, reservation of all retries, disabled live fallback, batch
-identity/restart, the offline pipeline, safe unsent-request recovery, failed-probe
-gating, WAL replay and terminal error reporting. Targeted type checks pass for
-admission, accounting/store, the helper and its tests. Two pre-existing `Hashable`
-diagnostics remain in unrelated CLI canary/judge loops. The diff check passes.
-
-Full GitHub CI at code head `99de891` failed: 3,739 passed, 115 failed and 145
-skipped in 650.69 seconds. Failures are confined to ten unchanged historical
-Phase 3 test files, including Windows absolute-path assumptions and missing
-private recovery/provider artifacts. None is in final-phase tests; type checks
-were skipped after the test failure. Private receipts are `ci_99de891_failed.log`
-and `ci_99de891_summary.json`. Later documentation-head CI also failed. Full CI
-is not a pass, and the canonical draft PR remains open without bypassing checks.
-
-Changes are owned by branch `codex/final-phase-next-stage` in
-`C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase-codex` and
-delivered through [canonical PR #1](https://github.com/jackmaiorino/selvarath-debate/pull/1).
-The original Claude worktree is unchanged. Private artifacts remain outside Git
-at `D:/finalphase-runs/final-phase-2026-10-03`.
-
-## Exact next commands and unmet prerequisites
-
-From this worktree, with the existing run root, the supported retry command under
-the newly approved allowance is:
+The exact executed retry command was:
 
 ```powershell
 uv run --locked python -m finalphase.cli author --worlds 8 --only W005,W007 --quality-check --mode batch --attempts 2 --spend-cap 23.09 --replace-invalid
 ```
 
-This reserves both fresh attempts before dispatch. `--attempts 2` reuses the
-measured `a0` failures and allows only a fresh `a1` for each world. The $23.09
-ceiling and adequate Anthropic credit are recorded in the existing manifest.
+`--attempts 2` reused measured `a0` failures and sent only one fresh `a1` per world.
+Fable remained at high effort and 64,000 tokens. Automatic live fallback was disabled.
+The settled reservation is `length_v2_retry_budget.json` in the existing run root.
 
-After eight worlds comply, independent validation's supported preflight and stage
-commands are:
+## Implementation, provenance and verification
+
+The amendment is recorded in `authoring-length-amendment.md` and the existing
+manifest before corrected paid requests. `length-v2` appends a word-count and
+model self-revision instruction to the original Fable authoring prompt. Astra's
+prompts and 32,000-token allowance are unchanged. Scientific conditions, question
+retention, seeds, model assignments and remaining launch gates are preserved.
+
+The supported path rejects invalid world lengths and incomplete schema, and
+raises an explicit error for invalid saved worlds. `--replace-invalid` preserves
+exact original bytes and promotes a versioned replacement only after admission.
+Every permitted request/retry maximum is reserved before dispatch.
+
+Original benchmark, ledger, quality report and manifest bytes remain under
+`preserved/pre-length-v2`, with verified hashes. All sixteen original call rows
+still match that snapshot exactly. Original and corrected Fable artifacts are
+preserved in benchmark version directories. Each promoted artifact matches its
+raw model response, apart from the required world/author/request metadata. All
+Astra artifacts remain byte-identical. The pre-retry manifest, quality report and
+reservation remain under `preserved/pre-funded-retries`.
+
+A complete SQLite backup containing all 22 calls is preserved under
+`preserved/after-length-v2/author.db`, with SHA-256
+`4066407cd1716ff75fd9c57c02786cbda53707165620dd043def4c2e4457e66c`.
+The manifest and `author_quality_summary.json` record every current world hash,
+mechanical rejection and cumulative charge.
+
+The initial launcher stopped before submission because a borrowed environment
+lacked the Anthropic SDK. A worktree-owned Python 3.13.5 environment was created
+with `uv sync --locked --python 3.13.5`, preserving package pins. Only proven
+unsent requests can resume. Collection also exposed a main-file-only SQLite replay
+snapshot that omitted committed WAL rows. Replay now uses SQLite backup and closes
+connections; terminal helper errors record attention status.
+
+All 46 affected tests passed in 18.99 seconds. A source diff confirms admission,
+store, helper, tests, lockfile and dependency configuration are unchanged since
+that passing run. Tests cover the offline pipeline, length/schema admission,
+invalid saved-artifact preservation, rejected generations, retry reservations,
+batch identity/restart, disabled fallback, safe unsent recovery, failed-probe
+gating, WAL replay and terminal errors. Targeted type checks pass for admission,
+accounting/store, helper and helper tests. Two pre-existing `Hashable` diagnostics
+remain in unrelated CLI canary/judge loops. The diff check passes.
+
+The actual ledger replay recovered all 22 cached responses with zero provider
+dispatches. The primary store remained bit-identical before and after replay,
+SHA-256 `716b1bebde52d66f1e1bbdc396dbd6b2bfbd99e905a87967cc64a40185216a38`.
+
+Full GitHub CI at code head `99de891` failed: 3,739 passed, 115 failed and 145
+skipped. Failures are in ten unchanged historical Phase 3 test files, including
+Windows absolute-path assumptions and missing private recovery/provider artifacts.
+No final-phase test failed; CI type checks were skipped. Later documentation-head
+CI also failed. This is distinct from the passing affected checks. The canonical
+draft remains open without bypassing failed checks or rewriting historical evidence.
+
+Changes are committed on owned branch `codex/final-phase-next-stage` and delivered
+through [canonical PR #1](https://github.com/jackmaiorino/selvarath-debate/pull/1).
+The original Claude worktree is unchanged. Private artifacts remain outside Git
+at `D:/finalphase-runs/final-phase-2026-10-03`.
+
+## Supported next stage and unmet prerequisites
+
+From `C:/Users/Jack/Dev/FailureModeExperiment/selvarath-debate-final-phase-codex`,
+with the existing run root, independent validation's supported commands are:
 
 ```powershell
 uv run --locked python -m finalphase.cli preflight --stage validate --workers 16 --mode batch
 uv run --locked python -m finalphase.cli validate --mode batch
 ```
 
-Paid validation still requires explicit authorization, representative serial and
-parallel completed-work throughput, current placement evidence, sufficient
-provider funding and stage-cost reconciliation. Mechanical passes remain subject
-to independent validation. Broader authoring's eventual command is
+The preflight is read-only. Paid validation is not authorized by this goal and
+still requires representative serial/parallel completed-work throughput, current
+placement evidence, sufficient provider funding and stage-cost reconciliation.
+Recorded provider access passes, but validation throughput/placement evidence is
+missing. Authoring completion does not close independent answer-key validation.
+
+Broader authoring's eventual command is
 `uv run --locked python -m finalphase.cli author --worlds 160 --mode batch`, with
-its own scope/funding and throughput qualification. These paid stages are not run.
+its own scope, funding and throughput qualification. The six arms and both answer
+orders remain world alone, debate k0/k1/k2/k6 and debate plus world. No selector
+requests are dispatched. Reversal flags are descriptive; equal defensibility,
+key disagreement and failed fact checks reject questions. Splits cannot change
+once main requests are registered.
 
-The six arms and both answer orders remain world alone, debate k0/k1/k2/k6 and
-debate plus world; no selector requests are dispatched. Reversal flags remain
-descriptive; equal defensibility, key disagreement and failed fact checks reject
-questions. Reproducible question-count reductions may be chosen on cost before
-main, and splits cannot change after main requests are registered. The $200
-author, $200 validation, $60 canary, $650 pilot and $4,300 main caps plus $590
-reserve remain $6,000. Illustrative validation, pilot and high authoring forecasts
-exceed their individual caps and require reconciliation using measured costs.
+The $200 author, $200 validation, $60 canary, $650 pilot and $4,300 main caps plus
+$590 reserve remain $6,000. Existing forecasts are illustrative and require
+reconciliation with actual authoring costs and measured later-stage costs.
 Canary, oracle, pre-registration, question count/roster, measured forecast and
-reconciled funding remain prerequisites before main.
-
-The next wake condition is collection of the two reserved W005/W007 retries.
-Their admission, mechanical checks, original provenance and cached replay must be
-verified before the requested eight compliant worlds can be reported achieved.
+reconciled funding remain prerequisites before main. No later paid stage has run.
