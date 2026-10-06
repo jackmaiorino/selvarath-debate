@@ -40,11 +40,15 @@ def estimate_max_cost(req: Request, batch: bool) -> float:
 
 
 class Store:
-    def __init__(self, path: str | Path, stage: str, cap_usd: float):
+    def __init__(self, path: str | Path, stage: str, cap_usd: float,
+                 max_transport_attempts: int = MAX_TRANSPORT_ATTEMPTS):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.stage = stage
         self.cap = cap_usd
+        if not 1 <= max_transport_attempts <= MAX_TRANSPORT_ATTEMPTS:
+            raise ValueError("invalid maximum transport attempts")
+        self.max_transport_attempts = max_transport_attempts
         self._lock = threading.RLock()
         self.db = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self.db.execute("PRAGMA journal_mode=WAL")
@@ -128,7 +132,7 @@ class Store:
         if todo:
             self._check_cap([r for r in todo if not self._in_flight(r.custom_id)], mode == "batch")
         if mode == "batch":
-            self._run_batch(todo, poll_s, allow_live_fallback)
+            self._run_batch(todo, poll_s, allow_live_fallback, workers)
         else:
             self._run_live(todo, workers, on_done)
         return {r.custom_id: x for r in reqs if (x := self.get(r.custom_id)) is not None}
@@ -143,6 +147,8 @@ class Store:
         got = self.get(req.custom_id)
         if got is not None:
             return got
+        if self._attempts(req.custom_id) >= self.max_transport_attempts:
+            raise TransportError(f"transport attempt allowance exhausted for {req.custom_id}")
         self._check_cap([req], False)
         m = spec(req.model)
         while True:
@@ -154,7 +160,7 @@ class Store:
                 self._mark(req.custom_id, "pending", attempts_inc=1)
                 n = self._attempts(req.custom_id)
                 self.log("transport", f"{req.custom_id} attempt {n}: {e}")
-                if n >= MAX_TRANSPORT_ATTEMPTS:
+                if n >= self.max_transport_attempts:
                     self._mark(req.custom_id, "transport_failed")
                     raise
                 time.sleep(min(2 ** n * 5, 300))
@@ -170,20 +176,24 @@ class Store:
                 except TransportError:
                     pass
 
-    def _run_batch(self, todo: list[Request], poll_s: int, allow_live_fallback: bool = True) -> None:
+    def _run_batch(self, todo: list[Request], poll_s: int, allow_live_fallback: bool = True,
+                   workers: int = 8) -> None:
         # reconnect to batches already submitted for these ids
         pending_batches = {
             row[0] for row in self._q(
                 "SELECT DISTINCT batch_id FROM calls WHERE status='submitted' AND batch_id IS NOT NULL")
         }
         fresh = [r for r in todo if not self._in_flight(r.custom_id)]
+        if any(self._attempts(r.custom_id) >= self.max_transport_attempts for r in fresh):
+            raise TransportError("batch attempt allowance exhausted; reserve a retry before resubmission")
         by_model: dict[str, list[Request]] = {}
         for r in fresh:
             by_model.setdefault(r.model, []).append(r)
+        live_only = []
         for key, rs in by_model.items():
             m = spec(key)
             if m.provider not in BATCH:
-                self._run_live(rs, 8, None)
+                live_only.extend(rs)
                 continue
             submit = BATCH[m.provider][0]
             for i in range(0, len(rs), 5000):
@@ -196,7 +206,11 @@ class Store:
                     self._mark(r.custom_id, "submitted", batch_id=bid, attempts_inc=1)
                 pending_batches.add(bid)
                 self.log("batch_submit", f"{bid} {key} n={len(chunk)}")
-        snapshots = {}
+        # Start every asynchronous provider batch before doing live-only work.
+        # Together can now finish concurrently with both frontier backends.
+        if live_only:
+            self._run_live(live_only, workers, None)
+        snapshots: dict[str, tuple[str, str]] = {}
         unchanged = 0
         while pending_batches:
             changed = False
@@ -236,7 +250,7 @@ class Store:
             "SELECT request FROM calls WHERE status='pending' AND stage=?", (self.stage,))]
         retry = [r for r in retry if r.custom_id in {t.custom_id for t in todo}]
         if retry and allow_live_fallback:
-            self._run_live(retry, 8, None)
+            self._run_live(retry, workers, None)
 
 
 def _req_fields(d: dict) -> dict:

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 import platform
 import subprocess
 from pathlib import Path
+from typing import TypeGuard
 
 PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "TOGETHER_API_KEY")
 CEILING_USD = 6000.0
@@ -18,12 +20,22 @@ def source_commit() -> str:
     ).strip()
 
 
-def _positive(value) -> bool:
-    return type(value) in (int, float) and math.isfinite(value) and value > 0
+def execution_sha256() -> str:
+    """Allow compatible qualification reuse across documentation-only commits."""
+    root = Path(__file__).resolve().parents[1]
+    paths = sorted((root / "finalphase").glob("*.py")) + [root / "pyproject.toml", root / "uv.lock"]
+    hashes = {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in paths}
+    return hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
 
 
-def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool = False) -> dict:
-    reasons = []
+def _positive(value: object) -> TypeGuard[int | float]:
+    return isinstance(value, (int, float)) and type(value) in (int, float) and math.isfinite(value) and value > 0
+
+
+def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool = False,
+          qualification: bool = False) -> dict:
+    reasons: list[str] = []
     credentials = {name: bool(os.environ.get(name, "").strip()) for name in PROVIDER_KEYS}
     reasons.extend(f"missing {name}" for name, configured in credentials.items() if not configured)
     path = root / "run_manifest.json"
@@ -58,7 +70,10 @@ def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool =
             reasons.append("canary, oracle, pre-registration and measured pilot forecast must pass before main")
     if manifest.get("ceiling_usd") != CEILING_USD:
         reasons.append("run manifest must preserve the $6,000 ceiling")
-    if not quality_check:
+    if qualification:
+        if stage != "validate" or quality_check:
+            reasons.append("bounded throughput qualification is only available for validation")
+    elif not quality_check:
         receipts = manifest.get("throughput", {})
         receipt = receipts.get(stage, {}) if isinstance(receipts, dict) else {}
         if not isinstance(receipt, dict):
@@ -68,7 +83,9 @@ def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool =
             serial = {}
         if not isinstance(parallel, dict):
             parallel = {}
-        valid = (receipt.get("git_commit") == commit
+        compatible = (receipt.get("execution_sha256") == execution_sha256()
+                      if "execution_sha256" in receipt else receipt.get("git_commit") == commit)
+        valid = (compatible
                  and receipt.get("host") == platform.node()
                  and receipt.get("mode") == mode
                  and receipt.get("selected_workers") == workers
@@ -87,13 +104,23 @@ def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool =
             reasons.append(f"compatible serial/parallel throughput receipt and placement checks are missing for {stage}")
     elif stage != "author":
         reasons.append("the bounded quality check is only available for authoring up to eight worlds")
+    if stage == "validate":
+        from . import validation
+        try:
+            worlds = [json.loads(p.read_text(encoding="utf-8"))
+                      for p in sorted((root / "bench/worlds").glob("W*.json"))]
+            reasons.extend(validation.plan(root, worlds, mode)["reasons"])
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            reasons.append(f"validation reservation cannot be verified: {e}")
     return {"ready": not reasons, "stage": stage, "git_commit": commit,
             "manifest": str(path), "credentials_configured": credentials,
             "quality_check": quality_check, "reasons": reasons,
+            "qualification": qualification,
             "provider_client_created": False, "execution_started": False}
 
 
-def require(stage: str, root: Path, workers: int, mode: str, quality_check: bool = False) -> None:
-    report = check(stage, root, workers, mode, quality_check)
+def require(stage: str, root: Path, workers: int, mode: str, quality_check: bool = False,
+            qualification: bool = False) -> None:
+    report = check(stage, root, workers, mode, quality_check, qualification)
     if not report["ready"]:
         raise RuntimeError("final-phase launch refused: " + "; ".join(report["reasons"]))

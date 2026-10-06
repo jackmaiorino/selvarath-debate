@@ -56,6 +56,14 @@ def test_qualified_launch_and_bounded_quality_check(tmp_path, monkeypatch):
     path.write_text(json.dumps(manifest))
     assert preflight.check("author", tmp_path, 8, "batch", quality_check=True)["ready"]
     assert not preflight.check("main", tmp_path, 8, "batch")["ready"]
+    manifest["throughput"]["author"] = {**receipt, "execution_sha256": "source"}
+    monkeypatch.setattr(preflight, "execution_sha256", lambda: "source")
+    monkeypatch.setattr(preflight, "source_commit", lambda: "docs-commit")
+    manifest["git_commit"] = "docs-commit"
+    path.write_text(json.dumps(manifest))
+    assert preflight.check("author", tmp_path, 8, "batch")["ready"]
+    monkeypatch.setattr(preflight, "execution_sha256", lambda: "changed-source")
+    assert not preflight.check("author", tmp_path, 8, "batch")["ready"]
 
 
 def test_stage_caps_and_reserve_stay_inside_total():

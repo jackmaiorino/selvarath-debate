@@ -1,5 +1,6 @@
 import re
 import weakref
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -109,6 +110,51 @@ def test_bounded_batch_disables_unreserved_live_fallback(tmp_path, monkeypatch):
     s = Store(tmp_path / "s.db", "author", 10)
     assert s.run([_req(1)], mode="batch", allow_live_fallback=False) == {}
     assert s._q("SELECT status FROM calls") == [("pending",)]
+    bounded = Store(tmp_path / "s.db", "author", 10, max_transport_attempts=1)
+    with pytest.raises(TransportError, match="batch attempt allowance exhausted"):
+        bounded.run([_req(1)], mode="batch", allow_live_fallback=False)
+
+
+def test_mixed_batches_start_all_backends_before_parallel_live_work(tmp_path, monkeypatch):
+    submitted = {}
+    barrier = threading.Barrier(2)
+
+    def submit(reqs, model, label):
+        submitted[model.provider] = reqs
+        return model.provider
+
+    def collect(bid, model):
+        return {r.custom_id: Response(r.custom_id, model.model_id, "ok", "batch", batch=True)
+                for r in submitted[bid]}
+
+    def live(req, model):
+        assert set(submitted) == {"openai", "anthropic"}
+        barrier.wait(timeout=3)
+        return Response(req.custom_id, model.model_id, "ok", "live")
+
+    for provider in ("openai", "anthropic"):
+        monkeypatch.setitem(store.BATCH, provider, (submit, lambda bid: ("ended", {}), collect))
+    monkeypatch.setitem(store.LIVE, "together", live)
+    s = Store(tmp_path / "s.db", "validate", 10)
+    reqs = [_req(1, "dspro"), _req(2, "astra"), _req(3, "fable"), _req(4, "dspro")]
+    out = s.run(reqs, mode="batch", workers=2, allow_live_fallback=False)
+    assert set(out) == {"id1", "id2", "id3", "id4"}
+
+
+def test_bounded_transport_allowance_survives_restart(tmp_path, monkeypatch):
+    calls = []
+
+    def fail(req, model):
+        calls.append(req.custom_id)
+        raise TransportError("unknown delivery")
+
+    monkeypatch.setitem(store.LIVE, "together", fail)
+    s = Store(tmp_path / "s.db", "validate", 10, max_transport_attempts=1)
+    assert s.run([_req(1, "dspro")]) == {}
+    s.db.close()
+    resumed = Store(tmp_path / "s.db", "validate", 10, max_transport_attempts=1)
+    assert resumed.run([_req(1, "dspro")]) == {}
+    assert calls == ["id1"] and resumed._attempts("id1") == 1
 
 
 def test_batch_wait_backs_off_and_resets_when_completed_work_changes(tmp_path, monkeypatch):

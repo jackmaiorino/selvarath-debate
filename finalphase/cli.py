@@ -21,6 +21,7 @@ from pathlib import Path
 from . import authoring as A
 from . import prompts_study as P
 from . import preflight
+from . import validation as V
 from .debate import debate_task
 from .engine import drive
 from .judging import ARMS, ORDERS, judge_task
@@ -36,7 +37,8 @@ DEBATERS = ("fable", "astra")
 
 
 def _store(stage: str) -> Store:
-    return Store(RUN_ROOT / f"{stage}.db", stage, STAGE_CAPS[stage])
+    return Store(RUN_ROOT / f"{stage}.db", stage, STAGE_CAPS[stage],
+                 max_transport_attempts=1 if stage == "validate" else 6)
 
 
 def _progress(rnd, pending, done):
@@ -148,22 +150,23 @@ def _worlds() -> list[dict]:
 
 
 def cmd_validate(args) -> None:
-    s = _store("validate")
     worlds = _worlds()
-    rows, reqs = [], []
-    for w in worlds:
-        for i, q in enumerate(w["questions"]):
-            chk = A.mechanical_check(q, w["world_text"], w["questions"])
-            rows.append({"question_id": A.qid(w["world_id"], i), "world_id": w["world_id"], "author": w["author"],
-                         "index": i, "mechanical_ok": chk.ok, "mechanical_reasons": chk.reasons})
-        ok_qs = [q for i, q in enumerate(w["questions"]) if A.mechanical_check(q, w["world_text"], w["questions"]).ok]
-        ok_idx = [i for i, q in enumerate(w["questions"]) if A.mechanical_check(q, w["world_text"], w["questions"]).ok]
-        for req in A.validation_requests(w["world_id"], w["author"], w["world_text"], w["questions"]):
-            qi = int(req.custom_id.split(":")[1].split("-Q")[1]) - 1
-            if qi in ok_idx:
-                reqs.append(req)
+    reservation = V.require_plan(RUN_ROOT, worlds, args.mode)
+    V.atomic_json(RUN_ROOT / "validation_reservation.json", reservation)
+    rows, reqs = V.workload(worlds)
+    s = _store("validate")
     print(f"{len(rows)} candidates, {sum(r['mechanical_ok'] for r in rows)} pass mechanical checks, {len(reqs)} validation calls")
-    out = s.run(reqs, mode=args.mode, workers=16)
+    V.execution_status(RUN_ROOT, "validation_running", pid=os.getpid(), workers=args.workers,
+                       execution_started=True)
+    try:
+        out = s.run(reqs, mode=args.mode, workers=args.workers, allow_live_fallback=False)
+        spend = s.spent("validate")
+    except BaseException as e:
+        V.execution_status(RUN_ROOT, "validation_needs_attention", error=f"{type(e).__name__}: {e}",
+                           stage_spend_usd=s.spent("validate"))
+        raise
+    finally:
+        s.db.close()
     by_world = {w["world_id"]: w for w in worlds}
     for r in rows:
         if not r["mechanical_ok"]:
@@ -183,7 +186,21 @@ def cmd_validate(args) -> None:
     _write_jsonl(BENCH / "validation.jsonl", rows)
     ret = [r for r in rows if r["retained"]]
     print(f"retained {len(ret)}/{len(rows)}; by author {collections.Counter(r['author'] for r in ret)}; "
-          f"stage spend ${s.spent('validate'):.2f}")
+          f"responses {len(out)}/{len(reqs)}, stage spend ${spend:.6f}")
+    V.execution_status(RUN_ROOT, "validation_complete" if len(out) == len(reqs) else "validation_needs_attention",
+                       stage_spend_usd=spend, responses=len(out), requests=len(reqs), retained=len(ret),
+                       independent_answer_validation_complete=len(out) == len(reqs), audit_complete=False)
+    if len(out) != len(reqs):
+        raise RuntimeError("validation incomplete; preserve partial results and reserve any paid retry before resuming")
+
+
+def cmd_validation_plan(args) -> None:
+    report = V.plan(RUN_ROOT, _worlds(), args.mode)
+    print(json.dumps(report, indent=2))
+
+
+def cmd_qualify_validate(args) -> None:
+    print(json.dumps(V.qualify(RUN_ROOT, _worlds(), args.mode), indent=2))
 
 
 def cmd_split(args) -> None:
@@ -297,6 +314,9 @@ def main() -> None:
     a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
     a.add_argument("--replace-invalid", action="store_true", help="preserve invalid saved worlds and regenerate under fresh versioned IDs")
     v = sub.add_parser("validate"); v.add_argument("--mode", default="batch", choices=("batch", "live"))
+    v.add_argument("--workers", type=int, choices=(1, 8), default=8)
+    qp = sub.add_parser("qualify-validate"); qp.add_argument("--mode", default="batch", choices=("batch", "live"))
+    vp = sub.add_parser("validation-plan"); vp.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
@@ -309,13 +329,20 @@ def main() -> None:
     pf.add_argument("--mode", choices=("batch", "live"), default="batch")
     pf.add_argument("--quality-check", action="store_true")
     args = ap.parse_args()
+    if args.cmd == "validation-plan":
+        cmd_validation_plan(args)
+        return
+    if args.cmd == "qualify-validate":
+        preflight.require("validate", RUN_ROOT, V.QUALIFICATION_WORKERS, args.mode, qualification=True)
+        cmd_qualify_validate(args)
+        return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
         print(json.dumps(report, indent=2))
         raise SystemExit(0 if report["ready"] else 2)
     if args.cmd != "split":
         stage = args.split if args.cmd == "judge" else args.cmd
-        workers = args.workers if args.cmd == "judge" else (8 if args.cmd == "author" else 16)
+        workers = args.workers if args.cmd in ("judge", "validate") else (8 if args.cmd == "author" else 16)
         mode = getattr(args, "mode", "live")
         quality = getattr(args, "quality_check", False)
         if args.cmd == "author":

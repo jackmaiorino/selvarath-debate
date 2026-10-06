@@ -50,7 +50,16 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     ns = types.SimpleNamespace
     cli.cmd_author(ns(worlds=24, only=None, mode="live"))
     assert len(list((tmp_path / "bench" / "worlds").glob("*.json"))) == 24
-    cli.cmd_validate(ns(mode="live"))
+    from finalphase import validation as v
+    import platform
+    (tmp_path / "run_manifest.json").write_text(json.dumps({"validation_execution": {
+        "authorization": {"source": "offline test fixture"},
+        "worlds_sha256": {p.stem: v.sha(p.read_bytes()) for p in (tmp_path / "bench/worlds").glob("*.json")},
+        "account_balances_at_stage_start": {p: {"available_usd": 1000, "reference": "offline fixture"}
+                                            for p in ("openai", "anthropic", "together")},
+        "placements": {"host": platform.node(), "checked": ["Jack's PC", "HaleysPC", "RunPod"],
+                       "reference": "offline fixture"}}}))
+    cli.cmd_validate(ns(mode="live", workers=8))
     rows = [json.loads(x) for x in open(tmp_path / "bench" / "validation.jsonl")]
     assert len(rows) == 288 and all(r["retained"] for r in rows)
     cli.cmd_split(ns(main_questions=1068))
