@@ -293,3 +293,37 @@ changes here.
 Canonical PR #1 remains the delivery item. Full historical CI fails in unchanged
 Phase 3 files; affected checks passing does not clear those failed checks.
 No merge or scientific audit is claimed. Issues are disabled in this repository.
+
+### Settled collector and separately approved transport retries
+
+The initial finite collector has exited with 755/757 canonical responses saved.
+Its ledger records $8.75179620, including eight qualification controls, and 29
+measured truncations. The provisional retention count is 71; it is not the final
+result while two responses are missing. All four frontier batches are collected.
+Original partial rows, summary, audit packet and manifest are preserved before
+any retry changes.
+
+Jack explicitly approved one exact-body retry for `factcheck:W001-Q06:2` and
+`validate:W001-Q07:dspro:key_a`, at a combined maximum of $0.04939308. The
+reservation includes the possibility of charges for their original 503 attempts.
+Existing balances cover the additional reservation; the $200 validation and
+$6,000 campaign limits stay unchanged. No measured truncation, refusal or
+scientific rejection is retried.
+
+The guarded command uses distinct transport IDs, keeps the original requests,
+errors and attempt history, and charges each retry only on its transport row.
+A zero-cost canonical response alias preserves the scientific question identity.
+It requires the settled collector, unchanged body hashes, the real qualification
+receipt, full-cohort funding and the separately recorded approval:
+
+```powershell
+uv run --locked python scripts/finalphase_validation_retry.py execute
+```
+
+After retry collection, the supported `preflight --stage validate --workers 8
+--mode batch` and `validate --workers 8 --mode batch` commands recompute retention
+from saved responses. All 64 affected tests pass in 25.36 seconds, including
+retry authorization, precise body/identity/error/charge preservation, refusal
+of other failed launch guards and safe resume of proven unsent retry rows.
+Scoped type checks and the diff check pass. Final outcome and replay receipts
+remain to be recorded after the two approved attempts settle.
