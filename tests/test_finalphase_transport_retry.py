@@ -109,6 +109,56 @@ def test_proven_unsent_reserved_retry_resumes_without_resetting_history(tmp_path
     assert called == [request.custom_id]
 
 
+def test_restart_after_alias_commit_finishes_receipt_without_provider_call(tmp_path, monkeypatch):
+    from dataclasses import replace
+    _, failed, plan = fixture(tmp_path, monkeypatch)
+    authorize(tmp_path, plan)
+    item = plan["requests"][0]
+    ledger = store.Store(tmp_path / "validate.db", "validate", 200, max_transport_attempts=1)
+    ledger._register(replace(failed, custom_id=item["retry_id"]))
+    response = Response(item["retry_id"], "dspro", "ok", "YES", cost=.001)
+    ledger._save(response)
+    alias = replace(response, custom_id=failed.custom_id, cost=0,
+                    extra={"retry_transport_id": item["retry_id"], "charge_recorded_on_retry_row": True})
+    ledger._save(alias, attempts_inc=0)
+    ledger.db.close()
+    plan["status"] = "reserved_before_dispatch"
+    authorize(tmp_path, plan)
+    monkeypatch.setitem(store.LIVE, "together", lambda *args: pytest.fail("cached transport must not be resent"))
+    assert retry.execute(tmp_path)["status"] == "collected"
+    ledger = store.Store(tmp_path / "validate.db", "validate", 200, max_transport_attempts=1)
+    assert ledger.spent("validate") == pytest.approx(.001)
+    assert ledger._attempts(failed.custom_id) == 1 and ledger._attempts(item["retry_id"]) == 1
+    assert ledger.get(failed.custom_id) == alias
+    ledger.db.close()
+
+
+def test_interruption_during_promotion_rolls_back_and_reuses_paid_response(tmp_path, monkeypatch):
+    _, failed, plan = fixture(tmp_path, monkeypatch)
+    authorize(tmp_path, plan)
+    calls = []
+    def live(request, model):
+        calls.append(request.custom_id)
+        return Response(request.custom_id, "dspro", "ok", "YES", cost=.001)
+    monkeypatch.setitem(store.LIVE, "together", live)
+    original_log = store.Store.log
+    def interrupted_log(self, kind, detail):
+        if kind == "canonical_retry_alias":
+            raise RuntimeError("interrupted alias transaction")
+        original_log(self, kind, detail)
+    monkeypatch.setattr(store.Store, "log", interrupted_log)
+    with pytest.raises(RuntimeError, match="interrupted alias transaction"):
+        retry.execute(tmp_path)
+    ledger = store.Store(tmp_path / "validate.db", "validate", 200, max_transport_attempts=1)
+    assert ledger.get(failed.custom_id) is None
+    assert ledger.get(plan["requests"][0]["retry_id"]) is not None
+    ledger.db.close()
+    monkeypatch.setattr(store.Store, "log", original_log)
+    monkeypatch.setitem(store.LIVE, "together", lambda *args: pytest.fail("saved paid response must not be resent"))
+    assert retry.execute(tmp_path)["status"] == "collected"
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize("change", ("funding", "world", "throughput", "inflight", "measured"))
 def test_retry_cannot_replace_other_launch_guards(tmp_path, monkeypatch, change):
     manifest, failed, plan = fixture(tmp_path, monkeypatch)

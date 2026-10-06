@@ -88,7 +88,10 @@ The regenerated validation rows are byte-identical, SHA-256
 SQLite online backup includes WAL; its calls, batches and events match the live
 ledger, and integrity checks pass. Original pre-retry rows and error events match
 apart from the two documented canonical response aliases; their original copies
-remain preserved. All 64 affected tests, scoped type checks and diff checks pass.
+remain preserved. All 66 affected tests pass in 24.42 seconds; scoped type checks and diff checks
+pass. Retry response promotion is atomic. Interruption during promotion rolls
+back; interruption after commit resumes the receipt from saved transport results
+without another provider call. Both crash boundaries have regression coverage.
 
 The pending unpaid independent audit belongs to the Claude coordinating session
 under `reports/final-phase-2026-09-30/design.md:55`. Its reproducible 5% sample is
@@ -99,7 +102,9 @@ No audit message or paid audit was dispatched.
 
 Private receipts, summaries, full rejection details and backups live under
 `D:/finalphase-runs/final-phase-2026-10-03`. The existing manifest is terminal,
-with no active requests or watcher needed. Canonical PR #1 delivers the owned
+with no active requests or watcher needed. A verified cold copy is retained under
+`E:/selvarath-archive/final-phase-2026-10-03`, with its exact path and copy receipt
+in the terminal manifest. Canonical PR #1 delivers the owned
 changes; historical full CI failures remain separate from affected checks.
 
 The next task is the unpaid coordinating audit using the saved packet. The
