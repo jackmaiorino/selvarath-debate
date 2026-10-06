@@ -1,0 +1,36 @@
+Consult (effort: high). One-shot, self-contained. Adversarial critique of a revised experiment design.
+
+CONTEXT. Research project on AI debate with a limited "oracle verification" channel. A judge reads a two-sided debate about a question over a fictional world and picks an answer; in verification arms the judge can ask the oracle (an LLM with the full world text) yes/no/not-addressed questions. Banked findings so far:
+- Phase 2 (82 questions, 3 hand-written worlds): sequential oracle protocol raised judge error +3.9pp [2.2, 5.7].
+- Phase 3 (Qwen3.8 and Llama-3.3-70B judges, judge-selected adaptive queries, announced budgets 1/2/4/8 vs 0): error +3.8, +2.3, +2.4, +3.3pp, all Holm-significant; 8 vs 2 inconclusive (+0.97, p=.24). No monotone or U shape established.
+- Mechanism audits on earlier data: roughly half of harmful flips were oracle-answer errors, half judge over-weighting of true-but-irrelevant confirmations (or reading NOT ADDRESSED as signal). Presenting the same Q&A as a neutral table roughly halved harm.
+- Phase 4A: fixed captured histories crossed over between judges; the recipient matters (Qwen harmed, Llama slightly helped by the same histories).
+- Phase 4B: an AI adjudication of oracle labels proposed corrections for 554 claims touching 45% of histories. The oracle in all phases was Llama-3.3-70B. Debaters were Llama-3.3-70B and Qwen3.7-Plus self-play.
+- Question audit: only 5/82 old questions were source-determined; a new benchmark is needed.
+
+PROPOSAL SENT TO PARTNER (Joey) on 9/20: 13 judges (GPT-5.6 Luna/Terra/Sol, GPT-6 Astra, Claude Haiku 4.5/Sonnet 5/Opus 5/Fable 5.1, DeepSeek V4 Flash/Pro, Qwen3.8 Flash and 2.4T, Llama 3.3 70B). Four conditions: world alone; debate only; debate + EIGHT FIXED pre-selected verification exchanges shared across judges; debate + whole world. 2,406 new generated scenarios (6 task types), both answer orders, target +/-2pp marginal CIs, ~$3.6-4.0k main judging within a $6k proposed ceiling (funding unreconciled). Debaters/oracle unspecified (text said "balancing Qwen and Llama donor sources").
+
+JOEY'S CONCERNS:
+1. Which models are oracle/debaters? They should be the most capable; judge-smarter-than-debater cases are uninteresting for scalable oversight; oracle should err as little as possible.
+2. Why only 0/8/whole world? Wants 0/1/2/4/8, prefers more curve points over more models.
+3. Scenario generation is unexplained.
+4. Fixed pre-selected claims remove judge query selection by construction, eliminating a main proposed mechanism (judge picks irrelevant claims, over-updates) and are unrealistic.
+
+MY REVISED DESIGN (my read: Joey is right on all four):
+A. Debaters = frontier: Claude Fable 5.1 self-play on half the scenarios, GPT-6 Astra self-play on the other half, one transcript per scenario, generated once, judge-independent.
+B. Judges restricted to models below the debaters: 5 judges (Luna, Sol, Haiku 4.5, Opus 5, Llama 3.3 70B for continuity). Astra/Fable dropped as judges (optionally a small ceiling anchor).
+C. Oracle = frontier model with the full world (Opus 5 or Fable 5.1), chosen in the pilot by measured oracle accuracy against structured ground truth (never by judge outcomes). Oracle answers sampled and scored against the generator's fact table; oracle error rate reported.
+D. Verification is adaptive: the judge writes its own queries. Budget curve 0/1/2/4/8 from ONE trajectory per judgment: the judge is NOT told its budget ("you may be stopped at any time"), queries one at a time, and at checkpoints 1/2/4/8 we fork a verdict request off a copy of the conversation (the main trajectory never sees the fork). Judge may stop early; actual query count recorded. Separate-arm alternative costs ~+$1.1k.
+E. Selection diagnostic: debate + 8 queries chosen by a strong selector (Fable acting as judge), shown to every judge, vs each judge's own 8. Difference estimates the contribution of query selection vs interpretation.
+F. Keep world-alone, debate-only, debate+whole-world.
+G. Scenarios: procedurally generated structured fact base per world (entities, attributes, dated events, rules with exceptions, source attributions), rendered to prose by an LLM, back-extracted by a second model and diffed against the fact base; question and answer key computed from the fact base; wrong candidate = a specific reasoning slip (ignore exception, stale state, wrong scope); six task types; one question per independently generated world.
+H. Precision: drop to +/-3pp (1,068 scenarios). My illustrative cost model (list batch rates, 4k-in/1k-out judge calls, 600 out per query turn, context +400/exchange, oracle with cached world): 5 judges +/-3pp total ~$3.0k (debates ~$0.5k, oracle ~$0.6k Opus, judging ~$1.9k); Fable oracle ~$3.6k; 5 judges +/-2pp ~$6.7k; 7 judges +/-3pp ~$3.9k.
+
+QUESTIONS (be adversarial; end with crisp numbered answers):
+1. Is the unannounced-budget forked-checkpoint design a valid substitute for separate budget arms? What does it change about what "budget k" means, and does it break comparability with Phase 3 (which announced budgets)? Would you pay the +$1.1k for separate arms, or add one small announced-budget arm?
+2. Is restricting judges to strictly weaker-than-debater models right, given cross-family issues (Claude judges on Claude-debated scenarios, etc.)? Should debater family be crossed with judge family as a design factor?
+3. Oracle: frontier LLM with world text vs a programmatic oracle over the structured fact base (LLM maps the query to facts, answer read from the table). Which minimizes oracle error without making the oracle unrealistically clean? Should oracle error be a manipulated factor instead?
+4. Does design E actually isolate query selection? What confounds remain (e.g., strong-selector queries match strong-debater framing; forks vs fixed packet presentation)?
+5. Is +/-3pp at 1,068 scenarios adequate for a 5-point curve when adjacent-budget differences in Phase 3 were ~1pp? What should the confirmatory contrasts be so we are not promising shape detection we cannot afford?
+6. Anything in the revision that is wrong, missing, or that Joey would still object to?
+Keep the reply under 900 words.

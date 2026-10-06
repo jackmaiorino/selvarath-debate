@@ -1,0 +1,110 @@
+{
+ "rows": [
+  {
+   "design": "Joey's set: 0/2/6, 7 judges",
+   "judges": 7,
+   "questions": 1068,
+   "budgets": [
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 688,
+   "judging": 1868,
+   "yoked": 0,
+   "total": 2942,
+   "oracle_calls": 119616,
+   "verdicts": 74760
+  },
+  {
+   "design": "Recommended: 0/1/2/6, 7 judges",
+   "judges": 7,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 774,
+   "judging": 2142,
+   "yoked": 0,
+   "total": 3302,
+   "oracle_calls": 134568,
+   "verdicts": 89712
+  },
+  {
+   "design": "0/1/2/6, 6 judges (no Llama)",
+   "judges": 6,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 663,
+   "judging": 1960,
+   "yoked": 0,
+   "total": 3010,
+   "oracle_calls": 115344,
+   "verdicts": 76896
+  },
+  {
+   "design": "0/1/2/6, 7 judges, Fable oracle",
+   "judges": 7,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 1548,
+   "judging": 2142,
+   "yoked": 0,
+   "total": 4076,
+   "oracle_calls": 134568,
+   "verdicts": 89712
+  },
+  {
+   "design": "0/1/2/6, 7 judges + Fable top-2 arm",
+   "judges": 7,
+   "questions": 1068,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 386,
+   "oracle": 786,
+   "judging": 2306,
+   "yoked": 227,
+   "total": 3541,
+   "oracle_calls": 136704,
+   "verdicts": 104664
+  },
+  {
+   "design": "0/1/2/6, 7 judges, 800 questions",
+   "judges": 7,
+   "questions": 800,
+   "budgets": [
+    1,
+    2,
+    6
+   ],
+   "debates": 289,
+   "oracle": 580,
+   "judging": 1605,
+   "yoked": 0,
+   "total": 2474,
+   "oracle_calls": 100800,
+   "verdicts": 67200
+  }
+ ],
+ "prep": {
+  "authoring": 39,
+  "validation": 151,
+  "debater_canary": 17
+ }
+}

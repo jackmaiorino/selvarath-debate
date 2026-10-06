@@ -9,6 +9,8 @@ dependencies = [
     "typer>=0.12",
     "pandas>=3.0.3",
     "numpy>=2.5.1",
+    "anthropic>=1.0",
+    "openai>=2.0",
 ]
 
 [dependency-groups]

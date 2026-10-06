@@ -1,0 +1,37 @@
+The revision is substantially better, but it changes the central estimand and overstates what the selection diagnostic identifies. Joey’s concerns justify stronger controls, not an assumed model hierarchy or a promise to detect curve shape.
+
+1. **Forked checkpoints are valid, but they do not estimate announced-budget effects.** They estimate performance after truncating one budget-unaware querying policy at \(k\). Announcing “two questions” can change the first query, information allocation, and stopping strategy. Invisible verdict forks prevent feedback contamination; they cannot recover those policy changes.
+
+   Phase 3 remains contextual evidence, not a directly comparable budget curve. Even separate arms would retain benchmark and model changes.
+
+   **I would spend the additional $1.1k on announced arms before adding judges**, provided the cost survives a pilot and funding is reconciled. Otherwise retain checkpoints and explicitly call them a truncation curve. One announced-budget arm at two queries provides a local bridge, not validation of equivalence across budgets; a small, nonsignificant comparison proves little.
+
+   Predefine early stopping: carry the terminal verdict forward to later caps and analyze every scenario. Conditioning on judges that reach eight creates selection bias. Include a zero-query fork under the same protocol instructions, since ordinary debate-only also changes expectations.
+
+2. **Use demonstrably strong debaters, but drop “strictly weaker” as an eligibility claim.** Capability is task-dependent, and product tiers do not establish cross-family dominance. A judge outperforming a debater is informative about the boundary of scalable oversight, even if it is not the headline setting. Measure relevant capabilities on held-out tasks; retain a small ceiling anchor if affordable.
+
+   Your half-and-half assignment already crosses donor family with judge model if every judge receives both halves. Randomize donor assignment within task strata. Generating both donor transcripts for a shared subset additionally allows within-world comparisons.
+
+   **Predeclare donor-by-judge interactions.** Same-family advantages could reflect style familiarity, correlated blind spots, or argument quality. This design estimates compatibility effects, not which explanation caused them. One transcript per world also limits generalization across debate-generation randomness.
+
+3. **Separate reliable-verification and realistic-oracle questions.** A programmatic oracle is preferable for asking whether verification harms even when answers are correct. A frontier textual oracle measures the deployed pipeline. Neither subsumes the other.
+
+   The hybrid is not automatically correct: an LLM translating queries can misresolve entities, negation, time, scope, or exceptions. Require a validated logical representation, deterministic evaluation, and explicit unsupported-query handling. Absence from the table must not silently become “false.” Measure end-to-end query-answer accuracy on held-out, judge-generated queries, including NOT ADDRESSED and relevance strata.
+
+   **Use a validated oracle for the main clean-mechanism claim, with a frontier-oracle robustness comparison.** If realism is primary, reverse those roles and narrow the claim. Manipulating oracle type on a randomized subset is useful, but distinguishes pipelines, not error alone. Corrected-label replay isolates answer changes on fixed histories; live corrected trajectories additionally include downstream query adaptation. Artificial random flips poorly represent natural errors.
+
+4. **E does not isolate query selection as written.** Own-query interaction versus a donated packet changes authorship, presentation, private reasoning, stopping, and adaptation. Strong-selector questions may also align with donor framing. Differences therefore estimate the benefit of replacing the whole evidence-acquisition procedure.
+
+   **For a cleaner diagnostic, capture both query histories and replay both to fresh recipient instances in identical formats**, with identical debate context, oracle procedure, and query allowance. Cross selector identity with recipient identity. This estimates the effect of selector-generated evidence under standardized interpretation, not a percentage decomposition of selection versus interpretation. Keep live-versus-replay comparisons separate, particularly given your existing presentation effect.
+
+5. **1,068 scenarios support coarse effects, not a reliable one-point curve shape.** The ±3pp figure is a worst-case, pointwise marginal interval. Paired contrast precision depends on outcome discordance, not marginal precision alone. [Paired binary sample-size analysis](https://pmc.ncbi.nlm.nih.gov/articles/PMC5738522/)
+
+   For one paired binary comparison, 10% discordance gives an approximate 80%-power detectable difference of **2.7pp** at two-sided 5%; detecting 1pp needs approximately **7,850 independent worlds**, before multiplicity. Actual requirements depend on pilot discordance and clustering.
+
+   **Make eight-versus-zero the primary contrast; eight-versus-two the secondary contrast**, with a prespecified multiplicity rule. Treat intermediate points as descriptive and make no monotonicity or U-shape promise. Specify whether the primary estimand averages equally across these five fixed judges; that cannot establish harm for every judge. Bootstrap worlds, preserving all judges, orders, and conditions together. Answer-order duplication does not double independent sample size.
+
+6. **The remaining critical omissions concern benchmark validity and channel scope.** Back-extraction agreement can preserve shared model mistakes. Audit a random sample against the *rendered prose*, verify unique answerability, and freeze acceptance rules before outcomes. Report rejection rates and task-specific difficulty.
+
+   Define permitted queries: can judges ask the target question directly, bundle claims, or request arbitrary deductions? Without restrictions, one yes/no query can solve a binary task, and query count ceases to measure verification resources.
+
+   Finally, the 5/82 audit weakens historical “error” interpretations; proposed AI label corrections are not established truth. Reconcile funding and pilot complete costs, including generation, validation, selectors, both orders, reasoning tokens, and realistic caching. **Approve the revision only after those definitions, estimands, and costs are explicit.**

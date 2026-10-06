@@ -1,0 +1,72 @@
+[
+ {
+  "design": "7 judges, +/-2pp",
+  "scenarios": 2406,
+  "judges": 7,
+  "debates": 1119,
+  "oracle": 1804,
+  "judging": 5801,
+  "total": 8724,
+  "oracle_calls": 288720
+ },
+ {
+  "design": "7 judges, +/-3pp",
+  "scenarios": 1068,
+  "judges": 7,
+  "debates": 497,
+  "oracle": 801,
+  "judging": 2575,
+  "total": 3872,
+  "oracle_calls": 128160
+ },
+ {
+  "design": "5 judges, +/-2pp",
+  "scenarios": 2406,
+  "judges": 5,
+  "debates": 1119,
+  "oracle": 1323,
+  "judging": 4267,
+  "total": 6710,
+  "oracle_calls": 211728
+ },
+ {
+  "design": "5 judges, +/-3pp",
+  "scenarios": 1068,
+  "judges": 5,
+  "debates": 497,
+  "oracle": 587,
+  "judging": 1894,
+  "total": 2978,
+  "oracle_calls": 93984
+ },
+ {
+  "design": "4 judges, +/-2pp",
+  "scenarios": 2406,
+  "judges": 4,
+  "debates": 1119,
+  "oracle": 1083,
+  "judging": 3759,
+  "total": 5960,
+  "oracle_calls": 173232
+ },
+ {
+  "design": "5 judges, +/-3pp, separate budget arms",
+  "scenarios": 1068,
+  "judges": 5,
+  "debates": 497,
+  "oracle": 1055,
+  "judging": 2537,
+  "total": 4088,
+  "oracle_calls": 168744
+ },
+ {
+  "design": "5 judges, +/-3pp, Fable oracle",
+  "scenarios": 1068,
+  "judges": 5,
+  "debates": 497,
+  "oracle": 1175,
+  "judging": 1894,
+  "total": 3566,
+  "oracle_calls": 93984
+ }
+]

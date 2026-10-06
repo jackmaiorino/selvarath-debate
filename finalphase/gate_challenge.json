@@ -1,0 +1,363 @@
+[
+ {
+  "q_index": 0,
+  "claim": "The Navigation Compact allows Krevand to close the gorge for up to twenty days per year",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 0,
+  "claim": "Krevand has invoked the spate closure in nine of the last twelve months",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Dam of the Red Stone was completed in YL 409",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 0,
+  "claim": "Velmara pays Krevand twelve thousand silver marks per year under the Compact",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Brenne River flows through the Gorge of Sighs",
+  "expected": "ADMIT",
+  "kind": "atomic_irrelevant"
+ },
+ {
+  "q_index": 0,
+  "claim": "Krevand closed the gorge on fewer than five occasions before YL 409",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Compact failed to secure uninterrupted passage for grain barges",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 0,
+  "claim": "The Compact still guarantees free passage and the closure is only a limited exception",
+  "expected": "REJECT",
+  "kind": "candidate_restatement_compound"
+ },
+ {
+  "q_index": 0,
+  "claim": "Krevand closed the gorge nine times and the dam raised the Brenne's level",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 0,
+  "claim": "The closures are more frequent than the Compact's drafters intended",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 0,
+  "claim": "Position A is correct about the closures",
+  "expected": "REJECT",
+  "kind": "label"
+ },
+ {
+  "q_index": 0,
+  "claim": "The document implies that Krevand abuses the spate clause",
+  "expected": "REJECT",
+  "kind": "meta"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Charter limits the Flood Courts to water disputes, repairs, special assessments and contracts contrary to the flow",
+  "expected": "ADMIT",
+  "kind": "atomic_list_decisive"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Flood Courts may not seize property",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Salt Guild holds a monopoly on the salt pans",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 2,
+  "claim": "The salt pans lie in the Marshes of Pell",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Flood Courts can impose special assessments",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Magistrates of the Waters proposed the Silt Restoration Levy",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Flood Courts cannot order the Salt Guild to sell its pans",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Flood Courts can impose assessments, and therefore they can order the sale of the pans",
+  "expected": "REJECT",
+  "kind": "compound_inference"
+ },
+ {
+  "q_index": 2,
+  "claim": "It is likely that the Flood Courts would rule against the Salt Guild",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 2,
+  "claim": "Debater B misrepresented the Charter",
+  "expected": "REJECT",
+  "kind": "label"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Flood Courts can overturn contracts contrary to the flow; the salt pans are affected by silt loss",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 2,
+  "claim": "The Charter of the Silt was adopted in YL 212",
+  "expected": "ADMIT",
+  "kind": "atomic_possibly_false"
+ },
+ {
+  "q_index": 3,
+  "claim": "Recognition of a new guild requires a two-thirds vote of the Guild Council",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Guild Council is deadlocked over admitting the Barge Haulers",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Charter of the Silt extended citizenship to guild masters",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Great Council ratifies the recognition of new guilds",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Great Council can recognize a guild without a Guild Council vote",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive_negative"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Barge Haulers number more than four hundred members",
+  "expected": "ADMIT",
+  "kind": "atomic_irrelevant"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Great Council cannot admit the Barge Haulers because the Guild Council is deadlocked",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Great Council can act alone when the Guild Council cannot reach a decision",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 3,
+  "claim": "Recognition requires a two-thirds Guild Council vote and ratification by the Great Council",
+  "expected": "ADMIT",
+  "kind": "atomic_single_rule_two_conditions"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Guild Council is deadlocked and the Great Council has not voted",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 3,
+  "claim": "The Charter's amendment process is reasonable",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 3,
+  "claim": "The answer to the question is no",
+  "expected": "REJECT",
+  "kind": "label"
+ },
+ {
+  "q_index": 4,
+  "claim": "The Dam of the Red Stone raised the level of the Brenne",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 4,
+  "claim": "Velmara has considered retaliatory tolls on Krevand timber",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 4,
+  "claim": "Velmara protested that the dam violates the spirit of the Compact",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 4,
+  "claim": "Krevand still collects the annual payment from Velmara",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 4,
+  "claim": "Krevand's timber exports pass through Velmari ports",
+  "expected": "ADMIT",
+  "kind": "atomic_possibly_unaddressed"
+ },
+ {
+  "q_index": 4,
+  "claim": "The dam strengthened Krevand's leverage over Velmara",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 4,
+  "claim": "Retaliatory tolls would cost Krevand more than the closures gain",
+  "expected": "REJECT",
+  "kind": "evaluative_restatement"
+ },
+ {
+  "q_index": 4,
+  "claim": "Krevand gained leverage because the dam raised the river",
+  "expected": "REJECT",
+  "kind": "compound_causal"
+ },
+ {
+  "q_index": 4,
+  "claim": "The argument that the dam weakened Krevand is persuasive",
+  "expected": "REJECT",
+  "kind": "meta"
+ },
+ {
+  "q_index": 4,
+  "claim": "Which side benefits more from the Compact?",
+  "expected": "REJECT",
+  "kind": "evaluative_question"
+ },
+ {
+  "q_index": 10,
+  "claim": "The Dam of the Red Stone reduced silt flow to the delta",
+  "expected": "ADMIT",
+  "kind": "atomic_decisive"
+ },
+ {
+  "q_index": 10,
+  "claim": "The Magistrates of the Waters warn that reduced silt flow is causing the marshes to sink",
+  "expected": "REJECT",
+  "kind": "candidate_restatement_by_overlap_rule",
+  "note": "relabelled 2026-09-30: >70% word overlap with the keyed answer is a restatement under docs/oracle-query-contract.md rule 2"
+ },
+ {
+  "q_index": 10,
+  "claim": "Sea level in the lagoon has risen over the past century",
+  "expected": "ADMIT",
+  "kind": "atomic_possibly_unaddressed"
+ },
+ {
+  "q_index": 10,
+  "claim": "The lagoon-side marshes are sinking",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 10,
+  "claim": "The marshes are sinking because of natural subsidence and sea-level rise",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 10,
+  "claim": "The dam caused the marshes to sink",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 10,
+  "claim": "The dam reduced silt flow and the marshes began sinking after YL 409",
+  "expected": "REJECT",
+  "kind": "compound"
+ },
+ {
+  "q_index": 10,
+  "claim": "The dam only affects the river upstream of the lagoon",
+  "expected": "REJECT",
+  "kind": "candidate_restatement"
+ },
+ {
+  "q_index": 10,
+  "claim": "The Magistrates' warning is credible",
+  "expected": "REJECT",
+  "kind": "evaluative"
+ },
+ {
+  "q_index": 10,
+  "claim": "Natural subsidence affects the lagoon-side marshes",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 10,
+  "claim": "The oracle should confirm Position B",
+  "expected": "REJECT",
+  "kind": "label"
+ },
+ {
+  "q_index": 10,
+  "claim": "It is supported by the text that the dam reduced silt flow, which implies the marshes sink",
+  "expected": "REJECT",
+  "kind": "meta_compound"
+ },
+ {
+  "q_index": 10,
+  "claim": "The Brenne carries silt to the delta",
+  "expected": "ADMIT",
+  "kind": "atomic"
+ },
+ {
+  "q_index": 10,
+  "claim": "The Dam of the Red Stone is upstream of the Gorge of Sighs",
+  "expected": "ADMIT",
+  "kind": "atomic_irrelevant"
+ }
+]

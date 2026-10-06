@@ -1,0 +1,47 @@
+[
+ {
+  "design": "Announced arms, Opus oracle",
+  "debates": 497,
+  "selector": 283,
+  "oracle": 1037,
+  "judging": 2487,
+  "total": 4303,
+  "oracle_calls": 165896
+ },
+ {
+  "design": "Announced arms, Fable oracle",
+  "debates": 497,
+  "selector": 283,
+  "oracle": 2074,
+  "judging": 2487,
+  "total": 5340,
+  "oracle_calls": 165896
+ },
+ {
+  "design": "Truncation forks, Opus oracle",
+  "debates": 497,
+  "selector": 283,
+  "oracle": 570,
+  "judging": 1844,
+  "total": 3193,
+  "oracle_calls": 91136
+ },
+ {
+  "design": "Announced arms, Opus oracle, 4 judges",
+  "debates": 497,
+  "selector": 283,
+  "oracle": 837,
+  "judging": 2189,
+  "total": 3805,
+  "oracle_calls": 133856
+ },
+ {
+  "design": "Announced arms, Opus oracle, \u00b12 pp",
+  "debates": 1119,
+  "selector": 637,
+  "oracle": 2336,
+  "judging": 5602,
+  "total": 9694,
+  "oracle_calls": 373732
+ }
+]
