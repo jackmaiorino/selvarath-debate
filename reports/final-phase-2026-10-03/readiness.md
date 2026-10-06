@@ -1,5 +1,14 @@
 # Eight-world audit and expansion preparation, 2026-10-05
 
+Update 2026-10-06: the independent Claude audit is complete. See
+[coordinator-audit-outcome.md](coordinator-audit-outcome.md). It found a source
+defect in W005's levy table; the world review confined it to W005-Q11, which
+Jack made sensitivity-only by prospective amendment. The packet mojibake was a
+serialization artifact; stored sources are clean. The text below records the
+state before the audit ran.
+
+## State before the audit, 2026-10-05
+
 The unpaid preparation is complete. Independent Claude audit completion remains
 false: the original coordinating session was located, but its subscription
 resume failed with `OAuth session expired and could not be refreshed`. Current
