@@ -136,135 +136,147 @@ through [canonical PR #1](https://github.com/jackmaiorino/selvarath-debate/pull/
 The original Claude worktree is unchanged. Private artifacts remain outside Git
 at `D:/finalphase-runs/final-phase-2026-10-03`.
 
-## Supported next stage and unmet prerequisites
+## Current validation execution, October 5
 
-Jack subsequently approved independent validation of these eight worlds in this
-chat: "you're approved to run it". That authorization is recorded in the existing
-manifest before any validation request. It includes bounded real throughput and
-correctness qualification. Broader authoring, canary, pilot and main remain
-unlaunched. Validation is currently waiting for provider funding and a real
-qualification receipt; `validate.db` does not exist and no validation or qualification
-request has been sent.
+Jack reported OpenAI credit of $799.90 and Together credit of $854.83 in the
+current goal chat. Anthropic's existing ledger estimate is $19.764805. These cover
+the unchanged full-cohort maximum of $41.75890856: Anthropic $14.475730,
+OpenAI $14.043700 and Together $13.23947856. No further deposit is needed for
+this validation. Reported balances are preserved with their source; they are
+not represented as API balance responses.
 
-The supported dispatcher now submits both frontier batches before Together live
-work and uses the requested worker count. The qualification compares the same
-eight frozen Together requests at one and eight workers, including inference,
-collection and SQLite serialization. It covers both world authors, both answer
-orders and fact checks. Eight fresh serial control IDs never enter retention;
-the parallel arm's first canonical responses are reused. Four canonical frontier
-checks then verify the unchanged 4,000-token limits and output format before the
-remaining cohort is dispatched. Frontier inference runs asynchronously at the
-providers and does not use local worker slots. No fake-provider test is a real
-throughput receipt, and no receipt has yet been recorded.
+The API catalog confirms access to frozen `gpt-6-astra`. The billing endpoint
+requires a browser session key, and management endpoints deny the inference
+key's missing management scope. A read-only Together identity query succeeds
+with the SDK-compatible HTTP transport; there is no balance endpoint at the
+tested credit URL. Both successful receipts and errors remain in the private
+run root. No inference or purchase was used for these checks.
 
-The read-only plan contains 757 canonical requests for 95 mechanically eligible
-questions, plus eight serial controls. Its conservative maximum reservation is
-$41.75890856: $14.475730 Anthropic, $14.043700 OpenAI and $13.23947856 Together.
-That fits the unchanged $200 validation cap. The OpenAI credit gap is $5.895900;
-Together's available credit is unconfirmed. Anthropic's ledger-derived credit
-is sufficient. Full provider maxima are checked before qualification as well as
-validation. Saved-world hashes bind the authorized scope. Automatic live fallback
-is disabled, and transport attempts are limited to one; a failure stops completion
-and requires a fresh paid retry reservation. Missing calls cannot be reported as
-completed validation.
+Jack supplied current Astra limits of 4,000,000 TPM, 10,000 RPM and 200,000,000
+Batch input tokens, plus a current $120 spending limit. Keep the $120 setting
+for this task. The known October OpenAI ledger uses $1.852200 before validation,
+so the ledger-derived remaining headroom is $118.147800. Unrelated account usage
+and a separately scoped project override cannot be queried with this key; that
+headroom is an estimate, and explicit provider spending refusals stop dispatch.
+Deposits do not establish a usage tier. Published Tier 1 defaults are recorded
+as background, while the account limits supplied by Jack govern this run.
+No automatic tier graduation, credit purchase or account-setting change occurs.
+See [OpenAI rate limits](https://developers.openai.com/api/docs/guides/rate-limits)
+and [spend limits](https://developers.openai.com/api/docs/guides/spend-limits).
 
-The current placement inventory records Jack's PC at 24 logical processors and
-127.82 GiB RAM, with existing Python/Claude/Node work preserved. API inference uses
-no local GPU. HaleysPC failed strict SSH host-key verification; trust was not
-changed. RunPod's read-only inventory found five exited allocations and no running
-one; a new compute lease is outside this API validation scope. The prospective
-collector placement is local, subject to the real qualification result. Private
-evidence is `validation_placements.json` and `validation_placement_runpod.json`.
+The supported runner partitions batches by both request count and conservative
+UTF-8 input-token bounds. Current waves allow at most 100 requests and 1,500,000
+input tokens with one active batch per model. The cohort has 94 Astra requests
+with a 949,752-token bound and 96 Fable requests with a 997,466-token bound.
+Other active OpenAI queues are included conservatively before submission.
+Completed and submitted identities reconnect. Submission is journaled before
+networking; unknown acceptance remains possibly billable and cannot be resent.
+Explicit provider creation refusals are recorded as unsent, preserving the
+attempt allowance. Together rate-limit refusals apply backpressure without
+creating a paid retry. Automatic live fallback remains disabled.
 
-Supported commands, after account credit is recorded, are:
+The full-cohort funding guard applies before qualification and validation.
+All 757 canonical requests and eight serial controls retain their exact
+scientific bodies, identities, models, output allowances and seeds. Their
+input hash remains `075f348038e8e808a48d98fdf30e6c9e0b1d37c6b687414e738c02b7645d4959`.
+Controls never enter retention. The qualification compares eight matched
+Together inputs at one and eight workers, including provider inference,
+collection and SQLite serialization; four canonical frontier probes then
+check the frozen output format before the remaining cohort. Timing receipts
+begin before dispatch. Resume includes elapsed downtime and never times cached
+replay as fresh provider throughput.
+
+The refreshed placement inventory observes 24 logical processors, 16 cores,
+127.82 GiB RAM and existing local workloads. No local GPU is used. HaleysPC
+still fails strict host-key verification through the existing trusted path;
+trust is unchanged. RunPod's authenticated inventory shows five exited pods
+and none running. No rental or resource reservation changed. Provider inference
+runs remotely, with the finite collector on Jack's PC. Actual qualification
+determines the local worker count.
+
+All 56 affected tests pass in 17.13 seconds. Scoped type checks and the diff check
+pass. Tests include wave capacity, partial-wave restart, ambiguous acceptance,
+explicit unsent refusals and reservation of in-flight work. Author replay
+recovers all 22 saved responses with zero provider calls and a bit-identical
+primary database hash. SQLite online backup includes committed WAL contents.
+Raw provider responses and full errors remain in the durable ledger.
+
+The finite supported chain has started through:
 
 ```powershell
-uv run --locked python -m finalphase.cli validation-plan --mode batch
-uv run --locked python -m finalphase.cli qualify-validate --mode batch
-if ($LASTEXITCODE -ne 0) { throw 'Qualification did not pass' }
-$validationWorkers = (Get-Content -Raw 'D:/finalphase-runs/final-phase-2026-10-03/validation_qualification.json' | ConvertFrom-Json).selected_workers
-uv run --locked python -m finalphase.cli preflight --stage validate --workers $validationWorkers --mode batch
-if ($LASTEXITCODE -ne 0) { throw 'Validation preflight did not pass' }
-uv run --locked python -m finalphase.cli validate --mode batch --workers $validationWorkers
+uv run --locked python scripts/finalphase_validate_authorized.py
 ```
 
-Qualification receipts bind execution-source and lockfile hashes, host, mode,
-inputs and worker counts. Compatible receipts survive documentation-only commits;
-changed execution bytes invalidate them even under the same Git HEAD. Validation
-completion still leaves the design's Claude audit and all later scientific gates.
+It invokes guarded `qualify-validate`, then guarded `preflight` and `validate`
+using the selected worker count. A qualification error stops the chain.
+Its authoritative state is the existing manifest's `validation_execution`,
+with output in `validation_supervisor.log` and errors in
+`validation_supervisor.err`. Do not start a duplicate collector. To resume a
+settled, interrupted chain, reuse the same command after resolving its recorded
+constraint; do not resend possibly billable requests.
 
-Preparation verification: 52 affected tests passed in 19.66 seconds; the project
-type checker passed for validation, preflight, store and the new validation tests;
-the diff check passed. The actual author ledger replay recovered all 22 cached
-responses with zero provider dispatches, preserving its primary SHA-256 exactly.
-The supported read-only validation preflight refuses missing real throughput,
-the OpenAI credit gap and unconfirmed Together credit. No paid validation store
-was created. The earlier full CI failures described above remain separate from
-these affected checks.
+Validation writes every rejection and retention count by world, author and
+task type. The original W001-Q01 mechanical rejection stays separate.
+`validation_audit_packet.json` selects a reproducible random 5% of retained
+questions and every split-validator question for the Claude coordinating
+session required by `design.md:55`. Audit status remains pending until actual
+per-question review. No paid coordinator audit is authorized. A source defect
+in a retained question requires review of every retained question from that
+world. The runner stops after this cohort; no authoring, canary, pilot or main
+can be launched by this chain.
 
-### Provider funding plan
+### Incremental later-phase funding plan
 
-For a practical bulk top-up now, target available credit of $1,200 Anthropic,
-$800 OpenAI and $400 Together through the pilot. The upper preparation forecast
-is approximately $2,181, including authoring, full validation, canary, pilot and
-oracle selection, before campaign reserve. These $2,400 credit targets leave
-some forecasting margin. Ledger estimates imply additions of $1,180.235195
-Anthropic and $791.852200 OpenAI; bring Together to $400 using its actual balance.
-Main funding can then use the pilot's measured forecast.
+The current task requires no further deposit. Credit already deposited is
+separate from the campaign's unchanged $6,000 spending ceiling, stage caps and
+launch authorization. Purchase minimum/maximum and approved organization-tier
+allowance are unavailable to the inference key. Check the purchase dialog when
+a later deposit is needed; use its allowed amount and do not spend to force
+graduation. The observed deposit succeeded, which supplies no promise about
+future purchase limits.
 
-For advance funding within the overall $6,000 spending ceiling, provisional
-available-credit targets are $3,000 Anthropic, $1,800 OpenAI and $1,200 Together.
-Subtract actual current balances when depositing. Our ledger estimates imply
-top-ups of $2,980.235195 Anthropic and $1,791.852200 OpenAI. Together's deposit is
-$1,200 minus its actual available balance. Funding these accounts does not change
-the spending ceiling or authorize a later stage.
+Replace the earlier bulk-deposit targets with deposits for the next authorized,
+fully reserved stage only. Preserve the existing reserve. After reserving this
+cohort at its maximum, conservative available balances are Anthropic $5.289075,
+OpenAI $785.856300 and Together $841.59052144. Settle actual validation charges
+before calculating later gaps. OpenAI and Together already cover the existing
+illustrative preparation-through-pilot forecast; Anthropic is the likely source
+of incremental deposits. Every later stage still requires its own authority,
+funding reservation, compatible throughput and scientific gates.
 
-The following refresh the October 3 illustrative low/high forecasts, rather than
-request reservations or promises. They describe 160 worlds, up to 192 pilot
-questions and 1,068 main questions. Authoring includes the subsequent $8.342980
-correction; validation includes the $0.18797724 extra control reservation. The
-high validation case now uses the supported frozen 4,000-token output limit;
-the older forecast assumed 5,000. Frozen September 30 rates and other token
-assumptions are unchanged. The calculation is preserved in the private
-`provider_funding_plan.json`.
+| Later stage | Illustrative total, low to high | Existing cap | Current blocker |
+|---|---:|---:|---|
+| Authoring, 160 worlds including precheck | $143.86 to $209.86 | $200 | Upper forecast exceeds cap; freeze remaining scope before any deposit |
+| Full benchmark validation | $275.42 to $475.59 | $200 | Both forecasts exceed cap |
+| Debater canary | $58.04 to $130.88 | $60 | Upper forecast exceeds cap |
+| Pilot | $752.65 to $1,343.02 | $650 | Both forecasts exceed cap |
+| Main, 1,068 questions | $4,186.61 to $7,470.53 | $4,300 | Upper forecast exceeds stage and campaign budgets |
 
-| Phase | Anthropic | OpenAI | Together |
-|---|---:|---:|---:|
-| Authoring, 160 worlds including the completed precheck | $99 to $145 | $45 to $65 | $0 |
-| Full benchmark validation | $105 to $192 | $105 to $192 | $65 to $92 |
-| Debater canary | $28 to $64 | $27 to $63 | $3 |
-| Pilot | $363 to $711 | $221 to $379 | $168 to $253 |
-| Oracle selection | $5 to $11 | $5 to $11 | $0 |
-| Main, 1,068 questions | $2,021 to $3,953 | $1,230 to $2,108 | $936 to $1,410 |
+The $120 OpenAI spending setting is sufficient for this cohort's $14.043700
+maximum plus known prior usage. It does not fund the later full validation or
+pilot within one month's known headroom: OpenAI's illustrative full validation
+alone is $105.41 to $191.81, and the pilot is $221.10 to $379.04. A later plan
+must reconcile the effective organization and project allowance, month already
+used and stage cap before execution. More prepaid credit alone does not close
+these blockers.
 
-Keep the $590 campaign reserve inside the $6,000 ceiling. A full 1,068-question
-main does not fit at high token usage; a measured pilot must set an affordable
-question count before main. With these illustrative assumptions, the affordable
-capacity is 1,063 questions in the low case and 461 in the high case, preserving
-the $590 reserve. These are planning capacities, not selected sample sizes.
-Some authoring, validation, canary and pilot forecasts exceed current stage
-allocations, so those allocations require reconciliation before broader launches.
-This preparation changes no cap, model, effort, prompt,
-retention rule, seed, roster or measurement gate. OpenAI account usage limits and
-configured hard limits are separate from prepaid credit; see
-[official OpenAI spend-limit guidance](https://developers.openai.com/api/docs/guides/spend-limits).
+For a feasible incremental Anthropic preparation step, the illustrative
+remaining 160-world authoring forecast is about $78.62 to $124.62 after the
+already settled $20.234775 Anthropic authoring spend. Against the conservative
+$5.289075 left after this validation reservation, the planning gap is about
+$73.33 to $119.33. This is a forecast, not an authorized request maximum or
+a top-up request. Reprice and reserve the chosen scope first; round a later
+deposit only to the provider's actually allowed purchase increment.
 
-The preflight is read-only and creates no provider client. Recorded provider
-access passes; real validation throughput and sufficient confirmed account
-credit remain prerequisites. Authoring completion does not close independent
-answer-key validation. The supported commands above select workers from actual
-timing and refuse a missing, incompatible or unsuccessful qualification.
+The existing private `provider_funding_plan.json` retains its original low/high
+forecast and adds the incremental plan and blockers. The full illustrative low
+forecast plus the $590 reserve is approximately $6,017.53; even that nominal
+1,068-question scope exceeds the unchanged ceiling. Its previously calculated
+affordable capacities, 1,063 low or 461 high, remain illustrative and are not
+selected sample sizes. A measured pilot must determine any later affordable
+scope. No stage allocation, roster, token allowance or frozen measurement
+changes here.
 
-Broader authoring's eventual command is
-`uv run --locked python -m finalphase.cli author --worlds 160 --mode batch`, with
-its own scope, funding and throughput qualification. The six arms and both answer
-orders remain world alone, debate k0/k1/k2/k6 and debate plus world. No selector
-requests are dispatched. Reversal flags are descriptive; equal defensibility,
-key disagreement and failed fact checks reject questions. Splits cannot change
-once main requests are registered.
-
-The $200 author, $200 validation, $60 canary, $650 pilot and $4,300 main caps plus
-$590 reserve remain $6,000. Existing forecasts are illustrative and require
-reconciliation with actual authoring costs and measured later-stage costs.
-Canary, oracle, pre-registration, question count/roster, measured forecast and
-reconciled funding remain prerequisites before main. No later paid stage has run.
+Canonical PR #1 remains the delivery item. Full historical CI fails in unchanged
+Phase 3 files; affected checks passing does not clear those failed checks.
+No merge or scientific audit is claimed. Issues are disabled in this repository.
