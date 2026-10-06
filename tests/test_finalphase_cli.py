@@ -57,6 +57,9 @@ def test_all_stages_offline(tmp_path, monkeypatch):
         "worlds_sha256": {p.stem: v.sha(p.read_bytes()) for p in (tmp_path / "bench/worlds").glob("*.json")},
         "account_balances_at_stage_start": {p: {"available_usd": 1000, "reference": "offline fixture"}
                                             for p in ("openai", "anthropic", "together")},
+        "openai_account_limits": {"monthly_remaining_usd": 1000, "project_hard_limit_enabled": False,
+                                  "queue_confirmed": True, "reference": "fixture"},
+        "batch_limits": {p: {"max_input_tokens": 1500000} for p in ("astra", "fable")},
         "placements": {"host": platform.node(), "checked": ["Jack's PC", "HaleysPC", "RunPod"],
                        "reference": "offline fixture"}}}))
     cli.cmd_validate(ns(mode="live", workers=8))

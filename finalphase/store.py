@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from .models import spec
-from .providers import BATCH, LIVE, Request, Response, TransportError, batch_request_id
+from .providers import BATCH, LIVE, BatchRejected, Request, Response, TransportError, batch_request_id, openai_queued_input_tokens
+from .limits import BatchLimits, input_token_bound
 
 MEASURED = ("ok", "truncated", "refusal", "error")
 MAX_TRANSPORT_ATTEMPTS = 6
@@ -41,7 +42,8 @@ def estimate_max_cost(req: Request, batch: bool) -> float:
 
 class Store:
     def __init__(self, path: str | Path, stage: str, cap_usd: float,
-                 max_transport_attempts: int = MAX_TRANSPORT_ATTEMPTS):
+                 max_transport_attempts: int = MAX_TRANSPORT_ATTEMPTS,
+                 batch_limits: dict[str, BatchLimits] | None = None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.stage = stage
@@ -49,6 +51,9 @@ class Store:
         if not 1 <= max_transport_attempts <= MAX_TRANSPORT_ATTEMPTS:
             raise ValueError("invalid maximum transport attempts")
         self.max_transport_attempts = max_transport_attempts
+        self.batch_limits = batch_limits or {}
+        self._reserved_ids: set[str] = set()
+        self._live_backpressure: dict[str, float] = {}
         self._lock = threading.RLock()
         self.db = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self.db.execute("PRAGMA journal_mode=WAL")
@@ -72,7 +77,7 @@ class Store:
 
     def log(self, kind: str, detail: str) -> None:
         with self._lock:
-            self.db.execute("INSERT INTO events VALUES(?,?,?)", (time.time(), kind, detail[:4000]))
+            self.db.execute("INSERT INTO events VALUES(?,?,?)", (time.time(), kind, detail))
 
     def spent(self, stage: str | None = None) -> float:
         q = "SELECT COALESCE(SUM(cost),0) FROM calls" + (" WHERE stage=?" if stage else "")
@@ -117,7 +122,12 @@ class Store:
         return int(self._q("SELECT attempts FROM calls WHERE custom_id=?", (custom_id,))[0][0])
 
     def _check_cap(self, todo: list[Request], batch: bool) -> None:
-        committed = self.spent(self.stage) + sum(estimate_max_cost(r, batch) for r in todo)
+        outstanding = {r.custom_id: r for r in todo}
+        for (raw,) in self._q("SELECT request FROM calls WHERE stage=? AND status NOT IN (?,?,?,?)",
+                             (self.stage, *MEASURED)):
+            r = Request(**_req_fields(json.loads(raw)))
+            outstanding[r.custom_id] = r
+        committed = self.spent(self.stage) + sum(estimate_max_cost(r, batch) for r in outstanding.values())
         if committed > self.cap:
             raise CapExceeded(f"stage {self.stage}: spent {self.spent(self.stage):.2f} + max estimate of {len(todo)} calls exceeds cap {self.cap:.2f}")
 
@@ -130,16 +140,21 @@ class Store:
             self._register(r)
         todo = [r for r in reqs if self.get(r.custom_id) is None]
         if todo:
-            self._check_cap([r for r in todo if not self._in_flight(r.custom_id)], mode == "batch")
-        if mode == "batch":
-            self._run_batch(todo, poll_s, allow_live_fallback, workers)
-        else:
-            self._run_live(todo, workers, on_done)
+            self._check_cap(todo, mode == "batch")
+        reserved = {r.custom_id for r in todo}
+        self._reserved_ids.update(reserved)
+        try:
+            if mode == "batch":
+                self._run_batch(todo, poll_s, allow_live_fallback, workers)
+            else:
+                self._run_live(todo, workers, on_done)
+        finally:
+            self._reserved_ids.difference_update(reserved)
         return {r.custom_id: x for r in reqs if (x := self.get(r.custom_id)) is not None}
 
     def _in_flight(self, custom_id: str) -> bool:
         rows = self._q("SELECT status FROM calls WHERE custom_id=?", (custom_id,))
-        return bool(rows and rows[0][0] == "submitted")
+        return bool(rows and rows[0][0] in ("submitted", "submitting", "submission_unknown", "live_in_flight"))
 
     def call_one(self, req: Request) -> Response:
         """Synchronous single call with transport retries (used inside multi-turn loops)."""
@@ -147,23 +162,42 @@ class Store:
         got = self.get(req.custom_id)
         if got is not None:
             return got
+        if self._in_flight(req.custom_id):
+            raise TransportError(f"possibly billable live call needs reconciliation: {req.custom_id}")
         if self._attempts(req.custom_id) >= self.max_transport_attempts:
             raise TransportError(f"transport attempt allowance exhausted for {req.custom_id}")
-        self._check_cap([req], False)
+        if req.custom_id not in self._reserved_ids:
+            self._check_cap([req], False)
         m = spec(req.model)
         while True:
             try:
+                delay = self._live_backpressure.get(m.provider, 0) - time.time()
+                if delay > 0:
+                    time.sleep(delay)
+                self._mark(req.custom_id, "live_in_flight", attempts_inc=1)
                 r = LIVE[m.provider](req, m)
-                self._save(r)
+                self._save(r, attempts_inc=0)
                 return r
+            except BatchRejected as error:
+                with self._lock:
+                    self.db.execute("UPDATE calls SET status='pending',attempts=attempts-1,updated=? WHERE custom_id=?",
+                                    (time.time(), req.custom_id))
+                    self._live_backpressure[m.provider] = time.time() + error.retry_after
+                self.log("live_rejected_unsent", f"{req.custom_id}: {error}")
+                if not error.retryable:
+                    raise
             except TransportError as e:
-                self._mark(req.custom_id, "pending", attempts_inc=1)
                 n = self._attempts(req.custom_id)
                 self.log("transport", f"{req.custom_id} attempt {n}: {e}")
                 if n >= self.max_transport_attempts:
                     self._mark(req.custom_id, "transport_failed")
                     raise
+                self._mark(req.custom_id, "pending")
                 time.sleep(min(2 ** n * 5, 300))
+            except BaseException:
+                # Even a process interruption after dispatch is possibly billable.
+                self._mark(req.custom_id, "submission_unknown")
+                raise
 
     def _run_live(self, todo: list[Request], workers: int, on_done) -> None:
         with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
@@ -178,6 +212,10 @@ class Store:
 
     def _run_batch(self, todo: list[Request], poll_s: int, allow_live_fallback: bool = True,
                    workers: int = 8) -> None:
+        ambiguous = self._q("SELECT custom_id FROM calls WHERE stage=? AND status IN (?,?,?)",
+                            (self.stage, "submitting", "submission_unknown", "live_in_flight"))
+        if ambiguous:
+            raise TransportError(f"possibly billable requests need reconciliation: {ambiguous}")
         # reconnect to batches already submitted for these ids
         pending_batches = {
             row[0] for row in self._q(
@@ -190,29 +228,78 @@ class Store:
         for r in fresh:
             by_model.setdefault(r.model, []).append(r)
         live_only = []
+        waves: dict[str, list[list[Request]]] = {}
         for key, rs in by_model.items():
             m = spec(key)
             if m.provider not in BATCH:
                 live_only.extend(rs)
                 continue
-            submit = BATCH[m.provider][0]
-            for i in range(0, len(rs), 5000):
-                chunk = rs[i:i + 5000]
-                bid = submit(chunk, m, f"{self.stage}:{key}")
-                with self._lock:
-                    self.db.execute("INSERT INTO batches VALUES(?,?,?,?,?,?,?,0,?)",
-                                    (bid, m.provider, key, self.stage, len(chunk), "submitted", time.time(), ""))
-                for r in chunk:
-                    self._mark(r.custom_id, "submitted", batch_id=bid, attempts_inc=1)
-                pending_batches.add(bid)
-                self.log("batch_submit", f"{bid} {key} n={len(chunk)}")
+            limits = self.batch_limits.get(key)
+            waves[key] = limits.waves(rs) if limits else [rs[i:i + 5000] for i in range(0, len(rs), 5000)]
+        deferred_until: dict[str, float] = {}
+
+        def submit_ready() -> None:
+            for key, remaining in waves.items():
+                m = spec(key)
+                submit = BATCH[m.provider][0]
+                limits = self.batch_limits.get(key)
+                while remaining:
+                    active = self._q("SELECT batch_id FROM batches WHERE model=? AND collected=0", (key,))
+                    if limits and len(active) >= limits.max_in_flight:
+                        break
+                    if time.time() < deferred_until.get(key, 0):
+                        break
+                    chunk = remaining[0]
+                    tokens = sum(input_token_bound(r) for r in chunk)
+                    if limits:
+                        occupied = sum(input_token_bound(Request(**_req_fields(json.loads(raw))))
+                                       for (raw,) in self._q("SELECT request FROM calls WHERE model=? AND status='submitted'", (key,)))
+                        external = openai_queued_input_tokens(m, pending_batches) if m.provider == "openai" else 0
+                        if occupied + external + tokens > limits.max_input_tokens:
+                            self.log("queue_backpressure", f"{key} own={occupied} external_bound={external} next={tokens}")
+                            deferred_until[key] = time.time() + max(poll_s, 300)
+                            break
+                    # One durable transaction before networking closes the
+                    # crash window between accepted submission and receipt.
+                    with self._lock, self.db:
+                        self.db.execute("BEGIN IMMEDIATE")
+                        for r in chunk:
+                            self._mark(r.custom_id, "submitting", attempts_inc=1)
+                    try:
+                        bid = submit(chunk, m, f"{self.stage}:{key}")
+                    except BatchRejected as error:
+                        with self._lock, self.db:
+                            self.db.execute("BEGIN IMMEDIATE")
+                            for r in chunk:
+                                self.db.execute("UPDATE calls SET status='pending',attempts=attempts-1,updated=? WHERE custom_id=?",
+                                                (time.time(), r.custom_id))
+                        self.log("batch_rejected_unsent", f"{key}: {error}")
+                        if not error.retryable:
+                            raise
+                        deferred_until[key] = time.time() + max(error.retry_after, poll_s)
+                        break
+                    except BaseException as error:
+                        for r in chunk:
+                            self._mark(r.custom_id, "submission_unknown")
+                        self.log("batch_submission_unknown", f"{key}: {type(error).__name__}: {error} notes={getattr(error, '__notes__', [])}")
+                        raise
+                    with self._lock, self.db:
+                        self.db.execute("BEGIN IMMEDIATE")
+                        self.db.execute("INSERT INTO batches VALUES(?,?,?,?,?,?,?,0,?)",
+                                        (bid, m.provider, key, self.stage, len(chunk), "submitted", time.time(), ""))
+                        for r in chunk:
+                            self._mark(r.custom_id, "submitted", batch_id=bid)
+                    remaining.pop(0)
+                    pending_batches.add(bid)
+                    self.log("batch_submit", f"{bid} {key} n={len(chunk)} input_token_bound={tokens}")
+        submit_ready()
         # Start every asynchronous provider batch before doing live-only work.
         # Together can now finish concurrently with both frontier backends.
         if live_only:
             self._run_live(live_only, workers, None)
         snapshots: dict[str, tuple[str, str]] = {}
         unchanged = 0
-        while pending_batches:
+        while pending_batches or any(waves.values()):
             changed = False
             for bid in list(pending_batches):
                 prov, key = self._q("SELECT provider, model FROM batches WHERE batch_id=?", (bid,))[0]
@@ -224,7 +311,7 @@ class Store:
                     changed = True
                     with self._lock:
                         self.db.execute("UPDATE batches SET status=?, info=? WHERE batch_id=?",
-                                        (status, json.dumps({"request_counts": info.get("request_counts", {})}), bid))
+                                        (status, json.dumps(info, default=str), bid))
                 if status != "ended":
                     continue
                 results = collect(bid, spec(key))
@@ -239,9 +326,10 @@ class Store:
                         self.log("batch_item_retry", f"{bid} {cid} {res}")
                 with self._lock:
                     self.db.execute("UPDATE batches SET status='ended', collected=1, info=? WHERE batch_id=?",
-                                    (json.dumps(info, default=str)[:20000], bid))
+                                    (json.dumps(info, default=str), bid))
                 pending_batches.discard(bid)
-            if pending_batches:
+            submit_ready()
+            if pending_batches or any(waves.values()):
                 unchanged = 0 if changed else unchanged + 1
                 delay = min(poll_s * 3, max(poll_s, 900)) if unchanged >= 2 else poll_s
                 time.sleep(delay)

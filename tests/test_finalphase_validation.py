@@ -22,6 +22,9 @@ def prepared(tmp_path):
         "worlds_sha256": {p.stem: v.sha(p.read_bytes()) for p in (tmp_path / "bench/worlds").glob("*.json")},
         "account_balances_at_stage_start": {p: {"available_usd": 100, "reference": "fixture"}
                                             for p in ("anthropic", "openai", "together")},
+        "openai_account_limits": {"monthly_remaining_usd": 100, "project_hard_limit_enabled": False,
+                                  "queue_confirmed": True, "reference": "fixture"},
+        "batch_limits": {p: {"max_input_tokens": 1500000} for p in ("astra", "fable")},
         "placements": {"host": platform.node(), "checked": ["Jack's PC", "HaleysPC", "RunPod"],
                        "reference": "fixture"}}}
     (tmp_path / "run_manifest.json").write_text(json.dumps(manifest))
@@ -68,6 +71,7 @@ def test_real_qualification_keeps_controls_separate_and_reuses_canonical_respons
         return Response(req.custom_id, model.model_id, "ok", text, cost=0.001)
 
     monkeypatch.setitem(store.LIVE, "together", live)
+    monkeypatch.setattr(store, "openai_queued_input_tokens", lambda *args: 0)
     batches = {}
 
     def submit(reqs, model, label):

@@ -8,6 +8,7 @@ import pytest
 from finalphase import providers, store
 from finalphase.providers import Request, Response, TransportError
 from finalphase.store import CapExceeded, Store
+from finalphase.limits import BatchLimits, input_token_bound
 
 
 def _req(i, model="luna", text="hello"):
@@ -229,6 +230,87 @@ def test_anthropic_batch_roundtrip_preserves_ids_after_restart(tmp_path, monkeyp
     assert all(out[cid].custom_id == cid and out[cid].text == f"answer {i}" for i, cid in enumerate(ids))
     resumed.run(requests, mode="batch", poll_s=0)
     assert len(submitted) == 1
+
+
+def test_token_waves_wait_for_capacity_and_resume_inflight_without_resubmission(tmp_path, monkeypatch):
+    requests = [_req(i, text="x" * 100) for i in range(4)]
+    capacity = 2 * input_token_bound(requests[0])
+    limits = BatchLimits(capacity, max_requests=3)
+    submissions, batches, polls = [], {}, []
+
+    def submit(chunk, model, label):
+        bid = f"batch{len(submissions)}"
+        assert sum(input_token_bound(r) for r in chunk) <= capacity
+        submissions.append([r.custom_id for r in chunk])
+        batches[bid] = chunk
+        return bid
+
+    def poll(bid):
+        polls.append(bid)
+        if len(polls) == 1:
+            raise KeyboardInterrupt
+        return "ended", {"request_counts": {"completed": len(batches[bid])}}
+
+    def collect(bid, model):
+        return {r.custom_id: Response(r.custom_id, model.model_id, "ok", "saved") for r in batches[bid]}
+
+    monkeypatch.setitem(store.BATCH, "openai", (submit, poll, collect))
+    monkeypatch.setattr(store, "openai_queued_input_tokens", lambda *args: 0)
+    first = Store(tmp_path / "waves.db", "validate", 10, 1, {"luna": limits})
+    with pytest.raises(KeyboardInterrupt):
+        first.run(requests, mode="batch", poll_s=0, allow_live_fallback=False)
+    assert submissions == [["id0", "id1"]]
+    assert first._q("SELECT custom_id,status,attempts FROM calls ORDER BY custom_id") == [
+        ("id0", "submitted", 1), ("id1", "submitted", 1), ("id2", "pending", 0), ("id3", "pending", 0)]
+    first.db.close()
+    resumed = Store(tmp_path / "waves.db", "validate", 10, 1, {"luna": limits})
+    assert len(resumed.run(requests, mode="batch", poll_s=0, allow_live_fallback=False)) == 4
+    assert submissions == [["id0", "id1"], ["id2", "id3"]]
+    resumed.db.close()
+
+
+def test_unknown_submission_stays_reserved_and_is_never_resent(tmp_path, monkeypatch):
+    dispatched = []
+
+    def submit(chunk, model, label):
+        dispatched.extend(r.custom_id for r in chunk)
+        raise TimeoutError("accepted batch ID may be lost")
+
+    monkeypatch.setitem(store.BATCH, "openai", (submit, lambda *args: pytest.fail(), lambda *args: pytest.fail()))
+    first = Store(tmp_path / "unknown.db", "validate", 10, 1)
+    with pytest.raises(TimeoutError):
+        first.run([_req(1)], mode="batch")
+    assert first._q("SELECT status,attempts FROM calls") == [("submission_unknown", 1)]
+    first.db.close()
+    resumed = Store(tmp_path / "unknown.db", "validate", 10, 1)
+    with pytest.raises(TransportError, match="possibly billable"):
+        resumed.run([_req(1)], mode="batch")
+    assert dispatched == ["id1"]
+    resumed.db.close()
+
+
+def test_explicit_submission_refusal_is_unsent_and_preserves_attempt_allowance(tmp_path, monkeypatch):
+    def reject(*args):
+        raise providers.BatchRejected("hard project limit", retryable=False)
+
+    monkeypatch.setitem(store.BATCH, "openai", (reject, lambda *args: pytest.fail(), lambda *args: pytest.fail()))
+    s = Store(tmp_path / "rejected.db", "validate", 10, 1)
+    with pytest.raises(providers.BatchRejected):
+        s.run([_req(1)], mode="batch")
+    assert s._q("SELECT status,attempts FROM calls") == [("pending", 0)]
+    s.db.close()
+
+
+def test_cap_reserves_prior_inflight_work_before_new_wave(tmp_path, monkeypatch):
+    s = Store(tmp_path / "cap.db", "validate", 10, 1)
+    a, b = _req(1), _req(2)
+    s._register(a)
+    s._mark(a.custom_id, "submitted", "prior", 1)
+    s.cap = store.estimate_max_cost(b, True) * 1.5
+    monkeypatch.setitem(store.BATCH, "openai", (lambda *args: pytest.fail("over cap"), None, None))
+    with pytest.raises(CapExceeded):
+        s.run([b], mode="batch")
+    s.db.close()
 
 
 def test_anthropic_collection_keeps_client_alive_until_stream_is_consumed(monkeypatch):

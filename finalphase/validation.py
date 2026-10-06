@@ -20,6 +20,7 @@ from . import authoring as A, preflight
 from .models import spec
 from .providers import Request, Response
 from .store import MEASURED, Store, estimate_max_cost
+from .limits import BatchLimits, input_token_bound
 
 QUALIFICATION_VERSION = "v1"
 QUALIFICATION_WORKERS = 8
@@ -82,6 +83,11 @@ def controls(sample: list[Request]) -> list[Request]:
             for r in sample]
 
 
+def dispatch_limits(root: Path) -> dict[str, BatchLimits]:
+    execution = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))["validation_execution"]
+    return {key: BatchLimits(**limits) for key, limits in execution.get("batch_limits", {}).items()}
+
+
 def input_sha256(requests: list[Request]) -> str:
     bodies = [{k: v for k, v in asdict(r).items() if k != "custom_id"} for r in requests]
     return sha(json.dumps(bodies, sort_keys=True, ensure_ascii=False).encode("utf-8"))
@@ -116,7 +122,9 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
             reasons.append(f"request changed under existing ID: {r.custom_id}")
         if state and state[0] in MEASURED:
             continue
-        if state and state[0] != "submitted" and state[2] >= 1:
+        if state and state[0] in ("submitting", "submission_unknown", "live_in_flight"):
+            reasons.append(f"possibly billable request needs reconciliation: {r.custom_id}")
+        elif state and state[0] != "submitted" and state[2] >= 1:
             reasons.append(f"fresh transport retry reservation required: {r.custom_id}")
         provider = spec(r.model).provider
         remaining[provider] = remaining.get(provider, 0.0) + estimate_max_cost(r, mode == "batch")
@@ -136,6 +144,32 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
             reasons.append(f"{p}: " + (f"credit gap ${gap:.9f}" if gap is not None else "available credit unconfirmed"))
     if sum(bound.values()) > cap:
         reasons.append(f"validation and qualification exceed unchanged ${cap:.2f} stage cap")
+    limits = execution.get("openai_account_limits", {})
+    monthly = limits.get("monthly_remaining_usd")
+    if not (type(monthly) in (int, float) and math.isfinite(monthly) and monthly >= remaining.get("openai", 0)):
+        reasons.append("OpenAI remaining monthly usage allowance is unconfirmed or insufficient")
+    project = limits.get("project_remaining_usd")
+    if not (limits.get("project_hard_limit_enabled") is False
+            or (type(project) in (int, float) and math.isfinite(project) and project >= remaining.get("openai", 0))):
+        reasons.append("OpenAI project hard spending limit is unconfirmed or insufficient")
+    if not limits.get("reference") or limits.get("queue_confirmed") is not True:
+        reasons.append("OpenAI project batch input-token capacity is unconfirmed")
+    wave_summary = {}
+    dispatch = dispatch_limits(root)
+    for model in sorted({r.model for r in requests if spec(r.model).batch}):
+        model_requests = [r for r in requests if r.model == model]
+        config = dispatch.get(model)
+        if config is None:
+            reasons.append(f"bounded batch limits missing for {model}")
+            continue
+        try:
+            waves = config.waves(model_requests)
+            wave_summary[model] = {"waves": len(waves), "requests": len(model_requests),
+                                   "queued_input_token_bound": sum(input_token_bound(r) for r in model_requests),
+                                   "largest_wave_input_token_bound": max(sum(input_token_bound(r) for r in wave) for wave in waves),
+                                   "limits": asdict(config)}
+        except ValueError as error:
+            reasons.append(str(error))
     hashes = {w["world_id"]: sha((root / "bench" / "worlds" / f"{w['world_id']}.json").read_bytes())
               for w in worlds}
     if not execution.get("authorization", {}).get("source"):
@@ -155,6 +189,8 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
             "maximum_cumulative_stage_cost_by_provider_usd": bound,
             "maximum_cumulative_stage_cost_usd": round(sum(bound.values()), 9),
             "credit_gap_by_provider_usd": gaps,
+            "batch_waves": wave_summary,
+            "openai_account_limits": limits,
             "qualification_sample_ids": [r.custom_id for r in sample],
             "qualification_input_sha256": input_sha256(sample),
             "validation_input_sha256": input_sha256(requests),
@@ -205,19 +241,28 @@ def qualify(root: Path, worlds: list[dict], mode: str = "batch") -> dict:
     execution_status(root, "qualification_running", execution_started=True)
     _, requests = workload(worlds)
     sample = qualification_sample(worlds, requests)
-    store = Store(root / "validate.db", "validate", 200.0, max_transport_attempts=1)
+    store = Store(root / "validate.db", "validate", 200.0, max_transport_attempts=1,
+                  batch_limits=dispatch_limits(root))
     try:
         for name, reqs, workers in (("serial", controls(sample), 1),
                                     ("parallel", sample, QUALIFICATION_WORKERS)):
             if name in record:
-                if not record[name]["semantics_preserved"]:
+                if record[name].get("semantics_preserved") is False:
                     raise RuntimeError(f"{name} qualification failed; paid retries need a new reservation")
-                continue
-            if any(store.get(r.custom_id) is not None for r in reqs):
+                if record[name].get("semantics_preserved") is True:
+                    continue
+            if name not in record and any(store.get(r.custom_id) is not None for r in reqs):
                 raise RuntimeError(f"{name} has cached calls but no timing receipt; cannot time a replay as inference")
+            resumed = name in record
+            if not resumed:
+                record[name] = {"started_epoch": time.time(), "workers": workers,
+                                "request_ids": [r.custom_id for r in reqs]}
+                atomic_json(path, record)
             start = time.perf_counter()
             out = store.run(reqs, mode=mode, workers=workers, allow_live_fallback=False)
             elapsed = time.perf_counter() - start
+            if resumed:
+                elapsed = max(elapsed, time.time() - record[name]["started_epoch"])
             complete = len(out) == len(reqs) and all(_valid_response(r, out[r.custom_id]) for r in reqs)
             bodies = [asdict(out[r.custom_id]) for r in reqs if r.custom_id in out]
             record[name] = {"workers": workers, "completed": len(out), "elapsed_seconds": elapsed,
@@ -235,14 +280,23 @@ def qualify(root: Path, worlds: list[dict], mode: str = "batch") -> dict:
         # submitting the rest of the cohort. These canonical calls also replay.
         qids = {r.custom_id.split(":")[1] for r in sample}
         probe = [r for r in requests if r.model != "dspro" and r.custom_id.split(":")[1] in qids]
-        if "frontier_probe" not in record:
-            if any(store.get(r.custom_id) is not None for r in probe):
+        if not record.get("frontier_probe", {}).get("semantics_preserved"):
+            if "frontier_probe" not in record and any(store.get(r.custom_id) is not None for r in probe):
                 raise RuntimeError("frontier probe has cached calls without its receipt")
+            if record.get("frontier_probe", {}).get("semantics_preserved") is False:
+                raise RuntimeError("frontier validation probe failed; paid retries need a new reservation")
+            resumed = "frontier_probe" in record
+            if not resumed:
+                record["frontier_probe"] = {"started_epoch": time.time(), "request_ids": [r.custom_id for r in probe]}
+                atomic_json(path, record)
             start = time.perf_counter()
             out = store.run(probe, mode=mode, workers=chosen["workers"], allow_live_fallback=False)
+            elapsed = time.perf_counter() - start
+            if resumed:
+                elapsed = max(elapsed, time.time() - record["frontier_probe"]["started_epoch"])
             record["frontier_probe"] = {
                 "completed": len(out), "requests": len(probe),
-                "elapsed_seconds": time.perf_counter() - start,
+                "elapsed_seconds": elapsed,
                 "semantics_preserved": len(out) == len(probe)
                     and all(_valid_response(r, out[r.custom_id]) for r in probe),
                 "input_sha256": input_sha256(probe),

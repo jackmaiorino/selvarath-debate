@@ -154,7 +154,8 @@ def cmd_validate(args) -> None:
     reservation = V.require_plan(RUN_ROOT, worlds, args.mode)
     V.atomic_json(RUN_ROOT / "validation_reservation.json", reservation)
     rows, reqs = V.workload(worlds)
-    s = _store("validate")
+    s = Store(RUN_ROOT / "validate.db", "validate", STAGE_CAPS["validate"],
+              max_transport_attempts=1, batch_limits=V.dispatch_limits(RUN_ROOT))
     print(f"{len(rows)} candidates, {sum(r['mechanical_ok'] for r in rows)} pass mechanical checks, {len(reqs)} validation calls")
     V.execution_status(RUN_ROOT, "validation_running", pid=os.getpid(), workers=args.workers,
                        execution_started=True)
@@ -169,10 +170,11 @@ def cmd_validate(args) -> None:
         s.db.close()
     by_world = {w["world_id"]: w for w in worlds}
     for r in rows:
+        q = by_world[r["world_id"]]["questions"][r["index"]]
+        r["task_type"] = q["task_type"]
         if not r["mechanical_ok"]:
             r.update({"retained": False, "reasons": ["mechanical"] + r["mechanical_reasons"]})
             continue
-        q = by_world[r["world_id"]]["questions"][r["index"]]
         d = A.retain_decision(r["question_id"], r["author"], out, len(q["facts_required"]))
         flags = 0
         for v in A.validators_for(r["author"]):
@@ -184,6 +186,8 @@ def cmd_validate(args) -> None:
         r.update({"retained": d["retained"], "reasons": d["reasons"], "determinacy_flags": flags,
                   "key_longer": a > b, "task_type": q["task_type"]})
     _write_jsonl(BENCH / "validation.jsonl", rows)
+    from .reporting import write_report
+    write_report(RUN_ROOT, rows, worlds, out, len(out) == len(reqs), spend)
     ret = [r for r in rows if r["retained"]]
     print(f"retained {len(ret)}/{len(rows)}; by author {collections.Counter(r['author'] for r in ret)}; "
           f"responses {len(out)}/{len(reqs)}, stage spend ${spend:.6f}")

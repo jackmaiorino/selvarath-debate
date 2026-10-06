@@ -12,7 +12,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from .models import ModelSpec, cost_usd
 
@@ -23,6 +23,15 @@ class TransportError(RuntimeError):
 
 class BillingError(RuntimeError):
     """Account-level failure (no credits, bad key). Halts the run; never retried or scored."""
+
+
+class BatchRejected(TransportError):
+    """The provider explicitly refused creation; no batch inference was accepted."""
+
+    def __init__(self, detail: str, retry_after: float = 300, retryable: bool = True):
+        super().__init__(detail)
+        self.retry_after = max(0, retry_after)
+        self.retryable = retryable
 
 
 _BILLING_MARKERS = ("insufficient_quota", "credit_balance_exhausted", "billing", "credit balance is too low")
@@ -124,6 +133,7 @@ def _finish(r: Response, m: ModelSpec, body: dict[str, Any], batch: bool) -> Res
     r.provider_id = str(body.get("id", ""))
     r.batch = batch
     r.cost = cost_usd(m, r.input_tokens, r.output_tokens, r.cached_tokens, batch)
+    r.extra["raw_response"] = body
     return r
 
 
@@ -152,8 +162,44 @@ def openai_batch_submit(reqs: list[Request], m: ModelSpec, label: str) -> str:
     with open(path, "rb") as fh:
         up = client.files.create(file=fh, purpose="batch")
     os.unlink(path)
-    b = client.batches.create(input_file_id=up.id, endpoint="/v1/responses", completion_window="24h", metadata={"label": label[:500]})
+    import openai
+    try:
+        b = client.batches.create(input_file_id=up.id, endpoint="/v1/responses", completion_window="24h", metadata={"label": label[:500]})
+    except openai.APIStatusError as error:
+        # An explicit 4xx refusal is unsent. A timeout or 5xx may have created
+        # a billable batch and must remain ambiguous in the durable journal.
+        if 400 <= error.status_code < 500 and error.status_code not in (408, 409):
+            detail = str(error)
+            rate = error.status_code == 429 or "token_limit_exceeded" in detail.lower()
+            billing = any(marker in detail.lower() for marker in _BILLING_MARKERS)
+            delay = error.response.headers.get("retry-after", "300")
+            try:
+                seconds = float(delay)
+            except ValueError:
+                seconds = 300
+            raise BatchRejected(f"input_file_id={up.id}: {detail}", seconds, rate and not billing) from error
+        error.add_note(f"uploaded input_file_id={up.id}; batch creation requires reconciliation")
+        raise
+    except BaseException as error:
+        error.add_note(f"uploaded input_file_id={up.id}; batch creation requires reconciliation")
+        raise
     return b.id
+
+
+def openai_queued_input_tokens(model: ModelSpec, exclude: set[str]) -> int:
+    """Include other jobs sharing this key's queue. Reads only, no inference.
+
+    Counting all active input-file bytes is conservative across shared model
+    limits. Unknown/inaccessible queue data stops submission instead of guessing.
+    """
+    client = _openai_client()
+    tokens = 0
+    for batch in client.batches.list(limit=100):
+        if batch.id in exclude or batch.status in ("completed", "failed", "expired", "cancelled"):
+            continue
+        raw = client.files.content(batch.input_file_id).text
+        tokens += len(raw.encode("utf-8")) + 100 * len(raw.splitlines())
+    return tokens
 
 
 def openai_batch_poll(batch_id: str) -> tuple[str, dict[str, Any]]:
@@ -179,9 +225,10 @@ def openai_batch_collect(batch_id: str, m: ModelSpec) -> dict[str, Response | Tr
             if code == 200:
                 out[cid] = _openai_parse(cid, m, resp["body"], batch=True)
             elif code is not None and code < 500 and code not in (408, 409, 429):
-                out[cid] = Response(cid, m.model_id, "error", "", batch=True, detail=json.dumps(resp.get("body"))[:2000])
+                out[cid] = Response(cid, m.model_id, "error", "", batch=True,
+                                    detail=json.dumps(resp.get("body")), extra={"raw_response": row})
             else:
-                out[cid] = TransportError(f"batch item {code}: {json.dumps(row.get('error') or resp)[:500]}")
+                out[cid] = TransportError(f"batch item {code}: {json.dumps(row)}")
     return out
 
 
@@ -218,7 +265,7 @@ def _anthropic_params(req: Request, m: ModelSpec) -> dict[str, Any]:
 def _anthropic_parse(custom_id: str, m: ModelSpec, msg: dict[str, Any], batch: bool) -> Response:
     text = "".join(b.get("text", "") for b in msg.get("content") or [] if b.get("type") == "text")
     stop = msg.get("stop_reason")
-    status = {"end_turn": "ok", "stop_sequence": "ok", "max_tokens": "truncated", "refusal": "refusal"}.get(stop, "error")
+    status = {"end_turn": "ok", "stop_sequence": "ok", "max_tokens": "truncated", "refusal": "refusal"}.get(str(stop), "error")
     detail = "" if status == "ok" else f"stop_reason={stop} {json.dumps(msg.get('stop_details'))}"
     u = msg.get("usage") or {}
     cached = int(u.get("cache_read_input_tokens") or 0)
@@ -227,7 +274,8 @@ def _anthropic_parse(custom_id: str, m: ModelSpec, msg: dict[str, Any], batch: b
     r = Response(custom_id, m.model_id, status, text, input_tokens=inp, cached_tokens=cached,
                  output_tokens=int(u.get("output_tokens") or 0), batch=batch, provider_id=str(msg.get("id", "")), detail=detail)
     r.cost = cost_usd(m, inp, r.output_tokens, cached, batch) + created * m.price_in * 0.25 / 1e6 * (0.5 if batch else 1.0)
-    r.extra = {"cache_creation_tokens": created}
+    r.extra["raw_response"] = msg
+    r.extra["cache_creation_tokens"] = created
     return r
 
 
@@ -249,9 +297,22 @@ def anthropic_live(req: Request, m: ModelSpec) -> Response:
 
 
 def anthropic_batch_submit(reqs: list[Request], m: ModelSpec, label: str) -> str:
-    b = _anthropic_client().messages.batches.create(
-        requests=[{"custom_id": batch_request_id(r.custom_id, "anthropic"), "params": _anthropic_params(r, m)} for r in reqs]
-    )
+    import anthropic
+    try:
+        b = _anthropic_client().messages.batches.create(
+            requests=[{"custom_id": batch_request_id(r.custom_id, "anthropic"), "params": _anthropic_params(r, m)} for r in reqs]
+        )
+    except anthropic.APIStatusError as error:
+        if 400 <= error.status_code < 500 and error.status_code not in (408, 409):
+            detail = str(error)
+            delay = error.response.headers.get("retry-after", "300")
+            try:
+                seconds = float(delay)
+            except ValueError:
+                seconds = 300
+            raise BatchRejected(detail, seconds, error.status_code == 429 and
+                                not any(marker in detail.lower() for marker in _BILLING_MARKERS)) from error
+        raise
     return b.id
 
 
@@ -268,9 +329,10 @@ def anthropic_batch_collect(batch_id: str, m: ModelSpec) -> dict[str, Response |
             if r.type == "succeeded":
                 out[res.custom_id] = _anthropic_parse(res.custom_id, m, r.message.model_dump(), batch=True)
             elif r.type == "errored" and getattr(r.error.error, "type", "") == "invalid_request_error":
-                out[res.custom_id] = Response(res.custom_id, m.model_id, "error", "", batch=True, detail=str(r.error)[:2000])
+                out[res.custom_id] = Response(res.custom_id, m.model_id, "error", "", batch=True,
+                                             detail=str(r.error), extra={"raw_response": res.model_dump()})
             else:
-                out[res.custom_id] = TransportError(f"batch item {r.type}")
+                out[res.custom_id] = TransportError(f"batch item {r.type}: {json.dumps(res.model_dump())}")
     return out
 
 
@@ -282,8 +344,16 @@ def together_live(req: Request, m: ModelSpec) -> Response:
     client = openai.OpenAI(base_url="https://api.together.xyz/v1", api_key=os.environ["TOGETHER_API_KEY"], max_retries=0, timeout=900)
     msgs = [{"role": "system", "content": req.system}] + [{"role": r, "content": c} for r, c in req.messages]
     try:
-        resp = client.chat.completions.create(model=m.model_id, messages=msgs, max_tokens=req.max_tokens)
+        resp = client.chat.completions.create(model=m.model_id, messages=cast(Any, msgs), max_tokens=req.max_tokens)
     except (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError, openai.InternalServerError) as e:
+        if isinstance(e, openai.RateLimitError):
+            detail = str(e)
+            delay = e.response.headers.get("retry-after", "60")
+            try:
+                seconds = float(delay)
+            except ValueError:
+                seconds = 60
+            raise BatchRejected(detail, seconds, not any(marker in detail.lower() for marker in _BILLING_MARKERS)) from e
         _billing_check("together", e)
         raise TransportError(f"together {type(e).__name__}: {e}") from e
     except openai.APIStatusError as e:
@@ -303,6 +373,7 @@ def together_live(req: Request, m: ModelSpec) -> Response:
                  provider_id=str(body.get("id", "")),
                  detail="" if status == "ok" else f"finish_reason={fin}")
     r.cost = cost_usd(m, r.input_tokens, r.output_tokens)
+    r.extra["raw_response"] = body
     return r
 
 
