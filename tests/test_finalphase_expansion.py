@@ -105,7 +105,7 @@ def test_qualification_refusal_happens_before_store_or_network(tmp_path, monkeyp
     (tmp_path / "validation_completion_receipt.json").write_text(json.dumps({
         "conservative_campaign_cost_bound_usd": 30.8998584, "known_campaign_cost_usd": 30.85046532,
         "observed_stage_cost_usd": 8.76297396, "conservative_stage_cost_bound_usd": 8.81236704}))
-    proposal = {"version": "benchmark-expansion-qualification-v1", "maximum_cost_usd": "7.84778520",
+    proposal = {"version": E.QUALIFICATION_VERSION, "maximum_cost_usd": "7.84778520",
                 "maximum_cost_by_provider_usd": {"anthropic": "3.26758", "openai": "1.66055", "together": "2.91965520"},
                 "worlds_sha256": baseline, "validation_rows_sha256": E.digest((tmp_path / "bench/validation.jsonl").read_bytes()),
                 "requests_sha256": "a" * 64, "execution_sha256": "b" * 64}
@@ -113,7 +113,20 @@ def test_qualification_refusal_happens_before_store_or_network(tmp_path, monkeyp
     monkeypatch.setattr(store, "Store", lambda *args, **kwargs: calls.append(True))
     with pytest.raises(RuntimeError, match="lacks separate paid approval"):
         qualifier.execute(tmp_path, proposal, {})
-    assert not calls and not (tmp_path / "expansion_qualification.db").exists()
+    assert not calls and not (tmp_path / E.QUALIFICATION_DB).exists()
+
+
+def test_v2_author_qualification_controls_use_the_amended_fable_allowance():
+    controls = E.author_qualification_controls()
+    assert [r.custom_id for r in controls] == [
+        f"qualification:author-expansion-v2:{arm}:{wid}:{author}"
+        for arm in ("serial", "parallel") for wid, author in (("W001", "fable"), ("W002", "astra"))]
+    assert {r.model: r.max_tokens for r in controls} == {"fable": 128000, "astra": 32000}
+    # The failed v1 receipt and store are never reused by the v2 rerun.
+    assert E.QUALIFICATION_RECEIPT != "expansion_qualification_receipt.json"
+    assert E.QUALIFICATION_DB != "expansion_qualification.db"
+    fable = next(r for r in controls if r.model == "fable")
+    assert E.maximum(fable, True) > E.maximum(replace(fable, max_tokens=64000), True)
 
 
 def test_future_validation_envelope_refuses_oversized_request_before_registration(tmp_path):

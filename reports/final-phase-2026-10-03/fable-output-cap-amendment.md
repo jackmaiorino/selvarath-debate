@@ -1,8 +1,7 @@
 # Proposed Fable author output-cap amendment, 2026-10-07
 
-Status: proposed. Jack chose this direction on October 7, after the expansion
-qualification failed. Implementation and any rerun still need his explicit OK.
-Nothing here is applied, and no paid request is authorized.
+Status: implemented in code on October 7, after Jack's OK. No paid request is
+authorized; the v2 qualification needs his separate paid go.
 
 ## Why
 
@@ -58,13 +57,24 @@ unchanged $200 author cap, and that cap decision was already open. The exact
 expansion envelope is recomputed by `finalphase_expansion_prepare.py` after
 implementation and replaces the estimates above.
 
-## Implementation, after approval
+## Implementation
 
-1. `finalphase/authoring.py`: `AUTHOR_MAX_TOKENS_BY_MODEL["fable"] = 128000`.
-2. `finalphase/cli.py`: allow 128000 in `--max-tokens`.
-3. `scripts/finalphase_expansion_qualify.py`: qualification scope
-   `author-expansion-v2`, fresh receipt path, and refusal to reuse the v1 store.
-4. Regenerate the cost forecasts and the qualification plan, update the tests that
-   pin the 64,000 allowance and run the affected tests.
-5. Run the unpaid prepare, plan and preflight, then fill in a new approval file
-   for Jack's separate paid go.
+Jack approved implementation on October 7 ("implement it"). Paid execution still
+needs his separate approval.
+
+1. `finalphase/authoring.py`: new `EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL`
+   (Fable 128,000, Astra 32,000), the default for worlds after W008. W001 to W008
+   keep 64,000 and their saved `:t64000` identities, so offline replay of the
+   frozen cohort is unchanged.
+2. `finalphase/cli.py`: `--max-tokens` also accepts 128000.
+3. `finalphase/expansion.py` and the qualification scripts: v2 scope
+   `author-expansion-v2`, version `benchmark-expansion-qualification-v2`, a fresh
+   `expansion_qualification_v2_receipt.json` and `expansion_qualification_v2.db`.
+   The v1 receipt, store and logs are never reopened.
+4. Tests cover the per-world default, the v2 controls and their allowance, and
+   that v2 never reuses v1 paths. Cost-forecast token assumptions are unchanged
+   because they model expected use, not the cap. The exact reservation envelope
+   comes from `finalphase_expansion_prepare.py`.
+5. Next, on Jack's PC: preserve the five v1 prepare outputs, run the unpaid
+   prepare, plan and preflight on this code, and fill in a new v2 approval file
+   for Jack's paid go.

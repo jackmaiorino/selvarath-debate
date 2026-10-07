@@ -139,6 +139,18 @@ def test_author_defaults_use_the_measured_allowance_only_for_fable():
     assert astra.max_tokens == 32000 and astra.custom_id == "author:W002:astra"
 
 
+def test_expansion_worlds_author_fable_at_the_amended_allowance():
+    from finalphase.authoring import author_request
+
+    cohort = author_request("W007", "fable", "river delta")
+    later = author_request("W009", "fable", "river delta")
+    astra = author_request("W010", "astra", "river delta")
+    assert cohort.max_tokens == 64000 and cohort.custom_id.endswith(":t64000:length-v2")
+    assert later.max_tokens == 128000 and later.custom_id == "author:W009:fable:t128000:length-v2"
+    assert astra.max_tokens == 32000 and astra.custom_id == "author:W010:astra"
+    assert (cohort.system, cohort.model, cohort.effort) == (later.system, later.model, later.effort)
+
+
 @pytest.mark.parametrize("words,ok", [(999, False), (1000, True), (1500, True), (1501, False)])
 def test_world_admission_word_boundaries(words, ok):
     from finalphase.authoring import world_check

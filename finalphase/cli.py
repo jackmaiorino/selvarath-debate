@@ -322,7 +322,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch", choices=("batch", "live"))
     a.add_argument("--quality-check", action="store_true", help="bounded authoring check, at most eight worlds")
-    a.add_argument("--max-tokens", type=int, choices=(32000, 64000), help="override author defaults: Fable 64000, Astra 32000")
+    a.add_argument("--max-tokens", type=int, choices=(32000, 64000, 128000), help="override author defaults: Fable 64000 in W001-W008 and 128000 after, Astra 32000")
     a.add_argument("--attempts", type=int, choices=(1, 2), default=2)
     a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
     a.add_argument("--replace-invalid", action="store_true", help="preserve invalid saved worlds and regenerate under fresh versioned IDs")

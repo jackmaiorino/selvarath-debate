@@ -15,6 +15,11 @@ from .providers import Request, Response
 ROOT = Path(__file__).resolve().parents[1]
 AUTHOR_MAX_TOKENS = 32000
 AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 64000, "astra": 32000}
+# Prospective Fable output-cap amendment (2026-10-07): worlds after the frozen
+# eight-world cohort author Fable at its 128,000-token maximum. The cohort keeps
+# its saved 64,000-token identities for offline replay.
+FROZEN_COHORT_WORLDS = 8
+EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 128000, "astra": 32000}
 VALIDATOR_MAX_TOKENS = 4000
 LENGTH_RATIO_MAX = 1.25
 SIGNAL_WORDS = re.compile(r"\b(correct|correctly|actually|clearly|obviously|only|in fact|misleading|wrongly)\b", re.I)
@@ -36,10 +41,15 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
     return out
 
 
+def default_author_max_tokens(world_id: str, author: str) -> int:
+    cohort = int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
+    return (AUTHOR_MAX_TOKENS_BY_MODEL if cohort else EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL)[author]
+
+
 def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0,
                    max_tokens: int | None = None, prompt_revision: str = P.AUTHOR_LENGTH_REVISION) -> Request:
     if max_tokens is None:
-        max_tokens = AUTHOR_MAX_TOKENS_BY_MODEL[author]
+        max_tokens = default_author_max_tokens(world_id, author)
     user = P.AUTHOR_USER.format(n_questions=n_questions, seed_hint=seed_hint, example=example_block(),
                                 task_types=", ".join(P.TASK_TYPES))
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")

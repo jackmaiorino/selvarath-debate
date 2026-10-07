@@ -130,8 +130,7 @@ def costs(root: Path, worlds: list[dict], authors: dict, validators: dict, contr
     author_reqs = E.author_requests(root)
     author_max = {p: sum((E.maximum(r, True) for r in author_reqs if spec(r.model).provider == p), Decimal(0)) for p in author_expected}
     # Qualification has two matched calls per author, serial controls plus parallel controls.
-    author_controls = [replace(A.author_request(wid, author, hint), custom_id=f"qualification:author-expansion-v1:{arm}:{wid}:{author}")
-                       for arm in ("serial", "parallel") for wid, author, hint in A.world_ids(2)]
+    author_controls = E.author_qualification_controls()
     author_qual = {p: sum((E.maximum(r, True) for r in author_controls if spec(r.model).provider == p), Decimal(0)) for p in author_expected}
     _, requests = V.workload(worlds)
     v1_max = {p: sum((E.maximum(r, True) for r in requests if spec(r.model).provider == p), Decimal(0)) * 19 for p in ("anthropic", "openai", "together")}
