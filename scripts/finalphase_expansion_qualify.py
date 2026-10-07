@@ -81,10 +81,10 @@ def guard(root: Path, proposal: dict, approval: dict) -> None:
     if Decimal(str(completion["conservative_campaign_cost_bound_usd"])) + Decimal(proposal["maximum_cost_usd"]) > 6000:
         reasons.append("qualification exceeds unchanged campaign ceiling")
     author_spend = Decimal(str(completion["known_campaign_cost_usd"])) - Decimal(str(completion["observed_stage_cost_usd"]))
-    if author_spend + sum(Decimal(proposal["maximum_cost_by_provider_usd"][p]) for p in ("anthropic", "openai")) > 200:
-        reasons.append("qualification exceeds unchanged author cap")
-    if Decimal(str(completion["conservative_stage_cost_bound_usd"])) + Decimal(proposal["maximum_cost_by_provider_usd"]["together"]) > 200:
-        reasons.append("qualification exceeds unchanged validation cap")
+    if author_spend + sum(Decimal(proposal["maximum_cost_by_provider_usd"][p]) for p in ("anthropic", "openai")) > Decimal(str(cli.STAGE_CAPS["author"])):
+        reasons.append("qualification exceeds the author cap")
+    if Decimal(str(completion["conservative_stage_cost_bound_usd"])) + Decimal(proposal["maximum_cost_by_provider_usd"]["together"]) > Decimal(str(cli.STAGE_CAPS["validate"])):
+        reasons.append("qualification exceeds the validation cap")
     # Scratch input and version are rechecked against the actual frozen source, not an editable proposal list.
     worlds = cli._worlds()
     hashes = {w["world_id"]: E.digest((root / "bench/worlds" / f"{w['world_id']}.json").read_bytes()) for w in worlds}
