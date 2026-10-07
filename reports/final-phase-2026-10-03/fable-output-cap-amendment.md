@@ -102,3 +102,9 @@ This changes only spend limits, not request bodies or identities. It does change
 `preflight.execution_sha256()`, so registering the v2 throughput receipt for the
 expansion must record that the qualified code (e83399e) differs from the launch
 code only by these caps. No paid request is authorized by this change.
+
+Jack chose to carry the v2 qualification forward rather than requalify (decision
+card, 2026-10-07 11:17Z). The author throughput receipt is registered under the
+cap-raised code's `execution_sha256`, with a carried-forward record citing the
+qualified commit e83399e, its execution hash, the unchanged qualification
+`requests_sha256` and the cap-only diff.
