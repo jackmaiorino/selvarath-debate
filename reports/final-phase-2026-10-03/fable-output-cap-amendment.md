@@ -1,4 +1,4 @@
-# Proposed Fable author output-cap amendment, 2026-10-07
+# Fable author output-cap amendment, 2026-10-07
 
 Status: implemented in code on October 7, after Jack's OK. No paid request is
 authorized; the v2 qualification needs his separate paid go.
