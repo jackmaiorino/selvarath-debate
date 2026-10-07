@@ -78,3 +78,27 @@ needs his separate approval.
 5. Next, on Jack's PC: preserve the five v1 prepare outputs, run the unpaid
    prepare, plan and preflight on this code, and fill in a new v2 approval file
    for Jack's paid go.
+
+## Qualification v2 and the author-stage cap, 2026-10-07
+
+Jack approved the v2 qualification ("launch v2"). It passed: all 4 steps valid,
+52 of 52 calls ok, no cutoffs or refusals, $3.56 spent of $11.05 (qualification
+total $7.04 with v1). Parallel authoring took 457 s against 1,000 s serial and
+Together validation took 139 s with 8 workers against 640 s serial. Both Fable
+controls finished under 64,000 tokens (49,827 and 30,418), so the run shows the
+128,000 setting works end to end but does not measure how often it rescues a
+cutoff. Receipt: `expansion_qualification_v2_receipt.json`, code e83399e.
+
+At 128,000 tokens the full-cohort author reservation is $639.84, above the $200
+author cap. Realistic spend is about $130 to $195. Jack chose to raise the author
+cap to $648, the prepared allocation need. `finalphase/cli.py` now sets
+author $648 and main $3,852 (down $448 from $4,300), so stage caps plus the $590
+reserve still total $6,000. `finalphase/expansion.py` checks the reservation
+against that cap instead of a hardcoded $200. The validation cap is unchanged
+at $200; raising it to the prepared $1,939 is a separate decision and would
+bring main to $2,113.
+
+This changes only spend limits, not request bodies or identities. It does change
+`preflight.execution_sha256()`, so registering the v2 throughput receipt for the
+expansion must record that the qualified code (e83399e) differs from the launch
+code only by these caps. No paid request is authorized by this change.

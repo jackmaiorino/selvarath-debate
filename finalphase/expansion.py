@@ -131,8 +131,10 @@ def author_plan(root: Path, worlds: int = 160, attempts: int = 2, mode: str = "b
         remaining[spec(request.model).provider] += maximum(request, mode == "batch")
     body_sha = digest(json.dumps([r.to_json() for r in requests]).encode())
     cumulative = sum(recorded.values()) + sum(remaining.values())
-    if cumulative > Decimal(200):
-        reasons.append(f"author full-cohort reservation ${cumulative} exceeds unchanged $200 stage cap")
+    from .cli import STAGE_CAPS
+    cap = Decimal(str(STAGE_CAPS["author"]))
+    if cumulative > cap:
+        reasons.append(f"author full-cohort reservation ${cumulative} exceeds ${cap} author stage cap")
     if (approval.get("approved") is not True or not approval.get("source")
             or approval.get("worlds") != worlds or approval.get("attempts") != attempts
             or approval.get("mode") != mode or approval.get("requests_sha256") != body_sha

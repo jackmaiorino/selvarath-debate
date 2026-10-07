@@ -12,7 +12,10 @@ spending $3.48 of $7.85. Fable reached its 64,000-token output cap with no text
 in the parallel author arm. The same request completed at 41,665 tokens in the
 serial arm. Jack chose to raise the cap before any rerun; see
 [fable-output-cap-amendment.md](fable-output-cap-amendment.md), now implemented
-in code. The v2 qualification rerun still needs separate paid approval.
+in code. The v2 qualification rerun passed later that day: 52 of 52 calls, $3.56
+spent, parallel authoring and 8 validation workers selected. Jack then raised the
+author-stage cap from $200 to $648; main drops from $4,300 to $3,852 so the caps
+still total $5,410 plus the $590 reserve. See the cap section of the amendment.
 
 ## State before the audit, 2026-10-05
 

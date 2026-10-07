@@ -73,6 +73,23 @@ def test_author_reservation_requires_org_capacity_and_exact_scope_before_network
     assert not E.author_plan(tmp_path, 6)["ready"]
 
 
+
+def test_author_reservation_is_bounded_by_the_amended_author_stage_cap(tmp_path, monkeypatch):
+    from finalphase import cli
+    assert cli.STAGE_CAPS["author"] == 648.0 and cli.STAGE_CAPS["main"] == 3852.0
+    baseline, _ = audit_fixture(tmp_path)
+    requests = E.author_requests(tmp_path, worlds=4, baseline=baseline)
+    approval = {"approved": True, "source": "offline owner fixture", "worlds": 4, "attempts": 2, "mode": "batch",
+                "baseline_worlds_sha256": baseline, "requests_sha256": E.digest(json.dumps([r.to_json() for r in requests]).encode()),
+                "provider_capacity": {p: {"available_usd": 100, "reconciled": True, "reference": "fixture"} for p in ("anthropic", "openai")},
+                "openai_capacity": {"organization_approved_remaining_usd": 100,
+                    "organization_hard_limit_enabled": False, "project_hard_limit_enabled": False, "reference": "fixture"}}
+    (tmp_path / "run_manifest.json").write_text(json.dumps({"author_expansion_authorization": approval}))
+    assert E.author_plan(tmp_path, 4)["ready"]
+    monkeypatch.setitem(cli.STAGE_CAPS, "author", 1.0)
+    report = E.author_plan(tmp_path, 4)
+    assert not report["ready"] and any("author stage cap" in r for r in report["reasons"])
+
 def test_decimal_maximum_matches_store_bound_and_proposed_token_cap_is_dormant():
     req = A.author_request("W009", "fable", "river delta")
     assert float(E.maximum(req, True)) == pytest.approx(estimate_max_cost(req, True))

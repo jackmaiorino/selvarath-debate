@@ -30,7 +30,9 @@ from .store import Store
 
 RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-10-03"))
 BENCH = RUN_ROOT / "bench"
-STAGE_CAPS = {"author": 200.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 4300.0}
+# Author-stage cap amendment (2026-10-07): author rises from $200 to $648 to cover the
+# full-cohort reservation at the 128,000-token Fable allowance; main gives up the $448.
+STAGE_CAPS = {"author": 648.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 3852.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")
