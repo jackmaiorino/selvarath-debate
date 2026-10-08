@@ -30,9 +30,11 @@ from .store import Store
 
 RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-10-03"))
 BENCH = RUN_ROOT / "bench"
-# Author-stage cap amendment (2026-10-07): author rises from $200 to $648 to cover the
-# full-cohort reservation at the 128,000-token Fable allowance; main gives up the $448.
-STAGE_CAPS = {"author": 648.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 3852.0}
+# Stage cap amendments. 2026-10-07: author $200 -> $648 for the 128,000-token Fable
+# reservation. 2026-10-08: authoring closed at $172.56, so author is trimmed to $173 and
+# validate rises to $893 for the 12,000-token DeepSeek key-check worst case; main takes
+# the difference so caps plus the $590 reserve still total $6,000.
+STAGE_CAPS = {"author": 173.0, "validate": 893.0, "canary": 60.0, "pilot": 650.0, "main": 3634.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")

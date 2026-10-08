@@ -76,7 +76,7 @@ def test_author_reservation_requires_org_capacity_and_exact_scope_before_network
 
 def test_author_reservation_is_bounded_by_the_amended_author_stage_cap(tmp_path, monkeypatch):
     from finalphase import cli
-    assert cli.STAGE_CAPS["author"] == 648.0 and cli.STAGE_CAPS["main"] == 3852.0
+    assert cli.STAGE_CAPS == {"author": 173.0, "validate": 893.0, "canary": 60.0, "pilot": 650.0, "main": 3634.0}
     baseline, _ = audit_fixture(tmp_path)
     requests = E.author_requests(tmp_path, worlds=4, baseline=baseline)
     approval = {"approved": True, "source": "offline owner fixture", "worlds": 4, "attempts": 2, "mode": "batch",
@@ -99,6 +99,40 @@ def test_decimal_maximum_matches_store_bound_and_proposed_token_cap_is_dormant()
     proposed = replace(r, max_tokens=E.PROPOSED_DSPRO_KEY_TOKENS)
     assert E.maximum(proposed, False) - E.maximum(r, False) == Decimal("0.03168")
 
+
+
+def test_expansion_worlds_check_dspro_answer_keys_at_the_v2_allowance():
+    world = _world(1)
+    cohort = A.validation_requests("W008", "fable", "world", world["questions"])
+    expansion = A.validation_requests("W009", "fable", "world", world["questions"])
+    assert [r.custom_id.replace("W008", "W009") for r in cohort] == [r.custom_id for r in expansion]
+    for r in expansion:
+        if r.custom_id.startswith("factcheck:"):
+            assert r.max_tokens == 2000
+        else:
+            assert r.max_tokens == (12000 if r.model == "dspro" else 4000)
+    assert all(r.max_tokens in (2000, 4000) for r in cohort)
+
+
+def test_exact_authorized_request_set_replaces_the_estimated_envelope(tmp_path):
+    from finalphase import validation as V
+    from test_finalphase_validation import prepared
+    worlds, manifest = prepared(tmp_path)
+    for i in range(3, 10):
+        world = {**worlds[i % 2], "world_id": f"W{i:03}"}
+        (tmp_path / "bench/worlds" / f"W{i:03}.json").write_text(json.dumps(world))
+        worlds.append(world)
+    execution = manifest["validation_execution"]
+    execution["worlds_sha256"] = {p.stem: E.digest(p.read_bytes()) for p in (tmp_path / "bench/worlds").glob("*.json")}
+    _, requests = V.workload(worlds)
+    execution["authorization"]["validation_input_sha256"] = V.input_sha256(requests)
+    (tmp_path / "run_manifest.json").write_text(json.dumps(manifest))
+    assert not any("byte/token envelope" in r for r in V.plan(tmp_path, worlds)["reasons"])
+    execution["authorization"]["validation_input_sha256"] = "0" * 64
+    (tmp_path / "run_manifest.json").write_text(json.dumps(manifest))
+    assert any("byte/token envelope" in r for r in V.plan(tmp_path, worlds)["reasons"])
+    report = V.plan(tmp_path, worlds, cap=0.0001)
+    assert any("$0.00 stage cap" in r for r in report["reasons"])
 
 @pytest.mark.parametrize("code", ["organization_spend_limit_exceeded", "project_spend_limit_exceeded", "organization_usage_limit_exceeded"])
 def test_provider_capacity_429_is_a_billing_stop_not_transport_retry(code):

@@ -211,7 +211,7 @@ def costs(root: Path, worlds: list[dict], authors: dict, validators: dict, contr
                 "Hard validation envelope uses maximum saved request cost within each author/role and allows every question five facts; future bodies exceeding it stop before registration.",
                 "One future transport retry reserved per request, separately authorized; no automatic retry of truncation or scientific rejection. Eight future serial validation qualification controls are additionally reserved; canonical probes are already included.",
                 "Author qualification uses synthetic control identities; no controls promoted. Complete author cohort retains two generation attempts.",
-                "Stage allocations above are a proposal only. Current caps are " + "/".join(f"${cli.STAGE_CAPS[k]:g}" for k in ("author", "validate", "canary", "pilot", "main")) + " with the $590 reserve (author raised to $648 on 2026-10-07).",
+                "Stage allocations above are a proposal only. Current caps are " + "/".join(f"${cli.STAGE_CAPS[k]:g}" for k in ("author", "validate", "canary", "pilot", "main")) + " with the $590 reserve (amended; see cli.STAGE_CAPS).",
                 "Balances are saved user reports minus this campaign's ledger, not verified current balances; unrelated usage and approved provider limits remain unknown."]}
 
 

@@ -19,7 +19,7 @@ from .providers import Request
 from .store import MEASURED, estimate_max_cost_decimal
 
 TOKEN_PROPOSAL = "validation-token-v2-proposed"
-PROPOSED_DSPRO_KEY_TOKENS = 12000
+PROPOSED_DSPRO_KEY_TOKENS = A.EXPANSION_DSPRO_KEY_MAX_TOKENS
 COORDINATOR_SESSION = "cd916c75-3534-4496-8864-d4b4f53f3c36"
 # v1 failed acceptance on 2026-10-06 (Fable reached 64,000 output tokens); its receipt,
 # store and logs are preserved. v2 controls use the amended expansion author allowance.

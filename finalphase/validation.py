@@ -93,14 +93,23 @@ def input_sha256(requests: list[Request]) -> str:
     return sha(json.dumps(bodies, sort_keys=True, ensure_ascii=False).encode("utf-8"))
 
 
-def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0) -> dict:
+def stage_cap() -> float:
+    from .cli import STAGE_CAPS
+    return STAGE_CAPS["validate"]
+
+
+def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float | None = None) -> dict:
     """Read only: no store creation, provider client or request dispatch."""
+    cap = stage_cap() if cap is None else cap
     manifest = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))
     execution = manifest.get("validation_execution", {})
     rows, requests = workload(worlds)
     envelope = execution.get("input_envelope_usd", {})
     envelope_reasons = []
-    if len(worlds) > 8:
+    # Once the future texts exist, an authorization binding the exact request set
+    # replaces the per-role envelope that was estimated before they were written.
+    exact = execution.get("authorization", {}).get("validation_input_sha256") == input_sha256(requests)
+    if len(worlds) > 8 and not exact:
         from .expansion import maximum
         authors = {w["world_id"]: w["author"] for w in worlds}
         for request in requests:
@@ -154,7 +163,7 @@ def plan(root: Path, worlds: list[dict], mode: str = "batch", cap: float = 200.0
         if remaining.get(p, 0.0) and (gap is None or gap > 0):
             reasons.append(f"{p}: " + (f"credit gap ${gap:.9f}" if gap is not None else "available credit unconfirmed"))
     if sum(bound.values()) > cap:
-        reasons.append(f"validation and qualification exceed unchanged ${cap:.2f} stage cap")
+        reasons.append(f"validation and qualification exceed the ${cap:.2f} stage cap")
     limits = execution.get("openai_account_limits", {})
     monthly = limits.get("monthly_remaining_usd")
     if not (type(monthly) in (int, float) and math.isfinite(monthly) and monthly >= remaining.get("openai", 0)):
@@ -252,7 +261,7 @@ def qualify(root: Path, worlds: list[dict], mode: str = "batch") -> dict:
     execution_status(root, "qualification_running", execution_started=True)
     _, requests = workload(worlds)
     sample = qualification_sample(worlds, requests)
-    store = Store(root / "validate.db", "validate", 200.0, max_transport_attempts=1,
+    store = Store(root / "validate.db", "validate", stage_cap(), max_transport_attempts=1,
                   batch_limits=dispatch_limits(root))
     try:
         for name, reqs, workers in (("serial", controls(sample), 1),

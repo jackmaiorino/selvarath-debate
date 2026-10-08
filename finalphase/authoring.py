@@ -21,6 +21,10 @@ AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 64000, "astra": 32000}
 FROZEN_COHORT_WORLDS = 8
 EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 128000, "astra": 32000}
 VALIDATOR_MAX_TOKENS = 4000
+# Validation token amendment v2 (2026-10-08): DeepSeek answer-key checks on worlds
+# after the frozen cohort may use 12,000 tokens. The cohort keeps its saved 4,000-token
+# requests; frontier key checks and fact checks are unchanged.
+EXPANSION_DSPRO_KEY_MAX_TOKENS = 12000
 LENGTH_RATIO_MAX = 1.25
 SIGNAL_WORDS = re.compile(r"\b(correct|correctly|actually|clearly|obviously|only|in fact|misleading|wrongly)\b", re.I)
 
@@ -41,8 +45,12 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
     return out
 
 
+def in_frozen_cohort(world_id: str) -> bool:
+    return int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
+
+
 def default_author_max_tokens(world_id: str, author: str) -> int:
-    cohort = int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
+    cohort = in_frozen_cohort(world_id)
     return (AUTHOR_MAX_TOKENS_BY_MODEL if cohort else EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL)[author]
 
 
@@ -178,6 +186,12 @@ def validators_for(author: str) -> tuple[str, str]:
     return (other, "dspro")
 
 
+def validator_max_tokens(world_id: str, validator: str) -> int:
+    if validator == "dspro" and not in_frozen_cohort(world_id):
+        return EXPANSION_DSPRO_KEY_MAX_TOKENS
+    return VALIDATOR_MAX_TOKENS
+
+
 def validation_requests(world_id: str, author: str, world_text: str, questions: list[dict]) -> list[Request]:
     out = []
     for i, q in enumerate(questions):
@@ -185,7 +199,7 @@ def validation_requests(world_id: str, author: str, world_text: str, questions: 
             for order in ("key_a", "key_b"):
                 a, b = (q["correct_answer"], q["wrong_answer"]) if order == "key_a" else (q["wrong_answer"], q["correct_answer"])
                 user = P.VALIDATOR_USER.format(world_text=world_text, question=q["question"], candidate_a=a, candidate_b=b)
-                out.append(Request(f"validate:{qid(world_id, i)}:{v}:{order}", v, P.VALIDATOR_SYSTEM, (("user", user),), VALIDATOR_MAX_TOKENS))
+                out.append(Request(f"validate:{qid(world_id, i)}:{v}:{order}", v, P.VALIDATOR_SYSTEM, (("user", user),), validator_max_tokens(world_id, v)))
         for j, fact in enumerate(q["facts_required"]):
             user = P.FACT_CHECK_USER.format(world_text=world_text, claim=fact)
             out.append(Request(f"factcheck:{qid(world_id, i)}:{j}", "dspro", P.FACT_CHECK_SYSTEM, (("user", user),), 2000))
