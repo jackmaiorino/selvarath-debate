@@ -73,7 +73,15 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     assert {q["world_id"] for q in canary}.isdisjoint({q["world_id"] for q in main})
     assert len(canary) == 48 and len(pilot) == 16 * 12 and len(main) == 4 * 9
     assert all(q["debater"] in ("fable", "astra") for q in main)
+    from finalphase import canary as C
+    receipt = C.qualify(tmp_path, {w["world_id"]: w for w in cli._worlds()}, cli.STAGE_CAPS["canary"])
+    assert receipt["semantics_preserved"] and receipt["serial"]["input_sha256"] == receipt["parallel"]["input_sha256"]
+    assert json.loads((tmp_path / "run_manifest.json").read_text())["throughput"]["canary"] == receipt
+    sent = []
+    monkeypatch.setitem(store.LIVE, "anthropic", lambda r, m: sent.append(r.custom_id) or fake(r, m))
+    monkeypatch.setitem(store.LIVE, "openai", lambda r, m: sent.append(r.custom_id) or fake(r, m))
     cli.cmd_canary(ns(n=4))
+    assert sent and not set(receipt["parallel"]["request_ids"]) & set(sent)
     assert sum(1 for _ in open(tmp_path / "canary" / "debates.jsonl")) == 16
     assert sum(1 for _ in open(tmp_path / "canary" / "judgments.jsonl")) == 16 * 3 * 2
     cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",

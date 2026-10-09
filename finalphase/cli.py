@@ -19,6 +19,7 @@ import sqlite3
 from pathlib import Path
 
 from . import authoring as A
+from . import canary as C
 from . import prompts_study as P
 from . import preflight
 from . import validation as V
@@ -264,8 +265,7 @@ def cmd_split(args) -> None:
 def cmd_canary(args) -> None:
     s = _store("canary")
     worlds = {w["world_id"]: w for w in _worlds()}
-    qs = _read_jsonl(BENCH / "canary.jsonl")
-    qs = sorted(qs, key=lambda q: A.hashlib.sha256(f"canary-v1:{q['question_id']}".encode()).hexdigest())[:args.n]
+    qs = C.canary_questions(BENCH, args.n)
     tasks = {}
     for q in qs:
         for deb in DEBATERS:
@@ -341,6 +341,7 @@ def main() -> None:
     vp = sub.add_parser("validation-plan"); vp.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
+    sub.add_parser("qualify-canary")
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
     j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
@@ -357,6 +358,10 @@ def main() -> None:
     if args.cmd == "qualify-validate":
         preflight.require("validate", RUN_ROOT, V.QUALIFICATION_WORKERS, args.mode, qualification=True)
         cmd_qualify_validate(args)
+        return
+    if args.cmd == "qualify-canary":
+        preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
+        print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
