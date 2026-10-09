@@ -54,3 +54,23 @@ accepts a question review whose `reviewer_session_id` names a recorded
 `follow_up_reviewers` entry with `implementer_review: false`, only for extra
 questions of a named defect world. Sampled and split questions must still come from
 the coordinating session. W123 then needs Jack's disposition before canary.
+
+## W123 disposition and audit closure, 2026-10-09
+
+The fresh independent review agreed that the WY 210 quota (16,000) cannot be
+derived from the world's counts and that only W123-Q04 is materially affected; its
+key survives every text-consistent reading. Q01 and Q12 touch the figure but are
+unaffected. Jack chose (decision card, 16:43Z) that W123-Q04 is sensitivity-only,
+exactly as W005-Q11: it stays in the frozen retained set, is excluded from every
+primary, secondary and confirmatory contrast, and does not count toward the main
+question cap. The world text is not edited; a world-level erratum note is recorded.
+The private `w123_disposition.json` records the ruling. The reviewed audit is now
+live with `audit_complete` and `source_defects_resolved` true, the superseded review
+is preserved, and `expansion.audit_reasons` passes.
+
+`split` now carries both amendments in code: `authoring.SENSITIVITY_ONLY` names
+W005-Q11 and W123-Q04, every split row records `sensitivity_only`, and main sampling
+drops those questions after the per-world shuffle, so every other world draws
+identically and the cap counts only analysable questions. A sensitivity-only
+question in a main world is appended outside the cap, and debater balancing treats
+it separately so it cannot shift the counted set's assignments.

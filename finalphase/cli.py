@@ -237,14 +237,19 @@ def cmd_split(args) -> None:
             q = dict(by_world[r["world_id"]]["questions"][r["index"]])
             q.update({"question_id": r["question_id"], "world_id": r["world_id"], "author": r["author"],
                       "split": split[r["world_id"]], "determinacy_flags": r["determinacy_flags"]})
+            q["sensitivity_only"] = r["question_id"] in A.SENSITIVITY_ONLY
             retained.append(q)
-    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions)
+    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions,
+                         exclude=A.SENSITIVITY_ONLY)
+    main = sorted(main + [q for q in retained if q["split"] == "main" and q["sensitivity_only"]],
+                  key=lambda q: q["question_id"])
     sets = {"canary": [q for q in retained if q["split"] == "canary"], "pilot": [q for q in retained if q["split"] == "pilot"], "main": main}
-    # debater family per question, balanced within author x task type by a fixed hash order
+    # debater family per question, balanced within author x task type by a fixed hash order;
+    # sensitivity-only questions are balanced separately so they cannot shift the counted set
     for name, qs in sets.items():
         groups = collections.defaultdict(list)
         for q in qs:
-            groups[(q["author"], q["task_type"])].append(q)
+            groups[(q["author"], q["task_type"], q["sensitivity_only"])].append(q)
         for g in groups.values():
             g.sort(key=lambda q: A.hashlib.sha256(f"debater-v1:{q['question_id']}".encode()).hexdigest())
             for i, q in enumerate(g):

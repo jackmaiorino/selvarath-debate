@@ -25,6 +25,10 @@ VALIDATOR_MAX_TOKENS = 4000
 # after the frozen cohort may use 12,000 tokens. The cohort keeps its saved 4,000-token
 # requests; frontier key checks and fact checks are unchanged.
 EXPANSION_DSPRO_KEY_MAX_TOKENS = 12000
+# Audit amendments (2026-10-06 W005, 2026-10-09 W123): these retained questions rest on
+# a source-defective figure. They stay in the frozen retained set, are excluded from every
+# primary, secondary and confirmatory contrast, and do not count toward the main cap.
+SENSITIVITY_ONLY = frozenset({"W005-Q11", "W123-Q04"})
 LENGTH_RATIO_MAX = 1.25
 SIGNAL_WORDS = re.compile(r"\b(correct|correctly|actually|clearly|obviously|only|in fact|misleading|wrongly)\b", re.I)
 
@@ -269,7 +273,8 @@ def split_worlds(world_rows: list[dict], n_canary: int = 4, n_pilot: int = 16, s
     return out
 
 
-def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed: str = "final-phase-main-v1") -> list[dict]:
+def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed: str = "final-phase-main-v1",
+                exclude: frozenset[str] = frozenset()) -> list[dict]:
     if not 1 <= cap <= 1068:
         raise ValueError("main question count must be between 1 and 1068")
     rng = random.Random(seed)
@@ -280,6 +285,7 @@ def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed:
     for w in sorted(by_world):
         qs = sorted(by_world[w], key=lambda q: q["question_id"])
         rng.shuffle(qs)
-        pool.extend(qs[:per_world])
+        # excluded questions are dropped after the shuffle so other worlds draw identically
+        pool.extend([q for q in qs if q["question_id"] not in exclude][:per_world])
     pool.sort(key=lambda q: hashlib.sha256(f"{seed}:{q['question_id']}".encode()).hexdigest())
     return sorted(pool[:cap], key=lambda q: q["question_id"])

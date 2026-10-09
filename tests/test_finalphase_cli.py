@@ -270,3 +270,33 @@ def test_cost_reduction_is_a_deterministic_prefix_without_changing_world_cap():
     assert all(sum(q["world_id"] == f"W{w:03d}" for q in reduced) <= 9 for w in range(1, 6))
     with pytest.raises(ValueError, match="between 1 and 1068"):
         sample_main(qs, cap=0)
+
+
+def test_sensitivity_only_questions_ride_outside_the_main_cap(tmp_path, monkeypatch):
+    from finalphase import authoring as A
+
+    worlds = [{"world_id": f"W{w:03d}", "author": ("fable", "astra")[w % 2],
+               "questions": [{"task_type": TYPES[i % 6]} for i in range(12)]} for w in range(1, 41)]
+    rows = [{"question_id": f"{w['world_id']}-Q{i + 1:02d}", "world_id": w["world_id"], "author": w["author"],
+             "index": i, "retained": True, "determinacy_flags": 0} for w in worlds for i in range(12)]
+    (tmp_path / "bench").mkdir()
+    (tmp_path / "bench" / "validation.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
+    monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    monkeypatch.setattr(cli, "_worlds", lambda: worlds)
+
+    def split(flagged):
+        monkeypatch.setattr(A, "SENSITIVITY_ONLY", frozenset(flagged))
+        cli.cmd_split(types.SimpleNamespace(main_questions=100))
+        return {n: [json.loads(x) for x in open(tmp_path / "bench" / f"{n}.jsonl")] for n in ("canary", "pilot", "main")}
+
+    base = split(set())
+    base_ids = [q["question_id"] for q in base["main"]]
+    sampled, pilot_q = base_ids[0], base["pilot"][0]["question_id"]
+    flagged = split({sampled, pilot_q})
+    counted = [q["question_id"] for q in flagged["main"] if not q["sensitivity_only"]]
+    assert len(counted) == 100 and sampled not in counted
+    assert [q["question_id"] for q in flagged["main"] if q["sensitivity_only"]] == [sampled]
+    world = sampled.split("-Q")[0]
+    assert [q for q in counted if not q.startswith(world)] == [q for q in base_ids if not q.startswith(world)]
+    assert [q["question_id"] for q in flagged["pilot"] if q["sensitivity_only"]] == [pilot_q]
