@@ -57,6 +57,21 @@ def audit_reasons(root: Path) -> list[str]:
         reviews = {item["question_id"]: item for item in review["questions"]}
         if not required or not required.issubset(reviews):
             return ["Claude audit lacks sampled, split or defect-world question reviews"]
+        # Follow-up amendment (2026-10-09): when the coordinating session is too full to
+        # continue, a recorded second independent Claude session may review the extra
+        # questions of a defect world. Sampled and split questions stay with the coordinator.
+        follow_ups = {f.get("session_id"): f for f in review.get("follow_up_reviewers", [])}
+        sampled = set(packet["random_retained_sample_ids"] + packet["split_validator_ids"])
+        for qid in required:
+            session = reviews[qid].get("reviewer_session_id", COORDINATOR_SESSION)
+            if session == COORDINATOR_SESSION:
+                continue
+            follow_up = follow_ups.get(session)
+            if (qid in sampled or not session or follow_up is None
+                    or follow_up.get("implementer_review") is not False
+                    or qid not in follow_up.get("question_ids", [])
+                    or qid.split("-Q")[0] not in defects):
+                return ["Claude audit question review is not from an accepted independent reviewer"]
         for world_id, expected in packet["worlds_sha256"].items():
             if digest((root / "bench/worlds" / f"{world_id}.json").read_bytes()) != expected:
                 return ["Claude audit world hashes differ from current benchmark"]

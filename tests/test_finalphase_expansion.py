@@ -54,6 +54,30 @@ def test_implementer_review_cannot_clear_audit_and_defect_requires_whole_world(t
     assert "world hashes" in E.audit_reasons(tmp_path)[0]
 
 
+
+def test_recorded_follow_up_reviewer_may_cover_only_defect_world_extras(tmp_path):
+    _, review = audit_fixture(tmp_path)
+    path = tmp_path / "coordinator_audit_review.json"
+    review["retained_source_defect_worlds"] = ["W001"]
+    review["source_defects_resolved"] = True
+    second = "fresh-follow-up-session"
+    review["questions"].append({"question_id": "W001-Q02", "evidence": "second source", "conclusion": "pass",
+                                "reviewer_session_id": second})
+    path.write_text(json.dumps(review))
+    assert E.audit_reasons(tmp_path) == ["Claude audit question review is not from an accepted independent reviewer"]
+    review["follow_up_reviewers"] = [{"session_id": second, "reviewer": "Claude independent session",
+                                      "implementer_review": False, "question_ids": ["W001-Q02"]}]
+    path.write_text(json.dumps(review))
+    assert not E.audit_reasons(tmp_path)
+    review["follow_up_reviewers"][0]["implementer_review"] = True
+    path.write_text(json.dumps(review))
+    assert E.audit_reasons(tmp_path)
+    review["follow_up_reviewers"][0]["implementer_review"] = False
+    review["follow_up_reviewers"][0]["question_ids"].append("W001-Q01")
+    review["questions"][0]["reviewer_session_id"] = second
+    path.write_text(json.dumps(review))
+    assert E.audit_reasons(tmp_path), "sampled questions must stay with the coordinating session"
+
 def test_author_reservation_requires_org_capacity_and_exact_scope_before_network(tmp_path):
     baseline, _ = audit_fixture(tmp_path)
     requests = E.author_requests(tmp_path, worlds=4, baseline=baseline)

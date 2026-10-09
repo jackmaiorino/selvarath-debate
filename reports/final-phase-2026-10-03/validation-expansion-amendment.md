@@ -38,3 +38,19 @@ validation requests, 14,075 of them new.
 Expected new spend is about $175 to $180 at observed rates (Anthropic about $43,
 OpenAI about $57, Together about $75 under v2). The worst case is $892.70 for the
 whole stage, including the $8.76 already spent on the cohort.
+
+## Coordinator audit and follow-up reviewer, 2026-10-09
+
+The fresh audit ran in the original coordinating session (Jack's choice): 100
+questions (87 random retained, 8 split-validator, W005 carryover). All sampled keys
+held; all 8 split rejections were confirmed; W005-Q11 remains sensitivity-only. The
+reviewer named a new source-defect world, W123 (its WY 210 quota of 16,000 does not
+follow from the one-third rule applied to 52,000), which requires review of all 12
+retained W123 questions.
+
+That session reached about 960k of its 1M-token context, so Jack chose a fresh
+independent Claude session for the 11 remaining W123 questions. `audit_reasons` now
+accepts a question review whose `reviewer_session_id` names a recorded
+`follow_up_reviewers` entry with `implementer_review: false`, only for extra
+questions of a named defect world. Sampled and split questions must still come from
+the coordinating session. W123 then needs Jack's disposition before canary.
