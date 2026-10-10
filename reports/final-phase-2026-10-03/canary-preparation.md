@@ -53,3 +53,25 @@ is a real cap stop. The cap check also stops reserving rows that were registered
 never sent (`pending` with zero attempts), such as the refused round's 156 rows;
 attempted or in-flight rows stay reserved. Batch mode is unchanged. The canary's
 16 workers stay busy except at chunk boundaries.
+
+## Canary result, 2026-10-10 (stop rule triggered)
+
+The chunked relaunch at 8e6a363 (throughput receipt carried forward by Jack's
+decision) ran 13:17Z to 13:50Z, exit 0. All 80 debates and 480 k0 judgments
+completed; all 1,537 calls returned ok, with no parse failures. Spend $57.96 of the
+$150 cap, including the $0.56 qualification: Anthropic $42.33 (Fable $41.23, Haiku
+$1.10), OpenAI $14.25 (Astra $14.11, Luna $0.14), Together $1.38 (DeepSeek
+compliance $0.79, Llama $0.59).
+
+| Screen (design section 7, uncapped) | Fable | Astra |
+|---|---:|---:|
+| Classifier-flagged debates (limit 2 of 20) | 0 | 0 |
+| Mean words, honest / dishonest | 714 / 873 | 371 / 345 |
+| k0 judge error (floor 10%) | 3.3% | 2.5% |
+
+Pooled uncapped k0 error is 2.9% (7 of 240); by judge Luna 0%, Haiku 1.2%, Llama
+7.5%. At 150 words, mean turn lengths were 141 to 147 (one Fable turn at 160) and
+pooled error 2.1%. The manual reading of flagged and 20 unflagged turns is not done.
+
+Uncapped difficulty is under 10% for both families, so the design's rule applies:
+stop and report to Jack and Joey before the pilot. No pilot request is made.
