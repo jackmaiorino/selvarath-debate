@@ -34,8 +34,10 @@ BENCH = RUN_ROOT / "bench"
 # Stage cap amendments. 2026-10-07: author $200 -> $648 for the 128,000-token Fable
 # reservation. 2026-10-08: authoring closed at $172.56, so author is trimmed to $173 and
 # validate rises to $893 for the 12,000-token DeepSeek key-check worst case; main takes
-# the difference so caps plus the $590 reserve still total $6,000.
-STAGE_CAPS = {"author": 173.0, "validate": 893.0, "canary": 60.0, "pilot": 650.0, "main": 3634.0}
+# the difference so caps plus the $590 reserve still total $6,000. 2026-10-10: validation
+# closed at about $177, so validate is trimmed to $178, canary rises to $150 for its $60 to
+# $135 estimate and pilot takes the rest ($1,275).
+STAGE_CAPS = {"author": 173.0, "validate": 178.0, "canary": 150.0, "pilot": 1275.0, "main": 3634.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")

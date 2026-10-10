@@ -47,6 +47,8 @@ def test_all_stages_offline(tmp_path, monkeypatch):
         monkeypatch.setitem(store.LIVE, p, fake)
     monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
     monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    # validate was trimmed to its closed spend; a fresh offline run plans at the pre-closure cap
+    monkeypatch.setitem(cli.STAGE_CAPS, "validate", 893.0)
     ns = types.SimpleNamespace
     cli.cmd_author(ns(worlds=24, only=None, mode="live"))
     assert len(list((tmp_path / "bench" / "worlds").glob("*.json"))) == 24

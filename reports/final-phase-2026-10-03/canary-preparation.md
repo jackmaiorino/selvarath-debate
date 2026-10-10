@@ -22,7 +22,11 @@ then DeepSeek compliance checks on every turn and k0 judgments by Luna, Haiku an
 Llama in both orders (480). World texts average 1,323 words. Expected cost is about
 $60 to $135, almost all debater output at high reasoning effort; the earlier forecast
 was $58.04 to $130.88. The $60 canary cap would likely halt it, so the caps are
-rebalanced by Jack's decision before launch.
+rebalanced by Jack's decision (card, 2026-10-10 12:10Z): validate is trimmed to
+$178 (closed at about $177), canary rises to $150 and pilot to $1,275. Author ($173)
+and main ($3,634) are unchanged, so caps plus the $590 reserve still total $6,000.
+A fresh validation plan now refuses at the trimmed cap, which is intended for a
+closed stage.
 
 ## Throughput qualification
 

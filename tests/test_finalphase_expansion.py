@@ -100,7 +100,7 @@ def test_author_reservation_requires_org_capacity_and_exact_scope_before_network
 
 def test_author_reservation_is_bounded_by_the_amended_author_stage_cap(tmp_path, monkeypatch):
     from finalphase import cli
-    assert cli.STAGE_CAPS == {"author": 173.0, "validate": 893.0, "canary": 60.0, "pilot": 650.0, "main": 3634.0}
+    assert cli.STAGE_CAPS == {"author": 173.0, "validate": 178.0, "canary": 150.0, "pilot": 1275.0, "main": 3634.0}
     baseline, _ = audit_fixture(tmp_path)
     requests = E.author_requests(tmp_path, worlds=4, baseline=baseline)
     approval = {"approved": True, "source": "offline owner fixture", "worlds": 4, "attempts": 2, "mode": "batch",
