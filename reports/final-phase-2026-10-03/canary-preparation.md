@@ -37,3 +37,19 @@ of the first canary question for both debaters: a serial control arm with fresh 
 whose responses replay into the canary. It writes `canary_qualification.json` and
 `throughput.canary` in the manifest. It is paid (eight debater turns, a few dollars)
 inside the canary cap and needs Jack's go.
+
+## First launch refused by worst-case reservation, 2026-10-10
+
+`qualify-canary` passed at dcbe0fc: serial 72.3 s, 16 workers 23.4 s, four valid
+opening turns, selected 16 workers, $0.56. `canary --n 20` then stopped before any
+debate call with `CapExceeded: spent 0.56 + max estimate of 156 calls exceeds cap
+150.00`. The store reserves every request's worst case (32,000 output tokens at list
+price) before sending a round, so round 1's 160 opening turns alone reserved about
+$273, although expected real spend is $60 to $135.
+
+Fix: in live mode the driver now reserves and sends each round one worker-width
+chunk at a time, halving a refused chunk; a single request that still does not fit
+is a real cap stop. The cap check also stops reserving rows that were registered but
+never sent (`pending` with zero attempts), such as the refused round's 156 rows;
+attempted or in-flight rows stay reserved. Batch mode is unchanged. The canary's
+16 workers stay busy except at chunk boundaries.
