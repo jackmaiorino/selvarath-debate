@@ -47,6 +47,8 @@ def test_all_stages_offline(tmp_path, monkeypatch):
         monkeypatch.setitem(store.LIVE, p, fake)
     monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
     monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    # validate was trimmed to its closed spend; a fresh offline run plans at the pre-closure cap
+    monkeypatch.setitem(cli.STAGE_CAPS, "validate", 893.0)
     ns = types.SimpleNamespace
     cli.cmd_author(ns(worlds=24, only=None, mode="live"))
     assert len(list((tmp_path / "bench" / "worlds").glob("*.json"))) == 24
@@ -73,7 +75,15 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     assert {q["world_id"] for q in canary}.isdisjoint({q["world_id"] for q in main})
     assert len(canary) == 48 and len(pilot) == 16 * 12 and len(main) == 4 * 9
     assert all(q["debater"] in ("fable", "astra") for q in main)
+    from finalphase import canary as C
+    receipt = C.qualify(tmp_path, {w["world_id"]: w for w in cli._worlds()}, cli.STAGE_CAPS["canary"])
+    assert receipt["semantics_preserved"] and receipt["serial"]["input_sha256"] == receipt["parallel"]["input_sha256"]
+    assert json.loads((tmp_path / "run_manifest.json").read_text())["throughput"]["canary"] == receipt
+    sent = []
+    monkeypatch.setitem(store.LIVE, "anthropic", lambda r, m: sent.append(r.custom_id) or fake(r, m))
+    monkeypatch.setitem(store.LIVE, "openai", lambda r, m: sent.append(r.custom_id) or fake(r, m))
     cli.cmd_canary(ns(n=4))
+    assert sent and not set(receipt["parallel"]["request_ids"]) & set(sent)
     assert sum(1 for _ in open(tmp_path / "canary" / "debates.jsonl")) == 16
     assert sum(1 for _ in open(tmp_path / "canary" / "judgments.jsonl")) == 16 * 3 * 2
     cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",
@@ -137,6 +147,18 @@ def test_author_defaults_use_the_measured_allowance_only_for_fable():
     astra = author_request("W002", "astra", "river delta")
     assert fable.max_tokens == 64000 and fable.custom_id.endswith(":t64000:length-v2")
     assert astra.max_tokens == 32000 and astra.custom_id == "author:W002:astra"
+
+
+def test_expansion_worlds_author_fable_at_the_amended_allowance():
+    from finalphase.authoring import author_request
+
+    cohort = author_request("W007", "fable", "river delta")
+    later = author_request("W009", "fable", "river delta")
+    astra = author_request("W010", "astra", "river delta")
+    assert cohort.max_tokens == 64000 and cohort.custom_id.endswith(":t64000:length-v2")
+    assert later.max_tokens == 128000 and later.custom_id == "author:W009:fable:t128000:length-v2"
+    assert astra.max_tokens == 32000 and astra.custom_id == "author:W010:astra"
+    assert (cohort.system, cohort.model, cohort.effort) == (later.system, later.model, later.effort)
 
 
 @pytest.mark.parametrize("words,ok", [(999, False), (1000, True), (1500, True), (1501, False)])
@@ -258,3 +280,33 @@ def test_cost_reduction_is_a_deterministic_prefix_without_changing_world_cap():
     assert all(sum(q["world_id"] == f"W{w:03d}" for q in reduced) <= 9 for w in range(1, 6))
     with pytest.raises(ValueError, match="between 1 and 1068"):
         sample_main(qs, cap=0)
+
+
+def test_sensitivity_only_questions_ride_outside_the_main_cap(tmp_path, monkeypatch):
+    from finalphase import authoring as A
+
+    worlds = [{"world_id": f"W{w:03d}", "author": ("fable", "astra")[w % 2],
+               "questions": [{"task_type": TYPES[i % 6]} for i in range(12)]} for w in range(1, 41)]
+    rows = [{"question_id": f"{w['world_id']}-Q{i + 1:02d}", "world_id": w["world_id"], "author": w["author"],
+             "index": i, "retained": True, "determinacy_flags": 0} for w in worlds for i in range(12)]
+    (tmp_path / "bench").mkdir()
+    (tmp_path / "bench" / "validation.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
+    monkeypatch.setattr(cli, "BENCH", tmp_path / "bench")
+    monkeypatch.setattr(cli, "_worlds", lambda: worlds)
+
+    def split(flagged):
+        monkeypatch.setattr(A, "SENSITIVITY_ONLY", frozenset(flagged))
+        cli.cmd_split(types.SimpleNamespace(main_questions=100))
+        return {n: [json.loads(x) for x in open(tmp_path / "bench" / f"{n}.jsonl")] for n in ("canary", "pilot", "main")}
+
+    base = split(set())
+    base_ids = [q["question_id"] for q in base["main"]]
+    sampled, pilot_q = base_ids[0], base["pilot"][0]["question_id"]
+    flagged = split({sampled, pilot_q})
+    counted = [q["question_id"] for q in flagged["main"] if not q["sensitivity_only"]]
+    assert len(counted) == 100 and sampled not in counted
+    assert [q["question_id"] for q in flagged["main"] if q["sensitivity_only"]] == [sampled]
+    world = sampled.split("-Q")[0]
+    assert [q for q in counted if not q.startswith(world)] == [q for q in base_ids if not q.startswith(world)]
+    assert [q["question_id"] for q in flagged["pilot"] if q["sensitivity_only"]] == [pilot_q]

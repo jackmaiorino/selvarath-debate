@@ -19,6 +19,7 @@ import sqlite3
 from pathlib import Path
 
 from . import authoring as A
+from . import canary as C
 from . import prompts_study as P
 from . import preflight
 from . import validation as V
@@ -30,7 +31,13 @@ from .store import Store
 
 RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-10-03"))
 BENCH = RUN_ROOT / "bench"
-STAGE_CAPS = {"author": 200.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 4300.0}
+# Stage cap amendments. 2026-10-07: author $200 -> $648 for the 128,000-token Fable
+# reservation. 2026-10-08: authoring closed at $172.56, so author is trimmed to $173 and
+# validate rises to $893 for the 12,000-token DeepSeek key-check worst case; main takes
+# the difference so caps plus the $590 reserve still total $6,000. 2026-10-10: validation
+# closed at about $177, so validate is trimmed to $178, canary rises to $150 for its $60 to
+# $135 estimate and pilot takes the rest ($1,275).
+STAGE_CAPS = {"author": 173.0, "validate": 178.0, "canary": 150.0, "pilot": 1275.0, "main": 3634.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")
@@ -233,14 +240,19 @@ def cmd_split(args) -> None:
             q = dict(by_world[r["world_id"]]["questions"][r["index"]])
             q.update({"question_id": r["question_id"], "world_id": r["world_id"], "author": r["author"],
                       "split": split[r["world_id"]], "determinacy_flags": r["determinacy_flags"]})
+            q["sensitivity_only"] = r["question_id"] in A.SENSITIVITY_ONLY
             retained.append(q)
-    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions)
+    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions,
+                         exclude=A.SENSITIVITY_ONLY)
+    main = sorted(main + [q for q in retained if q["split"] == "main" and q["sensitivity_only"]],
+                  key=lambda q: q["question_id"])
     sets = {"canary": [q for q in retained if q["split"] == "canary"], "pilot": [q for q in retained if q["split"] == "pilot"], "main": main}
-    # debater family per question, balanced within author x task type by a fixed hash order
+    # debater family per question, balanced within author x task type by a fixed hash order;
+    # sensitivity-only questions are balanced separately so they cannot shift the counted set
     for name, qs in sets.items():
         groups = collections.defaultdict(list)
         for q in qs:
-            groups[(q["author"], q["task_type"])].append(q)
+            groups[(q["author"], q["task_type"], q["sensitivity_only"])].append(q)
         for g in groups.values():
             g.sort(key=lambda q: A.hashlib.sha256(f"debater-v1:{q['question_id']}".encode()).hexdigest())
             for i, q in enumerate(g):
@@ -255,8 +267,7 @@ def cmd_split(args) -> None:
 def cmd_canary(args) -> None:
     s = _store("canary")
     worlds = {w["world_id"]: w for w in _worlds()}
-    qs = _read_jsonl(BENCH / "canary.jsonl")
-    qs = sorted(qs, key=lambda q: A.hashlib.sha256(f"canary-v1:{q['question_id']}".encode()).hexdigest())[:args.n]
+    qs = C.canary_questions(BENCH, args.n)
     tasks = {}
     for q in qs:
         for deb in DEBATERS:
@@ -322,7 +333,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch", choices=("batch", "live"))
     a.add_argument("--quality-check", action="store_true", help="bounded authoring check, at most eight worlds")
-    a.add_argument("--max-tokens", type=int, choices=(32000, 64000), help="override author defaults: Fable 64000, Astra 32000")
+    a.add_argument("--max-tokens", type=int, choices=(32000, 64000, 128000), help="override author defaults: Fable 64000 in W001-W008 and 128000 after, Astra 32000")
     a.add_argument("--attempts", type=int, choices=(1, 2), default=2)
     a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
     a.add_argument("--replace-invalid", action="store_true", help="preserve invalid saved worlds and regenerate under fresh versioned IDs")
@@ -332,6 +343,7 @@ def main() -> None:
     vp = sub.add_parser("validation-plan"); vp.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
+    sub.add_parser("qualify-canary")
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
     j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
@@ -348,6 +360,10 @@ def main() -> None:
     if args.cmd == "qualify-validate":
         preflight.require("validate", RUN_ROOT, V.QUALIFICATION_WORKERS, args.mode, qualification=True)
         cmd_qualify_validate(args)
+        return
+    if args.cmd == "qualify-canary":
+        preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
+        print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)

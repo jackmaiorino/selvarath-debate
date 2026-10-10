@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable, Generator, Hashable
 
 from .providers import Request, Response
-from .store import Store
+from .store import CapExceeded, Store
 
 Task = Generator[Any, Any, dict]
 
@@ -42,7 +42,8 @@ def drive(store: Store, tasks: dict[Hashable, Task], mode: str = "live", workers
                 if r.custom_id in uniq and uniq[r.custom_id] != r:
                     raise ValueError(f"two tasks built different requests under {r.custom_id}")
                 uniq[r.custom_id] = r
-        out = store.run(list(uniq.values()), mode=mode, workers=workers)
+        out = _run_live_chunks(store, list(uniq.values()), workers) if mode == "live" else \
+            store.run(list(uniq.values()), mode=mode, workers=workers)
         cur, pending = pending, {}
         for k, (is_list, rs) in cur.items():
             resps: list[Response | None] = [out.get(r.custom_id) for r in rs]
@@ -53,3 +54,26 @@ def drive(store: Store, tasks: dict[Hashable, Task], mode: str = "live", workers
         if progress:
             progress(rnd, len(pending), len(results))
     return results, failed
+
+
+def _run_live_chunks(store: Store, reqs: list[Request], workers: int) -> dict[str, Response]:
+    """Reserve and send a live round a worker-width chunk at a time.
+
+    The store reserves each request's worst case before sending, so a whole round of
+    long-output turns can exceed a cap that real spend never approaches. A refused
+    chunk is retried smaller (the cap check runs before any dispatch); a single
+    request that still does not fit is a real cap stop.
+    """
+    out: dict[str, Response] = {}
+    i, size = 0, workers
+    while i < len(reqs):
+        chunk = reqs[i:i + size]
+        try:
+            out.update(store.run(chunk, mode="live", workers=workers))
+        except CapExceeded:
+            if size == 1:
+                raise
+            size = max(1, size // 2)
+            continue
+        i += len(chunk)
+    return out

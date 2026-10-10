@@ -113,3 +113,17 @@ def test_invalid_qualification_outputs_do_not_admit_paid_campaign(tmp_path, monk
     manifest = json.loads((tmp_path / "run_manifest.json").read_text())
     assert manifest["validation_execution"]["status"] == "qualification_needs_attention"
     assert "throughput" not in manifest
+
+
+def test_canary_qualification_skips_only_the_receipt_it_creates(tmp_path, monkeypatch):
+    _, manifest = prepared(tmp_path)
+    manifest.update(git_commit="commit", ceiling_usd=6000,
+                    provider_checks={p: "passed" for p in ("anthropic", "openai", "together")})
+    (tmp_path / "run_manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(preflight, "source_commit", lambda: "commit")
+    monkeypatch.setattr("finalphase.expansion.audit_reasons", lambda root: [])
+    for key in preflight.PROVIDER_KEYS:
+        monkeypatch.setenv(key, "fake")
+    assert preflight.check("canary", tmp_path, 16, "live", qualification=True)["ready"]
+    assert any("throughput receipt" in r for r in preflight.check("canary", tmp_path, 16, "live")["reasons"])
+    assert not preflight.check("pilot", tmp_path, 16, "live", qualification=True)["ready"]

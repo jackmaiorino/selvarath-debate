@@ -15,7 +15,20 @@ from .providers import Request, Response
 ROOT = Path(__file__).resolve().parents[1]
 AUTHOR_MAX_TOKENS = 32000
 AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 64000, "astra": 32000}
+# Prospective Fable output-cap amendment (2026-10-07): worlds after the frozen
+# eight-world cohort author Fable at its 128,000-token maximum. The cohort keeps
+# its saved 64,000-token identities for offline replay.
+FROZEN_COHORT_WORLDS = 8
+EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL = {"fable": 128000, "astra": 32000}
 VALIDATOR_MAX_TOKENS = 4000
+# Validation token amendment v2 (2026-10-08): DeepSeek answer-key checks on worlds
+# after the frozen cohort may use 12,000 tokens. The cohort keeps its saved 4,000-token
+# requests; frontier key checks and fact checks are unchanged.
+EXPANSION_DSPRO_KEY_MAX_TOKENS = 12000
+# Audit amendments (2026-10-06 W005, 2026-10-09 W123): these retained questions rest on
+# a source-defective figure. They stay in the frozen retained set, are excluded from every
+# primary, secondary and confirmatory contrast, and do not count toward the main cap.
+SENSITIVITY_ONLY = frozenset({"W005-Q11", "W123-Q04"})
 LENGTH_RATIO_MAX = 1.25
 SIGNAL_WORDS = re.compile(r"\b(correct|correctly|actually|clearly|obviously|only|in fact|misleading|wrongly)\b", re.I)
 
@@ -36,10 +49,19 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
     return out
 
 
+def in_frozen_cohort(world_id: str) -> bool:
+    return int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
+
+
+def default_author_max_tokens(world_id: str, author: str) -> int:
+    cohort = in_frozen_cohort(world_id)
+    return (AUTHOR_MAX_TOKENS_BY_MODEL if cohort else EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL)[author]
+
+
 def author_request(world_id: str, author: str, seed_hint: str, n_questions: int = 12, attempt: int = 0,
                    max_tokens: int | None = None, prompt_revision: str = P.AUTHOR_LENGTH_REVISION) -> Request:
     if max_tokens is None:
-        max_tokens = AUTHOR_MAX_TOKENS_BY_MODEL[author]
+        max_tokens = default_author_max_tokens(world_id, author)
     user = P.AUTHOR_USER.format(n_questions=n_questions, seed_hint=seed_hint, example=example_block(),
                                 task_types=", ".join(P.TASK_TYPES))
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")
@@ -168,6 +190,12 @@ def validators_for(author: str) -> tuple[str, str]:
     return (other, "dspro")
 
 
+def validator_max_tokens(world_id: str, validator: str) -> int:
+    if validator == "dspro" and not in_frozen_cohort(world_id):
+        return EXPANSION_DSPRO_KEY_MAX_TOKENS
+    return VALIDATOR_MAX_TOKENS
+
+
 def validation_requests(world_id: str, author: str, world_text: str, questions: list[dict]) -> list[Request]:
     out = []
     for i, q in enumerate(questions):
@@ -175,7 +203,7 @@ def validation_requests(world_id: str, author: str, world_text: str, questions: 
             for order in ("key_a", "key_b"):
                 a, b = (q["correct_answer"], q["wrong_answer"]) if order == "key_a" else (q["wrong_answer"], q["correct_answer"])
                 user = P.VALIDATOR_USER.format(world_text=world_text, question=q["question"], candidate_a=a, candidate_b=b)
-                out.append(Request(f"validate:{qid(world_id, i)}:{v}:{order}", v, P.VALIDATOR_SYSTEM, (("user", user),), VALIDATOR_MAX_TOKENS))
+                out.append(Request(f"validate:{qid(world_id, i)}:{v}:{order}", v, P.VALIDATOR_SYSTEM, (("user", user),), validator_max_tokens(world_id, v)))
         for j, fact in enumerate(q["facts_required"]):
             user = P.FACT_CHECK_USER.format(world_text=world_text, claim=fact)
             out.append(Request(f"factcheck:{qid(world_id, i)}:{j}", "dspro", P.FACT_CHECK_SYSTEM, (("user", user),), 2000))
@@ -245,7 +273,8 @@ def split_worlds(world_rows: list[dict], n_canary: int = 4, n_pilot: int = 16, s
     return out
 
 
-def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed: str = "final-phase-main-v1") -> list[dict]:
+def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed: str = "final-phase-main-v1",
+                exclude: frozenset[str] = frozenset()) -> list[dict]:
     if not 1 <= cap <= 1068:
         raise ValueError("main question count must be between 1 and 1068")
     rng = random.Random(seed)
@@ -256,6 +285,7 @@ def sample_main(retained: list[dict], cap: int = 1068, per_world: int = 9, seed:
     for w in sorted(by_world):
         qs = sorted(by_world[w], key=lambda q: q["question_id"])
         rng.shuffle(qs)
-        pool.extend(qs[:per_world])
+        # excluded questions are dropped after the shuffle so other worlds draw identically
+        pool.extend([q for q in qs if q["question_id"] not in exclude][:per_world])
     pool.sort(key=lambda q: hashlib.sha256(f"{seed}:{q['question_id']}".encode()).hexdigest())
     return sorted(pool[:cap], key=lambda q: q["question_id"])

@@ -130,8 +130,7 @@ def costs(root: Path, worlds: list[dict], authors: dict, validators: dict, contr
     author_reqs = E.author_requests(root)
     author_max = {p: sum((E.maximum(r, True) for r in author_reqs if spec(r.model).provider == p), Decimal(0)) for p in author_expected}
     # Qualification has two matched calls per author, serial controls plus parallel controls.
-    author_controls = [replace(A.author_request(wid, author, hint), custom_id=f"qualification:author-expansion-v1:{arm}:{wid}:{author}")
-                       for arm in ("serial", "parallel") for wid, author, hint in A.world_ids(2)]
+    author_controls = E.author_qualification_controls()
     author_qual = {p: sum((E.maximum(r, True) for r in author_controls if spec(r.model).provider == p), Decimal(0)) for p in author_expected}
     _, requests = V.workload(worlds)
     v1_max = {p: sum((E.maximum(r, True) for r in requests if spec(r.model).provider == p), Decimal(0)) * 19 for p in ("anthropic", "openai", "together")}
@@ -212,7 +211,7 @@ def costs(root: Path, worlds: list[dict], authors: dict, validators: dict, contr
                 "Hard validation envelope uses maximum saved request cost within each author/role and allows every question five facts; future bodies exceeding it stop before registration.",
                 "One future transport retry reserved per request, separately authorized; no automatic retry of truncation or scientific rejection. Eight future serial validation qualification controls are additionally reserved; canonical probes are already included.",
                 "Author qualification uses synthetic control identities; no controls promoted. Complete author cohort retains two generation attempts.",
-                "Stage allocations above are a proposal only. Existing $200/$200/$60/$650/$4300 and $590 reserve are unchanged.",
+                "Stage allocations above are a proposal only. Current caps are " + "/".join(f"${cli.STAGE_CAPS[k]:g}" for k in ("author", "validate", "canary", "pilot", "main")) + " with the $590 reserve (amended; see cli.STAGE_CAPS).",
                 "Balances are saved user reports minus this campaign's ledger, not verified current balances; unrelated usage and approved provider limits remain unknown."]}
 
 

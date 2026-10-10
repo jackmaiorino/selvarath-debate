@@ -128,8 +128,10 @@ class Store:
 
     def _check_cap(self, todo: list[Request], batch: bool) -> None:
         outstanding = {r.custom_id: r for r in todo}
-        for (raw,) in self._q("SELECT request FROM calls WHERE stage=? AND status NOT IN (?,?,?,?)",
-                             (self.stage, *MEASURED)):
+        # A pending row never attempted was registered but not sent (e.g. a refused round),
+        # so it cannot carry a charge; anything attempted or in flight stays reserved.
+        for (raw,) in self._q("SELECT request FROM calls WHERE stage=? AND status NOT IN (?,?,?,?)"
+                              " AND NOT (status='pending' AND attempts=0)", (self.stage, *MEASURED)):
             r = Request(**_req_fields(json.loads(raw)))
             outstanding[r.custom_id] = r
         # Frozen rates have at most nanodollar precision. Discard only binary
