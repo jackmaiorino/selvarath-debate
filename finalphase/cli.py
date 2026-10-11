@@ -5,6 +5,7 @@
   python -m finalphase.cli split
   python -m finalphase.cli canary
   python -m finalphase.cli judge --split pilot|main [--mode batch]
+  python -m finalphase.cli probe-author | probe-validate [--mode batch]   (hardness probe, own store)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -22,6 +23,7 @@ from . import authoring as A
 from . import canary as C
 from . import prompts_study as P
 from . import preflight
+from . import probe as PR
 from . import validation as V
 from .debate import debate_task
 from .engine import drive
@@ -378,6 +380,8 @@ def main() -> None:
     j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
     j.add_argument("--limit", type=int, default=0); j.add_argument("--workers", type=int, default=16)
+    for name in ("probe-author", "probe-validate"):
+        pr = sub.add_parser(name); pr.add_argument("--mode", default="batch", choices=("batch", "live"))
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -399,6 +403,10 @@ def main() -> None:
         # Replays saved debates only, so the throughput receipt (which covers debater turns) is not required.
         preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
         cmd_canary_rejudge(args)
+        return
+    if args.cmd in ("probe-author", "probe-validate"):
+        # The probe has its own directory, store and PROBE_CAP; it never reads or writes stage stores.
+        (PR.author if args.cmd == "probe-author" else PR.validate)(RUN_ROOT, mode=args.mode)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)

@@ -50,7 +50,8 @@ def world_ids(n_worlds: int, authors: tuple[str, ...] = ("fable", "astra")) -> l
 
 
 def in_frozen_cohort(world_id: str) -> bool:
-    return int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
+    # Probe worlds (H001...) live outside the W-numbered benchmark and are never in the cohort.
+    return world_id.startswith("W") and int(world_id.lstrip("W")) <= FROZEN_COHORT_WORLDS
 
 
 def default_author_max_tokens(world_id: str, author: str) -> int:
@@ -67,10 +68,16 @@ def author_request(world_id: str, author: str, seed_hint: str, n_questions: int 
     cid = f"author:{world_id}:{author}" + (f":a{attempt}" if attempt else "")
     if max_tokens != AUTHOR_MAX_TOKENS:
         cid += f":t{max_tokens}"
-    if prompt_revision not in ("v1", P.AUTHOR_LENGTH_REVISION):
+    if prompt_revision not in ("v1", P.AUTHOR_LENGTH_REVISION, P.AUTHOR_HARDNESS_REVISION):
         raise ValueError(f"unknown author prompt revision: {prompt_revision}")
     if author == "fable" and prompt_revision == P.AUTHOR_LENGTH_REVISION:
         user += P.AUTHOR_LENGTH_AMENDMENT
+        cid += f":{prompt_revision}"
+    if prompt_revision == P.AUTHOR_HARDNESS_REVISION:
+        # Builds on length-v2: Fable keeps its length check, both authors get the hardness block.
+        if author == "fable":
+            user += P.AUTHOR_LENGTH_AMENDMENT
+        user += P.AUTHOR_HARDNESS_AMENDMENT
         cid += f":{prompt_revision}"
     return Request(cid, author, P.AUTHOR_SYSTEM, (("user", user),), max_tokens)
 
