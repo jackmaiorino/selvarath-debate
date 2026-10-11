@@ -1,7 +1,10 @@
 import json
 
-from finalphase import authoring as A, probe, prompts_authoring as P, store
 from test_finalphase_cli import fake
+
+from finalphase import authoring as A
+from finalphase import probe, store
+from finalphase import prompts_authoring as P
 
 
 def test_hardness_requests_use_fresh_ids_and_keep_the_length_check():
