@@ -84,6 +84,12 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     monkeypatch.setitem(store.LIVE, "openai", lambda r, m: sent.append(r.custom_id) or fake(r, m))
     cli.cmd_canary(ns(n=4))
     assert sent and not set(receipt["parallel"]["request_ids"]) & set(sent)
+    monkeypatch.setitem(store.LIVE, "together", lambda r, m: sent.append(r.custom_id) or fake(r, m))
+    sent.clear()
+    cli.cmd_canary_rejudge(ns(judges="qwen7,gemma31"))
+    weak = [json.loads(x) for x in open(tmp_path / "canary" / "rejudge_weak.jsonl")]
+    assert len(weak) == 16 * 2 * 2 and {j["judge"] for j in weak} == {"qwen7", "gemma31"}
+    assert sent and all(":debate_k0:" in c for c in sent)
     assert sum(1 for _ in open(tmp_path / "canary" / "debates.jsonl")) == 16
     assert sum(1 for _ in open(tmp_path / "canary" / "judgments.jsonl")) == 16 * 3 * 2
     cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",

@@ -299,6 +299,35 @@ def cmd_canary(args) -> None:
     print(f"debates {len(debates)} (failed {len(failed)}), judgments {len(judged)} (failed {len(jfailed)}), spend ${s.spent('canary'):.2f}")
 
 
+def cmd_canary_rejudge(args) -> None:
+    """Diagnostic: re-judge the saved canary debates at k0 with other judges (no new debates)."""
+    s = _store("canary")
+    worlds = {w["world_id"]: w for w in _worlds()}
+    qs = {q["question_id"]: q for q in C.canary_questions(BENCH)}
+    debates = _read_jsonl(RUN_ROOT / "canary" / "debates.jsonl")
+    jt = {}
+    for d in debates:
+        q = dict(qs[d["question_id"]])
+        q.update({"world_text": worlds[q["world_id"]]["world_text"], "turns": d["turns"],
+                  "question_id": f"{d['question_id']}:{d['debater']}:{d['condition']}"})
+        for j in args.judges.split(","):
+            for o in ORDERS:
+                jt[(d["question_id"], d["debater"], d["condition"], j, o)] = judge_task(q, j, "debate_k0", o, "opus", "dsflash")
+    judged, failed = drive(s, jt, progress=_progress)
+    rows = [dict(r, debater=r["question_id"].split(":")[1], condition=r["question_id"].split(":")[2])
+            for r in judged.values()]
+    _write_jsonl(RUN_ROOT / "canary" / "rejudge_weak.jsonl", rows)
+    cells = collections.defaultdict(lambda: [0, 0])
+    for r in rows:
+        for key in ((r["condition"], r["judge"]), (r["condition"], r["debater"]), (r["condition"], "pooled")):
+            cells[key][0] += not r["correct"]
+            cells[key][1] += 1
+    for (cond, name), (wrong, n) in sorted(cells.items()):
+        print(f"{cond:9s} {name:8s} error {wrong}/{n} = {wrong / n:.1%}")
+    print(f"judgments {len(judged)} (failed {len(failed)}), parse failures {sum(not r['parse_ok'] for r in rows)}, "
+          f"canary spend ${s.spent('canary'):.2f}")
+
+
 # ------------------------------------------------------------------ stages 4-5
 
 def cmd_judge(args) -> None:
@@ -344,6 +373,7 @@ def main() -> None:
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
     sub.add_parser("qualify-canary")
+    cr = sub.add_parser("canary-rejudge"); cr.add_argument("--judges", default="qwen7,gemma31")
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
     j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
@@ -364,6 +394,11 @@ def main() -> None:
     if args.cmd == "qualify-canary":
         preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
         print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
+        return
+    if args.cmd == "canary-rejudge":
+        # Replays saved debates only, so the throughput receipt (which covers debater turns) is not required.
+        preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
+        cmd_canary_rejudge(args)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)

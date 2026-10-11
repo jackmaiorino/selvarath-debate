@@ -38,6 +38,9 @@ MODELS: dict[str, ModelSpec] = {
         ModelSpec("qwen38", "Qwen/Qwen3.8-2.4T-A95B", "together", 2.00, 6.00, 2.00, False),
         ModelSpec("dsflash", "deepseek-ai/DeepSeek-V4-Flash-0731", "together", 0.14, 0.28, 0.14, False),
         ModelSpec("dspro", "deepseek-ai/DeepSeek-V4-Pro-0813", "together", 1.32, 3.96, 1.32, False),
+        # Diagnostic weak judges from Phase 2 (Together listing prices, 2026-08-29); not in the study roster.
+        ModelSpec("qwen7", "Qwen/Qwen2.5-7B-Instruct-Turbo", "together", 0.30, 0.30, 0.30, False),
+        ModelSpec("gemma31", "google/gemma-4-31B-it", "together", 0.39, 0.97, 0.39, False),
     ]
 }
 

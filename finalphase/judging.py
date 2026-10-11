@@ -20,7 +20,7 @@ ORDERS = ("key_a", "key_b")
 JUDGE_MAX_TOKENS = {
     "luna": 16000, "terra": 16000, "sol": 16000,
     "haiku": 2048, "sonnet": 16000, "opus": 16000,
-    "llama70": 2048, "qwen38": 16384,
+    "llama70": 2048, "qwen38": 16384, "qwen7": 2048, "gemma31": 4096,
 }
 ORACLE_MAX_TOKENS = 4000
 GATE_MAX_TOKENS = 2000
