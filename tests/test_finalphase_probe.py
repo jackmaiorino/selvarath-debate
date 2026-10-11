@@ -31,5 +31,5 @@ def test_probe_authors_and_validates_in_its_own_store(tmp_path, monkeypatch):
     assert summary["candidates"] == 96 and summary["retained"] == 96
     assert (tmp_path / "probe-hardness-v1" / "probe.db").exists()
     assert not (tmp_path / "author.db").exists() and not (tmp_path / "validate.db").exists()
-    rows = [json.loads(x) for x in open(tmp_path / "probe-hardness-v1" / "validation.jsonl")]
+    rows = [json.loads(x) for x in (tmp_path / "probe-hardness-v1" / "validation.jsonl").read_text().splitlines()]
     assert {r["world_id"] for r in rows} == {f"H{i:03d}" for i in range(1, 9)}
