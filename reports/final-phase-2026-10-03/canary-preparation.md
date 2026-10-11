@@ -75,3 +75,25 @@ pooled error 2.1%. The manual reading of flagged and 20 unflagged turns is not d
 
 Uncapped difficulty is under 10% for both families, so the design's rule applies:
 stop and report to Jack and Joey before the pilot. No pilot request is made.
+
+## Weak-judge diagnostic, 2026-10-11 (Jack's go, 03:18Z)
+
+Qwen2.5-7B-Instruct-Turbo and Gemma-4-31B-it, the Phase 2 weak judges, are no longer
+serverless on Together: all 320 calls returned `400 model_not_available` at no
+charge, as did the stand-ins Llama-3.1-8B and Mistral-Small-24B. GPT-OSS-120B, a
+Phase 2 judge, ran on the same 80 saved debates at k0, both orders, for $0.14 in a
+separate store (run from a run-folder script; files `canary/weak_judge_v2_*`).
+
+| Judge | Uncapped | Fable debates | Astra debates | Cap 150 |
+|---|---:|---:|---:|---:|
+| GPT-OSS-120B (unparsed counted wrong) | 10.0% | 15.0% | 5.0% | 8.8% |
+| GPT-OSS-120B (valid verdicts only) | 4.0% (3/75) | | | 1.4% (1/74) |
+| Llama-3.3-70B | 7.5% | 7.5% | 7.5% | 6.2% |
+| Haiku 4.5 | 1.2% | 2.5% | 0% | 0% |
+| Luna | 0% | 0% | 0% | 0% |
+
+Eleven of GPT-OSS's 160 judgments had no parseable verdict, several declining to
+decide without the source text. Even a Phase 2-era judge is mostly right on these
+debates, which points at the validator-agreed questions and strong honest debaters
+rather than only at strong judges. True 7B-class judges would need a dedicated
+endpoint or another host.
