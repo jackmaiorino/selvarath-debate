@@ -1,10 +1,11 @@
-"""Hardness probe, step 1: author and validate eight worlds under the hardness-v1 prompt.
+"""Hardness probes: author, validate, debate and judge eight worlds per author-prompt revision.
 
 The canary's k0 error was 2.9%, under the 10% stop rule. This probe tests whether the
 proposed author amendment produces harder questions that still pass the frozen
 four-validator retention rule. Probe worlds use H-numbered IDs in their own directory and
 store, so nothing here touches the W-numbered benchmark or its stage stores. Approved by
-Jack on 2026-10-11 (about $10 to $20 expected, hard cap PROBE_CAP).
+Jack on 2026-10-11 (about $10 to $20 expected, hard cap PROBE_CAP). Round 2 (hardness-v2,
+worlds H009-H016) tests prior-trap questions after round 1 reached 5.0% k0 error.
 """
 from __future__ import annotations
 
@@ -19,49 +20,53 @@ from . import prompts_authoring as P
 from . import validation as V
 from .store import Store
 
-PROBE_NAME = "probe-hardness-v1"
 PROBE_STAGE = "probe"
 PROBE_CAP = 30.0
 PROBE_WORLDS = 8
-# Seed hints from the second half of the list, so the probe does not reuse the first
-# settings the canary worlds drew from.
-SEED_OFFSET = 8
+# revision -> (directory, number of the first H world, seed-hint offset). Seed hints come from
+# the second half of the list, so probes do not reuse the settings the canary worlds drew from.
+PROBES = {
+    P.AUTHOR_HARDNESS_REVISION: ("probe-hardness-v1", 1, 8),
+    P.AUTHOR_HARDNESS_V2_REVISION: ("probe-hardness-v2", 9, 12),
+}
+DEFAULT_REVISION = P.AUTHOR_HARDNESS_REVISION
 
 
-def probe_root(run_root: Path) -> Path:
-    return run_root / PROBE_NAME
+def probe_root(run_root: Path, rev: str = DEFAULT_REVISION) -> Path:
+    return run_root / PROBES[rev][0]
 
 
-def world_plan() -> list[tuple[str, str, str]]:
-    """(world_id, author, seed_hint): H001-H008, authors alternating so each gets four."""
+def world_plan(rev: str = DEFAULT_REVISION) -> list[tuple[str, str, str]]:
+    """(world_id, author, seed_hint): eight H worlds, authors alternating so each gets four."""
+    _, first, offset = PROBES[rev]
     out = []
     for i in range(PROBE_WORLDS):
         author = ("fable", "astra")[i % 2]
-        hint = P.SEED_HINTS[(SEED_OFFSET + i // 2) % len(P.SEED_HINTS)]
-        out.append((f"H{i + 1:03d}", author, hint))
+        hint = P.SEED_HINTS[(offset + i // 2) % len(P.SEED_HINTS)]
+        out.append((f"H{first + i:03d}", author, hint))
     return out
 
 
-def author_request(world_id: str, author: str, hint: str, attempt: int):
-    return A.author_request(world_id, author, hint, attempt=attempt, prompt_revision=P.AUTHOR_HARDNESS_REVISION)
+def author_request(world_id: str, author: str, hint: str, attempt: int, rev: str = DEFAULT_REVISION):
+    return A.author_request(world_id, author, hint, attempt=attempt, prompt_revision=rev)
 
 
-def open_store(root: Path) -> Store:
-    return Store(probe_root(root) / "probe.db", PROBE_STAGE, PROBE_CAP, max_transport_attempts=1)
+def open_store(root: Path, rev: str = DEFAULT_REVISION) -> Store:
+    return Store(probe_root(root, rev) / "probe.db", PROBE_STAGE, PROBE_CAP, max_transport_attempts=1)
 
 
-def author(root: Path, mode: str = "batch", attempts: int = 2) -> dict:
+def author(root: Path, mode: str = "batch", attempts: int = 2, rev: str = DEFAULT_REVISION) -> dict:
     """Author the probe worlds; each attempt reserves its own worst case against PROBE_CAP."""
-    base = probe_root(root)
+    base = probe_root(root, rev)
     (base / "worlds").mkdir(parents=True, exist_ok=True)
-    s = open_store(root)
+    s = open_store(root, rev)
     try:
-        todo = [p for p in world_plan() if not (base / "worlds" / f"{p[0]}.json").exists()]
+        todo = [p for p in world_plan(rev) if not (base / "worlds" / f"{p[0]}.json").exists()]
         for attempt in range(attempts):
             if not todo:
                 break
-            reqs = {author_request(w, a, h, attempt).custom_id: (w, a, h) for w, a, h in todo}
-            out = s.run([author_request(w, a, h, attempt) for w, a, h in todo],
+            reqs = {author_request(w, a, h, attempt, rev).custom_id: (w, a, h) for w, a, h in todo}
+            out = s.run([author_request(w, a, h, attempt, rev) for w, a, h in todo],
                         mode=mode, workers=8, allow_live_fallback=False)
             retry = []
             for cid, (w, a, h) in reqs.items():
@@ -78,7 +83,7 @@ def author(root: Path, mode: str = "batch", attempts: int = 2) -> dict:
                     continue
                 assert isinstance(obj, dict)
                 obj.update({"world_id": w, "author": a, "seed_hint": h, "author_call": cid, "attempt": attempt,
-                            "prompt_revision": P.AUTHOR_HARDNESS_REVISION})
+                            "prompt_revision": rev})
                 path = base / "worlds" / f"{w}.json"
                 tmp = path.with_suffix(".tmp")
                 tmp.write_text(json.dumps(obj, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -92,9 +97,9 @@ def author(root: Path, mode: str = "batch", attempts: int = 2) -> dict:
     return result
 
 
-def load_worlds(root: Path) -> list[dict]:
+def load_worlds(root: Path, rev: str = DEFAULT_REVISION) -> list[dict]:
     worlds = []
-    for p in sorted((probe_root(root) / "worlds").glob("H*.json")):
+    for p in sorted((probe_root(root, rev) / "worlds").glob("H*.json")):
         obj = json.loads(p.read_text(encoding="utf-8"))
         if not A.world_check(obj).ok:
             raise ValueError(f"invalid saved probe world {p.name}")
@@ -102,13 +107,13 @@ def load_worlds(root: Path) -> list[dict]:
     return worlds
 
 
-def validate(root: Path, mode: str = "batch") -> dict:
+def validate(root: Path, mode: str = "batch", rev: str = DEFAULT_REVISION) -> dict:
     """Frozen validation and retention rule, one world per dispatch to keep reservations small."""
-    base = probe_root(root)
-    worlds = load_worlds(root)
+    base = probe_root(root, rev)
+    worlds = load_worlds(root, rev)
     if not worlds:
         raise RuntimeError("no probe worlds to validate")
-    s = open_store(root)
+    s = open_store(root, rev)
     rows: list[dict] = []
     out = {}
     try:
@@ -138,7 +143,7 @@ def validate(root: Path, mode: str = "batch") -> dict:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     kept = [r for r in rows if r["retained"]]
     summary = {
-        "prompt_revision": P.AUTHOR_HARDNESS_REVISION,
+        "prompt_revision": rev,
         "candidates": len(rows), "retained": len(kept),
         "retention_rate": len(kept) / len(rows),
         "retained_by_author": dict(collections.Counter(r["author"] for r in kept)),
@@ -164,10 +169,10 @@ CANARY_CAP = 45.0
 CANARY_PER_AUTHOR = 10
 
 
-def canary_questions(root: Path, per_author: int = CANARY_PER_AUTHOR) -> list[dict]:
+def canary_questions(root: Path, per_author: int = CANARY_PER_AUTHOR, rev: str = DEFAULT_REVISION) -> list[dict]:
     """Retained probe questions, the first per_author of each author in fixed hash order."""
-    by_world = {w["world_id"]: w for w in load_worlds(root)}
-    rows = [json.loads(x) for x in (probe_root(root) / "validation.jsonl").read_text(encoding="utf-8").splitlines()
+    by_world = {w["world_id"]: w for w in load_worlds(root, rev)}
+    rows = [json.loads(x) for x in (probe_root(root, rev) / "validation.jsonl").read_text(encoding="utf-8").splitlines()
             if x.strip()]
     picked = []
     for author in ("fable", "astra"):
@@ -181,17 +186,18 @@ def canary_questions(root: Path, per_author: int = CANARY_PER_AUTHOR) -> list[di
     return picked
 
 
-def canary(root: Path, judges: tuple[str, ...], debaters: tuple[str, ...], workers: int = 16) -> dict:
+def canary(root: Path, judges: tuple[str, ...], debaters: tuple[str, ...], workers: int = 16,
+           rev: str = DEFAULT_REVISION) -> dict:
     """Uncapped debates by both debaters, judged at k0 by the canary panel in both orders."""
     from .debate import debate_task
     from .engine import drive
     from .judging import ORDERS, judge_task
 
-    base = probe_root(root) / "canary"
+    base = probe_root(root, rev) / "canary"
     base.mkdir(parents=True, exist_ok=True)
-    worlds = {w["world_id"]: w for w in load_worlds(root)}
-    qs = {q["question_id"]: q for q in canary_questions(root)}
-    s = Store(probe_root(root) / "probe.db", CANARY_STAGE, CANARY_CAP, max_transport_attempts=6)
+    worlds = {w["world_id"]: w for w in load_worlds(root, rev)}
+    qs = {q["question_id"]: q for q in canary_questions(root, rev=rev)}
+    s = Store(probe_root(root, rev) / "probe.db", CANARY_STAGE, CANARY_CAP, max_transport_attempts=6)
     try:
         tasks: dict[Hashable, Any] = {(qid, deb): debate_task(q, worlds[q["world_id"]]["world_text"], deb, None, "uncapped")
                  for qid, q in qs.items() for deb in debaters}
@@ -221,7 +227,7 @@ def canary(root: Path, judges: tuple[str, ...], debaters: tuple[str, ...], worke
                     f"flags:{min(r['determinacy_flags'], 2)}{'+' if r['determinacy_flags'] >= 2 else ''}"):
             cells[key][0] += not r["correct"]
             cells[key][1] += 1
-    summary = {"questions": len(qs), "debates": len(debates), "failed_debates": len(failed),
+    summary = {"prompt_revision": rev, "questions": len(qs), "debates": len(debates), "failed_debates": len(failed),
                "judgments": len(rows), "failed_judgments": len(jfailed),
                "parse_failures": sum(not r["parse_ok"] for r in rows),
                "k0_error": {k: {"wrong": w, "n": n, "rate": w / n} for k, (w, n) in sorted(cells.items())},

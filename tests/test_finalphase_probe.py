@@ -47,3 +47,22 @@ def test_probe_canary_debates_balanced_questions_and_reports_k0_error(tmp_path, 
     assert summary["debates"] == 40 and summary["judgments"] == 240
     assert summary["k0_error"]["pooled"]["n"] == 240
     assert (tmp_path / "probe-hardness-v1" / "canary" / "judgments.jsonl").exists()
+
+
+def test_round_two_uses_fresh_worlds_and_adds_the_prior_trap_block(tmp_path, monkeypatch):
+    v2 = P.AUTHOR_HARDNESS_V2_REVISION
+    assert [w for w, _, _ in probe.world_plan(v2)] == [f"H{i:03d}" for i in range(9, 17)]
+    assert probe.probe_root(tmp_path, v2) != probe.probe_root(tmp_path)
+    req = probe.author_request(*probe.world_plan(v2)[0], attempt=0, rev=v2)
+    assert req.custom_id.endswith(":hardness-v2")
+    text = req.messages[0][1]
+    assert P.AUTHOR_HARDNESS_AMENDMENT in text and P.AUTHOR_HARDNESS_V2_AMENDMENT in text
+    # Round 1 requests keep the identities already sent.
+    v1 = probe.author_request(*probe.world_plan()[0], attempt=0)
+    assert v1.custom_id.endswith(":hardness-v1") and P.AUTHOR_HARDNESS_V2_AMENDMENT not in v1.messages[0][1]
+    for p in ("anthropic", "openai", "together"):
+        monkeypatch.setitem(store.LIVE, p, fake)
+    monkeypatch.setattr(probe, "PROBE_CAP", 100.0)
+    probe.author(tmp_path, mode="live", rev=v2)
+    assert probe.validate(tmp_path, mode="live", rev=v2)["prompt_revision"] == v2
+    assert probe.canary(tmp_path, ("luna",), ("fable",), rev=v2)["debates"] == 20

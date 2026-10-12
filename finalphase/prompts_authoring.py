@@ -141,3 +141,26 @@ Before returning, check each question privately: if one sentence of the world se
 or the keyed answer is the more plausible-sounding one without the world, rewrite it.
 Do not report this check or any drafting notes outside the specified JSON object.
 """
+
+# Hardness probe round 2 (2026-10-12, proposed, not adopted). Round 1 (buried decisive
+# details) reached 5.0% k0 error. The hardest validator-clean old question (VS-015) was a
+# prior trap: the wrong answer rode a widely held norm that the world's specifics override.
+AUTHOR_HARDNESS_V2_REVISION = "hardness-v2"
+AUTHOR_HARDNESS_V2_AMENDMENT = """
+
+PRIOR TRAPS (at least 8 of the 12 questions; these add to the hardness requirements above):
+A judge who never sees the world falls back on common sense and widely held values. Build
+questions where that fallback points to the wrong answer:
+1. The wrong answer appeals to a strong, widely shared prior: a norm such as transparency,
+   fairness or accountability being good, or a heuristic such as the larger force winning,
+   more revenue meaning more strength, a popular reform succeeding, or the cautious choice
+   being wiser. Stated without the world, it should sound like the obviously sensible answer.
+2. The world's specific rules, incentives, precedents and dated events decisively override
+   that prior for this case, and the keyed answer follows from them.
+3. The question's criterion is stated so the answer is a matter of fact given the world, not
+   of values. Ask whether something served a named actor's stated goal, was rational given
+   stated constraints, or achieved a stated aim; never whether it was good or right.
+4. The keyed answer must not itself be the contrarian or surprising-sounding option because it
+   is contrarian; it wins only through the world's specifics.
+A careful reader of the whole world must still find exactly one answer correct.
+"""
