@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import collections
 import json
+from collections.abc import Hashable
 from pathlib import Path
+from typing import Any
 
 from . import authoring as A
 from . import prompts_authoring as P
@@ -151,5 +153,80 @@ def validate(root: Path, mode: str = "batch") -> dict:
         b = [json.loads(x) for x in baseline.read_text(encoding="utf-8").splitlines() if x.strip()]
         summary["benchmark_retention_rate"] = sum(r["retained"] for r in b) / len(b)
     (base / "validation_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(json.dumps(summary, indent=2), flush=True)
+    return summary
+
+
+# ------------------------------------------------------------------ step 2: mini canary
+
+CANARY_STAGE = "probe_canary"
+CANARY_CAP = 45.0
+CANARY_PER_AUTHOR = 10
+
+
+def canary_questions(root: Path, per_author: int = CANARY_PER_AUTHOR) -> list[dict]:
+    """Retained probe questions, the first per_author of each author in fixed hash order."""
+    by_world = {w["world_id"]: w for w in load_worlds(root)}
+    rows = [json.loads(x) for x in (probe_root(root) / "validation.jsonl").read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    picked = []
+    for author in ("fable", "astra"):
+        kept = sorted((r for r in rows if r["retained"] and r["author"] == author),
+                      key=lambda r: A.hashlib.sha256(f"probe-canary-v1:{r['question_id']}".encode()).hexdigest())
+        for r in kept[:per_author]:
+            q = dict(by_world[r["world_id"]]["questions"][r["index"]])
+            q.update({"question_id": r["question_id"], "world_id": r["world_id"], "author": author,
+                      "determinacy_flags": r["determinacy_flags"]})
+            picked.append(q)
+    return picked
+
+
+def canary(root: Path, judges: tuple[str, ...], debaters: tuple[str, ...], workers: int = 16) -> dict:
+    """Uncapped debates by both debaters, judged at k0 by the canary panel in both orders."""
+    from .debate import debate_task
+    from .engine import drive
+    from .judging import ORDERS, judge_task
+
+    base = probe_root(root) / "canary"
+    base.mkdir(parents=True, exist_ok=True)
+    worlds = {w["world_id"]: w for w in load_worlds(root)}
+    qs = {q["question_id"]: q for q in canary_questions(root)}
+    s = Store(probe_root(root) / "probe.db", CANARY_STAGE, CANARY_CAP, max_transport_attempts=6)
+    try:
+        tasks: dict[Hashable, Any] = {(qid, deb): debate_task(q, worlds[q["world_id"]]["world_text"], deb, None, "uncapped")
+                 for qid, q in qs.items() for deb in debaters}
+        debates, failed = drive(s, tasks, workers=workers)
+        jt: dict[Hashable, Any] = {}
+        for d in debates.values():
+            qid, deb = d["question_id"], d["debater"]
+            item = dict(qs[qid], world_text=worlds[qs[qid]["world_id"]]["world_text"], turns=d["turns"],
+                        question_id=f"{qid}:{deb}:uncapped")
+            for j in judges:
+                for o in ORDERS:
+                    jt[(qid, deb, j, o)] = judge_task(item, j, "debate_k0", o, "opus", "dsflash")
+        judged, jfailed = drive(s, jt, workers=workers)
+        spend = s.spent(CANARY_STAGE)
+    finally:
+        s.db.close()
+    rows = []
+    for r in judged.values():
+        qid, deb = r["question_id"].split(":")[:2]
+        rows.append(dict(r, debater=deb, probe_question=qid, determinacy_flags=qs[qid]["determinacy_flags"]))
+    for name, data in (("debates.jsonl", debates.values()), ("judgments.jsonl", rows)):
+        with open(base / name, "w", encoding="utf-8") as f:
+            f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in data)
+    cells: dict[str, list[int]] = collections.defaultdict(lambda: [0, 0])
+    for r in rows:
+        for key in (f"judge:{r['judge']}", f"debater:{r['debater']}", "pooled",
+                    f"flags:{min(r['determinacy_flags'], 2)}{'+' if r['determinacy_flags'] >= 2 else ''}"):
+            cells[key][0] += not r["correct"]
+            cells[key][1] += 1
+    summary = {"questions": len(qs), "debates": len(debates), "failed_debates": len(failed),
+               "judgments": len(rows), "failed_judgments": len(jfailed),
+               "parse_failures": sum(not r["parse_ok"] for r in rows),
+               "k0_error": {k: {"wrong": w, "n": n, "rate": w / n} for k, (w, n) in sorted(cells.items())},
+               "stop_rule_threshold": 0.10, "canary_reference_pooled": 0.029,
+               "probe_canary_spend_usd": spend}
+    (base / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2), flush=True)
     return summary

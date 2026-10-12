@@ -33,3 +33,17 @@ def test_probe_authors_and_validates_in_its_own_store(tmp_path, monkeypatch):
     assert not (tmp_path / "author.db").exists() and not (tmp_path / "validate.db").exists()
     rows = [json.loads(x) for x in (tmp_path / "probe-hardness-v1" / "validation.jsonl").read_text().splitlines()]
     assert {r["world_id"] for r in rows} == {f"H{i:03d}" for i in range(1, 9)}
+
+
+def test_probe_canary_debates_balanced_questions_and_reports_k0_error(tmp_path, monkeypatch):
+    for p in ("anthropic", "openai", "together"):
+        monkeypatch.setitem(store.LIVE, p, fake)
+    monkeypatch.setattr(probe, "PROBE_CAP", 100.0)
+    probe.author(tmp_path, mode="live")
+    probe.validate(tmp_path, mode="live")
+    qs = probe.canary_questions(tmp_path)
+    assert [q["author"] for q in qs].count("fable") == 10 and len(qs) == 20
+    summary = probe.canary(tmp_path, ("luna", "haiku", "llama70"), ("fable", "astra"))
+    assert summary["debates"] == 40 and summary["judgments"] == 240
+    assert summary["k0_error"]["pooled"]["n"] == 240
+    assert (tmp_path / "probe-hardness-v1" / "canary" / "judgments.jsonl").exists()

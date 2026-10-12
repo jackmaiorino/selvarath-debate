@@ -6,6 +6,7 @@
   python -m finalphase.cli canary
   python -m finalphase.cli judge --split pilot|main [--mode batch]
   python -m finalphase.cli probe-author | probe-validate [--mode batch]   (hardness probe, own store)
+  python -m finalphase.cli probe-canary                                   (probe step 2, live)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -382,6 +383,7 @@ def main() -> None:
     j.add_argument("--limit", type=int, default=0); j.add_argument("--workers", type=int, default=16)
     for name in ("probe-author", "probe-validate"):
         pr = sub.add_parser(name); pr.add_argument("--mode", default="batch", choices=("batch", "live"))
+    sub.add_parser("probe-canary")
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -407,6 +409,9 @@ def main() -> None:
     if args.cmd in ("probe-author", "probe-validate"):
         # The probe has its own directory, store and PROBE_CAP; it never reads or writes stage stores.
         (PR.author if args.cmd == "probe-author" else PR.validate)(RUN_ROOT, mode=args.mode)
+        return
+    if args.cmd == "probe-canary":
+        PR.canary(RUN_ROOT, CANARY_JUDGES, DEBATERS)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
