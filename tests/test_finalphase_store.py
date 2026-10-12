@@ -377,3 +377,59 @@ def test_billing_error_halts(tmp_path, monkeypatch):
     s = Store(tmp_path / "s.db", "t", 10)
     with pytest.raises(providers.BillingError):
         s.run([_req(1)])
+
+
+def _free_live(monkeypatch):
+    sent = []
+
+    def live(req, m):
+        sent.append(req.custom_id)
+        return Response(req.custom_id, m.model_id, "ok", "answer", input_tokens=1, output_tokens=1, cost=0.0)
+
+    monkeypatch.setitem(store.LIVE, "openai", live)
+    return sent
+
+
+def test_live_round_is_reserved_a_chunk_at_a_time_under_a_tight_cap(tmp_path, monkeypatch):
+    from finalphase.engine import drive
+
+    sent = _free_live(monkeypatch)
+    reqs = [_req(i) for i in range(64)]
+    s = Store(tmp_path / "s.db", "t", store.estimate_max_cost(reqs[0], False) * 20)
+    with pytest.raises(CapExceeded):
+        s.run(reqs)
+    assert not sent
+
+    def task(r):
+        resp = yield r
+        return {"id": resp.custom_id}
+
+    results, failed = drive(s, {r.custom_id: task(r) for r in reqs}, workers=16)
+    assert len(results) == 64 and not failed and len(sent) == 64
+
+
+def test_a_single_live_request_over_the_cap_still_stops(tmp_path, monkeypatch):
+    from finalphase.engine import drive
+
+    sent = _free_live(monkeypatch)
+    s = Store(tmp_path / "s.db", "t", store.estimate_max_cost(_req(1), False) / 2)
+
+    def task(r):
+        yield r
+        return {}
+
+    with pytest.raises(CapExceeded):
+        drive(s, {"a": task(_req(1))})
+    assert not sent
+
+
+def test_unsent_pending_rows_are_not_reserved_but_attempted_ones_are(tmp_path, monkeypatch):
+    sent = _free_live(monkeypatch)
+    e = store.estimate_max_cost(_req(1), False)
+    s = Store(tmp_path / "s.db", "t", e * 1.5)
+    s._register(_req(1))
+    s.run([_req(2)])
+    assert sent == ["id2"]
+    s._mark("id1", "pending", attempts_inc=1)
+    with pytest.raises(CapExceeded):
+        s.run([_req(3)])

@@ -19,8 +19,14 @@ from .providers import Request
 from .store import MEASURED, estimate_max_cost_decimal
 
 TOKEN_PROPOSAL = "validation-token-v2-proposed"
-PROPOSED_DSPRO_KEY_TOKENS = 12000
+PROPOSED_DSPRO_KEY_TOKENS = A.EXPANSION_DSPRO_KEY_MAX_TOKENS
 COORDINATOR_SESSION = "cd916c75-3534-4496-8864-d4b4f53f3c36"
+# v1 failed acceptance on 2026-10-06 (Fable reached 64,000 output tokens); its receipt,
+# store and logs are preserved. v2 controls use the amended expansion author allowance.
+AUTHOR_QUALIFICATION_SCOPE = "author-expansion-v2"
+QUALIFICATION_VERSION = "benchmark-expansion-qualification-v2"
+QUALIFICATION_RECEIPT = "expansion_qualification_v2_receipt.json"
+QUALIFICATION_DB = "expansion_qualification_v2.db"
 
 
 def digest(data: bytes) -> str:
@@ -51,6 +57,21 @@ def audit_reasons(root: Path) -> list[str]:
         reviews = {item["question_id"]: item for item in review["questions"]}
         if not required or not required.issubset(reviews):
             return ["Claude audit lacks sampled, split or defect-world question reviews"]
+        # Follow-up amendment (2026-10-09): when the coordinating session is too full to
+        # continue, a recorded second independent Claude session may review the extra
+        # questions of a defect world. Sampled and split questions stay with the coordinator.
+        follow_ups = {f.get("session_id"): f for f in review.get("follow_up_reviewers", [])}
+        sampled = set(packet["random_retained_sample_ids"] + packet["split_validator_ids"])
+        for qid in required:
+            session = reviews[qid].get("reviewer_session_id", COORDINATOR_SESSION)
+            if session == COORDINATOR_SESSION:
+                continue
+            follow_up = follow_ups.get(session)
+            if (qid in sampled or not session or follow_up is None
+                    or follow_up.get("implementer_review") is not False
+                    or qid not in follow_up.get("question_ids", [])
+                    or qid.split("-Q")[0] not in defects):
+                return ["Claude audit question review is not from an accepted independent reviewer"]
         for world_id, expected in packet["worlds_sha256"].items():
             if digest((root / "bench/worlds" / f"{world_id}.json").read_bytes()) != expected:
                 return ["Claude audit world hashes differ from current benchmark"]
@@ -61,6 +82,14 @@ def audit_reasons(root: Path) -> list[str]:
     except (OSError, ValueError, KeyError, TypeError):
         return ["independent Claude audit receipt is missing or invalid"]
     return []
+
+
+def author_qualification_controls() -> list[Request]:
+    """Matched serial/parallel scratch author controls at the expansion allowance."""
+    from dataclasses import replace
+    return [replace(A.author_request(wid, author, hint, max_tokens=A.EXPANSION_AUTHOR_MAX_TOKENS_BY_MODEL[author]),
+                    custom_id=f"qualification:{AUTHOR_QUALIFICATION_SCOPE}:{arm}:{wid}:{author}")
+            for arm in ("serial", "parallel") for wid, author, hint in A.world_ids(2)]
 
 
 def author_requests(root: Path, worlds: int = 160, attempts: int = 2, baseline: dict | None = None) -> list[Request]:
@@ -117,8 +146,10 @@ def author_plan(root: Path, worlds: int = 160, attempts: int = 2, mode: str = "b
         remaining[spec(request.model).provider] += maximum(request, mode == "batch")
     body_sha = digest(json.dumps([r.to_json() for r in requests]).encode())
     cumulative = sum(recorded.values()) + sum(remaining.values())
-    if cumulative > Decimal(200):
-        reasons.append(f"author full-cohort reservation ${cumulative} exceeds unchanged $200 stage cap")
+    from .cli import STAGE_CAPS
+    cap = Decimal(str(STAGE_CAPS["author"]))
+    if cumulative > cap:
+        reasons.append(f"author full-cohort reservation ${cumulative} exceeds ${cap} author stage cap")
     if (approval.get("approved") is not True or not approval.get("source")
             or approval.get("worlds") != worlds or approval.get("attempts") != attempts
             or approval.get("mode") != mode or approval.get("requests_sha256") != body_sha

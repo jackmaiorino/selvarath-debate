@@ -83,8 +83,8 @@ def check(stage: str, root: Path, workers: int, mode: str, quality_check: bool =
         except (OSError, ValueError, KeyError, TypeError) as error:
             reasons.append(f"expanded author reservation cannot be verified: {error}")
     if qualification:
-        if stage != "validate" or quality_check:
-            reasons.append("bounded throughput qualification is only available for validation")
+        if stage not in ("validate", "canary") or quality_check:
+            reasons.append("bounded throughput qualification is only available for validation and canary")
     elif not quality_check:
         receipts = manifest.get("throughput", {})
         receipt = receipts.get(stage, {}) if isinstance(receipts, dict) else {}

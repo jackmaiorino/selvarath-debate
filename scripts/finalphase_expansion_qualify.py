@@ -31,16 +31,14 @@ def plan(root: Path) -> dict:
     raw = costs["author_qualification_requests"] + tokens["requests"]
     requests = [Request(**store._req_fields(item)) for item in raw]
     from scripts.finalphase_expansion_prepare import token_controls
-    from dataclasses import replace
-    expected_authors = [replace(A.author_request(wid, author, hint), custom_id=f"qualification:author-expansion-v1:{arm}:{wid}:{author}")
-                        for arm in ("serial", "parallel") for wid, author, hint in A.world_ids(2)]
+    expected_authors = E.author_qualification_controls()
     expected = expected_authors + token_controls(root, cli._worlds())
     if [r.to_json() for r in requests] != [r.to_json() for r in expected]:
         raise RuntimeError("scratch proposal differs from the versioned frozen control specification")
     maxima = {p: sum((E.maximum(r, True) for r in requests if spec(r.model).provider == p), Decimal(0))
               for p in ("anthropic", "openai", "together")}
     packet = json.loads((root / "validation_audit_packet.json").read_text(encoding="utf-8"))
-    return {"version": "benchmark-expansion-qualification-v1", "request_count": len(requests),
+    return {"version": E.QUALIFICATION_VERSION, "request_count": len(requests),
             "requests_sha256": E.digest(json.dumps([r.to_json() for r in requests]).encode()),
             "maximum_cost_by_provider_usd": {p: str(n) for p, n in maxima.items()},
             "maximum_cost_usd": str(sum(maxima.values())), "requests": raw,
@@ -83,10 +81,10 @@ def guard(root: Path, proposal: dict, approval: dict) -> None:
     if Decimal(str(completion["conservative_campaign_cost_bound_usd"])) + Decimal(proposal["maximum_cost_usd"]) > 6000:
         reasons.append("qualification exceeds unchanged campaign ceiling")
     author_spend = Decimal(str(completion["known_campaign_cost_usd"])) - Decimal(str(completion["observed_stage_cost_usd"]))
-    if author_spend + sum(Decimal(proposal["maximum_cost_by_provider_usd"][p]) for p in ("anthropic", "openai")) > 200:
-        reasons.append("qualification exceeds unchanged author cap")
-    if Decimal(str(completion["conservative_stage_cost_bound_usd"])) + Decimal(proposal["maximum_cost_by_provider_usd"]["together"]) > 200:
-        reasons.append("qualification exceeds unchanged validation cap")
+    if author_spend + sum(Decimal(proposal["maximum_cost_by_provider_usd"][p]) for p in ("anthropic", "openai")) > Decimal(str(cli.STAGE_CAPS["author"])):
+        reasons.append("qualification exceeds the author cap")
+    if Decimal(str(completion["conservative_stage_cost_bound_usd"])) + Decimal(proposal["maximum_cost_by_provider_usd"]["together"]) > Decimal(str(cli.STAGE_CAPS["validate"])):
+        reasons.append("qualification exceeds the validation cap")
     # Scratch input and version are rechecked against the actual frozen source, not an editable proposal list.
     worlds = cli._worlds()
     hashes = {w["world_id"]: E.digest((root / "bench/worlds" / f"{w['world_id']}.json").read_bytes()) for w in worlds}
@@ -98,14 +96,14 @@ def guard(root: Path, proposal: dict, approval: dict) -> None:
 
 def execute(root: Path, proposal: dict, approval: dict) -> dict:
     guard(root, proposal, approval)  # before Store creation or networking
-    path = root / "expansion_qualification_receipt.json"
+    path = root / E.QUALIFICATION_RECEIPT
     record: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {
         "requests_sha256": proposal["requests_sha256"], "execution_sha256": proposal["execution_sha256"],
         "production_protocol_changed": False, "retention_contribution": False}
     if any(record.get(k) != proposal[k] for k in ("requests_sha256", "execution_sha256")):
         raise RuntimeError("existing qualification identity is incompatible; preserve it")
     requests = [Request(**store._req_fields(r)) for r in proposal["requests"]]
-    s = store.Store(root / "expansion_qualification.db", "qualification", float(proposal["maximum_cost_usd"]),
+    s = store.Store(root / E.QUALIFICATION_DB, "qualification", float(proposal["maximum_cost_usd"]),
                     max_transport_attempts=1, batch_limits={m: BatchLimits(1500000, 100) for m in ("astra", "fable")})
     try:
         # Reserve all author and token controls before the first provider dispatch, including on resume.
@@ -113,7 +111,7 @@ def execute(root: Path, proposal: dict, approval: dict) -> dict:
         for role in ("author", "token"):
             for arm, workers in (("serial", 1), ("parallel", 8)):
                 name = f"{role}_{arm}"
-                subset = [r for r in requests if (":author-expansion-v1:" in r.custom_id) == (role == "author") and f":{arm}:" in r.custom_id]
+                subset = [r for r in requests if (f":{E.AUTHOR_QUALIFICATION_SCOPE}:" in r.custom_id) == (role == "author") and f":{arm}:" in r.custom_id]
                 if name in record and "valid" in record[name]:
                     if record[name]["valid"] is not True:
                         raise RuntimeError("qualification failed; no paid retry is authorized")

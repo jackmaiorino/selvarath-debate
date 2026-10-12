@@ -5,6 +5,8 @@
   python -m finalphase.cli split
   python -m finalphase.cli canary
   python -m finalphase.cli judge --split pilot|main [--mode batch]
+  python -m finalphase.cli probe-author | probe-validate [--mode batch] [--revision hardness-v2]
+  python -m finalphase.cli probe-canary [--revision hardness-v2]      (hardness probes, own stores)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -19,8 +21,10 @@ import sqlite3
 from pathlib import Path
 
 from . import authoring as A
+from . import canary as C
 from . import prompts_study as P
 from . import preflight
+from . import probe as PR
 from . import validation as V
 from .debate import debate_task
 from .engine import drive
@@ -30,7 +34,13 @@ from .store import Store
 
 RUN_ROOT = Path(os.environ.get("FINALPHASE_ROOT", "D:/finalphase-runs/final-phase-2026-10-03"))
 BENCH = RUN_ROOT / "bench"
-STAGE_CAPS = {"author": 200.0, "validate": 200.0, "canary": 60.0, "pilot": 650.0, "main": 4300.0}
+# Stage cap amendments. 2026-10-07: author $200 -> $648 for the 128,000-token Fable
+# reservation. 2026-10-08: authoring closed at $172.56, so author is trimmed to $173 and
+# validate rises to $893 for the 12,000-token DeepSeek key-check worst case; main takes
+# the difference so caps plus the $590 reserve still total $6,000. 2026-10-10: validation
+# closed at about $177, so validate is trimmed to $178, canary rises to $150 for its $60 to
+# $135 estimate and pilot takes the rest ($1,275).
+STAGE_CAPS = {"author": 173.0, "validate": 178.0, "canary": 150.0, "pilot": 1275.0, "main": 3634.0}
 JUDGES = ("luna", "terra", "sol", "haiku", "sonnet", "opus", "llama70", "qwen38")
 CANARY_JUDGES = ("luna", "haiku", "llama70")
 DEBATERS = ("fable", "astra")
@@ -233,14 +243,19 @@ def cmd_split(args) -> None:
             q = dict(by_world[r["world_id"]]["questions"][r["index"]])
             q.update({"question_id": r["question_id"], "world_id": r["world_id"], "author": r["author"],
                       "split": split[r["world_id"]], "determinacy_flags": r["determinacy_flags"]})
+            q["sensitivity_only"] = r["question_id"] in A.SENSITIVITY_ONLY
             retained.append(q)
-    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions)
+    main = A.sample_main([q for q in retained if q["split"] == "main"], cap=args.main_questions,
+                         exclude=A.SENSITIVITY_ONLY)
+    main = sorted(main + [q for q in retained if q["split"] == "main" and q["sensitivity_only"]],
+                  key=lambda q: q["question_id"])
     sets = {"canary": [q for q in retained if q["split"] == "canary"], "pilot": [q for q in retained if q["split"] == "pilot"], "main": main}
-    # debater family per question, balanced within author x task type by a fixed hash order
+    # debater family per question, balanced within author x task type by a fixed hash order;
+    # sensitivity-only questions are balanced separately so they cannot shift the counted set
     for name, qs in sets.items():
         groups = collections.defaultdict(list)
         for q in qs:
-            groups[(q["author"], q["task_type"])].append(q)
+            groups[(q["author"], q["task_type"], q["sensitivity_only"])].append(q)
         for g in groups.values():
             g.sort(key=lambda q: A.hashlib.sha256(f"debater-v1:{q['question_id']}".encode()).hexdigest())
             for i, q in enumerate(g):
@@ -255,8 +270,7 @@ def cmd_split(args) -> None:
 def cmd_canary(args) -> None:
     s = _store("canary")
     worlds = {w["world_id"]: w for w in _worlds()}
-    qs = _read_jsonl(BENCH / "canary.jsonl")
-    qs = sorted(qs, key=lambda q: A.hashlib.sha256(f"canary-v1:{q['question_id']}".encode()).hexdigest())[:args.n]
+    qs = C.canary_questions(BENCH, args.n)
     tasks = {}
     for q in qs:
         for deb in DEBATERS:
@@ -286,6 +300,35 @@ def cmd_canary(args) -> None:
     _write_jsonl(RUN_ROOT / "canary" / "compliance.jsonl",
                  [{"custom_id": r.custom_id, "text": cout[r.custom_id].text if r.custom_id in cout else None} for r in comp])
     print(f"debates {len(debates)} (failed {len(failed)}), judgments {len(judged)} (failed {len(jfailed)}), spend ${s.spent('canary'):.2f}")
+
+
+def cmd_canary_rejudge(args) -> None:
+    """Diagnostic: re-judge the saved canary debates at k0 with other judges (no new debates)."""
+    s = _store("canary")
+    worlds = {w["world_id"]: w for w in _worlds()}
+    qs = {q["question_id"]: q for q in C.canary_questions(BENCH)}
+    debates = _read_jsonl(RUN_ROOT / "canary" / "debates.jsonl")
+    jt = {}
+    for d in debates:
+        q = dict(qs[d["question_id"]])
+        q.update({"world_text": worlds[q["world_id"]]["world_text"], "turns": d["turns"],
+                  "question_id": f"{d['question_id']}:{d['debater']}:{d['condition']}"})
+        for j in args.judges.split(","):
+            for o in ORDERS:
+                jt[(d["question_id"], d["debater"], d["condition"], j, o)] = judge_task(q, j, "debate_k0", o, "opus", "dsflash")
+    judged, failed = drive(s, jt, progress=_progress)
+    rows = [dict(r, debater=r["question_id"].split(":")[1], condition=r["question_id"].split(":")[2])
+            for r in judged.values()]
+    _write_jsonl(RUN_ROOT / "canary" / "rejudge_weak.jsonl", rows)
+    cells = collections.defaultdict(lambda: [0, 0])
+    for r in rows:
+        for key in ((r["condition"], r["judge"]), (r["condition"], r["debater"]), (r["condition"], "pooled")):
+            cells[key][0] += not r["correct"]
+            cells[key][1] += 1
+    for (cond, name), (wrong, n) in sorted(cells.items()):
+        print(f"{cond:9s} {name:8s} error {wrong}/{n} = {wrong / n:.1%}")
+    print(f"judgments {len(judged)} (failed {len(failed)}), parse failures {sum(not r['parse_ok'] for r in rows)}, "
+          f"canary spend ${s.spent('canary'):.2f}")
 
 
 # ------------------------------------------------------------------ stages 4-5
@@ -322,7 +365,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("author"); a.add_argument("--worlds", type=int, default=160); a.add_argument("--only"); a.add_argument("--mode", default="batch", choices=("batch", "live"))
     a.add_argument("--quality-check", action="store_true", help="bounded authoring check, at most eight worlds")
-    a.add_argument("--max-tokens", type=int, choices=(32000, 64000), help="override author defaults: Fable 64000, Astra 32000")
+    a.add_argument("--max-tokens", type=int, choices=(32000, 64000, 128000), help="override author defaults: Fable 64000 in W001-W008 and 128000 after, Astra 32000")
     a.add_argument("--attempts", type=int, choices=(1, 2), default=2)
     a.add_argument("--spend-cap", type=float, help="lower the cumulative author-stage cap for a bounded quality probe")
     a.add_argument("--replace-invalid", action="store_true", help="preserve invalid saved worlds and regenerate under fresh versioned IDs")
@@ -332,10 +375,16 @@ def main() -> None:
     vp = sub.add_parser("validation-plan"); vp.add_argument("--mode", default="batch", choices=("batch", "live"))
     sp = sub.add_parser("split"); sp.add_argument("--main-questions", type=int, default=1068)
     c = sub.add_parser("canary"); c.add_argument("--n", type=int, default=20)
+    sub.add_parser("qualify-canary")
+    cr = sub.add_parser("canary-rejudge"); cr.add_argument("--judges", default="qwen7,gemma31")
     j = sub.add_parser("judge"); j.add_argument("--split", required=True, choices=("pilot", "main"))
     j.add_argument("--mode", default="batch", choices=("batch", "live")); j.add_argument("--judges", default=",".join(JUDGES))
     j.add_argument("--oracle", default="opus"); j.add_argument("--gate", default="dsflash")
     j.add_argument("--limit", type=int, default=0); j.add_argument("--workers", type=int, default=16)
+    for name in ("probe-author", "probe-validate", "probe-canary"):
+        pr = sub.add_parser(name); pr.add_argument("--revision", default=PR.DEFAULT_REVISION, choices=tuple(PR.PROBES))
+        if name != "probe-canary":
+            pr.add_argument("--mode", default="batch", choices=("batch", "live"))
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -348,6 +397,22 @@ def main() -> None:
     if args.cmd == "qualify-validate":
         preflight.require("validate", RUN_ROOT, V.QUALIFICATION_WORKERS, args.mode, qualification=True)
         cmd_qualify_validate(args)
+        return
+    if args.cmd == "qualify-canary":
+        preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
+        print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
+        return
+    if args.cmd == "canary-rejudge":
+        # Replays saved debates only, so the throughput receipt (which covers debater turns) is not required.
+        preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
+        cmd_canary_rejudge(args)
+        return
+    if args.cmd in ("probe-author", "probe-validate"):
+        # The probe has its own directory, store and PROBE_CAP; it never reads or writes stage stores.
+        (PR.author if args.cmd == "probe-author" else PR.validate)(RUN_ROOT, mode=args.mode, rev=args.revision)
+        return
+    if args.cmd == "probe-canary":
+        PR.canary(RUN_ROOT, CANARY_JUDGES, DEBATERS, rev=args.revision)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
