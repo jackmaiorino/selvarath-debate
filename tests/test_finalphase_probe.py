@@ -115,12 +115,12 @@ def test_compliance_is_tri_state_and_unknown_is_not_compliant():
 
     assert asym.compliance_verdict("VIOLATION: no\nTYPE: none") == "no"
     assert asym.compliance_verdict("Violation: Yes.\nTYPE: concession") == "yes"
-    for text in (None, "", "VIOLATION: maybe", "TYPE: none"):
+    for text in (None, "", "VIOLATION: maybe", "TYPE: none", "VIOLATION: no\nVIOLATION: yes", "VIOLATION: no\nVIOLATION: no"):
         assert asym.compliance_verdict(text) == "unknown"
-    assert asym.debate_status(["no", "no", "no"]) == "compliant"
-    assert asym.debate_status(["no", "unknown", "no"]) == "unknown"
-    assert asym.debate_status(["unknown", "yes"]) == "violation"
-    assert asym.debate_status([]) == "unknown"
+    assert asym.debate_status(["no", "no", "no"]) == {"violation": False, "unknown": False, "compliant": True}
+    assert asym.debate_status(["no", "unknown", "no"]) == {"violation": False, "unknown": True, "compliant": False}
+    assert asym.debate_status(["unknown", "yes"]) == {"violation": True, "unknown": True, "compliant": False}
+    assert asym.debate_status([])["unknown"]
 
 
 def _canary_baseline(tmp_path, qs, wrong=()):
@@ -165,10 +165,10 @@ def test_asym_probe_debates_canary_questions_in_its_own_store(tmp_path, monkeypa
     assert summary["debates"] == 40 and summary["judgments"] == 240 and summary["failed_judgments"] == 0
     assert summary["k0_error"]["pairing:haiku~fable"]["n"] == 120
     assert summary["screen"]["result"] in ("pass", "fail", "mixed") and summary["screen"]["missing_cells"] == 0
-    assert summary["compliance_debates"]["honest:haiku~fable"] == {"compliant": 20}
+    assert summary["compliance_debates"]["honest:haiku~fable"] == {"compliant": 20, "violation": 0, "unknown": 0}
     detail = summary["pairings_detail"]["haiku~fable"]
     assert detail["self_play_matched"] == {"debater": "fable", "wrong": 6, "n": 120, "rate": 0.05}
-    assert detail["honest_debates"] == {"compliant": 20, "violation": 0, "unknown": 0}
+    assert detail["honest_debates"] == {"compliant": 20, "violation": 0, "unknown": 0} and detail["complete"]
     assert summary["pairings_detail"]["luna~astra"]["self_play_matched"]["wrong"] == 0
     base = tmp_path / asym.ASYM_DIR
     assert (base / "probe.db").exists() and not (tmp_path / "canary.db").exists()
@@ -177,19 +177,40 @@ def test_asym_probe_debates_canary_questions_in_its_own_store(tmp_path, monkeypa
     assert {d["question_id"] for d in debates} == {q["question_id"] for q in qs}
 
 
-def test_concession_driven_crossing_is_not_confirmation_eligible():
+def _diag(wrong_qs, status, n_rows=None):
     from finalphase import asym
 
     qs = [f"W001-Q{i:02d}" for i in range(20)]
+    cells = [(q, j, o) for q in qs for j in JUDGES for o in ORDERS]
     rows = [{"question_id": f"{q}:haiku~fable:uncapped", "probe_question": q, "pairing": "haiku~fable",
-             "judge": j, "order": o, "correct": i >= 3, "parse_ok": True}
-            for i, q in enumerate(qs) for j in ("luna", "haiku", "llama70") for o in ("key_a", "key_b")]
-    status = {(q, "haiku~fable"): "violation" if i < 3 else "compliant" for i, q in enumerate(qs)}
-    baseline = {(q, "fable", j, o): True for q in qs for j in ("luna", "haiku", "llama70") for o in ("key_a", "key_b")}
-    d = asym.pairing_diagnostics(rows, status, [("haiku", "fable")], baseline, set(qs))["haiku~fable"]
+             "judge": j, "order": o, "correct": q not in wrong_qs, "parse_ok": True} for q, j, o in cells]
+    if n_rows is not None:
+        rows = [r for r in rows if not r["correct"]][:n_rows]
+    ok = {"violation": False, "unknown": False, "compliant": True}
+    st = {(q, "haiku~fable"): status.get(q, ok) for q in qs}
+    baseline = {(q, "fable", j, o): True for q, j, o in cells}
+    return asym.pairing_diagnostics(rows, st, [("haiku", "fable")], baseline, set(qs), JUDGES, ORDERS)["haiku~fable"]
+
+
+def test_concession_driven_crossing_is_not_confirmation_eligible():
+    qs = [f"W001-Q{i:02d}" for i in range(20)]
+    bad = {"violation": True, "unknown": False, "compliant": False}
+    d = _diag(set(qs[:3]), {q: bad for q in qs[:3]})
     assert d["raw_error"]["wrong"] == 18 and d["honest_debates"]["violation"] == 3
     assert d["honest_compliant_sensitivity"]["wrong"] == 0 and d["honest_compliant_sensitivity"]["n"] == 102
     assert not d["confirmation_eligible"]
+    # Two genuinely hard compliant questions clear it.
+    assert _diag(set(qs[:2]), {})["confirmation_eligible"]
+
+
+def test_eligibility_needs_no_unknowns_and_the_full_declared_grid():
+    qs = [f"W001-Q{i:02d}" for i in range(20)]
+    both = {"violation": True, "unknown": True, "compliant": False}
+    d = _diag(set(qs[1:3]), {qs[0]: both})
+    assert d["honest_debates"]["unknown"] == 1 and not d["confirmation_eligible"]
+    partial = _diag(set(qs[:2]), {}, n_rows=1)
+    assert not partial["complete"] and not partial["confirmation_eligible"]
+
 
 
 def test_round_three_replaces_earlier_hardness_blocks_and_reuses_round_one_hints():
