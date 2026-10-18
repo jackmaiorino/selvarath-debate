@@ -120,7 +120,7 @@ verification may compensate for a weak honest side, and a stronger dishonest sid
 what judges query. Neither result is evidence for the small-budget peak; the frozen contrasts
 decide that.
 
-## Results, 2026-10-18 (Jack's go 13:21Z; run on desktop-dj1c40r at d1819fd)
+## Results, 2026-10-18 (approved in the project thread; run on the desktop at d1819fd)
 
 All four steps exited 0 with no retries and no parse failures. Spend $72.14: probe-asym
 $18.89 ($40 cap), hardness-v3 author and validate $20.62 ($30 cap), hardness-v3 debates and
