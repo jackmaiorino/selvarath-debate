@@ -23,14 +23,14 @@ and judges at k0 with the canary panel in both orders (240 judgments).
 
 By judge: round 1 Luna 3.8%, Haiku 3.8%, Llama 7.5%; round 2 Luna 0%, Haiku 5.0%, Llama 3.8%.
 Errors are concentrated: 6 of 20 questions drew any error in round 1 (at most 3 of 12), 3 of
-20 in round 2 (H011-Q11 4/12 with 4 determinacy flags). Round 2's errors sat in questions
-with 2+ flags (10%) against 0.6% with no flags, so prior traps bought ambiguity rather than
-difficulty. Summaries: `probe-hardness-v1/canary/summary.json`, `probe-hardness-v2/canary/summary.json`.
+20 in round 2 (H011-Q11 4/12 with 4 determinacy flags). In round 2, errors were associated
+with determinacy flags: 10% on questions with 2+ flags against 0.6% with none. Summaries: `probe-hardness-v1/canary/summary.json`, `probe-hardness-v2/canary/summary.json`.
 
-Note on the Phase 2 comparison: of the 12 Phase 2 questions re-debated on 2026-10-11, 3 pass
-today's retention rule with both validator pairs, 1 (VS-025) with one pair only, and 8 with
-neither. VS-015 supplies 8 of the 10 errors in the clean three and fails today's 1.25 length
-check, so the clean subset is not evidence that the full pipeline can keep difficulty.
+Note on the Phase 2 comparison: of the 12 Phase 2 questions re-debated on 2026-10-11, 3 are
+validator-clean with both validator pairs, 1 (VS-025) with one pair only, and 8 with neither.
+Validator-clean is not full pipeline eligibility: VS-015 supplies 8 of the 10 errors in the
+clean three and fails today's 1.25 length check, and the other two drew 2 of 24. So the
+subset is not evidence that the full pipeline can keep difficulty.
 
 ## Direction (Joey, relayed by Jack 2026-10-18)
 
@@ -39,7 +39,8 @@ defensible fallback. Try a bit more with harder questions, leaning towards asymm
 
 ## Guidance consult
 
-Astra Ultra reviewed both candidates (`consults/2026-10-18-01-guidance.md`). Adopted: drop
+Astra Ultra reviewed both candidates (`consults/2026-10-18-01-guidance.md`) and then the
+code and this note (`consults/2026-10-18-02-review-*.md`). Adopted: drop
 the prior-trap block; a factual-crux v3 that changes an inference rather than answering a
 lookup; author self-audit separating factual support from inferential sufficiency, inside the
 existing private ledger (no new rejection criterion, so the retention rule is unchanged);
@@ -51,7 +52,9 @@ are recorded in the consult and carried into the reading below.
 
 `AUTHOR_HARDNESS_V3_AMENDMENT` in `finalphase/prompts_authoring.py` replaces both earlier
 hardness blocks (Fable keeps its length amendment). Worlds H017-H024 reuse round 1's seed
-hints, so rounds 1 and 3 differ only in the block. Same probe steps and caps as rounds 1 and
+hints and author settings, so the two rounds have matched author configurations; their worlds
+are still fresh generations, retained independently, so they do not differ only in the
+block. Same probe steps and caps as rounds 1 and
 2 (author+validate $30 cap, debates+judging $45 cap; about $50 expected):
 
     python -m finalphase.cli probe-author --revision hardness-v3
@@ -62,12 +65,15 @@ hints, so rounds 1 and 3 differ only in the block. Same probe steps and caps as 
 
 `debate_task` takes an optional dishonest debater; self-play ids and records are unchanged.
 `probe-asym` (`finalphase/asym.py`) re-debates the 20 canary benchmark questions uncapped
-with Haiku 4.5 honest against Fable dishonest and GPT-5.6 Luna honest against Astra
-dishonest (each frontier model against the cheapest current tier of its own provider), runs
-the canary's DeepSeek compliance check on every turn, and judges at k0 with the canary panel
-in both orders (40 debates, 240 judgments). It reports each pairing next to the saved
-self-play canary error on the same questions. Own directory `probe-asym-v1`, own store, $40
-cap; about $20 expected. Effort asymmetry (`fable@low~fable`) is supported but not run.
+with `haiku` (claude-haiku-4-5) honest against `fable` (claude-fable-5-1) dishonest and
+`luna` (gpt-5.6-luna) honest against `astra` (gpt-6-astra) dishonest, as mapped in
+`finalphase/models.py`: each frontier model against a lower-priced model of its own provider.
+It runs the canary's DeepSeek compliance check on every turn and judges at k0 with the canary
+panel in both orders (40 debates, 240 judgments). Before any request it checks that the saved
+self-play canary judgments cover every matched cell (question, dishonest model, judge, order)
+exactly once and refuses to start otherwise; each pairing is then compared with its own
+family's self-play on matched cells. Own directory `probe-asym-v1`, own store, $40 cap; about
+$20 expected. Effort asymmetry (`fable@low~fable`) is supported but not run.
 
     python -m finalphase.cli probe-asym
 
@@ -82,18 +88,30 @@ The screen is per family (A) or per pairing (B), 120 judgments each, with the fr
 
 | Result | Decision |
 |---|---|
-| Every group at least 12/120 | Screen pass: freeze the revision and confirm on fresh worlds selected by retention alone |
+| Any declared cell missing, duplicated or undeclared | Incomplete: no reading; finish or rerun the missing cells |
+| Every group at least 12/120 | Screen pass (then the eligibility rule below for B) |
 | Every group at most 11/120 | Screen fail: stop this candidate |
 | Otherwise | Mixed: not enough for two-family adoption; a one-family study needs Jack and Joey's explicit decision |
+
+A screen pass for A, or for B a pass where every pairing is also confirmation-eligible, leads
+to freezing that revision and confirming on fresh worlds selected by retention alone.
+
+Confirmation eligibility for B, per pairing, pre-declared: the raw cell is at least 12/120;
+at most 2 of 20 honest debates have a compliance violation (the design's canary limit); no
+honest debate has an unknown compliance result (missing or malformed check); and error on the
+honest-compliant debates is still at least 10%. Raw scoring stays frozen. The
+honest-compliant figure is a sensitivity analysis (post-treatment selection), reported with
+its denominator and the self-play error on the same questions, never in place of the raw
+result. A debate is honest-compliant only if every honest turn has a valid negative check.
 
 This is stronger than the frozen stop rule (stop only if every family is under 10%), on
 purpose: a combined 24/240 can hide one unusable family. It is a development screen, not
 statistical certification: 20 questions over few worlds are not 240 independent
 observations, and a crossing concentrated in one world or one question is fragile. Each
 summary reports error by question, world, judge and order, valid-verdict error and the
-invalid-verdict rate; malformed verdicts are not read as persuasive difficulty. For B, a
-pairing whose error comes from honest-side concessions (compliance flags) does not count as
-restored difficulty; `pooled_honest_compliant` reports error without those debates.
+invalid-verdict rate; malformed verdicts are not read as persuasive difficulty. For B,
+`pairings_detail` reports each pairing's compliance counts, raw and valid-verdict error,
+matched self-play error, the honest-compliant sensitivity and eligibility.
 
 If both pass, prefer A (symmetric frontier debaters) and keep asymmetry as a separately
 reported robustness condition rather than combining the fixes. Asymmetry keeps the
