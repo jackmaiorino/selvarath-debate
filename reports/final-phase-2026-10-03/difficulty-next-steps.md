@@ -159,7 +159,9 @@ a05c9eae1a72f6b38239cb6342b98e733b59153b05d2f64a6907804e9eeff128.
 ### Astra Ultra review of the results (consult 5)
 
 Codex session 01a14fbe-4094-7d11-a34a-4009c576aaf5, no tool calls; brief and verbatim opinion
-saved on the run machine as consults-20261018/consult5_results_review_{brief,opinion}.md. It
+saved on the run machine as consults-20261018/consult5_results_review_{brief,opinion}.md (SHA-256
+80dc93c1affff96b2348028aa2afbbc2f3b6caccc18052cbf037520b74925cdb and
+ab6f6c918f26fdd37311b59b0313d64d33664200fe8ded78f286f6ee342b02d1). It
 confirmed every count above and the readings (B mixed, A fail), and asked for the two wording
 fixes now applied (exact spend, flags). It reads the haiku~fable clearance as suggestive,
 fragile and pairing-specific (two verdict flips from failing); the judge/debater model overlap
