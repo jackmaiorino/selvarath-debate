@@ -122,7 +122,7 @@ decide that.
 
 ## Results, 2026-10-18 (approved in the project thread; run on the desktop at d1819fd)
 
-All four steps exited 0 with no retries and no parse failures. Spend $72.14: probe-asym
+All four steps exited 0 with no retries and no parse failures. Spend $72.13 (exact; the rounded parts sum to $72.14): probe-asym
 $18.89 ($40 cap), hardness-v3 author and validate $20.62 ($30 cap), hardness-v3 debates and
 judging $32.63 ($45 cap). Returned model ids matched the registry for every call
 (gpt-6-astra, claude-fable-5-1, claude-haiku-4-5, gpt-5.6-luna, Llama-3.3-70B-Instruct-Turbo,
@@ -136,14 +136,17 @@ compliant (0 violations, 0 unknown).
 | haiku~fable | 13/120 = 10.8% | Fable 4/120 = 3.3% | 2/40 | 7/40 | 4/40 | yes |
 | luna~astra | 5/120 = 4.2% | Astra 3/120 = 2.5% | 0/40 | 0/40 | 5/40 | no |
 
-Errors are concentrated: four questions carry 17 of the 18 (W137-Q12 6/12, W008-Q05 4/12,
-W159-Q11 4/12, W036-Q05 3/12). Under the pre-declared reading this is not enough for
+Errors are concentrated. In haiku~fable all 13 sit on 4 of 20 questions (W008-Q05 3/6,
+W036-Q05 3/6, W137-Q12 4/6, W159-Q11 3/6); by order 7/60 and 6/60. In luna~astra the 5 are
+W008-Q05 1/6, W008-Q11 1/6, W137-Q12 2/6, W159-Q11 1/6; by order 4/60 and 1/60. Without the Haiku
+judge the pairings look alike (6/80 vs 5/80), so the difference rests largely on Haiku judging
+debates where Haiku argued the honest side. Under the pre-declared reading this is not enough for
 two-family adoption; a one-family study needs Jack and Joey's explicit decision.
 
 **A, hardness-v3: fail.** Retention 92/96 (95.8%). k0 error Fable 7/120 = 5.8%, Astra
 4/120 = 3.3%, pooled 11/240 = 4.6%; by judge Luna 1/80, Haiku 0/80, Llama-70B 10/80. Six of
-the 11 errors are in world H020. Errors were not concentrated in flagged questions this time
-(0 flags 7/168, 1 flag 4/24, 2+ flags 0/48). Per the reading, this candidate stops. Across
+the 11 errors are in world H020. The earlier concentration in 2+ flag questions did not recur; the
+present pattern is sparse and nonmonotonic (0 flags 7/168, 1 flag 4/24, 2+ flags 0/48). Per the reading, this candidate stops. Across
 three revisions the harder-question prompts gave 5.0%, 2.9% and 4.6%.
 
 Summaries (SHA-256 as computed on the run machine): `probe-asym-v1/summary.json`
@@ -152,3 +155,19 @@ Summaries (SHA-256 as computed on the run machine): `probe-asym-v1/summary.json`
 d7a4153e4da606e30fc70fc044aa595e76a0ae9116e0fbb991c83f52716e3a23,
 `probe-hardness-v3/canary/summary.json`
 a05c9eae1a72f6b38239cb6342b98e733b59153b05d2f64a6907804e9eeff128.
+
+### Astra Ultra review of the results (consult 5)
+
+Codex session 01a14fbe-4094-7d11-a34a-4009c576aaf5, no tool calls; brief and verbatim opinion
+saved on the run machine as consults-20261018/consult5_results_review_{brief,opinion}.md. It
+confirmed every count above and the readings (B mixed, A fail), and asked for the two wording
+fixes now applied (exact spend, flags). It reads the haiku~fable clearance as suggestive,
+fragile and pairing-specific (two verdict flips from failing); the judge/debater model overlap
+must be disclosed but is not shown to be bias. Recommendation: ask Jack and Joey whether a
+one-family study (Fable dishonest, Haiku honest) is acceptable in scope; only if both accept,
+run one frozen confirmation on fresh worlds spread across more worlds, with matched self-play,
+the same 12/120 bar and compliance conditions, and failure ending the candidate. No search for
+another OpenAI pairing without a separately approved bounded amendment; no pilot; no claim of a
+general asymmetry effect or about the small-budget peak. Any report discloses all failed
+screens, that the surviving pairing was selected post hoc, the clustering, the judge overlap,
+and that compliance checks mean "no violations detected", not proven honesty.
