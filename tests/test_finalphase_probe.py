@@ -1,4 +1,5 @@
 import json
+import pytest
 
 from test_finalphase_cli import fake
 
@@ -66,3 +67,96 @@ def test_round_two_uses_fresh_worlds_and_adds_the_prior_trap_block(tmp_path, mon
     probe.author(tmp_path, mode="live", rev=v2)
     assert probe.validate(tmp_path, mode="live", rev=v2)["prompt_revision"] == v2
     assert probe.canary(tmp_path, ("luna",), ("fable",), rev=v2)["debates"] == 20
+
+
+def _bench_canary_from_probe(tmp_path):
+    """Benchmark-shaped canary questions and worlds, built from the offline probe worlds."""
+    probe.author(tmp_path, mode="live")
+    probe.validate(tmp_path, mode="live")
+    qs = probe.canary_questions(tmp_path)
+    (tmp_path / "bench").mkdir()
+    (tmp_path / "bench" / "canary.jsonl").write_text("".join(json.dumps(q) + "\n" for q in qs))
+    return qs, {w["world_id"]: w for w in probe.load_worlds(tmp_path)}
+
+
+def test_asymmetric_debate_routes_each_side_to_its_own_model():
+    from finalphase.debate import debate_task
+
+    q = {"question_id": "W001-Q01", "question": "q?", "correct_answer": "a", "wrong_answer": "b",
+         "wrong_answer_defensibility": "d"}
+    selfplay = next(debate_task(q, "world", "fable", None, "uncapped"))
+    assert {r.model for r in selfplay} == {"fable"} and all(r.effort is None for r in selfplay)
+    assert {r.custom_id for r in selfplay} == {"debate:uncapped:fable:W001-Q01:r1:honest",
+                                               "debate:uncapped:fable:W001-Q01:r1:dishonest"}
+    asym = next(debate_task(q, "world", "haiku", None, "uncapped", dishonest="fable"))
+    by_role = {r.custom_id.rsplit(":", 1)[1]: r for r in asym}
+    assert by_role["honest"].model == "haiku" and by_role["dishonest"].model == "fable"
+    assert by_role["honest"].custom_id == "debate:uncapped:haiku~fable:W001-Q01:r1:honest"
+    effort = {r.custom_id.rsplit(":", 1)[1]: r for r in next(
+        debate_task(q, "world", "fable@low", None, "uncapped", dishonest="fable"))}
+    assert (effort["honest"].model, effort["honest"].effort) == ("fable", "low")
+    assert (effort["dishonest"].model, effort["dishonest"].effort) == ("fable", None)
+    # Same prompts on both sides; only the model behind each role changes.
+    assert by_role["honest"].messages == {r.custom_id.rsplit(":", 1)[1]: r for r in selfplay}["honest"].messages
+
+
+def test_asym_probe_rejects_bad_pairings():
+    from finalphase import asym
+
+    for h, d in (("fable", "fable"), ("haiku@low", "fable"), ("nope", "fable")):
+        with pytest.raises(ValueError):
+            asym.check_pairing(h, d)
+    asym.check_pairing("fable@low", "fable")
+
+
+def test_asym_probe_debates_canary_questions_in_its_own_store(tmp_path, monkeypatch):
+    from finalphase import asym
+
+    for p in ("anthropic", "openai", "together"):
+        monkeypatch.setitem(store.LIVE, p, fake)
+    monkeypatch.setattr(probe, "PROBE_CAP", 100.0)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    summary = asym.run(tmp_path, worlds, ("luna", "haiku", "llama70"))
+    assert summary["pairings"] == ["haiku~fable", "luna~astra"]
+    assert summary["debates"] == 40 and summary["judgments"] == 240 and summary["failed_judgments"] == 0
+    assert summary["k0_error"]["pairing:haiku~fable"]["n"] == 120
+    assert summary["compliance_flagged_debates"] == {f"{r}:{p}": 0 for r in ("honest", "dishonest")
+                                                     for p in ("haiku~fable", "luna~astra")}
+    base = tmp_path / asym.ASYM_DIR
+    assert (base / "probe.db").exists() and not (tmp_path / "canary.db").exists()
+    debates = [json.loads(x) for x in (base / "debates.jsonl").read_text().splitlines()]
+    assert {(d["honest_debater"], d["dishonest_debater"]) for d in debates} == {("haiku", "fable"), ("luna", "astra")}
+    assert {d["question_id"] for d in debates} == {q["question_id"] for q in qs}
+
+
+def test_round_three_replaces_earlier_hardness_blocks_and_reuses_round_one_hints():
+    v3 = P.AUTHOR_HARDNESS_V3_REVISION
+    plan = probe.world_plan(v3)
+    assert [w for w, _, _ in plan] == [f"H{i:03d}" for i in range(17, 25)]
+    assert [h for _, _, h in plan] == [h for _, _, h in probe.world_plan()]
+    fable, astra = (probe.author_request(*p, attempt=0, rev=v3) for p in plan[:2])
+    assert fable.custom_id.endswith(":hardness-v3") and astra.custom_id.endswith(":hardness-v3")
+    for r in (fable, astra):
+        text = r.messages[0][1]
+        assert P.AUTHOR_HARDNESS_V3_AMENDMENT in text
+        assert P.AUTHOR_HARDNESS_AMENDMENT not in text and P.AUTHOR_HARDNESS_V2_AMENDMENT not in text
+    assert P.AUTHOR_LENGTH_AMENDMENT in fable.messages[0][1] and P.AUTHOR_LENGTH_AMENDMENT not in astra.messages[0][1]
+    # Earlier rounds keep the identities already sent.
+    assert probe.author_request(*probe.world_plan()[0], attempt=0).custom_id.endswith(":hardness-v1")
+
+
+def test_screen_needs_every_family_at_ten_percent():
+    def rows(wrong_by_family):
+        out = []
+        for fam, wrong in wrong_by_family.items():
+            for i in range(120):
+                out.append({"question_id": f"W001-Q{i % 20:02d}:{fam}:uncapped", "world_id": "W001", "judge": "luna",
+                            "order": "ab", "debater": fam, "correct": i >= wrong, "parse_ok": i != 119})
+        return out
+
+    assert probe.error_report(rows({"fable": 12, "astra": 12}), "debater", lambda r: [])["screen"]["result"] == "pass"
+    assert probe.error_report(rows({"fable": 11, "astra": 11}), "debater", lambda r: [])["screen"]["result"] == "fail"
+    mixed = probe.error_report(rows({"fable": 30, "astra": 2}), "debater", lambda r: [])
+    assert mixed["screen"]["result"] == "mixed" and mixed["screen"]["cleared"] == ["debater:fable"]
+    assert mixed["k0_error"]["pooled"]["wrong"] == 32 and mixed["valid_verdict_error"]["pooled"]["n"] == 238
+    assert mixed["k0_error"]["question:W001-Q00"]["n"] == 12

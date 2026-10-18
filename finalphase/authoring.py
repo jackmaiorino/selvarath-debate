@@ -69,7 +69,7 @@ def author_request(world_id: str, author: str, seed_hint: str, n_questions: int 
     if max_tokens != AUTHOR_MAX_TOKENS:
         cid += f":t{max_tokens}"
     if prompt_revision not in ("v1", P.AUTHOR_LENGTH_REVISION, P.AUTHOR_HARDNESS_REVISION,
-                               P.AUTHOR_HARDNESS_V2_REVISION):
+                               P.AUTHOR_HARDNESS_V2_REVISION, P.AUTHOR_HARDNESS_V3_REVISION):
         raise ValueError(f"unknown author prompt revision: {prompt_revision}")
     if author == "fable" and prompt_revision == P.AUTHOR_LENGTH_REVISION:
         user += P.AUTHOR_LENGTH_AMENDMENT
@@ -82,6 +82,12 @@ def author_request(world_id: str, author: str, seed_hint: str, n_questions: int 
         user += P.AUTHOR_HARDNESS_AMENDMENT
         if prompt_revision == P.AUTHOR_HARDNESS_V2_REVISION:
             user += P.AUTHOR_HARDNESS_V2_AMENDMENT
+        cid += f":{prompt_revision}"
+    if prompt_revision == P.AUTHOR_HARDNESS_V3_REVISION:
+        # Builds on length-v2 like the earlier rounds, but its block replaces both earlier hardness blocks.
+        if author == "fable":
+            user += P.AUTHOR_LENGTH_AMENDMENT
+        user += P.AUTHOR_HARDNESS_V3_AMENDMENT
         cid += f":{prompt_revision}"
     return Request(cid, author, P.AUTHOR_SYSTEM, (("user", user),), max_tokens)
 

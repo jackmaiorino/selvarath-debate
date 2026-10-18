@@ -7,6 +7,7 @@
   python -m finalphase.cli judge --split pilot|main [--mode batch]
   python -m finalphase.cli probe-author | probe-validate [--mode batch] [--revision hardness-v2]
   python -m finalphase.cli probe-canary [--revision hardness-v2]      (hardness probes, own stores)
+  python -m finalphase.cli probe-asym [--pair haiku~fable --pair luna~astra]   (asymmetric debaters, own store)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -20,6 +21,7 @@ import os
 import sqlite3
 from pathlib import Path
 
+from . import asym as AS
 from . import authoring as A
 from . import canary as C
 from . import prompts_study as P
@@ -385,6 +387,9 @@ def main() -> None:
         pr = sub.add_parser(name); pr.add_argument("--revision", default=PR.DEFAULT_REVISION, choices=tuple(PR.PROBES))
         if name != "probe-canary":
             pr.add_argument("--mode", default="batch", choices=("batch", "live"))
+    asy = sub.add_parser("probe-asym")
+    asy.add_argument("--pair", action="append", help="honest~dishonest, e.g. haiku~fable or fable@low~fable")
+    asy.add_argument("--n", type=int, default=20)
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -413,6 +418,13 @@ def main() -> None:
         return
     if args.cmd == "probe-canary":
         PR.canary(RUN_ROOT, CANARY_JUDGES, DEBATERS, rev=args.revision)
+        return
+    if args.cmd == "probe-asym":
+        # Own directory, store and ASYM_CAP; re-debates the canary questions with a weaker honest side.
+        if args.pair and any(p.count("~") != 1 for p in args.pair):
+            raise ValueError("--pair takes honest~dishonest")
+        pairs = tuple((h, d) for h, d in (p.split("~") for p in args.pair)) if args.pair else AS.PAIRINGS
+        AS.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, CANARY_JUDGES, pairs, n=args.n)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)

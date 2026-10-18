@@ -28,17 +28,33 @@ def _words(s: str) -> int:
     return len(s.split())
 
 
-def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: str):
+def parse_debater(debater: str) -> tuple[str, str | None]:
+    """"fable" -> ("fable", None); "fable@low" -> ("fable", "low"): a model key and an effort override."""
+    model, _, effort = debater.partition("@")
+    return model, effort or None
+
+
+def pair_label(honest: str, dishonest: str) -> str:
+    """Id-space label of an asymmetric pairing, honest side first; it contains no colon."""
+    return f"{honest}~{dishonest}"
+
+
+def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: str,
+                dishonest: str | None = None):
     """Yields debater Requests; returns the transcript record.
 
     q: question record with question_id, question, correct_answer, wrong_answer,
     wrong_answer_defensibility. condition labels the id space (e.g. "uncapped", "cap150").
+    Self-play by default. With dishonest set, debater plays the honest side and dishonest the
+    other; either may carry an effort override ("haiku", "fable@low"). Self-play ids are unchanged.
     """
     qid = q["question_id"]
     hf = honest_first(qid)
     order = ["honest", "dishonest"] if hf else ["dishonest", "honest"]
     turns: list[dict] = []
-    base = f"debate:{condition}:{debater}:{qid}"
+    label = debater if dishonest is None else pair_label(debater, dishonest)
+    sides = {"honest": parse_debater(debater), "dishonest": parse_debater(dishonest or debater)}
+    base = f"debate:{condition}:{label}:{qid}"
 
     def req(role: str, rnd: int, history: str | None, attempt: int, last_words: int | None) -> Request:
         system = P.debater_system(role, opening=history is None)
@@ -48,7 +64,8 @@ def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: s
             if last_words is not None:
                 user += P.CAP_RETRY_LINE.format(n=last_words, cap=cap)
         cid = f"{base}:r{rnd}:{role}" + (f":a{attempt}" if attempt else "")
-        return Request(cid, debater, system, (("user", user),), DEBATER_MAX_TOKENS.get(debater, 16000))
+        model, effort = sides[role]
+        return Request(cid, model, system, (("user", user),), DEBATER_MAX_TOKENS.get(model, 16000), effort=effort)
 
     def finish(role: str, rnd: int, history: str | None, first: Response):
         """Handle empty-turn regeneration and cap retries for one turn (generator)."""
@@ -77,8 +94,11 @@ def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: s
             hist = _history_for(turns, role)
             r0 = yield req(role, rnd, hist, 0, None)
             turns.append((yield from finish(role, rnd, hist, r0)))
-    return {"question_id": qid, "debater": debater, "condition": condition, "cap": cap, "honest_first": hf,
-            "turns": turns, "cost": sum(t["cost"] for t in turns)}
+    record = {"question_id": qid, "debater": label, "condition": condition, "cap": cap, "honest_first": hf,
+              "turns": turns, "cost": sum(t["cost"] for t in turns)}
+    if dishonest is not None:
+        record.update(honest_debater=debater, dishonest_debater=dishonest)
+    return record
 
 
 def render_transcript(turns: list[dict], key_is_a: bool) -> str:
