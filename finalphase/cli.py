@@ -8,6 +8,7 @@
   python -m finalphase.cli probe-author | probe-validate [--mode batch] [--revision hardness-v2]
   python -m finalphase.cli probe-canary [--revision hardness-v2]      (hardness probes, own stores)
   python -m finalphase.cli probe-asym [--pair haiku~fable --pair luna~astra]   (asymmetric debaters, own store)
+  python -m finalphase.cli probe-ladder      (capability ladder: reuses probe-asym-v1's bottom rungs, own store)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -24,6 +25,7 @@ from pathlib import Path
 from . import asym as AS
 from . import authoring as A
 from . import canary as C
+from . import ladder as LD
 from . import prompts_study as P
 from . import preflight
 from . import probe as PR
@@ -390,6 +392,7 @@ def main() -> None:
     asy = sub.add_parser("probe-asym")
     asy.add_argument("--pair", action="append", help="honest~dishonest, e.g. haiku~fable or fable@low~fable")
     asy.add_argument("--n", type=int, default=20)
+    sub.add_parser("probe-ladder")
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -425,6 +428,10 @@ def main() -> None:
             raise ValueError("--pair takes honest~dishonest")
         pairs = tuple((h, d) for h, d in (p.split("~") for p in args.pair)) if args.pair else AS.PAIRINGS
         AS.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, CANARY_JUDGES, pairs, n=args.n)
+        return
+    if args.cmd == "probe-ladder":
+        # Own directory, store and LADDER_CAP; the frozen reading is written to ladder_summary.json.
+        LD.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, CANARY_JUDGES)
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)

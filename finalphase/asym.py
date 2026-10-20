@@ -162,8 +162,16 @@ def pairing_diagnostics(rows: list[dict], status: dict[tuple[str, str], dict[str
     return out
 
 
+def existing_pairings(base: Path) -> list[str] | None:
+    """Pairings listed by a previous run's summary in base, or None if there is none."""
+    path = base / "summary.json"
+    return json.loads(path.read_text(encoding="utf-8"))["pairings"] if path.exists() else None
+
+
 def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
-        pairings: tuple[tuple[str, str], ...] = PAIRINGS, n: int = 20, workers: int = 16) -> dict:
+        pairings: tuple[tuple[str, str], ...] = PAIRINGS, n: int = 20, workers: int = 16,
+        out_dir: str = ASYM_DIR, stage: str = ASYM_STAGE, cap: float = ASYM_CAP) -> dict:
+    """out_dir, stage and cap default to the 2026-10-18 probe; the capability ladder passes its own."""
     from .engine import drive
     from .judging import ORDERS, judge_task
 
@@ -171,12 +179,17 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
     labels = [pair_label(h, d) for h, d in pairs]
     if len(set(labels)) != len(labels):
         raise ValueError("duplicate pairing")
+    base = root / out_dir
+    # A rerun with the same pairings replays from the store; different pairings would overwrite
+    # another run's records, so refuse before anything is sent.
+    prior = existing_pairings(base)
+    if prior is not None and prior != labels:
+        raise RuntimeError(f"{base} already holds a run of {prior}; refusing to overwrite it with {labels}")
     qs = {q["question_id"]: q for q in C.canary_questions(root / "bench", n)}
     # Before any request: the matched self-play baseline must be complete.
     baseline = self_play_cells(root, set(qs), {parse_debater(d)[0] for _, d in pairs}, judges, ORDERS)
-    base = root / ASYM_DIR
     base.mkdir(parents=True, exist_ok=True)
-    s = Store(base / "probe.db", ASYM_STAGE, ASYM_CAP, max_transport_attempts=6)
+    s = Store(base / "probe.db", stage, cap, max_transport_attempts=6)
     try:
         tasks: dict[Hashable, Any] = {
             (qid, pair_label(h, d)): debate_task(q, worlds[q["world_id"]]["world_text"], h, None, "uncapped", dishonest=d)
@@ -194,7 +207,7 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
                 for o in ORDERS:
                     jt[(qid, label, j, o)] = judge_task(item, j, "debate_k0", o, "opus", "dsflash")
         judged, jfailed = drive(s, jt, workers=workers)
-        spend = s.spent(ASYM_STAGE)
+        spend = s.spent(stage)
     finally:
         s.db.close()
     flags = []
