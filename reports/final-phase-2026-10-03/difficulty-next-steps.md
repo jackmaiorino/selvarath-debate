@@ -320,12 +320,14 @@ writing the R0 report.
 
 ### Results, 2026-10-20 (run at 426bb4b, clean worktree)
 
-Exit 0 in 37 minutes (18:33 to 19:10 EDT), no failed debates or judgments, no parse failures,
-every honest and dishonest debate compliant (0 violations, 0 unknown) in all six rungs. Returned
+Exit 0 in 37 minutes (18:33 to 19:10 EDT), no failed debates or judgments, no parse failures;
+all assessed honest and dishonest debates in all six rungs were classified compliant (no
+violations detected, none unknown). Returned
 model ids matched the registry for every call (claude-sonnet-5-5, claude-opus-5-5,
 claude-fable-5-1, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra, DeepSeek-V4-Pro-0813 and the three
 judges). Spend $42.70 ($70 cap): sonnet~fable $13.14, opus~fable $16.98, terra~astra $6.12,
-sol~astra $6.46; by stage debates $39.41, compliance $0.89, judging $2.39.
+sol~astra $6.46; by stage debates $39.41, compliance $0.89, judging $2.39 (each rounded; the
+rounded stages sum to $42.69 against the exact $42.6976).
 
 | Rung | k0 error | Wilson 95% | Question bootstrap 95% | Eligible | Luna / Haiku / Llama-70B | Overlap-free judges | Matched self-play |
 |---|---:|---|---|---|---|---:|---:|
@@ -350,11 +352,47 @@ report. In the openai family no rung reaches 12/120.
 
 Descriptive, not part of the frozen reading: the anthropic family is not monotone. Sonnet as the
 honest side gave the highest error of any rung, with Llama-70B carrying 19 of its 29 errors and the
-errors spread over 10 of 20 questions; Sonnet's honest turns were the shortest of any rung (mean
-434 words against Fable's 818; Haiku 1,044, Opus 630). Opus brought error back to about the self-play
-level. The openai family fell from 4.2% to 0.8% to 0%, close to its self-play baseline throughout.
-None of this is evidence for or against the small-budget peak.
+errors spread over 10 of 20 questions; without Llama-70B, Sonnet is 10/80 against Haiku's 9/80, so
+Llama-70B carries 15 of the 16 extra errors. Sonnet's honest turns were the shortest among the
+anthropic rungs (mean 434 words against Fable's 818; Haiku 1,044, Opus 630), and Fable was longer
+in every Sonnet and Opus debate, so the length association below is not a causal explanation.
+Opus recorded 8/120 against matched Fable self-play 4/120. The openai family recorded 5, 1 and 0 of
+120 against matched Astra self-play 3/120, with all six errors from Llama-70B. The 20 questions come
+from four worlds. None of this is evidence for or against the small-budget peak.
 
 Summary `probe-ladder-v1/ladder_summary.json`, SHA-256
 8736067aa017dc7708a4fc20c2674fa3c0a11bd4754b9479b1508a8856fe9898 (new-rung `summary.json`
 6b15784e67f56e467b4b90da3e26484d1f4d3447a0b94c9d4bb6580876d31186).
+
+Diagnostics after the run (read-only, consults-20261018/consult9_ladder_diagnostics.{md,py},
+SHA-256 09d027dc1552180981039972708829b9048a169dd4c52f27029ce807475fafb4 and
+b005922cfc32f82ba8e6fd60ca3f5d7c30b54f03416a23275cbfacab10937c96): all 720 debate turns ended
+normally (end_turn or completed), none at the token ceiling (Sonnet honest at most 1,108 of 16,000
+output tokens), and no honest Sonnet or Opus turn ends without sentence punctuation. Within the
+anthropic rungs, questions where the dishonest side wrote relatively more drew more errors
+(Spearman about 0.33 in each rung; 0.39 for Sonnet minus Opus on the same questions): an
+exploratory association, possibly confounded by question difficulty and content. (The diagnostics'
+"median" split uses the upper-middle of 20 values, and its remark that the longer side is nearly
+always the same applies to the haiku, sonnet, opus and terra rungs, not luna or sol.)
+
+### Astra Ultra review of the ladder results (consult 9, 2026-10-20)
+
+Codex session 01a15b98-a0be-7db2-9c15-0fee9d9defb3, no tool calls; brief and verbatim opinion on
+the run machine as consults-20261018/consult9_ladder_results_{brief,opinion}.md (SHA-256
+a89f7c3b8c73d4a0f955de4d941e450c211bb6940d57df889f5306bfe648371b and
+5cec28f638a13f017e5184d3abeb1962f9a095a00f38a30674c6c5239c451103). It confirmed every number,
+recomputed both permutation probabilities (about 0.2422 and 0.0062) and signed off on R3: stop under
+the frozen rules. No demonstrated execution defect in the Sonnet rung; the clearest heterogeneity is
+the Llama-70B judge. Read the anthropic result as an observed middle-rung peak, not an identified
+capability effect (model, effort, content, length and Fable's responses vary together), and do not
+read the length association causally. The wording fixes above are its. Its suggested summary for
+Joey: three harder-question revisions gave pooled errors of 5.0%, 2.9% and 4.6% without qualifying
+that route; the asymmetric probe found haiku~fable eligible in one family, the exploratory ladder
+added sonnet~fable but failed its prespecified continuation rule, so the difficulty phase closes with
+a stop recommendation; the selected pairings remain exploratory and judge-dependent; these studies
+establish neither a general capability or asymmetry effect nor its absence, and do not test the
+small-budget peak. A separate sonnet~fable study would be legitimate only as a new, explicitly
+approved, pairing-specific objective that keeps this R3 conclusion: frozen in advance, many more
+independent worlds with world-level inference, concurrent matched Fable self-play, a decision on
+whether a Llama-specific result suffices, no pilot or candidate search, and disclosure that the
+pairing was selected from this ladder. Its default remains stop.
