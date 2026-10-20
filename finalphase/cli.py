@@ -9,6 +9,7 @@
   python -m finalphase.cli probe-canary [--revision hardness-v2]      (hardness probes, own stores)
   python -m finalphase.cli probe-asym [--pair haiku~fable --pair luna~astra]   (asymmetric debaters, own store)
   python -m finalphase.cli probe-ladder      (capability ladder: reuses probe-asym-v1's bottom rungs, own store)
+  python -m finalphase.cli confirm-plan | confirm-sonnet   (Sonnet-honest confirmation on the pilot split, own store)
 
 Hot state lives under the run root (SSD); the benchmark and results are copied to the
 archive at stage closure. Every stage has its own spend cap in STAGE_CAPS.
@@ -25,6 +26,7 @@ from pathlib import Path
 from . import asym as AS
 from . import authoring as A
 from . import canary as C
+from . import confirm as CF
 from . import ladder as LD
 from . import prompts_study as P
 from . import preflight
@@ -393,6 +395,8 @@ def main() -> None:
     asy.add_argument("--pair", action="append", help="honest~dishonest, e.g. haiku~fable or fable@low~fable")
     asy.add_argument("--n", type=int, default=20)
     sub.add_parser("probe-ladder")
+    sub.add_parser("confirm-plan")
+    sub.add_parser("confirm-sonnet")
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -432,6 +436,13 @@ def main() -> None:
     if args.cmd == "probe-ladder":
         # Own directory, store and LADDER_CAP; the frozen reading is written to ladder_summary.json.
         LD.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, CANARY_JUDGES)
+        return
+    if args.cmd == "confirm-plan":
+        print(json.dumps(CF.plan(RUN_ROOT, {w["world_id"]: w for w in _worlds()}), indent=2))
+        return
+    if args.cmd == "confirm-sonnet":
+        # Own directory, stores and caps; the frozen reading is written to confirm_summary.json.
+        CF.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()})
         return
     if args.cmd == "preflight":
         report = preflight.check(args.stage, RUN_ROOT, args.workers, args.mode, args.quality_check)
