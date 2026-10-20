@@ -12,9 +12,12 @@ any adoption needs a frozen fresh-world confirmation.
 from __future__ import annotations
 
 import collections
+import hashlib
 import json
 import math
 import random
+import sqlite3
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -101,8 +104,10 @@ def load_rungs(base: Path, labels: list[str], questions: set[str], judges: tuple
                orders: tuple[str, ...]) -> tuple[list[dict], dict, dict]:
     """Judgment rows and honest/dishonest compliance status for labels, from a finished run in base.
 
-    Refuses unless every label has the full (question, judge, order) grid exactly once on these
-    questions and every saved compliance verdict re-parses to the same value from its text."""
+    Refuses unless every label has the full (question, judge, order) grid exactly once and one saved
+    debate per question, and every saved compliance verdict re-parses to the same value from its
+    text. The expected checks are one per saved debate turn; a duplicated or unexpected check is
+    refused, and a missing one counts as unknown (so that debate is never compliant)."""
     path = base / "judgments.jsonl"
     if not path.exists():
         raise RuntimeError(f"{path} is missing")
@@ -117,17 +122,39 @@ def load_rungs(base: Path, labels: list[str], questions: set[str], judges: tuple
     for r in rows:
         if not r["parse_ok"] and r["correct"]:
             raise ValueError(f"unparsed verdict scored correct: {r['question_id']} {r['judge']} {r['order']}")
-    by_debate: dict[tuple[str, str, str], list[str]] = collections.defaultdict(list)
+    debates = collections.Counter()
+    expected: dict[str, tuple[str, str, str]] = {}
+    for line in (base / "debates.jsonl").read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        d = json.loads(line)
+        if d["debater"] not in labels:
+            continue
+        debates[(d["question_id"], d["debater"])] += 1
+        for t in d["turns"]:
+            cid = f"compliance:asym:{d['debater']}:{d['question_id']}:r{t['round']}:{t['role']}"
+            if cid in expected:
+                raise RuntimeError(f"two saved turns share the compliance id {cid}")
+            expected[cid] = (d["question_id"], d["debater"], t["role"])
+    want = {(q, p) for q in questions for p in labels}
+    if set(debates) != want or any(c != 1 for c in debates.values()):
+        raise RuntimeError(f"{base.name}: saved debates do not cover every question and pairing exactly once")
+    saved: dict[str, str] = {}
     for line in (base / "compliance.jsonl").read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         f = json.loads(line)
         if f["pairing"] not in labels:
             continue
+        if f["custom_id"] not in expected or f["custom_id"] in saved:
+            raise RuntimeError(f"unexpected or duplicated compliance check {f['custom_id']}")
         v = AS.compliance_verdict(f["text"])
         if v != f["verdict"]:
             raise RuntimeError(f"saved compliance verdict {f['verdict']!r} does not re-parse ({v!r}): {f['custom_id']}")
-        by_debate[(f["question_id"], f["pairing"], f["role"])].append(v)
+        saved[f["custom_id"]] = v
+    by_debate: dict[tuple[str, str, str], list[str]] = collections.defaultdict(list)
+    for cid, key in expected.items():
+        by_debate[key].append(saved.get(cid, "unknown"))
     status = {role: {(q, p): AS.debate_status(by_debate.get((q, p, role), [])) for q in questions for p in labels}
               for role in ("honest", "dishonest")}
     return rows, status["honest"], status["dishonest"]
@@ -167,6 +194,7 @@ def analyze(rows: list[dict], honest: dict, dishonest: dict, baseline: dict, que
                 "honest_debates": d["honest_debates"],
                 "dishonest_debates": {k: sum(dishonest[(q, label)][k] for q in questions)
                                       for k in ("compliant", "violation", "unknown")},
+                "parse_failures": sum(not r["parse_ok"] for r in mine),
                 "valid_verdict_error": d["valid_verdict_error"], "self_play_matched": d["self_play_matched"],
                 "honest_compliant_sensitivity": d["honest_compliant_sensitivity"],
                 "by_judge": {j: {"wrong": sum(not r["correct"] for r in mine if r["judge"] == j),
@@ -179,14 +207,14 @@ def analyze(rows: list[dict], honest: dict, dishonest: dict, baseline: dict, que
         trend = trend_test(counts, fam)
         sub_trend = trend_test(sub_counts, f"{fam}:overlap-free")
         lo, hi = rungs[0]["overlap_free_judges"], rungs[-1]["overlap_free_judges"]
-        robust = bool(lo["n"] and hi["n"]) and lo["wrong"] / lo["n"] > hi["wrong"] / hi["n"]
+        retained = bool(lo["n"] and hi["n"]) and lo["wrong"] / lo["n"] > hi["wrong"] / hi["n"]
         supported = (not floor) and trend["p_one_sided"] < ALPHA
         eligible_by_family[fam] = [r["honest"] for r in rungs if r["confirmation_eligible"]]
         out["families"][fam] = {
             "dishonest": dis, "rungs": rungs, "family_wrong": total,
             "trend": dict(trend, alpha=ALPHA,
                           reading="uninformative (floor)" if floor else ("supported" if supported else "not supported")),
-            "overlap_free_trend": dict(sub_trend, judges=list(free), robust=robust),
+            "overlap_free_trend": dict(sub_trend, judges=list(free), endpoint_direction_retained=retained),
             "eligible_honest": eligible_by_family[fam],
         }
     out["decision"] = decide(out["families"], eligible_by_family, complete_all)
@@ -205,37 +233,96 @@ def decide(families: dict, eligible: dict[str, list[str]], complete: bool) -> di
     if len(with_eligible) == len(FAMILIES):
         picks = {f: pair_label(strongest(f), FAMILIES[f][0]) for f in FAMILIES}
         return {"rule": "R1", "recommendation": "recommend to Jack and Joey a two-family fresh-world confirmation using "
-                + ", ".join(f"{p} ({f})" for f, p in picks.items())}
+                + ", ".join(f"{p} ({f})" for f, p in picks.items()),
+                "note": "a candidate-screen policy; it does not establish a capability gradient"}
     if len(with_eligible) == 1:
         f = with_eligible[0]
         fam = families[f]
-        if fam["trend"]["reading"] == "supported" and fam["overlap_free_trend"]["robust"]:
+        if fam["trend"]["reading"] == "supported" and fam["overlap_free_trend"]["endpoint_direction_retained"]:
             return {"rule": "R2", "recommendation": f"recommend to Jack and Joey a one-family {f} fresh-world confirmation "
                     f"using {pair_label(strongest(f), FAMILIES[f][0])}"}
-        return {"rule": "R3", "recommendation": f"the {f} reading weakens (trend {fam['trend']['reading']}, overlap-free "
-                f"robust={fam['overlap_free_trend']['robust']}); recommend stop and report"}
+        return {"rule": "R3", "recommendation": f"{f} does not meet the prespecified continuation rule (trend "
+                f"{fam['trend']['reading']}, endpoint direction retained without overlapping judges: "
+                f"{fam['overlap_free_trend']['endpoint_direction_retained']}); recommend stop and report"}
     return {"rule": "R4", "recommendation": "no eligible rung; recommend stop and report"}
 
 
+class LadderIncomplete(RuntimeError):
+    """The run ended without a complete grid; an R0 report has been written."""
+
+
+def _sha(path: Path) -> str | None:
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+
+def fingerprints(root: Path) -> dict[str, Any]:
+    """Source and input identity for the summary: git commit and cleanliness, module and input hashes."""
+    here = Path(__file__).resolve().parent
+    def git(*args):
+        try:
+            return subprocess.run(["git", "-C", str(here), *args], capture_output=True, text=True, timeout=30).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return None
+    v1 = root / AS.ASYM_DIR
+    return {"git_head": git("rev-parse", "HEAD"), "git_dirty": bool(git("status", "--porcelain", "--", ".")),
+            "modules": {p: _sha(here / p) for p in ("ladder.py", "asym.py", "debate.py", "judging.py", "store.py")},
+            "inputs": {f"{AS.ASYM_DIR}/{p}": _sha(v1 / p) for p in ("debates.jsonl", "compliance.jsonl", "judgments.jsonl")}
+            | {"canary/judgments.jsonl": _sha(root / "canary" / "judgments.jsonl")}}
+
+
+def _stage_spend(base: Path) -> float | None:
+    db = base / "probe.db"
+    if not db.exists():
+        return None
+    con = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+    try:
+        return float(con.execute("SELECT COALESCE(SUM(cost),0) FROM calls WHERE stage=?", (LADDER_STAGE,)).fetchone()[0])
+    finally:
+        con.close()
+
+
 def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...], n: int = 20, workers: int = 16) -> dict:
+    """Run the four new rungs and write ladder_summary.json. Any incomplete outcome (a stopped stage or
+    missing cells) writes an R0 report with spend and the reason, then raises LadderIncomplete; a
+    rerun resumes in the same store under the same configuration and cap."""
     from .judging import ORDERS
 
     qs = {q["question_id"] for q in C.canary_questions(root / "bench", n)}
     reused_labels = [pair_label(h, d) for h, d in REUSED]
+    new_labels = [pair_label(h, d) for h, d in NEW]
     # Before any request: the reused bottom rungs must be complete and their compliance must re-parse.
     if AS.existing_pairings(root / AS.ASYM_DIR) is None:
         raise RuntimeError(f"{root / AS.ASYM_DIR} has no finished run to reuse")
     old = load_rungs(root / AS.ASYM_DIR, reused_labels, qs, judges, ORDERS)
-    new_summary = AS.run(root, worlds, judges, NEW, n=n, workers=workers,
-                         out_dir=LADDER_DIR, stage=LADDER_STAGE, cap=LADDER_CAP)
-    new = load_rungs(root / LADDER_DIR, [pair_label(h, d) for h, d in NEW], qs, judges, ORDERS)
+    base = root / LADDER_DIR
+    head = {"reused_from": AS.ASYM_DIR, "reused_pairings": reused_labels, "new_pairings": new_labels,
+            "questions": len(qs), "cap_usd": LADDER_CAP, "fingerprints": fingerprints(root)}
+
+    def incomplete(reason: str, extra: dict | None = None) -> LadderIncomplete:
+        report = {**head, **(extra or {}), "decision": {"rule": "R0", "recommendation":
+                  "incomplete: no reading; finish or rerun the missing cells", "reason": reason},
+                  "probe_ladder_spend_usd": _stage_spend(base)}
+        if base.exists():
+            (base / "ladder_summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(json.dumps(report, indent=2), flush=True)
+        return LadderIncomplete(reason)
+
+    try:
+        new_summary = AS.run(root, worlds, judges, NEW, n=n, workers=workers,
+                             out_dir=LADDER_DIR, stage=LADDER_STAGE, cap=LADDER_CAP)
+    except Exception as e:
+        if not (base / "probe.db").exists():
+            raise  # refused before any request: nothing spent, nothing to report
+        raise incomplete(f"{type(e).__name__}: {e}") from e
+    failures = {"new_failed_debates": new_summary["failed_debates"], "new_failed_judgments": new_summary["failed_judgments"]}
+    try:
+        new = load_rungs(base, new_labels, qs, judges, ORDERS)
+    except RuntimeError as e:
+        raise incomplete(str(e), failures) from e
     baseline = AS.self_play_cells(root, qs, {d for d, _ in FAMILIES.values()}, judges, ORDERS)
     rows, honest, dishonest = old[0] + new[0], {**old[1], **new[1]}, {**old[2], **new[2]}
-    summary = {"reused_from": AS.ASYM_DIR, "reused_pairings": reused_labels,
-               "new_pairings": new_summary["pairings"], "questions": len(qs),
-               "new_failed_debates": new_summary["failed_debates"], "new_failed_judgments": new_summary["failed_judgments"],
-               **analyze(rows, honest, dishonest, baseline, qs, judges, ORDERS),
+    summary = {**head, **failures, **analyze(rows, honest, dishonest, baseline, qs, judges, ORDERS),
                "probe_ladder_spend_usd": new_summary["probe_asym_spend_usd"]}
-    (root / LADDER_DIR / "ladder_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (base / "ladder_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2), flush=True)
     return summary

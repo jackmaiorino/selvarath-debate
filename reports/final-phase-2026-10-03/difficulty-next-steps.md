@@ -188,67 +188,106 @@ fixed at the frontier model.
 ### Design
 
 `python -m finalphase.cli probe-ladder` (`finalphase/ladder.py`). Same 20 canary questions,
-same uncapped debates, compliance check on every turn and canary panel at k0 in both orders as
-probe-asym-v1; registry default effort for every model.
+same debates, compliance check on every turn and canary panel at k0 in both orders as
+probe-asym-v1; registry default effort for every model. "Uncapped" means no word cap; requests
+still carry token ceilings (16,000 for debaters other than Fable and Astra, 32,000 for those two).
 
 | Family | Rung 0 (weakest) | Rung 1 | Rung 2 (strongest) | Dishonest |
 |---|---|---|---|---|
 | anthropic | haiku (reused) | sonnet | opus | fable |
 | openai | luna (reused) | terra | sol | astra |
 
-The two bottom rungs are reused from probe-asym-v1 rather than re-run. Before any request the
-ladder refuses unless both have the full 20 x 3 x 2 grid exactly once on these questions and
-every saved compliance verdict re-parses from its text; the self-play baseline check of the
-probe also runs first. The four new rungs (80 debates, 480 judgments) run in their own directory
-`probe-ladder-v1`, stage `probe_ladder`, store and cap; `asym.run` now refuses to write into a
-directory whose summary lists different pairings, so probe-asym-v1 cannot be overwritten. No
-effort-only pairs (not in what Joey approved).
+The rung order is assumed from the providers' tiers, and the registry's default efforts differ by
+model, so each rung bundles model identity with effort.
+
+The two bottom rungs are reused from probe-asym-v1 rather than re-run (Astra: acceptable for
+exploratory candidate selection; a fresh rerun would not make these questions confirmatory).
+Before any request the ladder refuses unless both have the full 20 x 3 x 2 grid exactly once,
+one saved debate per question and pairing, and every saved compliance verdict re-parses from its
+text; expected checks are one per saved debate turn, a duplicated or unexpected check is refused,
+and a missing one counts as unknown. The self-play baseline check also runs first. The four new
+rungs (80 debates, 480 judgments) run in their own directory `probe-ladder-v1`, stage
+`probe_ladder`, store and cap. An output directory is bound to one run configuration (pairings,
+stage, cap, judges, orders, questions) by `run_config.json` before any request: a different
+configuration, or a nonempty directory from an unidentified run, is refused; a directory without
+that file is accepted only as a finished run of the same pairings (probe-asym-v1). A stopped or
+incomplete run writes an R0 report with spend and the reason and exits non-zero; rerunning
+resumes in the same store under the same configuration and cap. The cap is never raised
+automatically. No effort-only pairs (not in what Joey approved). The summary records the git
+commit, module hashes and the hashes of the reused files.
 
 Cost: from probe-asym-v1's ledger (haiku~fable $13.79, luna~astra $5.10, almost all on the
 dishonest side), the four rungs are expected at about $43 to $50 (sonnet~fable about $14.6,
 opus~fable about $16.2, terra~astra about $5.8, sol~astra about $6.4, more if the stronger honest
-models think longer). Cap $70: the store reserves each request's worst case, and the 480
-compliance checks are reserved together (about $19 on v1's sizes) on top of the debate spend.
+models think longer). Cap $70. The cap bounds reserved liability, not expected billing: the store
+reserves each request's worst case, and the 480 compliance checks are reserved together (about
+$19 on v1's sizes) after the debates are bought, so a cap stop is possible after substantial spend;
+partial results are kept and the run reports R0.
 
 ### Frozen reading
 
-(a) Per rung: k0 error over its 120-judgment grid with a Wilson 95% interval and a
-question-clustered percentile bootstrap 95% interval (10,000 resamples of the 20 questions, fixed
-seed). Same 12/120 screen and confirmation eligibility as probe-asym-v1 (complete grid, at least
-12/120 wrong, at most 2 of 20 honest debates flagged, none unknown, honest-compliant subset still
-at least 10%). Each rung also reports error by judge, the overlap-free judge subset, the
-honest-compliant sensitivity and matched self-play.
+(a) Per rung: k0 error over its 120-judgment grid with a Wilson 95% interval (descriptive; it
+assumes independent judgments) and a question-clustered percentile bootstrap 95% interval (10,000
+resamples of the 20 questions, fixed seed; it keeps a question's six judgments together but not
+shared worlds, selection or drift). Same 12/120 screen and confirmation eligibility as
+probe-asym-v1 (complete grid, at least 12/120 wrong, at most 2 of 20 honest debates flagged, none
+unknown, honest-compliant subset still at least 10%). As frozen, an unparsed verdict counts as
+wrong; each rung reports parse failures and valid-verdict error, and a clearance driven by parse
+failures is not read as substantive incorrect verdicts. Each rung also reports error by judge, the
+overlap-free judge subset, the honest-compliant sensitivity and matched self-play.
 
-(b) Primary trend per family: one-sided within-question permutation test. The unit is the error
-count per question x rung (out of 6); rung index 0 is the weakest honest model; the statistic is
-the sum of rung index x errors (small when error falls as the honest side gets stronger). Rung
-labels are permuted within each question; Monte Carlo with 200,000 permutations, fixed seed,
-p = (1 + #{T* <= T}) / (1 + 200,000). Supported if p < 0.05.
+(b) Trend per family: one-sided within-question permutation test. The unit is the error count per
+question x rung (out of 6); rung index 0 is the weakest honest model; the statistic is the sum of
+rung index x errors (small when error falls as the honest side gets stronger). Rung labels are
+permuted within each question; Monte Carlo with 200,000 permutations, fixed seed,
+p = (1 + #{T* <= T}) / (1 + 200,000). "Supported" if p < 0.05. These are nominal exploratory
+p-values for two unadjusted family tests. With three rungs the statistic reduces to the total
+errors plus the sum of (rung 2 errors minus rung 0 errors), so it compares the endpoints and does
+not establish a monotone decline through the middle rung. Its calibration assumes within-question
+exchangeability, which the reused, selected bottom rung and the two-day gap weaken. No power claim.
 
-(c) Floor: a family with fewer than 12 errors across its three rungs reads "uninformative
-(floor)", not "no gradient", and cannot be "supported".
+(c) Floor (a heuristic, not a power threshold): a family with fewer than 12 errors across its three
+rungs reads "uninformative (floor)" and cannot be "supported". The anthropic family cannot be
+floor (its reused rung has 13).
 
-(d) Judge-overlap robustness: the same counts using only judges that never share a model with the
-family's honest debaters (anthropic: Luna and Llama-70B; openai: Haiku and Llama-70B). Robust if
-rung 0's error exceeds rung 2's on that subset (the subset permutation p is reported, not used).
+(d) Endpoint direction retained after excluding overlapping judges: the same counts using only
+judges that never share a model with the family's honest debaters (anthropic: Luna and Llama-70B;
+openai: Haiku and Llama-70B). Retained if rung 0's error exceeds rung 2's on that subset (it can
+turn on one verdict; the subset permutation p is reported, not used).
 
 (e) Decision, first matching rule:
 
 | Rule | Condition | Recommendation |
 |---|---|---|
-| R0 | Any rung's grid incomplete | No reading; finish or rerun the missing cells |
+| R0 | A stage stopped, or any rung's grid incomplete | No reading; finish or rerun the missing cells |
 | R1 | Both families have an eligible rung | Recommend to Jack and Joey a two-family fresh-world confirmation, each family with its strongest eligible honest model |
-| R2 | Exactly one family has an eligible rung, and its trend is supported and robust | Recommend to Jack and Joey a one-family fresh-world confirmation with that family's strongest eligible honest model (with only Haiku eligible: haiku~fable) |
-| R3 | Exactly one family has an eligible rung, and its trend is not supported, floor, or not robust | That family's reading weakens; recommend stop and report |
+| R2 | Exactly one family has an eligible rung, its trend is supported and its endpoint direction is retained | Recommend to Jack and Joey a one-family fresh-world confirmation with that family's strongest eligible honest model (with only Haiku eligible: haiku~fable) |
+| R3 | Exactly one family has an eligible rung, otherwise | That family does not meet the prespecified continuation rule; recommend stop and report (nonsignificance in this small study is not evidence of no gradient) |
 | R4 | No eligible rung | Recommend stop and report |
 
-In every case the ladder is exploratory on the same 20 canary questions that already decided the
-stop: adoption needs a frozen fresh-world confirmation; no pilot; no general asymmetry claim; no
-claim about the small-budget peak.
+R1 is a candidate-screen policy: it can recommend confirmation even if the trends reverse or the
+endpoint direction is not retained, and it does not establish a capability gradient. In every case
+the ladder is exploratory on the same 20 canary questions that already decided the stop; adoption
+needs a frozen fresh-world confirmation with its own approval and spend; no pilot; no general
+asymmetry claim; no claim about the small-budget peak.
 
 Disclosed limits: the ladder was proposed after haiku~fable cleared, and that rung is reused, so
 the anthropic trend starts from a rung selected for being high (regression to the mean would
 favour "supported"); the new rungs run two days after the reused ones with unchanged code and ids
-but possible provider-side drift; three rungs per family over 20 questions give the trend test
-little power; Haiku and Luna remain both debaters and judges in the bottom rungs, which (d)
-addresses only partly.
+but possible provider-side drift; the trend counts every judgment whatever the debate's compliance
+(compliance is reported per rung); Haiku and Luna remain both debaters and judges in the bottom
+rungs, which (d) addresses only partly.
+
+### Astra Ultra review of the design and code (consult 6, 2026-10-20)
+
+Codex session 01a15b5c-a28d-7053-b337-09c39aac1752, no tool calls; brief and verbatim opinion on
+the run machine as consults-20261018/consult6_ladder_review_{brief,opinion}.md (SHA-256
+3485d725e10c87505e9b687d37d906beb51a00e7fa44324be24fac4d9d0b158a and
+1bd88a91871ccaf0b6ba36a9c80fd7f77f6b0a65dd3573ff8c0348d4fca59d99). No spending sign-off on
+e4ac674 until three defects were fixed: a stopped or partial run raised before writing its R0
+report; missing compliance checks could leave a debate "compliant"; the overwrite guard covered
+only directories with a summary. It accepted the reuse of the bottom rungs, the statistics as
+implemented and R0 to R4 (R1 precedence defensible as candidate-screen policy), and asked for the
+wording now applied above (nominal exploratory p-values, endpoint contrast, "endpoint direction
+retained", R3 wording, parse-failure and liability disclosures, fingerprints). The fixes are in
+the next commit.

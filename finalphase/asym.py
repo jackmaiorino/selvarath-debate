@@ -168,6 +168,30 @@ def existing_pairings(base: Path) -> list[str] | None:
     return json.loads(path.read_text(encoding="utf-8"))["pairings"] if path.exists() else None
 
 
+def claim_dir(base: Path, config: dict) -> None:
+    """Bind base to one run configuration before any request.
+
+    A fresh or empty directory gets run_config.json. A directory with run_config.json resumes only
+    under the identical configuration (pairings, stage, cap, judges, orders, questions). A directory
+    without one is accepted only as a finished legacy run of the same pairings (probe-asym-v1, which
+    then just replays); anything else nonempty is refused, so no run's records are overwritten."""
+    cfg = base / "run_config.json"
+    if cfg.exists():
+        prior = json.loads(cfg.read_text(encoding="utf-8"))
+        if prior != config:
+            raise RuntimeError(f"{base} is bound to a different run configuration; refusing to overwrite or resume it")
+        return
+    if base.exists() and any(base.iterdir()):
+        prior_pairs = existing_pairings(base)
+        if prior_pairs is None:
+            raise RuntimeError(f"{base} holds files from an unidentified run; refusing to overwrite it")
+        if prior_pairs != config["pairings"]:
+            raise RuntimeError(f"{base} already holds a run of {prior_pairs}; refusing to overwrite it with {config['pairings']}")
+        return
+    base.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+
 def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
         pairings: tuple[tuple[str, str], ...] = PAIRINGS, n: int = 20, workers: int = 16,
         out_dir: str = ASYM_DIR, stage: str = ASYM_STAGE, cap: float = ASYM_CAP) -> dict:
@@ -180,15 +204,12 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
     if len(set(labels)) != len(labels):
         raise ValueError("duplicate pairing")
     base = root / out_dir
-    # A rerun with the same pairings replays from the store; different pairings would overwrite
-    # another run's records, so refuse before anything is sent.
-    prior = existing_pairings(base)
-    if prior is not None and prior != labels:
-        raise RuntimeError(f"{base} already holds a run of {prior}; refusing to overwrite it with {labels}")
     qs = {q["question_id"]: q for q in C.canary_questions(root / "bench", n)}
-    # Before any request: the matched self-play baseline must be complete.
+    # Before any request: the matched self-play baseline must be complete, and the output
+    # directory must be new, or this run's own (resumed), or the same finished legacy run.
     baseline = self_play_cells(root, set(qs), {parse_debater(d)[0] for _, d in pairs}, judges, ORDERS)
-    base.mkdir(parents=True, exist_ok=True)
+    claim_dir(base, {"pairings": labels, "stage": stage, "cap": cap, "judges": list(judges),
+                     "orders": list(ORDERS), "questions": sorted(qs)})
     s = Store(base / "probe.db", stage, cap, max_transport_attempts=6)
     try:
         tasks: dict[Hashable, Any] = {

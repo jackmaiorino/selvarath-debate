@@ -35,7 +35,7 @@ def test_wilson_and_trend_test():
 
 
 def _fam(reading, robust):
-    return {"trend": {"reading": reading}, "overlap_free_trend": {"robust": robust}}
+    return {"trend": {"reading": reading}, "overlap_free_trend": {"endpoint_direction_retained": robust}}
 
 
 def test_decision_rules_cover_every_case():
@@ -113,3 +113,64 @@ def test_ladder_refuses_an_incomplete_reused_rung(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="grid incomplete"):
         ladder.run(tmp_path, worlds, JUDGES)
     assert not sent and not (tmp_path / ladder.LADDER_DIR).exists()
+
+
+def test_missing_compliance_is_unknown_and_duplicates_are_refused(tmp_path, monkeypatch):
+    from finalphase.judging import ORDERS
+
+    _offline(monkeypatch)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    asym.run(tmp_path, worlds, JUDGES)
+    base = tmp_path / asym.ASYM_DIR
+    qids = {q["question_id"] for q in qs}
+    path = base / "compliance.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    drop = next(json.loads(x) for x in lines if json.loads(x)["role"] == "honest")
+    kept = [x for x in lines if json.loads(x)["custom_id"] != drop["custom_id"]]
+    path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    _, honest, _ = ladder.load_rungs(base, ["haiku~fable", "luna~astra"], qids, JUDGES, ORDERS)
+    st = honest[(drop["question_id"], drop["pairing"])]
+    assert st["unknown"] and not st["compliant"]
+    assert sum(v["compliant"] for v in honest.values()) == 39
+    path.write_text("\n".join(lines + lines[:1]) + "\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="duplicated compliance"):
+        ladder.load_rungs(base, ["haiku~fable", "luna~astra"], qids, JUDGES, ORDERS)
+
+
+def test_output_dir_is_bound_to_one_configuration(tmp_path, monkeypatch):
+    sent = []
+    _offline(monkeypatch, sent)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    sent.clear()
+    (tmp_path / "half").mkdir()
+    (tmp_path / "half" / "probe.db").write_bytes(b"")
+    with pytest.raises(RuntimeError, match="unidentified run"):
+        asym.run(tmp_path, worlds, JUDGES, (("sonnet", "fable"),), out_dir="half", stage="x", cap=50.0)
+    asym.run(tmp_path, worlds, JUDGES, (("sonnet", "fable"),), out_dir="mine", stage="x", cap=50.0)
+    sent.clear()
+    with pytest.raises(RuntimeError, match="different run configuration"):
+        asym.run(tmp_path, worlds, JUDGES, (("sonnet", "fable"),), out_dir="mine", stage="x", cap=60.0)
+    assert not sent
+    asym.run(tmp_path, worlds, JUDGES, (("sonnet", "fable"),), out_dir="mine", stage="x", cap=50.0)
+    assert not sent  # same configuration replays
+
+
+def test_stopped_ladder_writes_an_incomplete_report(tmp_path, monkeypatch):
+    _offline(monkeypatch)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    asym.run(tmp_path, worlds, JUDGES)
+
+    def stopped(*args, **kw):
+        (tmp_path / ladder.LADDER_DIR).mkdir()
+        store.Store(tmp_path / ladder.LADDER_DIR / "probe.db", ladder.LADDER_STAGE, 1.0).db.close()
+        raise store.CapExceeded("stage probe_ladder: cap")
+
+    monkeypatch.setattr(asym, "run", stopped)
+    with pytest.raises(ladder.LadderIncomplete, match="CapExceeded"):
+        ladder.run(tmp_path, worlds, JUDGES)
+    report = json.loads((tmp_path / ladder.LADDER_DIR / "ladder_summary.json").read_text())
+    assert report["decision"]["rule"] == "R0" and report["probe_ladder_spend_usd"] == 0.0
+    assert report["fingerprints"]["inputs"]["probe-asym-v1/judgments.jsonl"]
