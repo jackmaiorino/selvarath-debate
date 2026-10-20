@@ -174,10 +174,11 @@ general asymmetry effect or about the small-budget peak. Any report discloses al
 screens, that the surviving pairing was selected post hoc, the clustering, the judge overlap,
 and that compliance checks mean "no violations detected", not proven honesty.
 
-## Capability ladder (approved by Joey, relayed 2026-10-20; prepared, not run)
+## Capability ladder (approved by Joey, relayed 2026-10-20; run 2026-10-20 at 426bb4b)
 
-Status: prepared on the desktop; nothing sent. Needs Astra Ultra sign-off and the coordinator's
-go before any spend.
+Status: run on the desktop 2026-10-20 after Astra Ultra sign-off (consults 7 and 8) and the
+coordinator's go; results at the end of this section. The design and reading below were frozen
+before any request.
 
 ### Why
 
@@ -223,9 +224,9 @@ Cost: from probe-asym-v1's ledger (haiku~fable $13.79, luna~astra $5.10, almost 
 dishonest side), the four rungs are expected at about $43 to $50 (sonnet~fable about $14.6,
 opus~fable about $16.2, terra~astra about $5.8, sol~astra about $6.4, more if the stronger honest
 models think longer). Cap $70. The cap bounds reserved liability, not expected billing: the store
-reserves each request's worst case, and the 480 compliance checks are reserved together (about
-$19 on v1's sizes) after the debates are bought, so a cap stop is possible after substantial spend;
-partial results are kept and the run reports R0.
+reserves each request's worst case, and the compliance checks and judgments are reserved after the
+debates are bought (in worker-width chunks that halve on a cap refusal, since 8260beb), so a cap
+stop is possible after substantial spend; partial results are kept and the run reports R0.
 
 ### Frozen reading
 
@@ -316,3 +317,44 @@ same pairings and question count rerun with fewer judges (it would overwrite the
 exports with the subset), and a legacy summary without failure counters passes; `ladder.load_rungs`
 sorts unvalidated round values, so a saved non-integer round raises TypeError after a run without
 writing the R0 report.
+
+### Results, 2026-10-20 (run at 426bb4b, clean worktree)
+
+Exit 0 in 37 minutes (18:33 to 19:10 EDT), no failed debates or judgments, no parse failures,
+every honest and dishonest debate compliant (0 violations, 0 unknown) in all six rungs. Returned
+model ids matched the registry for every call (claude-sonnet-5-5, claude-opus-5-5,
+claude-fable-5-1, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra, DeepSeek-V4-Pro-0813 and the three
+judges). Spend $42.70 ($70 cap): sonnet~fable $13.14, opus~fable $16.98, terra~astra $6.12,
+sol~astra $6.46; by stage debates $39.41, compliance $0.89, judging $2.39.
+
+| Rung | k0 error | Wilson 95% | Question bootstrap 95% | Eligible | Luna / Haiku / Llama-70B | Overlap-free judges | Matched self-play |
+|---|---:|---|---|---|---|---:|---:|
+| haiku~fable (reused) | 13/120 = 10.8% | 6.4 to 17.7% | 2.5 to 21.7% | yes | 2 / 7 / 4 | 6/80 | 4/120 |
+| sonnet~fable | 29/120 = 24.2% | 17.4 to 32.6% | 12.5 to 36.7% | yes | 1 / 9 / 19 | 20/80 | 4/120 |
+| opus~fable | 8/120 = 6.7% | 3.4 to 12.6% | 1.7 to 12.5% | no | 0 / 4 / 4 | 4/80 | 4/120 |
+| luna~astra (reused) | 5/120 = 4.2% | 1.8 to 9.4% | 0.8 to 8.3% | no | 0 / 0 / 5 | 5/80 | 3/120 |
+| terra~astra | 1/120 = 0.8% | 0.1 to 4.6% | 0.0 to 2.5% | no | 0 / 0 / 1 | 1/80 | 3/120 |
+| sol~astra | 0/120 = 0.0% | 0.0 to 3.1% | 0.0 to 0.0% | no | 0 / 0 / 0 | 0/80 | 3/120 |
+
+Overlap-free judges are Luna and Llama-70B for the anthropic family, Haiku and Llama-70B for the
+openai family.
+
+Trend: anthropic 50 errors over its three rungs, p = 0.242 (nominal, one-sided), "not supported";
+endpoint direction retained without overlapping judges (6/80 vs 4/80; subset p = 0.381). openai
+6 errors, below the floor of 12, so "uninformative (floor)" whatever its p (0.006); endpoint
+direction retained (5/80 vs 0/80).
+
+Decision: **R3**. Only the anthropic family has an eligible rung (haiku and sonnet), and its trend
+is not supported, so it does not meet the prespecified continuation rule; recommend stop and
+report. In the openai family no rung reaches 12/120.
+
+Descriptive, not part of the frozen reading: the anthropic family is not monotone. Sonnet as the
+honest side gave the highest error of any rung, with Llama-70B carrying 19 of its 29 errors and the
+errors spread over 10 of 20 questions; Sonnet's honest turns were the shortest of any rung (mean
+434 words against Fable's 818; Haiku 1,044, Opus 630). Opus brought error back to about the self-play
+level. The openai family fell from 4.2% to 0.8% to 0%, close to its self-play baseline throughout.
+None of this is evidence for or against the small-budget peak.
+
+Summary `probe-ladder-v1/ladder_summary.json`, SHA-256
+8736067aa017dc7708a4fc20c2674fa3c0a11bd4754b9479b1508a8856fe9898 (new-rung `summary.json`
+6b15784e67f56e467b4b90da3e26484d1f4d3447a0b94c9d4bb6580876d31186).
