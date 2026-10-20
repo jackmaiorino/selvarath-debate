@@ -37,14 +37,14 @@ def norm_claim(c: str) -> str:
 def oracle_request(oracle: str, world_id: str, world: str, claim: str) -> Request:
     user = P.ORACLE_USER.format(world=world, claim=claim.strip())
     prefix = user.index("QUERY:")  # world block is identical across every query on this world
-    return Request(f"oracle:{oracle}:{_h(P.ORACLE_SYSTEM, n=8)}:{world_id}:{_h(norm_claim(claim))}", oracle, P.ORACLE_SYSTEM,
+    return Request(f"oracle:{oracle}:{_h(P.ORACLE_SYSTEM, n=8)}:{world_id}:{_h(claim.strip())}", oracle, P.ORACLE_SYSTEM,
                    (("user", user),), ORACLE_MAX_TOKENS, cache_first=prefix)
 
 
 def gate_request(gate: str, q: dict, claim: str) -> Request:
     c1, c2 = sorted([q["correct_answer"], q["wrong_answer"]])  # unlabelled, fixed order
     user = P.GATE_USER.format(question=q["question"], cand1=c1, cand2=c2, claim=claim.strip())
-    return Request(f"gate:{gate}:{_h(P.GATE_SYSTEM, n=8)}:{q['question_id']}:{_h(norm_claim(claim))}", gate, P.GATE_SYSTEM, (("user", user),), GATE_MAX_TOKENS)
+    return Request(f"gate:{gate}:{_h(P.GATE_SYSTEM, n=8)}:{q['question_id']}:{_h(claim.strip())}", gate, P.GATE_SYSTEM, (("user", user),), GATE_MAX_TOKENS)
 
 
 def parse_gate(text: str) -> str:
@@ -107,6 +107,8 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
             if screen.allowed:
                 g = yield gate_request(gate, item, claim)
                 rec["cost"] += g.cost
+                if g.status != "ok":
+                    rec["events"].append({"step": step, "event": "gate_failure", "status": g.status, "detail": g.detail[:300]})
                 decision = parse_gate(g.text) if g.status == "ok" else "REJECT"
                 gate_reason = "classifier" if decision == "REJECT" else ""
             qrec = {"slot": used + 1, "raw": r.text[:2000], "claim": claim, "well_formed": well_formed,
@@ -128,6 +130,8 @@ def judge_task(item: dict, judge: str, arm: str, order: str, oracle: str, gate: 
                 continue
             o = yield oracle_request(oracle, item["world_id"], item["world_text"], claim)
             rec["cost"] += o.cost
+            if o.status != "ok":
+                rec["events"].append({"step": step, "event": "oracle_failure", "status": o.status, "detail": o.detail[:300]})
             ans = normalize_oracle(o.text) if o.status == "ok" else "INVALID"
             qrec["oracle"] = ans
             rec["queries"].append(qrec)

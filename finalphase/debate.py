@@ -40,13 +40,14 @@ def pair_label(honest: str, dishonest: str) -> str:
 
 
 def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: str,
-                dishonest: str | None = None):
+                dishonest: str | None = None, error_regen: bool = True):
     """Yields debater Requests; returns the transcript record.
 
     q: question record with question_id, question, correct_answer, wrong_answer,
     wrong_answer_defensibility. condition labels the id space (e.g. "uncapped", "cap150").
     Self-play by default. With dishonest set, debater plays the honest side and dishonest the
     other; either may carry an effort override ("haiku", "fable@low"). Self-play ids are unchanged.
+    error_regen=False regenerates only empty turns, not provider errors (the confirmation's retry rule).
     """
     qid = q["question_id"]
     hf = honest_first(qid)
@@ -72,7 +73,7 @@ def debate_task(q: dict, world: str, debater: str, cap: int | None, condition: s
         r, attempt, over = first, 0, []
         while True:
             empty = r.status in ("ok", "truncated") and not r.text.strip()
-            if (r.status == "error" or empty) and attempt < MAX_EMPTY_REGEN:
+            if ((r.status == "error" and error_regen) or empty) and attempt < MAX_EMPTY_REGEN:
                 attempt += 1
                 r = yield req(role, rnd, history, attempt, None)
                 continue
