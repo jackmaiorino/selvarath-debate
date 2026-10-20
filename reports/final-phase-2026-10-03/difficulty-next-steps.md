@@ -302,6 +302,17 @@ exploratory ladder (about $43 to $50 expected, hard $70 cap), conditional on the
 points 2 to 6, 8 and 10 resolved. It listed non-blocking recovery and legacy defects (a missing
 export escaped the R0 report; a configuration refusal could overwrite another run's report; a
 legacy directory was accepted on pairings alone; compliance checks were reserved all at once),
-and noted that each saved debate's full turn schedule was not checked; all fixed in the next
-commit (the reuse check now also requires every saved debate to have all three rounds for both
-sides) and sent back for a focused check.
+and noted that each saved debate's full turn schedule was not checked; these were addressed in
+8260beb (the reuse check now also requires every saved debate to have all three rounds for both
+sides).
+
+Focused check (consult 8, session 01a15b6f-55f6-7c80-bc6d-dacdcfc0398d, no tool calls; brief and
+opinion SHA-256 f692d473275e9f9ab568e13721c2d80e3c7f708fb7374d4776015d1b1c5c9705 and
+473437ed4c8cb61e751c9c2dbe936c84117404716f7d2c65ab120e839a7f6fc6): spending sign-off confirmed on
+8260beb for this exploratory ladder (about $43 to $50 expected, hard $70 cap), conditional on the
+coordinator's go. Points 7, 8 and 11 resolved; point 9 partly. Residual non-blocking defects, not
+on the ladder's path and left as reviewed: `asym.claim_dir` still accepts a legacy directory of the
+same pairings and question count rerun with fewer judges (it would overwrite the full judgment
+exports with the subset), and a legacy summary without failure counters passes; `ladder.load_rungs`
+sorts unvalidated round values, so a saved non-integer round raises TypeError after a run without
+writing the R0 report.
