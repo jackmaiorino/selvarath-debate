@@ -23,7 +23,7 @@ from typing import Any
 
 from . import asym as AS
 from . import canary as C
-from .debate import pair_label
+from .debate import N_ROUNDS, pair_label
 
 LADDER_DIR = "probe-ladder-v1"
 LADDER_STAGE = "probe_ladder"
@@ -105,7 +105,7 @@ def load_rungs(base: Path, labels: list[str], questions: set[str], judges: tuple
     """Judgment rows and honest/dishonest compliance status for labels, from a finished run in base.
 
     Refuses unless every label has the full (question, judge, order) grid exactly once and one saved
-    debate per question, and every saved compliance verdict re-parses to the same value from its
+    debate per question with the full turn schedule, and every saved compliance verdict re-parses to the same value from its
     text. The expected checks are one per saved debate turn; a duplicated or unexpected check is
     refused, and a missing one counts as unknown (so that debate is never compliant)."""
     path = base / "judgments.jsonl"
@@ -131,6 +131,9 @@ def load_rungs(base: Path, labels: list[str], questions: set[str], judges: tuple
         if d["debater"] not in labels:
             continue
         debates[(d["question_id"], d["debater"])] += 1
+        schedule = sorted((t["round"], t["role"]) for t in d["turns"])
+        if schedule != sorted((r, role) for r in range(1, N_ROUNDS + 1) for role in ("honest", "dishonest")):
+            raise RuntimeError(f"{base.name}: debate {d['question_id']} {d['debater']} lacks the full turn schedule")
         for t in d["turns"]:
             cid = f"compliance:asym:{d['debater']}:{d['question_id']}:r{t['round']}:{t['role']}"
             if cid in expected:
@@ -310,15 +313,17 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...], n: int = 2
     try:
         new_summary = AS.run(root, worlds, judges, NEW, n=n, workers=workers,
                              out_dir=LADDER_DIR, stage=LADDER_STAGE, cap=LADDER_CAP)
+    except AS.RunRefused:
+        raise  # refused before any request of this call: nothing to report, and another run's report is kept
     except Exception as e:
         if not (base / "probe.db").exists():
-            raise  # refused before any request: nothing spent, nothing to report
+            raise  # stopped before any request: nothing spent, nothing to report
         raise incomplete(f"{type(e).__name__}: {e}") from e
     failures = {"new_failed_debates": new_summary["failed_debates"], "new_failed_judgments": new_summary["failed_judgments"]}
     try:
         new = load_rungs(base, new_labels, qs, judges, ORDERS)
-    except RuntimeError as e:
-        raise incomplete(str(e), failures) from e
+    except (RuntimeError, OSError, ValueError, KeyError) as e:
+        raise incomplete(f"{type(e).__name__}: {e}", failures) from e
     baseline = AS.self_play_cells(root, qs, {d for d, _ in FAMILIES.values()}, judges, ORDERS)
     rows, honest, dishonest = old[0] + new[0], {**old[1], **new[1]}, {**old[2], **new[2]}
     summary = {**head, **failures, **analyze(rows, honest, dishonest, baseline, qs, judges, ORDERS),

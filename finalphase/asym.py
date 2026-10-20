@@ -36,6 +36,10 @@ EFFORTS = ("low", "medium", "high")
 MAX_FLAGGED_DEBATES = 2
 
 
+class RunRefused(RuntimeError):
+    """Refused before any request of this call (missing baseline or an output directory bound elsewhere)."""
+
+
 def canonical_debater(side: str) -> str:
     """Validate a debater spec and drop an effort override equal to the model's default."""
     if any(c in side for c in ":~"):
@@ -96,7 +100,7 @@ def self_play_cells(root: Path, questions: set[str], dishonest_models: set[str],
     duplicated baseline stops the probe instead of leaving it without a comparison."""
     path = root / "canary" / "judgments.jsonl"
     if not path.exists():
-        raise RuntimeError(f"self-play reference {path} is missing")
+        raise RunRefused(f"self-play reference {path} is missing")
     need = {(q, d, j, o) for q in questions for d in dishonest_models for j in judges for o in orders}
     seen: dict[tuple[str, str, str, str], list[bool]] = collections.defaultdict(list)
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -110,7 +114,7 @@ def self_play_cells(root: Path, questions: set[str], dishonest_models: set[str],
     missing = need - set(seen)
     dup = [k for k, v in seen.items() if len(v) > 1]
     if missing or dup:
-        raise RuntimeError(f"self-play reference incomplete: {len(missing)} missing, {len(dup)} duplicated cells")
+        raise RunRefused(f"self-play reference incomplete: {len(missing)} missing, {len(dup)} duplicated cells")
     return {k: v[0] for k, v in seen.items()}
 
 
@@ -173,20 +177,24 @@ def claim_dir(base: Path, config: dict) -> None:
 
     A fresh or empty directory gets run_config.json. A directory with run_config.json resumes only
     under the identical configuration (pairings, stage, cap, judges, orders, questions). A directory
-    without one is accepted only as a finished legacy run of the same pairings (probe-asym-v1, which
-    then just replays); anything else nonempty is refused, so no run's records are overwritten."""
+    without one is accepted only as a finished legacy run of the same pairings and question count with
+    no failed debates or judgments (probe-asym-v1, which then just replays); anything else nonempty
+    is refused, so no run's records are overwritten."""
     cfg = base / "run_config.json"
     if cfg.exists():
         prior = json.loads(cfg.read_text(encoding="utf-8"))
         if prior != config:
-            raise RuntimeError(f"{base} is bound to a different run configuration; refusing to overwrite or resume it")
+            raise RunRefused(f"{base} is bound to a different run configuration; refusing to overwrite or resume it")
         return
     if base.exists() and any(base.iterdir()):
         prior_pairs = existing_pairings(base)
         if prior_pairs is None:
-            raise RuntimeError(f"{base} holds files from an unidentified run; refusing to overwrite it")
+            raise RunRefused(f"{base} holds files from an unidentified run; refusing to overwrite it")
         if prior_pairs != config["pairings"]:
-            raise RuntimeError(f"{base} already holds a run of {prior_pairs}; refusing to overwrite it with {config['pairings']}")
+            raise RunRefused(f"{base} already holds a run of {prior_pairs}; refusing to overwrite it with {config['pairings']}")
+        prior = json.loads((base / "summary.json").read_text(encoding="utf-8"))
+        if prior.get("questions") != len(config["questions"]) or prior.get("failed_debates") or prior.get("failed_judgments"):
+            raise RunRefused(f"{base} holds a legacy run with a different question count or failures; refusing to overwrite it")
         return
     base.mkdir(parents=True, exist_ok=True)
     cfg.write_text(json.dumps(config, indent=2), encoding="utf-8")
@@ -196,7 +204,7 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
         pairings: tuple[tuple[str, str], ...] = PAIRINGS, n: int = 20, workers: int = 16,
         out_dir: str = ASYM_DIR, stage: str = ASYM_STAGE, cap: float = ASYM_CAP) -> dict:
     """out_dir, stage and cap default to the 2026-10-18 probe; the capability ladder passes its own."""
-    from .engine import drive
+    from .engine import _run_live_chunks, drive
     from .judging import ORDERS, judge_task
 
     pairs = [check_pairing(h, d) for h, d in pairings]
@@ -218,7 +226,8 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...],
         debates, failed = drive(s, tasks, workers=workers)
         comp = [compliance_request(deb["debater"], qs[deb["question_id"]], t) for deb in debates.values()
                 for t in deb["turns"]]
-        cout = s.run(comp, workers=workers)
+        # Worker-width chunks, halved on a cap refusal, as for debate and judging rounds.
+        cout = _run_live_chunks(s, comp, workers)
         jt: dict[Hashable, Any] = {}
         for deb in debates.values():
             qid, label = deb["question_id"], deb["debater"]

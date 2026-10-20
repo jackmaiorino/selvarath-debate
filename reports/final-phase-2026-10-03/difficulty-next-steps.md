@@ -203,16 +203,19 @@ model, so each rung bundles model identity with effort.
 The two bottom rungs are reused from probe-asym-v1 rather than re-run (Astra: acceptable for
 exploratory candidate selection; a fresh rerun would not make these questions confirmatory).
 Before any request the ladder refuses unless both have the full 20 x 3 x 2 grid exactly once,
-one saved debate per question and pairing, and every saved compliance verdict re-parses from its
+one saved debate per question and pairing with all three rounds for both sides, and every saved compliance verdict re-parses from its
 text; expected checks are one per saved debate turn, a duplicated or unexpected check is refused,
 and a missing one counts as unknown. The self-play baseline check also runs first. The four new
 rungs (80 debates, 480 judgments) run in their own directory `probe-ladder-v1`, stage
 `probe_ladder`, store and cap. An output directory is bound to one run configuration (pairings,
 stage, cap, judges, orders, questions) by `run_config.json` before any request: a different
 configuration, or a nonempty directory from an unidentified run, is refused; a directory without
-that file is accepted only as a finished run of the same pairings (probe-asym-v1). A stopped or
-incomplete run writes an R0 report with spend and the reason and exits non-zero; rerunning
-resumes in the same store under the same configuration and cap. The cap is never raised
+that file is accepted only as a finished run of the same pairings and question count with no
+failed debates or judgments (probe-asym-v1). Such a refusal leaves any existing report untouched.
+A stopped or incomplete run (including missing exports) writes an R0 report with spend and the
+reason and exits non-zero; rerunning resumes in the same store under the same configuration and
+cap. Compliance checks are sent in worker-width chunks that halve on a cap refusal, like debate
+and judging rounds, so a rerun can finish them within the cap when single checks fit. The cap is never raised
 automatically. No effort-only pairs (not in what Joey approved). The summary records the git
 commit, module hashes and the hashes of the reused files.
 
@@ -290,4 +293,15 @@ only directories with a summary. It accepted the reuse of the bottom rungs, the 
 implemented and R0 to R4 (R1 precedence defensible as candidate-screen policy), and asked for the
 wording now applied above (nominal exploratory p-values, endpoint contrast, "endpoint direction
 retained", R3 wording, parse-failure and liability disclosures, fingerprints). The fixes are in
-the next commit.
+2d1ea1e.
+
+Re-review (consult 7, session 01a15b68-0feb-7750-84f4-58a566c7f100, no tool calls; brief and
+opinion SHA-256 6b4654343283a2a1f45200b41a9ee50df5991605ddebc6aee4c466a880df59e4 and
+5ae1a898ffcdcfdf7a41adeb3ac9a4a8054f9ac2f1e11bc700e37ad330a363ed): spending sign-off for this
+exploratory ladder (about $43 to $50 expected, hard $70 cap), conditional on the coordinator's go;
+points 2 to 6, 8 and 10 resolved. It listed non-blocking recovery and legacy defects (a missing
+export escaped the R0 report; a configuration refusal could overwrite another run's report; a
+legacy directory was accepted on pairings alone; compliance checks were reserved all at once),
+and noted that each saved debate's full turn schedule was not checked; all fixed in the next
+commit (the reuse check now also requires every saved debate to have all three rounds for both
+sides) and sent back for a focused check.

@@ -174,3 +174,62 @@ def test_stopped_ladder_writes_an_incomplete_report(tmp_path, monkeypatch):
     report = json.loads((tmp_path / ladder.LADDER_DIR / "ladder_summary.json").read_text())
     assert report["decision"]["rule"] == "R0" and report["probe_ladder_spend_usd"] == 0.0
     assert report["fingerprints"]["inputs"]["probe-asym-v1/judgments.jsonl"]
+
+
+def test_refusals_keep_reports_and_legacy_runs(tmp_path, monkeypatch):
+    sent = []
+    _offline(monkeypatch, sent)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    asym.run(tmp_path, worlds, JUDGES)
+    sent.clear()
+    # A legacy run of the same pairings but another question count is refused, not overwritten.
+    (tmp_path / "legacy").mkdir()
+    (tmp_path / "legacy" / "summary.json").write_text(json.dumps(
+        {"pairings": ["haiku~fable", "luna~astra"], "questions": 5, "failed_debates": 0, "failed_judgments": 0}))
+    with pytest.raises(asym.RunRefused, match="legacy run"):
+        asym.run(tmp_path, worlds, JUDGES, out_dir="legacy")
+    # A ladder dir bound to another configuration keeps its report: the refusal is re-raised as is.
+    base = tmp_path / ladder.LADDER_DIR
+    base.mkdir()
+    (base / "run_config.json").write_text(json.dumps({"pairings": ["other"]}))
+    (base / "probe.db").write_bytes(b"")
+    (base / "ladder_summary.json").write_text("previous report")
+    with pytest.raises(asym.RunRefused, match="different run configuration"):
+        ladder.run(tmp_path, worlds, JUDGES)
+    assert (base / "ladder_summary.json").read_text() == "previous report" and not sent
+
+
+def test_missing_exports_after_a_run_give_an_incomplete_report(tmp_path, monkeypatch):
+    _offline(monkeypatch)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    asym.run(tmp_path, worlds, JUDGES)
+
+    def no_exports(*args, **kw):
+        (tmp_path / ladder.LADDER_DIR).mkdir()
+        store.Store(tmp_path / ladder.LADDER_DIR / "probe.db", ladder.LADDER_STAGE, 1.0).db.close()
+        (tmp_path / ladder.LADDER_DIR / "judgments.jsonl").write_text("")
+        return {"pairings": [], "failed_debates": 3, "failed_judgments": 0, "probe_asym_spend_usd": 0.0}
+
+    monkeypatch.setattr(asym, "run", no_exports)
+    with pytest.raises(ladder.LadderIncomplete):
+        ladder.run(tmp_path, worlds, JUDGES)
+    report = json.loads((tmp_path / ladder.LADDER_DIR / "ladder_summary.json").read_text())
+    assert report["decision"]["rule"] == "R0" and report["new_failed_debates"] == 3
+
+
+def test_a_saved_debate_missing_a_turn_is_refused(tmp_path, monkeypatch):
+    from finalphase.judging import ORDERS
+
+    _offline(monkeypatch)
+    qs, worlds = _bench_canary_from_probe(tmp_path)
+    _canary_baseline(tmp_path, qs)
+    asym.run(tmp_path, worlds, JUDGES)
+    path = tmp_path / asym.ASYM_DIR / "debates.jsonl"
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+    rows[0]["turns"] = rows[0]["turns"][:-1]
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="full turn schedule"):
+        ladder.load_rungs(tmp_path / asym.ASYM_DIR, ["haiku~fable", "luna~astra"],
+                          {q["question_id"] for q in qs}, JUDGES, ORDERS)
