@@ -555,3 +555,39 @@ check id field counts (a malformed id would raise IndexError outside the R0 repo
 validate judge order or step fields or the gate id's arm label; the store's reservations are
 empirical, not schedule-wide bounds. The owner approved up to $140 (2026-10-21 00:14Z) and the
 coordinator gave a conditional go on Astra's sign-off.
+
+### Run of 2026-10-20 and the outcome-blind completion amendment (2026-10-21)
+
+The confirmation ran on 2026-10-20 from 20:16 to 21:26 EDT at 0be4b40 (code e6a4f07) and ended
+**R0**: all 160 debates (960 turns) and every compliance response completed, but 3 of the 960 k0
+judgments never returned. Each is a Llama-3.3-70B (Together) k0 verdict whose two permitted
+attempts both got "503 Service unavailable", status transport_failed, $0 charged:
+
+- judge:W038-Q02:astra:uncapped:llama70:debate_k0:key_a:verdict
+- judge:W135-Q07:sonnet~astra:uncapped:llama70:debate_k0:key_a:verdict
+- judge:W135-Q07:astra:uncapped:llama70:debate_k0:key_b:verdict
+
+The store logged 55 Together 503s over about 16 minutes; all other affected calls succeeded on
+their second attempt. The run stopped before the technical checks and before any analysis; k0
+spend $102.75 of $128, checks $0. The original R0 report is kept as
+`confirm-sonnet-v1/confirm_summary_r0_original.json`. Nobody has seen any outcome: the analysis
+never ran and neither the judgments file nor any error count has been opened.
+
+Amendment (Astra Ultra consult 16, session 01a15c12-bf7c-7c23-88c6-4e67f881ad0a, brief and opinion
+SHA-256 c51ea7d2690dcb381b1e134bd0119e40549ea4a1e1acbf32fa501ebf3d6465b4 and
+0c86c564b75db4372a31615c2eba059b428ffcbdd1dac50cf6fc8bbfb6cd2880; approved by the coordinator
+within the owner's $140 approval), locked here before any outcome is read: exactly these three ids
+get one additional attempt each (three lifetime attempts), with identical stored requests, after
+Together shows no active incident and two tiny neutral unscored probes to the same model succeed at
+least 60 seconds apart, a five-minute wait, and serial dispatch 60 seconds apart. No further
+retry: if any id still fails, R0 is final. A digest of every other saved call is compared before
+and after; no other k0 call is sent. The 72 technical checks keep the two-attempt rule and the $12
+cap; the probes' $0.05 cap comes out of the k0 cap (k0 limited to $127.95 for the completion), so
+the total stays within $140. Analysis, gates, coding, samples and judges are unchanged: the
+unchanged `confirm-sonnet` command then replays every saved k0 response, runs the checks and
+computes the frozen reading. Code: `finalphase/confirm_complete.py` (`confirm-complete`), kept
+outside `confirm.py` so the confirmation's bound source hashes are unchanged; code sign-off in
+consults 17 and 18. A completed result is an amended-protocol confirmation, not full compliance
+with the original protocol, and every summary of it says: "The original run ended R0. Before
+outcome access, we amended its retry allowance for three never-answered transport failures. The
+completed analysis used unchanged frozen analysis rules."

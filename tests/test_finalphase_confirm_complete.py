@@ -93,3 +93,28 @@ def test_completion_refuses_ids_that_are_not_exactly_the_unanswered_set(tmp_path
     with pytest.raises(RuntimeError, match="not exactly the listed ids"):
         CC.complete_transport_failures(tmp_path, worlds, sleep=lambda s: None, ids=ids[:2])
     assert not sent
+
+
+def test_an_exception_mid_dispatch_is_recorded(tmp_path, monkeypatch):
+    worlds, ids = _three_failed(tmp_path, monkeypatch)
+    _flaky(monkeypatch, set())
+    calls = {"n": 0}
+    real = store.Store.call_one
+
+    def boom(self, req):
+        if not req.custom_id.startswith("probe:"):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise KeyboardInterrupt
+        return real(self, req)
+
+    monkeypatch.setattr(store.Store, "call_one", boom)
+    with pytest.raises(KeyboardInterrupt):
+        CC.complete_transport_failures(tmp_path, worlds, sleep=lambda s: None, ids=ids)
+    rec = json.loads((tmp_path / confirm.CONFIRM_DIR / "completion_record.json").read_text())
+    assert rec["disposition"].startswith("interrupted") and len(rec["dispatch"]) == 1
+    assert rec["dispatch"][0]["status"] == "ok"
+
+
+def test_completion_k0_cap_keeps_the_total_within_140():
+    assert CC.COMPLETION_K0_CAP + CC.PROBE_CAP + confirm.CHECK_CAP == 140.0
