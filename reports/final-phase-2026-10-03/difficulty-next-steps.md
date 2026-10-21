@@ -586,8 +586,9 @@ cap; the probes' $0.05 cap comes out of the k0 cap (k0 limited to $127.95 for th
 the total stays within $140. Analysis, gates, coding, samples and judges are unchanged: the
 unchanged `confirm-sonnet` command then replays every saved k0 response, runs the checks and
 computes the frozen reading. Code: `finalphase/confirm_complete.py` (`confirm-complete`), kept
-outside `confirm.py` so the confirmation's bound source hashes are unchanged; code sign-off in
-consults 17 and 18. A completed result is an amended-protocol confirmation, not full compliance
+outside `confirm.py` so the confirmation's bound source hashes are unchanged. Consults 17 and 18
+withheld code sign-off (shared cap, exception-safe record, probe model-id guard); each finding was
+fixed and the code sent back; it runs only after a sign-off, recorded below. A completed result is an amended-protocol confirmation, not full compliance
 with the original protocol, and every summary of it says: "The original run ended R0. Before
 outcome access, we amended its retry allowance for three never-answered transport failures. The
 completed analysis used unchanged frozen analysis rules."

@@ -142,9 +142,12 @@ def complete_transport_failures(root: Path, worlds: dict[str, dict], sleep=None,
         record["probe_spend_usd"] = probes.spent("completion_probe")
     finally:
         probes.db.close()
-    if any(p["status"] != "ok" for p in record["probes"]):
-        save("not dispatched: recovery probes failed (probe again later)")
-        raise RuntimeError("recovery probes did not both succeed; nothing dispatched (probe again later)")
+    from .models import MODELS
+
+    want = MODELS["llama70"].model_id
+    if any(p["status"] != "ok" or p.get("model_id") != want for p in record["probes"]):
+        save("not dispatched: recovery probes failed or came from another model (probe again later)")
+        raise RuntimeError(f"recovery probes did not both succeed from {want}; nothing dispatched (probe again later)")
     save("probes passed; dispatch pending")
 
     sleep(SETTLE_S)
@@ -166,9 +169,14 @@ def complete_transport_failures(root: Path, worlds: dict[str, dict], sleep=None,
         raise
     finally:
         s.db.close()
-    record["history_after"] = _history(db, ids)
-    record["after"] = _rows_digest(db, ids)
-    record["k0_spend_after_usd"] = _stage_spend(db)
+    try:
+        record["history_after"] = _history(db, ids)
+        record["after"] = _rows_digest(db, ids)
+        record["k0_spend_after_usd"] = _stage_spend(db)
+    except BaseException as e:
+        record["error"] = f"{type(e).__name__}: {e}"[:300]
+        save("dispatch finished but verification failed: reconcile from the store; R0 unless verified")
+        raise
     record["unchanged_other_calls"] = record["after"] == record["before"]
     done = all(d["status"] == "ok" for d in record["dispatch"]) and record["unchanged_other_calls"]
     save("complete: run confirm-sonnet" if done else "R0 final")

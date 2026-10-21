@@ -118,3 +118,23 @@ def test_an_exception_mid_dispatch_is_recorded(tmp_path, monkeypatch):
 
 def test_completion_k0_cap_keeps_the_total_within_140():
     assert CC.COMPLETION_K0_CAP + CC.PROBE_CAP + confirm.CHECK_CAP == 140.0
+
+
+def test_probes_from_another_model_dispatch_nothing(tmp_path, monkeypatch):
+    from finalphase.providers import Response
+
+    worlds, ids = _three_failed(tmp_path, monkeypatch)
+    sent = []
+
+    def provider(r, m):
+        sent.append(r.custom_id)
+        if r.custom_id.startswith("probe:"):
+            return Response(r.custom_id, "some/other-model", "ok", "ready")
+        return fake(r, m)
+
+    for p in ("anthropic", "openai", "together"):
+        monkeypatch.setitem(store.LIVE, p, provider)
+    with pytest.raises(RuntimeError, match="recovery probes"):
+        CC.complete_transport_failures(tmp_path, worlds, sleep=lambda s: None, ids=ids)
+    assert all(x.startswith("probe:") for x in sent)
+    assert all(v == ("transport_failed", 2) for v in _attempts(tmp_path, ids).values())
