@@ -328,3 +328,53 @@ def test_changed_inputs_cannot_resume_the_run(tmp_path, monkeypatch):
         with pytest.raises(asym.RunRefused):
             confirm.run(tmp_path, changed)
         assert not sent
+
+
+def test_a_failed_k0_verdict_response_is_r0(tmp_path, monkeypatch):
+    def bad(r, m, Response):
+        if r.custom_id.startswith("judge:") and ":sonnet~astra:" in r.custom_id and r.custom_id.endswith(":verdict") \
+                and ":debate_k0:" in r.custom_id and ":haiku:" in r.custom_id:
+            return Response(r.custom_id, m.model_id, "refusal", "", detail="refused")
+    worlds = _faulty(tmp_path, monkeypatch, bad)
+    with pytest.raises(confirm.ConfirmIncomplete, match="k0 verdict responses failed"):
+        confirm.run(tmp_path, worlds)
+
+
+def test_a_returned_malformed_verdict_keeps_the_unparsed_coding(tmp_path, monkeypatch):
+    def bad(r, m, Response):
+        if r.custom_id.startswith("judge:") and ":sonnet~fable:" in r.custom_id and r.custom_id.endswith(":verdict") \
+                and ":debate_k0:" in r.custom_id and ":luna:" in r.custom_id:
+            return Response(r.custom_id, m.model_id, "ok", "I cannot decide.")
+    worlds = _faulty(tmp_path, monkeypatch, bad)
+    summary = confirm.run(tmp_path, worlds)
+    assert summary["arms"]["sonnet~fable"]["parse_failures"] == 80 and summary["decision"]["rule"] in ("C1", "C2", "C3")
+
+
+def test_check_isolation_refuses_a_call_outside_its_session(tmp_path, monkeypatch):
+    worlds = _pilot_fixture(tmp_path, monkeypatch)
+    confirm.run(tmp_path, worlds)
+    base = tmp_path / confirm.CONFIRM_DIR
+    qs, _ = confirm.sample(tmp_path / "bench")
+    cq = confirm.check_question(qs)
+    confirm.isolation(base / "checks.db", cq["question_id"], cq["world_id"], list(confirm.ARMS))
+    import sqlite3
+    con = sqlite3.connect(base / "checks.db")
+    con.execute("UPDATE calls SET model='haiku' WHERE custom_id LIKE 'judge:%:luna:%' AND rowid IN "
+                "(SELECT rowid FROM calls WHERE custom_id LIKE 'judge:%:luna:%' LIMIT 1)")
+    con.commit(); con.close()
+    with pytest.raises(RuntimeError, match="outside its session"):
+        confirm.isolation(base / "checks.db", cq["question_id"], cq["world_id"], list(confirm.ARMS))
+
+
+def test_a_changed_helper_source_cannot_resume_the_run(tmp_path, monkeypatch):
+    worlds = _pilot_fixture(tmp_path, monkeypatch)
+    confirm.run(tmp_path, worlds)
+    real = confirm.frozen_inputs
+    def changed(qs, ws):
+        out = real(qs, ws)
+        out["source_sha256"]["analysis/infra/parsing.py"] = "0" * 64
+        return out
+    monkeypatch.setattr(confirm, "frozen_inputs", changed)
+    with pytest.raises(asym.RunRefused):
+        confirm.run(tmp_path, worlds)
+    assert "analysis/infra/parsing.py" in real(*[confirm.sample(tmp_path / "bench")[0], worlds])["source_sha256"]

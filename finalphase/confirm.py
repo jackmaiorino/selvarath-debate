@@ -95,6 +95,11 @@ def _debate(q: dict, world: str, label: str):
     return debate_task(q, world, h, None, "uncapped", dishonest=d, error_regen=False)
 
 
+# Helpers the judging loop executes (verdict parsing, claim extraction, DONE detection, query screen).
+HELPER_SOURCES = ("analysis/infra/parsing.py", "rejudge/composer.py", "rejudge/oracle_channel.py",
+                  "rejudge/query_screen.py")
+
+
 def _canon(x) -> str:
     return hashlib.sha256(json.dumps(x, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
@@ -116,7 +121,8 @@ def frozen_inputs(qs: list[dict], worlds: dict[str, dict]) -> dict[str, Any]:
                        "oracle_max_tokens": J.ORACLE_MAX_TOKENS, "gate_max_tokens": J.GATE_MAX_TOKENS},
             "source_sha256": {f: hashlib.sha256((here / f).read_bytes()).hexdigest()
                               for f in ("confirm.py", "asym.py", "ladder.py", "debate.py", "judging.py",
-                                        "prompts_study.py", "engine.py", "store.py", "providers.py", "models.py")}}
+                                        "prompts_study.py", "engine.py", "store.py", "providers.py", "models.py")}
+                             | {f: hashlib.sha256((here.parent / f).read_bytes()).hexdigest() for f in HELPER_SOURCES}}
 
 
 def _stage_spend(db: Path, stage: str) -> float | None:
@@ -237,7 +243,7 @@ def run(root: Path, worlds: dict[str, dict], workers: int = 16) -> dict:
     failures = {"failed_debates": len(failed), "failed_judgments": len(jfailed)}
     try:
         rows, honest, dishonest = LD.load_rungs(base, labels, set(qmap), JUDGES, ORDERS)
-        require_complete(debates, comp, cout, base / "confirm.db")
+        require_complete(debates, comp, cout, judged, base / "confirm.db")
     except (RuntimeError, OSError, ValueError, KeyError) as e:
         raise incomplete(f"{type(e).__name__}: {e}", failures) from e
 
@@ -266,6 +272,7 @@ def run(root: Path, worlds: dict[str, dict], workers: int = 16) -> dict:
     tech = technical_checks(checked, cfailed, expected, cq)
     try:
         provenance(base / "checks.db")
+        isolation(base / "checks.db", cq, qmap[cq]["world_id"], labels)
     except RuntimeError as e:
         tech["pass"] = False
         tech["problems"].append(str(e))
@@ -299,9 +306,10 @@ def _export(base: Path, debates: dict, comp: list, cout: dict, judged: dict) -> 
             f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in data)
 
 
-def require_complete(debates: dict, comp: list, cout: dict, db: Path) -> None:
+def require_complete(debates: dict, comp: list, cout: dict, judged: dict, db: Path) -> None:
     """R0 conditions beyond the judgment grid: every turn usable, every compliance response present,
-    and every saved response from the registry model it was sent to."""
+    every k0 verdict response returned (a returned but malformed verdict keeps the frozen unparsed
+    coding), and every saved response from the registry model it was sent to."""
     for (qid, label), d in debates.items():
         for t in d["turns"]:
             if t["status"] != "ok" or not t["text"].strip():
@@ -310,6 +318,9 @@ def require_complete(debates: dict, comp: list, cout: dict, db: Path) -> None:
     missing = [r.custom_id for r in comp if r.custom_id not in cout or cout[r.custom_id].status != "ok"]
     if missing:
         raise RuntimeError(f"{len(missing)} compliance responses missing or failed, e.g. {missing[0]}")
+    failed = [k for k, r in judged.items() if r.get("verdict_status") != "ok"]
+    if failed:
+        raise RuntimeError(f"{len(failed)} k0 verdict responses failed, e.g. {failed[0]}")
     provenance(db)
 
 
@@ -326,6 +337,26 @@ def provenance(db: Path) -> None:
         con.close()
     if bad:
         raise RuntimeError(f"{len(bad)} responses from an unexpected model, e.g. {bad[0]}")
+
+
+def isolation(db: Path, question: str, world: str, labels: list[str]) -> None:
+    """Each check session's calls stay in its session: judge steps go to the judge named in the id
+    ("judge:<question>:<arm label>:uncapped:<judge>:<budget arm>:<order>:<step>"), on the check
+    question and a check budget; oracle calls go to the oracle model about the check question's world;
+    gate calls go to the gate model about the check question."""
+    con = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+    try:
+        rows = con.execute("SELECT custom_id, model FROM calls").fetchall()
+    finally:
+        con.close()
+    for cid, model in rows:
+        p = cid.split(":")
+        ok = ((p[0] == "judge" and p[1] == question and p[2] in labels and p[3] == "uncapped" and p[4] == model
+               and p[5] in CHECK_ARMS)
+              or (p[0] == "oracle" and p[1] == ORACLE == model and p[3] == world)
+              or (p[0] == "gate" and p[1] == GATE == model and p[3] == question))
+        if not ok:
+            raise RuntimeError(f"check call outside its session: {cid} ({model})")
 
 
 def technical_checks(checked: dict, failed: list, expected: set, question: str) -> dict[str, Any]:

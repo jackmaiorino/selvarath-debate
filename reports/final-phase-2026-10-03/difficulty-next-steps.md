@@ -440,7 +440,8 @@ code fixes from consult 12 (consult12_confirm_review_*).
   only; no rerun of completed or unfavourable answers. Own directory `confirm-sonnet-v1`, bound
   before any request to its run configuration, including the hashes of the 40 question records and
   16 world texts, the resolved model specifications (ids, prices, efforts), token limits and the
-  source of the modules it runs; a changed input cannot resume the run. Oracle and gate request ids
+  source of the modules it runs, including the verdict-parsing, claim-extraction, DONE-detection and
+  query-screen helpers; a changed input cannot resume the run. Oracle and gate request ids
   hash the exact submitted claim (a fix that applies to every arm; no oracle or gate call had been
   made before). Gate and oracle failures are recorded as events.
 - Cost: expected k0 spend $104.40 from the ledgers (sonnet~fable $0.66, Fable self-play $1.19,
@@ -486,7 +487,7 @@ Decision, first matching rule:
 
 | Rule | Condition | Decision |
 |---|---|---|
-| R0 | Any required component incomplete or unusable (any arm's debate turn, compliance response or judgment; a response from an unexpected model id), a cap stop, or the technical checks fail | No adoption |
+| R0 | Any required component incomplete or unusable (any arm's debate turn, compliance response, judgment or k0 verdict response; a response from an unexpected model id), a cap stop, or the technical checks fail | No adoption |
 | C1 | Fable family fails any gate | Stop this direction, whatever the Astra family shows |
 | C2 | Fable family passes, Astra family fails | Fable-only proposal, requiring Jack and Joey's explicit decision |
 | C3 | Both families pass | Eligible for the two-family final experiment |
@@ -496,8 +497,12 @@ Astra-only rescue, replacement questions, outcome-dependent stopping or resizing
 pass when exactly the 72 expected sessions complete with parseable verdicts within the checks cap,
 each session's question, arm, judge and order identifiers match, no session uses more slots than
 its budget (an oracle answer or a second consecutive rejection uses a slot), every oracle answer is
-YES, NO or NOT ADDRESSED, no query step, gate or oracle call failed, and every saved response came
-from the registry model id; there is no accuracy, improvement, peak or recovery requirement.
+YES, NO or NOT ADDRESSED, no query step, gate or oracle call failed, every saved response came
+from the registry model id, and every call stays in its session (judge steps to the session's own
+judge on the check question; oracle calls to the oracle about that world; gate calls to the gate
+about that question); there is no accuracy, improvement, peak or recovery requirement. A k0 verdict
+response that came back is scored as frozen (an unparsed verdict counts wrong under raw coding); one
+that failed or was refused makes the run R0.
 
 A pass establishes an observed 10% screen and excess error over self-play on 16 world clusters;
 it does not establish a population error above 10%, adequate power, a capability effect, a length
