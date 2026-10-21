@@ -27,6 +27,7 @@ from . import asym as AS
 from . import authoring as A
 from . import canary as C
 from . import confirm as CF
+from . import confirm_complete as CC
 from . import ladder as LD
 from . import prompts_study as P
 from . import preflight
@@ -397,6 +398,7 @@ def main() -> None:
     sub.add_parser("probe-ladder")
     sub.add_parser("confirm-plan")
     sub.add_parser("confirm-sonnet")
+    sub.add_parser("confirm-complete")
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -439,6 +441,10 @@ def main() -> None:
         return
     if args.cmd == "confirm-plan":
         print(json.dumps(CF.plan(RUN_ROOT, {w["world_id"]: w for w in _worlds()}), indent=2))
+        return
+    if args.cmd == "confirm-complete":
+        # Outcome-blind completion of the three listed transport failures (consult 16 amendment).
+        CC.complete_transport_failures(RUN_ROOT, {w["world_id"]: w for w in _worlds()})
         return
     if args.cmd == "confirm-sonnet":
         # Own directory, stores and caps; the frozen reading is written to confirm_summary.json.
