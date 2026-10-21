@@ -592,3 +592,15 @@ fixed and the code sent back; it runs only after a sign-off, recorded below. A c
 with the original protocol, and every summary of it says: "The original run ended R0. Before
 outcome access, we amended its retry allowance for three never-answered transport failures. The
 completed analysis used unchanged frozen analysis rules."
+
+Completion code reviews (one-shot Astra Ultra, read-only, no tool calls; SHA-256 of brief and opinion):
+consult 17, session 01a15c23-7bb5-72f2-9a7e-cef47f06f791, no sign-off at cd34a11 (probe spend
+outside the $140 ceiling; record not exception-safe), c12759363358c335e72c84aab5136cb9cd48d15e6e5d67dd59bcd7fe8c063f1a /
+64bc867e0686d17598a09defe4786d62c53e82c11e863b61ea8636ca27a4e86c; consult 18, session
+01a15c38-8220-76d1-aa7d-1c7814de9b4e, no sign-off at 5ebfceb (probe model id unchecked; note wording),
+35ff1e263c5a5bd6ca9c7df234b8e405a883735106ceb40ac5408a0045e1e484 /
+a2f1815cb04d07b04ef8b951f00f1572490de1fc0b88d7570fc2cd92fc7dcde4; consult 19, session
+01a15c41-0e0c-7672-b951-fcf014274f7a, **sign-off at 4a8687c** to run `confirm-complete` and then the
+unchanged `confirm-sonnet` after a verified completion, with the incident prerequisite and the
+disclosure, 0ffcf862d4cc69829ef3bd2b9a542bc4c82f29027eb70f0fec7c6b8a8fbad1d8 /
+26c14a3f80c1f91c4efff8ef788f1750feecb30a621334868729ac99f10de026.
