@@ -170,3 +170,16 @@ def test_distribution_median_and_placement_validation(tmp_path):
     (tmp_path / "pilot_placements_2.json").write_text(json.dumps(future))
     with pytest.raises(RuntimeError):
         pilot.latest_placements(tmp_path)
+
+
+def test_a_new_qualification_version_samples_none_of_the_earlier_questions(tmp_path, monkeypatch):
+    sent = []
+    worlds = _confirmed(tmp_path, monkeypatch, sent)
+    first = pilot.qualification_sample(tmp_path, worlds)
+    (tmp_path / "pilot_qualification_v2.json").write_text(json.dumps(
+        {"parallel": {"request_ids": [r.custom_id for r in first]}}))
+    monkeypatch.setattr(pilot, "QUALIFICATION_VERSION", "v3")
+    second = pilot.qualification_sample(tmp_path, worlds)
+    qid = lambda r: r.custom_id.split(":")[-3]
+    assert {qid(r) for r in first} and not {qid(r) for r in first} & {qid(r) for r in second}
+    assert len(second) == 2 * pilot.QUALIFICATION_QUESTIONS

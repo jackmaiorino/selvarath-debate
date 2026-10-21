@@ -184,10 +184,24 @@ def latest_placements(root: Path) -> Path:
     return path
 
 
+def prior_qualification_questions(root: Path) -> set[str]:
+    """Questions sampled by any other qualification version's receipt (request ids end :<qid>:r1:<role>)."""
+    used = set()
+    for path in root.glob("pilot_qualification_*.json"):
+        if path.name == f"pilot_qualification_{QUALIFICATION_VERSION}.json":
+            continue
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        for arm in ("serial", "parallel"):
+            for cid in rec.get(arm, {}).get("request_ids", []):
+                used.add(cid.split(":")[-3])
+    return used
+
+
 def qualification_sample(root: Path, worlds: dict[str, dict]) -> list[Request]:
-    """Blind opening-round requests of the first QUALIFICATION_QUESTIONS fresh pilot questions, in a hash order
-    salted by QUALIFICATION_VERSION, so a new version never meets an earlier version's cached canonical calls."""
-    exposed = _exposed(root)
+    """Blind opening-round requests of the first QUALIFICATION_QUESTIONS fresh pilot questions in a fixed hash
+    order, excluding every question an earlier qualification version used. Canonical debate ids are per
+    question, so a new version cannot meet an earlier version's cached calls."""
+    exposed = _exposed(root) | prior_qualification_questions(root)
     fresh = sorted((q for q in pilot_questions(root / "bench") if q["question_id"] not in exposed),
                    key=lambda q: _sha(f"pilot-qualification-{QUALIFICATION_VERSION}:{q['question_id']}".encode()))[:QUALIFICATION_QUESTIONS]
     sample = [r for q in fresh for r in next(debate(q, worlds[q["world_id"]]["world_text"]))]

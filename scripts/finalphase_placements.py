@@ -45,7 +45,9 @@ def main() -> None:
     key = os.environ.get("RUNPOD_API_KEY", "").strip()
     if key:
         try:
-            req = urllib.request.Request("https://rest.runpod.io/v1/pods", headers={"Authorization": f"Bearer {key}"})
+            # A browser-like user agent: the endpoint refuses urllib's default with 403.
+            req = urllib.request.Request("https://rest.runpod.io/v1/pods",
+                                         headers={"Authorization": f"Bearer {key}", "User-Agent": "finalphase-placements/1.0"})
             with urllib.request.urlopen(req, timeout=30) as r:
                 pods = json.loads(r.read().decode())
             pods = pods if isinstance(pods, list) else pods.get("pods", [])

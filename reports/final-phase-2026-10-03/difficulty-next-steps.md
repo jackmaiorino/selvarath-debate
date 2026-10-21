@@ -754,7 +754,8 @@ The pilot (amends section 7.4):
   qualify-pilot` moves the manifest to the current commit (kept in `commit_history`), then times 16
   blind opening turns of 8 fresh pilot questions serially against 16 workers (the coverage the
   receipt records; judging, oracle and gate calls are not covered); an arm that started and was
-  interrupted, or has cached calls, cannot qualify (a new version samples different fresh questions).
+  interrupted, or has cached calls, cannot qualify (a new version excludes every question an earlier
+  version sampled, so it cannot meet their cached calls).
   The inventory must record a status for all three placements, on this host, within the last day. `pilot` then runs with
   the receipt's selected worker count; the launcher refuses any other. The self-play `judge` path is
   closed.
