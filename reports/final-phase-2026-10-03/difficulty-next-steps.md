@@ -714,8 +714,24 @@ The pilot (amends section 7.4):
   separately for the exposed 40 and the fresh 135, with the combined figure descriptive. Pilot
   outcomes are not pooled into main inference and are not used for further difficulty tuning.
 - Sealed: every non-k0 verdict outcome (accuracy, correctness transitions, accuracy conditional on
-  query use). Non-k0 verdicts are written only to `pilot/sealed/judgments_full.jsonl`, which is
-  not opened until main's preregistered analysis; the open export omits them.
+  query use). The pilot store (`pilot.db`) and `pilot/sealed/judgments_full.jsonl` hold them and are
+  not opened for outcomes until main's preregistered analysis; the open export
+  (`pilot/judgments_open.jsonl`) is an explicit projection that keeps, for non-k0 arms, only ids,
+  verdict status, parse status, query use, cost, tokens, event types and per-query slot, claim,
+  well-formedness, screen, gate decision, replacement flag and oracle label (no verdict,
+  confidence, correctness, reasoning or raw step text). Adjudicated oracle accuracy is permitted.
+- k0 readout: a missing k0 cell is listed and never scored, and the figure is marked incomplete; a
+  verdict counts correct only if it parsed.
+- Breakdowns: judge sessions by judge, arm and order; calls by model, call kind and arm or role,
+  with status, attempt counts, finish reasons and token distributions (mean, median, 90th
+  percentile, maximum); store events (transport retries). The store records no per-call latency;
+  stage times are reported instead. Truncation uses returned responses (ok, truncated, refusal) as
+  the denominator; provider errors and transport failures are counted separately.
+- Order balance: honest-first is assigned by deterministic hash parity (`debate.honest_first`), not an
+  exact half or an exact within-author balance as design section 3 says; the readout reports the
+  realized balance overall and by author, and the reused debates keep theirs.
+- Reuse receipt: written once (source path, ids and cell hashes, original cost of every reused
+  cell); a rerun must match it.
 - Compliance: the blind DeepSeek check on every debate turn; all flagged turns and a fixed
   hash-chosen sample of 20 unflagged turns are read by the coordinating Claude session; flagged
   turns are kept, not regenerated.
@@ -733,10 +749,17 @@ The pilot (amends section 7.4):
   changed oracle or gate requires a bounded engineering check before main.
 - Main forecast: from the pilot's fresh-work costs (reused cells and the qualification excluded),
   live list prices and a batch estimate (Anthropic and OpenAI at half price), against the $3,634 cap.
-- Launch: the supported launcher (`python -m finalphase.cli qualify-pilot`, then `pilot`) refuses
-  without a run manifest naming the current commit and a compatible serial/parallel throughput
-  receipt for the pilot; `qualify-pilot` makes both (about $0.10, in the pilot store and cap). The
-  self-play `judge` path is closed.
-- Forecast: about $3.0 to $5.0 per question live from measured per-session costs, so about $530 to
-  $880 for the pilot, inside the $1,275 cap with room for qualification, compliance, oracle
-  selection and retries; the store enforces the cap.
+- Launch: `scripts/finalphase_placements.py` records a fresh read-only placement inventory (Jack's
+  PC, HaleysPC by strict batch SSH, RunPod pod listing; nothing started); `python -m finalphase.cli
+  qualify-pilot` moves the manifest to the current commit (kept in `commit_history`), then times 16
+  blind opening turns of 8 fresh pilot questions serially against 16 workers (the coverage the
+  receipt records; judging, oracle and gate calls are not covered); an arm that started and was
+  interrupted, or has cached calls, cannot qualify (a new version is needed). `pilot` then runs with
+  the receipt's selected worker count; the launcher refuses any other. The self-play `judge` path is
+  closed.
+- Forecast and budget: from measured per-session costs, about $3.0 to $5.0 per question live:
+  debates about $82 (135 fresh questions at $0.61), compliance about $6, judging, oracle and gate
+  about $440 to $790, qualification about $1.60, oracle-selection challenger calls about $10 to
+  $40, the batch-path check up to $20: about $540 to $940 in all. The pilot run itself (debates,
+  compliance, judging) is capped at $1,215, so $60 of the $1,275 stays for oracle selection ($40)
+  and the batch-path check ($20) whatever judging costs; the store enforces both caps.

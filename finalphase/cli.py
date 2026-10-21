@@ -425,6 +425,8 @@ def main() -> None:
         print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
         return
     if args.cmd == "qualify-pilot":
+        # The manifest moves to the current commit first (recorded in commit_history); every other check stands.
+        PL.bump_manifest_commit(RUN_ROOT, "pilot launch under the 2026-10-21 Sonnet-honest amendment")
         preflight.require("pilot", RUN_ROOT, PL.WORKERS, "live", qualification=True)
         print(json.dumps(PL.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["pilot"]), indent=2))
         return
@@ -469,6 +471,8 @@ def main() -> None:
     if args.cmd != "split":
         stage = args.split if args.cmd == "judge" else args.cmd
         workers = args.workers if args.cmd in ("judge", "validate") else (8 if args.cmd == "author" else 16)
+        if args.cmd == "pilot":
+            workers = PL.selected_workers(RUN_ROOT)  # the receipt's choice; preflight refuses any other
         mode = getattr(args, "mode", "live")
         quality = getattr(args, "quality_check", False)
         if args.cmd == "author":
@@ -487,7 +491,7 @@ def main() -> None:
             from .expansion import require_author
             require_author(RUN_ROOT, args)
     if args.cmd == "pilot":
-        PL.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, JUDGES, STAGE_CAPS["pilot"])
+        PL.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, JUDGES, STAGE_CAPS["pilot"], workers=workers)
         return
     {"author": cmd_author, "validate": cmd_validate, "split": cmd_split, "canary": cmd_canary, "judge": cmd_judge}[args.cmd](args)
 
