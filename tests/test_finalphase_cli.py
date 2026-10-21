@@ -92,16 +92,10 @@ def test_all_stages_offline(tmp_path, monkeypatch):
     assert sent and all(":debate_k0:" in c for c in sent)
     assert sum(1 for _ in open(tmp_path / "canary" / "debates.jsonl")) == 16
     assert sum(1 for _ in open(tmp_path / "canary" / "judgments.jsonl")) == 16 * 3 * 2
-    cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",
-                     limit=3, workers=4))
-    judged = [json.loads(x) for x in open(tmp_path / "main" / "judgments.jsonl")]
-    assert len(judged) == 3 * 2 * 6 * 2
-    assert not any(j["arm"] == "top2" for j in judged)
-    with pytest.raises(ValueError, match="after main requests"):
-        cli.cmd_split(ns(main_questions=20))
-    assert all(j["parse_ok"] for j in judged)
-    k2 = [j for j in judged if j["arm"] == "debate_k2"]
-    assert all(j["n_queries_used"] == 1 for j in k2)
+    # The self-play judge path is closed by the 2026-10-21 Sonnet-honest amendment.
+    with pytest.raises(RuntimeError, match="closed by the 2026-10-21 amendment"):
+        cli.cmd_judge(ns(split="main", mode="live", judges="luna,llama70", oracle="opus", gate="dsflash",
+                         limit=3, workers=4))
 
 
 def test_reversal_flags_are_descriptive_and_equal_defensibility_rejects():

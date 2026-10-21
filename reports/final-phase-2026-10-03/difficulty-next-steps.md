@@ -656,3 +656,87 @@ observed 10% screen and excess error over self-play on 16 world clusters; it doe
 population error above 10%, adequate power, a capability or length effect, or anything about the
 small-budget peak. Sonnet~fable was selected from the ladder, the configuration bundles model,
 effort and length differences, and the pilot questions are now spent.
+
+## Final experiment amendment: Sonnet-honest debaters, and the pilot (2026-10-21)
+
+Authority: Joey, relayed by the owner on 2026-10-21 11:31Z ("Yeah sounds good! I think we can keep
+Sonnet as a judge as well, the important thing is that it's less capable than one of the debaters.
+Otherwise go ahead and fire things off."); the coordinator's instruction to run the pilot first
+within its $1,275 cap and to hold main for the pilot readout and the owner's confirmation. Design
+review: Astra Ultra consult 20 (session 01a15e42-9759-7f32-b6de-ba6251bec081; brief and opinion
+SHA-256 8551efa8dc93c389f3d44ff3a88167f157846ac7162fc191764062e4751d4066 and
+990ed365843d1b444488f862471812ceccf255aa11a2b91b1dc4e90d9ae4e5ad), conditional sign-off. This
+amends the working design (`reports/final-phase-2026-09-30/design.md`) and is recorded before any
+pilot request.
+
+Status of the study. The original protocol stopped at its canary (k0 error under 10%). Its
+continuation is an authorized amendment after that stop, not a retroactive canary pass. The C2
+confirmation above (an amended-protocol confirmation, selected from the ladder after three
+hardness rounds and the asymmetric probe) plus Joey's explicit decision is the basis.
+
+1. Estimand. The effect of the offered query budget for this fixed pairing: Sonnet 5.5 honest
+   (registry default medium effort, 16,000-token ceiling) against Fable 5.1 dishonest (high
+   effort, 32,000-token ceiling). Model, role, effort and ceiling are confounded; neither role
+   effects nor capability rankings are identified.
+2. Debaters. Every pilot and main question is debated by this pairing with the frozen prompts,
+   three rounds, round 1 blind, honest-first balanced by the frozen hash, no word cap, and the frozen
+   regeneration rule (an empty or failed turn is regenerated at most twice, recorded). The
+   per-question family field no longer decides; debater-family allocation and the debater-family
+   interaction in section 9 are removed. World-author strata, weighting, hypotheses and multiplicity
+   rules are unchanged. Request ids carry the pair label (`debate:uncapped:sonnet~fable:...`) and
+   judge items are `<question>:sonnet~fable:uncapped`, so no request or cache identity is shared
+   with any self-play record; every cached response is bound to its exact request body.
+3. Judges. All eight, Sonnet included, in the primary panel (Joey's decision; consult 11 preferred
+   excluding Sonnet). Supplementary sensitivities exclude Sonnet, and exclude all Claude judges.
+4. Arms, orders, oracle (Opus 5.5, incumbent) and gate (DeepSeek V4 Flash) are unchanged; oracle
+   and gate request ids hash the exact claim.
+5. Budget and authority. Stage caps (`finalphase/cli.py`): pilot $1,275, main $3,634, within the
+   $6,000 ceiling. Main needs the oracle-selection result, the final configuration and
+   preregistration, a measured main forecast within $3,634, funding reconciliation and the owner's
+   confirmation through the coordinator. The design's older $650 pilot and $4,300 main figures
+   are superseded.
+
+The pilot (amends section 7.4):
+
+- Questions: all 175 pilot questions (16 worlds). The 40 used by the confirmation reuse its saved
+  sonnet~fable debate turns, per-turn compliance checks and k0 Luna, Haiku and Llama-70B verdicts:
+  a read-only check rebuilt all 720 of those requests and found every one identical to the stored
+  request (the store refuses any changed body under an existing id); they are copied into the
+  pilot store at zero pilot cost with provenance (`pilot/reused_from_confirmation.json`). No turn
+  needed regeneration in the confirmation, so its `error_regen=False` setting made no realized
+  difference. The 135 others are fresh questions within the same worlds, not independent
+  confirmation.
+- Readout, allowed: engineering and cost quantities by judge, arm and order (completion,
+  transport failures, retries, refusals, parsing, truncation, tokens, cost, latency, query-use
+  distributions, stopping, replacements, duplicate queries, gate decisions, oracle-label
+  distributions) and, by this amendment, a descriptive k0 error by judge (questions weighted
+  equally, orders averaged, unparsed or refused verdicts counted wrong and listed), reported
+  separately for the exposed 40 and the fresh 135, with the combined figure descriptive. Pilot
+  outcomes are not pooled into main inference and are not used for further difficulty tuning.
+- Sealed: every non-k0 verdict outcome (accuracy, correctness transitions, accuracy conditional on
+  query use). Non-k0 verdicts are written only to `pilot/sealed/judgments_full.jsonl`, which is
+  not opened until main's preregistered analysis; the open export omits them.
+- Compliance: the blind DeepSeek check on every debate turn; all flagged turns and a fixed
+  hash-chosen sample of 20 unflagged turns are read by the coordinating Claude session; flagged
+  turns are kept, not regenerated.
+- Gate audit: 100 admitted and all rejected pilot queries, reviewed by the coordinating Claude
+  session.
+- Truncation: per model and call kind, truncated over returned responses with a Wilson 95%
+  interval; output limits change only if truncation reaches 1%, followed by an engineering recheck.
+- Mode: live (the forecast fits; batch would take many batch rounds per k6 session). Before main,
+  a bounded batch-path check exercises main's dispatch path.
+- Oracle selection (section 6) runs after pilot judging and before main, on the pilot's admitted
+  queries with the incumbent Opus used in the pilot. Before any challenger accuracy is inspected,
+  sampling, duplicate handling and paired uncertainty for shared worlds are frozen, and both
+  adjudicators are named and verified not to be oracle candidates (the design's Claude adjudicator
+  must therefore not be an oracle-candidate model). The replacement and 93% rules are unchanged; a
+  changed oracle or gate requires a bounded engineering check before main.
+- Main forecast: from the pilot's fresh-work costs (reused cells and the qualification excluded),
+  live list prices and a batch estimate (Anthropic and OpenAI at half price), against the $3,634 cap.
+- Launch: the supported launcher (`python -m finalphase.cli qualify-pilot`, then `pilot`) refuses
+  without a run manifest naming the current commit and a compatible serial/parallel throughput
+  receipt for the pilot; `qualify-pilot` makes both (about $0.10, in the pilot store and cap). The
+  self-play `judge` path is closed.
+- Forecast: about $3.0 to $5.0 per question live from measured per-session costs, so about $530 to
+  $880 for the pilot, inside the $1,275 cap with room for qualification, compliance, oracle
+  selection and retries; the store enforces the cap.

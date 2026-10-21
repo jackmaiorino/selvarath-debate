@@ -4,7 +4,8 @@
   python -m finalphase.cli validate [--mode batch]
   python -m finalphase.cli split
   python -m finalphase.cli canary
-  python -m finalphase.cli judge --split pilot|main [--mode batch]
+  python -m finalphase.cli judge --split main [--mode batch]   (main awaits its own amendment)
+  python -m finalphase.cli qualify-pilot | pilot   (Sonnet-honest pilot, 2026-10-21 amendment)
   python -m finalphase.cli probe-author | probe-validate [--mode batch] [--revision hardness-v2]
   python -m finalphase.cli probe-canary [--revision hardness-v2]      (hardness probes, own stores)
   python -m finalphase.cli probe-asym [--pair haiku~fable --pair luna~astra]   (asymmetric debaters, own store)
@@ -29,6 +30,7 @@ from . import canary as C
 from . import confirm as CF
 from . import confirm_complete as CC
 from . import ladder as LD
+from . import pilot as PL
 from . import prompts_study as P
 from . import preflight
 from . import probe as PR
@@ -341,6 +343,10 @@ def cmd_canary_rejudge(args) -> None:
 # ------------------------------------------------------------------ stages 4-5
 
 def cmd_judge(args) -> None:
+    # Amendment of 2026-10-21: every question is debated Sonnet honest vs Fable dishonest. The pilot
+    # runs through `pilot`; this self-play path stays closed until main has its own amendment.
+    raise RuntimeError("the self-play judge path is closed by the 2026-10-21 amendment; use `pilot` "
+                       "(main needs its own amended path and go)")
     stage = args.split
     s = _store(stage)
     worlds = {w["world_id"]: w for w in _worlds()}
@@ -399,6 +405,8 @@ def main() -> None:
     sub.add_parser("confirm-plan")
     sub.add_parser("confirm-sonnet")
     sub.add_parser("confirm-complete")
+    sub.add_parser("qualify-pilot")
+    sub.add_parser("pilot")
     pf = sub.add_parser("preflight")
     pf.add_argument("--stage", choices=("author", "validate", "canary", "pilot", "main"), default="author")
     pf.add_argument("--workers", type=int, default=8)
@@ -415,6 +423,10 @@ def main() -> None:
     if args.cmd == "qualify-canary":
         preflight.require("canary", RUN_ROOT, C.CANARY_WORKERS, "live", qualification=True)
         print(json.dumps(C.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["canary"]), indent=2))
+        return
+    if args.cmd == "qualify-pilot":
+        preflight.require("pilot", RUN_ROOT, PL.WORKERS, "live", qualification=True)
+        print(json.dumps(PL.qualify(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, STAGE_CAPS["pilot"]), indent=2))
         return
     if args.cmd == "canary-rejudge":
         # Replays saved debates only, so the throughput receipt (which covers debater turns) is not required.
@@ -474,6 +486,9 @@ def main() -> None:
         if stage == "author" and not quality:
             from .expansion import require_author
             require_author(RUN_ROOT, args)
+    if args.cmd == "pilot":
+        PL.run(RUN_ROOT, {w["world_id"]: w for w in _worlds()}, JUDGES, STAGE_CAPS["pilot"])
+        return
     {"author": cmd_author, "validate": cmd_validate, "split": cmd_split, "canary": cmd_canary, "judge": cmd_judge}[args.cmd](args)
 
 

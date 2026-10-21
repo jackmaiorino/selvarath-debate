@@ -126,4 +126,5 @@ def test_canary_qualification_skips_only_the_receipt_it_creates(tmp_path, monkey
         monkeypatch.setenv(key, "fake")
     assert preflight.check("canary", tmp_path, 16, "live", qualification=True)["ready"]
     assert any("throughput receipt" in r for r in preflight.check("canary", tmp_path, 16, "live")["reasons"])
-    assert not preflight.check("pilot", tmp_path, 16, "live", qualification=True)["ready"]
+    assert preflight.check("pilot", tmp_path, 16, "live", qualification=True)["ready"]
+    assert not preflight.check("main", tmp_path, 16, "live", qualification=True)["ready"]
