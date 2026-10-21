@@ -521,3 +521,37 @@ run's k0 cells may serve as the planned pilot's matching k0 data if nothing in t
 changes, labelled as such. The amended final protocol (objective, pairings, family allocation,
 roles, effort, estimand, judge panel, progression rule, analysis) is preregistered before any main
 request; the oracle-budget contrasts stay as frozen.
+
+### Astra Ultra reviews of the confirmation (consults 10 to 15, 2026-10-20)
+
+All one-shot, gpt-6-astra at ultra effort, read-only, no tool calls; briefs and verbatim opinions on
+the run machine under consults-20261018 (SHA-256 of brief and opinion):
+
+| Consult | Session | Verdict | Brief | Opinion |
+|---|---|---|---|---|
+| 10 guidance | 01a15ba0-aa4d-74b0-b41f-79d3af67f034 | 48-question one-family design | 05e0cfb5...20ba | 5581accf...da67 |
+| 11 follow-up | 01a15ba4-b6d2-7621-97df-2e62476a91fe | four arms, 40 questions, Fable first | 3b0a2141...55b1 | 86811b42...a4be2 |
+| 12 code review | 01a15bb0-c2b2-71d2-893e-9224ca01de38 | no sign-off at 2642df9 (blockers) | bd44b4c1...eba2 | c8423d57...e9d7 |
+| 13 gate | 01a15bb7-14e5-7bc3-88b2-3397b1f8f30c | 10% full panel plus two judges | 457b0034...2e76 | b829c206...19a4 |
+| 14 re-review | 01a15bc2-2341-7201-9539-8d8f428a8727 | no sign-off at 5f14ec3 (two blockers) | e8a35f09...f6ee | 003868af...d40c |
+| 15 focused check | 01a15bce-739d-7533-8b27-f30278d74817 | spending sign-off at e6a4f07 | 1f04b609...2968 | 42a5b8a2...c6c0 |
+
+Full hashes: consult 10 05e0cfb55274522b010eb5624b22d741d61d3a23c0c51d9bf3a5dc0a6b2320ba /
+5581accfed7de5be0f16973f8df0a733c17fb9e9e7106bd29daa017e8c7ada67; consult 11
+3b0a2141e1317500093c78386b704d0c63cd514cc462fe694eed3772645f55b1 /
+86811b42af5f0a921992114a34f7178eff5c466daca9e4c31c024a8146ca4be2; consult 12
+bd44b4c16d6b35584da0aef8a77622a58fbe54f3a38635135f43c0525126eba2 /
+c8423d57d485ed7cfe28964e22d788b35b506e2d8192004df686ebf20f88e9d7; consult 13
+457b003408f0bd7dde889ea60681a6d5e6c087cb27bea81f3211ccce630e2d76 /
+b829c206fd18f31b9dc49e32d56fd8d1f532ab2c59f74b6a7c00d7085c3419a4; consult 14
+e8a35f0913bb9c089ecb82518e7d451330b2f8695e709d021e51f873e66df6ee /
+003868afddafc3f09d5c8fd72512669caa16c7295d2b2779b91ae42039fad40c; consult 15
+1f04b6093d88b76e11e6358f7a1ce71d04c83f00069c35f5dfefd7c5f89d2968 /
+42a5b8a275700e61053701e2c7ff05ca33bdb56287db760b339471cdb504b6c0.
+
+Consult 15 signed off spending (expected k0 $104.40, hard caps $128 plus $12) on e6a4f07, the code
+that runs. Residual non-blocking defects it noted, left as reviewed: `confirm.isolation` does not
+check id field counts (a malformed id would raise IndexError outside the R0 report) and does not
+validate judge order or step fields or the gate id's arm label; the store's reservations are
+empirical, not schedule-wide bounds. The owner approved up to $140 (2026-10-21 00:14Z) and the
+coordinator gave a conditional go on Astra's sign-off.
