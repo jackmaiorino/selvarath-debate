@@ -89,7 +89,8 @@ def _launch_ready(tmp_path, monkeypatch):
     (tmp_path / "run_manifest.json").write_text(json.dumps(manifest))
     (tmp_path / "pilot_placements_20261021T000000Z.json").write_text(json.dumps(
         {"checked_utc": datetime.now(timezone.utc).isoformat(), "host": platform.node(),
-         "Jack's PC": {}, "HaleysPC": {}, "RunPod": {}}))
+         "Jack's PC": {"status": "Available"}, "HaleysPC": {"status": "Unavailable through existing trusted SSH"},
+         "RunPod": {"status": "Authenticated inventory read"}}))
     monkeypatch.setattr(preflight, "source_commit", lambda: "commit")
     monkeypatch.setattr("finalphase.expansion.audit_reasons", lambda root: [])
     monkeypatch.setattr(cli, "RUN_ROOT", tmp_path)
@@ -156,3 +157,16 @@ def test_an_exhausted_gate_transport_failure_fails_the_session_without_spending_
     judged, failed = drive(s, {"k": judge_task(item, "luna", "debate_k1", "key_a", "opus", "dsflash")}, workers=1)
     s.db.close()
     assert failed == ["k"] and not judged  # unscored, never a REJECT or a spent slot
+
+
+def test_distribution_median_and_placement_validation(tmp_path):
+    assert pilot._dist([1, 3]) == {"mean": 2, "median": 2, "p90": 3, "max": 3}
+    rec = {"checked_utc": datetime.now(timezone.utc).isoformat(), "host": platform.node(),
+           "Jack's PC": {"status": "Available"}, "HaleysPC": {}, "RunPod": {"status": "x"}}
+    (tmp_path / "pilot_placements_1.json").write_text(json.dumps(rec))
+    with pytest.raises(RuntimeError, match="stale, from another host, or incomplete"):
+        pilot.latest_placements(tmp_path)
+    future = dict(rec, HaleysPC={"status": "y"}, checked_utc="2099-01-01T00:00:00+00:00")
+    (tmp_path / "pilot_placements_2.json").write_text(json.dumps(future))
+    with pytest.raises(RuntimeError):
+        pilot.latest_placements(tmp_path)

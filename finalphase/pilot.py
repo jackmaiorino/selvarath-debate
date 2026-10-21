@@ -141,7 +141,8 @@ def _reuse_receipt(base: Path, reuse: dict) -> dict:
     path = base / "reused_from_confirmation.json"
     if path.exists():
         first = json.loads(path.read_text(encoding="utf-8"))
-        if {k: first[k] for k in ("ids_sha256", "cells_sha256", "cells")} != {k: reuse[k] for k in ("ids_sha256", "cells_sha256", "cells")}:
+        keys = ("ids_sha256", "cells_sha256", "cells", "original_cost_usd")
+        if {k: first[k] for k in keys} != {k: reuse[k] for k in keys}:
             raise RuntimeError("reused cells differ from the first reuse receipt")
         return first
     reuse = dict(reuse, seeded_utc=datetime.now(timezone.utc).isoformat())
@@ -177,17 +178,18 @@ def latest_placements(root: Path) -> Path:
     path = files[-1]
     rec = json.loads(path.read_text(encoding="utf-8"))
     age = time.time() - datetime.fromisoformat(rec["checked_utc"]).timestamp()
-    if rec.get("host") != platform.node() or age > PLACEMENT_MAX_AGE_S or \
-            not all(k in rec for k in ("Jack's PC", "HaleysPC", "RunPod")):
+    recorded = all(isinstance(rec.get(k), dict) and rec[k].get("status") for k in ("Jack's PC", "HaleysPC", "RunPod"))
+    if rec.get("host") != platform.node() or not -60 <= age <= PLACEMENT_MAX_AGE_S or not recorded:
         raise RuntimeError(f"placement inventory {path.name} is stale, from another host, or incomplete")
     return path
 
 
 def qualification_sample(root: Path, worlds: dict[str, dict]) -> list[Request]:
-    """Blind opening-round requests of the first QUALIFICATION_QUESTIONS fresh pilot questions (fixed hash order)."""
+    """Blind opening-round requests of the first QUALIFICATION_QUESTIONS fresh pilot questions, in a hash order
+    salted by QUALIFICATION_VERSION, so a new version never meets an earlier version's cached canonical calls."""
     exposed = _exposed(root)
     fresh = sorted((q for q in pilot_questions(root / "bench") if q["question_id"] not in exposed),
-                   key=lambda q: _sha(f"pilot-qualification-v1:{q['question_id']}".encode()))[:QUALIFICATION_QUESTIONS]
+                   key=lambda q: _sha(f"pilot-qualification-{QUALIFICATION_VERSION}:{q['question_id']}".encode()))[:QUALIFICATION_QUESTIONS]
     sample = [r for q in fresh for r in next(debate(q, worlds[q["world_id"]]["world_text"]))]
     if len(sample) != 2 * QUALIFICATION_QUESTIONS:
         raise ValueError("pilot qualification needs both blind opening turns of every sampled question")
@@ -321,7 +323,8 @@ def run(root: Path, worlds: dict[str, dict], judges: tuple[str, ...], cap: float
         text = resp.text if resp is not None and resp.status == "ok" else None
         _, _, _, qid, rnd, role = r.custom_id.split(":")
         flags.append({"custom_id": r.custom_id, "question_id": qid, "round": rnd, "role": role,
-                      "verdict": AS.compliance_verdict(text), "text": text, "returned": resp is not None})
+                      "verdict": AS.compliance_verdict(text), "text": text,
+                      "returned": resp is not None and resp.status in RETURNED})
     _export(base, debates, flags, judged)
     readout = engineering_readout(root, qs, debates, flags, judged, judges, reuse, failed, jfailed, spend, times, cap)
     (base / "pilot_readout.json").write_text(json.dumps(readout, indent=2), encoding="utf-8")
@@ -405,8 +408,8 @@ def _dist(xs: list[int]) -> dict | None:
     if not xs:
         return None
     xs = sorted(xs)
-    q = lambda f: xs[min(len(xs) - 1, int(f * len(xs)))]
-    return {"mean": round(statistics.fmean(xs)), "p50": q(0.5), "p90": q(0.9), "max": xs[-1]}
+    p90 = xs[max(0, math.ceil(0.9 * len(xs)) - 1)]  # nearest-rank 90th percentile
+    return {"mean": round(statistics.fmean(xs)), "median": statistics.median(xs), "p90": p90, "max": xs[-1]}
 
 
 def engineering_readout(root: Path, qs: list[dict], debates: dict, flags: list, judged: dict, judges: tuple[str, ...],
@@ -476,6 +479,12 @@ def engineering_readout(root: Path, qs: list[dict], debates: dict, flags: list, 
                 e["done_early"] += 1
             elif ev.get("event") in ("query_step_failure", "gate_failure", "oracle_failure"):
                 e["failure_events"][ev["event"]] += 1
+    for qid, j, arm, o in jfailed:
+        e = sessions.setdefault(f"{j}:{arm}:{o}", {"sessions": 0, "verdict_status": collections.Counter(), "unparsed": 0,
+                                                    "queries_used": collections.Counter(), "done_early": 0, "replacements": 0,
+                                                    "duplicates": 0, "gate": collections.Counter(), "oracle": collections.Counter(),
+                                                    "failure_events": collections.Counter()})
+        e["failed_sessions"] = e.get("failed_sessions", 0) + 1
     sessions = {k: {kk: (dict(vv) if isinstance(vv, collections.Counter) else vv) for kk, vv in v.items()}
                 for k, v in sorted(sessions.items())}
     # Descriptive k0 error by judge (amendment of 2026-10-21): questions weigh equally, orders averaged; an

@@ -718,7 +718,7 @@ The pilot (amends section 7.4):
   not opened for outcomes until main's preregistered analysis; the open export
   (`pilot/judgments_open.jsonl`) is an explicit projection that keeps, for non-k0 arms, only ids,
   verdict status, parse status, query use, cost, tokens, event types and per-query slot, claim,
-  well-formedness, screen, gate decision, replacement flag and oracle label (no verdict,
+  well-formedness, screen, gate decision and reason, replacement flag and oracle label (no verdict,
   confidence, correctness, reasoning or raw step text). Adjudicated oracle accuracy is permitted.
 - k0 readout: a missing k0 cell is listed and never scored, and the figure is marked incomplete; a
   verdict counts correct only if it parsed.
@@ -754,7 +754,8 @@ The pilot (amends section 7.4):
   qualify-pilot` moves the manifest to the current commit (kept in `commit_history`), then times 16
   blind opening turns of 8 fresh pilot questions serially against 16 workers (the coverage the
   receipt records; judging, oracle and gate calls are not covered); an arm that started and was
-  interrupted, or has cached calls, cannot qualify (a new version is needed). `pilot` then runs with
+  interrupted, or has cached calls, cannot qualify (a new version samples different fresh questions).
+  The inventory must record a status for all three placements, on this host, within the last day. `pilot` then runs with
   the receipt's selected worker count; the launcher refuses any other. The self-play `judge` path is
   closed.
 - Forecast and budget: from measured per-session costs, about $3.0 to $5.0 per question live:
