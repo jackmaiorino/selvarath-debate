@@ -765,3 +765,22 @@ The pilot (amends section 7.4):
   $40, the batch-path check up to $20: about $540 to $940 in all. The pilot run itself (debates,
   compliance, judging) is capped at $1,215, so $60 of the $1,275 stays for oracle selection ($40)
   and the batch-path check ($20) whatever judging costs; the store enforces both caps.
+
+Pilot code reviews (one-shot Astra Ultra, read-only, no tool calls; SHA-256 of brief and opinion):
+consult 21, session 01a15e5b-0fd7-75d3-9bb2-d451cac94d33, no sign-off at 115855f (manifest
+bootstrap, worker count, qualification coverage and replay, protected reserve, sealing, k0 missing
+cells, breakdowns, reuse provenance, order wording, gate transport contract),
+72b172b8f75c926b760829bcd2d8c7a5cae7f31b33489c694cb9034c50b9ec87 /
+749d4c7707bb0d157e37b6755da180548524bc914ade02e3f1ac1403f585a9b7; consult 22, session
+01a15e73-be2c-74e2-937e-1456822e8f89, launch sign-off at a3a053d with non-blocking findings,
+766da705eebca7d964a82bd9001886e236ea36c4e935eba2454dab014624a5e6 /
+bb0be41dffa2c38135cf44f5befd1c2a101759d23dd10950a1777c4eaf280e54; consult 23, session
+01a15e7d-9ff5-7de0-b19c-57b02861ed46, sign-off withdrawn at 8a90f21 pending qualification recovery,
+1b0c7b6d7ca3fc16aeff8ad360b3b9429de7a4e5a911366528672bcc08a2c009 /
+c6aa4520d83059ecd2fe88aad446148cc190b39f7cdf2549c89ec024c49daf1b; consult 24, session
+01a15e81-e9d0-7343-a39e-00724e7a33d2, **sign-off at decc1d1** for `qualify-pilot` and `pilot` under
+the launch gates and caps ($1,275 aggregate, $1,215 executable, $60 reserved; no main sign-off),
+b3d5c924ae602d48c7e85d9ee7090393fea9758c8944a8c2287b2d92b0b44f0d /
+b7d8bbd212a052f6da05b3b60304610584519bb280caa08a5a42b7157f84362a. Placement inventory:
+`pilot_placements_20261021T124440Z.json` (Jack's PC available; HaleysPC unavailable through
+existing trusted SSH, no ED25519 host key; RunPod listing read, 5 pods, none running, none started).
