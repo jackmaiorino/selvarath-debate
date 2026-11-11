@@ -5,6 +5,21 @@
 
 Everything in this appendix was fixed in the preregistration before the main run unless marked otherwise. The analysis
 code ran once, after data collection had closed, and its outputs are the files the tables here are generated from.
+Table~\ref{tab:arms} gives the error rate in each condition and the differences quoted in the main text.
+
+\begin{table}[h]
+\centering
+\caption{Judge error by condition (left) and differences in percentage points (right), averaged over seven judges.}
+\label{tab:arms}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{minipage}[t]{0.5\linewidth}\raggedright
+\input{generated/tab_arms}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}\raggedleft
+\input{generated/tab_contrasts}
+\end{minipage}
+\end{table}
 
 \paragraph{Scoring and weights.} A judge session scores 0 if its verdict could be read and names the correct answer,
 and 1 otherwise; an unreadable verdict, a refusal, a cut-off reply or an empty reply is an error. Within a question
@@ -58,7 +73,8 @@ one query and \pHolmTwo{} for two.}
 \paragraph{Secondary tests.} Six two-sided tests, Holm-corrected together (Table~\ref{tab:secondary}): pooled six
 queries against none; pooled debate-and-world against six queries; and, for Llama 3.3 70B and Qwen3.8 separately, one
 query against none and six against none. The two Llama tests could not be run and are carried as $p = 1$ inside the
-correction.
+correction. Carrying them keeps the correction stricter than one over the four tests that ran, and Qwen3.8's rise
+with one query does not survive it.
 
 \begin{table}[h]
 \centering
@@ -78,7 +94,8 @@ This rescoring checks the original scoring rule. It does not recover the planned
 nothing about how the lost judge would have responded.
 
 \paragraph{Robustness checks.} Table~\ref{tab:sens} lists the registered sensitivity analyses. They are reported
-beside the main analysis and were declared in advance as unable to rescue or overturn it.
+beside the main analysis and were declared in advance as unable to rescue or overturn it. The two questions set
+aside before the run were debated and judged like the others and enter only the row that adds them back.
 
 \begin{table}[h]
 \centering
@@ -196,8 +213,10 @@ preregistration, before the main run, and the split was left unchanged.
 \orderAstraFirst{} of \orderAstraN{} in worlds written by GPT-6 Astra and \orderFableFirst{} of \orderFableN{} in worlds
 written by Claude Fable 5.1.
 
-\paragraph{Role-break check.} A classifier (DeepSeek V4 Pro) read every debate turn for role breaks and flagged 2 of
-6,420. A Claude Opus 5.5 session read both and a fixed sample of 20 unflagged turns. One flag was upheld (the turn
+\paragraph{Role-break check.} A classifier (DeepSeek V4 Pro) read every debate turn for role breaks (refusing to
+argue, conceding, or revealing that the side was assigned) and flagged 2 of 6,420. Leaving out the two flagged
+debates does not change the conclusions (Table~\ref{tab:sens}). A Claude Opus 5.5 session read both flagged turns and
+a fixed sample of 20 unflagged turns. One flag was upheld (the turn
 said the opponent's position ``was assigned''), one was a false alarm, and all 20 unflagged turns complied. Twenty
 turns are too few to bound how many role breaks the classifier missed.
 
@@ -772,7 +791,7 @@ validated benchmark. Its estimate is the smallest and the most precise of the fi
 \section{Limitations in full}
 \label{app:limits}
 
-Section~\ref{sec:limits} gives the limitations that most change how the results read. This is the full list.
+Section~\ref{sec:limits} names the limitations that most change how the results read. This is the full list.
 
 \begin{itemize}[leftmargin=1.4em,itemsep=2pt,topsep=2pt]
 \item \textbf{The effect is small in absolute terms.} The peak at one query is under one percentage point and below

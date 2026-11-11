@@ -1,24 +1,25 @@
 \section{Results}
 \label{sec:results}
 
-The main run produced 1,070 debates and every planned judgment from the seven judges. All rates below are for the
-\nCounted{} analysed questions and are averaged over the seven judges unless a judge is named.
+The main run produced 1,070 debates and every planned judgment from the seven judges. Rates are for the \nCounted{}
+analysed questions, averaged over the seven judges unless a judge is named.
 
 \subsection{Offering one query raised pooled error slightly; six brought no average gain}
 \label{sec:peak}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{fig_error_by_arm}
+\includegraphics[width=0.9\linewidth]{fig_error_by_arm}
 \caption{Judge error in each condition, averaged over seven judges. Bars are 95\% intervals for each rate on its own;
-differences between conditions are paired and more precise than overlapping bars suggest (Table~\ref{tab:arms}).
+differences between conditions are paired and more precise than overlapping bars suggest (Table~\ref{tab:arms},
+Appendix~\ref{app:stats}).
 Offering one oracle query raised error a little above the no-query rate; with six offered, error was close to the
-no-query rate. Judges who could read the world document made far fewer errors than judges with any number of queries.
-The budgets are evenly spaced on the axis; 3 to 5 queries were not tested.}
+no-query rate.}
 \label{fig:arms}
 \end{figure}
 
-With no queries, judge error was \errKzero\% (Figure~\ref{fig:arms}, Table~\ref{tab:arms}). With one query offered,
+With no queries, judge error was \errKzero\% (Figure~\ref{fig:arms}; Table~\ref{tab:arms} in
+Appendix~\ref{app:stats} has every rate and difference). With one query offered,
 it rose to \errKone\%. With two it was \errKtwo\%, and with six it was \errKsix\%, close to the no-query rate.
 
 The rise at one query is \dOneZero{} \pp{} over no queries (95\% interval \dOneZeroCI) and \dOneSix{} \pp{} over six
@@ -40,21 +41,6 @@ We detected no average difference between six queries and none. Error with six q
 with a 95\% interval from \dSixZeroLo{} \pp{} lower to \dSixZeroHi{} \pp{} higher. That average combines opposite
 movements by judge (Section~\ref{sec:judges}).
 
-\begin{table}[t]
-\centering
-\caption{Judge error by condition (left) and the differences between conditions (right), averaged over seven judges.
-Differences are in percentage points.}
-\label{tab:arms}
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\begin{minipage}[t]{0.5\linewidth}\raggedright
-\input{generated/tab_arms}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}\raggedleft
-\input{generated/tab_contrasts}
-\end{minipage}
-\end{table}
-
 \subsection{Reading the evidence beat querying it}
 \label{sec:world}
 
@@ -64,11 +50,10 @@ queries left judges with higher error than giving them the document. Like the on
 not robust to the gate analysis of Section~\ref{sec:gate}.
 
 Judges who read only the world document, with no debate, erred just \errWorld\% of the time, against \errDebWorld\%
-with the document and the debate. This comparison was not a registered test. Descriptively, judges made more errors
-when the complete debate accompanied the document. Claude Haiku 4.5 supplies about \haikuWorldGapShare\% of that gap,
-going from \errHaikuWorld\% with the document alone to \errHaikuDebWorld\% with the document and the debate. The two
-conditions also differ in the judge's instructions and in how much text the judge reads, so the design does not
-isolate the dishonest debater's contribution.
+with the document and the debate. This comparison was not a registered test. Claude Haiku 4.5 supplies about
+\haikuWorldGapShare\% of the gap (\errHaikuWorld\% against \errHaikuDebWorld\%), and the two conditions also differ
+in the judge's instructions and in how much text the judge reads, so the design does not isolate the dishonest
+debater's contribution.
 
 \subsection{Judges differed: the rise at one query was broad, the return by six was not}
 \label{sec:judges}
@@ -77,10 +62,9 @@ isolate the dishonest debater's contribution.
 \centering
 \includegraphics[width=\linewidth]{fig_error_by_judge}
 \caption{Judge error by number of queries offered, for each judge. Bars are 95\% intervals for each rate on its own;
-the dashed line marks each judge's no-query level. Six of seven judges erred more with one query than with none.
-After that the judges part ways: the GPT-5.6 judges stayed elevated, while Haiku and Qwen3.8 ended below where they
-started (for Qwen3.8, see the note on cut-off replies in the text). ($*$ this interval has no finite upper limit,
-because the interval procedure breaks down when a judge makes almost no errors; only its lower part is drawn.)}
+the dashed line marks each judge's no-query level. Six of seven judges erred more with one query than with none;
+after that the judges part ways (see the text, including the note on Qwen3.8's cut-off replies). ($*$ this interval
+has no finite upper limit, so only its lower part is drawn; see Appendix~\ref{app:stats}.)}
 \label{fig:judges}
 \end{figure}
 
@@ -105,20 +89,18 @@ two budgets. This does not establish that the decline is absent. In that panel e
 \ncSixZero{} \pp{} higher than with none, a registered comparison that is not adjusted for multiple tests
 (Appendix~\ref{app:stats}).
 
-These per-judge comparisons are descriptive. Among the judges that produced data, only Qwen3.8 had registered
-per-judge tests, to follow up an earlier phase; the matching tests for Llama 3.3 70B could not be run. Qwen3.8's
-error rose \qwenOneZero{} \pp{} with one query (95\% interval \qwenOneZeroCI), which does not survive the registered
-correction for multiple tests. That correction still counts the two Llama tests that could not be run, which makes
-it stricter. Appendix~\ref{app:judges} reports how judges used their queries.
+These per-judge comparisons are descriptive. The only registered per-judge tests that could be run were for
+Qwen3.8: its error rose \qwenOneZero{} \pp{} with one query (95\% interval \qwenOneZeroCI), which does not survive
+the registered correction for multiple tests (Appendix~\ref{app:stats}). Appendix~\ref{app:judges} reports how judges
+used their queries.
 
 \subsection{A caveat: the gate let some rule-breaking queries through}
 \label{sec:gate}
 
-As Section~\ref{sec:oracle} explains, the gate that screened the main run failed its check of agreement with the
-development gate. To see how often rule-breaking queries got through, we audited a sample of \nAuditSessions{} judge
-sessions (40 per judge and budget) after the run and before any result was computed. Claude Opus 5.5 labelled every
-query those sessions had sent to the gate classifier against the gate rule, without seeing the gate's decisions or
-the verdicts.
+Because the gate that screened the main run failed its agreement check (Section~\ref{sec:oracle}), we audited a
+sample of \nAuditSessions{} judge sessions (40 per judge and budget) after the run and before any result was
+computed. Claude Opus 5.5 labelled every query those sessions had sent to the gate classifier against the gate rule,
+without seeing the gate's decisions or the verdicts.
 
 About one admitted query in ten was flagged (\auditAdmittedFlaggedShare\% of \nAuditAdmitted), at much the same rate
 at every budget. Sessions with more queries were therefore more likely to contain a flagged one: \exposedOne\%,
@@ -171,13 +153,10 @@ and the labels come from the oracle's own model, so shared interpretive errors c
 \label{sec:robust}
 
 The conclusions of Section~\ref{sec:peak} are unchanged when we leave out Sonnet 5.5 as a judge, leave out the two
-flagged debates, or add back the two set-aside questions. Scoring the run as first registered, with the withdrawn
-eighth judge counted as always wrong, gives the same conclusions by construction. On the 806 questions that drew at
-most one validator flag for a possible alternative reading, the rise at one query is smaller (\detRise{} against
-\dOneZero{} \pp) and still supported, and a peak at two queries is also supported.
-
-Two checks do not support the finding, and both are described above. Without the Claude judges the joint test for a
-peak at one query does not pass its correction, although the rise from none to one remains supported
-(Section~\ref{sec:judges}). And the finding is not robust to the rule-breaking queries the gate admitted
-(Section~\ref{sec:gate}). By the registered rule these checks are reported beside the main result and can neither
-rescue nor overturn it. Appendix~\ref{app:stats} has the tables.
+debates in which a classifier flagged a possible role break by a debater (Appendix~\ref{app:deviations}), or add
+back the two set-aside questions. On the 806 questions that drew at most one validator flag
+for a possible alternative reading, the rise at one query is smaller (\detRise{} against \dOneZero{} \pp) and still
+supported, and a peak at two queries is also supported. Two checks do not support the finding, both described
+above: the joint test for a peak without the Claude judges (Section~\ref{sec:judges}) and the gate analysis
+(Section~\ref{sec:gate}). By the registered rule these checks can neither rescue nor overturn the main result
+(Appendix~\ref{app:stats}).

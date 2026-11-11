@@ -105,6 +105,13 @@ Source: the final phase run root, `E:\finalphase-runs\final-phase-2026-10-03` (`
   pages and six figures inspected. Its three suggested rewordings were applied verbatim. One sentence was added
   after it, with numbers the reviewer itself cited: the speaking order by world author in Appendix B, a descriptive
   output listed in preregistration 7.6.
+- Second trim (2026-11-11): Jack's part of the main text (title, Sections 3, 4 and 6) was cut from about 7.1 pages
+  to about 6, leaving three of the nine pages for Joey's sections. The conditions table became a sentence, Table 1
+  (rates and differences) moved to Appendix A, a few single-sentence details moved to the supplement, and Section 6
+  became one paragraph. No number changed and nothing left the report (`review/consult74_response.md`).
+- Consult 74 (session `01a1ca86-d3d4-7702-a209-56129cf653aa`): check of that cut. Verdict "no required changes":
+  every removed sentence accounted for, 164 number macros and 14 tables reproduced, pages 2, 4 and 5 inspected. Its
+  one suggested rewording was applied verbatim.
 - The review records are kept as the reviewers wrote them, with one change before publication: local absolute file
   paths were replaced by repository-relative ones. Reviewers' run logs are not committed.
 - The preregistration, amendments, code and run records that the reviews cite (`reports/final-phase-*`,

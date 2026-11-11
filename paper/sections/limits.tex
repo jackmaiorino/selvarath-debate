@@ -1,31 +1,12 @@
 \section{Limitations}
 \label{sec:limits}
 
-\joey{these are the caveats that most change how the results read, in plain terms. Appendix~\ref{app:limits} has the
-full list. Merge into the discussion as you see fit.}
+\joey{merge into the discussion as you see fit. Appendix~\ref{app:limits} has the full list.}
 
-\begin{itemize}[leftmargin=1.4em,itemsep=2pt,topsep=2pt]
-\item \textbf{The effect is small in absolute terms.} The peak at one query is under one percentage point and below
-the size we said in advance would matter in practice. That threshold was set when the design required pooled
-no-query error of at least 10\% in development; at the realised \errKzero\% the rise is about \relRise\% more errors.
-\item \textbf{It is not robust to the gate.} The query gate admitted some rule-breaking queries, and under a
-worst-case bound neither the peak nor the exclusion of a larger peak survives even a very small share of affected
-sessions (Section~\ref{sec:gate}). The query results describe this gate; they do not by themselves show the value of
-verification that stays within the rule.
-\item \textbf{Seven particular judges.} Error rose with one query for six of the seven judges, and that rise
-remains supported without the three Claude judges; the return by six comes mainly from Haiku 4.5 and Qwen3.8. The
-intervals reflect which worlds were sampled, not which judges. Haiku alone accounts for about \haikuErrShare\% of
-pooled error without queries, and the other six judges erred less than 3\% of the time, which leaves little room for
-queries to help them.
-\item \textbf{One debater pairing and fixed debates.} All debates pit Claude Sonnet 5.5 (honest) against Claude
-Fable 5.1 (dishonest), with model, role and settings tied together. Each debate was written once, by debaters told
-that the judge might verify some claims, and the same transcript was used at every budget, so debaters could not
-adapt to the budget actually offered.
-\item \textbf{A model-built benchmark with overlapping roles.} The worlds, questions, answer keys, oracle answers,
-audits and labels all come from models, and several models played more than one part: Claude Fable 5.1 wrote half
-the worlds and was the dishonest debater, and Claude Opus 5.5 was a judge, the oracle, the gate auditor and the
-labeller of judges' explanations. The design cannot separate shared habits or shared errors among related models
-from the effects it reports.
-\item \textbf{What is measured.} The comparisons measure the effect of offering a query budget under this protocol,
-not the effect of one more verified fact. The reading of judges' explanations is exploratory.
-\end{itemize}
+Beyond the caveats stated with each result (Sections~\ref{sec:analysis}, \ref{sec:peak}, \ref{sec:judges},
+\ref{sec:gate} and~\ref{sec:why}), three limits of the design apply throughout. All debates use one pairing of
+debaters, and each debate was written once and reused at every budget. The benchmark, answer keys, oracle answers,
+audits and labels all come from models, with no human labels. And several models played more than one part: Claude
+Fable 5.1 wrote half the worlds and was the dishonest debater, and Claude Opus 5.5 was a judge, the oracle, the gate
+auditor and the labeller of judges' explanations, so the design cannot separate shared habits or errors among
+related models from the effects it reports.

@@ -152,10 +152,10 @@ def fig_error_by_arm() -> None:
 
 # ---------------------------------------------------------------- figure: error by judge
 def fig_error_by_judge() -> None:
-    pp_in = 0.205  # inches per percentage point, the same in every panel
-    W, H = 5.5, 3.95
+    pp_in = 0.152  # inches per percentage point, the same in every panel
+    W, H = 5.5, 3.1
     fig = plt.figure(figsize=(W, H))
-    bottom, low_h, gap_y = 0.47, 6.5 * pp_in, 0.44
+    bottom, low_h, gap_y = 0.47, 6.5 * pp_in, 0.4
     cols_x, col_w, gap_x = 1.98, 0.93, 0.16
     haiku_h = 10 * pp_in
 
