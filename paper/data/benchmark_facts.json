@@ -1,0 +1,36 @@
+{
+ "source": "E:/finalphase-runs/final-phase-2026-10-03/bench (main.jsonl sha256 51ca660b...47eb; worlds/)",
+ "main_questions": 1070,
+ "main_worlds": 140,
+ "questions_by_author": {
+  "fable": 535,
+  "astra": 535
+ },
+ "questions_by_task_type": {
+  "institutional_capacity": 195,
+  "counterfactual": 173,
+  "interest_alignment": 175,
+  "causal_assessment": 173,
+  "relative_position": 181,
+  "policy_outcome": 173
+ },
+ "sensitivity_only": [
+  "W005-Q11",
+  "W123-Q04"
+ ],
+ "world_words": {
+  "min": 1159,
+  "median": 1370.0,
+  "max": 1499,
+  "mean": 1360.8
+ },
+ "answer_words_median": {
+  "correct": 43.0,
+  "wrong": 44.0
+ },
+ "facts_required_median": 4.0,
+ "questions_per_world": {
+  "min": 3,
+  "max": 10
+ }
+}

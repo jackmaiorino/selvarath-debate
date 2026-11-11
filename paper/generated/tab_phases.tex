@@ -1,0 +1,15 @@
+\begin{tabular}{@{}p{0.11\linewidth}p{0.19\linewidth}p{0.17\linewidth}rp{0.13\linewidth}r@{}}
+\toprule
+Phase & Judges & Debaters & Questions & Comparison & Rise in error \\
+\midrule
+Pilot, April 2026 & Llama 3.3 70B & Llama 3.3 70B, both sides & 106 & 1 and 2 queries (mean) vs.\ none & $+7.23$ $[+4.56,\ +10.22]$ \\
+\addlinespace
+Re-judge, July 2026 & Llama 3.3 70B & the pilot's debates, reused & 106 & 1 and 2 queries (mean) vs.\ none & $+3.41$ $[+1.31,\ +5.87]$ \\
+\addlinespace
+Phase 2 (post-hoc reweighting), August 2026 & Qwen2.5 7B, Gemma 4 31B, Llama 3.3 70B, gpt-oss 120B & Llama 3.3 70B and Qwen3.7 Plus, each against itself & 82 & 2 queries vs.\ none & $+4.56$ $[+2.89,\ +6.25]$ \\
+\addlinespace
+Phase 3, September 2026 & Qwen3.8, Llama 3.3 70B & Phase 2's debates, reused & 82 & 1 query vs.\ none & $+3.81$ $[+1.78,\ +5.79]$ \\
+\addlinespace
+Final phase, October 2026 & the seven judges of this paper & Sonnet 5.5 (honest) vs.\ Fable 5.1 & 1,068 & 1 query vs.\ none & $+0.77$ $[+0.43,\ +1.10]$ \\
+\bottomrule
+\end{tabular}

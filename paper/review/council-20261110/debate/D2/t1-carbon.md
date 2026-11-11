@@ -1,0 +1,13 @@
+POSITION: NARROW (Shared model identity does not prove realized bias, so the draft must not present bias as observed; however, relative to an equally accurate independent auditor, common error directionally favors exonerating the oracle and inflating "judge misread a correct oracle answer," requiring Section 4.5 headline attribution, directional risk disclosure, and naming the reviewer model.)
+
+ARGUMENT: Member E's "common-error threat" premise refutes the claim that its direction is unestablished. Common error means positive covariance between the `Opus 5.5` oracle ($O$) and labeller ($L$) given truth $Y$: $\text{Cov}(I_{O=c}, I_{L=c} \mid Y) > 0$. Across the three oracle classes, $\Pr(L=O \mid Y) = \sum_c \Pr(O=c \mid Y)\Pr(L=c \mid Y) + \sum_c \text{Cov}(I_{O=c}, I_{L=c} \mid Y)$. Holding class-conditional auditor accuracy fixed, positive covariance strictly lowers flagged oracle errors $\Pr(L \neq O)$ relative to an independent auditor. When a judge relied on a flawed oracle reply in a harmful flip, calling that reply "correct" shifts the rubric label from "oracle answered wrongly" to "judge misread a correct oracle answer."
+
+Appendix E's partial check leaves this directional risk intact: the unnamed "separate reviewer model" re-labelled only 21 "difficult" cases of 77, leaving 56 flips unchecked by another model. Confident `Opus 5.5` blind spots look unambiguous to same-model labellers and avoid "difficult" flags.
+
+Undirected caveat wording is insufficient if Section 4.5's declarative headline stands. Without presenting bias as observed, the draft must: (1) attribute Section 4.5's headline ("by the `Opus 5.5` labellers' reading, the oracle was rarely the problem," instead of stating unhedged that "the oracle answered correctly"), (2) disclose in Section 4.5, Figure 5a, Section 6, and Appendix E that self-auditing risks under-detecting oracle errors relative to an independent model, and (3) name the reviewer model in Appendix E and Table 14.
+
+IF CONCEDING: Narrowing from observed bias to directional risk: Member E is right that realized bias is unestablished (unshared labeller noise can offset shared errors relative to ground truth, and Appendix E's 21-case check put "oracle answered wrongly" at 4%–6%).
+
+WHAT WOULD SETTLE IT: Blind re-labelling of all 77 sampled harmful flips (especially the 56 unreviewed cases) under Appendix E's rubric by non-Claude validators (`GPT-6 Astra`, `DeepSeek V4 Pro`), plus repository records naming the reviewer model and 21-case selection rule.
+
+NOTHING NEW: NO

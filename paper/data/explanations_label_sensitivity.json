@@ -1,0 +1,41 @@
+{
+ "strata": {
+  "C18": "NO",
+  "C20": "NOT ADDRESSED",
+  "C35": "YES",
+  "C36": "NOT ADDRESSED",
+  "C44": "NOT ADDRESSED",
+  "C52": "NO",
+  "C62": "NO",
+  "C63": "NO",
+  "C72": "NO"
+ },
+ "original": {
+  "M1_ORACLE_ERROR": 5.6,
+  "M2_MISREAD_CORRECT_ANSWER": 74.3,
+  "M3_NOT_THE_ANSWER": 10.5,
+  "M4_UNCLEAR": 0.9,
+  "UNPARSED": 3.7
+ },
+ "reviewer_changes": {
+  "M1_ORACLE_ERROR": 3.7,
+  "M2_MISREAD_CORRECT_ANSWER": 76.4,
+  "M3_NOT_THE_ANSWER": 9.4,
+  "M4_UNCLEAR": 1.7,
+  "UNPARSED": 3.7
+ },
+ "m3_overlap_as_m2": {
+  "M1_ORACLE_ERROR": 5.6,
+  "M2_MISREAD_CORRECT_ANSWER": 77.8,
+  "M3_NOT_THE_ANSWER": 6.9,
+  "M4_UNCLEAR": 0.9,
+  "UNPARSED": 3.7
+ },
+ "both": {
+  "M1_ORACLE_ERROR": 3.7,
+  "M2_MISREAD_CORRECT_ANSWER": 79.9,
+  "M3_NOT_THE_ANSWER": 5.9,
+  "M4_UNCLEAR": 1.7,
+  "UNPARSED": 3.7
+ }
+}

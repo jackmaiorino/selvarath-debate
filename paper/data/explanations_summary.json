@@ -1,0 +1,257 @@
+{
+ "problems": [],
+ "labeled": 77,
+ "agreement_on_coordinator_check_set": {
+  "mechanism": 12,
+  "mechanism_collapsed": 13,
+  "oracle_accuracy": 14,
+  "judge_use": 14,
+  "n": 16
+ },
+ "check_pairs": [
+  {
+   "case": "C34",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C52",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M3_NOT_THE_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C22",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C62",
+   "coordinator": "M3_NOT_THE_ANSWER",
+   "labeler": "M3_NOT_THE_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C57",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M4_UNCLEAR",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "UNCLEAR"
+  },
+  {
+   "case": "C28",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C26",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C35",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M3_NOT_THE_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C03",
+   "coordinator": "M1_ORACLE_ERROR",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "WRONG",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C11",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C55",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C14",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C19",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C29",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C64",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  },
+  {
+   "case": "C37",
+   "coordinator": "M2_MISREAD_CORRECT_ANSWER",
+   "labeler": "M2_MISREAD_CORRECT_ANSWER",
+   "coordinator_oracle": "CORRECT",
+   "labeler_oracle": "CORRECT"
+  }
+ ],
+ "mechanism_by_stratum_raw": {
+  "YES": {
+   "M2_MISREAD_CORRECT_ANSWER": 26,
+   "M3_NOT_THE_ANSWER": 2,
+   "M1_ORACLE_ERROR": 1,
+   "UNPARSED": 1
+  },
+  "NOT ADDRESSED": {
+   "M2_MISREAD_CORRECT_ANSWER": 7,
+   "M3_NOT_THE_ANSWER": 4,
+   "UNPARSED": 1,
+   "M1_ORACLE_ERROR": 3
+  },
+  "NO": {
+   "M2_MISREAD_CORRECT_ANSWER": 23,
+   "UNPARSED": 1,
+   "M4_UNCLEAR": 3,
+   "M3_NOT_THE_ANSWER": 4
+  },
+  "INVALID": {
+   "M3_NOT_THE_ANSWER": 1
+  }
+ },
+ "weighted_counts_of_331": {
+  "note": "314 answered flips weighted by stratum, plus 17 with no answer (not read)",
+  "mechanism": {
+   "M1_ORACLE_ERROR": [
+    18.4,
+    1.5,
+    35.3
+   ],
+   "M2_MISREAD_CORRECT_ANSWER": [
+    245.8,
+    216.9,
+    274.7
+   ],
+   "M3_NOT_THE_ANSWER": [
+    34.6,
+    12.6,
+    56.6
+   ],
+   "M4_UNCLEAR": [
+    3.0,
+    3.0,
+    3.0
+   ],
+   "UNPARSED": [
+    12.2,
+    0.0,
+    27.3
+   ]
+  },
+  "no_answer": 17,
+  "oracle_accuracy": {
+   "CORRECT": [
+    291.6,
+    274.7,
+    308.5
+   ],
+   "WRONG": [
+    18.4,
+    1.5,
+    35.3
+   ],
+   "UNCLEAR": [
+    4.0,
+    4.0,
+    4.0
+   ]
+  },
+  "claim_source": {
+   "honest": [
+    48.8,
+    30.5,
+    67.1
+   ],
+   "dishonest": [
+    157.2,
+    117.2,
+    197.2
+   ],
+   "both": [
+    95.4,
+    56.9,
+    133.9
+   ],
+   "neither": [
+    12.6,
+    0.0,
+    26.5
+   ],
+   "unclear": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "judge_use": {
+   "PIVOTAL": [
+    238.8,
+    204.2,
+    273.4
+   ],
+   "SUPPORTING": [
+    40.0,
+    11.2,
+    68.8
+   ],
+   "PASSING": [
+    14.8,
+    0.0,
+    30.9
+   ],
+   "ABSENT": [
+    20.4,
+    3.5,
+    37.3
+   ]
+  },
+  "claim_restates_answer": {
+   "yes": [
+    3.6,
+    0.0,
+    9.6
+   ],
+   "no": [
+    310.4,
+    304.4,
+    316.4
+   ]
+  }
+ }
+}

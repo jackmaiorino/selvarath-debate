@@ -1,0 +1,394 @@
+{
+ "claim about the document x answer: False / INVALID": {
+  "pairs": 1,
+  "harm": 1,
+  "help": 0,
+  "net_points": 100.0
+ },
+ "claim about the document x answer: False / NO": {
+  "pairs": 210,
+  "harm": 17,
+  "help": 2,
+  "net_points": 7.14
+ },
+ "claim about the document x answer: False / NOT ADDRESSED": {
+  "pairs": 1630,
+  "harm": 38,
+  "help": 31,
+  "net_points": 0.43
+ },
+ "claim about the document x answer: False / YES": {
+  "pairs": 9470,
+  "harm": 184,
+  "help": 110,
+  "net_points": 0.78
+ },
+ "claim about the document x answer: True / NO": {
+  "pairs": 127,
+  "harm": 14,
+  "help": 3,
+  "net_points": 8.66
+ },
+ "claim about the document x answer: True / NOT ADDRESSED": {
+  "pairs": 476,
+  "harm": 16,
+  "help": 12,
+  "net_points": 0.84
+ },
+ "claim about the document x answer: True / YES": {
+  "pairs": 2304,
+  "harm": 44,
+  "help": 39,
+  "net_points": 0.22
+ },
+ "claim about the document: False": {
+  "pairs": 11311,
+  "harm": 240,
+  "help": 143,
+  "net_points": 0.86
+ },
+ "claim about the document: True": {
+  "pairs": 2907,
+  "harm": 74,
+  "help": 54,
+  "net_points": 0.69
+ },
+ "claim source x answer: dishonest / INVALID": {
+  "pairs": 1,
+  "harm": 1,
+  "help": 0,
+  "net_points": 100.0
+ },
+ "claim source x answer: dishonest / NO": {
+  "pairs": 47,
+  "harm": 6,
+  "help": 0,
+  "net_points": 12.77
+ },
+ "claim source x answer: dishonest / NOT ADDRESSED": {
+  "pairs": 283,
+  "harm": 4,
+  "help": 13,
+  "net_points": -3.18
+ },
+ "claim source x answer: dishonest / YES": {
+  "pairs": 542,
+  "harm": 99,
+  "help": 7,
+  "net_points": 16.97
+ },
+ "claim source x answer: honest / NO": {
+  "pairs": 70,
+  "harm": 11,
+  "help": 1,
+  "net_points": 14.29
+ },
+ "claim source x answer: honest / NOT ADDRESSED": {
+  "pairs": 491,
+  "harm": 13,
+  "help": 6,
+  "net_points": 1.43
+ },
+ "claim source x answer: honest / YES": {
+  "pairs": 7277,
+  "harm": 39,
+  "help": 82,
+  "net_points": -0.59
+ },
+ "claim source x answer: no answer / -": {
+  "pairs": 734,
+  "harm": 17,
+  "help": 19,
+  "net_points": -0.27
+ },
+ "claim source x answer: shared / NO": {
+  "pairs": 179,
+  "harm": 11,
+  "help": 4,
+  "net_points": 3.91
+ },
+ "claim source x answer: shared / NOT ADDRESSED": {
+  "pairs": 1127,
+  "harm": 32,
+  "help": 21,
+  "net_points": 0.98
+ },
+ "claim source x answer: shared / YES": {
+  "pairs": 3865,
+  "harm": 87,
+  "help": 57,
+  "net_points": 0.78
+ },
+ "claim source x answer: unmatched / NO": {
+  "pairs": 41,
+  "harm": 3,
+  "help": 0,
+  "net_points": 7.32
+ },
+ "claim source x answer: unmatched / NOT ADDRESSED": {
+  "pairs": 205,
+  "harm": 5,
+  "help": 3,
+  "net_points": 0.98
+ },
+ "claim source x answer: unmatched / YES": {
+  "pairs": 90,
+  "harm": 3,
+  "help": 3,
+  "net_points": 0.0
+ },
+ "claim source: dishonest": {
+  "pairs": 873,
+  "harm": 110,
+  "help": 20,
+  "net_points": 10.31
+ },
+ "claim source: honest": {
+  "pairs": 7838,
+  "harm": 63,
+  "help": 89,
+  "net_points": -0.33
+ },
+ "claim source: no answer": {
+  "pairs": 734,
+  "harm": 17,
+  "help": 19,
+  "net_points": -0.27
+ },
+ "claim source: shared": {
+  "pairs": 5171,
+  "harm": 130,
+  "help": 82,
+  "net_points": 0.93
+ },
+ "claim source: unmatched": {
+  "pairs": 336,
+  "harm": 11,
+  "help": 6,
+  "net_points": 1.49
+ },
+ "dishonest mentions verification: False": {
+  "pairs": 11690,
+  "harm": 240,
+  "help": 170,
+  "net_points": 0.6
+ },
+ "dishonest mentions verification: True": {
+  "pairs": 3262,
+  "harm": 91,
+  "help": 46,
+  "net_points": 1.38
+ },
+ "honest mentions verification: False": {
+  "pairs": 11690,
+  "harm": 271,
+  "help": 174,
+  "net_points": 0.83
+ },
+ "honest mentions verification: True": {
+  "pairs": 3262,
+  "harm": 60,
+  "help": 42,
+  "net_points": 0.55
+ },
+ "threshold_sweep": {
+  "floor 0.3 gap 0.1": {
+   "dishonest": {
+    "pairs": 1339,
+    "harm": 137,
+    "help": 31
+   },
+   "shared": {
+    "pairs": 3820,
+    "harm": 94,
+    "help": 60
+   },
+   "honest": {
+    "pairs": 9025,
+    "harm": 82,
+    "help": 105
+   },
+   "unmatched": {
+    "pairs": 34,
+    "harm": 1,
+    "help": 1
+   }
+  },
+  "floor 0.3 gap 0.15": {
+   "dishonest": {
+    "pairs": 878,
+    "harm": 111,
+    "help": 20
+   },
+   "shared": {
+    "pairs": 5459,
+    "harm": 138,
+    "help": 87
+   },
+   "honest": {
+    "pairs": 7847,
+    "harm": 64,
+    "help": 89
+   },
+   "unmatched": {
+    "pairs": 34,
+    "harm": 1,
+    "help": 1
+   }
+  },
+  "floor 0.3 gap 0.25": {
+   "dishonest": {
+    "pairs": 495,
+    "harm": 82,
+    "help": 13
+   },
+   "shared": {
+    "pairs": 7772,
+    "harm": 197,
+    "help": 115
+   },
+   "honest": {
+    "pairs": 5917,
+    "harm": 34,
+    "help": 68
+   },
+   "unmatched": {
+    "pairs": 34,
+    "harm": 1,
+    "help": 1
+   }
+  },
+  "floor 0.4 gap 0.1": {
+   "dishonest": {
+    "pairs": 1311,
+    "harm": 136,
+    "help": 31
+   },
+   "shared": {
+    "pairs": 3575,
+    "harm": 86,
+    "help": 55
+   },
+   "honest": {
+    "pairs": 8996,
+    "harm": 81,
+    "help": 105
+   },
+   "unmatched": {
+    "pairs": 336,
+    "harm": 11,
+    "help": 6
+   }
+  },
+  "floor 0.4 gap 0.15": {
+   "dishonest": {
+    "pairs": 873,
+    "harm": 110,
+    "help": 20
+   },
+   "shared": {
+    "pairs": 5171,
+    "harm": 130,
+    "help": 82
+   },
+   "honest": {
+    "pairs": 7838,
+    "harm": 63,
+    "help": 89
+   },
+   "unmatched": {
+    "pairs": 336,
+    "harm": 11,
+    "help": 6
+   }
+  },
+  "floor 0.4 gap 0.25": {
+   "dishonest": {
+    "pairs": 494,
+    "harm": 81,
+    "help": 13
+   },
+   "shared": {
+    "pairs": 7473,
+    "harm": 188,
+    "help": 110
+   },
+   "honest": {
+    "pairs": 5915,
+    "harm": 34,
+    "help": 68
+   },
+   "unmatched": {
+    "pairs": 336,
+    "harm": 11,
+    "help": 6
+   }
+  },
+  "floor 0.5 gap 0.1": {
+   "dishonest": {
+    "pairs": 1214,
+    "harm": 131,
+    "help": 29
+   },
+   "shared": {
+    "pairs": 3207,
+    "harm": 75,
+    "help": 50
+   },
+   "honest": {
+    "pairs": 8878,
+    "harm": 77,
+    "help": 103
+   },
+   "unmatched": {
+    "pairs": 919,
+    "harm": 31,
+    "help": 15
+   }
+  },
+  "floor 0.5 gap 0.15": {
+   "dishonest": {
+    "pairs": 834,
+    "harm": 107,
+    "help": 20
+   },
+   "shared": {
+    "pairs": 4670,
+    "harm": 113,
+    "help": 74
+   },
+   "honest": {
+    "pairs": 7795,
+    "harm": 63,
+    "help": 88
+   },
+   "unmatched": {
+    "pairs": 919,
+    "harm": 31,
+    "help": 15
+   }
+  },
+  "floor 0.5 gap 0.25": {
+   "dishonest": {
+    "pairs": 489,
+    "harm": 80,
+    "help": 13
+   },
+   "shared": {
+    "pairs": 6897,
+    "harm": 169,
+    "help": 102
+   },
+   "honest": {
+    "pairs": 5913,
+    "harm": 34,
+    "help": 67
+   },
+   "unmatched": {
+    "pairs": 919,
+    "harm": 31,
+    "help": 15
+   }
+  }
+ }
+}

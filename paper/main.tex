@@ -1,0 +1,64 @@
+% Final report: limited verification in AI debate.
+% Build: latexmk -pdf main.tex   (run scripts/build_generated.py and scripts/make_figures.py first if data changed)
+\documentclass{article}
+
+% NeurIPS style if the official file is present in this folder; otherwise a plain layout with the same text block.
+\IfFileExists{neurips_2026.sty}{\usepackage[preprint]{neurips_2026}}{\usepackage{style/report_fallback}}
+% Draft stage only: the style stretches short pages to a flush bottom, which opens large gaps while sections are
+% still moving. Remove this line to restore the official page bottoms once the text has settled.
+\raggedbottom
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{caption}
+\captionsetup[table]{skip=7pt} % keeps the style's 7pt gap between a table caption and the table
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue!50!black]{hyperref}
+
+\graphicspath{{figures/}}
+\input{generated/numbers}
+
+% Placeholders and notes. \joey marks a section Joey writes; \ournote marks an open item on our side.
+\definecolor{notegray}{gray}{0.42}
+\newcommand{\joey}[1]{\par\noindent{\color{notegray}\itshape [Joey: #1]}\par}
+\newcommand{\ournote}[1]{{\color{orange!70!black}[Open: #1]}}
+\newcommand{\pp}{points}
+
+% Title: working title, for the authors to settle. Review consult 69 found "small" supported and "fragile" defensible
+% (the evidence is sensitive to the gate and to the judge panel), and offered an alternative:
+% "Limited verification in AI debate: a small error increase under an imperfect query gate".
+\title{Limited verification in AI debate: a small and fragile cost of offering one oracle query\\[2pt]
+{\normalsize\normalfont Working title. Draft of the methods, results and figures.}}
+\author{Authors and order to be confirmed}
+\date{}
+
+\begin{document}
+\maketitle
+
+% Section files. Joey: abstract, introduction, background, discussion. Jack: methods, results, limits, appendix.
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/methods}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/limits}
+
+% References: add entries to references.bib, cite with \citep{key} or \citet{key}, then uncomment these two lines.
+% \bibliographystyle{plainnat}
+% \bibliography{references}
+
+\clearpage
+\appendix
+\input{sections/appendix}
+
+\end{document}

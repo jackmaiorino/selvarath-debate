@@ -1,0 +1,64 @@
+{
+ "note": "Headline 'small query budget vs none' estimates from each earlier phase's own records, entered by hand on 2026-11-10 and checked against the cited files. Percentage points; 95% intervals. The phases are not like-for-like: outcome definition, budgets compared, judges, debaters and questions all differ. The final phase's row is not stored here: it is read from amendment1_analysis.json.",
+ "phases": [
+  {
+   "key": "pilot",
+   "label": "Pilot",
+   "when": "April 2026",
+   "estimate": 7.23, "lo": 4.56, "hi": 10.22,
+   "comparison": "1 and 2 queries (mean) vs. none",
+   "judges": "Llama 3.3 70B",
+   "debaters": "Llama 3.3 70B, both sides",
+   "questions": 106,
+   "worlds": 3,
+   "registered": "no",
+   "caveat": "harness bugs, found later",
+   "source": "reports/2026-07-06-preliminary-findings.md line 30 (reanalysis of the pilot data)",
+   "when_source": "the upstream repository's commit history: 'generated debates and judgements' and 'finished inference' on 2026-04-08, 'final commit' on 2026-04-15"
+  },
+  {
+   "key": "stage1",
+   "label": "Re-judge",
+   "when": "July 2026",
+   "estimate": 3.41, "lo": 1.31, "hi": 5.87,
+   "comparison": "1 and 2 queries (mean) vs. none",
+   "judges": "Llama 3.3 70B",
+   "debaters": "the pilot's debates, reused",
+   "questions": 106,
+   "worlds": 3,
+   "registered": "yes",
+   "caveat": "bugs fixed",
+   "source": "reports/2026-07-09-stage1-rejudge-results.md line 14"
+  },
+  {
+   "key": "phase2",
+   "label": "Phase 2",
+   "label_note": "post-hoc reweighting",
+   "when": "August 2026",
+   "estimate": 4.56, "lo": 2.89, "hi": 6.25,
+   "as_run": {"estimate": 3.94, "lo": 2.21, "hi": 5.67},
+   "comparison": "2 queries vs. none",
+   "judges": "Qwen2.5 7B, Gemma 4 31B, Llama 3.3 70B, gpt-oss 120B",
+   "debaters": "Llama 3.3 70B and Qwen3.7 Plus, each against itself",
+   "questions": 82,
+   "worlds": 3,
+   "registered": "yes",
+   "caveat": "post-hoc side-standardized estimate after a defect in planned answer-position mirroring; assumption-based reweighting, not a corrected mirrored result; +3.94 [2.21, 5.67] as run",
+   "source": "reports/2026-08-11-phase2-main-results.md lines 15 and 113"
+  },
+  {
+   "key": "phase3",
+   "label": "Phase 3",
+   "when": "September 2026",
+   "estimate": 3.811, "lo": 1.778, "hi": 5.793,
+   "comparison": "1 query vs. none",
+   "judges": "Qwen3.8, Llama 3.3 70B",
+   "debaters": "Phase 2's debates, reused",
+   "questions": 82,
+   "worlds": 3,
+   "registered": "yes",
+   "caveat": "by judge: Qwen3.8 +5.28 [2.54, 8.23], Llama 3.3 70B +2.34 [-0.61, 5.28]",
+   "source": "branch codex/phase3-v3-successor, reports/phase3-results-2026-09-11/results-summary.json, primary.D1"
+  }
+ ]
+}

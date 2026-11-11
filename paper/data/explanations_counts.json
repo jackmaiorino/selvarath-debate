@@ -1,0 +1,106 @@
+{
+ "pairs": 14952,
+ "kinds": {
+  "both_right": 13972,
+  "harm": 331,
+  "both_wrong": 433,
+  "help": 216
+ },
+ "by_k1_answer": {
+  "YES": {
+   "both_right": 11077,
+   "harm": 228,
+   "both_wrong": 320,
+   "help": 149
+  },
+  "NOT ADDRESSED": {
+   "both_right": 1929,
+   "both_wrong": 80,
+   "harm": 54,
+   "help": 43
+  },
+  "NO": {
+   "both_right": 288,
+   "harm": 31,
+   "both_wrong": 13,
+   "help": 5
+  },
+  "none": {
+   "both_right": 678,
+   "help": 19,
+   "both_wrong": 20,
+   "harm": 17
+  },
+  "INVALID": {
+   "harm": 1
+  }
+ },
+ "by_judge": {
+  "haiku": {
+   "both_right": 1513,
+   "harm": 170,
+   "both_wrong": 312,
+   "help": 141
+  },
+  "luna": {
+   "both_right": 2029,
+   "both_wrong": 41,
+   "harm": 46,
+   "help": 20
+  },
+  "opus": {
+   "both_right": 2122,
+   "harm": 9,
+   "both_wrong": 4,
+   "help": 1
+  },
+  "qwen38": {
+   "both_right": 2031,
+   "help": 25,
+   "harm": 48,
+   "both_wrong": 32
+  },
+  "sol": {
+   "both_right": 2101,
+   "both_wrong": 9,
+   "harm": 20,
+   "help": 6
+  },
+  "sonnet": {
+   "both_right": 2099,
+   "harm": 13,
+   "help": 15,
+   "both_wrong": 9
+  },
+  "terra": {
+   "both_right": 2077,
+   "both_wrong": 26,
+   "help": 8,
+   "harm": 25
+  }
+ },
+ "mentions_check": {
+  "both_right": {
+   "true": 11690,
+   "false": 2282
+  },
+  "harm": {
+   "true": 274,
+   "false": 57
+  },
+  "both_wrong": {
+   "true": 353,
+   "false": 80
+  },
+  "help": {
+   "true": 173,
+   "false": 43
+  }
+ },
+ "unparsed": {
+  "both_right": 0,
+  "harm": 7,
+  "both_wrong": 10,
+  "help": 15
+ }
+}

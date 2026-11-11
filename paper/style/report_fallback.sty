@@ -1,0 +1,15 @@
+% Plain fallback layout used when neurips_2026.sty is not in the paper folder.
+% Same text block as the NeurIPS style (5.5in by 9in, 10pt Times) so figures and tables keep their fit.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{style/report_fallback}[2026/11/10 fallback layout for the final report]
+\RequirePackage[letterpaper,textwidth=5.5in,textheight=9in,top=1in]{geometry}
+\RequirePackage{newtxtext,newtxmath}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.5pt}
+\renewcommand{\abstractname}{Abstract}
+\RequirePackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{10pt}{3pt}
+\titlespacing*{\subsection}{0pt}{7pt}{2pt}
+\endinput

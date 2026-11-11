@@ -1,0 +1,3101 @@
+{
+  "preregistration": "reports/final-phase-2026-10-03/main-preregistration.md",
+  "completion": {
+    "questions": 1070,
+    "debates": 1070,
+    "failed_debates": [],
+    "judgments": 102720,
+    "expected_judgments": 102720,
+    "failed_judgments": [],
+    "compliance_returned": 6420,
+    "compliance_expected": 6420
+  },
+  "spend": {
+    "main_stage_usd": 3124.17394071,
+    "cap_usd": 3634.0,
+    "by_component_usd": {
+      "compliance": 13.0622,
+      "debate": 332.2079,
+      "gate": 8.2873,
+      "judge:haiku:debate_k0": 10.4374,
+      "judge:haiku:debate_k1": 23.5031,
+      "judge:haiku:debate_k2": 32.5224,
+      "judge:haiku:debate_k6": 71.5808,
+      "judge:haiku:debate_world": 11.8048,
+      "judge:haiku:world_alone": 4.2017,
+      "judge:llama70:debate_k0": 0.0,
+      "judge:llama70:debate_k1": 0.0,
+      "judge:llama70:debate_k2": 0.0,
+      "judge:llama70:debate_k6": 0.0,
+      "judge:llama70:debate_world": 0.0,
+      "judge:llama70:world_alone": 0.0,
+      "judge:luna:debate_k0": 1.4345,
+      "judge:luna:debate_k1": 2.8088,
+      "judge:luna:debate_k2": 4.2352,
+      "judge:luna:debate_k6": 9.9112,
+      "judge:luna:debate_world": 1.7925,
+      "judge:luna:world_alone": 0.6277,
+      "judge:opus:debate_k0": 51.8302,
+      "judge:opus:debate_k1": 110.0319,
+      "judge:opus:debate_k2": 160.3785,
+      "judge:opus:debate_k6": 316.202,
+      "judge:opus:debate_world": 59.4576,
+      "judge:opus:world_alone": 23.7667,
+      "judge:qwen38:debate_k0": 58.1379,
+      "judge:qwen38:debate_k1": 118.4386,
+      "judge:qwen38:debate_k2": 161.0585,
+      "judge:qwen38:debate_k6": 292.9988,
+      "judge:qwen38:debate_world": 61.8462,
+      "judge:qwen38:world_alone": 26.9814,
+      "judge:sol:debate_k0": 26.351,
+      "judge:sol:debate_k1": 54.4958,
+      "judge:sol:debate_k2": 82.3715,
+      "judge:sol:debate_k6": 182.8913,
+      "judge:sol:debate_world": 33.9104,
+      "judge:sol:world_alone": 11.0957,
+      "judge:sonnet:debate_k0": 21.5812,
+      "judge:sonnet:debate_k1": 52.3439,
+      "judge:sonnet:debate_k2": 76.0937,
+      "judge:sonnet:debate_k6": 109.0545,
+      "judge:sonnet:debate_world": 27.6128,
+      "judge:sonnet:world_alone": 10.6926,
+      "judge:terra:debate_k0": 13.9522,
+      "judge:terra:debate_k1": 29.8832,
+      "judge:terra:debate_k2": 43.4202,
+      "judge:terra:debate_k6": 91.304,
+      "judge:terra:debate_world": 17.7294,
+      "judge:terra:world_alone": 5.8583,
+      "oracle": 263.9863
+    }
+  },
+  "times_s": {
+    "debates_s": 3.03593520000004,
+    "compliance_s": 0.8696952000000238,
+    "judging_s": 17341.664928899998
+  },
+  "store_events": {
+    "batch_submit": 196,
+    "wave_admitted": 196,
+    "live_rejected_unsent": 813,
+    "wave_split": 19,
+    "wave_deferred": 37,
+    "transport": 5,
+    "amendment2_gate_reset": 1,
+    "burst_scale_up": 23,
+    "burst_ready": 22,
+    "burst_smoke_attempt": 22,
+    "burst_smoke": 22,
+    "burst_stopped": 23,
+    "batch_submission_unknown": 1,
+    "burst_failed": 1,
+    "reconciled_batch_by_hand": 1
+  },
+  "routes": {
+    "batch": 275166,
+    "live": 116104
+  },
+  "calls": {
+    "compliance:dspro:dishonest": {
+      "calls": 3210,
+      "status": {
+        "ok": 3210
+      },
+      "attempts": {
+        "1": 3210
+      },
+      "finish_reasons": {
+        "stop": 3210
+      },
+      "input_tokens": {
+        "mean": 1333,
+        "median": 1324.0,
+        "p90": 1575,
+        "max": 2068
+      },
+      "output_tokens": {
+        "mean": 157,
+        "median": 139.0,
+        "p90": 239,
+        "max": 4273
+      },
+      "reasoning_tokens": {
+        "mean": 141,
+        "median": 123.0,
+        "p90": 223,
+        "max": 4234
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 3210,
+        "wilson95": [
+          1.0842021724855044e-19,
+          0.001195285725794244
+        ]
+      },
+      "cost_usd": 7.6505
+    },
+    "compliance:dspro:honest": {
+      "calls": 3210,
+      "status": {
+        "ok": 3210
+      },
+      "attempts": {
+        "1": 3210
+      },
+      "finish_reasons": {
+        "stop": 3210
+      },
+      "input_tokens": {
+        "mean": 823,
+        "median": 832.0,
+        "p90": 947,
+        "max": 1148
+      },
+      "output_tokens": {
+        "mean": 151,
+        "median": 139.0,
+        "p90": 229,
+        "max": 1605
+      },
+      "reasoning_tokens": {
+        "mean": 135,
+        "median": 123.0,
+        "p90": 213,
+        "max": 1581
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 3210,
+        "wilson95": [
+          1.0842021724855044e-19,
+          0.001195285725794244
+        ]
+      },
+      "cost_usd": 5.4118
+    },
+    "debate:fable:dishonest": {
+      "calls": 3210,
+      "status": {
+        "ok": 3210
+      },
+      "attempts": {
+        "1": 3210
+      },
+      "finish_reasons": {
+        "end_turn": 3210
+      },
+      "input_tokens": {
+        "mean": 6501,
+        "median": 6559.0,
+        "p90": 9614,
+        "max": 11669
+      },
+      "output_tokens": {
+        "mean": 2400,
+        "median": 2323.0,
+        "p90": 3125,
+        "max": 6704
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 3210,
+        "wilson95": [
+          1.0842021724855044e-19,
+          0.001195285725794244
+        ]
+      },
+      "cost_usd": 296.9155
+    },
+    "debate:sonnet:honest": {
+      "calls": 3210,
+      "status": {
+        "ok": 3210
+      },
+      "attempts": {
+        "1": 3210
+      },
+      "finish_reasons": {
+        "end_turn": 3210
+      },
+      "input_tokens": {
+        "mean": 6665,
+        "median": 6803.5,
+        "p90": 10163,
+        "max": 13752
+      },
+      "output_tokens": {
+        "mean": 866,
+        "median": 884.0,
+        "p90": 1030,
+        "max": 1364
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 3210,
+        "wilson95": [
+          1.0842021724855044e-19,
+          0.001195285725794244
+        ]
+      },
+      "cost_usd": 35.2923
+    },
+    "gate:dsflash": {
+      "calls": 77993,
+      "status": {
+        "ok": 77989,
+        "truncated": 4
+      },
+      "attempts": {
+        "1": 77993
+      },
+      "finish_reasons": {
+        "stop": 77989,
+        "length": 4
+      },
+      "input_tokens": {
+        "mean": 509,
+        "median": 507,
+        "p90": 536,
+        "max": 625
+      },
+      "output_tokens": {
+        "mean": 125,
+        "median": 110,
+        "p90": 164,
+        "max": 2000
+      },
+      "reasoning_tokens": {
+        "mean": 121,
+        "median": 106,
+        "p90": 160,
+        "max": 2000
+      },
+      "truncation": {
+        "truncated": 4,
+        "returned": 77993,
+        "wilson95": [
+          1.9944553162103367e-05,
+          0.000131875169267887
+        ]
+      },
+      "cost_usd": 8.2873
+    },
+    "judge:haiku:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2137,
+        "truncated": 3
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2137,
+        "max_tokens": 3
+      },
+      "input_tokens": {
+        "mean": 5870,
+        "median": 5791.0,
+        "p90": 6724,
+        "max": 8620
+      },
+      "output_tokens": {
+        "mean": 777,
+        "median": 744.0,
+        "p90": 1009,
+        "max": 2048
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 3,
+        "returned": 2140,
+        "wilson95": [
+          0.0004768740105141878,
+          0.004113698104882728
+        ]
+      },
+      "cost_usd": 10.4374
+    },
+    "judge:haiku:debate_k1:query_step": {
+      "calls": 3262,
+      "status": {
+        "ok": 3262
+      },
+      "attempts": {
+        "1": 3262
+      },
+      "finish_reasons": {
+        "end_turn": 3262
+      },
+      "input_tokens": {
+        "mean": 6066,
+        "median": 6008.5,
+        "p90": 7026,
+        "max": 9086
+      },
+      "output_tokens": {
+        "mean": 91,
+        "median": 39.0,
+        "p90": 294,
+        "max": 545
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 3262,
+        "wilson95": [
+          0.0,
+          0.001176253920813807
+        ]
+      },
+      "cost_usd": 12.8019
+    },
+    "judge:haiku:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 6200,
+        "median": 6133.0,
+        "p90": 7213,
+        "max": 9186
+      },
+      "output_tokens": {
+        "mean": 468,
+        "median": 444.0,
+        "p90": 591,
+        "max": 992
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 10.7011
+    },
+    "judge:haiku:debate_k2:query_step": {
+      "calls": 5531,
+      "status": {
+        "ok": 5531
+      },
+      "attempts": {
+        "1": 5531
+      },
+      "finish_reasons": {
+        "end_turn": 5531
+      },
+      "input_tokens": {
+        "mean": 6117,
+        "median": 6054,
+        "p90": 7072,
+        "max": 9351
+      },
+      "output_tokens": {
+        "mean": 55,
+        "median": 34,
+        "p90": 75,
+        "max": 1096
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 5531,
+        "wilson95": [
+          0.0,
+          0.0006940503805347701
+        ]
+      },
+      "cost_usd": 21.5335
+    },
+    "judge:haiku:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 6333,
+        "median": 6264.0,
+        "p90": 7275,
+        "max": 9430
+      },
+      "output_tokens": {
+        "mean": 492,
+        "median": 467.0,
+        "p90": 637,
+        "max": 1218
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 10.9889
+    },
+    "judge:haiku:debate_k6:query_step": {
+      "calls": 14773,
+      "status": {
+        "ok": 14773
+      },
+      "attempts": {
+        "1": 14773
+      },
+      "finish_reasons": {
+        "end_turn": 14773
+      },
+      "input_tokens": {
+        "mean": 6467,
+        "median": 6408,
+        "p90": 7537,
+        "max": 9994
+      },
+      "output_tokens": {
+        "mean": 42,
+        "median": 30,
+        "p90": 47,
+        "max": 1188
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 14773,
+        "wilson95": [
+          2.710505431213761e-20,
+          0.0002599648126021583
+        ]
+      },
+      "cost_usd": 59.9978
+    },
+    "judge:haiku:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 7012,
+        "median": 6929.0,
+        "p90": 8063,
+        "max": 10881
+      },
+      "output_tokens": {
+        "mean": 470,
+        "median": 449.0,
+        "p90": 594,
+        "max": 1000
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 11.583
+    },
+    "judge:haiku:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 7950,
+        "median": 7871.0,
+        "p90": 9059,
+        "max": 10829
+      },
+      "output_tokens": {
+        "mean": 617,
+        "median": 574.0,
+        "p90": 837,
+        "max": 1699
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 11.8048
+    },
+    "judge:haiku:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 2396,
+        "median": 2380.0,
+        "p90": 2706,
+        "max": 2854
+      },
+      "output_tokens": {
+        "mean": 306,
+        "median": 304.0,
+        "p90": 365,
+        "max": 1044
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 4.2017
+    },
+    "judge:llama70:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k1:query_step": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k2:query_step": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k6:query_step": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:llama70:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "error": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {},
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "truncation": {
+        "truncated": 0,
+        "returned": 0,
+        "wilson95": null
+      },
+      "cost_usd": 0.0
+    },
+    "judge:luna:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5331,
+        "median": 5294.5,
+        "p90": 6060,
+        "max": 7553
+      },
+      "output_tokens": {
+        "mean": 229,
+        "median": 204.0,
+        "p90": 343,
+        "max": 968
+      },
+      "reasoning_tokens": {
+        "mean": 108,
+        "median": 83.0,
+        "p90": 209,
+        "max": 834
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 1.4345
+    },
+    "judge:luna:debate_k1:query_step": {
+      "calls": 2319,
+      "status": {
+        "ok": 2319
+      },
+      "attempts": {
+        "1": 2319
+      },
+      "finish_reasons": {
+        "completed": 2319
+      },
+      "input_tokens": {
+        "mean": 5405,
+        "median": 5374,
+        "p90": 6139,
+        "max": 7595
+      },
+      "output_tokens": {
+        "mean": 117,
+        "median": 103,
+        "p90": 184,
+        "max": 736
+      },
+      "reasoning_tokens": {
+        "mean": 85,
+        "median": 70,
+        "p90": 154,
+        "max": 584
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2319,
+        "wilson95": [
+          0.0,
+          0.0016537757263228945
+        ]
+      },
+      "cost_usd": 1.4136
+    },
+    "judge:luna:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5493,
+        "median": 5456.0,
+        "p90": 6237,
+        "max": 7706
+      },
+      "output_tokens": {
+        "mean": 179,
+        "median": 160.0,
+        "p90": 256,
+        "max": 647
+      },
+      "reasoning_tokens": {
+        "mean": 78,
+        "median": 60.0,
+        "p90": 140,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 1.3952
+    },
+    "judge:luna:debate_k2:query_step": {
+      "calls": 4650,
+      "status": {
+        "ok": 4650
+      },
+      "attempts": {
+        "1": 4650
+      },
+      "finish_reasons": {
+        "completed": 4650
+      },
+      "input_tokens": {
+        "mean": 5483,
+        "median": 5453.0,
+        "p90": 6234,
+        "max": 7845
+      },
+      "output_tokens": {
+        "mean": 89,
+        "median": 75.0,
+        "p90": 144,
+        "max": 632
+      },
+      "reasoning_tokens": {
+        "mean": 58,
+        "median": 44.0,
+        "p90": 113,
+        "max": 482
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 4650,
+        "wilson95": [
+          0.0,
+          0.0008254382652879562
+        ]
+      },
+      "cost_usd": 2.7853
+    },
+    "judge:luna:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5652,
+        "median": 5616.0,
+        "p90": 6412,
+        "max": 7958
+      },
+      "output_tokens": {
+        "mean": 187,
+        "median": 166.0,
+        "p90": 265,
+        "max": 924
+      },
+      "reasoning_tokens": {
+        "mean": 83,
+        "median": 62.0,
+        "p90": 149,
+        "max": 817
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 1.45
+    },
+    "judge:luna:debate_k6:query_step": {
+      "calls": 13524,
+      "status": {
+        "ok": 13524
+      },
+      "attempts": {
+        "1": 13524
+      },
+      "finish_reasons": {
+        "completed": 13524
+      },
+      "input_tokens": {
+        "mean": 5791,
+        "median": 5751.5,
+        "p90": 6651,
+        "max": 8710
+      },
+      "output_tokens": {
+        "mean": 77,
+        "median": 63.0,
+        "p90": 126,
+        "max": 528
+      },
+      "reasoning_tokens": {
+        "mean": 49,
+        "median": 34.0,
+        "p90": 100,
+        "max": 449
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 13524,
+        "wilson95": [
+          0.0,
+          0.0002839668717576033
+        ]
+      },
+      "cost_usd": 8.3579
+    },
+    "judge:luna:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 6243,
+        "median": 6204.0,
+        "p90": 7078,
+        "max": 8786
+      },
+      "output_tokens": {
+        "mean": 193,
+        "median": 171.0,
+        "p90": 272,
+        "max": 668
+      },
+      "reasoning_tokens": {
+        "mean": 84,
+        "median": 64.0,
+        "p90": 150,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 1.5533
+    },
+    "judge:luna:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 7134,
+        "median": 7078.0,
+        "p90": 8070,
+        "max": 9462
+      },
+      "output_tokens": {
+        "mean": 207,
+        "median": 173.0,
+        "p90": 341,
+        "max": 1696
+      },
+      "reasoning_tokens": {
+        "mean": 86,
+        "median": 55.0,
+        "p90": 202,
+        "max": 1552
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 1.7925
+    },
+    "judge:luna:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 2087,
+        "median": 2081.5,
+        "p90": 2348,
+        "max": 2436
+      },
+      "output_tokens": {
+        "mean": 141,
+        "median": 101.0,
+        "p90": 247,
+        "max": 1634
+      },
+      "reasoning_tokens": {
+        "mean": 43,
+        "median": 0.0,
+        "p90": 142,
+        "max": 1462
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 0.6277
+    },
+    "judge:opus:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8092,
+        "median": 8033.0,
+        "p90": 9085,
+        "max": 11928
+      },
+      "output_tokens": {
+        "mean": 804,
+        "median": 789.0,
+        "p90": 984,
+        "max": 1598
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 51.8302
+    },
+    "judge:opus:debate_k1:query_step": {
+      "calls": 2318,
+      "status": {
+        "ok": 2318
+      },
+      "attempts": {
+        "1": 2318
+      },
+      "finish_reasons": {
+        "end_turn": 2318
+      },
+      "input_tokens": {
+        "mean": 8200,
+        "median": 8142.0,
+        "p90": 9216,
+        "max": 11999
+      },
+      "output_tokens": {
+        "mean": 296,
+        "median": 280.0,
+        "p90": 429,
+        "max": 806
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2318,
+        "wilson95": [
+          0.0,
+          0.0016544879953368015
+        ]
+      },
+      "cost_usd": 54.2864
+    },
+    "judge:opus:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8340,
+        "median": 8272.0,
+        "p90": 9364,
+        "max": 12157
+      },
+      "output_tokens": {
+        "mean": 529,
+        "median": 482.0,
+        "p90": 770,
+        "max": 1403
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 55.7455
+    },
+    "judge:opus:debate_k2:query_step": {
+      "calls": 4590,
+      "status": {
+        "ok": 4590
+      },
+      "attempts": {
+        "1": 4590
+      },
+      "finish_reasons": {
+        "end_turn": 4590
+      },
+      "input_tokens": {
+        "mean": 8324,
+        "median": 8279.0,
+        "p90": 9371,
+        "max": 12222
+      },
+      "output_tokens": {
+        "mean": 210,
+        "median": 199.0,
+        "p90": 334,
+        "max": 776
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 4590,
+        "wilson95": [
+          5.421010862427522e-20,
+          0.0008362192851296797
+        ]
+      },
+      "cost_usd": 104.8045
+    },
+    "judge:opus:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8574,
+        "median": 8505.5,
+        "p90": 9605,
+        "max": 12367
+      },
+      "output_tokens": {
+        "mean": 474,
+        "median": 429.0,
+        "p90": 689,
+        "max": 1342
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 55.574
+    },
+    "judge:opus:debate_k6:query_step": {
+      "calls": 11281,
+      "status": {
+        "ok": 11281
+      },
+      "attempts": {
+        "1": 11281
+      },
+      "finish_reasons": {
+        "end_turn": 11281
+      },
+      "input_tokens": {
+        "mean": 8717,
+        "median": 8663,
+        "p90": 9938,
+        "max": 13123
+      },
+      "output_tokens": {
+        "mean": 134,
+        "median": 114,
+        "p90": 245,
+        "max": 1086
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 11281,
+        "wilson95": [
+          0.0,
+          0.00034040875405400435
+        ]
+      },
+      "cost_usd": 257.9992
+    },
+    "judge:opus:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 9240,
+        "median": 9186.0,
+        "p90": 10449,
+        "max": 13280
+      },
+      "output_tokens": {
+        "mean": 464,
+        "median": 431.0,
+        "p90": 645,
+        "max": 1464
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 58.2028
+    },
+    "judge:opus:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 11041,
+        "median": 10978.0,
+        "p90": 12206,
+        "max": 14904
+      },
+      "output_tokens": {
+        "mean": 570,
+        "median": 496.0,
+        "p90": 860,
+        "max": 2942
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 59.4576
+    },
+    "judge:opus:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 3403,
+        "median": 3406.0,
+        "p90": 3660,
+        "max": 3851
+      },
+      "output_tokens": {
+        "mean": 430,
+        "median": 349.5,
+        "p90": 733,
+        "max": 1813
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 23.7667
+    },
+    "judge:qwen38:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2121,
+        "truncated": 19
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "stop": 2121,
+        "length": 19
+      },
+      "input_tokens": {
+        "mean": 5556,
+        "median": 5507.0,
+        "p90": 6373,
+        "max": 7933
+      },
+      "output_tokens": {
+        "mean": 2676,
+        "median": 1617.0,
+        "p90": 6119,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 2532,
+        "median": 1465.5,
+        "p90": 5974,
+        "max": 16388
+      },
+      "truncation": {
+        "truncated": 19,
+        "returned": 2140,
+        "wilson95": [
+          0.005691313720294586,
+          0.01382573528934193
+        ]
+      },
+      "cost_usd": 58.1379
+    },
+    "judge:qwen38:debate_k1:query_step": {
+      "calls": 2300,
+      "status": {
+        "ok": 2289,
+        "truncated": 11
+      },
+      "attempts": {
+        "1": 2298,
+        "2": 2
+      },
+      "finish_reasons": {
+        "stop": 2289,
+        "length": 11
+      },
+      "input_tokens": {
+        "mean": 5617,
+        "median": 5582.0,
+        "p90": 6420,
+        "max": 8124
+      },
+      "output_tokens": {
+        "mean": 3587,
+        "median": 2576.0,
+        "p90": 7746,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 3559,
+        "median": 2546.5,
+        "p90": 7715,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 11,
+        "returned": 2300,
+        "wilson95": [
+          0.0026726495527408137,
+          0.008544033227992728
+        ]
+      },
+      "cost_usd": 75.3428
+    },
+    "judge:qwen38:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2134,
+        "truncated": 6
+      },
+      "attempts": {
+        "1": 2139,
+        "2": 1
+      },
+      "finish_reasons": {
+        "stop": 2134,
+        "length": 6
+      },
+      "input_tokens": {
+        "mean": 5718,
+        "median": 5670.5,
+        "p90": 6537,
+        "max": 8250
+      },
+      "output_tokens": {
+        "mean": 1450,
+        "median": 856.0,
+        "p90": 2938,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 1324,
+        "median": 729.5,
+        "p90": 2800,
+        "max": 16385
+      },
+      "truncation": {
+        "truncated": 6,
+        "returned": 2140,
+        "wilson95": [
+          0.0012855924132593385,
+          0.006103694119807501
+        ]
+      },
+      "cost_usd": 43.0958
+    },
+    "judge:qwen38:debate_k2:query_step": {
+      "calls": 4564,
+      "status": {
+        "ok": 4554,
+        "truncated": 10
+      },
+      "attempts": {
+        "1": 4564
+      },
+      "finish_reasons": {
+        "stop": 4554,
+        "length": 10
+      },
+      "input_tokens": {
+        "mean": 5703,
+        "median": 5660.0,
+        "p90": 6531,
+        "max": 8462
+      },
+      "output_tokens": {
+        "mean": 2440,
+        "median": 1613.5,
+        "p90": 5444,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 2414,
+        "median": 1583.5,
+        "p90": 5412,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 10,
+        "returned": 4564,
+        "wilson95": [
+          0.0011906006689518678,
+          0.00402881402300406
+        ]
+      },
+      "cost_usd": 118.8801
+    },
+    "judge:qwen38:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2138,
+        "truncated": 2
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "stop": 2138,
+        "length": 2
+      },
+      "input_tokens": {
+        "mean": 5874,
+        "median": 5820.0,
+        "p90": 6702,
+        "max": 8588
+      },
+      "output_tokens": {
+        "mean": 1327,
+        "median": 798.0,
+        "p90": 2779,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 1204,
+        "median": 673.5,
+        "p90": 2631,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 2,
+        "returned": 2140,
+        "wilson95": [
+          0.0002563328164724623,
+          0.0034013344930344793
+        ]
+      },
+      "cost_usd": 42.1785
+    },
+    "judge:qwen38:debate_k6:query_step": {
+      "calls": 11987,
+      "status": {
+        "ok": 11981,
+        "truncated": 6
+      },
+      "attempts": {
+        "1": 11987
+      },
+      "finish_reasons": {
+        "stop": 11981,
+        "length": 6
+      },
+      "input_tokens": {
+        "mean": 6005,
+        "median": 5957,
+        "p90": 6962,
+        "max": 9538
+      },
+      "output_tokens": {
+        "mean": 1477,
+        "median": 883,
+        "p90": 3479,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 1452,
+        "median": 854,
+        "p90": 3459,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 6,
+        "returned": 11987,
+        "wilson95": [
+          0.00022942255643585276,
+          0.0010917073138153165
+        ]
+      },
+      "cost_usd": 250.2363
+    },
+    "judge:qwen38:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2139,
+        "truncated": 1
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "stop": 2139,
+        "length": 1
+      },
+      "input_tokens": {
+        "mean": 6385,
+        "median": 6325.5,
+        "p90": 7364,
+        "max": 9665
+      },
+      "output_tokens": {
+        "mean": 1202,
+        "median": 710.5,
+        "p90": 2441,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 1073,
+        "median": 581.0,
+        "p90": 2299,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 1,
+        "returned": 2140,
+        "wilson95": [
+          8.249287281282482e-05,
+          0.0026422696308041425
+        ]
+      },
+      "cost_usd": 42.7625
+    },
+    "judge:qwen38:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2128,
+        "truncated": 12
+      },
+      "attempts": {
+        "1": 2138,
+        "2": 2
+      },
+      "finish_reasons": {
+        "stop": 2128,
+        "length": 12
+      },
+      "input_tokens": {
+        "mean": 7463,
+        "median": 7402.0,
+        "p90": 8487,
+        "max": 10142
+      },
+      "output_tokens": {
+        "mean": 2329,
+        "median": 1359.5,
+        "p90": 5299,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 2186,
+        "median": 1213.0,
+        "p90": 5156,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 12,
+        "returned": 2140,
+        "wilson95": [
+          0.0032106389021749502,
+          0.009776076466231735
+        ]
+      },
+      "cost_usd": 61.8462
+    },
+    "judge:qwen38:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2134,
+        "truncated": 6
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "stop": 2134,
+        "length": 6
+      },
+      "input_tokens": {
+        "mean": 2249,
+        "median": 2243.0,
+        "p90": 2565,
+        "max": 2716
+      },
+      "output_tokens": {
+        "mean": 1352,
+        "median": 729.0,
+        "p90": 2859,
+        "max": 16384
+      },
+      "reasoning_tokens": {
+        "mean": 1236,
+        "median": 616.0,
+        "p90": 2720,
+        "max": 16384
+      },
+      "truncation": {
+        "truncated": 6,
+        "returned": 2140,
+        "wilson95": [
+          0.0012855924132593385,
+          0.006103694119807501
+        ]
+      },
+      "cost_usd": 26.9814
+    },
+    "judge:sol:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5331,
+        "median": 5294.5,
+        "p90": 6060,
+        "max": 7553
+      },
+      "output_tokens": {
+        "mean": 165,
+        "median": 133.0,
+        "p90": 265,
+        "max": 1027
+      },
+      "reasoning_tokens": {
+        "mean": 35,
+        "median": 0.0,
+        "p90": 126,
+        "max": 888
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 26.351
+    },
+    "judge:sol:debate_k1:query_step": {
+      "calls": 2316,
+      "status": {
+        "ok": 2316
+      },
+      "attempts": {
+        "1": 2316
+      },
+      "finish_reasons": {
+        "completed": 2316
+      },
+      "input_tokens": {
+        "mean": 5402,
+        "median": 5375.5,
+        "p90": 6130,
+        "max": 7595
+      },
+      "output_tokens": {
+        "mean": 125,
+        "median": 105.0,
+        "p90": 211,
+        "max": 674
+      },
+      "reasoning_tokens": {
+        "mean": 95,
+        "median": 73.0,
+        "p90": 180,
+        "max": 637
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2316,
+        "wilson95": [
+          0.0,
+          0.0016559143755655419
+        ]
+      },
+      "cost_usd": 27.919
+    },
+    "judge:sol:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5490,
+        "median": 5456.5,
+        "p90": 6238,
+        "max": 7703
+      },
+      "output_tokens": {
+        "mean": 144,
+        "median": 112.0,
+        "p90": 244,
+        "max": 1027
+      },
+      "reasoning_tokens": {
+        "mean": 34,
+        "median": 0.0,
+        "p90": 115,
+        "max": 900
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 26.5769
+    },
+    "judge:sol:debate_k2:query_step": {
+      "calls": 4612,
+      "status": {
+        "ok": 4612
+      },
+      "attempts": {
+        "1": 4612
+      },
+      "finish_reasons": {
+        "completed": 4612
+      },
+      "input_tokens": {
+        "mean": 5483,
+        "median": 5454.0,
+        "p90": 6248,
+        "max": 7853
+      },
+      "output_tokens": {
+        "mean": 101,
+        "median": 82.0,
+        "p90": 176,
+        "max": 1019
+      },
+      "reasoning_tokens": {
+        "mean": 72,
+        "median": 53.0,
+        "p90": 147,
+        "max": 995
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 4612,
+        "wilson95": [
+          0.0,
+          0.0008322337010412795
+        ]
+      },
+      "cost_usd": 55.2424
+    },
+    "judge:sol:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5645,
+        "median": 5606.0,
+        "p90": 6416,
+        "max": 7960
+      },
+      "output_tokens": {
+        "mean": 139,
+        "median": 111.0,
+        "p90": 235,
+        "max": 950
+      },
+      "reasoning_tokens": {
+        "mean": 28,
+        "median": 0.0,
+        "p90": 105,
+        "max": 824
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 27.1291
+    },
+    "judge:sol:debate_k6:query_step": {
+      "calls": 12585,
+      "status": {
+        "ok": 12585
+      },
+      "attempts": {
+        "1": 12585
+      },
+      "finish_reasons": {
+        "completed": 12585
+      },
+      "input_tokens": {
+        "mean": 5783,
+        "median": 5747,
+        "p90": 6646,
+        "max": 8733
+      },
+      "output_tokens": {
+        "mean": 75,
+        "median": 60,
+        "p90": 131,
+        "max": 540
+      },
+      "reasoning_tokens": {
+        "mean": 49,
+        "median": 34,
+        "p90": 105,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 12585,
+        "wilson95": [
+          0.0,
+          0.00030514792272663894
+        ]
+      },
+      "cost_usd": 153.8235
+    },
+    "judge:sol:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 6167,
+        "median": 6134.5,
+        "p90": 7044,
+        "max": 8809
+      },
+      "output_tokens": {
+        "mean": 141,
+        "median": 117.0,
+        "p90": 230,
+        "max": 1190
+      },
+      "reasoning_tokens": {
+        "mean": 25,
+        "median": 0.0,
+        "p90": 92,
+        "max": 1034
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 29.0678
+    },
+    "judge:sol:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 7134,
+        "median": 7078.0,
+        "p90": 8070,
+        "max": 9462
+      },
+      "output_tokens": {
+        "mean": 158,
+        "median": 137.0,
+        "p90": 187,
+        "max": 1694
+      },
+      "reasoning_tokens": {
+        "mean": 20,
+        "median": 0.0,
+        "p90": 0,
+        "max": 1552
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 33.9104
+    },
+    "judge:sol:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 2087,
+        "median": 2081.5,
+        "p90": 2348,
+        "max": 2436
+      },
+      "output_tokens": {
+        "mean": 101,
+        "median": 92.0,
+        "p90": 122,
+        "max": 656
+      },
+      "reasoning_tokens": {
+        "mean": 7,
+        "median": 0.0,
+        "p90": 0,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 11.0957
+    },
+    "judge:sonnet:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8092,
+        "median": 8033.0,
+        "p90": 9085,
+        "max": 11928
+      },
+      "output_tokens": {
+        "mean": 399,
+        "median": 395.0,
+        "p90": 489,
+        "max": 803
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 21.5812
+    },
+    "judge:sonnet:debate_k1:query_step": {
+      "calls": 2566,
+      "status": {
+        "ok": 2566
+      },
+      "attempts": {
+        "1": 2566
+      },
+      "finish_reasons": {
+        "end_turn": 2566
+      },
+      "input_tokens": {
+        "mean": 8227,
+        "median": 8173.5,
+        "p90": 9233,
+        "max": 11999
+      },
+      "output_tokens": {
+        "mean": 52,
+        "median": 49.0,
+        "p90": 69,
+        "max": 522
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2566,
+        "wilson95": [
+          0.0,
+          0.0014948232730500734
+        ]
+      },
+      "cost_usd": 27.0242
+    },
+    "judge:sonnet:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8373,
+        "median": 8310.0,
+        "p90": 9397,
+        "max": 12154
+      },
+      "output_tokens": {
+        "mean": 284,
+        "median": 276.0,
+        "p90": 357,
+        "max": 616
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 25.3196
+    },
+    "judge:sonnet:debate_k2:query_step": {
+      "calls": 4757,
+      "status": {
+        "ok": 4757
+      },
+      "attempts": {
+        "1": 4757
+      },
+      "finish_reasons": {
+        "end_turn": 4757
+      },
+      "input_tokens": {
+        "mean": 8333,
+        "median": 8296,
+        "p90": 9376,
+        "max": 12460
+      },
+      "output_tokens": {
+        "mean": 43,
+        "median": 42,
+        "p90": 62,
+        "max": 566
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 4757,
+        "wilson95": [
+          0.0,
+          0.0008068865249811724
+        ]
+      },
+      "cost_usd": 50.3713
+    },
+    "judge:sonnet:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8580,
+        "median": 8508.5,
+        "p90": 9616,
+        "max": 12566
+      },
+      "output_tokens": {
+        "mean": 280,
+        "median": 272.0,
+        "p90": 349,
+        "max": 787
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 25.7224
+    },
+    "judge:sonnet:debate_k6:query_step": {
+      "calls": 7688,
+      "status": {
+        "ok": 7688
+      },
+      "attempts": {
+        "1": 7688
+      },
+      "finish_reasons": {
+        "end_turn": 7688
+      },
+      "input_tokens": {
+        "mean": 8539,
+        "median": 8499.5,
+        "p90": 9683,
+        "max": 12693
+      },
+      "output_tokens": {
+        "mean": 36,
+        "median": 37.0,
+        "p90": 58,
+        "max": 469
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 7688,
+        "wilson95": [
+          0.0,
+          0.000499419916707838
+        ]
+      },
+      "cost_usd": 82.7676
+    },
+    "judge:sonnet:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 8857,
+        "median": 8797.0,
+        "p90": 10010,
+        "max": 12799
+      },
+      "output_tokens": {
+        "mean": 277,
+        "median": 270.0,
+        "p90": 344,
+        "max": 636
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 26.2869
+    },
+    "judge:sonnet:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 11041,
+        "median": 10978.0,
+        "p90": 12206,
+        "max": 14904
+      },
+      "output_tokens": {
+        "mean": 372,
+        "median": 360.0,
+        "p90": 486,
+        "max": 1018
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 27.6128
+    },
+    "judge:sonnet:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "end_turn": 2140
+      },
+      "input_tokens": {
+        "mean": 3403,
+        "median": 3406.0,
+        "p90": 3660,
+        "max": 3851
+      },
+      "output_tokens": {
+        "mean": 319,
+        "median": 290.0,
+        "p90": 457,
+        "max": 994
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0.0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 10.6926
+    },
+    "judge:terra:debate_k0:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5331,
+        "median": 5294.5,
+        "p90": 6060,
+        "max": 7553
+      },
+      "output_tokens": {
+        "mean": 198,
+        "median": 155.0,
+        "p90": 307,
+        "max": 1315
+      },
+      "reasoning_tokens": {
+        "mean": 60,
+        "median": 0.0,
+        "p90": 161,
+        "max": 1153
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 13.9522
+    },
+    "judge:terra:debate_k1:query_step": {
+      "calls": 2546,
+      "status": {
+        "ok": 2546
+      },
+      "attempts": {
+        "1": 2546
+      },
+      "finish_reasons": {
+        "completed": 2546
+      },
+      "input_tokens": {
+        "mean": 5429,
+        "median": 5395.0,
+        "p90": 6187,
+        "max": 7705
+      },
+      "output_tokens": {
+        "mean": 109,
+        "median": 78.0,
+        "p90": 221,
+        "max": 723
+      },
+      "reasoning_tokens": {
+        "mean": 63,
+        "median": 44.0,
+        "p90": 129,
+        "max": 561
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2546,
+        "wilson95": [
+          0.0,
+          0.001506548106120608
+        ]
+      },
+      "cost_usd": 15.4815
+    },
+    "judge:terra:debate_k1:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5524,
+        "median": 5491.0,
+        "p90": 6280,
+        "max": 7812
+      },
+      "output_tokens": {
+        "mean": 201,
+        "median": 190.0,
+        "p90": 314,
+        "max": 702
+      },
+      "reasoning_tokens": {
+        "mean": 84,
+        "median": 73.0,
+        "p90": 185,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 14.4017
+    },
+    "judge:terra:debate_k2:query_step": {
+      "calls": 4793,
+      "status": {
+        "ok": 4793
+      },
+      "attempts": {
+        "1": 4793
+      },
+      "finish_reasons": {
+        "completed": 4793
+      },
+      "input_tokens": {
+        "mean": 5499,
+        "median": 5467,
+        "p90": 6264,
+        "max": 7856
+      },
+      "output_tokens": {
+        "mean": 84,
+        "median": 63,
+        "p90": 150,
+        "max": 882
+      },
+      "reasoning_tokens": {
+        "mean": 46,
+        "median": 33,
+        "p90": 95,
+        "max": 575
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 4793,
+        "wilson95": [
+          0.0,
+          0.0008008308912587137
+        ]
+      },
+      "cost_usd": 28.767
+    },
+    "judge:terra:debate_k2:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 5675,
+        "median": 5638.0,
+        "p90": 6437,
+        "max": 7968
+      },
+      "output_tokens": {
+        "mean": 195,
+        "median": 179.0,
+        "p90": 306,
+        "max": 1171
+      },
+      "reasoning_tokens": {
+        "mean": 81,
+        "median": 65.0,
+        "p90": 173,
+        "max": 1034
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 14.6532
+    },
+    "judge:terra:debate_k6:query_step": {
+      "calls": 12229,
+      "status": {
+        "ok": 12228,
+        "error": 1
+      },
+      "attempts": {
+        "1": 12229
+      },
+      "finish_reasons": {
+        "completed": 12228
+      },
+      "input_tokens": {
+        "mean": 5788,
+        "median": 5753.0,
+        "p90": 6657,
+        "max": 8482
+      },
+      "output_tokens": {
+        "mean": 71,
+        "median": 55.0,
+        "p90": 130,
+        "max": 710
+      },
+      "reasoning_tokens": {
+        "mean": 42,
+        "median": 29.0,
+        "p90": 90,
+        "max": 575
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 12228,
+        "wilson95": [
+          0.0,
+          0.0003140540068007463
+        ]
+      },
+      "cost_usd": 75.7823
+    },
+    "judge:terra:debate_k6:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 6159,
+        "median": 6119.5,
+        "p90": 7043,
+        "max": 8580
+      },
+      "output_tokens": {
+        "mean": 201,
+        "median": 180.0,
+        "p90": 308,
+        "max": 1135
+      },
+      "reasoning_tokens": {
+        "mean": 82,
+        "median": 61.5,
+        "p90": 178,
+        "max": 999
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 15.5217
+    },
+    "judge:terra:debate_world:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 7134,
+        "median": 7078.0,
+        "p90": 8070,
+        "max": 9462
+      },
+      "output_tokens": {
+        "mean": 192,
+        "median": 158.0,
+        "p90": 293,
+        "max": 1379
+      },
+      "reasoning_tokens": {
+        "mean": 38,
+        "median": 0.0,
+        "p90": 133,
+        "max": 1169
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 17.7294
+    },
+    "judge:terra:world_alone:verdict": {
+      "calls": 2140,
+      "status": {
+        "ok": 2140
+      },
+      "attempts": {
+        "1": 2140
+      },
+      "finish_reasons": {
+        "completed": 2140
+      },
+      "input_tokens": {
+        "mean": 2087,
+        "median": 2081.5,
+        "p90": 2348,
+        "max": 2436
+      },
+      "output_tokens": {
+        "mean": 108,
+        "median": 103.0,
+        "p90": 133,
+        "max": 643
+      },
+      "reasoning_tokens": {
+        "mean": 3,
+        "median": 0.0,
+        "p90": 0,
+        "max": 516
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 2140,
+        "wilson95": [
+          0.0,
+          0.001791857697726992
+        ]
+      },
+      "cost_usd": 5.8583
+    },
+    "oracle:opus": {
+      "calls": 75367,
+      "status": {
+        "ok": 75367
+      },
+      "attempts": {
+        "1": 75367
+      },
+      "finish_reasons": {
+        "end_turn": 75367
+      },
+      "input_tokens": {
+        "mean": 3303,
+        "median": 3304,
+        "p90": 3557,
+        "max": 3762
+      },
+      "output_tokens": {
+        "mean": 69,
+        "median": 4,
+        "p90": 238,
+        "max": 1057
+      },
+      "reasoning_tokens": {
+        "mean": 0,
+        "median": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "truncation": {
+        "truncated": 0,
+        "returned": 75367,
+        "wilson95": [
+          0.0,
+          5.0967439746482455e-05
+        ]
+      },
+      "cost_usd": 263.9863
+    }
+  },
+  "judge_sessions": {
+    "haiku:debate_k0": 2140,
+    "haiku:debate_k1": 2140,
+    "haiku:debate_k2": 2140,
+    "haiku:debate_k6": 2140,
+    "haiku:debate_world": 2140,
+    "haiku:world_alone": 2140,
+    "llama70:debate_k0": 2140,
+    "llama70:debate_k1": 2140,
+    "llama70:debate_k2": 2140,
+    "llama70:debate_k6": 2140,
+    "llama70:debate_world": 2140,
+    "llama70:world_alone": 2140,
+    "luna:debate_k0": 2140,
+    "luna:debate_k1": 2140,
+    "luna:debate_k2": 2140,
+    "luna:debate_k6": 2140,
+    "luna:debate_world": 2140,
+    "luna:world_alone": 2140,
+    "opus:debate_k0": 2140,
+    "opus:debate_k1": 2140,
+    "opus:debate_k2": 2140,
+    "opus:debate_k6": 2140,
+    "opus:debate_world": 2140,
+    "opus:world_alone": 2140,
+    "qwen38:debate_k0": 2140,
+    "qwen38:debate_k1": 2140,
+    "qwen38:debate_k2": 2140,
+    "qwen38:debate_k6": 2140,
+    "qwen38:debate_world": 2140,
+    "qwen38:world_alone": 2140,
+    "sol:debate_k0": 2140,
+    "sol:debate_k1": 2140,
+    "sol:debate_k2": 2140,
+    "sol:debate_k6": 2140,
+    "sol:debate_world": 2140,
+    "sol:world_alone": 2140,
+    "sonnet:debate_k0": 2140,
+    "sonnet:debate_k1": 2140,
+    "sonnet:debate_k2": 2140,
+    "sonnet:debate_k6": 2140,
+    "sonnet:debate_world": 2140,
+    "sonnet:world_alone": 2140,
+    "terra:debate_k0": 2140,
+    "terra:debate_k1": 2140,
+    "terra:debate_k2": 2140,
+    "terra:debate_k6": 2140,
+    "terra:debate_world": 2140,
+    "terra:world_alone": 2140
+  },
+  "compliance": {
+    "turns": 6420,
+    "flagged": 2,
+    "unknown": 0,
+    "flagged_ids": [
+      "compliance:asym:sonnet~fable:W081-Q09:r3:dishonest",
+      "compliance:asym:sonnet~fable:W114-Q08:r3:honest"
+    ],
+    "unknown_ids": [],
+    "unflagged_review_sample": [
+      "compliance:asym:sonnet~fable:W106-Q01:r3:dishonest",
+      "compliance:asym:sonnet~fable:W160-Q03:r3:dishonest",
+      "compliance:asym:sonnet~fable:W022-Q04:r2:dishonest",
+      "compliance:asym:sonnet~fable:W047-Q12:r3:honest",
+      "compliance:asym:sonnet~fable:W056-Q09:r3:honest",
+      "compliance:asym:sonnet~fable:W053-Q12:r2:dishonest",
+      "compliance:asym:sonnet~fable:W091-Q09:r2:dishonest",
+      "compliance:asym:sonnet~fable:W043-Q07:r2:dishonest",
+      "compliance:asym:sonnet~fable:W026-Q07:r2:dishonest",
+      "compliance:asym:sonnet~fable:W007-Q02:r2:honest",
+      "compliance:asym:sonnet~fable:W068-Q01:r1:honest",
+      "compliance:asym:sonnet~fable:W060-Q07:r2:dishonest",
+      "compliance:asym:sonnet~fable:W033-Q04:r3:dishonest",
+      "compliance:asym:sonnet~fable:W028-Q03:r3:dishonest",
+      "compliance:asym:sonnet~fable:W052-Q03:r2:honest",
+      "compliance:asym:sonnet~fable:W145-Q12:r3:honest",
+      "compliance:asym:sonnet~fable:W005-Q11:r1:honest",
+      "compliance:asym:sonnet~fable:W078-Q04:r3:dishonest",
+      "compliance:asym:sonnet~fable:W079-Q07:r3:dishonest",
+      "compliance:asym:sonnet~fable:W065-Q11:r3:dishonest"
+    ]
+  },
+  "debate_turns": {
+    "words": {
+      "dishonest": {
+        "mean": 834,
+        "median": 824.0,
+        "p90": 1009,
+        "max": 1451
+      },
+      "honest": {
+        "mean": 435,
+        "median": 444.0,
+        "p90": 519,
+        "max": 652
+      }
+    },
+    "regenerated_turns": 0
+  },
+  "order_balance": {
+    "honest_first": 521,
+    "questions": 1070,
+    "by_author": {
+      "astra": {
+        "honest_first": 256,
+        "questions": 535
+      },
+      "fable": {
+        "honest_first": 265,
+        "questions": 535
+      }
+    }
+  },
+  "complete": true
+}

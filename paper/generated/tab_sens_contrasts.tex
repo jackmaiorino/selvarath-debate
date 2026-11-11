@@ -1,0 +1,14 @@
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.25\linewidth}rrrrrrrrrr@{}}
+\toprule
+ & \multicolumn{2}{c}{1 query vs.\ none} & \multicolumn{2}{c}{1 query vs.\ 6} & \multicolumn{2}{c}{Joint peak test} & \multicolumn{2}{c}{6 queries vs.\ none} & \multicolumn{2}{c}{World added vs.\ 6} \\
+Analysis & Est. & $p$ & Est. & $p$ & $p$ & corrected & Est. & $p$ & Est. & $p$ \\
+\midrule
+Main analysis (seven judges) & $+0.77$ & 0.0001 & $+0.82$ & 0.0001 & 0.0001 & 0.0002 & $-0.05$ & 0.7772 & $-1.88$ & 0.0001 \\
+\midrule
+Without Sonnet 5.5 as a judge & $+0.91$ & 0.0001 & $+0.93$ & 0.0001 & 0.0001 & 0.0002 & $-0.02$ & 0.9313 & $-2.16$ & 0.0001 \\
+Without the three Claude judges & $+0.94$ & 0.0001 & $+0.36$ & 0.0280 & 0.0280 & 0.0560 & $+0.57$ & 0.0063 & $-1.51$ & 0.0002 \\
+Only the 806 questions with at most one validator flag & $+0.55$ & 0.0001 & $+0.71$ & 0.0001 & 0.0001 & 0.0002 & $-0.16$ & 0.2611 & $-1.27$ & 0.0001 \\
+Adding the two set-aside questions & $+0.76$ & 0.0001 & $+0.80$ & 0.0001 & 0.0001 & 0.0002 & $-0.04$ & 0.8109 & $-1.90$ & 0.0001 \\
+Without the two flagged debates & $+0.77$ & 0.0001 & $+0.82$ & 0.0001 & 0.0001 & 0.0002 & n/r &  & n/r &  \\
+\bottomrule
+\end{tabular}
