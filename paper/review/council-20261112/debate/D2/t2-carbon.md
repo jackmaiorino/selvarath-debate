@@ -1,0 +1,13 @@
+POSITION: MAINTAIN. With Section 3.5 agreed, I maintain that Headings 4.1–4.2, Figure 2’s caption, and the title may retain intervention wording once Sections 3.4–3.5 state the cross-period stability assumption.
+
+ARGUMENT: I grant A and C’s algebraic point: contemporaneous one-versus-six (+0.82 points) identifies budget ordering, not the cross-period sign of one-versus-none or document-versus-six without stability. However, both arguments for rewriting the headlines fail on the draft’s data and internal standards.
+
+First, A’s claim that a +1.00-point shift “could be concentrated in Haiku” without multi-provider drift is refuted by Tables 5 and 8. Haiku’s zero-to-one rise (21.21% to 22.57%, +1.36 points) contributes only +0.19 points (1.36/7) to the +0.77-point pooled increase; +1.00 point of pooled drift from Haiku alone would require a +7.0-point overnight jump offset by −5.6- and −9.5-point query effects at budgets one and six. More directly, removing all three Claude judges (Haiku included) *increases* one-versus-none to +0.94 points (p = 0.0001, Table 5) and leaves world-added versus six queries at −1.51 points (p = 0.0002). Overturning +0.77 or Heading 4.2 (−1.88, CI [−2.25, −1.54]) via drift requires simultaneous overnight degradation across OpenAI, Anthropic, and Qwen.
+
+Second, rewriting 4.1, 4.2, and Figure 2 into descriptive phrasing (“was higher with,” “had lower error than”) or adding timing conditionals to every headline breaks internal consistency. The draft reserves “had lower error than” for endogenous splits confounded by judge selection, such as touching a key fact (Appendix C, Table 9); using it for assigned, paired conditions blurs manipulated treatments with post-treatment associations. Moreover, rule-breaking queries were *actually measured* in 11.4%–33.2% of sessions against 0.25% and 1.40% tipping points (Table 13), yet 4.1–4.2 retain active verbs and state protocol caveats in the prose (with “fragile” in the title). Treating an unobserved one-day pause more strictly in headlines than a measured 11–33% gate failure inverts their evidentiary weight.
+
+IF CONCEDING: Not applicable.
+
+WHAT WOULD SETTLE IT: Empirically, interleaved contemporaneous collection of query and non-query arms (unavailable in the frozen dataset). Editorially, reporting standards for assigned interventions whose causal reading rests on a disclosed stability assumption.
+
+NOTHING NEW: NO

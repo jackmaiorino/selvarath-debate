@@ -108,10 +108,25 @@ Source: the final phase run root, `E:\finalphase-runs\final-phase-2026-10-03` (`
 - Second trim (2026-11-11): Jack's part of the main text (title, Sections 3, 4 and 6) was cut from about 7.1 pages
   to about 6, leaving three of the nine pages for Joey's sections. The conditions table became a sentence, Table 1
   (rates and differences) moved to Appendix A, a few single-sentence details moved to the supplement, and Section 6
-  became one paragraph. No number changed and nothing left the report (`review/consult74_response.md`).
+  became one paragraph. No number changed (`review/consult74_response.md`). The record said nothing left the
+  report; that was wrong for one Figure 2 caption sentence, found by the second council and restored.
 - Consult 74 (session `01a1ca86-d3d4-7702-a209-56129cf653aa`): check of that cut. Verdict "no required changes":
   every removed sentence accounted for, 164 number macros and 14 tables reproduced, pages 2, 4 and 5 inspected. Its
   one suggested rewording was applied verbatim.
+- Second council (2026-11-12), on the six-page draft: the same five seats, two rounds and four debates. All five
+  said "revise" in both rounds; no seat found a wrong number or a blocker. It listed 13 findings, all wording,
+  disclosure and cross-reference repairs. The record is in `review/council-20261112/`: `synthesis.md` first, then
+  `response.md` (what was applied, what was not and why, and what left the main text).
+- Revision (2026-11-13): the council's agreed changes were applied. The author's part of the main text measured
+  6.06 pages before and 6.07 after; the report is 24 pages. No number changed; 16 number macros were added, each
+  generated from the frozen files. The working title changed.
+- Consult 75 (session `01a1d4e1-a263-7f11-93e7-f76706e6df3d`): review of that revision. No required change to the
+  manuscript; one count to correct in the record and two suggested rewordings, all applied
+  (`review/consult75_response.md`). It reproduced 180 macros and 14 tables and confirmed that the new arithmetic on
+  flagged questions is exact and is not a new outcome analysis.
+- Consult 76 (session `01a1d4e7-8b94-7002-b30f-84521f820d4d`): check of those three changes. All confirmed, no
+  manuscript repair required; two wording corrections to the record, applied and not reviewed again
+  (`review/consult76_response.md`).
 - The review records are kept as the reviewers wrote them, with one change before publication: local absolute file
   paths were replaced by repository-relative ones. Reviewers' run logs are not committed.
 - The preregistration, amendments, code and run records that the reviews cite (`reports/final-phase-*`,

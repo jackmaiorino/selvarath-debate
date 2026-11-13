@@ -65,3 +65,5 @@ with the development error rate, which would set two unlike samples side by side
 flags (preregistration, section 3); 16 of 26 and 13 of 23, 80 to 137, the reviewer's 21 cases and 18 (the frozen
 explanation note); 2,000 and 2,416, 487 and 488 (amendment 2, `gate_audit.json`); the oracle's reference readers
 (`finalphase/oracle_select.py`); the judges' output limits (preregistration, section 4); "at least 10%" (design).
+
+Correction (2026-11-13). The line above that lists "judges saw only the oracle's one-word answer" as applied in 3.4, 4.5 and Section 6 overstates it. At both published commits the statement was in 3.4 and in the supplement only. The second council (2026-11-12) found this; the interface caveat was added to 4.5 in the revision that followed (`../council-20261112/response.md`).

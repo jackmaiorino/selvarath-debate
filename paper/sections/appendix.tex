@@ -33,7 +33,13 @@ at the output limit. Over all 1,070 questions (\nCutSessionsPerCell{} sessions p
 \qwenCutZero, \qwenCutOne, \qwenCutTwo{} and \qwenCutSix{} cut-off verdicts with none, one, two and six queries,
 \qwenCutDebWorld{} with debate and world and \qwenCutWorld{} with the world only; Haiku 4.5 had \haikuCutZero{} with
 no queries; no other judge had any. The registered measure counts a cut-off verdict as an error, and nothing in the
-data says what such a reply would have answered.
+data says what such a reply would have answered. Pooled over the seven judges, cut-off verdicts are at most
+\cutPooledZero{} \pp{} of the no-query rate, \cutPooledOne{} of the one-query rate and \cutPooledSix{} of the
+six-query rate: too few to account for the rise at one query, and of the same order as the difference between six
+queries and none. Qwen3.8's query-step replies were also cut off (\qwenStepCutOne, \qwenStepCutTwo{} and
+\qwenStepCutSix{} with one, two and six queries on offer). A cut-off query step ends the judge's querying and is not
+itself scored as an error; the judge is then asked for its verdict. So a reply that runs out of room costs the
+verdict when no queries are offered, and may cost only the remaining queries otherwise.
 
 \paragraph{Uncertainty.} The sampling units are the 140 worlds, in two strata by world author (70 each). Each
 bootstrap draw resamples 70 whole worlds with replacement within each stratum; there are 10,000 draws from a fixed
@@ -151,7 +157,10 @@ The validator-flag row needs a definition. Each of the four validator responses 
 some other reading consistent with the document could reverse the answer. These flags were recorded and were not
 used to reject questions: of the 1,068 analysed questions, 703 drew no flag, 103 one, 113 two, 65 three and 84 all
 four. The restricted analysis keeps the 806 with no flag or one. The flags are the validators' judgments, not an
-independently verified measure of ambiguity.
+independently verified measure of ambiguity. Subtracting the 806-question estimate from the full one, \flagNetRise{}
+of the \nNetFlips{} net harmful flips behind the one-query rise fall on the \nFlaggedTwoPlus{} questions with two or
+more flags. That figure is arithmetic on two registered estimates, not a separate test, and the difference between
+the two groups of questions was not tested (Appendix~\ref{app:limits}).
 
 \paragraph{Checks on the analysis code.} Before the run, one independent session re-implemented the core analysis
 from the preregistration text alone, without the code. A second independently implemented the later missing-cell and
@@ -179,8 +188,9 @@ Deviation & What happened \\
 A judge was lost &
 From 2026-10-26 the provider refused every request to Llama 3.3 70B. An amendment set out a recovery on a dedicated
 endpoint and, failing that, a seven-judge primary analysis. The provider then refused to create that endpoint, so no
-Llama judgment exists. Recovery was closed on 2026-10-29, about two days before the amendment's deadline; this is a
-timing deviation and does not show that access could not have returned in time. \\
+Llama judgment exists. Recovery was closed on 2026-10-29, before any result was computed and about two days before
+the amendment's deadline; this is a timing deviation and does not show that access could not have returned in
+time. \\
 \addlinespace
 The gate was re-hosted &
 On 2026-10-27, when the first queries reached the gate, the provider had stopped serving the gate classifier. The run
@@ -197,7 +207,8 @@ Interruptions &
 The run was started four times: once at launch, once after the gate change, once after a provider error on a batch
 submission, and once after a planned restart of the host machine. Completed calls were never re-sent. The three
 conditions without queries completed in the first judging round, which ended on 2026-10-27 UTC before the gate
-outage. Some query-condition sessions completed during the initial launch without reaching the oracle. Most
+outage. Some query-condition sessions completed during the initial launch without reaching the oracle, after an
+immediate stop or a failed first query step. Most
 query-condition verdicts, including every verdict following an oracle answer, were collected after the relaunch on
 2026-10-28. \\
 \bottomrule
@@ -251,7 +262,7 @@ interval that could not be computed because the judge made no errors.}
 \caption{How judges used their queries. ``Touched a key fact'' means that at least one admitted query overlapped in
 wording with one of the facts the correct answer rests on. ``Mean used'' counts queries that were admitted and
 answered, so a slot lost to two rejections is not counted. The last two columns are observational: word overlap
-does not show that a query verified anything.}
+does not show that a query verified anything. ``Touched none'' includes sessions in which no query was admitted.}
 \label{tab:queryuse}
 \resizebox{\linewidth}{!}{\input{generated/tab_query_use}}
 \end{table}
@@ -264,9 +275,9 @@ drew a \textsc{yes}: of \nOracleAnswers{} recorded oracle outcomes, \oracleYesSh
 come from \oracleCalls{} oracle calls, because identical queries about the same world reused a stored answer. Haiku
 often failed to follow the query format (in \haikuMalformedLo{} to \haikuMalformedHi\% of its query sessions).
 
-In every judge and budget, sessions whose queries touched a key fact had lower error than sessions whose queries did
-not (Table~\ref{tab:queryuse}). This is an association and may simply reflect that judges who understand the debate
-ask better questions.
+In every judge and budget, sessions whose queries touched a key fact had lower error than the other sessions, which
+include those with no admitted query (Table~\ref{tab:queryuse}). This is an association and may simply reflect that
+judges who understand the debate ask better questions.
 
 \section{The query gate: equivalence check, audit and worst-case analysis}
 \label{app:gate}
@@ -365,7 +376,8 @@ By the gate's own decision: among the \nAuditAdmitted{} distinct requests the ga
 \auditAdmViol{} were labelled violating and \auditAdmBord{} borderline (\auditAdmittedFlaggedShare\% together). Among
 the \auditRejected{} it rejected, \auditRejViol{} were labelled violating, \auditRejAdm{} admissible and
 \auditRejBord{} borderline. So the classifier rejected \auditRejViol{} of the \auditViolTotal{} sampled claims that the
-auditor labelled as violating. As a calibration, the same labeller was run on pilot queries that the coordinating Claude
+auditor labelled as violating, about a quarter. The audit covers only claims that reached the classifier; claims
+stopped earlier by the mechanical checks were not labelled. As a calibration, the same labeller was run on pilot queries that the coordinating Claude
 session had labelled: it called 81 of 84 correct admissions admissible, 6 of 7 false admissions violating, and 478 of
 487 correct rejections violating. On the pilot gate's \pilotAdmSampled{} sampled admissions it labelled
 \pilotAdmViol{} violating and \pilotAdmBord{} borderline (\pilotAdmFlaggedShare\% together). That reference uses
@@ -382,7 +394,8 @@ bounds are not simultaneous and do not account for labelling error.}
 \input{generated/tab_gate_audit}
 \end{table}
 
-\paragraph{Worst-case analysis.} The analysis fixed in advance takes the share $\rho$ of sessions in a query condition
+\paragraph{Worst-case analysis.} The analysis was fixed by an amendment before the run resumed and before any result
+was seen (Appendix~\ref{app:deviations}). It takes the share $\rho$ of sessions in a query condition
 that had an admitted rule-breaking query (the affected share), supposes that every such session changed its verdict
 against a finding, and asks how large $\rho$ can be before the finding is lost. A difference between a query
 condition and the no-query condition is moved against the finding by the affected share in that condition; a
@@ -395,7 +408,7 @@ grid, the bound on each component and the results under all four audit readings 
 \texttt{data/amendment3\_analysis.json}, in the paper folder.
 
 Each of the four findings is lost under each of the four audit readings (any flag or answer-revealing flags only,
-estimate or upper bound). Two points help in reading that. At these observed error rates, the broad all-flag
+estimate or upper bound). The robustness decision uses the audit's upper bound. Two points help in reading that. At these observed error rates, the broad all-flag
 allowances are too large for any of the four findings to survive this worst-case check. And for the observed
 contrasts and confidence bounds, the one-query peak and both practical-size exclusions would fail the upper-bound
 check even if the audit had flagged no sessions: \nAuditPerBudget{} sessions per budget give a minimum exposure upper
@@ -485,9 +498,9 @@ cases where a judge overrode or reinterpreted an answer that favoured the correc
 
 \paragraph{Agreement and sensitivity.} On the 16 independently labelled cases the main label agreed in 12. The
 reviewer agreed with the original label in 17 of the 21 difficult cases it re-labelled. Applying the reviewer's
-changes, and counting as misreadings five borderline cases in which a judge reinterpreted a correct answer, moves the
-``correct answer, unsupported conclusion'' share between 74\% and 80\% and the ``oracle answered wrongly'' share between 4\% and
-6\%. Across the \nAnsweredFlips{} flips with a recorded oracle outcome, including one failed call, the labellers
+changes, and counting under ``correct answer, unsupported conclusion'' five borderline cases in which a judge
+reinterpreted a correct answer, moves that share between 74\% and 80\% and the ``oracle answered wrongly'' share
+between 4\% and 6\%. Across the \nAnsweredFlips{} flips with a recorded oracle outcome, including one failed call, the labellers
 judged the oracle correct in an estimated 93\%.
 
 \paragraph{Whose wording.} For Figure~\ref{fig:why}b each checked claim was matched to the debaters' turns by word
@@ -506,8 +519,12 @@ verdict. The figure leaves out claims that matched neither debater and sessions 
 its bars do not add up to all \nHarm{} harmful and \nHelp{} helpful flips.
 
 \paragraph{Cautions.} These readings describe the cases read and do not identify what caused the net increase. They
-are the judges' own accounts of their reasoning, which may not be what drove the verdicts. Only harmful flips were
-read, and about half of them are Haiku's. The parts of a query step are not separated: writing the query, a possible
+are the judges' own accounts of their reasoning, which may not be what drove the verdicts. The reasons read are the
+text each judge gave under the \texttt{REASONING} line, which the format places after the verdict line
+(Appendix~\ref{app:prompts}); any other text in the verdict reply was not kept with the judgment records and was not
+read. With one query, the oracle's answer and the request for a verdict arrive in one message, so the verdict reply
+is the first thing a judge writes after seeing the answer. We did not count how often replies followed the requested
+order. Only harmful flips were read, and about half of them are Haiku's. The parts of a query step are not separated: writing the query, a possible
 rejection and rewrite, the extra deliberation, and the oracle's answer. And the labels come from the oracle's own
 model.
 
@@ -704,7 +721,7 @@ QUOTE: the offending sentence, or none
 \small
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.26\linewidth}>{\raggedright\arraybackslash}p{0.32\linewidth}>{\raggedright\arraybackslash}p{0.34\linewidth}@{}}
 \toprule
-Role & Model & Setting \\
+Role & Model & Setting or scope \\
 \midrule
 World authors & Claude Fable 5.1; GPT-6 Astra & high effort \\
 Validators & the other author; DeepSeek V4 Pro & high effort where offered \\
@@ -714,15 +731,16 @@ Judges & GPT-5.6 Luna, Terra, Sol & medium effort; 16,000-token limit \\
  & Claude Haiku 4.5 & no extended thinking; 2,048-token limit \\
  & Claude Sonnet 5.5, Opus 5.5 & medium effort; 16,000-token limit \\
  & Qwen3.8 & provider default; 16,384-token limit \\
- & Llama 3.3 70B (withdrawn, no data) & \\
+ & Llama 3.3 70B (withdrawn, no data) & none: no judgment was produced \\
 Oracle & Claude Opus 5.5 & medium effort \\
 Oracle reference readers & GPT-6.1 Sol, DeepSeek V4 Pro, Kimi K3 & development sample only \\
 Query gate & DeepSeek V4 Flash & default \\
 Debate compliance check & DeepSeek V4 Pro & default \\
-Reading of flagged debate turns & Claude Opus 5.5 & \\
-Gate audit labeller & Claude Opus 5.5 & \\
-Explanation labellers and 16-case check & Claude Opus 5.5 & \\
-Explanation reviewer & GPT-6 Astra & 21 cases \\
+Reading of flagged debate turns & Claude Opus 5.5 & the session coordinating the run \\
+Gate audit labeller & Claude Opus 5.5 & medium effort \\
+Explanation labellers and 16-case check & Claude Opus 5.5 & four subagents of the coordinating session; the
+coordinator for the check \\
+Explanation reviewer & GPT-6 Astra & ultra effort; 21 cases \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -736,7 +754,10 @@ families that had proposed the claims, so 93\% is not an estimate of accuracy on
 \paragraph{Scale and cost.} The main run comprised 1,070 debates, 6,420 debate turns, and 89,880 judge sessions
 from the seven judges (six conditions, two answer orders, 1,070 questions). Its recorded API cost was \$3,124, of
 which judges were \$2,507, debates \$332, the oracle \$264, and the compliance check and gate classifier together
-\$\spendOther. The amount billed by the providers for the main run
+\$\spendOther. The gate's part of that record (\$\spendGateNotional) prices its calls by tokens. The dedicated
+deployment was charged for the time it ran instead, and those charges (about \$50.35 posted over its lifetime,
+Appendix~\ref{app:gate}) are in the billed amount and not in the recorded cost. The amount billed by the providers
+for the main run
 and the gate audit was \$3,246, within the \$3,634 cap set before launch. \ournote{one provider billed about 17\%
 more than our records show for its share; not yet reconciled.}
 
@@ -780,18 +801,21 @@ that gives the two observed answer-position groups equal weight within each worl
 the missing judgments under the opposite answer position, and its interval does not account for them. As originally
 reported, the estimate was \phaseTwoAsRun{} \pp{} (\phaseTwoAsRunCI).
 \item Phases 2 and 3 share 82 questions from the pilot's three worlds. A later audit classified only 5 of those 82
-as fully determined by their source document, which is one reason the final phase used a new benchmark with
-independent validation.
+as fully determined by their source document, which is one reason the final phase used a new benchmark, checked by
+models that had not written each world. That check is not comparable with the audit of the 82: the final
+benchmark's validators were models too, and \nFlaggedAny{} of its \nCounted{} analysed questions drew at least one
+flag for a possible alternative reading (Appendix~\ref{app:stats}).
 \item Phase 3's estimate differs by judge: the rise was clear for Qwen3.8 and not for Llama 3.3 70B.
 \end{itemize}
 
-The final phase changes the most at once: stronger debaters and judges, and a new, larger and independently
-validated benchmark. Its estimate is the smallest and the most precise of the five.
+The final phase changes the most at once: stronger debaters and judges, and a new, larger benchmark validated by
+models. Its estimate is the smallest and the most precise of the five.
 
 \section{Limitations in full}
 \label{app:limits}
 
-Section~\ref{sec:limits} names the limitations that most change how the results read. This is the full list.
+Section~\ref{sec:limits} names three limits of the design and points to the caveats stated with each result. This is
+the full list.
 
 \begin{itemize}[leftmargin=1.4em,itemsep=2pt,topsep=2pt]
 \item \textbf{The effect is small in absolute terms.} The peak at one query is under one percentage point and below
@@ -804,8 +828,10 @@ worst-case bound the finding does not survive even a very small share of affecte
 nothing would not have cleared the finding either. The query results describe this gate; they do not by themselves
 show the value of verification that stays within the rule.
 \item \textbf{The return by six leans on particular judges.} Error rose with one query for six of the seven judges,
-and that rise remains supported without the three Claude judges. The fall by six queries comes mainly from Haiku 4.5
-and Qwen3.8, and without the Claude judges the joint test for a peak does not pass its correction.
+and that rise remains supported without the three Claude judges. The fall by six queries comes almost entirely from
+Haiku 4.5 and Qwen3.8 (\haikuQwenFall{} of \dOneSix{} \pp), and without the Claude judges the joint test for a peak
+does not pass its correction. Both declines carry a caveat of their own: Qwen3.8's cut-off replies
+(Appendix~\ref{app:stats}), and for Haiku 4.5 the extra room to write described under ``What is measured'' below.
 \item \textbf{Seven fixed judges.} The intervals reflect which worlds were sampled, not which judges. Judges count
 equally, so Haiku 4.5, which accounts for about \haikuErrShare\% of pooled error without queries, moves the pooled
 result most. The pooled pattern should not be read as typical of judges in general.
@@ -827,19 +853,33 @@ answers and the notes on how to defend them, validated the other half, and was t
 5.5 was the honest debater and a judge. Claude Opus 5.5 was a judge, the oracle, the gate auditor and the labeller
 of judges' explanations. Both debaters and three of the seven judges are Claude models. Answer keys, the oracle's
 reference answers, the gate audit and the explanation labels all come from models. The design cannot separate
-shared habits or shared errors among related models from the effects it reports.
+shared habits or shared errors among related models from the effects it reports. No result was registered or
+computed by world author, so the report cannot say whether the dishonest debater did better on worlds its own model
+wrote.
+\item \textbf{Questions flagged for another reading.} On \nFlaggedTwoPlus{} of the \nCounted{} analysed questions, at
+least two of the four validator responses (all four on 84) described a reading under which the other answer would
+win. The validators had been told to try hard to find one and allowed to fill gaps with assumptions the document
+does not rule out. Every response still chose the key, and none judged the other answer about as defensible. These
+questions were kept by design. Nearly half of the net one-query rise (\flagNetRise{} of \nNetFlips{} net harmful
+flips) falls on them, as does about half of the gap between six queries and debate with the world document
+(\flagWorldGap{} of \worldGapNet{} net errors). The difference between the two groups of questions was not tested.
 \item \textbf{The oracle is a model.} It agreed with model-set reference answers 93\% of the time in development,
-exactly the minimum set in advance, and judges saw only its one-word answer without being told how it was
+exactly the minimum set in advance, and judges saw only its bare label without being told how it was
 instructed.
 \item \textbf{Cut-off replies.} Replies cut off at the output limit count as errors and were uneven across
 conditions, mostly for Qwen3.8 (Section~\ref{sec:analysis}). The registered error measure is not the same as wrong
 choices among completed verdicts.
 \item \textbf{Collection order.} The conditions without queries finished before the gate outage, and most
 query-condition verdicts were collected after the relaunch about a day later. Some query-condition sessions finished
-earlier without reaching the oracle. We have no evidence that the judges' behaviour changed in between, and no test
-of it.
+earlier without reaching the oracle. So comparisons of a query condition with the no-query or document conditions
+(one query against none, six against none, the document against six) largely cross that split, and reading them as
+effects of the queries assumes the judges behaved the same on both sides of it. Comparisons among query budgets
+largely do not cross it. We have no evidence that the judges' behaviour changed in between, and no test of it.
 \item \textbf{What is measured.} The comparisons measure the effect of offering a query budget under this protocol,
-not the effect of one more verified fact.
+with the judge's anticipation, stopping and extra computation included, not the effect of one more verified fact. A
+query step is also another turn of writing. That matters most for Haiku 4.5, which ran without extended thinking in
+a format that asks for the verdict first, and which supplies most of the decline from one query to six: each query
+step gave it room to write before its verdict, and the design cannot separate that from verification.
 \item \textbf{The reading of explanations is exploratory.} It was not registered, rests on judges' own stated
 reasons and on labels assigned by the oracle's own model, and reads only the harmful cases.
 \end{itemize}

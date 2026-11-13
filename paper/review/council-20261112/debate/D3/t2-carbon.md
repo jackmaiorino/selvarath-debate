@@ -1,0 +1,13 @@
+POSITION: NARROW. I drop "textual hooks for adversarial framing", accept defining the flags and reporting the 53-of-115 arithmetic descriptively in Appendix A, and reject Major severity, E's new inference ("so the size of the rise depends on how many such questions a benchmark contains"), and omitting the prompt's gap-filling rule.
+
+ARGUMENT: Member E rightly asks the text to state facts only, since nothing measured whether debaters used the flagged readings. By that same rule, E's new "so the size of the rise depends..." conclusion is unsupported on two grounds.
+
+First, the frozen outputs contain no world-clustered confidence interval or interaction test showing that the +1.44 versus +0.55 point subgroup difference exceeds world-sampling variation. Second, exact subtraction on Table 1 and Table 5 shows that the zero-query penalty of hiding the document (debate without queries minus debate with world document) scales by the same factor: +1.93 points across all 1,068 questions (4.34 minus 2.41) and +1.43 points on the 806 subset (0.16 plus 1.27), leaving about +3.5 points on the 262 flagged questions—2.4 times the 806-subset rate, matching the 2.6-fold ratio of the one-query rise (+1.44 vs. +0.55). Relative to baseline error induced by hiding the document, the one-query rise is nearly flat (~41% vs. ~39%), and on the 806 subset peaks hold at both 1 and 2 queries. Thus the 53-of-115 split tracks baseline room to err without the document (already covered in Appendix I's "Little room to improve" and "One benchmark" bullets), not a distinct flag-composition effect.
+
+Also, E's phrase "could construct a reading under which the other answer would win" still implies textual ambiguity unless it adds "by introducing assumptions the document does not rule out". Report the descriptive numbers without the generalizability claim.
+
+IF CONCEDING: Member E's point that nothing measured whether the dishonest debater used the validator's constructed reading (debaters received the author's defensibility note, not validator flags), making "textual hooks for adversarial framing" an unverified inference.
+
+WHAT WOULD SETTLE IT: A world-clustered bootstrap interaction test comparing raw and baseline-scaled rises between the 262 and 806 questions, plus coding debate transcripts against Step 3 validator readings. Since outcome analyses are frozen, omit the causal-generalizability clause.
+
+NOTHING NEW: NO

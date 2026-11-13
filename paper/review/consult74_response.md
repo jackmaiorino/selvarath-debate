@@ -35,3 +35,5 @@ debated and judged like the others, and the definition added to the role-break p
 State after consult 74: 23 pages. The main text ends about 45% of the way down page 7, of which the co-author's
 placeholder headings and notes take about 0.4 page, so the author's part is about 6 pages. No layout warnings; 164
 number macros and 14 generated tables, unchanged.
+
+Correction (2026-11-13). The statement above that nothing was deleted from the report is wrong for one sentence. The cut removed "The budgets are evenly spaced on the axis; 3 to 5 queries were not tested." from the Figure 2 caption, and it was not kept anywhere else. The second council (2026-11-12) found this; the sentence was restored in the revision that followed (`council-20261112/response.md`).

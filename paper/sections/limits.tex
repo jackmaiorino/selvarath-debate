@@ -1,12 +1,13 @@
 \section{Limitations}
 \label{sec:limits}
 
-\joey{merge into the discussion as you see fit. Appendix~\ref{app:limits} has the full list.}
+\joey{merge into the discussion as you see fit.}
 
-Beyond the caveats stated with each result (Sections~\ref{sec:analysis}, \ref{sec:peak}, \ref{sec:judges},
-\ref{sec:gate} and~\ref{sec:why}), three limits of the design apply throughout. All debates use one pairing of
-debaters, and each debate was written once and reused at every budget. The benchmark, answer keys, oracle answers,
-audits and labels all come from models, with no human labels. And several models played more than one part: Claude
+Beyond the caveats stated with each result (Sections~\ref{sec:methods} and~\ref{sec:results}), three limits of the
+design apply throughout; Appendix~\ref{app:limits} has the full list. All debates use one pairing of debaters. Each
+debate was written once, under a warning that the judge might verify claims, and reused at every budget, so any
+deterrent effect of that warning is in every condition, the no-query baseline included, and is not measured. The
+benchmark, answer keys, oracle answers, audits and labels all come from models, with no human labels. And several models played more than one part: Claude
 Fable 5.1 wrote half the worlds and was the dishonest debater, and Claude Opus 5.5 was a judge, the oracle, the gate
 auditor and the labeller of judges' explanations, so the design cannot separate shared habits or errors among
 related models from the effects it reports.
